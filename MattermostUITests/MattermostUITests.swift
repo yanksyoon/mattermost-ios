@@ -223,4 +223,47 @@ final class MattermostUITests: XCTestCase {
         }
         return cond()
     }
+
+    // MARK: - Live SSO (network-gated)
+
+    /// Real SSO against the Canonical workspace. Following the login page's "Ubuntu SSO" link
+    /// (https://chat.canonical.com/login/sso/saml) must land on the Ubuntu One form.
+    ///
+    /// Regression: the identity provider presents a *public* certificate. Routing it through the
+    /// server's certificate trust bag raised the "Untrusted certificate" sheet, and refusing it
+    /// hard-cancelled TLS — which the user saw as a blank page with a dead Back button.
+    ///
+    /// Driven through the seed seam rather than a tap: WKWebView page buttons are not reliably
+    /// addressable from XCUITest, but the seed exercises the same navigation + TLS-challenge path
+    /// the button click produces.
+    ///
+    /// Network-gated: skipped unless `TEST_RUNNER_MM_LIVE_SSO=1` is set (CI has no IdP route).
+    func testSSORedirectReachesIdentityProviderWithoutCertificatePrompt() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["MM_LIVE_SSO"] == "1",
+                          "Live SSO test: export TEST_RUNNER_MM_LIVE_SSO=1 to run")
+
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-uiTestSeedSelfSignedServer", "https://chat.canonical.com/login/sso/saml",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        let webview = app.webViews.firstMatch
+        XCTAssertTrue(webview.waitForExistence(timeout: Self.webLoadWait),
+                      "the SSO navigation must render something")
+
+        XCTAssertFalse(app.otherElements["certPromptSheet"].waitForExistence(timeout: 5),
+                       "an identity provider's public certificate must never raise the trust sheet")
+
+        let ubuntuOne = webview.staticTexts
+            .matching(NSPredicate(format: "label CONTAINS[c] %@", "Ubuntu One"))
+            .firstMatch
+        XCTAssertTrue(ubuntuOne.waitForExistence(timeout: Self.webLoadWait),
+                      "SSO must land on the Ubuntu One form instead of a blank page")
+
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "sso-ubuntu-one"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
 }
