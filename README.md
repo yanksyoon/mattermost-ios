@@ -132,7 +132,12 @@ relaunch) · downloads + history + export · theme sync
 a review sheet · `mattermost://` deep links (queued until the webview is ready) · local mention
 notifications and app-icon badge · settings (theme syncing, unread badge, language, log level,
 download-history cap) · onboarding pager · error/retry surfaces · diagnostics report you can
-share as text/JSON.
+share as text/JSON · a real app icon.
+
+**SSO** works: IdP buttons that open a popup (`window.open` / `target="_blank"`) are loaded in
+the main webview, and redirects to non-web schemes (`mattermost://`, `msauth://`, Okta custom
+schemes) are handed to the app instead of being dropped — both used to end the flow on a blank
+page.
 
 ## What is not there yet
 
