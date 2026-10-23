@@ -14,7 +14,7 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            WebViewContainer(store: store, serverID: server.id)
+            WebViewContainer(store: store, serverID: server.id, serverURL: server.url)
                 .ignoresSafeArea()
 
             if store.pageError != nil {

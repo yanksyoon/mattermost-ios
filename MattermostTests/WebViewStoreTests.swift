@@ -81,4 +81,39 @@ final class WebViewStoreTests: XCTestCase {
         XCTAssertEqual(WebViewContainer.WebNavigationPolicy.decision(for: nil), .load,
                        "a navigation without a URL must not be swallowed")
     }
+
+    // MARK: Certificate-challenge scoping (the blank-SSO-page bug)
+
+    /// The trust bag and the certificate sheet exist for the user's own server. A public
+    /// identity provider must never be routed through them.
+    func testCertChallengeFromConfiguredServerUsesTheTrustBag() {
+        XCTAssertEqual(
+            WebViewContainer.CertChallengePolicy.scope(challengeHost: "chat.canonical.com",
+                                                      serverHost: "chat.canonical.com"),
+            .serverOrigin)
+        XCTAssertEqual(
+            WebViewContainer.CertChallengePolicy.scope(challengeHost: "CHAT.Canonical.COM",
+                                                      serverHost: "chat.canonical.com"),
+            .serverOrigin,
+            "host comparison must be case-insensitive, DNS is")
+    }
+
+    func testCertChallengeFromIdentityProviderIsThirdParty() {
+        XCTAssertEqual(
+            WebViewContainer.CertChallengePolicy.scope(challengeHost: "login.ubuntu.com",
+                                                      serverHost: "chat.canonical.com"),
+            .thirdParty)
+        XCTAssertEqual(
+            WebViewContainer.CertChallengePolicy.scope(challengeHost: "static.chat.canonical.com",
+                                                      serverHost: "chat.canonical.com"),
+            .thirdParty,
+            "a sibling subdomain is a different origin with its own certificate")
+        XCTAssertEqual(
+            WebViewContainer.CertChallengePolicy.scope(challengeHost: "okta.com", serverHost: nil),
+            .thirdParty,
+            "no configured host means nothing can be scoped to the server")
+        XCTAssertEqual(
+            WebViewContainer.CertChallengePolicy.scope(challengeHost: "anything", serverHost: ""),
+            .thirdParty)
+    }
 }

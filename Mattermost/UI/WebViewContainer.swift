@@ -15,6 +15,8 @@ struct WebViewContainer: UIViewRepresentable {
     let store: WebViewStore
     /// The server this webview belongs to (drives SessionStore / NotificationWorker tagging).
     let serverID: UUID
+    /// The configured server URL. Certificate decisions are scoped to this origin only.
+    let serverURL: URL
 
     /// The app-wide mention/unread accounting (desktop `AppState`), injected from the environment.
     @EnvironmentObject var sessionStore: SessionStore
@@ -23,7 +25,7 @@ struct WebViewContainer: UIViewRepresentable {
     @EnvironmentObject var notificationWorker: NotificationWorker
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(store: store, serverID: serverID,
+        Coordinator(store: store, serverID: serverID, serverURL: serverURL,
                     sessionStore: sessionStore, notificationWorker: notificationWorker)
     }
 
@@ -68,10 +70,29 @@ struct WebViewContainer: UIViewRepresentable {
         }
     }
 
+    /// Which host a TLS challenge belongs to. The certificate trust bag exists for the user's
+    /// own (often self-signed) server; identity providers reached during SSO, CDNs and
+    /// integrations must never be judged by it.
+    enum CertChallengePolicy {
+        enum Scope: Equatable {
+            /// The configured server: the trust bag and `CertPromptSheet` apply.
+            case serverOrigin
+            /// Anything else: system chain only, no prompt, no stored decision.
+            case thirdParty
+        }
+
+        static func scope(challengeHost: String, serverHost: String?) -> Scope {
+            guard let serverHost, !serverHost.isEmpty else { return .thirdParty }
+            return challengeHost.caseInsensitiveCompare(serverHost) == .orderedSame ? .serverOrigin : .thirdParty
+        }
+    }
+
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, JsBridge {
         let store: WebViewStore
         /// The server this bridge belongs to (tags every inbound shell event).
         let serverID: UUID
+        /// The configured server origin. Only challenges from this host consult the trust bag.
+        let serverURL: URL
 
         /// The webview this bridge is attached to (JsBridge requirement).
         weak var webView: WKWebView?
@@ -89,12 +110,14 @@ struct WebViewContainer: UIViewRepresentable {
 
         init(store: WebViewStore,
              serverID: UUID,
+             serverURL: URL,
              sessionStore: SessionStore,
              notificationWorker: NotificationWorker,
              certTrust: CertTrust = CertTrust(),
              themeSync: ThemeSync = ThemeSync()) {
             self.store = store
             self.serverID = serverID
+            self.serverURL = serverURL
             self.sessionStore = sessionStore
             self.notificationWorker = notificationWorker
             self.certTrust = certTrust
@@ -220,6 +243,27 @@ struct WebViewContainer: UIViewRepresentable {
             // Only touch server-trust; anything else (basic, digest, proxied) falls through
             // to the system.
             guard method == NSURLAuthenticationMethodServerTrust else {
+                completionHandler(.performDefaultHandling, nil)
+                return
+            }
+
+            // A challenge from any host other than the configured server is a third party in the
+            // flow: the SSO identity provider (e.g. login.ubuntu.com), a CDN, an integration.
+            // Those are judged by the system chain alone. Feeding them to the trust bag used to
+            // raise an "Untrusted certificate" sheet for a perfectly valid public certificate,
+            // and refusing it hard-cancelled TLS, which showed up as a blank page instead of the
+            // IdP login form.
+            guard CertChallengePolicy.scope(challengeHost: challenge.protectionSpace.host,
+                                            serverHost: self.serverURL.host) == .serverOrigin else {
+                completionHandler(.performDefaultHandling, nil)
+                Logger.debug("WebView",
+                             "server-trust challenge for third-party host \(challenge.protectionSpace.host) -> system chain")
+                return
+            }
+
+            // Even for our own server, a chain the system already validates needs no decision
+            // from us; only a genuinely untrusted chain (self-signed / enterprise) reaches the bag.
+            if let trust = challenge.protectionSpace.serverTrust, SecTrustEvaluateWithError(trust, nil) {
                 completionHandler(.performDefaultHandling, nil)
                 return
             }

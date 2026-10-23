@@ -329,7 +329,7 @@ final class NotificationWorkerTests: XCTestCase {
 
         let store = WebViewStore()
         let coordinator = WebViewContainer.Coordinator(
-            store: store, serverID: server.id,
+            store: store, serverID: server.id, serverURL: server.url,
             sessionStore: sessionStore, notificationWorker: worker)
 
         coordinator.handleNotifyMention(makeMention(channelID: "bridge-ch", title: "BridgeHey", body: "from bridge"))
@@ -345,7 +345,7 @@ final class NotificationWorkerTests: XCTestCase {
         let server = makeServer()
         let store = WebViewStore()
         let coordinator = WebViewContainer.Coordinator(
-            store: store, serverID: server.id,
+            store: store, serverID: server.id, serverURL: server.url,
             sessionStore: sessionStore, notificationWorker: worker)
 
         coordinator.handleUnreadsAndMentions(true, mentionCount: 4)
