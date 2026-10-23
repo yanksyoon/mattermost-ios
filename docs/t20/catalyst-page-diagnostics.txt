@@ -1,0 +1,21 @@
+url=https://community.mattermost.com/login
+title=Log in - Mattermost
+bodyTextLength=390
+sample=Log in to your account
+If you haven't logged in recently, you may need to use the password reset functionality. This server is being used to test FIPS functionality, and now requires a minimum of 14 characters for all passwords.
+Don't have an account?
+Log in
+Email or Username
+
+
+
+Forgot your password?
+
+Log in
+or log in with
+Microsoft
+© 2026 Mattermost Inc.
+About
+Privacy Policy
+Terms
+Help

@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    PrivacyInfo.xcprivacy — required-resource privacy manifest (T18 App Store readiness gate).
+
+    Scope of THIS pass (matches what the shell actually does today):
+      - Collected data types:
+          * User ID       — session/account identity for the user-configured Mattermost
+                            server(s); the app keeps per-server auth tokens in the Keychain
+                            and a per-server session flag so the shell can display the
+                            mention/badge state for the signed-in account.
+          * Audio Data    — microphone input ONLY when the user starts a voice/video call in
+                            the Mattermost web app hosted by the shell's WKWebView (Calls).
+          * Photos or Videos — camera input ONLY when the user starts a video call in the
+                            hosted web app (Calls).
+        Nothing is transmitted off-device by the shell: the data flows to the server the user
+        explicitly configured, which IS the product function. No analytics, no advertising.
+      - Required reason API:
+          * UserDefaults (CA92.1) — the shell reads/writes only keys it creates itself
+            (AppPreferences: servers, settings, download journal, notification state; see
+            AppPreferences.Keys). None of the values are user-identifying beyond app state.
+      - T19a additions (Sentry + DiagnosticsService):
+          * Collected data types ADDED: CrashData (crash files written by SentryService's
+            uncaught-exception handler + Sentry when a DSN is configured), PerformanceData
+            (diagnostics Step-7 process/memory/battery snapshot, on-device report only),
+            OtherDiagnosticData (the shareable diagnostics report; the user triggers it from
+            Settings and shares it manually — nothing is transmitted automatically).
+          * No NEW required-reason API: the diagnostics report and crash files read file
+            CONTENTS, never timestamps/creation/modification dates (grep-verified; the gate
+            script asserts FileTimestamp is NOT declared because it is not used).
+      - NOT declared (absent today, add before shipping):
+          * Any other crash/performance/diagnostic collection beyond the above.
+          * FileTimestamp / DiskSpace / SystemBootTime / ActiveKeyboards APIs — the codebase
+            currently makes no calls in those categories (verified by grep during T18 + T19a).
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeAudioData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhotosorVideos</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- T19a: Sentry + DiagnosticsService collected data. The crash/diagnostic report only
+		     exists when the user runs diagnostics or a crash occurs; nothing is transmitted
+		     unless a Sentry DSN is configured (empty today) or the user shares the report. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCrashData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePerformanceData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

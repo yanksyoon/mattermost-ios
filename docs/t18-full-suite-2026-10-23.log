@@ -1,0 +1,1301 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Mattermost.xcodeproj -scheme Mattermost -destination id=81A7F251-8B31-4945-8783-5A264C14B8D5 -derivedDataPath build/ddata test
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, arch:arm64, id:81A7F251-8B31-4945-8783-5A264C14B8D5, OS:18.3.1, name:iPhone 16 Pro }
+{ platform:iOS Simulator, arch:x86_64, id:81A7F251-8B31-4945-8783-5A264C14B8D5, OS:18.3.1, name:iPhone 16 Pro }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (3 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'Mattermost' in project 'Mattermost' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/yangsooyoon/mattermost-ios/Mattermost/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 654ca79ad7437ab7df669e115aa5f8df
+Build description path: /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/XCBuildData/654ca79ad7437ab7df669e115aa5f8df.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/yangsooyoon/mattermost-ios/build/ddata/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/yangsooyoon/mattermost-ios/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/yangsooyoon/mattermost-ios/build/ddata/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+MkDir /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /bin/mkdir -p /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest
+
+MkDir /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /bin/mkdir -p /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns
+
+MkDir /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /bin/mkdir -p /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks
+
+ProcessProductPackaging /Users/yangsooyoon/mattermost-ios/Mattermost/Mattermost.entitlements /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app.xcent (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    
+    Entitlements:
+    
+    {
+}
+    
+    builtin-productPackagingUtility /Users/yangsooyoon/mattermost-ios/Mattermost/Mattermost.entitlements -entitlements -format xml -o /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app.xcent
+
+ProcessProductPackaging /Users/yangsooyoon/mattermost-ios/Mattermost/Mattermost.entitlements /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    
+    Entitlements:
+    
+    {
+    "application-identifier" = "FAKETEAMID.com.mattermost.ios";
+    "get-task-allow" = 1;
+    "keychain-access-groups" =     (
+        "FAKETEAMID.com.mattermost.ios"
+    );
+}
+    
+    builtin-productPackagingUtility /Users/yangsooyoon/mattermost-ios/Mattermost/Mattermost.entitlements -entitlements -format xml -o /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent
+
+ProcessProductPackagingDER /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent.der (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /usr/bin/derq query -f xml -i /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent -o /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent.der --raw
+
+ProcessProductPackagingDER /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app.xcent /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app.xcent.der (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /usr/bin/derq query -f xml -i /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app.xcent -o /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app.xcent.der --raw
+
+Copy /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/XCTestSupport.framework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTestSupport.framework (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTestSupport.framework /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks
+
+Copy /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/XCTestCore.framework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTestCore.framework (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTestCore.framework /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks
+
+Copy /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/libXCTestSwiftSupport.dylib /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks
+
+Copy /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/XCUIAutomation.framework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/XCUIAutomation.framework (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/XCUIAutomation.framework /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks
+
+Copy /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/XCTest.framework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/XCTest.framework (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/XCTest.framework /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks
+
+Copy /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/XCUnit.framework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCUnit.framework (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCUnit.framework /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks
+
+Copy /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/XCTAutomationSupport.framework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks
+
+Copy /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/libXCTestBundleInject.dylib /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestBundleInject.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestBundleInject.dylib /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks
+
+Copy /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/Testing.framework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/Testing.framework (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/Testing.framework /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks
+
+ProcessInfoPlistFile /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist /Users/yangsooyoon/mattermost-ios/Mattermost/Info.plist (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/mattermost-ios/Mattermost/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist -o /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist
+
+Ld /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib normal (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -L/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator -F/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator -filelist /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.LinkFileList -install_name @rpath/Mattermost.debug.dylib -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @executable_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_dependency_info.dat -fobjc-link-runtime -fprofile-instr-generate -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftmodule @/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-linker-args.resp -Xlinker -alias -Xlinker _main -Xlinker ___debug_main_executable_dylib_entry_point -Xlinker -no_adhoc_codesign -o /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib
+
+ConstructStubExecutorLinkFileList /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-ExecutorLinkFileList-normal-arm64.txt (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    construct-stub-executor-link-file-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor_no_swift_entry_point.a /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor.a --output /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-ExecutorLinkFileList-normal-arm64.txt
+note: Using stub executor library with Swift entry point. (in target 'Mattermost' from project 'Mattermost')
+
+Ld /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost normal (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -L/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator -F/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator -Xlinker -rpath -Xlinker @executable_path -Xlinker -rpath -Xlinker @executable_path/Frameworks -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -e ___debug_blank_executor_main -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_dylib -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-DebugDylibPath-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_instlnm -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-DebugDylibInstallName-normal-arm64.txt -Xlinker -filelist -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-ExecutorLinkFileList-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __entitlements -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __ents_der -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent.der /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib -Xlinker -no_adhoc_codesign -o /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost
+
+CopySwiftLibs /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/SystemExtensions --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ExtractAppIntentsMetadata (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name Mattermost --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 17.0 --bundle-identifier com.mattermost.ios --output /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app --target-triple arm64-apple-ios17.0-simulator --binary-file /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost --dependency-file /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_dependency_info.dat --stringsdata-file /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftFileList --metadata-file-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-23 14:57:26.478 appintentsmetadataprocessor[35659:6638744] Starting appintentsmetadataprocessor export
+2026-10-23 14:57:26.483 appintentsmetadataprocessor[35659:6638744] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+ProcessInfoPlistFile /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist
+
+Ld /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests normal (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -bundle -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -L/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -filelist /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @loader_path/Frameworks -Xlinker -rpath -Xlinker @executable_path/Frameworks -Xlinker -dead_strip -bundle_loader /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests_dependency_info.dat -fobjc-link-runtime -fprofile-instr-generate -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.swiftmodule @/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests-linker-args.resp -Xlinker -needed_framework -Xlinker XCTest -framework XCTest -Xlinker -needed-lXCTestSwiftSupport -lXCTestSwiftSupport /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib -Xlinker -no_adhoc_codesign -o /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests
+
+CopySwiftLibs /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/PlugIns --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ExtractAppIntentsMetadata (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name MattermostTests --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 17.0 --bundle-identifier com.mattermost.iosTests --output /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest --target-triple arm64-apple-ios17.0-simulator --binary-file /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests --dependency-file /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests_dependency_info.dat --stringsdata-file /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.SwiftFileList --metadata-file-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-23 14:57:26.747 appintentsmetadataprocessor[35662:6638760] Starting appintentsmetadataprocessor export
+2026-10-23 14:57:26.748 appintentsmetadataprocessor[35662:6638760] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+AppIntentsSSUTraining (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist --temp-dir-path /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/ssu --bundle-id com.mattermost.iosTests --product-path /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest --extracted-metadata-path /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Metadata.appintents --metadata-file-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests.DependencyMetadataFileList --source-file /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist --archive-ssu-assets
+2026-10-23 14:57:26.773 appintentsnltrainingprocessor[35663:6638761] Parsing options for appintentsnltrainingprocessor
+2026-10-23 14:57:26.774 appintentsnltrainingprocessor[35663:6638761] Starting AppIntents SSU YAML Generation
+2026-10-23 14:57:26.775 appintentsnltrainingprocessor[35663:6638761] No AppShortcuts found - Skipping.
+
+CodeSign /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest
+
+RegisterExecutionPolicyException /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-RegisterExecutionPolicyException /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest
+
+Touch /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /usr/bin/touch -c /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest
+
+CodeSign /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib
+
+CodeSign /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib
+/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib: replacing existing signature
+
+CodeSign /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --entitlements /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app.xcent --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app
+
+Validate /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-validationUtility /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/Mattermost.app -shallow-bundle -infoplist-subpath Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist
+
+Ld /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests normal (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -bundle -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -L/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -filelist /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @loader_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_dependency_info.dat -fobjc-link-runtime -fprofile-instr-generate -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule @/Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-linker-args.resp -Xlinker -needed_framework -Xlinker XCTest -framework XCTest -Xlinker -needed-lXCTestSwiftSupport -lXCTestSwiftSupport -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __entitlements -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.xctest-Simulated.xcent -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __ents_der -Xlinker /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.xctest-Simulated.xcent.der -Xlinker -no_adhoc_codesign -o /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests
+
+ExtractAppIntentsMetadata (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name MattermostUITests --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 17.0 --bundle-identifier com.mattermost.iosUITests --output /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest --target-triple arm64-apple-ios17.0-simulator --binary-file /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --dependency-file /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_dependency_info.dat --stringsdata-file /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList --metadata-file-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-23 14:57:27.091 appintentsmetadataprocessor[35671:6638806] Starting appintentsmetadataprocessor export
+2026-10-23 14:57:27.093 appintentsmetadataprocessor[35671:6638806] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CopySwiftLibs /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/PlugIns --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+CodeSign /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/mattermost-ios/build/ddata/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest
+
+2026-10-23 14:57:31.541766+0800 Mattermost[35673:6639035] [AppDelegate] os_log_type_t(rawValue: 1).AppDelegate: Mattermost iOS launched @ Logger.swift.info(_:_:):55
+2026-10-23 14:57:32.524615+0800 Mattermost[35673:6639178] [default] Failed to resolve host network app id to config: bundleID: com.apple.WebKit.Networking instance ID: Optional([_EXExtensionInstanceIdentifier: E1337F21-31F8-4C90-A194-FE66A6A2FC7B])
+Test Suite 'All tests' started at 2026-10-23 14:57:32.978.
+Test Suite 'MattermostTests.xctest' started at 2026-10-23 14:57:32.979.
+Test Suite 'AppSettingsTests' started at 2026-10-23 14:57:32.979.
+Test Case '-[MattermostTests.AppSettingsTests testAppLanguageLabelDefaultsToSystemDefault]' started.
+Test Case '-[MattermostTests.AppSettingsTests testAppLanguageLabelDefaultsToSystemDefault]' passed (0.013 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testAppLanguagePersists]' started.
+Test Case '-[MattermostTests.AppSettingsTests testAppLanguagePersists]' passed (0.004 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testAvailableLogLevelsMatchDesktopOptions]' started.
+Test Case '-[MattermostTests.AppSettingsTests testAvailableLogLevelsMatchDesktopOptions]' passed (0.001 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testDefaultsMirrorDesktopDefaultPreferences]' started.
+Test Case '-[MattermostTests.AppSettingsTests testDefaultsMirrorDesktopDefaultPreferences]' passed (0.002 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitClampedToRangeOnLoad]' started.
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitClampedToRangeOnLoad]' passed (0.005 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitPersists]' started.
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitPersists]' passed (0.003 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitRangeIsSane]' started.
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitRangeIsSane]' passed (0.001 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testLoggerGateDropsBelowMinimum]' started.
+2026-10-23 14:57:33.013978+0800 Mattermost[35673:6639035] [AppSettingsTests] os_log_type_t(rawValue: 16).AppSettingsTests: should pass @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.AppSettingsTests testLoggerGateDropsBelowMinimum]' passed (0.003 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testLogLevelPersists]' started.
+Test Case '-[MattermostTests.AppSettingsTests testLogLevelPersists]' passed (0.004 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testThemeSyncingPersists]' started.
+Test Case '-[MattermostTests.AppSettingsTests testThemeSyncingPersists]' passed (0.005 seconds).
+Test Suite 'AppSettingsTests' passed at 2026-10-23 14:57:33.039.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.042 (0.060) seconds
+Test Suite 'BadgeMathTests' started at 2026-10-23 14:57:33.039.
+Test Case '-[MattermostTests.BadgeMathTests testExpiredShowsOneWhenNoMentionsAndNoUnreadDot]' started.
+Test Case '-[MattermostTests.BadgeMathTests testExpiredShowsOneWhenNoMentionsAndNoUnreadDot]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BadgeMathTests testMentionsTakePrecedenceAndUseTheCount]' started.
+Test Case '-[MattermostTests.BadgeMathTests testMentionsTakePrecedenceAndUseTheCount]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BadgeMathTests testNegativeMentionsAreTreatAsZero]' started.
+Test Case '-[MattermostTests.BadgeMathTests testNegativeMentionsAreTreatAsZero]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BadgeMathTests testUnreadHiddenWhenSettingOff]' started.
+Test Case '-[MattermostTests.BadgeMathTests testUnreadHiddenWhenSettingOff]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BadgeMathTests testUnreadOnlyShowsOneWhenSettingOn]' started.
+Test Case '-[MattermostTests.BadgeMathTests testUnreadOnlyShowsOneWhenSettingOn]' passed (0.001 seconds).
+Test Suite 'BadgeMathTests' passed at 2026-10-23 14:57:33.044.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.003 (0.005) seconds
+Test Suite 'BridgeTests' started at 2026-10-23 14:57:33.044.
+Test Case '-[MattermostTests.BridgeTests testDropsMalformedFrame]' started.
+Test Case '-[MattermostTests.BridgeTests testDropsMalformedFrame]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testDropsMalformedMentionPayload]' started.
+Test Case '-[MattermostTests.BridgeTests testDropsMalformedMentionPayload]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testDropsMessageOnUnknownHandler]' started.
+Test Case '-[MattermostTests.BridgeTests testDropsMessageOnUnknownHandler]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testDropsMessageOutsideAllowlist]' started.
+Test Case '-[MattermostTests.BridgeTests testDropsMessageOutsideAllowlist]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testDropsSubFrameMessage]' started.
+Test Case '-[MattermostTests.BridgeTests testDropsSubFrameMessage]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testMessageNamesMirrorDesktopCommunication]' started.
+Test Case '-[MattermostTests.BridgeTests testMessageNamesMirrorDesktopCommunication]' passed (0.000 seconds).
+Test Case '-[MattermostTests.BridgeTests testPreloadExposesOnlyDesktopSurface]' started.
+Test Case '-[MattermostTests.BridgeTests testPreloadExposesOnlyDesktopSurface]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testRoutesNotifyMention]' started.
+Test Case '-[MattermostTests.BridgeTests testRoutesNotifyMention]' passed (0.002 seconds).
+Test Case '-[MattermostTests.BridgeTests testRoutesUnreadsAndMentions]' started.
+Test Case '-[MattermostTests.BridgeTests testRoutesUnreadsAndMentions]' passed (0.000 seconds).
+Test Case '-[MattermostTests.BridgeTests testSingleHandlerName]' started.
+Test Case '-[MattermostTests.BridgeTests testSingleHandlerName]' passed (0.000 seconds).
+Test Case '-[MattermostTests.BridgeTests testWebViewStoreExposesBridge]' started.
+Test Case '-[MattermostTests.BridgeTests testWebViewStoreExposesBridge]' passed (0.008 seconds).
+Test Case '-[MattermostTests.BridgeTests testWebViewStoreInstallsBridge]' started.
+Test Case '-[MattermostTests.BridgeTests testWebViewStoreInstallsBridge]' passed (0.005 seconds).
+Test Suite 'BridgeTests' passed at 2026-10-23 14:57:33.071.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.020 (0.027) seconds
+Test Suite 'CertPromptTests' started at 2026-10-23 14:57:33.071.
+Test Case '-[MattermostTests.CertPromptTests testCertificateInfoDefaultDateShowsFullStyle]' started.
+Test Case '-[MattermostTests.CertPromptTests testCertificateInfoDefaultDateShowsFullStyle]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertPromptTests testComparableDontTrustFlagDoesNotAffectEquality]' started.
+Test Case '-[MattermostTests.CertPromptTests testComparableDontTrustFlagDoesNotAffectEquality]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertPromptTests testComparableEqualityNeedsDataAndIssuer]' started.
+Test Case '-[MattermostTests.CertPromptTests testComparableEqualityNeedsDataAndIssuer]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertPromptTests testPromptCarriesDisplayInfo]' started.
+Test Case '-[MattermostTests.CertPromptTests testPromptCarriesDisplayInfo]' passed (0.000 seconds).
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityDistinguishesDifferentCerts]' started.
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityDistinguishesDifferentCerts]' passed (0.000 seconds).
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityDistinguishesDifferentOrigins]' started.
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityDistinguishesDifferentOrigins]' passed (0.000 seconds).
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityIsOriginPlusCertificate]' started.
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityIsOriginPlusCertificate]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertPromptTests testSha256DigestMatchesKnownVector]' started.
+Test Case '-[MattermostTests.CertPromptTests testSha256DigestMatchesKnownVector]' passed (0.002 seconds).
+Test Case '-[MattermostTests.CertPromptTests testSha256EmptyInput]' started.
+Test Case '-[MattermostTests.CertPromptTests testSha256EmptyInput]' passed (0.001 seconds).
+Test Suite 'CertPromptTests' passed at 2026-10-23 14:57:33.080.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.007 (0.009) seconds
+Test Suite 'CertTrustDebugTests' started at 2026-10-23 14:57:33.080.
+Test Case '-[MattermostTests.CertTrustDebugTests testDebugFreshStoreLookup]' started.
+DEBUG stored(for: https://mattermost-dev.example) = nil
+DEBUG isExisting = false
+DEBUG isExplicitlyUntrusted = false
+DEBUG all-generic-password status=0
+DEBUG   item service=CertTrustTests-relaunch-7C35E7B4-6B8E-4FE4-8789-F4FCA7CBEA3B.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-506B95D8-A979-45FA-B31E-0D89DC73767F.vault.https://co.example/mattermost-dev account=authToken
+DEBUG   item service=SecureVaultTests-7F688DE3-FA8A-442C-8F93-7DE03DDD728E.vault.https://co.example/mattermost-dev account=authToken
+DEBUG   item service=CertTrustTests-758F9578-E54B-4122-A812-975F61441A76.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-25212942-C16A-45CD-B01F-15E56D656800.vault.https://keep.example account=authToken
+DEBUG   item service=CertTrustTests-FBC4385F-F715-4A7F-B6B4-3497964F748B.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=CertTrustTests-8335D761-ACA3-4052-87AF-2E79F796F744.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=CertTrustTests-808E2094-8C63-47F0-B05E-7E4E46A65428.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-7F688DE3-FA8A-442C-8F93-7DE03DDD728E.vault.https://co.example/mattermost-prod account=authToken
+DEBUG   item service=CertTrustTests-relaunch-831ABA21-C9A2-4BA8-8FDC-E35BDBAE5511.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-DAEC20F1-ED01-49F2-83FD-295E2D956EC4.vault.https://a.example account=authToken
+DEBUG   item service=SecureVaultTests-3FFE7C64-02AF-437B-BD2B-4063CD27833A.vault.https://b.example account=authToken
+DEBUG   item service=CertTrustTests-A0A573AF-985A-4BBC-9A25-EBEA3AB406E4.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-A5C308FB-38BA-4486-B2AA-F10D7F70C745.vault.https://a.example account=authToken
+DEBUG   item service=CertTrustTests-F83C9B6D-BC71-4582-BA2B-F183B3986DDF.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-A5C308FB-38BA-4486-B2AA-F10D7F70C745.vault.https://b.example account=authToken
+DEBUG   item service=CertTrustTests-relaunch-A02E88E3-332D-463C-A121-51F8350EAC2E.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=CertTrustTests-relaunch-A02E88E3-332D-463C-A121-51F8350EAC2E.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=CertTrustTests-F6A95992-F9E1-42E8-AFC3-6C60E385F14A.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=CertTrustTests-relaunch-831ABA21-C9A2-4BA8-8FDC-E35BDBAE5511.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-FB9F9A0C-7D32-41E1-9CDC-A416EBEFB816.vault.https://a.example account=authToken
+DEBUG   item service=SecureVaultTests-506B95D8-A979-45FA-B31E-0D89DC73767F.vault.https://co.example/mattermost-prod account=authToken
+DEBUG   item service=CertTrustTests-F654F08E-DFFC-4AB5-8184-04AB13DAE0B4.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=CertTrustTests-A0A573AF-985A-4BBC-9A25-EBEA3AB406E4.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-80341223-9661-40D5-A67F-6BA153B96A45.vault.https://community.mattermost.com account=authToken
+DEBUG   item service=SecureVaultTests-80341223-9661-40D5-A67F-6BA153B96A45.vault.https://community.mattermost.com account=preauth
+DEBUG   item service=CertTrustTests-E4E12C25-4D5D-4C38-A5FD-999BCD17821F.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-2E21C6AC-369C-42D7-B4D5-4B2111BA13E7.vault.https://community.mattermost.com account=authToken
+DEBUG   item service=SecureVaultTests-885C084B-06EC-4F86-B376-050BAB25D2D6.vault.https://keep.example account=authToken
+DEBUG   item service=CertTrustTests-05EB1AD5-49D0-4684-B81F-747B8685FF21.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-253EF086-DF0C-49B1-A3BC-B5E19E234F4C.vault.https://keep.example account=authToken
+DEBUG   item service=CertTrustTests-758F9578-E54B-4122-A812-975F61441A76.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-C7F5A3DD-EE59-4979-9433-0D7EFAF2B113.vault.https://community.mattermost.com account=authToken
+DEBUG   item service=SecureVaultTests-3597F0A4-25FE-49D2-B422-FB540E862429.vault.https://community.mattermost.com account=authToken
+DEBUG   item service=SecureVaultTests-3597F0A4-25FE-49D2-B422-FB540E862429.vault.https://community.mattermost.com account=preauth
+DEBUG   item service=SecureVaultTests-4A7FEAE9-3DC2-4D4B-A4D0-2922734E0A70.vault.https://co.example/mattermost-dev account=authToken
+DEBUG   item service=SecureVaultTests-6F150E98-9FE2-44A5-A4AD-FE3E4B60C911.vault.https://co.example/mattermost-dev account=authToken
+DEBUG   item service=SecureVaultTests-F68F4CF3-81C5-4100-9EC4-D0384CE4E513.vault.https://b.example account=authToken
+DEBUG   item service=SecureVaultTests-FC17B4EF-E13D-48D9-AE64-AF7BF41EDDC8.vault.https://community.mattermost.com account=authToken
+DEBUG   item service=CertTrustTests-E4E12C25-4D5D-4C38-A5FD-999BCD17821F.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=CertTrustTests-F6A95992-F9E1-42E8-AFC3-6C60E385F14A.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=CertTrustTests-13A3FE01-04A0-473A-826A-F75AD6DFED1B.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-6A42D5BA-F4C7-49A8-964C-688952101820.vault.https://community.mattermost.com account=authToken
+DEBUG   item service=SecureVaultTests-6A42D5BA-F4C7-49A8-964C-688952101820.vault.https://community.mattermost.com account=preauth
+DEBUG   item service=CertTrustTests-63805EBF-168D-4ED7-853B-9E7F5B9529CA.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=CertTrustTests-13A3FE01-04A0-473A-826A-F75AD6DFED1B.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-4A7FEAE9-3DC2-4D4B-A4D0-2922734E0A70.vault.https://co.example/mattermost-prod account=authToken
+DEBUG   item service=CertTrustTests-808E2094-8C63-47F0-B05E-7E4E46A65428.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=CertTrustTests-F83C9B6D-BC71-4582-BA2B-F183B3986DDF.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-DAECE64F-FDE0-46EE-B06B-ECE563922A12.vault.https://community.mattermost.com account=authToken
+DEBUG   item service=SecureVaultTests-FB9F9A0C-7D32-41E1-9CDC-A416EBEFB816.vault.https://b.example account=authToken
+DEBUG   item service=SecureVaultTests-DAEC20F1-ED01-49F2-83FD-295E2D956EC4.vault.https://b.example account=authToken
+DEBUG   item service=SecureVaultTests-3FFE7C64-02AF-437B-BD2B-4063CD27833A.vault.https://a.example account=authToken
+DEBUG   item service=CertTrustTests-8335D761-ACA3-4052-87AF-2E79F796F744.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-13059577-7547-4363-87E2-FCB0A272C361.vault.https://community.mattermost.com account=authToken
+DEBUG   item service=SecureVaultTests-0C8A232A-FA95-43A1-82D5-2B1E7C340DA3.vault.https://keep.example account=authToken
+DEBUG   item service=SecureVaultTests-E740FB7C-9313-401D-B472-943C82D52F94.vault.https://community.mattermost.com account=authToken
+DEBUG   item service=SecureVaultTests-E740FB7C-9313-401D-B472-943C82D52F94.vault.https://community.mattermost.com account=preauth
+DEBUG   item service=SecureVaultTests-6F150E98-9FE2-44A5-A4AD-FE3E4B60C911.vault.https://co.example/mattermost-prod account=authToken
+DEBUG   item service=CertTrustTests-relaunch-7C35E7B4-6B8E-4FE4-8789-F4FCA7CBEA3B.certtrust.wss://mattermost-dev.example account=certificate
+DEBUG   item service=CertTrustTests-63805EBF-168D-4ED7-853B-9E7F5B9529CA.certtrust.https://mattermost-dev.example account=certificate
+DEBUG   item service=SecureVaultTests-5B89F570-D24A-4367-89D1-ECF53487AF6E.vault.https://community.mattermost.com account=authToken
+DEBUG   item service=SecureVaultTests-5B89F570-D24A-4367-89D1-ECF53487AF6E.vault.https://community.mattermost.com account=preauth
+DEBUG   item service=SecureVaultTests-C47D332D-C386-48B7-9C9D-913954722936.vault.https://co.example/mattermost-dev account=authToken
+DEBUG   item service=SecureVaultTests-6E592047-23A1-48EE-81F0-CD36E5CD4B38.vault.https://keep.example account=authToken
+DEBUG   item service=SecureVaultTests-F68F4CF3-81C5-4100-9EC4-D0384CE4E513.vault.https://a.example account=authToken
+DEBUG   item service=SecureVaultTests-C47D332D-C386-48B7-9C9D-913954722936.vault.https://co.example/mattermost-prod account=authToken
+Test Case '-[MattermostTests.CertTrustDebugTests testDebugFreshStoreLookup]' passed (0.026 seconds).
+Test Suite 'CertTrustDebugTests' passed at 2026-10-23 14:57:33.106.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.026 (0.026) seconds
+Test Suite 'CertTrustTests' started at 2026-10-23 14:57:33.106.
+Test Case '-[MattermostTests.CertTrustTests testAreEqualRequiresDataAndIssuer]' started.
+Test Case '-[MattermostTests.CertTrustTests testAreEqualRequiresDataAndIssuer]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertTrustTests testExactCertificateIsTrustedAndDifferentIsNot]' started.
+Test Case '-[MattermostTests.CertTrustTests testExactCertificateIsTrustedAndDifferentIsNot]' passed (0.011 seconds).
+Test Case '-[MattermostTests.CertTrustTests testExplicitlyUntrustedCertificateIsRefusedEvenIfPresented]' started.
+Test Case '-[MattermostTests.CertTrustTests testExplicitlyUntrustedCertificateIsRefusedEvenIfPresented]' passed (0.003 seconds).
+Test Case '-[MattermostTests.CertTrustTests testRemoveClearsTrustDecision]' started.
+Test Case '-[MattermostTests.CertTrustTests testRemoveClearsTrustDecision]' passed (0.003 seconds).
+Test Case '-[MattermostTests.CertTrustTests testTrustIsScopedPerOriginNotPerPortOrSubpath]' started.
+Test Case '-[MattermostTests.CertTrustTests testTrustIsScopedPerOriginNotPerPortOrSubpath]' passed (0.002 seconds).
+Test Case '-[MattermostTests.CertTrustTests testTrustSurvivesFreshStoreInstance_simulatingRelaunch]' started.
+Test Case '-[MattermostTests.CertTrustTests testTrustSurvivesFreshStoreInstance_simulatingRelaunch]' passed (0.004 seconds).
+Test Case '-[MattermostTests.CertTrustTests testUntrustedOriginIsNotTrusted]' started.
+Test Case '-[MattermostTests.CertTrustTests testUntrustedOriginIsNotTrusted]' passed (0.002 seconds).
+Test Suite 'CertTrustTests' passed at 2026-10-23 14:57:33.134.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.026 (0.028) seconds
+Test Suite 'DeepLinkRouterTests' started at 2026-10-23 14:57:33.134.
+Test Case '-[MattermostTests.DeepLinkRouterTests testNoServersOffersAdd]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testNoServersOffersAdd]' passed (0.004 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesHttpLink]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesHttpLink]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesMattermostBetaScheme]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesMattermostBetaScheme]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesMattermostScheme]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesMattermostScheme]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testPreservesPortOnMattermostScheme]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testPreservesPortOnMattermostScheme]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testQueuesUntilReady]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testQueuesUntilReady]' passed (0.006 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsNulByte]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsNulByte]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsOversizedLink]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsOversizedLink]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsUnknownScheme]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsUnknownScheme]' passed (0.000 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testRoutesToMatchingServer]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testRoutesToMatchingServer]' passed (0.004 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testRoutesWithoutChannelToServerRoot]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testRoutesWithoutChannelToServerRoot]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testUnmatchedHostOffersServerAdd]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testUnmatchedHostOffersServerAdd]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testUnreadyWithoutStoreIsIgnored]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testUnreadyWithoutStoreIsIgnored]' passed (0.001 seconds).
+Test Suite 'DeepLinkRouterTests' passed at 2026-10-23 14:57:33.161.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.024 (0.027) seconds
+Test Suite 'DownloadFormattingTests' started at 2026-10-23 14:57:33.161.
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusDownloading]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusDownloading]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusMapsCancelledLikeDesktopDefault]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusMapsCancelledLikeDesktopDefault]' passed (0.000 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusMapsDoneToDownloaded]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusMapsDoneToDownloaded]' passed (0.000 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testIconByExtension]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testIconByExtension]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testIconFallsBackToGenericDoc]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testIconFallsBackToGenericDoc]' passed (0.000 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesBytes]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesBytes]' passed (0.000 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesKiloAndAbove]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesKiloAndAbove]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesNegative]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesNegative]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesZero]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesZero]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressClamped]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressClamped]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressFraction]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressFraction]' passed (0.000 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressUnknownTotalIsZero]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressUnknownTotalIsZero]' passed (0.000 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeAndStatusCombinedForDone]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeAndStatusCombinedForDone]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeForTerminalStateIsTotal]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeForTerminalStateIsTotal]' passed (0.000 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeWhileDownloadingShowsReceivedOfTotal]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeWhileDownloadingShowsReceivedOfTotal]' passed (0.000 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeWhileDownloadingWithoutKnownTotal]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeWhileDownloadingWithoutKnownTotal]' passed (0.000 seconds).
+Test Suite 'DownloadFormattingTests' passed at 2026-10-23 14:57:33.176.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.011 (0.015) seconds
+Test Suite 'DownloadHistoryCapTests' started at 2026-10-23 14:57:33.177.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testGrowthOfCapDoesNotDrop]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testGrowthOfCapDoesNotDrop]' passed (0.006 seconds).
+Test Case '-[MattermostTests.DownloadHistoryCapTests testNewHistoryDefaultsToSettingsCap]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testNewHistoryDefaultsToSettingsCap]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsClampsToRange]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsClampsToRange]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsPersistsAcrossRelaunch]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsPersistsAcrossRelaunch]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsSameValueIsNoOp]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsSameValueIsNoOp]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsTrimsOldest]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsTrimsOldest]' passed (0.005 seconds).
+Test Suite 'DownloadHistoryCapTests' passed at 2026-10-23 14:57:33.201.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.022 (0.024) seconds
+Test Suite 'DownloadHistoryTests' started at 2026-10-23 14:57:33.201.
+Test Case '-[MattermostTests.DownloadHistoryTests testAddDeduplicatesSameSource]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testAddDeduplicatesSameSource]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testAddIsNewestFirstAndFindable]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testAddIsNewestFirstAndFindable]' passed (0.005 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testAddKeepsDistinctSources]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testAddKeepsDistinctSources]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testClearFinishedKeepsOnlyInFlight]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testClearFinishedKeepsOnlyInFlight]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testHistorySurvivesFreshInstance_simulatingRelaunch]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testHistorySurvivesFreshInstance_simulatingRelaunch]' passed (0.004 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testRemove]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testRemove]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testTrimsToMaxRecordsNewestFirst]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testTrimsToMaxRecordsNewestFirst]' passed (0.021 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testUpdatePersistsStateTransition]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testUpdatePersistsStateTransition]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testUpdateUnknownAdds]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testUpdateUnknownAdds]' passed (0.002 seconds).
+Test Suite 'DownloadHistoryTests' passed at 2026-10-23 14:57:33.251.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.047 (0.049) seconds
+Test Suite 'DownloadRecordTests' started at 2026-10-23 14:57:33.251.
+Test Case '-[MattermostTests.DownloadRecordTests testCodableRoundTripAllFieldsSet]' started.
+Test Case '-[MattermostTests.DownloadRecordTests testCodableRoundTripAllFieldsSet]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadRecordTests testCodableRoundTripNullOptionals]' started.
+Test Case '-[MattermostTests.DownloadRecordTests testCodableRoundTripNullOptionals]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadRecordTests testDefaultsToDownloading]' started.
+Test Case '-[MattermostTests.DownloadRecordTests testDefaultsToDownloading]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadRecordTests testTargetURLIsNilUntilLanded]' started.
+Test Case '-[MattermostTests.DownloadRecordTests testTargetURLIsNilUntilLanded]' passed (0.001 seconds).
+Test Suite 'DownloadRecordTests' passed at 2026-10-23 14:57:33.255.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'DownloadWorkerTests' started at 2026-10-23 14:57:33.255.
+Test Case '-[MattermostTests.DownloadWorkerTests testExportPickerBuiltForLandedFileAndMovesByDefault]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testExportPickerBuiltForLandedFileAndMovesByDefault]' passed (0.006 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testExportPickerNilWhenNothingLanded]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testExportPickerNilWhenNothingLanded]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testResolveDestinationBuildsDownloadsFileURL]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testResolveDestinationBuildsDownloadsFileURL]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testResolveDestinationDeduplicatesInDirectory]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testResolveDestinationDeduplicatesInDirectory]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedCollapsesTraversal]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedCollapsesTraversal]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedFallsBackWhenEmpty]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedFallsBackWhenEmpty]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedKeepsBasenameAndTrims]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedKeepsBasenameAndTrims]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueKeepsBaseWhenFree]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueKeepsBaseWhenFree]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueKeepsLastExtensionOnly]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueKeepsLastExtensionOnly]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueNoExtensionCase]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueNoExtensionCase]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueSuffixesOnCollision]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueSuffixesOnCollision]' passed (0.001 seconds).
+Test Suite 'DownloadWorkerTests' passed at 2026-10-23 14:57:33.275.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.017 (0.020) seconds
+Test Suite 'NotificationWorkerTests' started at 2026-10-23 14:57:33.275.
+Test Case '-[MattermostTests.NotificationWorkerTests testBackgroundedPrimaryServerSchedules]' started.
+2026-10-23 14:57:33.287383+0800 Mattermost[35673:6639035] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.38A78CA0-ECA9-40D7-9CD6-15026462AA5B.ch1.AF6E25CF-CDD7-4A6B-9718-D5B6C763443A @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testBackgroundedPrimaryServerSchedules]' passed (0.015 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testCoordinatorWiresMentionEventsIntoWorker]' started.
+2026-10-23 14:57:33.300195+0800 Mattermost[35673:6639035] [Bridge] os_log_type_t(rawValue: 1).Bridge: mention for https://example.mattermost.com: from bridge @ Logger.swift.info(_:_:):55
+2026-10-23 14:57:33.300490+0800 Mattermost[35673:6639035] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: BridgeHey -> mention.1AF5CBE0-C693-450D-98F7-72705BA6A2AF.bridge-ch.F8889BF1-7AAC-4D10-8A51-751876FA6E5F @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testCoordinatorWiresMentionEventsIntoWorker]' passed (0.011 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testCoordinatorWiresUnreadsAndExpiredIntoSessionStore]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testCoordinatorWiresUnreadsAndExpiredIntoSessionStore]' passed (0.004 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testDeniedDoesNotSchedule]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testDeniedDoesNotSchedule]' passed (0.005 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testDisplayTitleComposition]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testDisplayTitleComposition]' passed (0.001 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testFirstMentionRequestsAuthorizationAndSchedulesWhenGranted]' started.
+2026-10-23 14:57:33.317055+0800 Mattermost[35673:6639035] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.7DDEDFC2-CC3D-4103-B57F-B5D5D674A6AA.ch1.FBCCD53D-322B-4AEF-B038-26DAC7EA56D4 @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testFirstMentionRequestsAuthorizationAndSchedulesWhenGranted]' passed (0.005 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testForegroundVisibleServerIsSuppressed]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testForegroundVisibleServerIsSuppressed]' passed (0.004 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testMentionSoundMapping]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testMentionSoundMapping]' passed (0.001 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testMissingServerDoesNotSchedule]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testMissingServerDoesNotSchedule]' passed (0.002 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testNotDeterminedAfterFirstAskDoesNotSchedule]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testNotDeterminedAfterFirstAskDoesNotSchedule]' passed (0.004 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testPermissionRequestedFlagPersistsAcrossWorkerInstances]' started.
+2026-10-23 14:57:33.335669+0800 Mattermost[35673:6639035] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.4965DEC2-28ED-45D7-8C8C-7F3BF3CE67B9.ch1.2E6C3EAF-9C85-4189-83D9-3F3926DC8DBA @ Logger.swift.info(_:_:):55
+2026-10-23 14:57:33.336127+0800 Mattermost[35673:6639035] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.4965DEC2-28ED-45D7-8C8C-7F3BF3CE67B9.ch1.88425E93-6504-4204-B6EE-5742EBC131FE @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testPermissionRequestedFlagPersistsAcrossWorkerInstances]' passed (0.004 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testRouteIgnoresNonMentionUserInfo]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testRouteIgnoresNonMentionUserInfo]' passed (0.003 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testScheduledRequestCarriesDesktopPayload]' started.
+2026-10-23 14:57:33.343631+0800 Mattermost[35673:6639035] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Acme: Hey -> mention.912118FF-EF78-42C8-A49A-EDA44E2BD203.town-square.508D5A07-F578-4ADA-AF59-F5B741B5FACA @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testScheduledRequestCarriesDesktopPayload]' passed (0.005 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testSilentMentionHasNoSound]' started.
+2026-10-23 14:57:33.348336+0800 Mattermost[35673:6639035] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.52D7FC59-4B10-4A28-BFCC-C80A4D825B87.ch1.DFEEB991-35A0-4875-A71C-428FE1A868A1 @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testSilentMentionHasNoSound]' passed (0.004 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testSubsequentMentionsDoNotReRequestAuthorization]' started.
+2026-10-23 14:57:33.352344+0800 Mattermost[35673:6639035] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.863E9053-7F83-4105-AD03-750595503B13.ch1.33FB8B5F-35A6-47C6-8FCA-9F22F4235D66 @ Logger.swift.info(_:_:):55
+2026-10-23 14:57:33.352451+0800 Mattermost[35673:6639035] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.863E9053-7F83-4105-AD03-750595503B13.ch1.560B90B2-44A6-4DDC-AA8B-FF713AACA907 @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testSubsequentMentionsDoNotReRequestAuthorization]' passed (0.003 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testTapQueuesPathUntilSPAReady]' started.
+2026-10-23 14:57:33.361394+0800 Mattermost[35673:6639035] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: mention tap -> server Example channel cold-room @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testTapQueuesPathUntilSPAReady]' passed (0.009 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testTapRoutesToServerAndChannelWhenSPAReady]' started.
+2026-10-23 14:57:33.371570+0800 Mattermost[35673:6639035] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: mention tap -> server Routed channel channel-9 @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testTapRoutesToServerAndChannelWhenSPAReady]' passed (0.009 seconds).
+Test Suite 'NotificationWorkerTests' passed at 2026-10-23 14:57:33.373.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.090 (0.098) seconds
+Test Suite 'SecureVaultTests' started at 2026-10-23 14:57:33.373.
+Test Case '-[MattermostTests.SecureVaultTests testAuthTokenRoundTripReadableOnlyViaVault]' started.
+Test Case '-[MattermostTests.SecureVaultTests testAuthTokenRoundTripReadableOnlyViaVault]' passed (0.004 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testCanonicalServerURLCollapsesDefaultPortAndTrailingSlash]' started.
+Test Case '-[MattermostTests.SecureVaultTests testCanonicalServerURLCollapsesDefaultPortAndTrailingSlash]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testCanonicalServerURLKeepsNonDefaultPortAndSubPath]' started.
+Test Case '-[MattermostTests.SecureVaultTests testCanonicalServerURLKeepsNonDefaultPortAndSubPath]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testDeleteAllSecretsClearsEveryKey]' started.
+Test Case '-[MattermostTests.SecureVaultTests testDeleteAllSecretsClearsEveryKey]' passed (0.009 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testDeleteAllSecretsDoesNotTouchOtherServers]' started.
+Test Case '-[MattermostTests.SecureVaultTests testDeleteAllSecretsDoesNotTouchOtherServers]' passed (0.019 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testDeleteSecret]' started.
+Test Case '-[MattermostTests.SecureVaultTests testDeleteSecret]' passed (0.004 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testDeleteSecretNotPresentIsNoOp]' started.
+Test Case '-[MattermostTests.SecureVaultTests testDeleteSecretNotPresentIsNoOp]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testEmptyValueDeletesExistingSecret]' started.
+Test Case '-[MattermostTests.SecureVaultTests testEmptyValueDeletesExistingSecret]' passed (0.003 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testKeysAreDistinctAccountsWithinAServer]' started.
+Test Case '-[MattermostTests.SecureVaultTests testKeysAreDistinctAccountsWithinAServer]' passed (0.003 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testSameServerSubpathsAreDistinct]' started.
+Test Case '-[MattermostTests.SecureVaultTests testSameServerSubpathsAreDistinct]' passed (0.003 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testSecretsAreIsolatedPerServer]' started.
+Test Case '-[MattermostTests.SecureVaultTests testSecretsAreIsolatedPerServer]' passed (0.005 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testTokenSurvivesFreshVaultInstance_simulatingRelaunch]' started.
+Test Case '-[MattermostTests.SecureVaultTests testTokenSurvivesFreshVaultInstance_simulatingRelaunch]' passed (0.004 seconds).
+Test Suite 'SecureVaultTests' passed at 2026-10-23 14:57:33.434.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.057 (0.061) seconds
+Test Suite 'ServerAPITests' started at 2026-10-23 14:57:33.434.
+Test Case '-[MattermostTests.ServerAPITests testGetDetectsBasicAuthOn401]' started.
+Test Case '-[MattermostTests.ServerAPITests testGetDetectsBasicAuthOn401]' passed (0.056 seconds).
+Test Case '-[MattermostTests.ServerAPITests testGetDetectsPreAuthOn403]' started.
+Test Case '-[MattermostTests.ServerAPITests testGetDetectsPreAuthOn403]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerAPITests testGetReturnsBodyOn200]' started.
+Test Case '-[MattermostTests.ServerAPITests testGetReturnsBodyOn200]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerAPITests testGetThrowsOnClientCertRequired]' started.
+2026-10-23 14:57:33.495916+0800 Mattermost[35673:6639176] [Default] Task <7B3F01A4-2EAC-408D-A459-F72B300297B9>.<1> finished with error [-1206] Error Domain=NSURLErrorDomain Code=-1206 "client cert" UserInfo={_NSURLErrorRelatedURLSessionTaskErrorKey=(
+    "LocalDataTask <7B3F01A4-2EAC-408D-A459-F72B300297B9>.<1>"
+), NSLocalizedDescription=client cert, _NSURLErrorFailingURLSessionTaskErrorKey=LocalDataTask <7B3F01A4-2EAC-408D-A459-F72B300297B9>.<1>}
+Test Case '-[MattermostTests.ServerAPITests testGetThrowsOnClientCertRequired]' passed (0.003 seconds).
+Test Suite 'ServerAPITests' passed at 2026-10-23 14:57:33.498.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.063 (0.064) seconds
+Test Suite 'ServerFormModelTests' started at 2026-10-23 14:57:33.499.
+Test Case '-[MattermostTests.ServerFormModelTests testSaveBlockedUntilNameProvided]' started.
+Test Case '-[MattermostTests.ServerFormModelTests testSaveBlockedUntilNameProvided]' passed (0.004 seconds).
+Test Case '-[MattermostTests.ServerFormModelTests testSaveBlockedWhenURLMissingOrInvalid]' started.
+Test Case '-[MattermostTests.ServerFormModelTests testSaveBlockedWhenURLMissingOrInvalid]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerFormModelTests testURLMessageTextForStates]' started.
+Test Case '-[MattermostTests.ServerFormModelTests testURLMessageTextForStates]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerFormModelTests testValidateCurrentAutoFillsNameAndAllowsSave]' started.
+Test Case '-[MattermostTests.ServerFormModelTests testValidateCurrentAutoFillsNameAndAllowsSave]' passed (0.002 seconds).
+Test Suite 'ServerFormModelTests' passed at 2026-10-23 14:57:33.509.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.009 (0.010) seconds
+Test Suite 'ServerInfoTests' started at 2026-10-23 14:57:33.509.
+Test Case '-[MattermostTests.ServerInfoTests testFetchConfigDataDecodesNameProbe]' started.
+Test Case '-[MattermostTests.ServerInfoTests testFetchConfigDataDecodesNameProbe]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerInfoTests testFetchConfigDataThrowsNotMattermostOnJunkBody]' started.
+Test Case '-[MattermostTests.ServerInfoTests testFetchConfigDataThrowsNotMattermostOnJunkBody]' passed (0.004 seconds).
+Test Case '-[MattermostTests.ServerInfoTests testPingSucceedsOn200]' started.
+Test Case '-[MattermostTests.ServerInfoTests testPingSucceedsOn200]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerInfoTests testPingThrowsOnNon200]' started.
+Test Case '-[MattermostTests.ServerInfoTests testPingThrowsOnNon200]' passed (0.001 seconds).
+Test Suite 'ServerInfoTests' passed at 2026-10-23 14:57:33.518.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.008 (0.009) seconds
+Test Suite 'ServerStoreLookupTests' started at 2026-10-23 14:57:33.518.
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupMatchesPathUnderServerRoot]' started.
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupMatchesPathUnderServerRoot]' passed (0.003 seconds).
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupMatchesSameHostIgnoringScheme]' started.
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupMatchesSameHostIgnoringScheme]' passed (0.003 seconds).
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupRespectsSchemeWhenNotIgnored]' started.
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupRespectsSchemeWhenNotIgnored]' passed (0.004 seconds).
+Test Suite 'ServerStoreLookupTests' passed at 2026-10-23 14:57:33.529.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.010 (0.011) seconds
+Test Suite 'ServerStoreTests' started at 2026-10-23 14:57:33.529.
+Test Case '-[MattermostTests.ServerStoreTests testAddAssignsOrderAndUniqueID]' started.
+Test Case '-[MattermostTests.ServerStoreTests testAddAssignsOrderAndUniqueID]' passed (0.003 seconds).
+Test Case '-[MattermostTests.ServerStoreTests testAddRejectsDuplicateHost]' started.
+2026-10-23 14:57:33.535164+0800 Mattermost[35673:6639035] [ServerStore] os_log_type_t(rawValue: 1).ServerStore: rejected duplicate server for host A.example @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.ServerStoreTests testAddRejectsDuplicateHost]' passed (0.003 seconds).
+Test Case '-[MattermostTests.ServerStoreTests testHasEverConfiguredServersPersistsThroughEmptyList]' started.
+Test Case '-[MattermostTests.ServerStoreTests testHasEverConfiguredServersPersistsThroughEmptyList]' passed (0.003 seconds).
+Test Case '-[MattermostTests.ServerStoreTests testInitialServerPrefersLastActiveThenOrder]' started.
+Test Case '-[MattermostTests.ServerStoreTests testInitialServerPrefersLastActiveThenOrder]' passed (0.004 seconds).
+Test Case '-[MattermostTests.ServerStoreTests testPersistenceRoundTrip]' started.
+Test Case '-[MattermostTests.ServerStoreTests testPersistenceRoundTrip]' passed (0.004 seconds).
+Test Case '-[MattermostTests.ServerStoreTests testRemoveDropsServerAndReassignsActive]' started.
+Test Case '-[MattermostTests.ServerStoreTests testRemoveDropsServerAndReassignsActive]' passed (0.004 seconds).
+Test Suite 'ServerStoreTests' passed at 2026-10-23 14:57:33.552.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.021 (0.023) seconds
+Test Suite 'ServerURLTests' started at 2026-10-23 14:57:33.552.
+Test Case '-[MattermostTests.ServerURLTests testAddsHTTPSWhenSchemeMissing]' started.
+Test Case '-[MattermostTests.ServerURLTests testAddsHTTPSWhenSchemeMissing]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLTests testKeepsHTTPSchemeWhenExplicit]' started.
+Test Case '-[MattermostTests.ServerURLTests testKeepsHTTPSchemeWhenExplicit]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLTests testStripsTrailingSlash]' started.
+Test Case '-[MattermostTests.ServerURLTests testStripsTrailingSlash]' passed (0.000 seconds).
+Test Case '-[MattermostTests.ServerURLTests testThrowsOnEmpty]' started.
+Test Case '-[MattermostTests.ServerURLTests testThrowsOnEmpty]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLTests testThrowsOnInvalid]' started.
+Test Case '-[MattermostTests.ServerURLTests testThrowsOnInvalid]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLTests testTrimsWhitespace]' started.
+Test Case '-[MattermostTests.ServerURLTests testTrimsWhitespace]' passed (0.001 seconds).
+Test Suite 'ServerURLTests' passed at 2026-10-23 14:57:33.558.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'ServerURLValidatorTests' started at 2026-10-23 14:57:33.559.
+Test Case '-[MattermostTests.ServerURLValidatorTests testBasicAuthRequiredOn401]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testBasicAuthRequiredOn401]' passed (0.003 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testGenericMattermostNameDefaultsToHostLabel]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testGenericMattermostNameDefaultsToHostLabel]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testHTTPSUpgradeFallsBackToHTTPInsecure]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testHTTPSUpgradeFallsBackToHTTPInsecure]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testInvalidURL]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testInvalidURL]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testMissingURL]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testMissingURL]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testNotMattermostWhenProbeReturnsHTML]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testNotMattermostWhenProbeReturnsHTML]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testOptions]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testOptions]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLCollapsesDoubleSlashesInPath]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLCollapsesDoubleSlashesInPath]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLRejectsNul]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLRejectsNul]' passed (0.000 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLRejectsTooLong]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLRejectsTooLong]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testPreAuthRequiredOn403]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testPreAuthRequiredOn403]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testServerNotFoundForCurrentIDExemptedFromDuplicate]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testServerNotFoundForCurrentIDExemptedFromDuplicate]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testURLNotMatchedWhenSiteURLDiffersAndUnreachable]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testURLNotMatchedWhenSiteURLDiffersAndUnreachable]' passed (0.005 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testURLUpdatedAdoptsConfiguredSiteURL]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testURLUpdatedAdoptsConfiguredSiteURL]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testValidServerReturnsOKWithNameProbe]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testValidServerReturnsOKWithNameProbe]' passed (0.001 seconds).
+Test Suite 'ServerURLValidatorTests' passed at 2026-10-23 14:57:33.587.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.024 (0.029) seconds
+Test Suite 'SessionStoreTests' started at 2026-10-23 14:57:33.588.
+Test Case '-[MattermostTests.SessionStoreTests testClearResetsServerState]' started.
+Test Case '-[MattermostTests.SessionStoreTests testClearResetsServerState]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testExpiredServerDrivesBadge]' started.
+Test Case '-[MattermostTests.SessionStoreTests testExpiredServerDrivesBadge]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testInitialStateIsZeroBadge]' started.
+Test Case '-[MattermostTests.SessionStoreTests testInitialStateIsZeroBadge]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testMentionsBeatExpired]' started.
+Test Case '-[MattermostTests.SessionStoreTests testMentionsBeatExpired]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testMentionsSumAcrossServersAndDriveBadge]' started.
+Test Case '-[MattermostTests.SessionStoreTests testMentionsSumAcrossServersAndDriveBadge]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testNegativeMentionCountIsClamped]' started.
+Test Case '-[MattermostTests.SessionStoreTests testNegativeMentionCountIsClamped]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testObserveServerRemovalsDropsState]' started.
+Test Case '-[MattermostTests.SessionStoreTests testObserveServerRemovalsDropsState]' passed (0.003 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testRemoveDropsServerFromTotals]' started.
+Test Case '-[MattermostTests.SessionStoreTests testRemoveDropsServerFromTotals]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testShowUnreadBadgeDefaultsTrue]' started.
+Test Case '-[MattermostTests.SessionStoreTests testShowUnreadBadgeDefaultsTrue]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testShowUnreadBadgePersistsAndRecomputes]' started.
+Test Case '-[MattermostTests.SessionStoreTests testShowUnreadBadgePersistsAndRecomputes]' passed (0.003 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testUnreadOnlyAppliesDotBadge]' started.
+Test Case '-[MattermostTests.SessionStoreTests testUnreadOnlyAppliesDotBadge]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testZeroMentionReportClearsBadge]' started.
+Test Case '-[MattermostTests.SessionStoreTests testZeroMentionReportClearsBadge]' passed (0.002 seconds).
+Test Suite 'SessionStoreTests' passed at 2026-10-23 14:57:33.615.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.024 (0.027) seconds
+Test Suite 'ThemeSyncTests' started at 2026-10-23 14:57:33.615.
+Test Case '-[MattermostTests.ThemeSyncTests testCssVariablesDifferPerScheme]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testCssVariablesDifferPerScheme]' passed (0.000 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testDarkColorIsNotLight]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testDarkColorIsNotLight]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testExplicitCentreChannelBgDrivesLightOrDark]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testExplicitCentreChannelBgDrivesLightOrDark]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testInjectionJavascriptSetsColorSchemeAndVars]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testInjectionJavascriptSetsColorSchemeAndVars]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testLightColorIsLight]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testLightColorIsLight]' passed (0.000 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testNoServerThemeUsesDefaultAppearance]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testNoServerThemeUsesDefaultAppearance]' passed (0.000 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testServerThemeLightOverridesSystemDark]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testServerThemeLightOverridesSystemDark]' passed (0.000 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testServerThemeSystemFallsThroughToOsScheme]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testServerThemeSystemFallsThroughToOsScheme]' passed (0.000 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testUnparsableColorDefaultsToLight]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testUnparsableColorDefaultsToLight]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testUsingSystemThemeRequestsSystemAppearance]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testUsingSystemThemeRequestsSystemAppearance]' passed (0.001 seconds).
+Test Suite 'ThemeSyncTests' passed at 2026-10-23 14:57:33.624.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.007 (0.009) seconds
+Test Suite 'ViewStoreTests' started at 2026-10-23 14:57:33.624.
+Test Case '-[MattermostTests.ViewStoreTests testAuthCookiesDoNotLeakBetweenServers]' started.
+Test Case '-[MattermostTests.ViewStoreTests testAuthCookiesDoNotLeakBetweenServers]' passed (0.041 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testDataStoreKeyIsStableAcrossStoreRecreation]' started.
+Test Case '-[MattermostTests.ViewStoreTests testDataStoreKeyIsStableAcrossStoreRecreation]' passed (0.009 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testEachServerGetsAnIsolatedDataStore]' started.
+Test Case '-[MattermostTests.ViewStoreTests testEachServerGetsAnIsolatedDataStore]' passed (0.009 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testMountedStoresFollowServerOrder]' started.
+Test Case '-[MattermostTests.ViewStoreTests testMountedStoresFollowServerOrder]' passed (0.010 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testRemoveDropsStoreAndClearsPrimary]' started.
+2026-10-23 14:57:33.708153+0800 Mattermost[35673:6639035] [ViewStore] os_log_type_t(rawValue: 1).ViewStore: removed server 765EA22D-FD10-458F-BA7B-F281604920A9 and released its webview @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.ViewStoreTests testRemoveDropsStoreAndClearsPrimary]' passed (0.015 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testSetPrimaryTracksActiveServer]' started.
+Test Case '-[MattermostTests.ViewStoreTests testSetPrimaryTracksActiveServer]' passed (0.009 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testViewIsCreatedOncePerServer]' started.
+Test Case '-[MattermostTests.ViewStoreTests testViewIsCreatedOncePerServer]' passed (0.005 seconds).
+Test Suite 'ViewStoreTests' passed at 2026-10-23 14:57:33.724.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.098 (0.100) seconds
+Test Suite 'WebViewStoreTests' started at 2026-10-23 14:57:33.725.
+Test Case '-[MattermostTests.WebViewStoreTests testConfigurationAllowsInlinePlaybackAndAutoplay]' started.
+Test Case '-[MattermostTests.WebViewStoreTests testConfigurationAllowsInlinePlaybackAndAutoplay]' passed (0.003 seconds).
+Test Case '-[MattermostTests.WebViewStoreTests testInitialStateIsEmpty]' started.
+Test Case '-[MattermostTests.WebViewStoreTests testInitialStateIsEmpty]' passed (0.002 seconds).
+Test Case '-[MattermostTests.WebViewStoreTests testLoadClearsErrorAndBeginsNavigation]' started.
+Test Case '-[MattermostTests.WebViewStoreTests testLoadClearsErrorAndBeginsNavigation]' passed (0.003 seconds).
+Test Case '-[MattermostTests.WebViewStoreTests testStoreOwnsASingleReusableWebView]' started.
+Test Case '-[MattermostTests.WebViewStoreTests testStoreOwnsASingleReusableWebView]' passed (0.004 seconds).
+Test Case '-[MattermostTests.WebViewStoreTests testUserAgentMirrorsDesktopShell]' started.
+Test Case '-[MattermostTests.WebViewStoreTests testUserAgentMirrorsDesktopShell]' passed (0.003 seconds).
+Test Suite 'WebViewStoreTests' passed at 2026-10-23 14:57:33.740.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.014 (0.016) seconds
+Test Suite 'WelcomePagerModelTests' started at 2026-10-23 14:57:33.741.
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoCyclesThroughAllPages]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoCyclesThroughAllPages]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoIsNoOpAfterManualInteraction]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoIsNoOpAfterManualInteraction]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoSinglePageDoesNotWrap]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoSinglePageDoesNotWrap]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testDefaultSlidesRoundingOutDesktopCopy]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testDefaultSlidesRoundingOutDesktopCopy]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testDisableNavigationOnlyWhenMultiplePages]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testDisableNavigationOnlyWhenMultiplePages]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testGoNextMovesForward]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testGoNextMovesForward]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testGoPrevMovesBackward]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testGoPrevMovesBackward]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testManualNavigationDisablesAutoAdvance]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testManualNavigationDisablesAutoAdvance]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testNextWrapsToFirst]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testNextWrapsToFirst]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testPrevWrapsToLast]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testPrevWrapsToLast]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testStartsAtRequestedIndex]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testStartsAtRequestedIndex]' passed (0.000 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testSwipeJumpDisablesAutoAdvance]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testSwipeJumpDisablesAutoAdvance]' passed (0.000 seconds).
+Test Suite 'WelcomePagerModelTests' passed at 2026-10-23 14:57:33.753.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.008 (0.012) seconds
+Test Suite 'MattermostTests.xctest' passed at 2026-10-23 14:57:33.753.
+	 Executed 220 tests, with 0 failures (0 unexpected) in 0.682 (0.774) seconds
+Test Suite 'All tests' passed at 2026-10-23 14:57:33.758.
+	 Executed 220 tests, with 0 failures (0 unexpected) in 0.682 (0.780) seconds
+2026-10-23 14:57:34.669280+0800 MattermostUITests-Runner[35700:6639391] [Default] Running tests...
+Test Suite 'All tests' started at 2026-10-23 14:57:35.494.
+Test Suite 'MattermostUITests.xctest' started at 2026-10-23 14:57:35.495.
+Test Suite 'MattermostUITests' started at 2026-10-23 14:57:35.495.
+Test Case '-[MattermostUITests.MattermostUITests testAddServerThroughFormThenWebviewLoad]' started.
+    t =     0.00s Start Test at 2026-10-23 14:57:35.496
+    t =     0.07s Set Up
+    t =     0.07s Open com.mattermost.ios
+    t =     0.07s     Launch com.mattermost.ios
+2026-10-23 14:57:35.868 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-23 14:57:35.868 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     0.58s         Setting up automation session
+    t =     1.31s         Wait for com.mattermost.ios to idle
+    t =     2.61s Waiting 10.0s for "Get started" Button to exist
+    t =     3.65s     Checking `Expect predicate `existsNoRetry == 1` for object "Get started" Button`
+    t =     3.65s         Checking existence of `"Get started" Button`
+    t =     3.76s Tap "Get started" Button
+    t =     3.76s     Wait for com.mattermost.ios to idle
+    t =     3.76s     Find the "Get started" Button
+    t =     3.78s     Check for interrupting elements affecting "welcomeView" Button
+    t =     3.80s     Synthesize event
+    t =     4.11s     Wait for com.mattermost.ios to idle
+    t =     4.62s Waiting 5.0s for "Display name" TextField to exist
+    t =     5.66s     Checking `Expect predicate `existsNoRetry == 1` for object "Display name" TextField`
+    t =     5.66s         Checking existence of `"Display name" TextField`
+    t =     5.73s Tap "Display name" TextField
+    t =     5.73s     Wait for com.mattermost.ios to idle
+    t =     5.73s     Find the "Display name" TextField
+    t =     5.76s     Check for interrupting elements affecting "Display name" TextField
+    t =     5.78s     Synthesize event
+    t =     6.07s     Wait for com.mattermost.ios to idle
+    t =     6.27s Type 'Local' into "Display name" TextField
+    t =     6.27s     Wait for com.mattermost.ios to idle
+    t =     6.30s     Find the "Display name" TextField
+    t =     6.36s     Check for interrupting elements affecting "Display name" TextField
+    t =     6.39s     Synthesize event
+    t =     6.68s     Wait for com.mattermost.ios to idle
+    t =     6.97s Tap "Server URL" TextField
+    t =     6.97s     Wait for com.mattermost.ios to idle
+    t =     6.97s     Find the "Server URL" TextField
+    t =     7.03s     Check for interrupting elements affecting "Server URL" TextField
+    t =     7.06s     Synthesize event
+    t =     7.36s     Wait for com.mattermost.ios to idle
+    t =     7.75s Type 'http://127.0.0.1:8...' into "Server URL" TextField
+    t =     7.75s     Wait for com.mattermost.ios to idle
+    t =     7.75s     Find the "Server URL" TextField
+    t =     7.79s     Check for interrupting elements affecting "Server URL" TextField
+    t =     7.82s     Synthesize event
+    t =     8.37s     Wait for com.mattermost.ios to idle
+    t =     9.44s Checking `Expect predicate `isEnabled == 1` for object "Save" Button`
+    t =     9.44s     Find the "Save" Button
+    t =     9.48s Tap "Save" Button
+    t =     9.48s     Wait for com.mattermost.ios to idle
+    t =     9.49s     Find the "Save" Button
+    t =     9.52s     Check for interrupting elements affecting "Save" Button
+    t =     9.55s     Synthesize event
+    t =     9.85s     Wait for com.mattermost.ios to idle
+    t =    10.36s Checking existence of `"Display name" TextField`
+    t =    10.40s Waiting 20.0s for WebView (First Match) to exist
+    t =    11.43s     Checking `Expect predicate `existsNoRetry == 1` for object WebView (First Match)`
+    t =    11.43s         Checking existence of `WebView (First Match)`
+    t =    11.46s Tear Down
+Test Case '-[MattermostUITests.MattermostUITests testAddServerThroughFormThenWebviewLoad]' passed (11.682 seconds).
+Test Case '-[MattermostUITests.MattermostUITests testCertPromptShownForSelfSignedServer]' started.
+    t =     0.00s Start Test at 2026-10-23 14:57:47.178
+    t =     0.03s Set Up
+    t =     0.03s Open com.mattermost.ios
+    t =     0.03s     Launch com.mattermost.ios
+    t =     0.03s         Terminate com.mattermost.ios:35701
+2026-10-23 14:57:48.260 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-23 14:57:48.260 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.29s         Setting up automation session
+    t =     2.08s         Wait for com.mattermost.ios to idle
+    t =     3.42s Waiting 20.0s for "certPromptSheet" Other to exist
+    t =     4.47s     Checking `Expect predicate `existsNoRetry == 1` for object "certPromptSheet" Other`
+    t =     4.47s         Checking existence of `"certPromptSheet" Other`
+    t =     4.64s Checking existence of `"Trust" Button`
+    t =     4.68s Checking existence of `"Cancel" Button`
+    t =     4.71s Checking existence of `"Don't Trust and Don't Ask Again" Button`
+    t =     4.74s Tap "Cancel" Button
+    t =     4.74s     Wait for com.mattermost.ios to idle
+    t =     4.75s     Find the "Cancel" Button
+    t =     4.78s     Check for interrupting elements affecting "Cancel" Button
+    t =     4.81s     Synthesize event
+    t =     5.11s     Wait for com.mattermost.ios to idle
+    t =     5.47s Tear Down
+Test Case '-[MattermostUITests.MattermostUITests testCertPromptShownForSelfSignedServer]' passed (6.002 seconds).
+Test Case '-[MattermostUITests.MattermostUITests testDownloadsOpensToEmptyState]' started.
+    t =     0.00s Start Test at 2026-10-23 14:57:53.180
+    t =     0.02s Set Up
+    t =     0.02s Open com.mattermost.ios
+    t =     0.02s     Launch com.mattermost.ios
+    t =     0.02s         Terminate com.mattermost.ios:35730
+2026-10-23 14:57:54.262 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-23 14:57:54.262 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.30s         Setting up automation session
+    t =     1.96s         Wait for com.mattermost.ios to idle
+    t =     3.17s Waiting 10.0s for "Get started" Button to exist
+    t =     4.21s     Checking `Expect predicate `existsNoRetry == 1` for object "Get started" Button`
+    t =     4.21s         Checking existence of `"Get started" Button`
+    t =     4.29s Tap "Get started" Button
+    t =     4.29s     Wait for com.mattermost.ios to idle
+    t =     4.30s     Find the "Get started" Button
+    t =     4.31s     Check for interrupting elements affecting "welcomeView" Button
+    t =     4.33s     Synthesize event
+    t =     4.62s     Wait for com.mattermost.ios to idle
+    t =     5.08s Waiting 5.0s for "Display name" TextField to exist
+    t =     6.12s     Checking `Expect predicate `existsNoRetry == 1` for object "Display name" TextField`
+    t =     6.12s         Checking existence of `"Display name" TextField`
+    t =     6.19s Tap "Display name" TextField
+    t =     6.19s     Wait for com.mattermost.ios to idle
+    t =     6.19s     Find the "Display name" TextField
+    t =     6.22s     Check for interrupting elements affecting "Display name" TextField
+    t =     6.24s     Synthesize event
+    t =     6.53s     Wait for com.mattermost.ios to idle
+    t =     6.55s Type 'Local' into "Display name" TextField
+    t =     6.55s     Wait for com.mattermost.ios to idle
+    t =     6.56s     Find the "Display name" TextField
+    t =     6.60s     Check for interrupting elements affecting "Display name" TextField
+    t =     6.64s     Synthesize event
+    t =     6.92s     Wait for com.mattermost.ios to idle
+    t =     7.23s Tap "Server URL" TextField
+    t =     7.23s     Wait for com.mattermost.ios to idle
+    t =     7.23s     Find the "Server URL" TextField
+    t =     7.29s     Check for interrupting elements affecting "Server URL" TextField
+    t =     7.33s     Synthesize event
+    t =     7.62s     Wait for com.mattermost.ios to idle
+    t =     8.03s Type 'http://127.0.0.1:8...' into "Server URL" TextField
+    t =     8.03s     Wait for com.mattermost.ios to idle
+    t =     8.04s     Find the "Server URL" TextField
+    t =     8.08s     Check for interrupting elements affecting "Server URL" TextField
+    t =     8.11s     Synthesize event
+    t =     8.65s     Wait for com.mattermost.ios to idle
+    t =     9.71s Checking `Expect predicate `isEnabled == 1` for object "Save" Button`
+    t =     9.71s     Find the "Save" Button
+    t =     9.76s Tap "Save" Button
+    t =     9.76s     Wait for com.mattermost.ios to idle
+    t =     9.76s     Find the "Save" Button
+    t =     9.80s     Check for interrupting elements affecting "Save" Button
+    t =     9.83s     Synthesize event
+    t =    10.14s     Wait for com.mattermost.ios to idle
+    t =    10.65s Checking existence of `"Display name" TextField`
+    t =    10.68s Tap "downloadsToolbarButton" Button
+    t =    10.68s     Wait for com.mattermost.ios to idle
+    t =    10.70s     Find the "downloadsToolbarButton" Button
+    t =    10.72s     Check for interrupting elements affecting "downloadsToolbarButton" Button
+    t =    10.74s     Synthesize event
+    t =    11.04s     Wait for com.mattermost.ios to idle
+    t =    11.43s Waiting 5.0s for "downloadsView" Other to exist
+    t =    12.45s     Checking `Expect predicate `existsNoRetry == 1` for object "downloadsView" Other`
+    t =    12.45s         Checking existence of `"downloadsView" Other`
+    t =    12.54s Checking existence of `"No Downloads" StaticText`
+    t =    12.57s Tap "Close" Button
+    t =    12.57s     Wait for com.mattermost.ios to idle
+    t =    12.57s     Find the "Close" Button
+    t =    12.61s     Check for interrupting elements affecting "Close" Button
+    t =    12.64s     Synthesize event
+    t =    12.93s     Wait for com.mattermost.ios to idle
+    t =    13.27s Tear Down
+Test Case '-[MattermostUITests.MattermostUITests testDownloadsOpensToEmptyState]' passed (13.586 seconds).
+Test Case '-[MattermostUITests.MattermostUITests testOnboardingPagerGetStartedOpensAddServerForm]' started.
+    t =     0.00s Start Test at 2026-10-23 14:58:06.768
+    t =     0.03s Set Up
+    t =     0.03s Open com.mattermost.ios
+    t =     0.03s     Launch com.mattermost.ios
+    t =     0.03s         Terminate com.mattermost.ios:35753
+2026-10-23 14:58:07.890 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-23 14:58:07.890 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.34s         Setting up automation session
+    t =     2.06s         Wait for com.mattermost.ios to idle
+    t =     3.26s Waiting 10.0s for "welcomeView" CollectionView to exist
+    t =     4.29s     Checking `Expect predicate `existsNoRetry == 1` for object "welcomeView" CollectionView`
+    t =     4.29s         Checking existence of `"welcomeView" CollectionView`
+    t =     4.38s Waiting 5.0s for "Next page" Button to exist
+    t =     5.41s     Checking `Expect predicate `existsNoRetry == 1` for object "Next page" Button`
+    t =     5.41s         Checking existence of `"Next page" Button`
+    t =     5.43s Tap "Next page" Button
+    t =     5.43s     Wait for com.mattermost.ios to idle
+    t =     5.43s     Find the "Next page" Button
+    t =     5.46s     Check for interrupting elements affecting "welcomeView" Button
+    t =     5.48s     Synthesize event
+    t =     5.78s     Wait for com.mattermost.ios to idle
+    t =     5.78s Checking existence of `"Previous page" Button`
+    t =     5.80s Waiting 5.0s for "Get started" Button to exist
+    t =     6.83s     Checking `Expect predicate `existsNoRetry == 1` for object "Get started" Button`
+    t =     6.83s         Checking existence of `"Get started" Button`
+    t =     6.84s Tap "Get started" Button
+    t =     6.84s     Wait for com.mattermost.ios to idle
+    t =     6.84s     Find the "Get started" Button
+    t =     6.86s     Check for interrupting elements affecting "welcomeView" Button
+    t =     6.88s     Synthesize event
+    t =     7.19s     Wait for com.mattermost.ios to idle
+    t =     7.66s Waiting 5.0s for "Display name" TextField to exist
+    t =     8.69s     Checking `Expect predicate `existsNoRetry == 1` for object "Display name" TextField`
+    t =     8.69s         Checking existence of `"Display name" TextField`
+    t =     8.76s Checking existence of `"Server URL" TextField`
+    t =     8.78s Checking existence of `"Save" Button`
+    t =     8.82s Find the "Save" Button
+    t =     8.84s Tear Down
+Test Case '-[MattermostUITests.MattermostUITests testOnboardingPagerGetStartedOpensAddServerForm]' passed (9.099 seconds).
+Test Case '-[MattermostUITests.MattermostUITests testServerSwitchBetweenTwoServers]' started.
+    t =     0.00s Start Test at 2026-10-23 14:58:15.867
+    t =     0.03s Set Up
+    t =     0.03s Open com.mattermost.ios
+    t =     0.03s     Launch com.mattermost.ios
+    t =     0.03s         Terminate com.mattermost.ios:35774
+2026-10-23 14:58:16.946 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-23 14:58:16.946 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.30s         Setting up automation session
+    t =     2.00s         Wait for com.mattermost.ios to idle
+    t =     3.21s Waiting 10.0s for "Get started" Button to exist
+    t =     4.24s     Checking `Expect predicate `existsNoRetry == 1` for object "Get started" Button`
+    t =     4.25s         Checking existence of `"Get started" Button`
+    t =     4.33s Tap "Get started" Button
+    t =     4.33s     Wait for com.mattermost.ios to idle
+    t =     4.33s     Find the "Get started" Button
+    t =     4.35s     Check for interrupting elements affecting "welcomeView" Button
+    t =     4.36s     Synthesize event
+    t =     4.66s     Wait for com.mattermost.ios to idle
+    t =     5.13s Waiting 5.0s for "Display name" TextField to exist
+    t =     6.17s     Checking `Expect predicate `existsNoRetry == 1` for object "Display name" TextField`
+    t =     6.17s         Checking existence of `"Display name" TextField`
+    t =     6.23s Tap "Display name" TextField
+    t =     6.23s     Wait for com.mattermost.ios to idle
+    t =     6.23s     Find the "Display name" TextField
+    t =     6.26s     Check for interrupting elements affecting "Display name" TextField
+    t =     6.29s     Synthesize event
+    t =     6.58s     Wait for com.mattermost.ios to idle
+    t =     6.61s Type 'Alpha' into "Display name" TextField
+    t =     6.61s     Wait for com.mattermost.ios to idle
+    t =     6.61s     Find the "Display name" TextField
+    t =     6.66s     Check for interrupting elements affecting "Display name" TextField
+    t =     6.70s     Synthesize event
+    t =     6.99s     Wait for com.mattermost.ios to idle
+    t =     7.28s Tap "Server URL" TextField
+    t =     7.28s     Wait for com.mattermost.ios to idle
+    t =     7.28s     Find the "Server URL" TextField
+    t =     7.34s     Check for interrupting elements affecting "Server URL" TextField
+    t =     7.38s     Synthesize event
+    t =     7.67s     Wait for com.mattermost.ios to idle
+    t =     8.09s Type 'http://127.0.0.1:8...' into "Server URL" TextField
+    t =     8.09s     Wait for com.mattermost.ios to idle
+    t =     8.10s     Find the "Server URL" TextField
+    t =     8.15s     Check for interrupting elements affecting "Server URL" TextField
+    t =     8.18s     Synthesize event
+    t =     8.74s     Wait for com.mattermost.ios to idle
+    t =     9.78s Checking `Expect predicate `isEnabled == 1` for object "Save" Button`
+    t =     9.78s     Find the "Save" Button
+    t =     9.83s Tap "Save" Button
+    t =     9.83s     Wait for com.mattermost.ios to idle
+    t =     9.83s     Find the "Save" Button
+    t =     9.87s     Check for interrupting elements affecting "Save" Button
+    t =     9.91s     Synthesize event
+    t =    10.21s     Wait for com.mattermost.ios to idle
+    t =    10.74s Checking existence of `"Display name" TextField`
+    t =    10.79s Waiting 5.0s for "addServerToolbarButton" Button to exist
+    t =    11.83s     Checking `Expect predicate `existsNoRetry == 1` for object "addServerToolbarButton" Button`
+    t =    11.83s         Checking existence of `"addServerToolbarButton" Button`
+    t =    11.92s Tap "addServerToolbarButton" Button
+    t =    11.92s     Wait for com.mattermost.ios to idle
+    t =    11.92s     Find the "addServerToolbarButton" Button
+    t =    11.94s     Check for interrupting elements affecting "addServerToolbarButton" Button
+    t =    11.97s     Synthesize event
+    t =    12.27s     Wait for com.mattermost.ios to idle
+    t =    12.66s Waiting 5.0s for "Display name" TextField to exist
+    t =    13.69s     Checking `Expect predicate `existsNoRetry == 1` for object "Display name" TextField`
+    t =    13.69s         Checking existence of `"Display name" TextField`
+    t =    13.78s Tap "Display name" TextField
+    t =    13.78s     Wait for com.mattermost.ios to idle
+    t =    13.78s     Find the "Display name" TextField
+    t =    13.82s     Check for interrupting elements affecting "Display name" TextField
+    t =    13.85s     Synthesize event
+    t =    14.14s     Wait for com.mattermost.ios to idle
+    t =    14.15s Type 'Beta' into "Display name" TextField
+    t =    14.15s     Wait for com.mattermost.ios to idle
+    t =    14.15s     Find the "Display name" TextField
+    t =    14.21s     Check for interrupting elements affecting "Display name" TextField
+    t =    14.25s     Synthesize event
+    t =    14.51s     Wait for com.mattermost.ios to idle
+    t =    14.82s Tap "Server URL" TextField
+    t =    14.82s     Wait for com.mattermost.ios to idle
+    t =    14.82s     Find the "Server URL" TextField
+    t =    14.88s     Check for interrupting elements affecting "Server URL" TextField
+    t =    14.93s     Synthesize event
+    t =    15.22s     Wait for com.mattermost.ios to idle
+    t =    15.60s Type 'http://localhost:8...' into "Server URL" TextField
+    t =    15.60s     Wait for com.mattermost.ios to idle
+    t =    15.61s     Find the "Server URL" TextField
+    t =    15.67s     Check for interrupting elements affecting "Server URL" TextField
+    t =    15.71s     Synthesize event
+    t =    16.26s     Wait for com.mattermost.ios to idle
+    t =    17.30s Checking `Expect predicate `isEnabled == 1` for object "Save" Button`
+    t =    17.31s     Find the "Save" Button
+    t =    17.37s Tap "Save" Button
+    t =    17.37s     Wait for com.mattermost.ios to idle
+    t =    17.37s     Find the "Save" Button
+    t =    17.42s     Check for interrupting elements affecting "Save" Button
+    t =    17.46s     Synthesize event
+    t =    17.76s     Wait for com.mattermost.ios to idle
+    t =    18.18s Checking existence of `"Display name" TextField`
+    t =    18.22s Waiting 5.0s for "serverSwitcher" Button to exist
+    t =    19.24s     Checking `Expect predicate `existsNoRetry == 1` for object "serverSwitcher" Button`
+    t =    19.24s         Checking existence of `"serverSwitcher" Button`
+    t =    19.28s Tap "serverSwitcher" Button
+    t =    19.28s     Wait for com.mattermost.ios to idle
+    t =    19.28s     Find the "serverSwitcher" Button
+    t =    19.31s     Check for interrupting elements affecting "serverSwitcher" Button
+    t =    19.35s     Synthesize event
+    t =    19.64s     Wait for com.mattermost.ios to idle
+    t =    19.65s Waiting 5.0s for "Alpha" Button to exist
+    t =    20.67s     Checking `Expect predicate `existsNoRetry == 1` for object "Alpha" Button`
+    t =    20.67s         Checking existence of `"Alpha" Button`
+    t =    20.74s Tap "Alpha" Button
+    t =    20.74s     Wait for com.mattermost.ios to idle
+    t =    20.74s     Find the "Alpha" Button
+    t =    20.78s     Check for interrupting elements affecting "Alpha" Button
+    t =    20.82s     Synthesize event
+    t =    21.11s     Wait for com.mattermost.ios to idle
+    t =    21.13s Waiting 5.0s for "serverSwitcher" Button to exist
+    t =    22.16s     Checking `Expect predicate `existsNoRetry == 1` for object "serverSwitcher" Button`
+    t =    22.16s         Checking existence of `"serverSwitcher" Button`
+    t =    22.20s Find the "serverSwitcher" Button
+    t =    22.24s Tear Down
+Test Case '-[MattermostUITests.MattermostUITests testServerSwitchBetweenTwoServers]' passed (22.454 seconds).
+Test Case '-[MattermostUITests.MattermostUITests testSettingsDownloadHistoryLimitPersists]' started.
+    t =     0.00s Start Test at 2026-10-23 14:58:38.321
+    t =     0.02s Set Up
+    t =     0.02s Open com.mattermost.ios
+    t =     0.02s     Launch com.mattermost.ios
+    t =     0.02s         Terminate com.mattermost.ios:35794
+2026-10-23 14:58:39.405 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-23 14:58:39.405 xcodebuild[35636:6638541] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.29s         Setting up automation session
+    t =     2.03s         Wait for com.mattermost.ios to idle
+    t =     3.23s Waiting 10.0s for "Get started" Button to exist
+    t =     4.25s     Checking `Expect predicate `existsNoRetry == 1` for object "Get started" Button`
+    t =     4.25s         Checking existence of `"Get started" Button`
+    t =     4.33s Tap "Get started" Button
+    t =     4.33s     Wait for com.mattermost.ios to idle
+    t =     4.33s     Find the "Get started" Button
+    t =     4.35s     Check for interrupting elements affecting "welcomeView" Button
+    t =     4.36s     Synthesize event
+    t =     4.66s     Wait for com.mattermost.ios to idle
+    t =     5.10s Waiting 5.0s for "Display name" TextField to exist
+    t =     6.13s     Checking `Expect predicate `existsNoRetry == 1` for object "Display name" TextField`
+    t =     6.13s         Checking existence of `"Display name" TextField`
+    t =     6.17s Tap "Display name" TextField
+    t =     6.17s     Wait for com.mattermost.ios to idle
+    t =     6.18s     Find the "Display name" TextField
+    t =     6.20s     Check for interrupting elements affecting "Display name" TextField
+    t =     6.23s     Synthesize event
+    t =     6.52s     Wait for com.mattermost.ios to idle
+    t =     6.52s Type 'Local' into "Display name" TextField
+    t =     6.52s     Wait for com.mattermost.ios to idle
+    t =     6.52s     Find the "Display name" TextField
+    t =     6.57s     Check for interrupting elements affecting "Display name" TextField
+    t =     6.61s     Synthesize event
+    t =     6.89s     Wait for com.mattermost.ios to idle
+    t =     7.18s Tap "Server URL" TextField
+    t =     7.18s     Wait for com.mattermost.ios to idle
+    t =     7.19s     Find the "Server URL" TextField
+    t =     7.26s     Check for interrupting elements affecting "Server URL" TextField
+    t =     7.30s     Synthesize event
+    t =     7.60s     Wait for com.mattermost.ios to idle
+    t =     8.00s Type 'http://127.0.0.1:8...' into "Server URL" TextField
+    t =     8.00s     Wait for com.mattermost.ios to idle
+    t =     8.00s     Find the "Server URL" TextField
+    t =     8.05s     Check for interrupting elements affecting "Server URL" TextField
+    t =     8.08s     Synthesize event
+    t =     8.64s     Wait for com.mattermost.ios to idle
+    t =     9.67s Checking `Expect predicate `isEnabled == 1` for object "Save" Button`
+    t =     9.67s     Find the "Save" Button
+    t =     9.72s Tap "Save" Button
+    t =     9.72s     Wait for com.mattermost.ios to idle
+    t =     9.72s     Find the "Save" Button
+    t =     9.76s     Check for interrupting elements affecting "Save" Button
+    t =     9.79s     Synthesize event
+    t =    10.08s     Wait for com.mattermost.ios to idle
+    t =    10.60s Checking existence of `"Display name" TextField`
+    t =    10.64s Tap "settingsToolbarButton" Button
+    t =    10.64s     Wait for com.mattermost.ios to idle
+    t =    10.64s     Find the "settingsToolbarButton" Button
+    t =    10.67s     Check for interrupting elements affecting "settingsToolbarButton" Button
+    t =    10.71s     Synthesize event
+    t =    11.00s     Wait for com.mattermost.ios to idle
+    t =    11.05s Waiting 5.0s for "settingsView" Other to exist
+    t =    12.07s     Checking `Expect predicate `existsNoRetry == 1` for object "settingsView" Other`
+    t =    12.07s         Checking existence of `"settingsView" Other`
+    t =    12.18s Waiting 5.0s for StaticText (First Match) to exist
+    t =    13.22s     Checking `Expect predicate `existsNoRetry == 1` for object StaticText (First Match)`
+    t =    13.22s         Checking existence of `StaticText (First Match)`
+    t =    13.32s Find the StaticText (First Match)
+    t =    13.39s Waiting 5.0s for Stepper (First Match) to exist
+    t =    14.40s     Checking `Expect predicate `existsNoRetry == 1` for object Stepper (First Match)`
+    t =    14.40s         Checking existence of `Stepper (First Match)`
+    t =    14.49s Checking existence of `"Increment" Button`
+    t =    14.57s Tap "Increment" Button
+    t =    14.57s     Wait for com.mattermost.ios to idle
+    t =    14.58s     Find the "Increment" Button
+    t =    14.66s     Check for interrupting elements affecting "Increment" Button
+    t =    14.71s     Synthesize event
+    t =    15.00s     Wait for com.mattermost.ios to idle
+    t =    15.25s Tap "Done" Button
+    t =    15.25s     Wait for com.mattermost.ios to idle
+    t =    15.26s     Find the "Done" Button
+    t =    15.32s     Check for interrupting elements affecting "Done" Button
+    t =    15.36s     Synthesize event
+    t =    15.66s     Wait for com.mattermost.ios to idle
+    t =    16.04s Tap "settingsToolbarButton" Button
+    t =    16.04s     Wait for com.mattermost.ios to idle
+    t =    16.06s     Find the "settingsToolbarButton" Button
+    t =    16.09s     Check for interrupting elements affecting "settingsToolbarButton" Button
+    t =    16.12s     Synthesize event
+    t =    16.42s     Wait for com.mattermost.ios to idle
+    t =    16.84s Waiting 5.0s for StaticText (First Match) to exist
+    t =    17.87s     Checking `Expect predicate `existsNoRetry == 1` for object StaticText (First Match)`
+    t =    17.87s         Checking existence of `StaticText (First Match)`
+    t =    18.00s Find the StaticText (First Match)
+    t =    18.08s Tap "Done" Button
+    t =    18.08s     Wait for com.mattermost.ios to idle
+    t =    18.09s     Find the "Done" Button
+    t =    18.14s     Check for interrupting elements affecting "Done" Button
+    t =    18.18s     Synthesize event
+    t =    18.47s     Wait for com.mattermost.ios to idle
+    t =    18.84s Tear Down
+Test Case '-[MattermostUITests.MattermostUITests testSettingsDownloadHistoryLimitPersists]' passed (19.134 seconds).
+Test Suite 'MattermostUITests' passed at 2026-10-23 14:58:57.457.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 81.956 (81.962) seconds
+Test Suite 'MattermostUITests.xctest' passed at 2026-10-23 14:58:57.458.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 81.956 (81.963) seconds
+Test Suite 'All tests' passed at 2026-10-23 14:58:57.459.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 81.956 (81.965) seconds
+2026-10-23 14:59:11.774 xcodebuild[35636:6638541] [MT] IDETestOperationsObserverDebug: 104.656 elapsed -- Testing started completed.
+2026-10-23 14:59:11.774 xcodebuild[35636:6638541] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-23 14:59:11.774 xcodebuild[35636:6638541] [MT] IDETestOperationsObserverDebug: 104.656 sec, +104.656 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/mattermost-ios/build/ddata/Logs/Test/Test-Mattermost-2026.10.23_14-57-23-+0800.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started

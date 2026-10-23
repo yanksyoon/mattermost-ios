@@ -1,0 +1,826 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		F30000000000000000000001 /* MattermostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* MattermostApp.swift */; };
+		F30000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* AppDelegate.swift */; };
+		F30000000000000000000003 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* Logger.swift */; };
+		F30000000000000000000004 /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* AppPreferences.swift */; };
+		F30000000000000000000005 /* ServerConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000005 /* ServerConfig.swift */; };
+		F30000000000000000000006 /* ServerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000006 /* ServerStore.swift */; };
+		F30000000000000000000007 /* WebViewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000007 /* WebViewStore.swift */; };
+		F30000000000000000000008 /* WebViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000008 /* WebViewContainer.swift */; };
+		F30000000000000000000009 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000009 /* ContentView.swift */; };
+		F3000000000000000000000A /* ErrorStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000A /* ErrorStateView.swift */; };
+		F3000000000000000000000B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000B /* Assets.xcassets */; };
+		F3000000000000000000000C /* ViewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000F /* ViewStore.swift */; };
+		F3000000000000000000000D /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000010 /* RootView.swift */; };
+		F3000000000000000000000E /* ServerFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000012 /* ServerFormView.swift */; };
+		F3000000000000000000000F /* ServerAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000013 /* ServerAPI.swift */; };
+		F30000000000000000000010 /* ServerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000014 /* ServerInfo.swift */; };
+		F30000000000000000000011 /* ServerURLValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000015 /* ServerURLValidator.swift */; };
+		F30000000000000000000012 /* ServerFormModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000016 /* ServerFormModel.swift */; };
+		F30000000000000000000013 /* Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000017 /* Bridge.swift */; };
+		F30000000000000000000014 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000018 /* DeepLinkRouter.swift */; };
+		F40000000000000000000002 /* ServerStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000D /* ServerStoreTests.swift */; };
+		F40000000000000000000003 /* WebViewStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000E /* WebViewStoreTests.swift */; };
+		F40000000000000000000004 /* ViewStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000011 /* ViewStoreTests.swift */; };
+		F40000000000000000000005 /* BridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000019 /* BridgeTests.swift */; };
+		F40000000000000000000006 /* DeepLinkRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001A /* DeepLinkRouterTests.swift */; };
+		F40000000000000000000007 /* ServerInfoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001C /* ServerInfoTests.swift */; };
+		F40000000000000000000008 /* ServerURLValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001D /* ServerURLValidatorTests.swift */; };
+		F30000000000000000000015 /* SecureVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001E /* SecureVault.swift */; };
+		F40000000000000000000009 /* SecureVaultTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001F /* SecureVaultTests.swift */; };
+		F30000000000000000000016 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000020 /* WelcomeView.swift */; };
+		F4000000000000000000000A /* WelcomeViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000021 /* WelcomeViewTests.swift */; };
+		F30000000000000000000017 /* ThemeSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000022 /* ThemeSync.swift */; };
+		F30000000000000000000018 /* CertTrust.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000023 /* CertTrust.swift */; };
+		F4000000000000000000000B /* ThemeSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000024 /* ThemeSyncTests.swift */; };
+		F4000000000000000000000C /* CertTrustTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000025 /* CertTrustTests.swift */; };
+F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000031 /* CertTrustDebugTests.swift */; };
+		F30000000000000000000019 /* DownloadRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000026 /* DownloadRecord.swift */; };
+		F3000000000000000000001A /* DownloadHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000027 /* DownloadHistory.swift */; };
+		F3000000000000000000001B /* DownloadWorker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000028 /* DownloadWorker.swift */; };
+		F4000000000000000000000D /* DownloadWorkerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000029 /* DownloadWorkerTests.swift */; };
+		F3000000000000000000001C /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000002A /* SessionStore.swift */; };
+		F3000000000000000000001D /* NotificationWorker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000002B /* NotificationWorker.swift */; };
+		F4000000000000000000000E /* SessionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000002C /* SessionStoreTests.swift */; };
+		F4000000000000000000000F /* NotificationWorkerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000002D /* NotificationWorkerTests.swift */; };
+		F3000000000000000000001E /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000002E /* AppSettings.swift */; };
+		F3000000000000000000001F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000002F /* SettingsView.swift */; };
+		F30000000000000000000020 /* DownloadsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000030 /* DownloadsView.swift */; };
+		F30000000000000000000021 /* CertPromptSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000035 /* CertPromptSheet.swift */; };
+		F40000000000000000000013 /* SettingsViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000032 /* SettingsViewTests.swift */; };
+		F40000000000000000000011 /* DownloadsViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000033 /* DownloadsViewTests.swift */; };
+		F40000000000000000000012 /* CertPromptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000034 /* CertPromptTests.swift */; };
+		F40000000000000000000014 /* MattermostUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000036 /* MattermostUITests.swift */; };
+		F30000000000000000000022 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000037 /* PrivacyInfo.xcprivacy */; };
+		F30000000000000000000023 /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000038 /* Diagnostics.swift */; };
+		F30000000000000000000024 /* SentryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000039 /* SentryService.swift */; };
+		F30000000000000000000025 /* SentrySDKLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000003C /* SentrySDKLink.swift */; };
+		F40000000000000000000015 /* DiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000003A /* DiagnosticsTests.swift */; };
+		F40000000000000000000016 /* SentryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000003B /* SentryServiceTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		F70000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F50000000000000000000001;
+			remoteInfo = Mattermost;
+		};
+		F70000000000000000000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F50000000000000000000001;
+			remoteInfo = Mattermost;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		F10000000000000000000001 /* Mattermost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mattermost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F10000000000000000000002 /* MattermostTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MattermostTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F10000000000000000000003 /* MattermostUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MattermostUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F20000000000000000000001 /* MattermostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostApp.swift; sourceTree = "<group>"; };
+		F20000000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		F20000000000000000000003 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		F20000000000000000000004 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
+		F20000000000000000000005 /* ServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfig.swift; sourceTree = "<group>"; };
+		F20000000000000000000006 /* ServerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStore.swift; sourceTree = "<group>"; };
+		F20000000000000000000007 /* WebViewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewStore.swift; sourceTree = "<group>"; };
+		F20000000000000000000008 /* WebViewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewContainer.swift; sourceTree = "<group>"; };
+		F20000000000000000000009 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F2000000000000000000000A /* ErrorStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorStateView.swift; sourceTree = "<group>"; };
+		F2000000000000000000000B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F2000000000000000000000C /* Mattermost.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mattermost.entitlements; sourceTree = "<group>"; };
+		F2000000000000000000000D /* ServerStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerStoreTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000000E /* WebViewStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewStoreTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000000F /* ViewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewStore.swift; sourceTree = "<group>"; };
+		F20000000000000000000010 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		F20000000000000000000011 /* ViewStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewStoreTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000012 /* ServerFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFormView.swift; sourceTree = "<group>"; };
+		F20000000000000000000013 /* ServerAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerAPI.swift; sourceTree = "<group>"; };
+		F20000000000000000000014 /* ServerInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerInfo.swift; sourceTree = "<group>"; };
+		F20000000000000000000015 /* ServerURLValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerURLValidator.swift; sourceTree = "<group>"; };
+		F20000000000000000000016 /* ServerFormModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerFormModel.swift; sourceTree = "<group>"; };
+		F20000000000000000000017 /* Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bridge.swift; sourceTree = "<group>"; };
+		F20000000000000000000018 /* DeepLinkRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkRouter.swift; sourceTree = "<group>"; };
+		F20000000000000000000019 /* BridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000001A /* DeepLinkRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkRouterTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000001C /* ServerInfoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerInfoTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000001D /* ServerURLValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerURLValidatorTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		F2000000000000000000001E /* SecureVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureVault.swift; sourceTree = "<group>"; };
+		F2000000000000000000001F /* SecureVaultTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureVaultTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000020 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
+		F20000000000000000000021 /* WelcomeViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeViewTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000022 /* ThemeSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSync.swift; sourceTree = "<group>"; };
+		F20000000000000000000023 /* CertTrust.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertTrust.swift; sourceTree = "<group>"; };
+		F20000000000000000000024 /* ThemeSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSyncTests.swift; sourceTree = "<group>"; };
+F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertTrustDebugTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000025 /* CertTrustTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertTrustTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000026 /* DownloadRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadRecord.swift; sourceTree = "<group>"; };
+		F20000000000000000000027 /* DownloadHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadHistory.swift; sourceTree = "<group>"; };
+		F20000000000000000000028 /* DownloadWorker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadWorker.swift; sourceTree = "<group>"; };
+		F20000000000000000000029 /* DownloadWorkerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadWorkerTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000002A /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		F2000000000000000000002B /* NotificationWorker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationWorker.swift; sourceTree = "<group>"; };
+		F2000000000000000000002C /* SessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStoreTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000002D /* NotificationWorkerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationWorkerTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000002E /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		F2000000000000000000002F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F20000000000000000000030 /* DownloadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsView.swift; sourceTree = "<group>"; };
+		F20000000000000000000032 /* SettingsViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000033 /* DownloadsViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsViewTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000034 /* CertPromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertPromptTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000035 /* CertPromptSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertPromptSheet.swift; sourceTree = "<group>"; };
+		F20000000000000000000036 /* MattermostUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostUITests.swift; sourceTree = "<group>"; };
+		F20000000000000000000037 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		F20000000000000000000038 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
+		F20000000000000000000039 /* SentryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryService.swift; sourceTree = "<group>"; };
+		F2000000000000000000003A /* DiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000003B /* SentryServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryServiceTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000003C /* SentrySDKLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentrySDKLink.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F60000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F60000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F60000000000000000000008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F00000000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				F00000000000000000000004 /* Mattermost */,
+				F00000000000000000000007 /* MattermostTests */,
+				F00000000000000000000008 /* MattermostUITests */,
+				F00000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F00000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F10000000000000000000001 /* Mattermost.app */,
+				F10000000000000000000002 /* MattermostTests.xctest */,
+				F10000000000000000000003 /* MattermostUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F00000000000000000000004 /* Mattermost */ = {
+			isa = PBXGroup;
+			children = (
+				F20000000000000000000001 /* MattermostApp.swift */,
+				F20000000000000000000002 /* AppDelegate.swift */,
+				F00000000000000000000005 /* Core */,
+				F00000000000000000000006 /* UI */,
+				F2000000000000000000000B /* Assets.xcassets */,
+				F2000000000000000000000C /* Mattermost.entitlements */,
+				F2000000000000000000001B /* Info.plist */,
+				F20000000000000000000037 /* PrivacyInfo.xcprivacy */,
+			);
+			path = Mattermost;
+			sourceTree = "<group>";
+		};
+		F00000000000000000000005 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				F20000000000000000000003 /* Logger.swift */,
+				F20000000000000000000004 /* AppPreferences.swift */,
+				F20000000000000000000005 /* ServerConfig.swift */,
+				F20000000000000000000006 /* ServerStore.swift */,
+				F20000000000000000000007 /* WebViewStore.swift */,
+				F2000000000000000000000F /* ViewStore.swift */,
+				F20000000000000000000013 /* ServerAPI.swift */,
+				F20000000000000000000014 /* ServerInfo.swift */,
+				F20000000000000000000015 /* ServerURLValidator.swift */,
+				F20000000000000000000016 /* ServerFormModel.swift */,
+				F20000000000000000000017 /* Bridge.swift */,
+				F20000000000000000000018 /* DeepLinkRouter.swift */,
+				F2000000000000000000001E /* SecureVault.swift */,
+				F20000000000000000000022 /* ThemeSync.swift */,
+				F20000000000000000000023 /* CertTrust.swift */,
+				F20000000000000000000026 /* DownloadRecord.swift */,
+				F20000000000000000000027 /* DownloadHistory.swift */,
+				F20000000000000000000028 /* DownloadWorker.swift */,
+				F2000000000000000000002A /* SessionStore.swift */,
+				F2000000000000000000002B /* NotificationWorker.swift */,
+				F2000000000000000000002E /* AppSettings.swift */,
+				F20000000000000000000038 /* Diagnostics.swift */,
+				F20000000000000000000039 /* SentryService.swift */,
+				F2000000000000000000003C /* SentrySDKLink.swift */,
+				);
+				path = Core;
+				sourceTree = "<group>";
+				};
+		F00000000000000000000006 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				F20000000000000000000008 /* WebViewContainer.swift */,
+				F20000000000000000000009 /* ContentView.swift */,
+				F20000000000000000000010 /* RootView.swift */,
+				F20000000000000000000012 /* ServerFormView.swift */,
+				F20000000000000000000020 /* WelcomeView.swift */,
+				F2000000000000000000000A /* ErrorStateView.swift */,
+				F2000000000000000000002F /* SettingsView.swift */,
+				F20000000000000000000030 /* DownloadsView.swift */,
+				F20000000000000000000035 /* CertPromptSheet.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		F00000000000000000000008 /* MattermostUITests */ = {
+			isa = PBXGroup;
+			children = (
+				F20000000000000000000036 /* MattermostUITests.swift */,
+			);
+			path = MattermostUITests;
+			sourceTree = "<group>";
+		};
+		F00000000000000000000007 /* MattermostTests */ = {
+			isa = PBXGroup;
+			children = (
+				F2000000000000000000000D /* ServerStoreTests.swift */,
+				F2000000000000000000000E /* WebViewStoreTests.swift */,
+				F20000000000000000000011 /* ViewStoreTests.swift */,
+				F20000000000000000000019 /* BridgeTests.swift */,
+				F2000000000000000000001A /* DeepLinkRouterTests.swift */,
+				F2000000000000000000001C /* ServerInfoTests.swift */,
+				F2000000000000000000001D /* ServerURLValidatorTests.swift */,
+				F2000000000000000000001F /* SecureVaultTests.swift */,
+				F20000000000000000000021 /* WelcomeViewTests.swift */,
+F20000000000000000000031 /* CertTrustDebugTests.swift */,
+				F20000000000000000000024 /* ThemeSyncTests.swift */,
+				F20000000000000000000025 /* CertTrustTests.swift */,
+				F20000000000000000000029 /* DownloadWorkerTests.swift */,
+				F2000000000000000000002C /* SessionStoreTests.swift */,
+				F2000000000000000000002D /* NotificationWorkerTests.swift */,
+				F20000000000000000000032 /* SettingsViewTests.swift */,
+				F20000000000000000000033 /* DownloadsViewTests.swift */,
+				F20000000000000000000034 /* CertPromptTests.swift */,
+				F2000000000000000000003A /* DiagnosticsTests.swift */,
+				F2000000000000000000003B /* SentryServiceTests.swift */,
+				);
+				path = MattermostTests;
+				sourceTree = "<group>";
+				};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F50000000000000000000001 /* Mattermost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F90000000000000000000002 /* Build configuration list for PBXNativeTarget "Mattermost" */;
+			buildPhases = (
+				F60000000000000000000001 /* Sources */,
+				F60000000000000000000002 /* Frameworks */,
+				F60000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Mattermost;
+			productName = Mattermost;
+			productReference = F10000000000000000000001 /* Mattermost.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F50000000000000000000002 /* MattermostTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F90000000000000000000003 /* Build configuration list for PBXNativeTarget "MattermostTests" */;
+			buildPhases = (
+				F60000000000000000000004 /* Sources */,
+				F60000000000000000000005 /* Frameworks */,
+				F60000000000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F80000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = MattermostTests;
+			productName = MattermostTests;
+			productReference = F10000000000000000000002 /* MattermostTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		F50000000000000000000003 /* MattermostUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F90000000000000000000004 /* Build configuration list for PBXNativeTarget "MattermostUITests" */;
+			buildPhases = (
+				F60000000000000000000007 /* Sources */,
+				F60000000000000000000008 /* Frameworks */,
+				F60000000000000000000009 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F80000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = MattermostUITests;
+			productName = MattermostUITests;
+			productReference = F10000000000000000000003 /* MattermostUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F00000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					F50000000000000000000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					F50000000000000000000002 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = F50000000000000000000001;
+					};
+					F50000000000000000000003 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = F50000000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = F90000000000000000000001 /* Build configuration list for PBXProject "Mattermost" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = F00000000000000000000002;
+			productRefGroup = F00000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F50000000000000000000001 /* Mattermost */,
+				F50000000000000000000002 /* MattermostTests */,
+				F50000000000000000000003 /* MattermostUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F60000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F3000000000000000000000B /* Assets.xcassets in Resources */,
+				F30000000000000000000022 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F60000000000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F60000000000000000000009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F60000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F30000000000000000000001 /* MattermostApp.swift in Sources */,
+				F30000000000000000000002 /* AppDelegate.swift in Sources */,
+				F30000000000000000000003 /* Logger.swift in Sources */,
+				F30000000000000000000004 /* AppPreferences.swift in Sources */,
+				F30000000000000000000005 /* ServerConfig.swift in Sources */,
+				F30000000000000000000006 /* ServerStore.swift in Sources */,
+				F30000000000000000000007 /* WebViewStore.swift in Sources */,
+				F30000000000000000000008 /* WebViewContainer.swift in Sources */,
+				F30000000000000000000009 /* ContentView.swift in Sources */,
+				F3000000000000000000000A /* ErrorStateView.swift in Sources */,
+				F3000000000000000000000C /* ViewStore.swift in Sources */,
+				F3000000000000000000000D /* RootView.swift in Sources */,
+				F3000000000000000000000E /* ServerFormView.swift in Sources */,
+				F3000000000000000000000F /* ServerAPI.swift in Sources */,
+				F30000000000000000000010 /* ServerInfo.swift in Sources */,
+				F30000000000000000000011 /* ServerURLValidator.swift in Sources */,
+				F30000000000000000000012 /* ServerFormModel.swift in Sources */,
+				F30000000000000000000013 /* Bridge.swift in Sources */,
+				F30000000000000000000014 /* DeepLinkRouter.swift in Sources */,
+				F30000000000000000000015 /* SecureVault.swift in Sources */,
+				F30000000000000000000016 /* WelcomeView.swift in Sources */,
+				F30000000000000000000017 /* ThemeSync.swift in Sources */,
+				F30000000000000000000018 /* CertTrust.swift in Sources */,
+				F30000000000000000000019 /* DownloadRecord.swift in Sources */,
+				F3000000000000000000001A /* DownloadHistory.swift in Sources */,
+				F3000000000000000000001B /* DownloadWorker.swift in Sources */,
+				F3000000000000000000001C /* SessionStore.swift in Sources */,
+				F3000000000000000000001D /* NotificationWorker.swift in Sources */,
+				F3000000000000000000001E /* AppSettings.swift in Sources */,
+				F3000000000000000000001F /* SettingsView.swift in Sources */,
+				F30000000000000000000020 /* DownloadsView.swift in Sources */,
+				F30000000000000000000021 /* CertPromptSheet.swift in Sources */,
+				F30000000000000000000023 /* Diagnostics.swift in Sources */,
+				F30000000000000000000024 /* SentryService.swift in Sources */,
+				F30000000000000000000025 /* SentrySDKLink.swift in Sources */,
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+				};
+		F60000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F40000000000000000000002 /* ServerStoreTests.swift in Sources */,
+				F40000000000000000000003 /* WebViewStoreTests.swift in Sources */,
+				F40000000000000000000004 /* ViewStoreTests.swift in Sources */,
+				F40000000000000000000005 /* BridgeTests.swift in Sources */,
+				F40000000000000000000006 /* DeepLinkRouterTests.swift in Sources */,
+				F40000000000000000000007 /* ServerInfoTests.swift in Sources */,
+				F40000000000000000000008 /* ServerURLValidatorTests.swift in Sources */,
+				F40000000000000000000009 /* SecureVaultTests.swift in Sources */,
+F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */,
+				F4000000000000000000000A /* WelcomeViewTests.swift in Sources */,
+				F4000000000000000000000B /* ThemeSyncTests.swift in Sources */,
+				F4000000000000000000000C /* CertTrustTests.swift in Sources */,
+				F4000000000000000000000D /* DownloadWorkerTests.swift in Sources */,
+				F4000000000000000000000E /* SessionStoreTests.swift in Sources */,
+				F4000000000000000000000F /* NotificationWorkerTests.swift in Sources */,
+				F40000000000000000000011 /* DownloadsViewTests.swift in Sources */,
+				F40000000000000000000012 /* CertPromptTests.swift in Sources */,
+				F40000000000000000000013 /* SettingsViewTests.swift in Sources */,
+				F40000000000000000000015 /* DiagnosticsTests.swift in Sources */,
+				F40000000000000000000016 /* SentryServiceTests.swift in Sources */,
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+				};
+		F60000000000000000000007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F40000000000000000000014 /* MattermostUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F80000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F50000000000000000000001 /* Mattermost */;
+			targetProxy = F70000000000000000000001 /* PBXContainerItemProxy */;
+		};
+		F80000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F50000000000000000000001 /* Mattermost */;
+			targetProxy = F70000000000000000000002 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FA0000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		FA0000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		FA0000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Mattermost/Mattermost.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Mattermost/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mattermost.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FA0000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Mattermost/Mattermost.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Mattermost/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mattermost.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		FA0000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mattermost.iosTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mattermost.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Mattermost";
+			};
+			name = Debug;
+		};
+		FA0000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mattermost.iosTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mattermost.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Mattermost";
+			};
+			name = Release;
+		};
+		FA0000000000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mattermost.iosUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Mattermost;
+			};
+			name = Debug;
+		};
+		FA0000000000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mattermost.iosUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Mattermost;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F90000000000000000000001 /* Build configuration list for PBXProject "Mattermost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA0000000000000000000001 /* Debug */,
+				FA0000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F90000000000000000000002 /* Build configuration list for PBXNativeTarget "Mattermost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA0000000000000000000003 /* Debug */,
+				FA0000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F90000000000000000000003 /* Build configuration list for PBXNativeTarget "MattermostTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA0000000000000000000005 /* Debug */,
+				FA0000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F90000000000000000000004 /* Build configuration list for PBXNativeTarget "MattermostUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA0000000000000000000007 /* Debug */,
+				FA0000000000000000000008 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F00000000000000000000001 /* Project object */;
+}

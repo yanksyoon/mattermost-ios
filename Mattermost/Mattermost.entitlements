@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		Entitlement baseline for PERSONAL USE (no Apple Developer account, ad-hoc signing).
+
+		History / why this file is now minimal:
+		  - Originally it carried `get-task-allow` (debugger attach) and
+		    `keychain-access-groups = [$(AppIdentifierPrefix)$(CFBundleIdentifier)]`.
+		  - Both require signing with a DEVELOPMENT certificate. This client is built with
+		    ad-hoc identity (CODE_SIGN_IDENTITY = "-"), and this host has zero codesigning
+		    identities, so those entitlements made the Catalyst build fail with
+		    "Mattermost has entitlements that require signing with a development certificate."
+		  - T20 decision: a fully empty entitlements dict is the correct content for a
+		    personal, locally-run ad-hoc Catalyst/iOS build. No App Sandbox entitlement is
+		    applied (ENABLE_APP_SANDBOX = NO in the pbxproj) because there is no App Store
+		    review to satisfy and the sandbox would block file/network access for a locally-run
+		    build; we disable it deliberately (documented in docs/t20-build-note.md).
+		    `get-task-allow` is dropped because it is a development-certificate entitlement and
+		    is meaningless under ad-hoc signing (simulator builds do not need it). On a physical
+		    device you would debug via the normal Xcode development-signing flow, which supplies
+		    its own entitlements.
+
+		Credentials note: SecureVault stores per-server auth tokens as kSecClassGenericPassword
+		items scoped by kSecAttrService (server canonical URL) + kSecAttrAccount (secret name).
+		That API does NOT require a keychain-access-groups entitlement - access groups are only
+		for SHARING items across app groups/targets. This app is a single target; the only
+		future keychain-sharing consumer (the push NotificationServiceExtension) is blocked as
+		publishing-only (T12/T13); re-add keychain-access-groups when that extension lands and
+		is signed with a development/provisioning identity.
+	-->
+</dict>
+</plist>

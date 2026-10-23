@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		Phase-3 extra Info.plist entries merged on top of Xcode's generated Info.plist
+		(GENERATE_INFOPLIST_FILE=YES and INFOPLIST_FILE both set): Xcode merges this file's
+		keys in. It carries ONLY the keys that cannot be expressed as INFOPLIST_KEY_* build
+		setting, chiefly the `mattermost://` custom URL scheme consumed by DeepLinkRouter and
+		the App Transport Security (ATS) + privacy keys below (T18 App Store readiness gate).
+
+		The desktop app declares the `mattermost` scheme (and a dev `mattermost-beta` scheme);
+		registering it here lets links opened in Safari/other apps route back into this client.
+	-->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>com.mattermost.ios</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mattermost</string>
+				<string>mattermost-beta</string>
+			</array>
+		</dict>
+	</array>
+	<!--
+		ATS (App Transport Security), scoped — T18 release gate. This is a WKWebView shell:
+		the chat UI is the Mattermost web app, and the product lets the user point the app at
+		any Mattermost server they configure (self-hosted, enterprise, or on a LAN / dev box).
+		Two narrow relaxations, nothing global:
+
+		1. NSAllowsArbitraryLoadsInWebContent = true — relaxes ATS ONLY inside WKWebView web
+		   content (the officially sanctioned key for webview-host apps). It does NOT relax ATS
+		   for the app's own URLSession layer: native shell networking (server-info probes,
+		   downloads, diagnostics) still requires https and valid TLS. Apple's ATS
+		   documentation explicitly directs webview apps to use this key instead of
+		   NSAllowsArbitraryLoads. Without it, a self-hosted Mattermost server reachable only
+		   over plain http (common for LAN/transitional deployments) could never render even
+		   after the user configures it. NSAllowsArbitraryLoads is deliberately NOT set.
+
+		2. NSAllowsLocalNetworking = true — lets the shell validate/add self-hosted or
+		   on-network servers reachable over http:// on the local network (e.g. a plain-HTTP
+		   Mattermost instance on a LAN, or the local stub servers the XCUITest suite drives)
+		   without disabling ATS for the whole app — public-internet connections still require
+		   https. Private-range addresses (10.x, 172.16-31.x, 192.168.x) and .local count as
+		   local networking under ATS.
+
+		Runtime scoping: the shell only ever instantiates a WKWebView for servers present in
+		ServerStore (RootView.activate), and ServerURLValidator normalizes user-entered
+		addresses to https unless the user explicitly types an http:// URL. TLS failures on
+		https servers are handled by CertTrust (user-confirmed per origin, Keychain-persisted),
+		never silently bypassed. See docs/app-store-review-notes.md for the full narrative.
+	-->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<!--
+		Permission rationale strings. Camera/microphone are NOT used by native code today;
+		they are required by WKWebView's getUserMedia so the Mattermost web app's Calls
+		feature can request the device camera/mic when the user starts a call inside the
+		hosted web app. Local-network covers connecting to LAN self-hosted dev servers
+		(modelled by NSAllowsLocalNetworking above).
+	-->
+	<key>NSCameraUsageDescription</key>
+	<string>Mattermost needs camera access for video calls you start in the Mattermost web app.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Mattermost needs microphone access for voice and video calls you start in the Mattermost web app.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Mattermost connects to Mattermost servers on your local network, for example a self-hosted development server on your LAN.</string>
+	<!--
+		Export-compliance declaration: the app only uses HTTPS/TLS (exempt) and performs no
+		other cryptography; App Store Connect's export-compliance question can therefore be
+		answered "no encryption" without a per-build review. Revisit if the app ever ships
+		its own crypto.
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!--
+		Sentry DSN (T19a). The Sentry handler reads this key; an empty/missing value means the
+		no-op path: SentrySDK.start is never called (verified by unit test). Set a real DSN
+		here the day the Sentry Cocoa SDK is linked into the target (see SentrySDKLink.swift
+		+ docs/t19a-build-note.md). Never commit a real DSN for a public release build.
+	-->
+	<key>SentryDSN</key>
+	<string></string>
+</dict>
+</plist>

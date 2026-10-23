@@ -1,0 +1,23 @@
+# Xcode / Swift
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+.DS_Store
+
+# Swift Package Manager (if added later)
+.build/
+.swiftpm/
+
+# Signing / secrets
+*.mobileprovision
+!Mattermost/Mattermost.entitlements
+
+# Test/coverage artefacts
+*.profraw
+*.profdata
+
+# Editor
+.vscode/
+.idea/

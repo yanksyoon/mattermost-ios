@@ -1,0 +1,19 @@
+{
+  "_comment": "Mock Mattermost Push Proxy config (SIMULACRUM). Keys mirror mattermost-push-proxy's real mattermost-push-proxy.json so migration to a real proxy is a config swap. For the mock, ServerID is just an opaque id (use the Mattermost DiagnosticId to stay drop-in); Secret is accepted but not yet enforced by the mock. ApplePushSettings.Topic should be the app's APNs bundle id. Devices is a dev-only registry the mock grows at runtime. DO NOT ship real secrets here.",
+  "Servers": [
+    {
+      "ServerID": "REPLACE_WITH_MATTERMOST_DIAGNOSTIC_ID",
+      "Name": "community",
+      "Secret": "REPLACE_WITH_PUSH_NOTIFICATION_PROXY_SECRET"
+    }
+  ],
+  "ApplePushSettings": {
+    "Type": "prod",
+    "TeamID": "REPLACE_WITH_APPLE_TEAM_ID",
+    "KeyID": "REPLACE_WITH_APNS_KEY_ID",
+    "AuthKeyPath": "REPLACE_APNS_AUTH_KEY_ABS_PATH",
+    "Topic": "com.mattermost.ios.REPLACE",
+    "BundleID": "com.mattermost.ios.REPLACE"
+  },
+  "Devices": {}
+}
