@@ -180,6 +180,20 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             sendBrowserHistoryPush: (path) =>
                 post("\(BridgeMessage.browserHistoryPush)", { path }),
         });
+        // SSO entry guard. The web app routes /login/sso/* client-side and renders only the
+        // page header with a "Back" link: an empty screen with no identity-provider redirect,
+        // because the redirect is the server's answer to a real document request. Forcing a
+        // full load for these links is what makes "Sign in with ..." reach the IdP.
+        document.addEventListener('click', (event) => {
+            let el = event.target;
+            while (el && el.tagName !== 'A') { el = el.parentElement; }
+            if (!el) { return; }
+            const href = el.getAttribute('href') || '';
+            if (href.indexOf('/login/sso/') === -1) { return; }
+            event.preventDefault();
+            event.stopPropagation();
+            window.location.href = href;
+        }, true);
         window.addEventListener('mattermost-bridge', (event) => {
             const detail = (event.detail || {});
             const name = detail.name;
