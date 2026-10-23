@@ -124,26 +124,17 @@ final class ThemeSync: ObservableObject {
 
     // MARK: CSS injection
 
-    /// The CSS custom properties the shell owns, as a fixed map per scheme. Everything here is
-    /// allow-listed; the web app's own theme owns the rest. Grep: these mirror the desktop
-    /// `centerChannelBg` / `sidebarBg` decisions without shipping the whole palette.
+    /// The CSS custom properties the shell owns. Deliberately **none**.
+    ///
+    /// The web app owns its whole palette; the shell only has to tell it which colour scheme to
+    /// resolve when the server theme follows the system (`color-scheme` below). Overriding part
+    /// of the palette is what broke the workspace UI: forcing `--sidebar-bg`/`--sidebar-text` to
+    /// the shell's own light values left every *other* server-theme variable alone, so a branded
+    /// theme ended up with white icons on a white sidebar, washed-out labels and a centre pane
+    /// painted with the brand colour. Partial palette overrides are never safe — either the shell
+    /// supplies the entire theme or it supplies nothing.
     static func cssVariables(for scheme: ColorScheme) -> [String: String] {
-        switch scheme {
-        case .light:
-            return [
-                "--center-channel-bg": "#ffffff",
-                "--center-channel-color": "#1f1f1f",
-                "--sidebar-bg": "#ffffff",
-                "--sidebar-text": "#1f1f1f",
-            ]
-        case .dark:
-            return [
-                "--center-channel-bg": "#1f1f1f",
-                "--center-channel-color": "#ffffff",
-                "--sidebar-bg": "#1f1f1f",
-                "--sidebar-text": "#ffffff",
-            ]
-        }
+        [:]
     }
 
     /// A JS statement that sets `color-scheme` and the shell-owned CSS custom properties on

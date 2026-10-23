@@ -155,6 +155,51 @@ final class Bridge: NSObject, WKScriptMessageHandler {
 
     /// Injected at document-start on every navigation. Mirrors the desktop preload exactly in
     /// spirit: expose *only* the shell channels to `window.desktop`, never raw shell.
+    /// Shell-side page fixes, injected into every page regardless of desktop emulation.
+    ///
+    /// Two jobs, both learned the hard way:
+    /// 1. An SSO entry guard: the web app routes `/login/sso/*` client-side and renders only the
+    ///    page header with a "Back" link, so "Sign in with ..." dead-ends on an empty screen. A
+    ///    forced document load lets the server answer with its SAML redirect.
+    /// 2. A bounded error log (`window.__mmErrorLog`), because a failed workspace render leaves
+    ///    an empty pane and no visible message.
+    static let pageJavascript: String = """
+    (() => {
+        // Bounded error log. React errors during the workspace render leave an empty pane and
+        // no visible message, so the shell keeps the last few errors where the diagnostics probe
+        // (and a future Settings > Diagnostics view) can read them.
+        window.__mmErrorLog = window.__mmErrorLog || [];
+        const recordError = (source, detail) => {
+            try {
+                if (window.__mmErrorLog.length >= 30) { return; }
+                window.__mmErrorLog.push(source + ': ' + String(detail).slice(0, 300));
+            } catch (_) {}
+        };
+        window.addEventListener('error', (e) => recordError('error', (e.message || '') + ' @ ' + (e.filename || '') + ':' + (e.lineno || 0)), true);
+        window.addEventListener('unhandledrejection', (e) => recordError('rejection', (e.reason && e.reason.message) || e.reason), true);
+        const __realConsoleError = console.error;
+        console.error = function () {
+            recordError('console', Array.prototype.map.call(arguments, String).join(' ').slice(0, 300));
+            return __realConsoleError.apply(console, arguments);
+        };
+
+        // SSO entry guard. The web app routes /login/sso/* client-side and renders only the
+        // page header with a "Back" link: an empty screen with no identity-provider redirect,
+        // because the redirect is the server's answer to a real document request. Forcing a
+        // full load for these links is what makes "Sign in with ..." reach the IdP.
+        document.addEventListener('click', (event) => {
+            let el = event.target;
+            while (el && el.tagName !== 'A') { el = el.parentElement; }
+            if (!el) { return; }
+            const href = el.getAttribute('href') || '';
+            if (href.indexOf('/login/sso/') === -1) { return; }
+            event.preventDefault();
+            event.stopPropagation();
+            window.location.href = href;
+        }, true);
+    })();
+    """
+
     static let preloadJavascript: String = """
     (() => {
         if (window.__mattermostBridgeInstalled) { return; }
@@ -180,20 +225,6 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             sendBrowserHistoryPush: (path) =>
                 post("\(BridgeMessage.browserHistoryPush)", { path }),
         });
-        // SSO entry guard. The web app routes /login/sso/* client-side and renders only the
-        // page header with a "Back" link: an empty screen with no identity-provider redirect,
-        // because the redirect is the server's answer to a real document request. Forcing a
-        // full load for these links is what makes "Sign in with ..." reach the IdP.
-        document.addEventListener('click', (event) => {
-            let el = event.target;
-            while (el && el.tagName !== 'A') { el = el.parentElement; }
-            if (!el) { return; }
-            const href = el.getAttribute('href') || '';
-            if (href.indexOf('/login/sso/') === -1) { return; }
-            event.preventDefault();
-            event.stopPropagation();
-            window.location.href = href;
-        }, true);
         window.addEventListener('mattermost-bridge', (event) => {
             const detail = (event.detail || {});
             const name = detail.name;

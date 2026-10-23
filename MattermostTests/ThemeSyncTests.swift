@@ -68,19 +68,22 @@ final class ThemeSyncTests: XCTestCase {
 
     // MARK: CSS injection
 
-    func testCssVariablesDifferPerScheme() {
-        let light = ThemeSync.cssVariables(for: .light)
-        let dark = ThemeSync.cssVariables(for: .dark)
-        XCTAssertNotEqual(light["--center-channel-bg"], dark["--center-channel-bg"])
-        XCTAssertEqual(light["--sidebar-bg"], "#ffffff")
-        XCTAssertEqual(dark["--sidebar-bg"], "#1f1f1f")
+    /// Regression: injecting only part of Mattermost's palette (sidebar + centre-channel) left
+    /// the rest of the server theme intact. On a branded theme that painted white icons on a
+    /// white sidebar, washed-out labels and a brand-coloured block over the message list. The
+    /// shell declares the colour scheme and nothing else.
+    func testShellInjectsNoPaletteOverrides() {
+        XCTAssertTrue(ThemeSync.cssVariables(for: .light).isEmpty,
+                      "the shell must not override the web app's palette")
+        XCTAssertTrue(ThemeSync.cssVariables(for: .dark).isEmpty,
+                      "the shell must not override the web app's palette")
     }
 
-    func testInjectionJavascriptSetsColorSchemeAndVars() {
+    func testInjectionJavascriptSetsColorSchemeOnly() {
         let js = ThemeSync.injectionJavascript(for: .dark)
         XCTAssertTrue(js.contains("colorScheme = 'dark'"), "must drive prefers-color-scheme")
-        XCTAssertTrue(js.contains("--center-channel-bg"), "must inject the shell-owned css vars")
-        XCTAssertTrue(js.contains("'#1f1f1f'"), "must contain the dark theme value")
         XCTAssertTrue(js.contains("mattermostTheme = 'dark'"), "must flag the applied theme")
+        XCTAssertFalse(js.contains("--sidebar-bg"), "must not touch the theme palette")
+        XCTAssertFalse(js.contains("--center-channel-bg"), "must not touch the theme palette")
     }
 }

@@ -27,6 +27,10 @@ final class BridgeTests: XCTestCase {
         // The preload must reference that exact handler so page → native messages land.
         XCTAssertTrue(Bridge.preloadJavascript.contains("messageHandlers"))
         XCTAssertTrue(Bridge.preloadJavascript.contains(Bridge.handlerName))
+        // The SSO guard and the error log live in the always-installed script, not in the
+        // opt-in desktop surface.
+        XCTAssertTrue(Bridge.pageJavascript.contains("/login/sso/"))
+        XCTAssertTrue(Bridge.pageJavascript.contains("__mmErrorLog"))
     }
 
     /// The preload must expose ONLY the allowlisted `window.desktop` surface — never raw shell.
@@ -126,13 +130,14 @@ final class BridgeTests: XCTestCase {
 
     // MARK: WebViewStore integration
 
-    /// WebViewStore must install exactly one handler + the preload script on its webview's
-    /// content controller (parity: preload registered once per web contents).
-    func testWebViewStoreInstallsBridge() {
+    /// WebViewStore must install exactly one user script by default: the shell-side page fixes.
+    /// The `window.desktop` surface stays off unless `-desktopBridge` opts in, because advertising
+    /// it sends the web app down its Electron code path and the workspace never renders.
+    func testWebViewStoreInstallsPageFixesWithoutDesktopBridge() {
         let store = WebViewStore()
         let scripts = store.webView.configuration.userContentController.userScripts
-        XCTAssertEqual(scripts.count, 1, "exactly one preload user script")
-        XCTAssertEqual(scripts[0].source, Bridge.preloadJavascript)
+        XCTAssertEqual(scripts.count, 1, "exactly one user script by default")
+        XCTAssertEqual(scripts[0].source, Bridge.pageJavascript)
         // A second webview gets its own bridge (per-server isolation).
         let storeB = WebViewStore()
         XCTAssertFalse(store.bridge === storeB.bridge)

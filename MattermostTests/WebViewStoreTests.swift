@@ -50,9 +50,13 @@ final class WebViewStoreTests: XCTestCase {
         guard let userAgent = store.webView.customUserAgent else {
             return XCTFail("shell must pin a custom user agent")
         }
-        XCTAssertTrue(userAgent.contains("Mattermost/"), "UA should identify the Mattermost shell")
-        XCTAssertTrue(userAgent.contains("Electron/"), "UA should mirror the desktop Electron shell")
         XCTAssertFalse(userAgent.contains("iPhone"), "an iOS UA gets the mobile-app interstitial")
+        XCTAssertTrue(userAgent.contains("Macintosh"), "a desktop UA is required to be served the web app")
+        // Claiming to be Mattermost Desktop makes the web app run its Electron code path, which
+        // needs a fuller window.desktop API than the shell implements; the workspace then mounts
+        // its chrome and never renders a channel.
+        XCTAssertFalse(userAgent.contains("Mattermost/"), "must not claim to be the Electron desktop app")
+        XCTAssertFalse(userAgent.contains("Electron/"), "must not claim to be the Electron desktop app")
     }
 
     // MARK: Navigation policy (the SSO path)

@@ -137,7 +137,15 @@ share as text/JSON · a real app icon.
 **SSO** works: IdP buttons that open a popup (`window.open` / `target="_blank"`) are loaded in
 the main webview, and redirects to non-web schemes (`mattermost://`, `msauth://`, Okta custom
 schemes) are handed to the app instead of being dropped — both used to end the flow on a blank
-page.
+page. Sign-in entry links are forced into a real document load, because the web app otherwise
+routes `/login/sso/*` client-side and shows an empty page.
+
+**The workspace renders after sign-in.** The webview presents a plain desktop Safari user agent
+and does *not* claim to be Mattermost Desktop. Claiming it (a `Mattermost/… Electron/…` UA plus a
+partial `window.desktop` shim) sends the web app down its Electron code path, which needs more of
+that API than the shell implements: the header and team sidebar mounted, the channel view stayed
+on "Loading" forever, and no post list was ever requested. Presenting as a browser renders the
+whole workspace.
 
 ## What is not there yet
 
@@ -146,6 +154,10 @@ page.
   foreground case only. (T12/T13 are parked as publishing-only.)
 - **Calls** (WebRTC microphone/camera in the webview) and **screen sharing** — T15/T16.
 - **Background refresh / presence re-delivery** — T14.
+- **Local mention notifications and the unread badge** are wired to the `window.desktop` bridge,
+  which is off by default for the reason above (exposing it breaks the workspace render). The code
+  and its tests are kept; `-desktopBridge` turns it on for experiments, and it can come back once
+  the surface the web app expects is implemented in full.
 
 ## Layout
 

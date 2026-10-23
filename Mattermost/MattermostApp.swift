@@ -142,6 +142,84 @@ struct MattermostApp: App {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
 
+            // DOM diagnostics: which layout containers exist, what they paint, and the scheme.
+            // Added while chasing "the workspace UI renders broken inside the shell"; the text
+            // sample alone cannot tell a skeleton from a styled-but-empty pane.
+            let domProbe = """
+            (() => {
+              const probe = (sel) => {
+                const e = document.querySelector(sel);
+                if (!e) { return null; }
+                const r = e.getBoundingClientRect();
+                const cs = getComputedStyle(e);
+                return { sel, w: Math.round(r.width), h: Math.round(r.height),
+                         bg: cs.backgroundColor, opacity: cs.opacity, display: cs.display,
+                         color: cs.color, kids: e.children.length };
+              };
+              const root = document.getElementById('root');
+              const describe = (e) => {
+                if (!e) { return null; }
+                const r = e.getBoundingClientRect();
+                const cs = getComputedStyle(e);
+                return { cls: (e.className || '').toString().slice(0, 80), w: Math.round(r.width),
+                         h: Math.round(r.height), bg: cs.backgroundColor,
+                         text: (e.innerText || '').slice(0, 80) };
+              };
+              const mw = document.querySelector('.main-wrapper');
+              const appBar = document.querySelector('.app-bar');
+              return JSON.stringify({
+                href: location.href,
+                bodyTextLen: document.body.innerText.length,
+                nodes: document.querySelectorAll('*').length,
+                rootKids: root ? [...root.children].map(c => (c.className || '').toString().slice(0, 70)) : [],
+                probes: ['.app__body', '.app__content', '.channel-view', '.post-list', '.post-list__table',
+                         '.sidebar--left', '.loading-screen', '.MultiTeamSidebar', '.product-switcher-menu',
+                         '.channel-header', '.center-channel'].map(probe),
+                bodyBg: getComputedStyle(document.body).backgroundColor,
+                htmlClass: document.documentElement.className.slice(0, 120),
+                themeFlag: document.documentElement.dataset.mattermostTheme || null,
+                colorScheme: getComputedStyle(document.documentElement).colorScheme,
+                pathname: location.pathname + location.search,
+                mainWrapperKids: mw ? [...mw.children].map(describe) : null,
+                mainWrapperHtml: mw ? mw.innerHTML.slice(0, 400) : null,
+                appBarKids: appBar ? [...appBar.children].map(describe) : null,
+                modals: document.querySelectorAll('.modal, .Modal, [role=dialog]').length,
+                loadingish: [...document.querySelectorAll('[class*=load], [class*=Load], [class*=skeleton]')].map(describe).slice(0, 6),
+                errors: (window.__mmErrorLog || []).slice(0, 30),
+                online: navigator.onLine,
+                apiCalls: performance.getEntriesByType('resource')
+                    .filter(r => r.name.indexOf('/api/') !== -1)
+                    .slice(-30)
+                    .map(r => r.name.replace(location.origin, '') + ' d=' + Math.round(r.duration)
+                              + ' size=' + r.transferSize + ' ' + r.initiatorType)
+              }, null, 1);
+            })()
+            """
+            // WebSocket probe: the web app treats itself as offline (and never asks for posts)
+            // when its socket cannot connect, which shows up as a permanent "Loading" pane.
+            let wsProbe = """
+            (() => {
+              window.__wsProbe = 'pending';
+              try {
+                const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/v4/websocket';
+                const ws = new WebSocket(url);
+                ws.onopen = () => { window.__wsProbe = 'open'; ws.close(); };
+                ws.onerror = () => { window.__wsProbe = 'error'; };
+                ws.onclose = (e) => { window.__wsProbe = (window.__wsProbe === 'open' ? 'opened-then-closed' : 'closed:' + e.code); };
+              } catch (e) { window.__wsProbe = 'threw:' + e.message; }
+              return 'started';
+            })()
+            """
+            _ = try? await store.webView.evaluateJavaScript(wsProbe)
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            if let ws = try? await store.webView.evaluateJavaScript("window.__wsProbe || 'unset'") as? String {
+                try? ws.write(to: URL(fileURLWithPath: path + ".ws.txt"), atomically: true, encoding: .utf8)
+            }
+
+            if let dom = try? await store.webView.evaluateJavaScript(domProbe) as? String {
+                try? dom.write(to: URL(fileURLWithPath: path + ".dom.json"), atomically: true, encoding: .utf8)
+            }
+
             // Diagnostics dump — the *text* proof of what the page rendered.
             let diag = """
             url=\(store.url?.absoluteString ?? "nil")

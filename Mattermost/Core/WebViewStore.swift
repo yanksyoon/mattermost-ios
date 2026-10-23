@@ -43,14 +43,19 @@ final class WebViewStore: ObservableObject {
 
     // MARK: The webview
 
-    /// User agent presented to the server. The shell must be served the **web app**, so it
-    /// mirrors the desktop Electron shell's UA: many Mattermost servers (including
-    /// community.mattermost.com) answer an iOS/Mobile-Safari UA with the "view in app /
-    /// view in browser" landing page instead of the app. Phase 0 pins this; Phase 1 threads
-    /// it through the per-server webviews.
+    /// User agent presented to the server.
+    ///
+    /// It must be a **desktop** UA: many Mattermost servers answer an iOS/Mobile-Safari UA with
+    /// the "view in app / view in browser" landing page instead of the web app.
+    ///
+    /// It must *not* claim to be Mattermost Desktop. The web app switches to its Electron code
+    /// path when the UA carries `Mattermost/… Electron/…`, and that path expects the full
+    /// `window.desktop` API surface. The shell implements a subset, so the app mounted the global
+    /// header and the team sidebar and then stopped: 230 DOM nodes, an empty `main-wrapper`, a
+    /// perma-"Loading" channel view, and no posts request ever issued. A plain Safari UA renders
+    /// the whole workspace (measured: ~4,900 DOM nodes, channel header, post list).
     static let userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        + "AppleWebKit/537.36 (KHTML, like Gecko) Mattermost/6.4.0 "
-        + "Chrome/126.0.0.0 Electron/31.0.0 Safari/537.36"
+        + "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
 
     let webView: WKWebView
     let configuration: WKWebViewConfiguration
@@ -89,16 +94,29 @@ final class WebViewStore: ObservableObject {
         config.userContentController = contentController
         configuration = config
 
-        // Phase-1 JS↔native bridge: install the single message handler + the preload shim that
-        // exposes only the allowlisted `window.desktop` surface. The delegate (page-event sink)
-        // is attached by WebViewContainer.Coordinator when the webview is mounted.
+        let args = ProcessInfo.processInfo.arguments
+
+        // Phase-1 JS↔native bridge: the single message handler plus the shell-side page fixes
+        // (SSO entry guard, bounded error log). Always installed — these are what make sign-in
+        // work at all.
         let bridge = Bridge()
         contentController.add(bridge, name: Bridge.handlerName)
         contentController.addUserScript(WKUserScript(
-            source: Bridge.preloadJavascript,
+            source: Bridge.pageJavascript,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         ))
+        // The `window.desktop` surface is opt-in. Advertising it makes the web app take its
+        // Electron code path, which needs more of that API than the shell provides: the workspace
+        // shell mounts and the channel view never loads. Kept behind a flag (and its unit tests)
+        // so the bridge work is not lost while the surface is filled in.
+        if args.contains("-desktopBridge") {
+            contentController.addUserScript(WKUserScript(
+                source: Bridge.preloadJavascript,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            ))
+        }
         self.bridge = bridge
 
         let webView = WKWebView(frame: .zero, configuration: config)
