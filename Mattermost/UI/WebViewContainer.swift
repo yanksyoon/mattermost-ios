@@ -48,6 +48,26 @@ struct WebViewContainer: UIViewRepresentable {
 
     // MARK: Coordinator — the native policy surface
 
+    /// Pure navigation policy for the webview. Extracted from the delegate because
+    /// `WKNavigationAction` cannot be constructed in tests, so the SSO rules would otherwise be
+    /// unverifiable.
+    enum WebNavigationPolicy {
+        enum Decision: Equatable {
+            /// Let WKWebView load the request.
+            case load
+            /// Not a web navigation: cancel it and hand the URL to the app (deep links,
+            /// IdP app-switch schemes) instead of failing the load silently.
+            case handOff
+        }
+
+        static let webSchemes: Set<String> = ["http", "https", "about", "data", "blob", "javascript"]
+
+        static func decision(for url: URL?) -> Decision {
+            guard let scheme = url?.scheme?.lowercased() else { return .load }
+            return webSchemes.contains(scheme) ? .load : .handOff
+        }
+    }
+
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, JsBridge {
         let store: WebViewStore
         /// The server this bridge belongs to (tags every inbound shell event).
@@ -289,12 +309,39 @@ struct WebViewContainer: UIViewRepresentable {
         func webView(_ webView: WKWebView,
                      decidePolicyFor navigationAction: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-            // Allow the Mattermost web app's own navigations. External-protocol / popup
-            // handling lands with the deep-link router in Phase 1; block nothing here.
-            decisionHandler(.allow)
+            // SSO providers can bounce back with a non-web scheme (mattermost://…,
+            // com.okta…, msauth…). WKWebView cannot load those, and cancelling without
+            // handing them to the app looks like "the page after sign-in never loads".
+            switch WebNavigationPolicy.decision(for: navigationAction.request.url) {
+            case .load:
+                decisionHandler(.allow)
+            case .handOff:
+                decisionHandler(.cancel)
+                if let url = navigationAction.request.url {
+                    Logger.info("WebView", "non-web navigation (\(url.scheme ?? "?")) -> handing to the app")
+                    UIApplication.shared.open(url)
+                }
+            }
         }
 
         // MARK: WKUIDelegate
+
+        /// Popup support. Mattermost's SSO buttons ("Sign in with Microsoft", GitLab, Okta…) and
+        /// several integrations open via `window.open` / `target="_blank"`. Without this delegate
+        /// WKWebView silently drops those navigations, which the user experiences as "the SSO
+        /// page does not load". This shell is single-window, so the popup's request is loaded in
+        /// the same webview instead of spawning an orphan WKWebView.
+        func webView(_ webView: WKWebView,
+                     createWebViewWith configuration: WKWebViewConfiguration,
+                     for navigationAction: WKNavigationAction,
+                     windowFeatures: WKWindowFeatures) -> WKWebView? {
+            guard navigationAction.targetFrame == nil, let url = navigationAction.request.url else {
+                return nil
+            }
+            Logger.info("WebView", "popup navigation to \(url.host ?? "unknown") -> main webview")
+            webView.load(navigationAction.request)
+            return nil
+        }
 
         /// Block JS dialogs (`alert`/`confirm`/`prompt`) from the page. Desktop's
         /// navigation/security guards refuse script-injected prompt loops; we mirror that by

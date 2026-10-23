@@ -54,4 +54,31 @@ final class WebViewStoreTests: XCTestCase {
         XCTAssertTrue(userAgent.contains("Electron/"), "UA should mirror the desktop Electron shell")
         XCTAssertFalse(userAgent.contains("iPhone"), "an iOS UA gets the mobile-app interstitial")
     }
+
+    // MARK: Navigation policy (the SSO path)
+
+    /// SSO providers finish by redirecting to a non-web scheme, or by opening the IdP in a popup.
+    /// Both must be classified at the policy layer, otherwise the flow stalls on a blank page
+    /// after the user authenticates.
+    func testWebSchemesLoadInTheWebView() {
+        for raw in ["https://community.mattermost.com/login", "http://localhost:8065/",
+                    "about:blank", "data:text/html,hi", "blob:https://chat.example/1",
+                    "javascript:void(0)"] {
+            XCTAssertEqual(WebViewContainer.WebNavigationPolicy.decision(for: URL(string: raw)), .load,
+                           "\(raw) is a web navigation and must load")
+        }
+    }
+
+    func testNonWebSchemesAreHandedToTheApp() {
+        for raw in ["mattermost://chat.example/landing", "msauth://com.example.app/callback",
+                    "com.okta.example://callback", "chrome://settings"] {
+            XCTAssertEqual(WebViewContainer.WebNavigationPolicy.decision(for: URL(string: raw)), .handOff,
+                           "\(raw) cannot be loaded by WKWebView and must be handed to the app")
+        }
+    }
+
+    func testMissingURLLoadsRatherThanBlocking() {
+        XCTAssertEqual(WebViewContainer.WebNavigationPolicy.decision(for: nil), .load,
+                       "a navigation without a URL must not be swallowed")
+    }
 }
