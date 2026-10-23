@@ -17,12 +17,27 @@ Developer Program membership, or any review.
 
 1. Download `Mattermost-0.1.0-macos.zip` from [Releases](../../releases).
 2. Unzip it and drag `Mattermost.app` into `/Applications`.
-3. First launch: **right-click → Open** (the build is ad-hoc signed, not notarised). If macOS
-   still refuses, clear the quarantine flag:
+3. First launch on macOS 15+ (including macOS 26): macOS will say **"Apple could not verify
+   “Mattermost.app” is free of malware"** and refuse to open it. That is expected — the build is
+   ad-hoc signed and not notarised, and notarisation needs a paid Apple Developer ID. Clear the
+   download quarantine once, per copy:
+
    ```bash
    xattr -dr com.apple.quarantine /Applications/Mattermost.app
    ```
-4. Add your server URL and sign in.
+
+   No-terminal route: try opening it once, then go to **System Settings → Privacy & Security**,
+   scroll to *Security*, and click **Open Anyway** next to the Mattermost entry. (On macOS 15+
+   the old *right-click → Open* shortcut no longer bypasses Gatekeeper.)
+
+   Check the copy is intact before trusting it: `codesign --verify --deep --strict /Applications/Mattermost.app`
+   prints `valid on disk` and `satisfies its Designated Requirement`. `spctl -a` will still say
+   `rejected` — that is the missing notarisation ticket, not a broken signature.
+
+4. Launch it from Finder or the Dock. If `open -a Mattermost` does nothing, you almost certainly
+   also have the official Electron app installed: both bundles are named "Mattermost" to
+   LaunchServices. Use `open -n "/Applications/Mattermost (native).app"` or click the icon.
+5. Add your server URL and sign in.
 
 The official Electron Mattermost desktop app is also called `Mattermost.app`. If you have both,
 rename this one (e.g. `Mattermost (personal).app`) or keep it somewhere other than
