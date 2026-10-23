@@ -45,6 +45,11 @@ struct RootView: View {
                 // over the welcome/empty state there is nothing to switch.
                 if !serverStore.servers.isEmpty {
                     ToolbarItem(placement: .principal) { serverSwitcher }
+
+                    // History chrome follows the *active* server's webview only.
+                    if let activeStore = activeServer.map({ viewStore.view(for: $0) }) {
+                        WebNavToolbar(store: activeStore)
+                    }
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         Button {
                             isPresentingDownloads = true
@@ -115,6 +120,31 @@ struct RootView: View {
     }
 
     // MARK: Scenes
+
+    private struct WebNavToolbar: ToolbarContent {
+        @ObservedObject var store: WebViewStore
+
+        var body: some ToolbarContent {
+            ToolbarItemGroup(placement: .topBarLeading) {
+                Button {
+                    store.goBack()
+                } label: {
+                    Image(systemName: "chevron.backward")
+                }
+                .disabled(!store.canGoBack)
+                .accessibilityLabel("Back")
+                .accessibilityIdentifier("backToolbarButton")
+
+                Button {
+                    store.reload()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .accessibilityLabel("Reload")
+                .accessibilityIdentifier("reloadToolbarButton")
+            }
+        }
+    }
 
     @ViewBuilder
     private func scene(for server: ServerConfig) -> some View {

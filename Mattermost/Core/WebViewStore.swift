@@ -26,6 +26,9 @@ final class WebViewStore: ObservableObject {
     @Published var url: URL?
     /// First error thrown by the page / navigation, cleared on the next successful load.
     @Published var pageError: Error?
+    /// History availability, mirrored from the webview so the toolbar can disable Back.
+    @Published var canGoBack: Bool = false
+    @Published var canGoForward: Bool = false
 
     /// A server-trust decision waiting on the user (self-signed / unknown certificate).
     /// Published by the `WebViewContainer` Coordinator when the webview's `didReceive`
@@ -114,6 +117,11 @@ final class WebViewStore: ObservableObject {
             .assign(to: &$title)
         webView.publisher(for: \.url)
             .assign(to: &$url)
+        // History state feeds the toolbar's Back button (SSO flows navigate several hops).
+        webView.publisher(for: \.canGoBack)
+            .assign(to: &$canGoBack)
+        webView.publisher(for: \.canGoForward)
+            .assign(to: &$canGoForward)
     }
 
     // MARK: Loading
@@ -124,6 +132,19 @@ final class WebViewStore: ObservableObject {
         pageError = nil
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
         webView.load(request)
+    }
+
+    /// Walk the webview's own history back one entry, if there is one.
+    func goBack() {
+        guard webView.canGoBack else { return }
+        pageError = nil
+        webView.goBack()
+    }
+
+    /// Reload the current page (the shell's only recovery affordance besides retry).
+    func reload() {
+        pageError = nil
+        webView.reload()
     }
 
     /// Recovery entry for retry UI: re-issue the loaded (or configured) URL.
