@@ -1,5 +1,8 @@
 # Mattermost for Mac & iOS (personal build)
 
+> **New here? Start with [docs/quickstart.md](docs/quickstart.md)** — build, sign, and use this
+> client on your own Mac and iPhone (every command there was run on the build host).
+
 An unofficial, native shell around the **Mattermost web app**: a SwiftUI app that hosts your
 Mattermost server in a `WKWebView`, so the chat UI, sign-in, and message rendering all come
 from *your* server. Nothing about the chat client is re-implemented or proxied.
