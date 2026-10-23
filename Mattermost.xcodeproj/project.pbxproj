@@ -65,6 +65,12 @@ F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */ = {isa = PBX
 		F30000000000000000000025 /* SentrySDKLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000003C /* SentrySDKLink.swift */; };
 		F40000000000000000000015 /* DiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000003A /* DiagnosticsTests.swift */; };
 		F40000000000000000000016 /* SentryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000003B /* SentryServiceTests.swift */; };
+		F30000000000000000000026 /* SecretStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000003D /* SecretStore.swift */; };
+		F30000000000000000000027 /* EncryptedFileSecretStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000003E /* EncryptedFileSecretStore.swift */; };
+		F40000000000000000000017 /* EncryptedFileSecretStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000003F /* EncryptedFileSecretStoreTests.swift */; };
+		F40000000000000000000018 /* FallbackSecretStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000040 /* FallbackSecretStoreTests.swift */; };
+		F40000000000000000000019 /* SecureVaultFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000041 /* SecureVaultFallbackTests.swift */; };
+		F4000000000000000000001A /* CertTrustFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000042 /* CertTrustFallbackTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -148,6 +154,12 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 		F2000000000000000000003A /* DiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsTests.swift; sourceTree = "<group>"; };
 		F2000000000000000000003B /* SentryServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryServiceTests.swift; sourceTree = "<group>"; };
 		F2000000000000000000003C /* SentrySDKLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentrySDKLink.swift; sourceTree = "<group>"; };
+		F2000000000000000000003D /* SecretStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretStore.swift; sourceTree = "<group>"; };
+		F2000000000000000000003E /* EncryptedFileSecretStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedFileSecretStore.swift; sourceTree = "<group>"; };
+		F2000000000000000000003F /* EncryptedFileSecretStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedFileSecretStoreTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000040 /* FallbackSecretStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FallbackSecretStoreTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000041 /* SecureVaultFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureVaultFallbackTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000042 /* CertTrustFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertTrustFallbackTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -237,6 +249,8 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 				F20000000000000000000038 /* Diagnostics.swift */,
 				F20000000000000000000039 /* SentryService.swift */,
 				F2000000000000000000003C /* SentrySDKLink.swift */,
+				F2000000000000000000003D /* SecretStore.swift */,
+				F2000000000000000000003E /* EncryptedFileSecretStore.swift */,
 				);
 				path = Core;
 				sourceTree = "<group>";
@@ -288,6 +302,10 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				F20000000000000000000034 /* CertPromptTests.swift */,
 				F2000000000000000000003A /* DiagnosticsTests.swift */,
 				F2000000000000000000003B /* SentryServiceTests.swift */,
+				F2000000000000000000003F /* EncryptedFileSecretStoreTests.swift */,
+				F20000000000000000000040 /* FallbackSecretStoreTests.swift */,
+				F20000000000000000000041 /* SecureVaultFallbackTests.swift */,
+				F20000000000000000000042 /* CertTrustFallbackTests.swift */,
 				);
 				path = MattermostTests;
 				sourceTree = "<group>";
@@ -457,10 +475,12 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				F30000000000000000000023 /* Diagnostics.swift in Sources */,
 				F30000000000000000000024 /* SentryService.swift in Sources */,
 				F30000000000000000000025 /* SentrySDKLink.swift in Sources */,
+				F30000000000000000000026 /* SecretStore.swift in Sources */,
+				F30000000000000000000027 /* EncryptedFileSecretStore.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 				};
-		F60000000000000000000004 /* Sources */ = {
+			F60000000000000000000004 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -484,10 +504,14 @@ F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */,
 				F40000000000000000000013 /* SettingsViewTests.swift in Sources */,
 				F40000000000000000000015 /* DiagnosticsTests.swift in Sources */,
 				F40000000000000000000016 /* SentryServiceTests.swift in Sources */,
+				F40000000000000000000017 /* EncryptedFileSecretStoreTests.swift in Sources */,
+				F40000000000000000000018 /* FallbackSecretStoreTests.swift in Sources */,
+				F40000000000000000000019 /* SecureVaultFallbackTests.swift in Sources */,
+				F4000000000000000000001A /* CertTrustFallbackTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 				};
-		F60000000000000000000007 /* Sources */ = {
+			F60000000000000000000007 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (

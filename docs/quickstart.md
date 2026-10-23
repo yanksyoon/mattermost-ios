@@ -78,21 +78,22 @@ xattr -dr com.apple.quarantine /Applications/Mattermost.app
 (This is the standard macOS ad-hoc flow; the attribute only exists on files that arrived via
 download, not on a locally built app.)
 
-### Known Mac limitation (very real, affects you on day one)
+### Known Mac limitation (resolved by the T22 fallback store)
 
-The Mac build is ad hoc, so macOS refuses it the `application-identifier` entitlement and
-**every Keychain call fails** (`errSecMissingEntitlement`, -34018). Measured on this host:
-10 `SecureVault` + 5 `CertTrust` unit tests fail with exactly that error; a workaround shim
-does not change it. What that means for you:
+The Mac build is ad hoc, so macOS refuses it the `application-identifier` entitlement and **the OS
+Keychain is refused** (`errSecMissingEntitlement`, -34018). Since T22 (2026-10-23) this no longer
+breaks persistence: `SecureVault` (token vault) and `CertTrust` (cert trust) route through a store
+that keeps the Keychain primary and, only when it is refused, transparently persists to an AES-GCM
+encrypted file under `~/Library/Application Support/Mattermost/`. What that means for you:
 
 - Your **login still survives restarts** — the session lives in the webview's per-server
   cookie store, not in Keychain.
-- The per-server **token vault** and the **self-signed-cert trust bag** cannot persist, so a
-  self-signed server asks for trust again on each launch, and the diagnostics step that
-  checks the Keychain reports that step failed (accurate, not a bug).
-- Fix, in order of effort: (a) sign the app with any Apple ID — even a free Personal Team —
-  in Xcode (Signing & Capabilities → choose your Team → Run), or (b) wait for the fallback
-  store tracked as T22 on the board (in progress as of 2026-10-23).
+- The per-server **token vault** and the **self-signed-cert trust bag** now **persist** on the
+  ad-hoc build (via the encrypted fallback file when the Keychain is refused), so a self-signed
+  server is trusted once and remembered across launches.
+- Fix, in order of effort: (a) sign the app with any Apple ID — even a free Personal Team — in
+  Xcode (Signing & Capabilities → choose your Team → Run) to use the OS Keychain and avoid the
+  fallback file entirely, or (b) do nothing — the fallback store already works.
 
 ---
 

@@ -2,22 +2,28 @@ import Foundation
 import Security
 
 /// Native counterpart of desktop `secureStorage.ts` (Electron `safeStorage`). Parity row:
-/// `secureStorage` -> `SecureVault` (Keychain, `kSecClassGenericPassword`, service per server).
-/// Status: native, Phase 2.
+/// `secureStorage` -> `SecureVault` (per-server credential store, Keychain-first). Status:
+/// native, Phase 2; T22 adds the Keychain-unavailable fallback.
 ///
 /// The desktop app encrypts a secrets file with `safeStorage` and keys it by
-/// `normalizedUrl:keySuffix`. On iOS the OS Keychain is the on-disk, hardware-backed encrypted
-/// store, so this class replaces that file with a `kSecClassGenericPassword` item per
-/// (server, key). The Keychain item's `service` is scoped to the canonical server URL — the
-/// same identity the desktop derives from `parseURL` (origin + formatted path) — and `account`
-/// names the individual secret (auth token, user id, pre-auth secret, …). This gives:
+/// `normalizedUrl:keySuffix`. This shell stores the same secrets as
+/// `kSecClassGenericPassword` items in the OS Keychain — one per `(server, key)` — and when the
+/// Keychain is entirely refused on this build (ad-hoc Mac Catalyst, -34018), transparently
+/// falls back to an AES-GCM sealed file under Application Support (see `SecretStore.swift` /
+/// `EncryptedFileSecretPersisting.swift`). The Keychain remains primary; the file fallback is
+/// used only when every `SecItem*` call fails with `errSecMissingEntitlement`.
 ///
-///   - **Survives relaunch**: Keychain items are persisted on the device by the OS; a fresh
-///     vault instance (or a relaunched app) reads the same token from disk.
-///   - **Readable only via the vault**: the value lives only as a Keychain item (encrypted
-///     at rest on the device's hardware keychain), never in `UserDefaults`, plists, or a
-///     plaintext file. The only in-process path to the value is this class's
-///     `secret(_:serverURL:)` (and per-name keys are never logged or dumped).
+/// The Keychain item's `service` is scoped to the canonical server URL — the same identity the
+/// desktop derives from `parseURL` (origin + formatted path) — and `account` names the
+/// individual secret (auth token, user id, pre-auth secret, …). This gives:
+///
+///   - **Survives relaunch**: items are persisted on the device by the OS (or in the fallback
+///     file on the ad-hoc Mac build); a fresh vault instance (or a relaunched app) reads the
+///     same token back.
+///   - **Readable only via the vault**: the value lives only as a Keychain item / sealed file
+///     (encrypted at rest), never in `UserDefaults`, plists, or a plaintext file. The only
+///     in-process path to the value is this class's `secret(_:serverURL:)` (and per-name keys
+///     are never logged or dumped).
 ///
 /// Security boundary: `SecureVault` stays in the app's `Core` and is reachable only from the
 /// shell — it is **not** exposed through `Bridge`/`window.desktop` (no JS-backed IPC reaches
@@ -43,7 +49,7 @@ final class SecureVault {
         }
     }
 
-    /// Error surfaced when a Keychain operation fails (the desktop's `getSecret` returns null
+    /// Error surfaced when a secret-store operation fails (the desktop's `getSecret` returns null
     /// on failure; here we throw so callers can distinguish "not stored" from "store broken").
     enum VaultError: Error, CustomStringConvertible {
         case copyFailed(OSStatus)
@@ -51,6 +57,8 @@ final class SecureVault {
         case deleteFailed(OSStatus)
         case updateFailed(OSStatus)
         case unexpectedResultType
+        /// Wrap of a lower-layer failure (includes `SecretStoreError` surfaced by the backends).
+        case storeFailed(String)
 
         var description: String {
             switch self {
@@ -59,27 +67,39 @@ final class SecureVault {
             case .deleteFailed(let s): return "Keychain delete failed (status \(s))"
             case .updateFailed(let s): return "Keychain update failed (status \(s))"
             case .unexpectedResultType: return "Keychain returned an unexpected result type"
+            case .storeFailed(let message): return "Credential store failed: \(message)"
             }
+        }
+
+        /// Map a backend error onto the public vault error vocabulary.
+        static func from(_ error: Error) -> VaultError {
+            if let storeError = error as? SecretStoreError {
+                return .storeFailed(storeError.description)
+            }
+            return .storeFailed(String(describing: error))
         }
     }
 
-    /// Namespace inserted into every `kSecAttrService`, so the vault's items never collide with
+    /// Namespace inserted into every item's `service`, so the vault's items never collide with
     /// other apps'/items' same-named services. Defaulted to the bundle id; tests pass a unique
     /// forge to keep their items isolated from stored user data.
     private let serviceNamespace: String
 
-    /// Access policy: only usable after first unlock, `ThisDeviceOnly` keeps the token off
-    /// iCloud/backups (a credential, not a passenger). Still persists across relaunch.
-    private let accessible: CFString = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+    /// The backend the vault reads/writes through. Defaults to
+    /// `SecretStore.makeDefault()` — Keychain-first with the encrypted-file fallback for the
+    /// -34018 ad-hoc-Catalyst path. Tests inject a store to force either backend.
+    private let secureStore: SecretPersisting
 
-    init(serviceNamespace: String = Bundle.main.bundleIdentifier ?? "com.mattermost.ios") {
+    init(serviceNamespace: String = Bundle.main.bundleIdentifier ?? "com.mattermost.ios",
+         secureStore: SecretPersisting? = nil) {
         self.serviceNamespace = serviceNamespace
+        self.secureStore = secureStore ?? SecretStore.makeDefault()
     }
 
     // MARK: Public API (mirrors desktop secureStorage set/get/has/delete)
 
     /// Store `value` as `key` for `serverURL`. Passing an empty/whitespace value deletes the
-    /// key instead (desktop `setSecret` behaviour). Thread-safe via the item-based Keychain API.
+    /// key instead (desktop `setSecret` behaviour). Thread-safe via the item-based backends.
     func setSecret(_ value: String, key: Key, serverURL: URL) throws {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -88,25 +108,16 @@ final class SecureVault {
         }
 
         let canonicalURL = Self.canonicalServerURL(serverURL)
-        var base: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service(for: canonicalURL),
-            kSecAttrAccount as String: account(for: key),
-            kSecAttrAccessible as String: accessible,
-        ]
-        KeychainPlatform.apply(to: &base)
-
-        if hasSecret(key: key, serverURL: serverURL) {
-            // Update the existing item's payload in place (generic-password UX: same primary key).
-            var attr = base
-            attr[kSecValueData as String] = Data(trimmed.utf8)
-            let status = SecItemUpdate(base as CFDictionary, attr as CFDictionary)
-            guard status == errSecSuccess else { throw VaultError.updateFailed(status) }
-        } else {
-            var add = base
-            add[kSecValueData as String] = Data(trimmed.utf8)
-            let status = SecItemAdd(add as CFDictionary, nil)
-            guard status == errSecSuccess else { throw VaultError.addFailed(status) }
+        do {
+            try secureStore.set(service: service(for: canonicalURL),
+                                account: account(for: key),
+                                value: Data(trimmed.utf8))
+        } catch {
+            throw VaultError.from(error)
+        }
+        // One-time orientation log when the ad-hoc-Catalyst fallback is engaged.
+        if secureStore.backendDescription != "Keychain" {
+            Logger.debug("SecureVault", "Keychain unavailable; using \(secureStore.backendDescription)")
         }
         Logger.debug("SecureVault", "stored \(key.rawValue) for \(canonicalURL) (encrypted) ")
     }
@@ -114,40 +125,33 @@ final class SecureVault {
     /// The stored value for `key` on `serverURL`, or `nil` when not present.
     func getSecret(key: Key, serverURL: URL) -> String? {
         let canonicalURL = Self.canonicalServerURL(serverURL)
-        var query = baseQuery(for: key, canonicalURL: canonicalURL)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess else {
-            // not-found (not an error worth surfacing) reads as "no secret".
-            if status != errSecItemNotFound {
-                Logger.debug("SecureVault", "copy failed \(status) for \(canonicalURL)/\(key.rawValue)")
+        do {
+            guard let data = try secureStore.get(service: service(for: canonicalURL),
+                                                 account: account(for: key)) else {
+                return nil
             }
+            return String(data: data, encoding: .utf8)
+        } catch {
+            // Reads stay non-throwing on the public surface: a broken store reads as "no
+            // secret" (desktop getSecret returns null on failure).
+            Logger.debug("SecureVault", "read failed \(error) for \(canonicalURL)/\(key.rawValue)")
             return nil
         }
-        guard let data = result as? Data, let value = String(data: data, encoding: .utf8) else {
-            return nil
-        }
-        return value
     }
 
     /// Whether `key` is present for `serverURL`.
     func hasSecret(key: Key, serverURL: URL) -> Bool {
-        var query = baseQuery(for: key, canonicalURL: Self.canonicalServerURL(serverURL))
-        query[kSecReturnData as String] = false
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        let status = SecItemCopyMatching(query as CFDictionary, nil)
-        return status == errSecSuccess
+        getSecret(key: key, serverURL: serverURL) != nil
     }
 
     /// Remove `key` for `serverURL`. Not-present is a no-op (desktop `deleteSecret`).
     func deleteSecret(_ key: Key, serverURL: URL) throws {
-        let query = baseQuery(for: key, canonicalURL: Self.canonicalServerURL(serverURL))
-        let status = SecItemDelete(query as CFDictionary)
-        if status == errSecSuccess || status == errSecItemNotFound { return }
-        throw VaultError.deleteFailed(status)
+        do {
+            try secureStore.delete(service: service(for: Self.canonicalServerURL(serverURL)),
+                                   account: account(for: key))
+        } catch {
+            throw VaultError.from(error)
+        }
     }
 
     /// Remove every key for a server (used when removing a server from the shell). Mirrors
@@ -160,9 +164,7 @@ final class SecureVault {
         // Also sweep legacy aliases so old spellings can't linger after a server is removed.
         for key in Key.allCases {
             for alias in key.aliases {
-                var query = baseQuery(canonicalURL: canonicalURL, account: alias)
-                query[kSecClass as String] = kSecClassGenericPassword
-                SecItemDelete(query as CFDictionary)
+                try? secureStore.delete(service: service(for: canonicalURL), account: alias)
             }
         }
         Logger.debug("SecureVault", "deleted all secrets for \(canonicalURL)")
@@ -170,7 +172,7 @@ final class SecureVault {
 
     // MARK: Server identity
 
-    /// Canonical per-server identity for Keychain scoping — mirrors desktop
+    /// Canonical per-server identity for store scoping — mirrors desktop
     /// `SecureStorage.normalizeUrl` (parseURL → `origin + formattedPath`). This keeps
     /// sub-paths distinct (`https://co/x/dev` vs `https://co/x/prod`) while collapsing
     /// default ports and trailing slashes, matching how desktop keys its secrets file.
@@ -199,46 +201,15 @@ final class SecureVault {
         }
     }
 
-    // MARK: Keychain item composition
+    // MARK: Item composition
 
-    /// The `kSecAttrService` a server maps to: a namespaced string embedding the canonical URL.
+    /// The `service` a server maps to: a namespaced string embedding the canonical URL.
     private func service(for canonicalURL: String) -> String {
         "\(serviceNamespace).vault.\(canonicalURL)"
     }
 
-    /// The `kSecAttrAccount` a named secret maps to (primary account for the generic password).
+    /// The `account` a named secret maps to (primary account for the generic password).
     private func account(for key: Key) -> String {
         key.rawValue
-    }
-
-    private func baseQuery(for key: Key, canonicalURL: String) -> [String: Any] {
-        baseQuery(canonicalURL: canonicalURL, account: account(for: key))
-    }
-
-    private func baseQuery(canonicalURL: String, account: String) -> [String: Any] {
-        var query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service(for: canonicalURL),
-            kSecAttrAccount as String: account,
-        ]
-        KeychainPlatform.apply(to: &query)
-        return query
-    }
-}
-
-/// Keychain backend shim for the two supported platforms.
-///
-/// iOS uses the data-protection keychain, which is gated on the `application-identifier` /
-/// `keychain-access-groups` entitlement. A locally built Mac Catalyst app signed ad hoc has no
-/// team, so no such entitlement can be issued and every `SecItem*` call fails with
-/// `errSecMissingEntitlement` (-34018) — the credential vault and the certificate-trust bag would
-/// silently stop working on the Mac. The login (file-based) keychain has no entitlement
-/// requirement, so on Catalyst we opt out of the data-protection keychain per query. iOS keeps
-/// the default behaviour, unchanged.
-enum KeychainPlatform {
-    static func apply(to query: inout [String: Any]) {
-        #if targetEnvironment(macCatalyst)
-        query[kSecUseDataProtectionKeychain as String] = false
-        #endif
     }
 }

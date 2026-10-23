@@ -74,44 +74,64 @@ struct CertificatePrompt: Identifiable, Equatable {
     }
 }
 
-/// Error surfaced when the certificate store cannot talk to the Keychain.
+/// Error surfaced when the certificate store cannot persist/read its trust bag.
 enum CertTrustError: Error, CustomStringConvertible {
     case keychainFailed(OSStatus)
     case cannotReadPresentedCertificate
+    /// Wrap of a lower-layer failure (includes `SecretStoreError` from the backends).
+    case storeFailed(String)
 
     var description: String {
         switch self {
         case .keychainFailed(let s): return "Keychain operation failed (status \(s))"
         case .cannotReadPresentedCertificate: return "Could not read the presented server certificate"
+        case .storeFailed(let message): return "Trust store failed: \(message)"
         }
     }
 }
 
 /// Native counterpart of desktop `src/main/security/certificateStore.ts`: the user-confirmable
 /// trust bag for self-signed / enterprise Mattermost server certificates. Parity row:
-/// `certificateStore` -> `CertTrust` (trusted-cert-bag, persisted in Keychain, consulted by the
-/// webview `didReceive` challenge). Status: native, Phase 2.
+/// `certificateStore` -> `CertTrust` (trusted-cert-bag, Keychain-first persisted, consulted by
+/// the webview `didReceive` challenge). Status: native, Phase 2; T22 adds the
+/// Keychain-unavailable fallback.
 ///
-/// The desktop writes a JSON file keyed by `targetURL.origin`. On iOS we persist the *same*
-/// trust decision in the OS Keychain instead (a `kSecClassGenericPassword` item per origin,
-/// mirroring `SecureVault`'s service-per-identity pattern), so the trust decision —
-/// `{ data, issuerName, dontTrust }` — survives relaunch and never sits in UserDefaults /
-/// plaintext. The URL session's `didReceive` server-trust challenge consults
-/// `isTrusted(for: presented:)` to auto-accept, and `isExplicitlyUntrusted` to hard-reject a
-/// cert the user previously told us to refuse.
+/// The desktop writes a JSON file keyed by `targetURL.origin`. This shell persists the *same*
+/// trust decision in the OS Keychain first (a `kSecClassGenericPassword` item per origin,
+/// mirroring `SecureVault`'s service-per-identity pattern), and when the Keychain is entirely
+/// refused on this build (ad-hoc Mac Catalyst, -34018) transparently falls back to the same
+/// AES-GCM sealed file the vault uses — so the decision — `{ data, issuerName, dontTrust }` —
+/// survives relaunch and never sits in UserDefaults / plaintext. The URL session's `didReceive`
+/// server-trust challenge consults `isTrusted(for: presented:)` to auto-accept, and
+/// `isExplicitlyUntrusted` to hard-reject a cert the user previously told us to refuse.
 ///
 /// Security boundary: this is shell-only (`Core`), never reachable through `Bridge`/JS — a
 /// page cannot add itself to the trust bag. Only the native challenge handler and the native
 /// confimration flow (CertPromptSheet) call it.
 final class CertTrust {
 
-    /// Namespace inserted into every Keychain `service` so trust items never collide with the
+    /// Namespace inserted into every `service` so trust items never collide with the
     /// vault's items or another app's; tests forge a unique namespace per test.
     private let serviceNamespace: String
 
-    init(serviceNamespace: String = Bundle.main.bundleIdentifier ?? "com.mattermost.ios") {
+    /// The backend the trust bag reads/writes through. Defaults to
+    /// `SecretStore.makeDefault()` — Keychain-first with the encrypted-file fallback for the
+    /// -34018 ad-hoc-Catalyst path. Tests inject a store to force either backend.
+    private let secureStore: SecretPersisting
+
+    init(serviceNamespace: String = Bundle.main.bundleIdentifier ?? "com.mattermost.ios",
+         secureStore: SecretPersisting? = nil) {
         self.serviceNamespace = serviceNamespace
+        self.secureStore = secureStore ?? SecretStore.makeDefault()
     }
+
+    /// The `service` a trust record maps to: a namespaced string embedding the origin.
+    private func service(for origin: String) -> String {
+        "\(serviceNamespace).certtrust.\(origin)"
+    }
+
+    /// Every trust record in this store lives under one account name (one record per origin).
+    private let account = "certificate"
 
     // MARK: Trust queries (mirror desktop certificateStore surface)
 
@@ -246,56 +266,27 @@ final class CertTrust {
         switch scheme { case "https": return port == 443; case "http": return port == 80; default: return false }
     }
 
-    // MARK: Keychain persistence
+    // MARK: Store persistence
 
-    /// Access policy for *written* items: usable after first unlock, `ThisDeviceOnly` keeps the
-    /// trust decision off iCloud/backups. Only the write (add/update) sets `kSecAttrAccessible`;
-    /// the read/delete queries omit it — a trusted-value in a `SecItemCopyMatching` match query
-    /// is unreliable on iOS and can surface `errSecInteractionNotAllowed`, so security-relevant
-    /// match keys stay to class/service/account only (mirrors `SecureVault`, which reads without
-    /// `kSecAttrAccessible` and is 12/12 green).
-    private let accessible: CFString = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-
-    private func baseQuery(for origin: String) -> [String: Any] {
-        var query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service(for: origin),
-            kSecAttrAccount as String: account,
-        ]
-        KeychainPlatform.apply(to: &query)
-        return query
-    }
-
-    private func service(for origin: String) -> String {
-        "\(serviceNamespace).certtrust.\(origin)"
-    }
-
-    private let account = "certificate"
-
+    /// One trust record per origin, addressed as a single `(service, account)` item — the same
+    /// primary-key shape the Keychain backend and the encrypted-file fallback share.
     private func persist(_ record: ComparableCertificate, for origin: String) throws {
         guard let payload = try? JSONEncoder().encode(record) else { return }
-        var query = baseQuery(for: origin)
-        // The write sets the access policy (SecureVault parity).
-        query[kSecAttrAccessible as String] = accessible
-        if stored(origin: origin) != nil {
-            // Update the existing item's payload in place (idempotent re-trust).
-            var update = query
-            update[kSecValueData as String] = payload
-            let status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
-            guard status == errSecSuccess else { throw CertTrustError.keychainFailed(status) }
-        } else {
-            var add = query
-            add[kSecValueData as String] = payload
-            let status = SecItemAdd(add as CFDictionary, nil)
-            guard status == errSecSuccess else { throw CertTrustError.keychainFailed(status) }
+        do {
+            try secureStore.set(service: service(for: origin), account: account, value: payload)
+        } catch {
+            throw CertTrustError.storeFailed(String(describing: error))
+        }
+        if secureStore.backendDescription != "Keychain" {
+            Logger.debug("CertTrust", "Keychain unavailable; using \(secureStore.backendDescription)")
         }
     }
 
     private func delete(origin: String) throws {
-        let query = baseQuery(for: origin)
-        let status = SecItemDelete(query as CFDictionary)
-        if status != errSecSuccess && status != errSecItemNotFound {
-            throw CertTrustError.keychainFailed(status)
+        do {
+            try secureStore.delete(service: service(for: origin), account: account)
+        } catch {
+            throw CertTrustError.storeFailed(String(describing: error))
         }
     }
 
@@ -304,15 +295,15 @@ final class CertTrust {
     }
 
     private func stored(origin: String) -> ComparableCertificate? {
-        var query = baseQuery(for: origin)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess else { return nil }
-        guard let data = result as? Data else { return nil }
-        let type = ComparableCertificate.self
-        return try? JSONDecoder().decode(type, from: data)
+        do {
+            guard let payload = try secureStore.get(service: service(for: origin), account: account) else {
+                return nil
+            }
+            return try? JSONDecoder().decode(ComparableCertificate.self, from: payload)
+        } catch {
+            Logger.debug("CertTrust", "read failed \(error) for \(origin)")
+            return nil
+        }
     }
 }
 

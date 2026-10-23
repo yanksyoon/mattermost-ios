@@ -1,0 +1,908 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=macOS,variant=Mac Catalyst" -derivedDataPath build/ddata-mac-test "-only-testing:MattermostTests"
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, variant:Mac Catalyst, id:00006000-000C410402D2801E, name:My Mac }
+{ platform:macOS, arch:x86_64, variant:Mac Catalyst, id:00006000-000C410402D2801E, name:My Mac }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (3 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'Mattermost' in project 'Mattermost' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -o /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache
+
+note: Disabling hardened runtime with ad-hoc codesigning. (in target 'Mattermost' from project 'Mattermost')
+CodeSign /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app/Contents/MacOS/Mattermost.debug.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app/Contents/MacOS/Mattermost.debug.dylib
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app/Contents/MacOS/Mattermost.debug.dylib: replacing existing signature
+
+CodeSign /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app/Contents/MacOS/__preview.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app/Contents/MacOS/__preview.dylib
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app/Contents/MacOS/__preview.dylib: replacing existing signature
+
+CodeSign /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --entitlements /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Intermediates.noindex/Mattermost.build/Debug-maccatalyst/Mattermost.build/Mattermost.app.xcent --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app: replacing existing signature
+
+Validate /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-validationUtility /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app -no-validate-extension -infoplist-subpath Contents/Info.plist
+
+RegisterWithLaunchServices /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f -R -trusted /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Build/Products/Debug-maccatalyst/Mattermost.app
+
+2026-10-23 16:32:57.425381+0800 Mattermost[60242:6917889] [AppDelegate] os_log_type_t(rawValue: 1).AppDelegate: Mattermost iOS launched @ Logger.swift.info(_:_:):55
+2026-10-23 16:32:57.425456+0800 Mattermost[60242:6917889] [SentryService] os_log_type_t(rawValue: 1).SentryService: NSSetUncaughtExceptionHandler installed @ Logger.swift.info(_:_:):55
+2026-10-23 16:32:57.425718+0800 Mattermost[60242:6917889] [SentryService] os_log_type_t(rawValue: 1).SentryService: Sentry is enabled but not configured (no DSN provided); SDK start skipped (no-op) @ Logger.swift.info(_:_:):55
+2026-10-23 16:32:57.425836+0800 Mattermost[60242:6917889] [general] NSBundle (null) initWithPath failed because the resolved path is empty or nil
+2026-10-23 16:32:57.459737+0800 Mattermost[60242:6917889] ApplePersistenceIgnoreState: Existing state will not be touched. New state will be written to /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/com.mattermost.ios.savedState
+2026-10-23 16:32:57.507699+0800 Mattermost[60242:6917889] getDisplayListNumber: 3
+2026-10-23 16:32:57.507742+0800 Mattermost[60242:6917889] iomfb_populate_all_display_infos_block_invoke: Spawn separate thread and wait for all FBs to be enumerated
+2026-10-23 16:32:57.507748+0800 Mattermost[60242:6917889] iomfb_populate_all_display_infos_block_invoke: pthread_dependency_wait_np expect: 3 current: 0
+2026-10-23 16:32:57.507763+0800 Mattermost[60242:6917947] iomfb_populate_thread: iomfb_populate_matched_displays
+2026-10-23 16:32:57.508226+0800 Mattermost[60242:6917947] IOMFB: /System/Library/PrivateFrameworks/MediaToolbox.framework/MediaToolbox not found
+2026-10-23 16:32:57.508233+0800 Mattermost[60242:6917947] IOMFB: FigInstallVirtualDisplay not found
+2026-10-23 16:32:57.508324+0800 Mattermost[60242:6917947] iomfb_populate_matched_displays: Local call to iomfb_match_callback
+2026-10-23 16:32:57.508341+0800 Mattermost[60242:6917947] iomfb_match_callback: primary
+2026-10-23 16:32:57.508371+0800 Mattermost[60242:6917947] iomfb_match_callback: external-0
+2026-10-23 16:32:57.508395+0800 Mattermost[60242:6917947] iomfb_match_callback: external-1
+2026-10-23 16:32:57.508412+0800 Mattermost[60242:6917947] iomfb_match_callback: Notify main thread as all FB callbacks hit
+2026-10-23 16:32:57.508447+0800 Mattermost[60242:6917889] iomfb_populate_all_display_infos: All Display Instances enumerated successfully - FB Count = 3
+2026-10-23 16:32:57.508895+0800 Mattermost[60242:6917889]  IOMobileFramebufferOpen:  success, return 0
+2026-10-23 16:32:57.552636+0800 Mattermost[60242:6917889] [Sandbox] Could not create a sandbox extension for '/Users/yangsooyoon/Library/Cookies'
+2026-10-23 16:32:58.122162+0800 Mattermost[60242:6917889] [API] cannot add handler to 4 from 1 - dropping
+2026-10-23 16:32:58.122703+0800 Mattermost[60242:6917889] [API] cannot add handler to 3 from 1 - dropping
+2026-10-23 16:32:58.135760+0800 Mattermost[60242:6917920] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-23 16:32:58.139202+0800 Mattermost[60242:6917927] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-23 16:32:58.139421+0800 Mattermost[60242:6917889] [WebView] os_log_type_t(rawValue: 1).WebView: unseen certificate for community.mattermost.com -> presenting CertPromptSheet @ Logger.swift.info(_:_:):55
+Test Suite 'All tests' started at 2026-10-23 16:32:58.141.
+Test Suite 'MattermostTests.xctest' started at 2026-10-23 16:32:58.141.
+Test Suite 'AppSettingsTests' started at 2026-10-23 16:32:58.141.
+Test Case '-[MattermostTests.AppSettingsTests testAppLanguageLabelDefaultsToSystemDefault]' started.
+Test Case '-[MattermostTests.AppSettingsTests testAppLanguageLabelDefaultsToSystemDefault]' passed (0.001 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testAppLanguagePersists]' started.
+Test Case '-[MattermostTests.AppSettingsTests testAppLanguagePersists]' passed (0.002 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testAvailableLogLevelsMatchDesktopOptions]' started.
+Test Case '-[MattermostTests.AppSettingsTests testAvailableLogLevelsMatchDesktopOptions]' passed (0.001 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testDefaultsMirrorDesktopDefaultPreferences]' started.
+Test Case '-[MattermostTests.AppSettingsTests testDefaultsMirrorDesktopDefaultPreferences]' passed (0.001 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitClampedToRangeOnLoad]' started.
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitClampedToRangeOnLoad]' passed (0.002 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitPersists]' started.
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitPersists]' passed (0.002 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitRangeIsSane]' started.
+Test Case '-[MattermostTests.AppSettingsTests testDownloadHistoryLimitRangeIsSane]' passed (0.001 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testLoggerGateDropsBelowMinimum]' started.
+2026-10-23 16:32:58.157574+0800 Mattermost[60242:6917889] [AppSettingsTests] os_log_type_t(rawValue: 16).AppSettingsTests: should pass @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.AppSettingsTests testLoggerGateDropsBelowMinimum]' passed (0.001 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testLogLevelPersists]' started.
+Test Case '-[MattermostTests.AppSettingsTests testLogLevelPersists]' passed (0.002 seconds).
+Test Case '-[MattermostTests.AppSettingsTests testThemeSyncingPersists]' started.
+Test Case '-[MattermostTests.AppSettingsTests testThemeSyncingPersists]' passed (0.002 seconds).
+Test Suite 'AppSettingsTests' passed at 2026-10-23 16:32:58.162.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.014 (0.020) seconds
+Test Suite 'BadgeMathTests' started at 2026-10-23 16:32:58.173.
+Test Case '-[MattermostTests.BadgeMathTests testExpiredShowsOneWhenNoMentionsAndNoUnreadDot]' started.
+Test Case '-[MattermostTests.BadgeMathTests testExpiredShowsOneWhenNoMentionsAndNoUnreadDot]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BadgeMathTests testMentionsTakePrecedenceAndUseTheCount]' started.
+Test Case '-[MattermostTests.BadgeMathTests testMentionsTakePrecedenceAndUseTheCount]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BadgeMathTests testNegativeMentionsAreTreatAsZero]' started.
+Test Case '-[MattermostTests.BadgeMathTests testNegativeMentionsAreTreatAsZero]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BadgeMathTests testUnreadHiddenWhenSettingOff]' started.
+Test Case '-[MattermostTests.BadgeMathTests testUnreadHiddenWhenSettingOff]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BadgeMathTests testUnreadOnlyShowsOneWhenSettingOn]' started.
+Test Case '-[MattermostTests.BadgeMathTests testUnreadOnlyShowsOneWhenSettingOn]' passed (0.006 seconds).
+Test Suite 'BadgeMathTests' passed at 2026-10-23 16:32:58.182.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.008 (0.009) seconds
+Test Suite 'BridgeTests' started at 2026-10-23 16:32:58.182.
+Test Case '-[MattermostTests.BridgeTests testDropsMalformedFrame]' started.
+Test Case '-[MattermostTests.BridgeTests testDropsMalformedFrame]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testDropsMalformedMentionPayload]' started.
+Test Case '-[MattermostTests.BridgeTests testDropsMalformedMentionPayload]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testDropsMessageOnUnknownHandler]' started.
+Test Case '-[MattermostTests.BridgeTests testDropsMessageOnUnknownHandler]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testDropsMessageOutsideAllowlist]' started.
+Test Case '-[MattermostTests.BridgeTests testDropsMessageOutsideAllowlist]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testDropsSubFrameMessage]' started.
+Test Case '-[MattermostTests.BridgeTests testDropsSubFrameMessage]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testMessageNamesMirrorDesktopCommunication]' started.
+Test Case '-[MattermostTests.BridgeTests testMessageNamesMirrorDesktopCommunication]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testPreloadExposesOnlyDesktopSurface]' started.
+Test Case '-[MattermostTests.BridgeTests testPreloadExposesOnlyDesktopSurface]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testRoutesNotifyMention]' started.
+Test Case '-[MattermostTests.BridgeTests testRoutesNotifyMention]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testRoutesUnreadsAndMentions]' started.
+Test Case '-[MattermostTests.BridgeTests testRoutesUnreadsAndMentions]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testSingleHandlerName]' started.
+Test Case '-[MattermostTests.BridgeTests testSingleHandlerName]' passed (0.001 seconds).
+Test Case '-[MattermostTests.BridgeTests testWebViewStoreExposesBridge]' started.
+Test Case '-[MattermostTests.BridgeTests testWebViewStoreExposesBridge]' passed (0.004 seconds).
+Test Case '-[MattermostTests.BridgeTests testWebViewStoreInstallsBridge]' started.
+Test Case '-[MattermostTests.BridgeTests testWebViewStoreInstallsBridge]' passed (0.005 seconds).
+Test Suite 'BridgeTests' passed at 2026-10-23 16:32:58.204.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.015 (0.022) seconds
+Test Suite 'CertPromptTests' started at 2026-10-23 16:32:58.204.
+Test Case '-[MattermostTests.CertPromptTests testCertificateInfoDefaultDateShowsFullStyle]' started.
+Test Case '-[MattermostTests.CertPromptTests testCertificateInfoDefaultDateShowsFullStyle]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertPromptTests testComparableDontTrustFlagDoesNotAffectEquality]' started.
+Test Case '-[MattermostTests.CertPromptTests testComparableDontTrustFlagDoesNotAffectEquality]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertPromptTests testComparableEqualityNeedsDataAndIssuer]' started.
+Test Case '-[MattermostTests.CertPromptTests testComparableEqualityNeedsDataAndIssuer]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertPromptTests testPromptCarriesDisplayInfo]' started.
+Test Case '-[MattermostTests.CertPromptTests testPromptCarriesDisplayInfo]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityDistinguishesDifferentCerts]' started.
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityDistinguishesDifferentCerts]' passed (0.000 seconds).
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityDistinguishesDifferentOrigins]' started.
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityDistinguishesDifferentOrigins]' passed (0.000 seconds).
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityIsOriginPlusCertificate]' started.
+Test Case '-[MattermostTests.CertPromptTests testPromptIdentityIsOriginPlusCertificate]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertPromptTests testSha256DigestMatchesKnownVector]' started.
+Test Case '-[MattermostTests.CertPromptTests testSha256DigestMatchesKnownVector]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertPromptTests testSha256EmptyInput]' started.
+Test Case '-[MattermostTests.CertPromptTests testSha256EmptyInput]' passed (0.001 seconds).
+Test Suite 'CertPromptTests' passed at 2026-10-23 16:32:58.211.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.005 (0.007) seconds
+Test Suite 'CertTrustDebugTests' started at 2026-10-23 16:32:58.211.
+Test Case '-[MattermostTests.CertTrustDebugTests testDebugFreshStoreLookup]' started.
+DEBUG stored(for: https://mattermost-dev.example) = nil
+DEBUG isExisting = false
+DEBUG isExplicitlyUntrusted = false
+DEBUG all-generic-password status=-25300
+Test Case '-[MattermostTests.CertTrustDebugTests testDebugFreshStoreLookup]' passed (0.002 seconds).
+Test Suite 'CertTrustDebugTests' passed at 2026-10-23 16:32:58.214.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'CertTrustFallbackTests' started at 2026-10-23 16:32:58.214.
+Test Case '-[MattermostTests.CertTrustFallbackTests testExactCertificateIsTrustedAndDifferentIsNot]' started.
+2026-10-23 16:32:58.215181+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/CertTrustFallbackTests-D9F3B34E-8BD3-48D5-BEE8-2757ACA2B216/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.CertTrustFallbackTests testExactCertificateIsTrustedAndDifferentIsNot]' passed (0.003 seconds).
+Test Case '-[MattermostTests.CertTrustFallbackTests testExplicitlyUntrustedCertificateIsRefusedEvenIfPresented]' started.
+2026-10-23 16:32:58.218393+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/CertTrustFallbackTests-1545AD85-CEE3-424F-8A40-F2DF9A951B4F/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.CertTrustFallbackTests testExplicitlyUntrustedCertificateIsRefusedEvenIfPresented]' passed (0.002 seconds).
+Test Case '-[MattermostTests.CertTrustFallbackTests testHttpsTrustAlsoMirrorsToWSSOrigin]' started.
+2026-10-23 16:32:58.220998+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/CertTrustFallbackTests-32C4CD4B-BBCA-4C43-AFC7-93C05141AF04/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.CertTrustFallbackTests testHttpsTrustAlsoMirrorsToWSSOrigin]' passed (0.002 seconds).
+Test Case '-[MattermostTests.CertTrustFallbackTests testRemoveClearsTrustDecision]' started.
+2026-10-23 16:32:58.223493+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/CertTrustFallbackTests-484A1D62-0C88-481F-B2F8-DA759D91B0BF/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.CertTrustFallbackTests testRemoveClearsTrustDecision]' passed (0.003 seconds).
+Test Case '-[MattermostTests.CertTrustFallbackTests testTrustIsScopedPerOriginNotPerPortOrSubpath]' started.
+2026-10-23 16:32:58.226496+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/CertTrustFallbackTests-6B8F6D3A-1380-4BB0-9E36-720D4ADAAE0A/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.CertTrustFallbackTests testTrustIsScopedPerOriginNotPerPortOrSubpath]' passed (0.002 seconds).
+Test Case '-[MattermostTests.CertTrustFallbackTests testTrustSurvivesFreshStoreInstance_simulatingRelaunch]' started.
+2026-10-23 16:32:58.229079+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/CertTrustFallbackTests-33F057F4-3317-420D-9A99-80CBFDD989B4/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.CertTrustFallbackTests testTrustSurvivesFreshStoreInstance_simulatingRelaunch]' passed (0.003 seconds).
+Test Case '-[MattermostTests.CertTrustFallbackTests testUntrustedOriginIsNotTrusted]' started.
+2026-10-23 16:32:58.231988+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/CertTrustFallbackTests-CC98D199-F35A-4F45-AC6A-EAA293B7DB13/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.CertTrustFallbackTests testUntrustedOriginIsNotTrusted]' passed (0.001 seconds).
+Test Suite 'CertTrustFallbackTests' passed at 2026-10-23 16:32:58.232.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.016 (0.018) seconds
+Test Suite 'CertTrustTests' started at 2026-10-23 16:32:58.233.
+Test Case '-[MattermostTests.CertTrustTests testAreEqualRequiresDataAndIssuer]' started.
+Test Case '-[MattermostTests.CertTrustTests testAreEqualRequiresDataAndIssuer]' passed (0.001 seconds).
+Test Case '-[MattermostTests.CertTrustTests testExactCertificateIsTrustedAndDifferentIsNot]' started.
+Test Case '-[MattermostTests.CertTrustTests testExactCertificateIsTrustedAndDifferentIsNot]' passed (0.004 seconds).
+Test Case '-[MattermostTests.CertTrustTests testExplicitlyUntrustedCertificateIsRefusedEvenIfPresented]' started.
+Test Case '-[MattermostTests.CertTrustTests testExplicitlyUntrustedCertificateIsRefusedEvenIfPresented]' passed (0.004 seconds).
+Test Case '-[MattermostTests.CertTrustTests testRemoveClearsTrustDecision]' started.
+Test Case '-[MattermostTests.CertTrustTests testRemoveClearsTrustDecision]' passed (0.005 seconds).
+Test Case '-[MattermostTests.CertTrustTests testTrustIsScopedPerOriginNotPerPortOrSubpath]' started.
+Test Case '-[MattermostTests.CertTrustTests testTrustIsScopedPerOriginNotPerPortOrSubpath]' passed (0.004 seconds).
+Test Case '-[MattermostTests.CertTrustTests testTrustSurvivesFreshStoreInstance_simulatingRelaunch]' started.
+Test Case '-[MattermostTests.CertTrustTests testTrustSurvivesFreshStoreInstance_simulatingRelaunch]' passed (0.006 seconds).
+Test Case '-[MattermostTests.CertTrustTests testUntrustedOriginIsNotTrusted]' started.
+Test Case '-[MattermostTests.CertTrustTests testUntrustedOriginIsNotTrusted]' passed (0.002 seconds).
+Test Suite 'CertTrustTests' passed at 2026-10-23 16:32:58.260.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.025 (0.027) seconds
+Test Suite 'DeepLinkRouterTests' started at 2026-10-23 16:32:58.260.
+Test Case '-[MattermostTests.DeepLinkRouterTests testNoServersOffersAdd]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testNoServersOffersAdd]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesHttpLink]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesHttpLink]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesMattermostBetaScheme]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesMattermostBetaScheme]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesMattermostScheme]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testParsesMattermostScheme]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testPreservesPortOnMattermostScheme]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testPreservesPortOnMattermostScheme]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testQueuesUntilReady]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testQueuesUntilReady]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsNulByte]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsNulByte]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsOversizedLink]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsOversizedLink]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsUnknownScheme]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testRejectsUnknownScheme]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testRoutesToMatchingServer]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testRoutesToMatchingServer]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testRoutesWithoutChannelToServerRoot]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testRoutesWithoutChannelToServerRoot]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testUnmatchedHostOffersServerAdd]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testUnmatchedHostOffersServerAdd]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DeepLinkRouterTests testUnreadyWithoutStoreIsIgnored]' started.
+Test Case '-[MattermostTests.DeepLinkRouterTests testUnreadyWithoutStoreIsIgnored]' passed (0.001 seconds).
+Test Suite 'DeepLinkRouterTests' passed at 2026-10-23 16:32:58.280.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.017 (0.020) seconds
+Test Suite 'DiagnosticsTests' started at 2026-10-23 16:32:58.280.
+Test Case '-[MattermostTests.DiagnosticsTests testBrowserWindowsStepFailsForUnmountedWebview]' started.
+2026-10-23 16:32:58.304859+0800 Mattermost[60242:6917889] [API] cannot add handler to 4 from 1 - dropping
+2026-10-23 16:32:58.304889+0800 Mattermost[60242:6917889] [API] cannot add handler to 3 from 1 - dropping
+2026-10-23 16:32:58.322436+0800 Mattermost[60242:6917889] [API] cannot add handler to 4 from 1 - dropping
+2026-10-23 16:32:58.322547+0800 Mattermost[60242:6917889] [API] cannot add handler to 3 from 1 - dropping
+2026-10-23 16:32:58.328190+0800 Mattermost[60242:6917889] [WindowHosting] UIScene property of UINSSceneViewController was accessed before it was set.
+2026-10-23 16:32:58.329087+0800 Mattermost[60242:6917889] [WindowHosting] UIScene property of UINSSceneViewController was accessed before it was set.
+2026-10-23 16:32:58.333464+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:32:58.333613+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:32:58.333807+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+Test Case '-[MattermostTests.DiagnosticsTests testBrowserWindowsStepFailsForUnmountedWebview]' passed (0.055 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testBrowserWindowsStepSucceedsWhenMountedAndLoaded]' started.
+2026-10-23 16:32:58.338745+0800 Mattermost[60242:6917889] [WindowHosting] UIScene property of UINSSceneViewController was accessed before it was set.
+Test Case '-[MattermostTests.DiagnosticsTests testBrowserWindowsStepSucceedsWhenMountedAndLoaded]' passed (0.005 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testConfigValidationFailsOnEmptyServerName]' started.
+2026-10-23 16:32:58.341634+0800 Mattermost[60242:6917889] [ApplicationEnviromentLoading] WebContent[60243] Failed to initialize application enviroment context
+2026-10-23 16:32:58.341650+0800 Mattermost[60242:6917889] [DisplayConfigurationFetch] WebContent[60243] Failed to load a display context, even though we are not a headless app.
+2026-10-23 16:32:58.341656+0800 Mattermost[60242:6917889] WebContent[60243] Server root port lookup error - bootstrap: not privileged
+2026-10-23 16:32:58.341667+0800 Mattermost[60242:6917889] WebContent[60243] On-demand launch of the Window Server is allowed for root user only.
+2026-10-23 16:32:58.341672+0800 Mattermost[60242:6917889] WebContent[60243] Server root port lookup error - bootstrap: not privileged
+2026-10-23 16:32:58.341676+0800 Mattermost[60242:6917889] WebContent[60243] On-demand launch of the Window Server is allowed for root user only.
+2026-10-23 16:32:58.341680+0800 Mattermost[60242:6917889] WebContent[60243] failed to resolve server port
+2026-10-23 16:32:58.341696+0800 Mattermost[60242:6917889] [access] WebContent[60243] send_message_with_reply_sync(): XPC_ERROR_CONNECTION_INVALID for message 0x7aac68900
+2026-10-23 16:32:58.341700+0800 Mattermost[60242:6917889] [access] WebContent[60243] TCCAccessRequest_block_invoke: Connection invalid
+2026-10-23 16:32:58.341706+0800 Mattermost[60242:6917889] [ApplicationEnviromentLoading] WebContent[60243] Failed to initialize application enviroment context
+2026-10-23 16:32:58.341711+0800 Mattermost[60242:6917889] [DeviceConfigurationFetch] WebContent[60243] Failed to load a device context.
+2026-10-23 16:32:58.351715+0800 Mattermost[60242:6917889] [WindowHosting] UIScene property of UINSSceneViewController was accessed before it was set.
+2026-10-23 16:32:58.352112+0800 Mattermost[60242:6917889] [WindowHosting] UIScene property of UINSSceneViewController was accessed before it was set.
+Test Case '-[MattermostTests.DiagnosticsTests testConfigValidationFailsOnEmptyServerName]' passed (0.026 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testConfigValidationSucceedsWithoutPersistedConfig]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testConfigValidationSucceedsWithoutPersistedConfig]' passed (0.006 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testConnectivityStepFailsWhenOfflineButRunCompletes]' started.
+2026-10-23 16:32:58.379390+0800 Mattermost[60242:6917920] [Default] Task <F7D01CDE-308A-4847-9532-AED8E00359A5>.<1> finished with error [-1009] Error Domain=NSURLErrorDomain Code=-1009 "(null)" UserInfo={_NSURLErrorRelatedURLSessionTaskErrorKey=(
+    "LocalDataTask <F7D01CDE-308A-4847-9532-AED8E00359A5>.<1>"
+), _NSURLErrorFailingURLSessionTaskErrorKey=LocalDataTask <F7D01CDE-308A-4847-9532-AED8E00359A5>.<1>}
+2026-10-23 16:32:58.383640+0800 Mattermost[60242:6917889] [WindowHosting] UIScene property of UINSSceneViewController was accessed before it was set.
+2026-10-23 16:32:58.455685+0800 Mattermost[60242:6917889] [API] cannot add handler to 4 from 1 - dropping
+2026-10-23 16:32:58.455718+0800 Mattermost[60242:6917889] [API] cannot add handler to 3 from 1 - dropping
+2026-10-23 16:32:58.711792+0800 Mattermost[60242:6917889] [API] cannot add handler to 4 from 1 - dropping
+2026-10-23 16:32:58.711850+0800 Mattermost[60242:6917889] [API] cannot add handler to 3 from 1 - dropping
+2026-10-23 16:32:58.718117+0800 Mattermost[60242:6917889] [ResourceLoadStatistics] WebContent[60243] Unable to filter tracking query parameters (missing data)
+2026-10-23 16:32:58.718178+0800 Mattermost[60242:6917889] WebContent[60243] networkd_settings_read_from_file Sandbox is preventing this process from reading networkd settings file at "/Library/Preferences/com.apple.networkd.plist", please add an exception.
+2026-10-23 16:32:58.718190+0800 Mattermost[60242:6917889] WebContent[60243] networkd_settings_read_from_file Sandbox is preventing this process from reading networkd settings file at "/Library/Preferences/com.apple.networkd.plist", please add an exception.
+Test Case '-[MattermostTests.DiagnosticsTests testConnectivityStepFailsWhenOfflineButRunCompletes]' passed (0.362 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testConnectivityStepSucceedsAgainstLocalhostEndpoint]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testConnectivityStepSucceedsAgainstLocalhostEndpoint]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testCrashReportsStepReadsCrashFiles]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testCrashReportsStepReadsCrashFiles]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testCrashReportsStepSucceedsWithNoCrashFiles]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testCrashReportsStepSucceedsWithNoCrashFiles]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testDateTimeInFilenameFormatMatchesDesktop]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testDateTimeInFilenameFormatMatchesDesktop]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testDiagValueEncodesAsJSON]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testDiagValueEncodesAsJSON]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testFullReportAssemblyRunsAllTwelveSteps]' started.
+2026-10-23 16:32:58.785592+0800 Mattermost[60242:6917889] [API] cannot add handler to 4 from 1 - dropping
+2026-10-23 16:32:58.785621+0800 Mattermost[60242:6917889] [API] cannot add handler to 3 from 1 - dropping
+2026-10-23 16:32:59.113668+0800 Mattermost[60242:6918018] [ResourceLoadStatistics] WebContent[60243] Unable to hide query parameters from script (missing data)
+Test Case '-[MattermostTests.DiagnosticsTests testFullReportAssemblyRunsAllTwelveSteps]' passed (0.370 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testLogHeuristicsCountsLevelsFromTranscript]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testLogHeuristicsCountsLevelsFromTranscript]' passed (0.004 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testObfuscatorMasksEmailURLIPv4PathToken]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testObfuscatorMasksEmailURLIPv4PathToken]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testObfuscatorRecursesIntoDictionaries]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testObfuscatorRecursesIntoDictionaries]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testObfuscatorTruncatesLongTokens]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testObfuscatorTruncatesLongTokens]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testPermissionsStepReflectsProviderSnapshot]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testPermissionsStepReflectsProviderSnapshot]' passed (0.013 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testReportJSONRoundTrips]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testReportJSONRoundTrips]' passed (0.258 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testReportMarkdownContainsSummaryTable]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testReportMarkdownContainsSummaryTable]' passed (0.245 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testServerConnectivityAllOnline]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testServerConnectivityAllOnline]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testServerConnectivityFailsWhenServerOffline]' started.
+2026-10-23 16:32:59.645604+0800 Mattermost[60242:6917920] [Default] Task <0051BA6D-E210-49BE-99D3-644AF283975B>.<1> finished with error [-1004] Error Domain=NSURLErrorDomain Code=-1004 "(null)" UserInfo={_NSURLErrorRelatedURLSessionTaskErrorKey=(
+    "LocalDataTask <0051BA6D-E210-49BE-99D3-644AF283975B>.<1>"
+), _NSURLErrorFailingURLSessionTaskErrorKey=LocalDataTask <0051BA6D-E210-49BE-99D3-644AF283975B>.<1>}
+Test Case '-[MattermostTests.DiagnosticsTests testServerConnectivityFailsWhenServerOffline]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testServerConnectivityFailsWithoutServers]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testServerConnectivityFailsWithoutServers]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testSessionDataValidationAllCookiesPresent]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testSessionDataValidationAllCookiesPresent]' passed (0.103 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testSessionDataValidationFailsWhenCookieMissing]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testSessionDataValidationFailsWhenCookieMissing]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testStepEnumerationMatchesDesktopStepSet]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testStepEnumerationMatchesDesktopStepSet]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DiagnosticsTests testWriteReportFilesProducesShareableFiles]' started.
+Test Case '-[MattermostTests.DiagnosticsTests testWriteReportFilesProducesShareableFiles]' passed (0.286 seconds).
+Test Suite 'DiagnosticsTests' passed at 2026-10-23 16:33:00.042.
+	 Executed 25 tests, with 0 failures (0 unexpected) in 1.755 (1.761) seconds
+Test Suite 'DownloadFormattingTests' started at 2026-10-23 16:33:00.042.
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusDownloading]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusDownloading]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusMapsCancelledLikeDesktopDefault]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusMapsCancelledLikeDesktopDefault]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusMapsDoneToDownloaded]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testFileStatusMapsDoneToDownloaded]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testIconByExtension]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testIconByExtension]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testIconFallsBackToGenericDoc]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testIconFallsBackToGenericDoc]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesBytes]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesBytes]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesKiloAndAbove]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesKiloAndAbove]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesNegative]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesNegative]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesZero]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testPrettyBytesZero]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressClamped]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressClamped]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressFraction]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressFraction]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressUnknownTotalIsZero]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testProgressUnknownTotalIsZero]' passed (0.007 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeAndStatusCombinedForDone]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeAndStatusCombinedForDone]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeForTerminalStateIsTotal]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeForTerminalStateIsTotal]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeWhileDownloadingShowsReceivedOfTotal]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeWhileDownloadingShowsReceivedOfTotal]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeWhileDownloadingWithoutKnownTotal]' started.
+Test Case '-[MattermostTests.DownloadFormattingTests testSizeWhileDownloadingWithoutKnownTotal]' passed (0.001 seconds).
+Test Suite 'DownloadFormattingTests' passed at 2026-10-23 16:33:00.063.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.016 (0.022) seconds
+Test Suite 'DownloadHistoryCapTests' started at 2026-10-23 16:33:00.064.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testGrowthOfCapDoesNotDrop]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testGrowthOfCapDoesNotDrop]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadHistoryCapTests testNewHistoryDefaultsToSettingsCap]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testNewHistoryDefaultsToSettingsCap]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsClampsToRange]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsClampsToRange]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsPersistsAcrossRelaunch]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsPersistsAcrossRelaunch]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsSameValueIsNoOp]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsSameValueIsNoOp]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsTrimsOldest]' started.
+Test Case '-[MattermostTests.DownloadHistoryCapTests testSetMaxRecordsTrimsOldest]' passed (0.004 seconds).
+Test Suite 'DownloadHistoryCapTests' passed at 2026-10-23 16:33:00.086.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.016 (0.022) seconds
+Test Suite 'DownloadHistoryTests' started at 2026-10-23 16:33:00.086.
+Test Case '-[MattermostTests.DownloadHistoryTests testAddDeduplicatesSameSource]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testAddDeduplicatesSameSource]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testAddIsNewestFirstAndFindable]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testAddIsNewestFirstAndFindable]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testAddKeepsDistinctSources]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testAddKeepsDistinctSources]' passed (0.003 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testClearFinishedKeepsOnlyInFlight]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testClearFinishedKeepsOnlyInFlight]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testHistorySurvivesFreshInstance_simulatingRelaunch]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testHistorySurvivesFreshInstance_simulatingRelaunch]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testRemove]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testRemove]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testTrimsToMaxRecordsNewestFirst]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testTrimsToMaxRecordsNewestFirst]' passed (0.015 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testUpdatePersistsStateTransition]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testUpdatePersistsStateTransition]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadHistoryTests testUpdateUnknownAdds]' started.
+Test Case '-[MattermostTests.DownloadHistoryTests testUpdateUnknownAdds]' passed (0.002 seconds).
+Test Suite 'DownloadHistoryTests' passed at 2026-10-23 16:33:00.122.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.034 (0.036) seconds
+Test Suite 'DownloadRecordTests' started at 2026-10-23 16:33:00.122.
+Test Case '-[MattermostTests.DownloadRecordTests testCodableRoundTripAllFieldsSet]' started.
+Test Case '-[MattermostTests.DownloadRecordTests testCodableRoundTripAllFieldsSet]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadRecordTests testCodableRoundTripNullOptionals]' started.
+Test Case '-[MattermostTests.DownloadRecordTests testCodableRoundTripNullOptionals]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadRecordTests testDefaultsToDownloading]' started.
+Test Case '-[MattermostTests.DownloadRecordTests testDefaultsToDownloading]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadRecordTests testTargetURLIsNilUntilLanded]' started.
+Test Case '-[MattermostTests.DownloadRecordTests testTargetURLIsNilUntilLanded]' passed (0.001 seconds).
+Test Suite 'DownloadRecordTests' passed at 2026-10-23 16:33:00.126.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'DownloadWorkerTests' started at 2026-10-23 16:33:00.126.
+Test Case '-[MattermostTests.DownloadWorkerTests testExportPickerBuiltForLandedFileAndMovesByDefault]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testExportPickerBuiltForLandedFileAndMovesByDefault]' passed (0.002 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testExportPickerNilWhenNothingLanded]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testExportPickerNilWhenNothingLanded]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testResolveDestinationBuildsDownloadsFileURL]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testResolveDestinationBuildsDownloadsFileURL]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testResolveDestinationDeduplicatesInDirectory]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testResolveDestinationDeduplicatesInDirectory]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedCollapsesTraversal]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedCollapsesTraversal]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedFallsBackWhenEmpty]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedFallsBackWhenEmpty]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedKeepsBasenameAndTrims]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testSanitizedKeepsBasenameAndTrims]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueKeepsBaseWhenFree]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueKeepsBaseWhenFree]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueKeepsLastExtensionOnly]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueKeepsLastExtensionOnly]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueNoExtensionCase]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueNoExtensionCase]' passed (0.001 seconds).
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueSuffixesOnCollision]' started.
+Test Case '-[MattermostTests.DownloadWorkerTests testUniqueSuffixesOnCollision]' passed (0.001 seconds).
+Test Suite 'DownloadWorkerTests' passed at 2026-10-23 16:33:00.138.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.010 (0.012) seconds
+Test Suite 'EncryptedFileSecretStoreTests' started at 2026-10-23 16:33:00.138.
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testCorruptPayloadReadsAsEmptyWithoutThrowing]' started.
+2026-10-23 16:33:00.142799+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-20D91942-A61E-4C3A-9C32-4B421FE46D36/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+2026-10-23 16:33:00.144375+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-20D91942-A61E-4C3A-9C32-4B421FE46D36/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testCorruptPayloadReadsAsEmptyWithoutThrowing]' passed (0.008 seconds).
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testDeleteAllClearsEveryAccountInService]' started.
+2026-10-23 16:33:00.147364+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-35F82528-D040-4CC1-9AF8-F3DE4A7AB760/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testDeleteAllClearsEveryAccountInService]' passed (0.003 seconds).
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testDeleteMissingIsNoOp]' started.
+2026-10-23 16:33:00.151125+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-52AA3B86-98F3-487C-ACB1-C4A44E27038B/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testDeleteMissingIsNoOp]' passed (0.001 seconds).
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testDeleteRemovesValue]' started.
+2026-10-23 16:33:00.152043+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-7F2D112C-4789-4371-AB05-40B861543DFF/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testDeleteRemovesValue]' passed (0.003 seconds).
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testFilesAreOwnerReadWriteOnly]' started.
+2026-10-23 16:33:00.155158+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-C44AF5DF-91CA-4DC1-998A-3E036094D887/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testFilesAreOwnerReadWriteOnly]' passed (0.002 seconds).
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testKeyFileIsReusedAcrossWrites]' started.
+2026-10-23 16:33:00.157667+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-D1FAFF68-E996-474D-8216-1EBAE8B189C8/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testKeyFileIsReusedAcrossWrites]' passed (0.002 seconds).
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testOverwriteReplacesValue]' started.
+2026-10-23 16:33:00.160484+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-319AD858-EAEF-47E3-85D7-DD98D6EA63EE/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testOverwriteReplacesValue]' passed (0.002 seconds).
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testPayloadOnDiskIsNotPlaintext]' started.
+2026-10-23 16:33:00.162935+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-6FB4B15F-7007-4B82-B825-2F3BB5F66207/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testPayloadOnDiskIsNotPlaintext]' passed (0.002 seconds).
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testSetGetRoundTrip]' started.
+2026-10-23 16:33:00.165123+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-BD254B2C-BD3D-4936-AF03-5A844DA37F7F/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testSetGetRoundTrip]' passed (0.002 seconds).
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testValuesAreIsolatedPerServiceAndAccount]' started.
+2026-10-23 16:33:00.167001+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-1B9220AF-B232-4B28-8E33-581D1AC396BC/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testValuesAreIsolatedPerServiceAndAccount]' passed (0.002 seconds).
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testValueSurvivesFreshInstance_simulatingRelaunch]' started.
+2026-10-23 16:33:00.169555+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/EncryptedFileSecretStoreTests-8DA73684-8D4D-4072-98CB-A69DDDD66C87/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.EncryptedFileSecretStoreTests testValueSurvivesFreshInstance_simulatingRelaunch]' passed (0.002 seconds).
+Test Suite 'EncryptedFileSecretStoreTests' passed at 2026-10-23 16:33:00.171.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.030 (0.033) seconds
+Test Suite 'FallbackSecretStoreTests' started at 2026-10-23 16:33:00.171.
+Test Case '-[MattermostTests.FallbackSecretStoreTests testBackendDescriptionReflectsEngagedFallback]' started.
+2026-10-23 16:33:00.171962+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/FallbackSecretStoreTests-F17D565D-B329-4C10-90EC-3C79BF9738A2/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.FallbackSecretStoreTests testBackendDescriptionReflectsEngagedFallback]' passed (0.001 seconds).
+Test Case '-[MattermostTests.FallbackSecretStoreTests testNonMissingEntitlementFailureIsNotSilentlyRouted]' started.
+Test Case '-[MattermostTests.FallbackSecretStoreTests testNonMissingEntitlementFailureIsNotSilentlyRouted]' passed (0.001 seconds).
+Test Case '-[MattermostTests.FallbackSecretStoreTests testUnavailablePrimaryDeleteDeleteAllRouteToFile]' started.
+2026-10-23 16:33:00.173796+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/FallbackSecretStoreTests-7623FFBC-0D77-4103-8BCE-17FDBBAD2073/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.FallbackSecretStoreTests testUnavailablePrimaryDeleteDeleteAllRouteToFile]' passed (0.003 seconds).
+Test Case '-[MattermostTests.FallbackSecretStoreTests testUnavailablePrimarySetGetRoundTripsThroughFile]' started.
+2026-10-23 16:33:00.177286+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/FallbackSecretStoreTests-C56A46C9-1522-4B1F-B5A3-C615405DC7B6/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.FallbackSecretStoreTests testUnavailablePrimarySetGetRoundTripsThroughFile]' passed (0.002 seconds).
+Test Case '-[MattermostTests.FallbackSecretStoreTests testValueSurvivesFreshCompositeAcrossRefiles]' started.
+2026-10-23 16:33:00.179323+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/FallbackSecretStoreTests-C57B91FF-665F-4687-BA30-2D5EF62188C1/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.FallbackSecretStoreTests testValueSurvivesFreshCompositeAcrossRefiles]' passed (0.002 seconds).
+Test Case '-[MattermostTests.FallbackSecretStoreTests testWorkingPrimaryNeverTouchesFallbackFile]' started.
+Test Case '-[MattermostTests.FallbackSecretStoreTests testWorkingPrimaryNeverTouchesFallbackFile]' passed (0.001 seconds).
+Test Suite 'FallbackSecretStoreTests' passed at 2026-10-23 16:33:00.182.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.009 (0.010) seconds
+Test Suite 'NotificationWorkerTests' started at 2026-10-23 16:33:00.182.
+Test Case '-[MattermostTests.NotificationWorkerTests testBackgroundedPrimaryServerSchedules]' started.
+2026-10-23 16:33:00.189298+0800 Mattermost[60242:6917889] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.48FE86D3-3E56-48EB-9EF4-403969E59010.ch1.31FFDD10-C601-441C-83B9-151EAB8A823A @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testBackgroundedPrimaryServerSchedules]' passed (0.008 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testCoordinatorWiresMentionEventsIntoWorker]' started.
+2026-10-23 16:33:00.194187+0800 Mattermost[60242:6917889] [Bridge] os_log_type_t(rawValue: 1).Bridge: mention for https://example.mattermost.com: from bridge @ Logger.swift.info(_:_:):55
+2026-10-23 16:33:00.194395+0800 Mattermost[60242:6917889] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: BridgeHey -> mention.C758F4F9-5992-45E3-B2F9-8D076C260FFB.bridge-ch.463140F7-0515-4DFD-B4FD-6032EBCC402A @ Logger.swift.info(_:_:):55
+2026-10-23 16:33:00.194781+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+Test Case '-[MattermostTests.NotificationWorkerTests testCoordinatorWiresMentionEventsIntoWorker]' passed (0.005 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testCoordinatorWiresUnreadsAndExpiredIntoSessionStore]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testCoordinatorWiresUnreadsAndExpiredIntoSessionStore]' passed (0.003 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testDeniedDoesNotSchedule]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testDeniedDoesNotSchedule]' passed (0.004 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testDisplayTitleComposition]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testDisplayTitleComposition]' passed (0.001 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testFirstMentionRequestsAuthorizationAndSchedulesWhenGranted]' started.
+2026-10-23 16:33:00.205965+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.207708+0800 Mattermost[60242:6917889] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.F3A1AD1D-7B1A-4904-9760-B5738E064B24.ch1.9604B308-25B5-45BA-B344-1F08F4613BD8 @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testFirstMentionRequestsAuthorizationAndSchedulesWhenGranted]' passed (0.003 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testForegroundVisibleServerIsSuppressed]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testForegroundVisibleServerIsSuppressed]' passed (0.012 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testMentionSoundMapping]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testMentionSoundMapping]' passed (0.001 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testMissingServerDoesNotSchedule]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testMissingServerDoesNotSchedule]' passed (0.002 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testNotDeterminedAfterFirstAskDoesNotSchedule]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testNotDeterminedAfterFirstAskDoesNotSchedule]' passed (0.013 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testPermissionRequestedFlagPersistsAcrossWorkerInstances]' started.
+2026-10-23 16:33:00.239543+0800 Mattermost[60242:6917889] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.A53090E7-0C18-4CDE-B31E-8A2D5EF716C6.ch1.5CF19EEB-D323-4319-A546-9E06DBFBE986 @ Logger.swift.info(_:_:):55
+2026-10-23 16:33:00.239678+0800 Mattermost[60242:6917889] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.A53090E7-0C18-4CDE-B31E-8A2D5EF716C6.ch1.454E283F-E727-402C-B621-D9654425AF3F @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testPermissionRequestedFlagPersistsAcrossWorkerInstances]' passed (0.017 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testRouteIgnoresNonMentionUserInfo]' started.
+Test Case '-[MattermostTests.NotificationWorkerTests testRouteIgnoresNonMentionUserInfo]' passed (0.003 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testScheduledRequestCarriesDesktopPayload]' started.
+2026-10-23 16:33:00.259054+0800 Mattermost[60242:6917889] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Acme: Hey -> mention.96D45DDA-F671-47E3-ACFC-674834FA1510.town-square.9E10D977-81EB-4A16-8E04-9A748B72D309 @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testScheduledRequestCarriesDesktopPayload]' passed (0.003 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testSilentMentionHasNoSound]' started.
+2026-10-23 16:33:00.261917+0800 Mattermost[60242:6917889] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.F65E99C6-8CA9-4F88-A55B-9FD4E14C04EF.ch1.075F19F6-B518-4F08-895B-76DC670A9296 @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testSilentMentionHasNoSound]' passed (0.010 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testSubsequentMentionsDoNotReRequestAuthorization]' started.
+2026-10-23 16:33:00.274005+0800 Mattermost[60242:6917889] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.5B2F3566-FD18-4C3C-9891-96946A0D5F44.ch1.39CECE8E-5BDF-47E6-90CF-885CBC61C8DC @ Logger.swift.info(_:_:):55
+2026-10-23 16:33:00.274049+0800 Mattermost[60242:6917889] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: scheduled mention Example: You were mentioned -> mention.5B2F3566-FD18-4C3C-9891-96946A0D5F44.ch1.A7BD9A36-B955-4DB5-99BA-81DC5D9C8D5C @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testSubsequentMentionsDoNotReRequestAuthorization]' passed (0.004 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testTapQueuesPathUntilSPAReady]' started.
+2026-10-23 16:33:00.279956+0800 Mattermost[60242:6917889] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: mention tap -> server Example channel cold-room @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testTapQueuesPathUntilSPAReady]' passed (0.006 seconds).
+Test Case '-[MattermostTests.NotificationWorkerTests testTapRoutesToServerAndChannelWhenSPAReady]' started.
+2026-10-23 16:33:00.283999+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.288586+0800 Mattermost[60242:6917889] [NotificationWorker] os_log_type_t(rawValue: 1).NotificationWorker: mention tap -> server Routed channel channel-9 @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.NotificationWorkerTests testTapRoutesToServerAndChannelWhenSPAReady]' passed (0.008 seconds).
+Test Suite 'NotificationWorkerTests' passed at 2026-10-23 16:33:00.290.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.103 (0.108) seconds
+Test Suite 'SecureVaultFallbackTests' started at 2026-10-23 16:33:00.290.
+Test Case '-[MattermostTests.SecureVaultFallbackTests testAuthTokenRoundTripThroughFallback]' started.
+2026-10-23 16:33:00.290567+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/SecureVaultFallbackTests-FDFB1F01-DA85-4BFC-903D-FDDDEF574618/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.SecureVaultFallbackTests testAuthTokenRoundTripThroughFallback]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SecureVaultFallbackTests testDeleteAllSecretsClearsEveryKey]' started.
+2026-10-23 16:33:00.292660+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/SecureVaultFallbackTests-6FB33E80-BECC-4F4E-8006-2CE88B61BCA0/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.SecureVaultFallbackTests testDeleteAllSecretsClearsEveryKey]' passed (0.004 seconds).
+Test Case '-[MattermostTests.SecureVaultFallbackTests testDeleteAllSecretsDoesNotTouchOtherServers]' started.
+2026-10-23 16:33:00.296708+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/SecureVaultFallbackTests-0E587495-7819-4CBE-BB4B-3C6C61516E64/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.SecureVaultFallbackTests testDeleteAllSecretsDoesNotTouchOtherServers]' passed (0.003 seconds).
+Test Case '-[MattermostTests.SecureVaultFallbackTests testDeleteSecret]' started.
+2026-10-23 16:33:00.299593+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/SecureVaultFallbackTests-CC869E54-6D2A-4D7D-BD3A-647218434A17/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.SecureVaultFallbackTests testDeleteSecret]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SecureVaultFallbackTests testDeleteSecretNotPresentIsNoOp]' started.
+2026-10-23 16:33:00.302020+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/SecureVaultFallbackTests-3132D8AE-0E04-4509-8182-D083454B22AD/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.SecureVaultFallbackTests testDeleteSecretNotPresentIsNoOp]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SecureVaultFallbackTests testEmptyValueDeletesExistingSecret]' started.
+2026-10-23 16:33:00.303124+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/SecureVaultFallbackTests-A4553886-C4A9-4D40-84DD-5341DB104C91/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.SecureVaultFallbackTests testEmptyValueDeletesExistingSecret]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SecureVaultFallbackTests testKeysAreDistinctAccountsWithinAServer]' started.
+2026-10-23 16:33:00.305744+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/SecureVaultFallbackTests-652FFABD-27CF-4858-8D4B-87D2E7920B97/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.SecureVaultFallbackTests testKeysAreDistinctAccountsWithinAServer]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SecureVaultFallbackTests testSameServerSubpathsAreDistinct]' started.
+2026-10-23 16:33:00.308207+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/SecureVaultFallbackTests-47C77E00-5904-445D-A489-DB9A520B6B56/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.SecureVaultFallbackTests testSameServerSubpathsAreDistinct]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SecureVaultFallbackTests testSecretsAreIsolatedPerServer]' started.
+2026-10-23 16:33:00.310566+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/SecureVaultFallbackTests-5034C323-70A0-438C-97BB-E2C15512C708/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.SecureVaultFallbackTests testSecretsAreIsolatedPerServer]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SecureVaultFallbackTests testTokenSurvivesFreshVaultInstance_simulatingRelaunch]' started.
+2026-10-23 16:33:00.313009+0800 Mattermost[60242:6917889] [SecretStore] os_log_type_t(rawValue: 16).SecretStore: fallback payload missing/corrupt at /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/SecureVaultFallbackTests-37F63DEF-00FC-4649-9E72-F19F05655CA9/vault-secrets.json.enc; starting empty @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.SecureVaultFallbackTests testTokenSurvivesFreshVaultInstance_simulatingRelaunch]' passed (0.002 seconds).
+Test Suite 'SecureVaultFallbackTests' passed at 2026-10-23 16:33:00.315.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.023 (0.025) seconds
+Test Suite 'SecureVaultTests' started at 2026-10-23 16:33:00.315.
+Test Case '-[MattermostTests.SecureVaultTests testAuthTokenRoundTripReadableOnlyViaVault]' started.
+Test Case '-[MattermostTests.SecureVaultTests testAuthTokenRoundTripReadableOnlyViaVault]' passed (0.003 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testCanonicalServerURLCollapsesDefaultPortAndTrailingSlash]' started.
+Test Case '-[MattermostTests.SecureVaultTests testCanonicalServerURLCollapsesDefaultPortAndTrailingSlash]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testCanonicalServerURLKeepsNonDefaultPortAndSubPath]' started.
+Test Case '-[MattermostTests.SecureVaultTests testCanonicalServerURLKeepsNonDefaultPortAndSubPath]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testDeleteAllSecretsClearsEveryKey]' started.
+Test Case '-[MattermostTests.SecureVaultTests testDeleteAllSecretsClearsEveryKey]' passed (0.009 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testDeleteAllSecretsDoesNotTouchOtherServers]' started.
+Test Case '-[MattermostTests.SecureVaultTests testDeleteAllSecretsDoesNotTouchOtherServers]' passed (0.005 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testDeleteSecret]' started.
+Test Case '-[MattermostTests.SecureVaultTests testDeleteSecret]' passed (0.004 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testDeleteSecretNotPresentIsNoOp]' started.
+Test Case '-[MattermostTests.SecureVaultTests testDeleteSecretNotPresentIsNoOp]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testEmptyValueDeletesExistingSecret]' started.
+Test Case '-[MattermostTests.SecureVaultTests testEmptyValueDeletesExistingSecret]' passed (0.004 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testKeysAreDistinctAccountsWithinAServer]' started.
+Test Case '-[MattermostTests.SecureVaultTests testKeysAreDistinctAccountsWithinAServer]' passed (0.006 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testSameServerSubpathsAreDistinct]' started.
+Test Case '-[MattermostTests.SecureVaultTests testSameServerSubpathsAreDistinct]' passed (0.004 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testSecretsAreIsolatedPerServer]' started.
+Test Case '-[MattermostTests.SecureVaultTests testSecretsAreIsolatedPerServer]' passed (0.005 seconds).
+Test Case '-[MattermostTests.SecureVaultTests testTokenSurvivesFreshVaultInstance_simulatingRelaunch]' started.
+Test Case '-[MattermostTests.SecureVaultTests testTokenSurvivesFreshVaultInstance_simulatingRelaunch]' passed (0.006 seconds).
+Test Suite 'SecureVaultTests' passed at 2026-10-23 16:33:00.367.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.049 (0.052) seconds
+Test Suite 'SentryServiceTests' started at 2026-10-23 16:33:00.367.
+Test Case '-[MattermostTests.SentryServiceTests testBreadcrumbBufferIsBounded]' started.
+Test Case '-[MattermostTests.SentryServiceTests testBreadcrumbBufferIsBounded]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SentryServiceTests testBreadcrumbsAreBufferedAndForwardedWhenHookPresent]' started.
+Test Case '-[MattermostTests.SentryServiceTests testBreadcrumbsAreBufferedAndForwardedWhenHookPresent]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SentryServiceTests testCrashReportsDirectoryIsDocumentsDiagnostics]' started.
+Test Case '-[MattermostTests.SentryServiceTests testCrashReportsDirectoryIsDocumentsDiagnostics]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SentryServiceTests testDSNReadsFromInfoPlistStyleOverride]' started.
+Test Case '-[MattermostTests.SentryServiceTests testDSNReadsFromInfoPlistStyleOverride]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SentryServiceTests testInstallUncaughtExceptionHandlerSetsFlag]' started.
+2026-10-23 16:33:00.371170+0800 Mattermost[60242:6917889] [SentryService] os_log_type_t(rawValue: 1).SentryService: NSSetUncaughtExceptionHandler installed @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.SentryServiceTests testInstallUncaughtExceptionHandlerSetsFlag]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SentryServiceTests testPrereleaseEnvironmentDetection]' started.
+Test Case '-[MattermostTests.SentryServiceTests testPrereleaseEnvironmentDetection]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SentryServiceTests testStartGuardExercisedWhenDSNPresent]' started.
+2026-10-23 16:33:00.372607+0800 Mattermost[60242:6917889] [SentryService] os_log_type_t(rawValue: 1).SentryService: Sentry initialized for error tracking (stable) @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.SentryServiceTests testStartGuardExercisedWhenDSNPresent]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SentryServiceTests testStartIsNoOpWhenDSNAbsent]' started.
+2026-10-23 16:33:00.373326+0800 Mattermost[60242:6917889] [SentryService] os_log_type_t(rawValue: 1).SentryService: Sentry is enabled but not configured (no DSN provided); SDK start skipped (no-op) @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.SentryServiceTests testStartIsNoOpWhenDSNAbsent]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SentryServiceTests testStartIsNoOpWhenDSNEmpty]' started.
+2026-10-23 16:33:00.373997+0800 Mattermost[60242:6917889] [SentryService] os_log_type_t(rawValue: 1).SentryService: Sentry is enabled but not configured (no DSN provided); SDK start skipped (no-op) @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.SentryServiceTests testStartIsNoOpWhenDSNEmpty]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SentryServiceTests testStartWithDSNAndNoHookIsInertButDocumented]' started.
+2026-10-23 16:33:00.374733+0800 Mattermost[60242:6917889] [SentryService] os_log_type_t(rawValue: 1).SentryService: DSN configured but Sentry SDK start hook is not installed (SDK not linked); start intent recorded @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.SentryServiceTests testStartWithDSNAndNoHookIsInertButDocumented]' passed (0.003 seconds).
+Test Case '-[MattermostTests.SentryServiceTests testUncaughtExceptionHandlerWritesCrashFile]' started.
+2026-10-23 16:33:00.378519+0800 Mattermost[60242:6917889] [SentryService] os_log_type_t(rawValue: 16).SentryService: recorded uncaught exception to /var/folders/t8/kvwx9myn5_q0_ftgvp14dg8h0000gn/T/66F8FDDB-3804-46CC-804D-51646D7D0799/uncaughtException-23-9-2026_16-33-0-378.txt @ Logger.swift.error(_:_:):56
+Test Case '-[MattermostTests.SentryServiceTests testUncaughtExceptionHandlerWritesCrashFile]' passed (0.002 seconds).
+Test Suite 'SentryServiceTests' passed at 2026-10-23 16:33:00.379.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.010 (0.012) seconds
+Test Suite 'ServerAPITests' started at 2026-10-23 16:33:00.379.
+Test Case '-[MattermostTests.ServerAPITests testGetDetectsBasicAuthOn401]' started.
+2026-10-23 16:33:00.380667+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+Test Case '-[MattermostTests.ServerAPITests testGetDetectsBasicAuthOn401]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerAPITests testGetDetectsPreAuthOn403]' started.
+Test Case '-[MattermostTests.ServerAPITests testGetDetectsPreAuthOn403]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerAPITests testGetReturnsBodyOn200]' started.
+Test Case '-[MattermostTests.ServerAPITests testGetReturnsBodyOn200]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerAPITests testGetThrowsOnClientCertRequired]' started.
+2026-10-23 16:33:00.384618+0800 Mattermost[60242:6917927] [Default] Task <FBDDE76E-108B-40E8-AED7-4A243DF3E859>.<1> finished with error [-1206] Error Domain=NSURLErrorDomain Code=-1206 "client cert" UserInfo={_NSURLErrorRelatedURLSessionTaskErrorKey=(
+    "LocalDataTask <FBDDE76E-108B-40E8-AED7-4A243DF3E859>.<1>"
+), NSLocalizedDescription=client cert, _NSURLErrorFailingURLSessionTaskErrorKey=LocalDataTask <FBDDE76E-108B-40E8-AED7-4A243DF3E859>.<1>}
+Test Case '-[MattermostTests.ServerAPITests testGetThrowsOnClientCertRequired]' passed (0.001 seconds).
+Test Suite 'ServerAPITests' passed at 2026-10-23 16:33:00.385.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'ServerFormModelTests' started at 2026-10-23 16:33:00.385.
+Test Case '-[MattermostTests.ServerFormModelTests testSaveBlockedUntilNameProvided]' started.
+Test Case '-[MattermostTests.ServerFormModelTests testSaveBlockedUntilNameProvided]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerFormModelTests testSaveBlockedWhenURLMissingOrInvalid]' started.
+Test Case '-[MattermostTests.ServerFormModelTests testSaveBlockedWhenURLMissingOrInvalid]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerFormModelTests testURLMessageTextForStates]' started.
+Test Case '-[MattermostTests.ServerFormModelTests testURLMessageTextForStates]' passed (0.015 seconds).
+Test Case '-[MattermostTests.ServerFormModelTests testValidateCurrentAutoFillsNameAndAllowsSave]' started.
+Test Case '-[MattermostTests.ServerFormModelTests testValidateCurrentAutoFillsNameAndAllowsSave]' passed (0.002 seconds).
+Test Suite 'ServerFormModelTests' passed at 2026-10-23 16:33:00.405.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.019 (0.020) seconds
+Test Suite 'ServerInfoTests' started at 2026-10-23 16:33:00.405.
+Test Case '-[MattermostTests.ServerInfoTests testFetchConfigDataDecodesNameProbe]' started.
+Test Case '-[MattermostTests.ServerInfoTests testFetchConfigDataDecodesNameProbe]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerInfoTests testFetchConfigDataThrowsNotMattermostOnJunkBody]' started.
+Test Case '-[MattermostTests.ServerInfoTests testFetchConfigDataThrowsNotMattermostOnJunkBody]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerInfoTests testPingSucceedsOn200]' started.
+Test Case '-[MattermostTests.ServerInfoTests testPingSucceedsOn200]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerInfoTests testPingThrowsOnNon200]' started.
+Test Case '-[MattermostTests.ServerInfoTests testPingThrowsOnNon200]' passed (0.001 seconds).
+Test Suite 'ServerInfoTests' passed at 2026-10-23 16:33:00.410.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'ServerStoreLookupTests' started at 2026-10-23 16:33:00.410.
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupMatchesPathUnderServerRoot]' started.
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupMatchesPathUnderServerRoot]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupMatchesSameHostIgnoringScheme]' started.
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupMatchesSameHostIgnoringScheme]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupRespectsSchemeWhenNotIgnored]' started.
+Test Case '-[MattermostTests.ServerStoreLookupTests testLookupRespectsSchemeWhenNotIgnored]' passed (0.002 seconds).
+Test Suite 'ServerStoreLookupTests' passed at 2026-10-23 16:33:00.417.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.006 (0.007) seconds
+Test Suite 'ServerStoreTests' started at 2026-10-23 16:33:00.417.
+Test Case '-[MattermostTests.ServerStoreTests testAddAssignsOrderAndUniqueID]' started.
+Test Case '-[MattermostTests.ServerStoreTests testAddAssignsOrderAndUniqueID]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerStoreTests testAddRejectsDuplicateHost]' started.
+2026-10-23 16:33:00.420844+0800 Mattermost[60242:6917889] [ServerStore] os_log_type_t(rawValue: 1).ServerStore: rejected duplicate server for host A.example @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.ServerStoreTests testAddRejectsDuplicateHost]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerStoreTests testHasEverConfiguredServersPersistsThroughEmptyList]' started.
+Test Case '-[MattermostTests.ServerStoreTests testHasEverConfiguredServersPersistsThroughEmptyList]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerStoreTests testInitialServerPrefersLastActiveThenOrder]' started.
+Test Case '-[MattermostTests.ServerStoreTests testInitialServerPrefersLastActiveThenOrder]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerStoreTests testPersistenceRoundTrip]' started.
+Test Case '-[MattermostTests.ServerStoreTests testPersistenceRoundTrip]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerStoreTests testRemoveDropsServerAndReassignsActive]' started.
+Test Case '-[MattermostTests.ServerStoreTests testRemoveDropsServerAndReassignsActive]' passed (0.002 seconds).
+Test Suite 'ServerStoreTests' passed at 2026-10-23 16:33:00.431.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.012 (0.014) seconds
+Test Suite 'ServerURLTests' started at 2026-10-23 16:33:00.431.
+Test Case '-[MattermostTests.ServerURLTests testAddsHTTPSWhenSchemeMissing]' started.
+Test Case '-[MattermostTests.ServerURLTests testAddsHTTPSWhenSchemeMissing]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLTests testKeepsHTTPSchemeWhenExplicit]' started.
+Test Case '-[MattermostTests.ServerURLTests testKeepsHTTPSchemeWhenExplicit]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLTests testStripsTrailingSlash]' started.
+Test Case '-[MattermostTests.ServerURLTests testStripsTrailingSlash]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLTests testThrowsOnEmpty]' started.
+Test Case '-[MattermostTests.ServerURLTests testThrowsOnEmpty]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLTests testThrowsOnInvalid]' started.
+Test Case '-[MattermostTests.ServerURLTests testThrowsOnInvalid]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLTests testTrimsWhitespace]' started.
+Test Case '-[MattermostTests.ServerURLTests testTrimsWhitespace]' passed (0.001 seconds).
+Test Suite 'ServerURLTests' passed at 2026-10-23 16:33:00.435.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.003 (0.005) seconds
+Test Suite 'ServerURLValidatorTests' started at 2026-10-23 16:33:00.435.
+Test Case '-[MattermostTests.ServerURLValidatorTests testBasicAuthRequiredOn401]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testBasicAuthRequiredOn401]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testGenericMattermostNameDefaultsToHostLabel]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testGenericMattermostNameDefaultsToHostLabel]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testHTTPSUpgradeFallsBackToHTTPInsecure]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testHTTPSUpgradeFallsBackToHTTPInsecure]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testInvalidURL]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testInvalidURL]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testMissingURL]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testMissingURL]' passed (0.012 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testNotMattermostWhenProbeReturnsHTML]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testNotMattermostWhenProbeReturnsHTML]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testOptions]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testOptions]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLCollapsesDoubleSlashesInPath]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLCollapsesDoubleSlashesInPath]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLRejectsNul]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLRejectsNul]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLRejectsTooLong]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testParseURLRejectsTooLong]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testPreAuthRequiredOn403]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testPreAuthRequiredOn403]' passed (0.002 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testServerNotFoundForCurrentIDExemptedFromDuplicate]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testServerNotFoundForCurrentIDExemptedFromDuplicate]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testURLNotMatchedWhenSiteURLDiffersAndUnreachable]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testURLNotMatchedWhenSiteURLDiffersAndUnreachable]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testURLUpdatedAdoptsConfiguredSiteURL]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testURLUpdatedAdoptsConfiguredSiteURL]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ServerURLValidatorTests testValidServerReturnsOKWithNameProbe]' started.
+Test Case '-[MattermostTests.ServerURLValidatorTests testValidServerReturnsOKWithNameProbe]' passed (0.001 seconds).
+Test Suite 'ServerURLValidatorTests' passed at 2026-10-23 16:33:00.466.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.027 (0.030) seconds
+Test Suite 'SessionStoreTests' started at 2026-10-23 16:33:00.466.
+Test Case '-[MattermostTests.SessionStoreTests testClearResetsServerState]' started.
+Test Case '-[MattermostTests.SessionStoreTests testClearResetsServerState]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testExpiredServerDrivesBadge]' started.
+Test Case '-[MattermostTests.SessionStoreTests testExpiredServerDrivesBadge]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testInitialStateIsZeroBadge]' started.
+Test Case '-[MattermostTests.SessionStoreTests testInitialStateIsZeroBadge]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testMentionsBeatExpired]' started.
+Test Case '-[MattermostTests.SessionStoreTests testMentionsBeatExpired]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testMentionsSumAcrossServersAndDriveBadge]' started.
+Test Case '-[MattermostTests.SessionStoreTests testMentionsSumAcrossServersAndDriveBadge]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testNegativeMentionCountIsClamped]' started.
+Test Case '-[MattermostTests.SessionStoreTests testNegativeMentionCountIsClamped]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testObserveServerRemovalsDropsState]' started.
+Test Case '-[MattermostTests.SessionStoreTests testObserveServerRemovalsDropsState]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testRemoveDropsServerFromTotals]' started.
+Test Case '-[MattermostTests.SessionStoreTests testRemoveDropsServerFromTotals]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testShowUnreadBadgeDefaultsTrue]' started.
+Test Case '-[MattermostTests.SessionStoreTests testShowUnreadBadgeDefaultsTrue]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testShowUnreadBadgePersistsAndRecomputes]' started.
+Test Case '-[MattermostTests.SessionStoreTests testShowUnreadBadgePersistsAndRecomputes]' passed (0.002 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testUnreadOnlyAppliesDotBadge]' started.
+Test Case '-[MattermostTests.SessionStoreTests testUnreadOnlyAppliesDotBadge]' passed (0.001 seconds).
+Test Case '-[MattermostTests.SessionStoreTests testZeroMentionReportClearsBadge]' started.
+Test Case '-[MattermostTests.SessionStoreTests testZeroMentionReportClearsBadge]' passed (0.001 seconds).
+Test Suite 'SessionStoreTests' passed at 2026-10-23 16:33:00.485.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.016 (0.019) seconds
+Test Suite 'ThemeSyncTests' started at 2026-10-23 16:33:00.485.
+Test Case '-[MattermostTests.ThemeSyncTests testCssVariablesDifferPerScheme]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testCssVariablesDifferPerScheme]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testDarkColorIsNotLight]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testDarkColorIsNotLight]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testExplicitCentreChannelBgDrivesLightOrDark]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testExplicitCentreChannelBgDrivesLightOrDark]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testInjectionJavascriptSetsColorSchemeAndVars]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testInjectionJavascriptSetsColorSchemeAndVars]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testLightColorIsLight]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testLightColorIsLight]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testNoServerThemeUsesDefaultAppearance]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testNoServerThemeUsesDefaultAppearance]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testServerThemeLightOverridesSystemDark]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testServerThemeLightOverridesSystemDark]' passed (0.000 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testServerThemeSystemFallsThroughToOsScheme]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testServerThemeSystemFallsThroughToOsScheme]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testUnparsableColorDefaultsToLight]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testUnparsableColorDefaultsToLight]' passed (0.001 seconds).
+Test Case '-[MattermostTests.ThemeSyncTests testUsingSystemThemeRequestsSystemAppearance]' started.
+Test Case '-[MattermostTests.ThemeSyncTests testUsingSystemThemeRequestsSystemAppearance]' passed (0.001 seconds).
+Test Suite 'ThemeSyncTests' passed at 2026-10-23 16:33:00.492.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.005 (0.007) seconds
+Test Suite 'ViewStoreTests' started at 2026-10-23 16:33:00.492.
+Test Case '-[MattermostTests.ViewStoreTests testAuthCookiesDoNotLeakBetweenServers]' started.
+2026-10-23 16:33:00.499521+0800 Mattermost[60242:6917889] [Sandbox] Could not create a sandbox extension for '/Users/yangsooyoon/Library/Cookies'
+Test Case '-[MattermostTests.ViewStoreTests testAuthCookiesDoNotLeakBetweenServers]' passed (0.012 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testDataStoreKeyIsStableAcrossStoreRecreation]' started.
+Test Case '-[MattermostTests.ViewStoreTests testDataStoreKeyIsStableAcrossStoreRecreation]' passed (0.006 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testEachServerGetsAnIsolatedDataStore]' started.
+Test Case '-[MattermostTests.ViewStoreTests testEachServerGetsAnIsolatedDataStore]' passed (0.006 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testMountedStoresFollowServerOrder]' started.
+Test Case '-[MattermostTests.ViewStoreTests testMountedStoresFollowServerOrder]' passed (0.006 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testRemoveDropsStoreAndClearsPrimary]' started.
+2026-10-23 16:33:00.528129+0800 Mattermost[60242:6917889] [ViewStore] os_log_type_t(rawValue: 1).ViewStore: removed server AE458890-F66E-47A8-B773-BAA0FF2B2269 and released its webview @ Logger.swift.info(_:_:):55
+Test Case '-[MattermostTests.ViewStoreTests testRemoveDropsStoreAndClearsPrimary]' passed (0.006 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testSetPrimaryTracksActiveServer]' started.
+Test Case '-[MattermostTests.ViewStoreTests testSetPrimaryTracksActiveServer]' passed (0.012 seconds).
+Test Case '-[MattermostTests.ViewStoreTests testViewIsCreatedOncePerServer]' started.
+Test Case '-[MattermostTests.ViewStoreTests testViewIsCreatedOncePerServer]' passed (0.004 seconds).
+Test Suite 'ViewStoreTests' passed at 2026-10-23 16:33:00.545.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.050 (0.052) seconds
+Test Suite 'WebViewStoreTests' started at 2026-10-23 16:33:00.545.
+Test Case '-[MattermostTests.WebViewStoreTests testConfigurationAllowsInlinePlaybackAndAutoplay]' started.
+Test Case '-[MattermostTests.WebViewStoreTests testConfigurationAllowsInlinePlaybackAndAutoplay]' passed (0.005 seconds).
+Test Case '-[MattermostTests.WebViewStoreTests testInitialStateIsEmpty]' started.
+Test Case '-[MattermostTests.WebViewStoreTests testInitialStateIsEmpty]' passed (0.003 seconds).
+Test Case '-[MattermostTests.WebViewStoreTests testLoadClearsErrorAndBeginsNavigation]' started.
+2026-10-23 16:33:00.559305+0800 Mattermost[60242:6917889] [Sandbox] Could not create a sandbox extension for '/Users/yangsooyoon/Library/Cookies'
+Test Case '-[MattermostTests.WebViewStoreTests testLoadClearsErrorAndBeginsNavigation]' passed (0.004 seconds).
+Test Case '-[MattermostTests.WebViewStoreTests testStoreOwnsASingleReusableWebView]' started.
+Test Case '-[MattermostTests.WebViewStoreTests testStoreOwnsASingleReusableWebView]' passed (0.004 seconds).
+Test Case '-[MattermostTests.WebViewStoreTests testUserAgentMirrorsDesktopShell]' started.
+Test Case '-[MattermostTests.WebViewStoreTests testUserAgentMirrorsDesktopShell]' passed (0.007 seconds).
+Test Suite 'WebViewStoreTests' passed at 2026-10-23 16:33:00.572.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.023 (0.027) seconds
+Test Suite 'WelcomePagerModelTests' started at 2026-10-23 16:33:00.581.
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoCyclesThroughAllPages]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoCyclesThroughAllPages]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoIsNoOpAfterManualInteraction]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoIsNoOpAfterManualInteraction]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoSinglePageDoesNotWrap]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testAdvanceAutoSinglePageDoesNotWrap]' passed (0.000 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testDefaultSlidesRoundingOutDesktopCopy]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testDefaultSlidesRoundingOutDesktopCopy]' passed (0.029 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testDisableNavigationOnlyWhenMultiplePages]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testDisableNavigationOnlyWhenMultiplePages]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testGoNextMovesForward]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testGoNextMovesForward]' passed (0.000 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testGoPrevMovesBackward]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testGoPrevMovesBackward]' passed (0.000 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testManualNavigationDisablesAutoAdvance]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testManualNavigationDisablesAutoAdvance]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testNextWrapsToFirst]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testNextWrapsToFirst]' passed (0.001 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testPrevWrapsToLast]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testPrevWrapsToLast]' passed (0.000 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testStartsAtRequestedIndex]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testStartsAtRequestedIndex]' passed (0.000 seconds).
+Test Case '-[MattermostTests.WelcomePagerModelTests testSwipeJumpDisablesAutoAdvance]' started.
+Test Case '-[MattermostTests.WelcomePagerModelTests testSwipeJumpDisablesAutoAdvance]' passed (0.001 seconds).
+Test Suite 'WelcomePagerModelTests' passed at 2026-10-23 16:33:00.626.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.035 (0.046) seconds
+Test Suite 'MattermostTests.xctest' passed at 2026-10-23 16:33:00.626.
+	 Executed 290 tests, with 0 failures (0 unexpected) in 2.366 (2.485) seconds
+Test Suite 'All tests' passed at 2026-10-23 16:33:00.627.
+	 Executed 290 tests, with 0 failures (0 unexpected) in 2.366 (2.486) seconds
+2026-10-23 16:33:00.740260+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.740579+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.748173+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.748585+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.748854+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.749016+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.749203+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.749361+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.749559+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.749726+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.749890+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.754496+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.754978+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.755278+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.755693+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.755995+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.756266+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.756903+0800 Mattermost[60242:6917889] Could not signal service com.apple.WebKit.WebContent: 1: Operation not permitted
+2026-10-23 16:33:00.761892+0800 Mattermost[60242:6917889] [ViewStore] os_log_type_t(rawValue: 1).ViewStore: purged data store for removed server AE458890-F66E-47A8-B773-BAA0FF2B2269 @ Logger.swift.info(_:_:):55
+2026-10-23 16:33:01.195 xcodebuild[60232:6917738] [MT] IDETestOperationsObserverDebug: 4.324 elapsed -- Testing started completed.
+2026-10-23 16:33:01.195 xcodebuild[60232:6917738] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-23 16:33:01.195 xcodebuild[60232:6917738] [MT] IDETestOperationsObserverDebug: 4.324 sec, +4.324 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/ddata-mac-test/Logs/Test/Test-Mattermost-2026.10.23_16-32-56-+0800.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started

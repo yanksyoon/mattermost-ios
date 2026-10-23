@@ -28,18 +28,25 @@ The official Electron Mattermost desktop app is also called `Mattermost.app`. If
 rename this one (e.g. `Mattermost (personal).app`) or keep it somewhere other than
 `/Applications` so Launchpad does not show two identical icons.
 
-### Known limitation of the prebuilt Mac build
+### Known limitation of the prebuilt Mac build — addressed by the fallback store (T22)
 
-It is signed ad hoc, so macOS does not grant it the `application-identifier` entitlement and
-**Keychain access is refused** (`errSecMissingEntitlement`, -34018). What that means in practice:
+The build is signed ad hoc, so macOS does not grant it the `application-identifier` entitlement
+and **the OS Keychain is refused** (`errSecMissingEntitlement`, -34018). Since T22 the shell no
+longer depends on the Keychain for the ad-hoc build: `SecureVault` (per-server token vault) and
+`CertTrust` (self-signed certificate trust bag) route through a store that keeps the Keychain
+primary and, **only when the Keychain is refused (-34018)**, transparently persists to an
+AES-GCM encrypted file under `~/Library/Application Support/Mattermost/`. What that means now:
 
 - your login still survives restarts (the session lives in the webview's cookie store);
-- the per-server **token vault** and the **self-signed certificate trust** bag cannot persist, so
-  a self-signed server asks for trust again on each launch;
-- `Settings → Run diagnostics` reports the Keychain step as failed (that is accurate, not a bug).
+- the per-server **token vault** and the **self-signed certificate trust** bag now **persist** on
+  the prebuilt Mac build too (via the encrypted fallback file when the Keychain is refused), so a
+  self-signed server is trusted once and remembered across launches.
 
-Signing the app with your own Apple ID (even a free Personal Team) fixes it completely — see
-*Build from source* below. A non-Keychain fallback store is tracked as T22 on the project board.
+Signing the app with your own Apple ID (even a free Personal Team) still makes the OS Keychain
+work and entirely avoids the fallback file — see *Build from source* below. Security note: the
+fallback file's key sits in a `0600` file next to the data (there is no hardware Keychain on an
+ad-hoc Catalyst binary), so it protects against casual exposure but not malware running as the
+same user — see `docs/parity.md` §T22.
 
 ## Install on the iPhone
 
@@ -83,8 +90,8 @@ xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
   -derivedDataPath build/ddata-mac -only-testing:MattermostTests
 ```
 
-Status of this tree: **iOS 256/256 unit + 6/6 UI green**; **macOS 236/236 green** once the 20
-Keychain-backed tests are excluded — those need a signing team, see the limitation above.
+Status of this tree: **iOS 290/290 unit + 6/6 UI green**; **macOS 290/290 unit green** (the
+Keychain-backed suites run on Catalyst too, persisted via the T22 encrypted-file fallback).
 
 ## First run
 
@@ -104,7 +111,8 @@ Keychain-backed tests are excluded — those need a signing team, see the limita
 ## What works
 
 Multi-server switching with isolated web data stores · URL validation before save · Keychain
-credential vault (per server, survives relaunch) · downloads + history + export · theme sync
+credential vault with an encrypted-file fallback on ad-hoc Mac builds (per server, survives
+relaunch) · downloads + history + export · theme sync
 (light/dark follows the server theme and the OS appearance) · self-signed certificate trust with
 a review sheet · `mattermost://` deep links (queued until the webview is ready) · local mention
 notifications and app-icon badge · settings (theme syncing, unread badge, language, log level,

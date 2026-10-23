@@ -52,8 +52,16 @@ PID 39866 is alive.
    **256 tests / 15 failures — 10 in `SecureVaultTests` + 5 in `CertTrustTests`, all -34018**;
    `CertTrustDebugTests` passes (it stubs the store). `KeychainPlatform.apply(to:)` (sets
    `kSecUseDataProtectionKeychain = false` under Catalyst) does not change it — Catalyst still
-   routes to the data-protection keychain. Consequences and the fix path are recorded in the
-   README ("Known limitation of the prebuilt Mac build") and tracked as T22 (`t_0b8c7ea4`).
+   routes to the data-protection keychain. Consequences recorded in the README ("Known limitation
+   of the prebuilt Mac build").
+
+   **Resolution (T22, landed 2026-10-23):** a `SecretPersisting` store keeps the Keychain primary
+   and falls back, only on -34018, to an AES-GCM sealed file under Application Support
+   (`SecretStore.swift`, `EncryptedFileSecretStore.swift`). `SecureVault`/`CertTrust` route through
+   it (with a read-through so Catalyst's keychain read quirk — `errSecItemNotFound` rather than a
+   throw — still reaches the file). Post-T22 the **full** Catalyst suite is **290/290 green, no
+   suites skipped** (the 15 -34018 failures are gone; see
+   `docs/t22-build-note.md` + `docs/t22-catalyst-unit-2026-10-23.log`).
 
 ## What changed in the project (all shared, none Mac-only)
 
@@ -128,7 +136,7 @@ The argument is absent in normal use; the code is inert and behind `@MainActor`.
 | Window sizing / toolbar / servers switcher | Toolbar with server switcher + Downloads/Settings/Add buttons renders in the Mac window titlebar area | Verified in `catalyst-window.png` |
 | `.confirmationDialog` / Sheets | Compile and present on Catalyst (popover/Sheet); not interactively exercised here | Noted; XCUITest flows cover them on iOS |
 | UNUserNotificationCenter authorisation | `requestAuthorization(options: [.alert,.sound,.badge])` is available on macOS (system prompt); badge math (`setBadgeCount`) macOS 11+ | Not exercised (needs a live mention event); code path shared, no Catalyst guard added |
-| Keychain access groups | Ad-hoc Catalyst has no `application-identifier` → **every SecItem\* call fails -34018** (vault + cert-trust cannot persist on the prebuilt Mac build); shim `KeychainPlatform.apply` (opts out of the data-protection keychain) does not help | Measured 15 failures on the Catalyst harness (10 SecureVault + 5 CertTrust); fix = sign with any Apple ID, or T22 fallback store (`t_0b8c7ea4`); iOS Keychain unaffected |
+| Keychain access groups | Ad-hoc Catalyst has no `application-identifier` → **every SecItem* call fails -34018**; shim `KeychainPlatform.apply` (opts out of the data-protection keychain) does not help | Measured 15 failures on the Catalyst harness (10 SecureVault + 5 CertTrust). **Fixed by T22** (2026-10-23): `SecureVault`/`CertTrust` route through a Keychain-first store with an AES-GCM file fallback on -34018; full Catalyst suite now 290/290 green, no suites skipped. iOS Keychain unaffected |
 | UIDocumentPickerViewController export | `init(forExporting:)` API available on Catalyst (presents the macOS save panel) | Compiles against the Catalyst SDK; runtime export not exercised (needs a live downloaded file + click) |
 | Network client sandbox | Blocked by sandbox when enabled | `ENABLE_APP_SANDBOX = NO` (decision 3) |
 
@@ -177,6 +185,13 @@ xcodebuild test ... -only-testing:MattermostTests \
   -skip-testing:MattermostTests/CertTrustTests \
   -skip-testing:MattermostTests/CertTrustDebugTests
 # → 236 run, 0 failures, ** TEST SUCCEEDED ** — docs/t20-catalyst-unit-skip-2026-10-23.log
+```
+
+**Post-T22 (2026-10-23):** the Keychain suites no longer need skipping on Catalyst —
+
+```sh
+xcodebuild test ... -destination 'platform=macOS,variant=Mac Catalyst' -only-testing:MattermostTests
+# → 290 run, 0 failures, ** TEST SUCCEEDED ** (no skip flags) — docs/t22-catalyst-unit-2026-10-23.log
 ```
 
 ## Deliverables
