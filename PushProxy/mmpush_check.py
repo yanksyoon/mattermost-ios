@@ -16,7 +16,7 @@ import socket
 import subprocess
 import sys
 
-REPO = "/Users/yangsooyoon/mattermost-ios"
+REPO = "/Users/yangsooyoon/Documents/yanks/code/mattermost-ios"
 CONFIG = os.path.join(REPO, "PushProxy", "mmpush_proxy.json")
 OFFICIAL_PROBES = [
     "https://api.push.mattermost.net",
