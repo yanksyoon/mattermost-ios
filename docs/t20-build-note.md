@@ -4,6 +4,19 @@ Date: 2026-10-23 · Host: macOS 26.3.1 (25D771280a), Xcode 26.6 (17F113) at `/Ap
 iOS 26.5 SDK. User decision: **private use on the user's own Mac and iPhone** — no App Store, no
 Apple Developer Program. The Mac is the primary target.
 
+## Provenance / concurrent-writer note
+
+This task was reclaimed from run 30 (worker PID 36881, stuck on a GUI screenshot) and re-dispatched
+as run 32. The reclaimed worker's session (PID 39866) later **resumed and kept working on the same
+tree**: it fixed 11 Diagnostics/Sentry unit-test defects and added `KeychainPlatform`, rewrote the
+README, changed the test targets' signing, committed everything as `78af4a9` and pushed to
+`github.com/yanksyoon/mattermost-ios.git`. This note merges both writers' work; every claim by the
+resumed session was **re-verified firsthand by the card owner** (build, launch, render proof, iOS
+regression, Catalyst unit runs — all reproduced above). The only uncommitted delta over `78af4a9`
+is the exact-failure-count corrections in this note and `docs/parity.md` plus the two Catalyst
+suite logs. Flagged on the card for the orchestrator: do not run a second worker on T20 while
+PID 39866 is alive.
+
 ## Decision record
 
 1. **Catalyst, not a native macOS target.** The requirement allowed a separate native macOS target
@@ -34,12 +47,13 @@ Apple Developer Program. The Mac is the primary target.
    **Correction (2026-10-23, measured): the "no entitlement needed" assumption was wrong on
    Catalyst.** On macOS every `SecItem*` call in this app fails with `errSecMissingEntitlement`
    (-34018), because a Catalyst process always uses the data-protection keychain, which requires
-   the `application-identifier` entitlement that only a signing team can issue. 20 tests across
-   `SecureVaultTests` / `CertTrustTests` / `CertTrustDebugTests` fail for exactly this reason, and
-   `KeychainPlatform.apply(to:)` (sets `kSecUseDataProtectionKeychain = false` under Catalyst)
-   does not change it — Catalyst still routes to the data-protection keychain. Consequences and
-   the fix path are recorded in the README ("Known limitation of the prebuilt Mac build") and
-   tracked as T22.
+   the `application-identifier` entitlement that only a signing team can issue. Measured on the
+   Catalyst unit suite (re-verified 2026-10-23 15:39, `docs/t20-catalyst-unit-2026-10-23.log`):
+   **256 tests / 15 failures — 10 in `SecureVaultTests` + 5 in `CertTrustTests`, all -34018**;
+   `CertTrustDebugTests` passes (it stubs the store). `KeychainPlatform.apply(to:)` (sets
+   `kSecUseDataProtectionKeychain = false` under Catalyst) does not change it — Catalyst still
+   routes to the data-protection keychain. Consequences and the fix path are recorded in the
+   README ("Known limitation of the prebuilt Mac build") and tracked as T22 (`t_0b8c7ea4`).
 
 ## What changed in the project (all shared, none Mac-only)
 
@@ -114,7 +128,7 @@ The argument is absent in normal use; the code is inert and behind `@MainActor`.
 | Window sizing / toolbar / servers switcher | Toolbar with server switcher + Downloads/Settings/Add buttons renders in the Mac window titlebar area | Verified in `catalyst-window.png` |
 | `.confirmationDialog` / Sheets | Compile and present on Catalyst (popover/Sheet); not interactively exercised here | Noted; XCUITest flows cover them on iOS |
 | UNUserNotificationCenter authorisation | `requestAuthorization(options: [.alert,.sound,.badge])` is available on macOS (system prompt); badge math (`setBadgeCount`) macOS 11+ | Not exercised (needs a live mention event); code path shared, no Catalyst guard added |
-| Keychain access groups | `SecureVault`/`CertTrust` use `kSecClassGenericPassword` scoped by service — no access-group entitlement needed on macOS | No code change; entitlements file emptied (see decision 4) |
+| Keychain access groups | Ad-hoc Catalyst has no `application-identifier` → **every SecItem\* call fails -34018** (vault + cert-trust cannot persist on the prebuilt Mac build); shim `KeychainPlatform.apply` (opts out of the data-protection keychain) does not help | Measured 15 failures on the Catalyst harness (10 SecureVault + 5 CertTrust); fix = sign with any Apple ID, or T22 fallback store (`t_0b8c7ea4`); iOS Keychain unaffected |
 | UIDocumentPickerViewController export | `init(forExporting:)` API available on Catalyst (presents the macOS save panel) | Compiles against the Catalyst SDK; runtime export not exercised (needs a live downloaded file + click) |
 | Network client sandbox | Blocked by sandbox when enabled | `ENABLE_APP_SANDBOX = NO` (decision 3) |
 
@@ -151,18 +165,18 @@ inherited from the T19a code that landed unreviewed) were fixed at source before
 ISO-8601 encoder, the obfuscator masks URL before path (and matches any TLD), and
 `SentryService.resetForTests()` stops singleton state leaking between tests.
 
-Catalyst suite, measured on the same host:
+Catalyst suite, measured on the same host (re-verified by the card owner, logs in `docs/`):
 
 ```sh
 xcodebuild test ... -destination 'platform=macOS,variant=Mac Catalyst' -only-testing:MattermostTests
-# 256 run, 15 failures — all errSecMissingEntitlement (-34018), see decision 4
+# 256 run, 15 failures — all errSecMissingEntitlement (-34018) — docs/t20-catalyst-unit-2026-10-23.log
 
 # same run excluding the three Keychain-backed suites:
 xcodebuild test ... -only-testing:MattermostTests \
   -skip-testing:MattermostTests/SecureVaultTests \
   -skip-testing:MattermostTests/CertTrustTests \
   -skip-testing:MattermostTests/CertTrustDebugTests
-# → 236 run, 0 failures, ** TEST SUCCEEDED **
+# → 236 run, 0 failures, ** TEST SUCCEEDED ** — docs/t20-catalyst-unit-skip-2026-10-23.log
 ```
 
 ## Deliverables

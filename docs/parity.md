@@ -188,7 +188,7 @@ and iPhone** (no App Store, no Apple Developer Program); the Mac is the primary 
 | WKWebView hosting (`UIViewRepresentable`) | Works unchanged; verified rendering `community.mattermost.com/login` in a live window | same code | shared |
 | Toolbar / server switcher / Sheets / `.confirmationDialog` | Renders in the Mac window; not interactively exercised on macOS | fully tested (XCUITest) | shared code, macOS less exercised |
 | UNUserNotificationCenter authorisation | `requestAuthorization` available on macOS 10.14+/26.x; `setBadgeCount` macOS 11+ | runtime prompt, tested (T8) | shared code |
-| Keychain access groups | Not used (correct — single target); ad-hoc signing forbids the entitlement anyway | not used | shared |
+| Keychain access groups | **Measured blocker on ad-hoc Catalyst:** ad-hoc signature lacks `application-identifier`, so every `SecItem*` call fails `errSecMissingEntitlement` (-34018) — the vault and cert-trust cannot persist on the prebuilt Mac build; `kSecUseDataProtectionKeychain=false` shim does not help. Fix = sign with any Apple ID (even free Personal Team), or T22 fallback store (`t_0b8c7ea4`). 10 SecureVaultTests + 5 CertTrustTests fail on the Catalyst harness for this reason (logs in `docs/t20-catalyst-unit*.log`; iOS suite unaffected) | Keychain works normally (simulator/device) | macOS-only divergence, tracked |
 | Document picker export (`UIDocumentPicker(forExporting:)`) | Compiles for Catalyst (macOS save panel); runtime export not exercised on macOS | tested via stub server flows (T7) | shared code |
 
 Commands, decisions, screenshots: `docs/t20-build-note.md` (`docs/t20/*.png` show the real login
