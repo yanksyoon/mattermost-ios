@@ -226,43 +226,45 @@ final class MattermostUITests: XCTestCase {
 
     // MARK: - Live SSO (network-gated)
 
-    /// Real SSO against the Canonical workspace. Following the login page's "Ubuntu SSO" link
-    /// (https://chat.canonical.com/login/sso/saml) must land on the Ubuntu One form.
+    /// Live SSO check against a real workspace. The server URL comes from the environment so no
+    /// private host is baked into this repository:
     ///
-    /// Regression: the identity provider presents a *public* certificate. Routing it through the
-    /// server's certificate trust bag raised the "Untrusted certificate" sheet, and refusing it
-    /// hard-cancelled TLS — which the user saw as a blank page with a dead Back button.
+    ///     TEST_RUNNER_MM_LIVE_SSO_URL=https://chat.example.com xcodebuild test ...
     ///
-    /// Driven through the seed seam rather than a tap: WKWebView page buttons are not reliably
-    /// addressable from XCUITest, but the seed exercises the same navigation + TLS-challenge path
-    /// the button click produces.
+    /// Loads the workspace's SAML entry point and asserts the identity provider's form renders
+    /// with no certificate sheet. The button-click path is covered by the preload's SSO entry
+    /// guard (`Bridge.preloadJavascript`), which forces a document load for /login/sso/ links.
     ///
-    /// Network-gated: skipped unless `TEST_RUNNER_MM_LIVE_SSO=1` is set (CI has no IdP route).
-    func testSSORedirectReachesIdentityProviderWithoutCertificatePrompt() throws {
-        try XCTSkipUnless(ProcessInfo.processInfo.environment["MM_LIVE_SSO"] == "1",
-                          "Live SSO test: export TEST_RUNNER_MM_LIVE_SSO=1 to run")
+    /// Network-gated: skipped unless `TEST_RUNNER_MM_LIVE_SSO_URL` is set.
+    func testSSOReachesIdentityProviderWithoutCertificatePrompt() throws {
+        let env = ProcessInfo.processInfo.environment
+        let raw = env["MM_LIVE_SSO_URL"] ?? ""
+        try XCTSkipUnless(!raw.isEmpty, "Live SSO test: set TEST_RUNNER_MM_LIVE_SSO_URL to run")
+        guard let url = URL(string: raw), let host = url.host else {
+            throw XCTSkip("MM_LIVE_SSO_URL is not a URL")
+        }
 
         let app = XCUIApplication()
         app.launchArguments = [Self.resetArg,
-                               "-uiTestSeedSelfSignedServer", "https://chat.canonical.com/login/sso/saml",
+                               "-uiTestSeedSelfSignedServer", "https://\(host)/login/sso/saml",
                                "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
 
         let webview = app.webViews.firstMatch
         XCTAssertTrue(webview.waitForExistence(timeout: Self.webLoadWait),
-                      "the SSO navigation must render something")
+                      "the SAML entry point must render")
 
         XCTAssertFalse(app.otherElements["certPromptSheet"].waitForExistence(timeout: 5),
                        "an identity provider's public certificate must never raise the trust sheet")
 
-        let ubuntuOne = webview.staticTexts
+        let idp = webview.staticTexts
             .matching(NSPredicate(format: "label CONTAINS[c] %@", "Ubuntu One"))
             .firstMatch
-        XCTAssertTrue(ubuntuOne.waitForExistence(timeout: Self.webLoadWait),
-                      "SSO must land on the Ubuntu One form instead of a blank page")
+        XCTAssertTrue(idp.waitForExistence(timeout: Self.webLoadWait),
+                      "SSO must reach the identity provider instead of an empty page")
 
         let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = "sso-ubuntu-one"
+        shot.name = "sso-identity-provider"
         shot.lifetime = .keepAlways
         add(shot)
     }

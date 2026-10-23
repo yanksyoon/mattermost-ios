@@ -88,12 +88,12 @@ final class WebViewStoreTests: XCTestCase {
     /// identity provider must never be routed through them.
     func testCertChallengeFromConfiguredServerUsesTheTrustBag() {
         XCTAssertEqual(
-            WebViewContainer.CertChallengePolicy.scope(challengeHost: "chat.canonical.com",
-                                                      serverHost: "chat.canonical.com"),
+            WebViewContainer.CertChallengePolicy.scope(challengeHost: "chat.example.com",
+                                                      serverHost: "chat.example.com"),
             .serverOrigin)
         XCTAssertEqual(
-            WebViewContainer.CertChallengePolicy.scope(challengeHost: "CHAT.Canonical.COM",
-                                                      serverHost: "chat.canonical.com"),
+            WebViewContainer.CertChallengePolicy.scope(challengeHost: "CHAT.Example.COM",
+                                                      serverHost: "chat.example.com"),
             .serverOrigin,
             "host comparison must be case-insensitive, DNS is")
     }
@@ -101,11 +101,11 @@ final class WebViewStoreTests: XCTestCase {
     func testCertChallengeFromIdentityProviderIsThirdParty() {
         XCTAssertEqual(
             WebViewContainer.CertChallengePolicy.scope(challengeHost: "login.ubuntu.com",
-                                                      serverHost: "chat.canonical.com"),
+                                                      serverHost: "chat.example.com"),
             .thirdParty)
         XCTAssertEqual(
-            WebViewContainer.CertChallengePolicy.scope(challengeHost: "static.chat.canonical.com",
-                                                      serverHost: "chat.canonical.com"),
+            WebViewContainer.CertChallengePolicy.scope(challengeHost: "static.chat.example.com",
+                                                      serverHost: "chat.example.com"),
             .thirdParty,
             "a sibling subdomain is a different origin with its own certificate")
         XCTAssertEqual(
