@@ -177,12 +177,29 @@ copied). A reviewer may quiz any PR on which of the four a given line relies on.
 "Do not assert 'the webview is heavy' as folklore." The premise that motivates Path B is
 falsifiable and is being measured in **T27 (`docs/` memory/performance baseline harness —
 webview vs native, measured)**. This ADR cites that card as the justification and **must be
-updated to that card's numbers once it lands.** Until T27 reports, this section states the
-hypothesis, not the finding.
+updated to that card's numbers once it lands** — it has landed (§4.1 below).
 
 **Hypothesis under test (T27):** per-server WKWebView process memory (web renderer + JS heap for
 the web app) dominates this app's footprint at rest and scales with number of configured servers;
 a native route (URLSession + SQLite + SwiftUI) is materially smaller for the same daily activity.
+
+### 4.1 Measured (T27, 2026-10-24) — the hypothesis holds on this host
+
+With the harness in `scripts/perf_probe.sh` (Mac Catalyst and iOS Simulator, Release + `PERF_PROBE`,
+seeded Mattermost 9.11.19, identical scripted sequence per arm):
+
+| target | shell floor (no webview) | Path A steady | loaded webview costs | of that, WebContent | Path A peak RSS |
+|---|---:|---:|---:|---:|---:|
+| Mac Catalyst | 30.0 MB | 592.1 MB | **562.1 MB** | 90 % | 942.9 MB |
+| iOS Simulator | 28.6 MB | 489.3 MB | **460.7 MB** | 90 % | 1329.2 MB |
+
+So the webview *is* the dominant cost, as §4 hypothesised, and it lives almost entirely in the
+WebContent process the app does not own. The `native` arm at HEAD still carries a live WebContent
+process (252.6 MB / 146.4 MB steady) — swapping the renderer without releasing the webview reclaims
+none of it, which is why the release policy (§12 of `docs/dual-render.md`) is the change that has to
+move this number. Full tables, per-run values, the run-to-run spread and the **limits** (these are
+Catalyst/Simulator measurements on a Mac, not device measurements) are in `docs/perf/README.md`;
+method and defects found while landing the harness: `docs/t27-build-note.md`.
 
 **Consequences regardless of the measurement's magnitude:**
 
@@ -193,8 +210,10 @@ a native route (URLSession + SQLite + SwiftUI) is materially smaller for the sam
   the escape-hatch surfaces faster and spending less on squeezing the final native-only screens.
 - T27 feeds T26's decisions about which surfaces default native vs webview under memory pressure.
 
-Until T27, this ADR asserts only that the migration's reason is memory **and that it is being
-measured** — not that any specific number is true today.
+T27 has reported (§4.1), with its limits stated there and in `docs/perf/README.md`: the measured
+numbers are Catalyst/Simulator values on this host, and a device run is still outstanding. The
+conditional consequences above are therefore live, not hypothetical — the premise held, so nothing
+re-balances.
 
 ---
 

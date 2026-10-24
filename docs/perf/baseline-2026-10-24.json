@@ -1,0 +1,848 @@
+{
+  "schema": 1,
+  "kind": "mattermost-ios-perf-baseline",
+  "host": {
+    "model": "MacBookPro18,3",
+    "os": "26.3.1",
+    "arch": "arm64",
+    "xcode": "Xcode 26.6",
+    "timestamp": "2026-10-24 16:49:48 +0800",
+    "cpu_count": 10
+  },
+  "server": {
+    "url": "http://127.0.0.1:8065",
+    "version": "9.11.19",
+    "image": "mattermost/mattermost-team-edition:release-9",
+    "seeded": {
+      "channel_name": "perf-feed",
+      "channel_total_posts": 200,
+      "thread_replies": 24
+    }
+  },
+  "measurement": {
+    "metrics": {
+      "phys_footprint": "footprint --noCategories -j (kernel physical footprint, what Instruments reports)",
+      "rss": "ps -axo rss, sampled every 0.5s"
+    },
+    "attribution": "WebKit helper processes = pids absent from the pre-launch baseline list",
+    "sequence": [
+      "launch",
+      "workspace render",
+      "log in",
+      "open channel",
+      "scroll N post-list steps",
+      "open thread",
+      "idle steady state"
+    ]
+  },
+  "runs": [
+    {
+      "target": "catalyst",
+      "mode": "native",
+      "repeat": 1,
+      "app_pid": 91556,
+      "sampled_seconds": 9.4,
+      "peak": {
+        "total_rss_bytes": 707313664,
+        "app_rss_bytes": 97943552,
+        "webcontent_rss_bytes": 440631296,
+        "total_phys_footprint_bytes": 293053440
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 293053440,
+        "app_phys_footprint_bytes": 36850496,
+        "webcontent_phys_footprint_bytes": 235948800,
+        "webcontent_peak_footprint_bytes": 290261760,
+        "gpu_phys_footprint_bytes": 7063104,
+        "networking_phys_footprint_bytes": 13191040
+      },
+      "pids": {
+        "webcontent": [
+          91562
+        ],
+        "gpu": [
+          91563
+        ],
+        "networking": [
+          91564
+        ]
+      },
+      "stages": [
+        {
+          "name": "workspaceLoad",
+          "ok": true,
+          "duration_s": 0.417,
+          "phys_footprint_bytes": 333374464
+        },
+        {
+          "name": "login",
+          "ok": true,
+          "duration_s": 0.676,
+          "phys_footprint_bytes": 329786368
+        },
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 293053440
+        }
+      ],
+      "probe_total_s": 3.015,
+      "completed_stages": [
+        "workspaceLoad",
+        "login"
+      ],
+      "failed_stages": [],
+      "launch_to_first_post_s": 3.015,
+      "probe": {
+        "webview_url": "http://127.0.0.1:8065/perf/channels/town-square",
+        "aborted": null,
+        "server": "http://127.0.0.1:8065",
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    },
+    {
+      "target": "catalyst",
+      "mode": "native",
+      "repeat": 2,
+      "app_pid": 91653,
+      "sampled_seconds": 9.41,
+      "peak": {
+        "total_rss_bytes": 693272576,
+        "app_rss_bytes": 97599488,
+        "webcontent_rss_bytes": 426917888,
+        "total_phys_footprint_bytes": 329770048
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 329770048,
+        "app_phys_footprint_bytes": 37014336,
+        "webcontent_phys_footprint_bytes": 269241088,
+        "webcontent_peak_footprint_bytes": 418204352,
+        "gpu_phys_footprint_bytes": 8226432,
+        "networking_phys_footprint_bytes": 15288192
+      },
+      "pids": {
+        "webcontent": [
+          91663
+        ],
+        "gpu": [
+          91666
+        ],
+        "networking": [
+          91671
+        ]
+      },
+      "stages": [
+        {
+          "name": "workspaceLoad",
+          "ok": true,
+          "duration_s": 0.418,
+          "phys_footprint_bytes": 437265472
+        },
+        {
+          "name": "login",
+          "ok": true,
+          "duration_s": 0.747,
+          "phys_footprint_bytes": 390456384
+        },
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 329770048
+        }
+      ],
+      "probe_total_s": 3.095,
+      "completed_stages": [
+        "workspaceLoad",
+        "login"
+      ],
+      "failed_stages": [],
+      "launch_to_first_post_s": 3.094,
+      "probe": {
+        "webview_url": "http://127.0.0.1:8065/perf/channels/town-square",
+        "aborted": null,
+        "server": "http://127.0.0.1:8065",
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    },
+    {
+      "target": "catalyst",
+      "mode": "shell",
+      "repeat": 1,
+      "app_pid": 91436,
+      "sampled_seconds": 6.46,
+      "peak": {
+        "total_rss_bytes": 84410368,
+        "app_rss_bytes": 84410368,
+        "webcontent_rss_bytes": 0,
+        "total_phys_footprint_bytes": 30067136
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 30067136,
+        "app_phys_footprint_bytes": 30067136,
+        "webcontent_phys_footprint_bytes": 0,
+        "webcontent_peak_footprint_bytes": 0,
+        "gpu_phys_footprint_bytes": 0,
+        "networking_phys_footprint_bytes": 0
+      },
+      "pids": {
+        "webcontent": [],
+        "gpu": [],
+        "networking": []
+      },
+      "stages": [
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 30067136
+        }
+      ],
+      "probe_total_s": 1.815,
+      "completed_stages": [],
+      "failed_stages": [],
+      "launch_to_first_post_s": null,
+      "probe": {
+        "webview_url": null,
+        "aborted": null,
+        "server": null,
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    },
+    {
+      "target": "catalyst",
+      "mode": "shell",
+      "repeat": 2,
+      "app_pid": 91504,
+      "sampled_seconds": 6.51,
+      "peak": {
+        "total_rss_bytes": 84361216,
+        "app_rss_bytes": 84361216,
+        "webcontent_rss_bytes": 0,
+        "total_phys_footprint_bytes": 30001600
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 30001600,
+        "app_phys_footprint_bytes": 30001600,
+        "webcontent_phys_footprint_bytes": 0,
+        "webcontent_peak_footprint_bytes": 0,
+        "gpu_phys_footprint_bytes": 0,
+        "networking_phys_footprint_bytes": 0
+      },
+      "pids": {
+        "webcontent": [],
+        "gpu": [],
+        "networking": []
+      },
+      "stages": [
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 30001600
+        }
+      ],
+      "probe_total_s": 1.819,
+      "completed_stages": [],
+      "failed_stages": [],
+      "launch_to_first_post_s": null,
+      "probe": {
+        "webview_url": null,
+        "aborted": null,
+        "server": null,
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    },
+    {
+      "target": "catalyst",
+      "mode": "web",
+      "repeat": 1,
+      "app_pid": 91187,
+      "sampled_seconds": 14.82,
+      "peak": {
+        "total_rss_bytes": 941359104,
+        "app_rss_bytes": 96485376,
+        "webcontent_rss_bytes": 755433472,
+        "total_phys_footprint_bytes": 611051392
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 611051392,
+        "app_phys_footprint_bytes": 39996096,
+        "webcontent_phys_footprint_bytes": 522718528,
+        "webcontent_peak_footprint_bytes": 609488192,
+        "gpu_phys_footprint_bytes": 31246272,
+        "networking_phys_footprint_bytes": 17090496
+      },
+      "pids": {
+        "webcontent": [
+          91192
+        ],
+        "gpu": [
+          91193
+        ],
+        "networking": [
+          91194
+        ]
+      },
+      "stages": [
+        {
+          "name": "workspaceLoad",
+          "ok": true,
+          "duration_s": 0.415,
+          "phys_footprint_bytes": 543188224
+        },
+        {
+          "name": "login",
+          "ok": true,
+          "duration_s": 0.987,
+          "phys_footprint_bytes": 701671168
+        },
+        {
+          "name": "openChannel",
+          "ok": true,
+          "duration_s": 0.262,
+          "phys_footprint_bytes": 650438400
+        },
+        {
+          "name": "scrollPosts",
+          "ok": true,
+          "duration_s": 3.09,
+          "phys_footprint_bytes": 618850112
+        },
+        {
+          "name": "openThread",
+          "ok": true,
+          "duration_s": 1.846,
+          "phys_footprint_bytes": 612198272
+        },
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 611051392
+        }
+      ],
+      "probe_total_s": 8.578,
+      "completed_stages": [
+        "workspaceLoad",
+        "login",
+        "openChannel",
+        "scrollPosts",
+        "openThread"
+      ],
+      "failed_stages": [],
+      "launch_to_first_post_s": 3.38,
+      "probe": {
+        "webview_url": "http://127.0.0.1:8065/perf/channels/perf-feed",
+        "aborted": null,
+        "server": "http://127.0.0.1:8065",
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    },
+    {
+      "target": "catalyst",
+      "mode": "web",
+      "repeat": 2,
+      "app_pid": 91309,
+      "sampled_seconds": 14.78,
+      "peak": {
+        "total_rss_bytes": 944521216,
+        "app_rss_bytes": 104464384,
+        "webcontent_rss_bytes": 743669760,
+        "total_phys_footprint_bytes": 573122560
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 573122560,
+        "app_phys_footprint_bytes": 40323840,
+        "webcontent_phys_footprint_bytes": 484625856,
+        "webcontent_peak_footprint_bytes": 618368320,
+        "gpu_phys_footprint_bytes": 30967744,
+        "networking_phys_footprint_bytes": 17205120
+      },
+      "pids": {
+        "webcontent": [
+          91315
+        ],
+        "gpu": [
+          91316
+        ],
+        "networking": [
+          91317
+        ]
+      },
+      "stages": [
+        {
+          "name": "workspaceLoad",
+          "ok": true,
+          "duration_s": 0.415,
+          "phys_footprint_bytes": 506651968
+        },
+        {
+          "name": "login",
+          "ok": true,
+          "duration_s": 1.007,
+          "phys_footprint_bytes": 675276544
+        },
+        {
+          "name": "openChannel",
+          "ok": true,
+          "duration_s": 0.274,
+          "phys_footprint_bytes": 711092096
+        },
+        {
+          "name": "scrollPosts",
+          "ok": true,
+          "duration_s": 3.062,
+          "phys_footprint_bytes": 621078464
+        },
+        {
+          "name": "openThread",
+          "ok": true,
+          "duration_s": 1.817,
+          "phys_footprint_bytes": 611575808
+        },
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 573122560
+        }
+      ],
+      "probe_total_s": 8.597,
+      "completed_stages": [
+        "workspaceLoad",
+        "login",
+        "openChannel",
+        "scrollPosts",
+        "openThread"
+      ],
+      "failed_stages": [],
+      "launch_to_first_post_s": 3.443,
+      "probe": {
+        "webview_url": "http://127.0.0.1:8065/perf/channels/perf-feed",
+        "aborted": null,
+        "server": "http://127.0.0.1:8065",
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    },
+    {
+      "target": "simulator",
+      "mode": "native",
+      "repeat": 1,
+      "app_pid": 92348,
+      "sampled_seconds": 11.0,
+      "peak": {
+        "total_rss_bytes": 1124990976,
+        "app_rss_bytes": 263012352,
+        "webcontent_rss_bytes": 527892480,
+        "total_phys_footprint_bytes": 197321792
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 197321792,
+        "app_phys_footprint_bytes": 32086336,
+        "webcontent_phys_footprint_bytes": 141204736,
+        "webcontent_peak_footprint_bytes": 292429056,
+        "gpu_phys_footprint_bytes": 10180224,
+        "networking_phys_footprint_bytes": 13850496
+      },
+      "pids": {
+        "webcontent": [
+          92357
+        ],
+        "gpu": [
+          92359
+        ],
+        "networking": [
+          92360
+        ]
+      },
+      "stages": [
+        {
+          "name": "workspaceLoad",
+          "ok": true,
+          "duration_s": 0.411,
+          "phys_footprint_bytes": 297313344
+        },
+        {
+          "name": "login",
+          "ok": true,
+          "duration_s": 0.716,
+          "phys_footprint_bytes": 281338944
+        },
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 197321792
+        }
+      ],
+      "probe_total_s": 3.12,
+      "completed_stages": [
+        "workspaceLoad",
+        "login"
+      ],
+      "failed_stages": [],
+      "launch_to_first_post_s": 3.12,
+      "probe": {
+        "webview_url": "http://127.0.0.1:8065/perf/channels/town-square",
+        "aborted": null,
+        "server": "http://127.0.0.1:8065",
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    },
+    {
+      "target": "simulator",
+      "mode": "native",
+      "repeat": 2,
+      "app_pid": 92480,
+      "sampled_seconds": 10.83,
+      "peak": {
+        "total_rss_bytes": 1121337344,
+        "app_rss_bytes": 261275648,
+        "webcontent_rss_bytes": 526548992,
+        "total_phys_footprint_bytes": 207938816
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 207938816,
+        "app_phys_footprint_bytes": 32151872,
+        "webcontent_phys_footprint_bytes": 151657856,
+        "webcontent_peak_footprint_bytes": 318348544,
+        "gpu_phys_footprint_bytes": 10212992,
+        "networking_phys_footprint_bytes": 13916096
+      },
+      "pids": {
+        "webcontent": [
+          92490
+        ],
+        "gpu": [
+          92491
+        ],
+        "networking": [
+          92492
+        ]
+      },
+      "stages": [
+        {
+          "name": "workspaceLoad",
+          "ok": true,
+          "duration_s": 0.434,
+          "phys_footprint_bytes": 335504576
+        },
+        {
+          "name": "login",
+          "ok": true,
+          "duration_s": 0.711,
+          "phys_footprint_bytes": 304112832
+        },
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 207938816
+        }
+      ],
+      "probe_total_s": 3.081,
+      "completed_stages": [
+        "workspaceLoad",
+        "login"
+      ],
+      "failed_stages": [],
+      "launch_to_first_post_s": 3.08,
+      "probe": {
+        "webview_url": "http://127.0.0.1:8065/perf/channels/town-square",
+        "aborted": null,
+        "server": "http://127.0.0.1:8065",
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    },
+    {
+      "target": "simulator",
+      "mode": "shell",
+      "repeat": 1,
+      "app_pid": 92161,
+      "sampled_seconds": 7.19,
+      "peak": {
+        "total_rss_bytes": 227573760,
+        "app_rss_bytes": 227573760,
+        "webcontent_rss_bytes": 0,
+        "total_phys_footprint_bytes": 28628736
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 28628736,
+        "app_phys_footprint_bytes": 28628736,
+        "webcontent_phys_footprint_bytes": 0,
+        "webcontent_peak_footprint_bytes": 0,
+        "gpu_phys_footprint_bytes": 0,
+        "networking_phys_footprint_bytes": 0
+      },
+      "pids": {
+        "webcontent": [],
+        "gpu": [],
+        "networking": []
+      },
+      "stages": [
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 28628736
+        }
+      ],
+      "probe_total_s": 1.845,
+      "completed_stages": [],
+      "failed_stages": [],
+      "launch_to_first_post_s": null,
+      "probe": {
+        "webview_url": null,
+        "aborted": null,
+        "server": null,
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    },
+    {
+      "target": "simulator",
+      "mode": "shell",
+      "repeat": 2,
+      "app_pid": 92254,
+      "sampled_seconds": 6.89,
+      "peak": {
+        "total_rss_bytes": 227655680,
+        "app_rss_bytes": 227655680,
+        "webcontent_rss_bytes": 0,
+        "total_phys_footprint_bytes": 28628736
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 28628736,
+        "app_phys_footprint_bytes": 28628736,
+        "webcontent_phys_footprint_bytes": 0,
+        "webcontent_peak_footprint_bytes": 0,
+        "gpu_phys_footprint_bytes": 0,
+        "networking_phys_footprint_bytes": 0
+      },
+      "pids": {
+        "webcontent": [],
+        "gpu": [],
+        "networking": []
+      },
+      "stages": [
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 28628736
+        }
+      ],
+      "probe_total_s": 1.818,
+      "completed_stages": [],
+      "failed_stages": [],
+      "launch_to_first_post_s": null,
+      "probe": {
+        "webview_url": null,
+        "aborted": null,
+        "server": null,
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    },
+    {
+      "target": "simulator",
+      "mode": "web",
+      "repeat": 1,
+      "app_pid": 91834,
+      "sampled_seconds": 15.07,
+      "peak": {
+        "total_rss_bytes": 1258881024,
+        "app_rss_bytes": 289767424,
+        "webcontent_rss_bytes": 703938560,
+        "total_phys_footprint_bytes": 511436800
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 511436800,
+        "app_phys_footprint_bytes": 42932800,
+        "webcontent_phys_footprint_bytes": 431922816,
+        "webcontent_peak_footprint_bytes": 435543680,
+        "gpu_phys_footprint_bytes": 20748224,
+        "networking_phys_footprint_bytes": 15832960
+      },
+      "pids": {
+        "webcontent": [
+          91843
+        ],
+        "gpu": [
+          91845
+        ],
+        "networking": [
+          91846
+        ]
+      },
+      "stages": [
+        {
+          "name": "workspaceLoad",
+          "ok": true,
+          "duration_s": 0.423,
+          "phys_footprint_bytes": 462153536
+        },
+        {
+          "name": "login",
+          "ok": true,
+          "duration_s": 0.671,
+          "phys_footprint_bytes": 455632768
+        },
+        {
+          "name": "openChannel",
+          "ok": true,
+          "duration_s": 0.53,
+          "phys_footprint_bytes": 484632576
+        },
+        {
+          "name": "scrollPosts",
+          "ok": true,
+          "duration_s": 3.048,
+          "phys_footprint_bytes": 482093056
+        },
+        {
+          "name": "openThread",
+          "ok": true,
+          "duration_s": 1.199,
+          "phys_footprint_bytes": 505751552
+        },
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 511436800
+        }
+      ],
+      "probe_total_s": 7.841,
+      "completed_stages": [
+        "workspaceLoad",
+        "login",
+        "openChannel",
+        "scrollPosts",
+        "openThread"
+      ],
+      "failed_stages": [],
+      "launch_to_first_post_s": 3.062,
+      "probe": {
+        "webview_url": "http://127.0.0.1:8065/perf/channels/perf-feed",
+        "aborted": null,
+        "server": "http://127.0.0.1:8065",
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    },
+    {
+      "target": "simulator",
+      "mode": "web",
+      "repeat": 2,
+      "app_pid": 91994,
+      "sampled_seconds": 15.38,
+      "peak": {
+        "total_rss_bytes": 1399537664,
+        "app_rss_bytes": 299499520,
+        "webcontent_rss_bytes": 723812352,
+        "total_phys_footprint_bytes": 467199936
+      },
+      "steady": {
+        "total_phys_footprint_bytes": 467199936,
+        "app_phys_footprint_bytes": 40639104,
+        "webcontent_phys_footprint_bytes": 393420352,
+        "webcontent_peak_footprint_bytes": 402824768,
+        "gpu_phys_footprint_bytes": 17930112,
+        "networking_phys_footprint_bytes": 15210368
+      },
+      "pids": {
+        "webcontent": [
+          92005
+        ],
+        "gpu": [
+          92006
+        ],
+        "networking": [
+          92007
+        ]
+      },
+      "stages": [
+        {
+          "name": "workspaceLoad",
+          "ok": true,
+          "duration_s": 0.431,
+          "phys_footprint_bytes": 403203840
+        },
+        {
+          "name": "login",
+          "ok": true,
+          "duration_s": 0.676,
+          "phys_footprint_bytes": 459155328
+        },
+        {
+          "name": "openChannel",
+          "ok": true,
+          "duration_s": 0.521,
+          "phys_footprint_bytes": 443869056
+        },
+        {
+          "name": "scrollPosts",
+          "ok": true,
+          "duration_s": 3.073,
+          "phys_footprint_bytes": 474081216
+        },
+        {
+          "name": "openThread",
+          "ok": true,
+          "duration_s": 1.205,
+          "phys_footprint_bytes": 471066560
+        },
+        {
+          "name": "steadyState",
+          "ok": null,
+          "duration_s": null,
+          "phys_footprint_bytes": 467199936
+        }
+      ],
+      "probe_total_s": 7.941,
+      "completed_stages": [
+        "workspaceLoad",
+        "login",
+        "openChannel",
+        "scrollPosts",
+        "openThread"
+      ],
+      "failed_stages": [],
+      "launch_to_first_post_s": 3.141,
+      "probe": {
+        "webview_url": "http://127.0.0.1:8065/perf/channels/perf-feed",
+        "aborted": null,
+        "server": "http://127.0.0.1:8065",
+        "channel": "perf-feed",
+        "scroll_steps": 12
+      }
+    }
+  ],
+  "limits": [
+    "Catalyst + iOS Simulator on this Mac, not a physical device (see README \u00a7What this does and does not measure)",
+    "native mode is the T26 stand-in and still spawns WebKit helpers; the shell row is the native floor",
+    "text-only seeded posts: no image attachments, emoji reactions, or plugin UI",
+    "single-run numbers: peak values are one sample per stage boundary plus a 0.5-2s RSS timeline"
+  ],
+  "commands": {
+    "probe": "scripts/perf_probe.sh --server-start --targets catalyst,simulator --modes web,shell,native --posts 180 --replies 24 --scroll-steps 12 --repeat 2",
+    "seed": "python3 scripts/perf_seed.py --url http://127.0.0.1:8065 --posts 180 --replies 24 --creds-out <run-dir>/creds.json"
+  },
+  "artifacts": {
+    "runs_dir": "/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/perf/20261024-164606",
+    "probe_script": "scripts/perf_probe.sh",
+    "sampler": "scripts/perf_collect.py",
+    "seed_script": "scripts/perf_seed.py"
+  }
+}

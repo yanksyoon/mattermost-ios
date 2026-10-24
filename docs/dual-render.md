@@ -527,8 +527,14 @@ native card, not to the warm arm's post-login state — the comparison that carr
 WebContent count and the shell-relative ceiling, and §12.6 says so instead of pretending the arms are
 interchangeable.
 
-Before-numbers already on disk from the parked T27 harness (Mac Catalyst, Release + `PERF_PROBE`,
-`build/perf/20261024-140359`, **not** a landed baseline — `docs/perf/` does not exist yet):
+Before-numbers from the parked T27 harness (Mac Catalyst, Release + `PERF_PROBE`,
+`build/perf/20261024-140359`). **Superseded by the landed T27 baseline** —
+`docs/perf/README.md` + `docs/perf/baseline-2026-10-24.json` (12 arms, Catalyst + Simulator, warm
+`native` arm included; method and limits in `docs/t27-build-note.md`). The landed medians are
+**562.1 MB** (Catalyst) / **460.7 MB** (Simulator) of steady footprint for one loaded webview over
+a 30.0 / 28.6 MB shell floor, ~90 % of it WebContent, and the warm `native` arm still carries
+252.6 / 146.4 MB of WebContent — §11's prediction as a measured number. The 14:01/14:03 table is
+kept only as the provenance of the decision's earlier draft:
 
 | Run | app | WebContent | GPU | Networking | total footprint | RSS total |
 |---|---|---|---|---|---|---|
@@ -541,9 +547,10 @@ delta a released pane must reclaim; a policy that keeps the WebContent process (
 of the metric that justifies the programme.
 
 Sequencing, non-negotiable: **T27 must land a green baseline first**, and it must include a warm
-`native` arm. The 14:01/14:03 runs still fail `scrollPosts`/`openThread`, and §11's "native costs the
-same as web" is a code-reading prediction, not a measurement — the baseline is what turns it into a
-number. The implementation card is parented on T27.
+`native` arm. The 14:01/14:03 runs still failed `scrollPosts`/`openThread`; the landed baseline
+(`docs/perf/README.md`, 2026-10-24) is green on every stage of both targets and turns §11's
+"native costs the same as web" from a code-reading prediction into the measured 252.6 / 146.4 MB of
+WebContent the warm `native` arm still carries. The implementation card is parented on T27.
 
 ### 12.7 Rejected alternatives
 

@@ -3,6 +3,11 @@
 - **Status:** delivered (T25 input for T25b translation map, T26 dual-render, T28 transport, T31–T45 screen cards)
 - **Date:** 2026-10-24
 - **Program anchor:** T24 ADR (`docs/path-b-adr.md`) §2.2 sequencing, §4 memory premise (T27), §3 licence boundary
+- **Path B justification, measured (T27):** `docs/perf/README.md` — on this host a loaded per-server
+  WKWebView costs **562 MB** (Mac Catalyst) / **461 MB** (iOS Simulator) of physical footprint over a
+  **30 MB / 29 MB** shell floor, ~90 % of it in the **WebContent** process the app does not own. The
+  baseline (`docs/perf/baseline-2026-10-24.json`), the harness (`scripts/perf_probe.sh`), the method
+  and the limits (Simulator, not device) live in `docs/perf/`; see also `docs/t27-build-note.md`.
 - **Consumer:** `docs/native-inventory.md` one row per user-visible surface and per protocol call.
 
 ## 0. Method, sources, evidence index
