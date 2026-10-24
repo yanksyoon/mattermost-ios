@@ -1,0 +1,370 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -scheme ProbeReplayKit -destination "platform=macOS,variant=Mac Catalyst" -derivedDataPath ./dd-catalyst build
+
+Resolve Package Graph
+2026-10-24 18:12:06.836 xcodebuild[33107:1370860] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+
+
+Resolved source packages:
+  ProbeReplayKit: /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, variant:Mac Catalyst, id:00006000-000C410402D2801E, name:My Mac }
+{ platform:macOS, arch:x86_64, variant:Mac Catalyst, id:00006000-000C410402D2801E, name:My Mac }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (2 targets)
+    Target 'ProbeReplayKit' in project 'ProbeReplayKit'
+        ➜ Explicit dependency on target 'ProbeReplayKit' in project 'ProbeReplayKit'
+    Target 'ProbeReplayKit' in project 'ProbeReplayKit' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: eb0809faad9376949fcfa4874613235a
+Build description path: /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/XCBuildData/eb0809faad9376949fcfa4874613235a.xcbuilddata
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -o /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ExplicitPrecompiledModules
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-maccatalyst
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-maccatalyst
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/PackageFrameworks
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/PackageFrameworks
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/ProbeReplayKit.DependencyStaticMetadataFileList (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/ProbeReplayKit.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/ProbeReplayKit.modulemap (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/ProbeReplayKit.modulemap
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/ProbeReplayKit.DependencyMetadataFileList (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/ProbeReplayKit.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit_const_extract_protocols.json (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit-OutputFileMap.json (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit-OutputFileMap.json
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.SwiftConstValuesFileList (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.LinkFileList (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.LinkFileList
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.SwiftFileList (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.SwiftFileList
+
+Copy /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/GeneratedModuleMaps-maccatalyst/ProbeReplayKit.modulemap /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/ProbeReplayKit.modulemap (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/ProbeReplayKit.modulemap /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/GeneratedModuleMaps-maccatalyst
+
+SwiftDriver ProbeReplayKit normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ProbeReplayKit -Onone @/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-ios17.0-macabi -g -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/SubFrameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Session.modulevalidation -package-name probe_replaykit -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit_const_extract_protocols.json -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/include -Xcc -isystem -Xcc /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/usr/include -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit-Swift.h -working-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_Builtin_stdbool-R17TF3VAVL4T0LN2U00KK820.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_Builtin_stddef-DWHWEP0V4VKILS3V4VP9M2OM9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/DeveloperToolsSupport-2KMGY0J1ZC9YUZ7H7MCGUEIO6.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_Builtin_float-CFY18YVMM5TPSS26U9UOZP0Q9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_AvailabilityInternal-442QZHLIXTUUO1EXS1E4IDT7J.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/SwiftShims-EVA1Z80U3QH93BFS6NCFSTGVZ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_SwiftConcurrencyShims-9X69K4XD7EQI1G6B5AW44J4XF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_Builtin_stdarg-2XZ0K0HGMLP3K1UTP2F5LOFX8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/ptrcheck-5DRW88PRZ3ZM3K6E0V1JUCE7Z.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/ptrauth-27EGVPMJJER3RKPKZO5NNBVGD.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_DarwinFoundation1-C3RE3VARCQJYCJK6OJYOBQR60.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_DarwinFoundation2-2SJLXHWDMEHLA3KW5TMUQ0KSO.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_Builtin_limits-DW25BJ3QX0E0N9XM3LJJA6EEX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_Builtin_tgmath-1KG1NQHREF1CCFJL8WICN5X1Q.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_Builtin_stdint-2XKBJ3JK2AC1B7P5T9DMR07VT.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/sys_types-D034LIAVWK17HVZ98EJ9AW4LW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_Builtin_stdatomic-C6JEJ867RD9WE896694NHCG8U.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/libDER-9WFLZ3VTHVRZN4W9920K3S4ZD.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_DarwinFoundation3-79B6DYCXZAURI37XNWUO0MSQW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_Builtin_intrinsics-3Z3GCJ2I619TBN0WQV3BDL6KF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/OpenGL-AX5DHTTK17RTG5IDE3594XTHG.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/_Builtin_inttypes-3I2XPA7KPKPKV3HNBQ67CF396.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Darwin-DQKWD66AM27ENFECKIRZXI5RS.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/simd-6KRP9XXA1A00P9HXG9LBSIFGR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/MachO-CRVCHM35WS9JMPK8K3Y5WW3Y4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CUPS-5UZSCOY39O9UDXYMOVW4H1ES1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/launch-DQYFOFZTVSC4BV6MKZHBOK7SR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/libkern-10L9H3BJI4RCOGJ0AU6Y1IGUP.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/ObjectiveC-PAF1E4JGITFZW8Y6SCH943ZX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Spatial-CD6RV2U05AO491S1GS54CJQYR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/os_object-8USYK8Y4MQZAXPESBGA0EA6BL.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/os_workgroup-8GK1B2YRETZYYQ9APWMWV7AA7.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Dispatch-B1ZCV4VXFJPR8DW2Q7DBGD6IL.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreFoundation-CXND792JGKJMZ9BHC92VZ27ET.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/dnssd-3S37FMJGQ40FPADV4L6SFOO7W.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/XPC-2QFYYNIMZSNPXTLKZH9HRXY9C.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/os-EWIGK1PG3ND8EOOWKPIPHFIMV.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Security-CLIMUQDG7MUPNFXRYKWNIKCRL.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreAudioTypes-AHEI8CH4V30PUE4H1D2RRC84V.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CFNetwork-DVOD6CT6HJWO20UUICZIHTWKL.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/IOKit-CCX9QDDZZFGAGDEX59NBP2W8F.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/ColorSync-D1K8B26AQ8YFA2WT0HOQUCFL8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreGraphics-ZNYNSZMTLNMBF57I79JR3O0Z.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/DiskArbitration-6ECXXM1VEYML75201G6LSBOFI.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreServices-33NKNLO88WCAY8RCGB4BMGBW5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/ImageIO-4HTV9RPAUSZTDMXB4FEP4J45E.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreText-5UIP9F8ZZYJINPKD3WWNINPIA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Foundation-B1ZH6DQO2RHXB2UOBYCFE87WY.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreAudio-2NYFQ1PJRS768X6W2WQ7L0PRJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/UserNotifications-8FRSJOAAJSW9REMDP1CDYK3QW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/FileProvider-DHFLTUWAZ7L4K5JXIR0ZBXOV5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreMIDI-11KMY2HZ1S2SUMLSHIN3RSPI7.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/UIUtilities-6HR1DR6WGWOYMS0Z67MJ38NXW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/OSLog-7TVTS36OG0NT5ZWFUFU97QI4O.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreTransferable-B3Q22M1PLY1RBWNNDNDXDJKGE.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Symbols-KBEL545V6H0KCKS7W7T3M4XJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/DataDetection-2ZKWEQGDOOQT38B2F4E8TG65R.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/IOSurface-B7QCA0GJ7ZL9JUSGNIDXRVBYF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Accessibility-EI72JO47O3VC8X3U3F6ALMBI8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/ApplicationServices-C6JSDV4CGZTIM2KMZOS2SQ48M.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Network-92KHL7PCROFAOGR51EMQW1WP5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/UniformTypeIdentifiers-25DP1SS5NT7LVOUEQ4D5R5SAA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreData-UW4V0LPU1WA9NQSIHHOZE1ZX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Metal-6PPONIYX05O7L099JGY59YYBC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/AudioToolbox-4D4GB8NSZVLZQ8MK21YORVIG0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/AVRouting-9I4Q15YRJMSV39KAD1J7BCK4S.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreVideo-6WM8VXT6LO3R6FJBA9GBA382.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/QuartzCore-CY3U5H77WUNW5JXTSB1PMPCC3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreImage-19ZNYA63K0JMVNIW3SW6M5RT.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/CoreMedia-9QKK7S9F3Y9NQZ99BQU8HY7MR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/SwiftUICore-1TWGOPK8YMF8Y3NITOS844MX1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/AVFAudio-C9HO0B0NAY8G5OUN0HCVAT68X.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/MediaToolbox-DKFR840MXOXZO6TQU3EJX0K7G.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/AppKit-9INUBQ56GT4E3RFQOUYNM9ZD8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/AVFoundation-CP41R5RC36UOKNVSMNJ0PNSJK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/UIKit-1O292IT8ZFI4XUNVJWTGNKIW6.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/ReplayKit-B9LB3H2GBOGQRRRM4N76KYXOY.pcm
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ ProbeReplayKit (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/Sources/ProbeReplayKit/ProbeReplayKit.swift (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    
+
+SwiftCompile normal arm64 Compiling\ ProbeReplayKit.swift /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/Sources/ProbeReplayKit/ProbeReplayKit.swift (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+SwiftCompile normal arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/Sources/ProbeReplayKit/ProbeReplayKit.swift (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    
+/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/Sources/ProbeReplayKit/ProbeReplayKit.swift:7:22: warning: call to main actor-isolated initializer 'init(frame:)' in a synchronous nonisolated context
+        let picker = RPSystemBroadcastPickerView(frame: .zero)
+                     ^
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks/UIKit.framework/Headers/UIView.h:152:1: note: calls to initializer 'init(frame:)' from outside of its actor context are implicitly asynchronous
+- (instancetype)initWithFrame:(CGRect)frame NS_DESIGNATED_INITIALIZER;
+^
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks/UIKit.framework/Headers/UIView.h:152:1: note: main actor isolation inferred from inheritance from class 'UIView'
+- (instancetype)initWithFrame:(CGRect)frame NS_DESIGNATED_INITIALIZER;
+^
+/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/Sources/ProbeReplayKit/ProbeReplayKit.swift:5:24: note: add '@MainActor' to make static method 'pickerAvailable()' part of global actor 'MainActor'
+    public static func pickerAvailable() -> Bool {
+                       ^
+    @MainActor 
+/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/Sources/ProbeReplayKit/ProbeReplayKit.swift:8:16: warning: main actor-isolated property 'preferredExtension' can not be mutated from a nonisolated context
+        picker.preferredExtension = "com.example.screenshare"
+               ^
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks/ReplayKit.framework/Headers/RPBroadcast.h:183:51: note: mutation of this property is only permitted within the actor
+@property (nonatomic, strong, nullable) NSString *preferredExtension;
+                                                  ^
+/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/Sources/ProbeReplayKit/ProbeReplayKit.swift:5:24: note: add '@MainActor' to make static method 'pickerAvailable()' part of global actor 'MainActor'
+    public static func pickerAvailable() -> Bool {
+                       ^
+    @MainActor 
+/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/Sources/ProbeReplayKit/ProbeReplayKit.swift:9:16: warning: main actor-isolated property 'showsMicrophoneButton' can not be mutated from a nonisolated context
+        picker.showsMicrophoneButton = false
+               ^
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks/ReplayKit.framework/Headers/RPBroadcast.h:185:36: note: mutation of this property is only permitted within the actor
+@property (nonatomic, assign) BOOL showsMicrophoneButton;
+                                   ^
+/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/Sources/ProbeReplayKit/ProbeReplayKit.swift:5:24: note: add '@MainActor' to make static method 'pickerAvailable()' part of global actor 'MainActor'
+    public static func pickerAvailable() -> Bool {
+                       ^
+    @MainActor 
+/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/Sources/ProbeReplayKit/ProbeReplayKit.swift:10:23: warning: main actor-isolated property 'preferredExtension' can not be referenced from a nonisolated context
+        return picker.preferredExtension != nil
+                      ^
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks/ReplayKit.framework/Headers/RPBroadcast.h:183:51: note: property declared here
+@property (nonatomic, strong, nullable) NSString *preferredExtension;
+                                                  ^
+/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/Sources/ProbeReplayKit/ProbeReplayKit.swift:5:24: note: add '@MainActor' to make static method 'pickerAvailable()' part of global actor 'MainActor'
+    public static func pickerAvailable() -> Bool {
+                       ^
+    @MainActor 
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for ProbeReplayKit (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+
+SwiftDriver\ Compilation\ Requirements ProbeReplayKit normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ProbeReplayKit -Onone @/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-ios17.0-macabi -g -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/SubFrameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Session.modulevalidation -package-name probe_replaykit -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit_const_extract_protocols.json -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/include -Xcc -isystem -Xcc /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/usr/include -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit-Swift.h -working-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+SwiftMergeGeneratedHeaders /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/GeneratedModuleMaps-maccatalyst/ProbeReplayKit-Swift.h /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit-Swift.h (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    builtin-swiftHeaderTool -arch arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit-Swift.h -o /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/GeneratedModuleMaps-maccatalyst/ProbeReplayKit-Swift.h
+
+Copy /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.swiftmodule/arm64-apple-ios-macabi.abi.json /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.abi.json (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.abi.json /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.swiftmodule/arm64-apple-ios-macabi.abi.json
+
+Copy /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.swiftmodule/arm64-apple-ios-macabi.swiftmodule /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.swiftmodule (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.swiftmodule /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.swiftmodule/arm64-apple-ios-macabi.swiftmodule
+
+Copy /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.swiftmodule/arm64-apple-ios-macabi.swiftdoc /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.swiftdoc (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.swiftdoc /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.swiftmodule/arm64-apple-ios-macabi.swiftdoc
+
+Copy /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.swiftmodule/Project/arm64-apple-ios-macabi.swiftsourceinfo /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.swiftsourceinfo (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.swiftsourceinfo /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.swiftmodule/Project/arm64-apple-ios-macabi.swiftsourceinfo
+
+SwiftDriverJobDiscovery normal arm64 Compiling ProbeReplayKit.swift (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+
+SwiftDriver\ Compilation ProbeReplayKit normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ProbeReplayKit -Onone @/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-ios17.0-macabi -g -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/SubFrameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/ModuleCache.noindex/Session.modulevalidation -package-name probe_replaykit -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit_const_extract_protocols.json -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/include -Xcc -isystem -Xcc /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/usr/include -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit-Swift.h -working-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.o normal (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-macabi -r -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -O0 -F/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-maccatalyst -F/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/SubFrameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/SubFrameworks -filelist /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.LinkFileList -nostdlib -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit_lto.o -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx -L/System/iOSSupport/usr/lib/swift -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.swiftmodule @/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit-linker-args.resp -o /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.o
+
+ExtractAppIntentsMetadata (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name ProbeReplayKit --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk --xcode-version 17F113 --platform-family macOS --deployment-target 14.0 --bundle-identifier probe-replaykit.ProbeReplayKit --output /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.appintents --target-triple arm64-apple-ios17.0-macabi --binary-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.o --dependency-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit_dependency_info.dat --stringsdata-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.SwiftFileList --metadata-file-list /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/ProbeReplayKit.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/ProbeReplayKit.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Intermediates.noindex/ProbeReplayKit.build/Debug-maccatalyst/ProbeReplayKit.build/Objects-normal/arm64/ProbeReplayKit.SwiftConstValuesFileList --force --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-24 18:12:18.715 appintentsmetadataprocessor[33348:1371833] Starting appintentsmetadataprocessor export
+2026-10-24 18:12:18.726 appintentsmetadataprocessor[33348:1371833] Extracted no relevant App Intents symbols, skipping writing output
+
+RegisterExecutionPolicyException /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.o (in target 'ProbeReplayKit' from project 'ProbeReplayKit')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit
+    builtin-RegisterExecutionPolicyException /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-replaykit/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeReplayKit.o
+
+** BUILD SUCCEEDED **
+
