@@ -27,6 +27,8 @@ struct NativeChannelSidebarPane: View {
     @EnvironmentObject private var resolver: SurfaceModeResolver
     /// T32: the app-level owner of the team rail (one model + one socket per server).
     @EnvironmentObject private var teams: TeamSidebarCoordinator
+    /// T33: the app-level owner of the channel list (one model per server, no second socket).
+    @EnvironmentObject private var channels: ChannelSidebarCoordinator
 
     /// The location, but only while it belongs to this server (an inactive mounted scene shows
     /// nothing selected rather than another server's channel).
@@ -46,7 +48,15 @@ struct NativeChannelSidebarPane: View {
             NativeTeamSidebarPane(server: server,
                                   navigation: navigation,
                                   model: teams.model(for: server)) {
-                sidebarList
+                // T33 (S08): once the `sidebar` surface is native, the pane's content is the real
+                // channel list — categories, unread, mute, favourites — not T30's placeholder. The
+                // placeholder stays below (`sidebarList`) for `sidebar=web`, and it is also what the
+                // list replaces *inside* the team region, so T32's rail and this list share one
+                // lifetime exactly as upstream mounts them.
+                NativeChannelSidebarContent(server: server,
+                                            navigation: navigation,
+                                            model: channels.model(for: server),
+                                            teamModel: teams.model(for: server))
             }
         } else {
             sidebarList

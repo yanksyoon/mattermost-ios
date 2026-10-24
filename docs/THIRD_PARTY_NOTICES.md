@@ -190,3 +190,32 @@ written against `https://api.mattermost.com` (`/users/me/teams`, `/users/me/team
 zero-team copy is one short sentence pair re-worded in our own file, and **SF Symbols replace every
 `compass-icons` glyph** (the rail draws no icon-font asset), so no icon font or extra NOTICE entry is
 added.
+
+## 10. T33 native channel sidebar — upstream read set (Apache-2.0, mobile @ `v2.45.0`)
+
+T33 (`Mattermost/UI/Native/Sidebar/ChannelSidebar*.swift`, `QuickSwitcherView.swift`,
+`docs/t33-build-note.md`) reimplements the **channel list with categories, ordering, unread/mention
+state, mute, favourites and the quick switcher** in SwiftUI, and reads the mobile pin's category and
+quick-switch rules. No upstream file is copied or transpiled: the RN sources are TypeScript, and none
+of their code, strings or styles are reproduced verbatim. They were read at the pin
+`162f2560d0e1df073220f7701d5a67cc17c8abeb` to fix the rules the acceptance criteria name:
+
+| Upstream path (`mattermost/mattermost-mobile` @ `162f2560d0e1df073220f7701d5a67cc17c8abeb`) | Used for |
+|---|---|
+| `app/utils/categories.ts` | `makeCategoryChannelId`, category→channel membership, the unread/mute predicates and the per-category channel sort (manual / recent / alpha) |
+| `app/utils/channel/index.ts` | `sortChannels` tie-breaks and the "muted channel sorts last in an alphabetical category" rule |
+| `app/actions/remote/category.ts`, `app/client/rest/categories.ts` | the categories API: `GET`/`PUT /users/{uid}/teams/{tid}/channels/categories`, the full-array write that a reorder makes |
+| `app/actions/remote/channel.ts` | `getMyChannels` / `getMyChannelMembers` shapes and the `/users/me/channel_members` read |
+| `app/actions/websocket/channel.ts` | which socket events touch the list (`posted`, `post_edited`, `post_deleted`, `channel_viewed`, `preferences_changed`, `channel_created`, `channel_deleted`, `channel_member_updated`) and how unread is re-read afterwards |
+| `app/components/channel_list_row/`, `app/components/channel_item/` (`channel_item.tsx`, `channel_body.tsx`, `channel_type_icon.tsx`) | row anatomy: type glyph, bold-while-unread name, mute marker, mention badge, selected state |
+| `app/components/sidebar/` (mobile `channel_list`) | category headers with collapse/expand and the "one row per channel" rule |
+| `app/screens/find_channels/index.tsx`, `app/screens/find_channels/filtered_list/` | the quick switcher: a search field over a filtered result list that navigates on tap |
+| `app/constants/preferences.ts` | the preference-category constants this card does **not** write (the server's categories API is the sidebar's storage on a 9.11 server) |
+
+Reimplementation notes that matter for the licence boundary: the Swift types
+(`ChannelSidebarDerivation`, `ChannelSidebarEntry`, `ChannelSidebarService`, `ChannelSidebarCoordinator`,
+`QuickSwitcherView`) are written against `https://api.mattermost.com` (`/users/me/teams/{tid}/channels`,
+`/users/me/channel_members`, `/users/{uid}/teams/{tid}/channels/categories`, `/users/me/preferences`)
+and this repo's existing `APIClient`/`SocketClient`/`NativeNavigation` types, not translated from RN
+reducers or selectors. **SF Symbols replace every `compass-icons` glyph**, so no icon font or extra
+dependency is added.

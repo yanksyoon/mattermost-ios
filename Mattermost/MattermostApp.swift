@@ -32,6 +32,9 @@ struct MattermostApp: App {
     /// the sidebar view is re-created by SwiftUI (tab switch, size-class change), and a model or a
     /// WebSocket owned by the view would be re-created with it.
     @StateObject private var teamSidebarCoordinator: TeamSidebarCoordinator
+    /// T33: the app-level owner of the channel sidebar — one model per server, fed by the team rail's
+    /// single socket (no second connection). Owned here for the same reason the rail is.
+    @StateObject private var channelSidebarCoordinator: ChannelSidebarCoordinator
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
@@ -104,6 +107,9 @@ struct MattermostApp: App {
         // T32: the team rail's owner. Its `auth`/`navigation` seams are bound in `bindShellStores()`
         // for the same `@StateObject` reason as the two above.
         _teamSidebarCoordinator = StateObject(wrappedValue: TeamSidebarCoordinator())
+        // T33: the channel list's owner. Created before any view exists; its seams are bound in
+        // `bindShellStores()` for the same `@StateObject` reason as the three above.
+        _channelSidebarCoordinator = StateObject(wrappedValue: ChannelSidebarCoordinator())
         #if DEBUG
         // UI-test seam: `-uiTestAssumeSignedIn` makes the native shell render as if the seeded
         // server had a session, so its panes can be exercised against a stub server that has no
@@ -223,6 +229,8 @@ struct MattermostApp: App {
                 .environmentObject(authCoordinator)
                 // T32: the team rail owner is app-wide for the same reason (one socket per server).
                 .environmentObject(teamSidebarCoordinator)
+                // T33: the channel list owner is app-wide for the same reason.
+                .environmentObject(channelSidebarCoordinator)
                 // T31: the SSO hand-off mounts the server's existing webview inside a sheet, so the
                 // store owner has to be reachable from the environment too (the pane's web branch
                 // still receives it as a parameter).
@@ -379,11 +387,28 @@ struct MattermostApp: App {
         teamSidebarCoordinator.bind(auth: authCoordinator,
                                     navigation: nativeNavigation,
                                     serverStore: serverStore)
-        authCoordinator.onChange = { [weak nativeNavigation, weak teamSidebarCoordinator] serverID in
+        // T33: the channel list reads the same location and is **fed by the rail's socket**, so the
+        // app keeps exactly one WebSocket per server. The rail's channel-scoped events are handed to
+        // the list's coordinator, which debounces them into one counter refresh.
+        channelSidebarCoordinator.bind(auth: authCoordinator,
+                                       navigation: nativeNavigation,
+                                       serverStore: serverStore,
+                                       teams: teamSidebarCoordinator)
+        teamSidebarCoordinator.onTeamEvent = { [weak channelSidebarCoordinator] serverID, event in
+            guard let channelSidebarCoordinator else { return }
+            Task { await channelSidebarCoordinator.handle(event, serverID: serverID) }
+        }
+        // T30 reserved this seam for S08: with a channel list loaded, a deep link's channel *name*
+        // and a tapped mention's channel *id* resolve to the same `NativeLocation`.
+        nativeNavigation.directory = channelSidebarCoordinator
+        authCoordinator.onChange = { [weak nativeNavigation, weak teamSidebarCoordinator,
+                                      weak channelSidebarCoordinator] serverID in
             nativeNavigation?.refreshAuthState()
             // A sign-out/expiry must take the rail's socket down with the credential it was built
             // with; a finished sign-in is what lets it come up.
             teamSidebarCoordinator?.authPhaseChanged(serverID)
+            // …and the channel list (and its channel→team map) must not outlive that credential.
+            channelSidebarCoordinator?.authPhaseChanged(serverID)
         }
     }
 

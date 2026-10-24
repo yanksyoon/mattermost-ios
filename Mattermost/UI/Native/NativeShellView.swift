@@ -100,7 +100,10 @@ struct NativeShellView: View {
     private var regularLayout: some View {
         NavigationSplitView {
             NativeChannelSidebarPane(server: server, navigation: navigation)
-                .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 340)
+                // The column holds T32's 64 pt team rail *and* T33's channel list (upstream mounts
+                // them the same way). 260 ideal left the list ~196 pt, where "Off-Topic" truncated to
+                // "Off-…"; 320 gives the list the ~256 pt upstream's sidebar has.
+                .navigationSplitViewColumnWidth(min: 260, ideal: 320, max: 420)
         } detail: {
             NativeDestinationPaneView(location: navigation.location, navigation: navigation)
         }

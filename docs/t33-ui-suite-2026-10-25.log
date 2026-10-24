@@ -1,0 +1,1065 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=iOS Simulator,id=DC3E9FB7-E4A0-4B24-8DBB-7960A059EC7A" -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t33-t33tests7-7ada19.xcresult -only-testing MattermostUITests/T33ChannelSidebarStubTests -only-testing MattermostUITests/T33ChannelSidebarUITests
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift @ 7.11.1
+
+Writing result bundle at path:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t33-t33tests7-7ada19.xcresult
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (7 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDBSQLite' in project 'GRDB'
+    Target 'GRDBSQLite' in project 'GRDB' (no dependencies)
+    Target 'GRDB_GRDB' in project 'GRDB' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
+
+Build description signature: 4f6a9fdf8d7ce181a957203a74d711c0
+Build description path: /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/XCBuildData/4f6a9fdf8d7ce181a957203a74d711c0.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist (in target 'GRDB_GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist -producttype com.apple.product-type.framework -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -format binary -platform iphonesimulator -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist
+
+2026-10-25 06:59:31.940594+0800 MattermostUITests-Runner[48401:3816677] [Default] Running tests...
+2026-10-25 06:59:32.032185+0800 MattermostUITests-Runner[48401:3816677] [UIKit App Config] Update the Info.plist: Launch screens will soon be required.
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-10-25 06:59:32.425.
+Test Suite 'MattermostUITests.xctest' started at 2026-10-25 06:59:32.426.
+Test Suite 'T33ChannelSidebarStubTests' started at 2026-10-25 06:59:32.426.
+Test Case '-[MattermostUITests.T33ChannelSidebarStubTests testAFailedChannelReadShowsTheErrorAndARetry]' started.
+    t =     0.00s Start Test at 2026-10-25 06:59:32.427
+    t =     0.02s Set Up
+2026-10-25 06:59:32.466049+0800 MattermostUITests-Runner[48401:3816717] [connection] nw_protocol_socket_set_no_wake_from_sleep [C1:2] setsockopt SO_NOWAKEFROMSLEEP failed [22: Invalid argument]
+2026-10-25 06:59:32.466114+0800 MattermostUITests-Runner[48401:3816717] [] nw_protocol_socket_set_no_wake_from_sleep setsockopt SO_NOWAKEFROMSLEEP failed [22: Invalid argument]
+    t =     0.04s Open com.mattermost.ios
+    t =     0.04s     Launch com.mattermost.ios
+2026-10-25 06:59:32.528 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 06:59:32.528 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     0.71s         Setting up automation session
+    t =     1.52s         Wait for com.mattermost.ios to idle
+    t =     3.44s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     4.50s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     4.50s         Checking existence of `"loginIDField" TextField`
+    t =     4.58s Tap "loginIDField" TextField
+    t =     4.58s     Wait for com.mattermost.ios to idle
+    t =     4.58s     Find the "loginIDField" TextField
+    t =     4.59s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     4.61s         Wait for com.apple.springboard to idle
+    t =     4.63s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     4.64s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     4.64s     Synthesize event
+    t =     4.93s     Wait for com.mattermost.ios to idle
+    t =     5.02s Type 'stub-user' into "loginIDField" TextField
+    t =     5.02s     Wait for com.mattermost.ios to idle
+    t =     5.38s     Find the "loginIDField" TextField
+    t =     5.44s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.47s         Wait for com.apple.springboard to idle
+    t =     5.49s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.49s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.50s     Synthesize event
+    t =     5.85s     Wait for com.mattermost.ios to idle
+    t =     5.86s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     5.90s Tap "loginPasswordField" SecureTextField
+    t =     5.90s     Wait for com.mattermost.ios to idle
+    t =     5.90s     Find the "loginPasswordField" SecureTextField
+    t =     5.94s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     5.97s         Wait for com.apple.springboard to idle
+    t =     5.99s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.99s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.99s     Synthesize event
+    t =     6.28s     Wait for com.mattermost.ios to idle
+    t =     6.29s Type '<redacted>' into "loginPasswordField" SecureTextField
+    t =     6.29s     Wait for com.mattermost.ios to idle
+    t =     6.29s     Find the "loginPasswordField" SecureTextField
+    t =     6.33s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.36s         Wait for com.apple.springboard to idle
+    t =     6.39s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.39s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.39s     Synthesize event
+    t =     6.81s     Wait for com.mattermost.ios to idle
+    t =     6.81s Tap "loginSubmitButton" Button
+    t =     6.81s     Wait for com.mattermost.ios to idle
+    t =     6.81s     Find the "loginSubmitButton" Button
+    t =     6.85s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     6.88s         Wait for com.apple.springboard to idle
+    t =     6.90s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.90s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.90s     Synthesize event
+    t =     7.19s     Wait for com.mattermost.ios to idle
+    t =     8.31s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.37s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.37s         Checking existence of `"nativeShell" Any`
+    t =     9.45s Waiting 40.0s for "channelSidebar.error" Any to exist
+    t =    10.52s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.error" Any`
+    t =    10.52s         Checking existence of `"channelSidebar.error" Any`
+    t =    10.72s Checking existence of `"channelSidebar.retry" Any`
+    t =    10.87s Checking existence of `"channelSidebar.empty" Any`
+    t =    11.05s Find the Target Application 'com.mattermost.ios'
+    t =    11.23s Added attachment named 't33-stub-04-error-state'
+    t =    11.23s Tear Down
+Test Case '-[MattermostUITests.T33ChannelSidebarStubTests testAFailedChannelReadShowsTheErrorAndARetry]' passed (11.560 seconds).
+Test Case '-[MattermostUITests.T33ChannelSidebarStubTests testTheFlagDecidesWhetherTheNativeListIsMounted]' started.
+    t =     0.00s Start Test at 2026-10-25 06:59:43.987
+    t =     0.02s Set Up
+2026-10-25 06:59:44.009430+0800 MattermostUITests-Runner[48401:3816717] [connection] nw_protocol_socket_set_no_wake_from_sleep [C2:2] setsockopt SO_NOWAKEFROMSLEEP failed [22: Invalid argument]
+2026-10-25 06:59:44.009482+0800 MattermostUITests-Runner[48401:3816717] [] nw_protocol_socket_set_no_wake_from_sleep setsockopt SO_NOWAKEFROMSLEEP failed [22: Invalid argument]
+    t =     0.02s Open com.mattermost.ios
+    t =     0.02s     Launch com.mattermost.ios
+    t =     0.02s         Terminate com.mattermost.ios:48405
+2026-10-25 06:59:45.096 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 06:59:45.096 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.32s         Setting up automation session
+    t =     2.20s         Wait for com.mattermost.ios to idle
+    t =     4.05s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.07s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.07s         Checking existence of `"loginIDField" TextField`
+    t =     5.16s Tap "loginIDField" TextField
+    t =     5.16s     Wait for com.mattermost.ios to idle
+    t =     5.16s     Find the "loginIDField" TextField
+    t =     5.18s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.19s         Wait for com.apple.springboard to idle
+    t =     5.21s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.21s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.22s     Synthesize event
+    t =     5.51s     Wait for com.mattermost.ios to idle
+    t =     5.56s Type 'stub-user' into "loginIDField" TextField
+    t =     5.56s     Wait for com.mattermost.ios to idle
+    t =     5.92s     Find the "loginIDField" TextField
+    t =     5.98s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.00s         Wait for com.apple.springboard to idle
+    t =     6.03s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.03s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.03s     Synthesize event
+    t =     6.38s     Wait for com.mattermost.ios to idle
+    t =     6.38s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.43s Tap "loginPasswordField" SecureTextField
+    t =     6.43s     Wait for com.mattermost.ios to idle
+    t =     6.43s     Find the "loginPasswordField" SecureTextField
+    t =     6.47s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.50s         Wait for com.apple.springboard to idle
+    t =     6.52s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.52s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.52s     Synthesize event
+    t =     6.80s     Wait for com.mattermost.ios to idle
+    t =     6.81s Type '<redacted>' into "loginPasswordField" SecureTextField
+    t =     6.81s     Wait for com.mattermost.ios to idle
+    t =     6.81s     Find the "loginPasswordField" SecureTextField
+    t =     6.86s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.89s         Wait for com.apple.springboard to idle
+    t =     6.91s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.92s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.92s     Synthesize event
+    t =     7.34s     Wait for com.mattermost.ios to idle
+    t =     7.34s Tap "loginSubmitButton" Button
+    t =     7.34s     Wait for com.mattermost.ios to idle
+    t =     7.35s     Find the "loginSubmitButton" Button
+    t =     7.40s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     7.43s         Wait for com.apple.springboard to idle
+    t =     7.45s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.45s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.46s     Synthesize event
+    t =     7.75s     Wait for com.mattermost.ios to idle
+    t =     8.88s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.94s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.94s         Checking existence of `"nativeShell" Any`
+    t =    10.03s Waiting 40.0s for "channelSidebar.category.channels" Any to exist
+    t =    11.07s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.category.channels" Any`
+    t =    11.08s         Checking existence of `"channelSidebar.category.channels" Any`
+    t =    11.30s Terminate com.mattermost.ios:48422
+    t =    12.34s Open com.mattermost.ios
+    t =    12.34s     Launch com.mattermost.ios
+2026-10-25 06:59:56.335 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 06:59:56.335 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =    12.56s         Setting up automation session
+    t =    13.35s         Wait for com.mattermost.ios to idle
+    t =    15.17s Waiting 20.0s for "loginIDField" TextField to exist
+    t =    16.22s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =    16.22s         Checking existence of `"loginIDField" TextField`
+    t =    16.28s Tap "loginIDField" TextField
+    t =    16.28s     Wait for com.mattermost.ios to idle
+    t =    16.29s     Find the "loginIDField" TextField
+    t =    16.31s     Check for interrupting elements affecting "loginIDField" TextField
+    t =    16.33s         Wait for com.apple.springboard to idle
+    t =    16.35s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    16.35s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    16.35s     Synthesize event
+    t =    16.64s     Wait for com.mattermost.ios to idle
+    t =    16.69s Type 'stub-user' into "loginIDField" TextField
+    t =    16.69s     Wait for com.mattermost.ios to idle
+    t =    17.05s     Find the "loginIDField" TextField
+    t =    17.12s     Check for interrupting elements affecting "loginIDField" TextField
+    t =    17.15s         Wait for com.apple.springboard to idle
+    t =    17.17s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    17.17s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    17.18s     Synthesize event
+    t =    17.53s     Wait for com.mattermost.ios to idle
+    t =    17.54s Checking existence of `"loginPasswordField" SecureTextField`
+    t =    17.59s Tap "loginPasswordField" SecureTextField
+    t =    17.59s     Wait for com.mattermost.ios to idle
+    t =    17.60s     Find the "loginPasswordField" SecureTextField
+    t =    17.64s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =    17.67s         Wait for com.apple.springboard to idle
+    t =    17.70s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    17.70s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    17.70s     Synthesize event
+    t =    17.99s     Wait for com.mattermost.ios to idle
+    t =    17.99s Type '<redacted>' into "loginPasswordField" SecureTextField
+    t =    17.99s     Wait for com.mattermost.ios to idle
+    t =    17.99s     Find the "loginPasswordField" SecureTextField
+    t =    18.04s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =    18.08s         Wait for com.apple.springboard to idle
+    t =    18.10s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    18.10s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    18.11s     Synthesize event
+    t =    18.53s     Wait for com.mattermost.ios to idle
+    t =    18.53s Tap "loginSubmitButton" Button
+    t =    18.53s     Wait for com.mattermost.ios to idle
+    t =    18.54s     Find the "loginSubmitButton" Button
+    t =    18.58s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =    18.61s         Wait for com.apple.springboard to idle
+    t =    18.63s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    18.63s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    18.64s     Synthesize event
+    t =    18.92s     Wait for com.mattermost.ios to idle
+    t =    20.05s Waiting 40.0s for "nativeShell" Any to exist
+    t =    21.07s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    21.07s         Checking existence of `"nativeShell" Any`
+    t =    21.16s Waiting 40.0s for "nativeSidebar" Any to exist
+    t =    22.21s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeSidebar" Any`
+    t =    22.21s         Checking existence of `"nativeSidebar" Any`
+    t =    22.42s Checking existence of `"channelSidebar.category.channels" Any`
+    t =    22.59s Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    22.79s Checking existence of `"channelSidebar.channel.stubchanalpha00000000000001" Any`
+    t =    22.97s Find the Target Application 'com.mattermost.ios'
+    t =    23.14s Added attachment named 't33-stub-03-flag-off-placeholder'
+    t =    23.15s Tear Down
+Test Case '-[MattermostUITests.T33ChannelSidebarStubTests testTheFlagDecidesWhetherTheNativeListIsMounted]' passed (23.440 seconds).
+Test Case '-[MattermostUITests.T33ChannelSidebarStubTests testTheListDrawsTheStubsCategoriesInTheServersOrder]' started.
+    t =     0.00s Start Test at 2026-10-25 07:00:07.430
+    t =     0.03s Set Up
+2026-10-25 07:00:07.470349+0800 MattermostUITests-Runner[48401:3816742] [connection] nw_protocol_socket_set_no_wake_from_sleep [C3:2] setsockopt SO_NOWAKEFROMSLEEP failed [22: Invalid argument]
+2026-10-25 07:00:07.470501+0800 MattermostUITests-Runner[48401:3816742] [] nw_protocol_socket_set_no_wake_from_sleep setsockopt SO_NOWAKEFROMSLEEP failed [22: Invalid argument]
+    t =     0.04s Open com.mattermost.ios
+    t =     0.04s     Launch com.mattermost.ios
+    t =     0.04s         Terminate com.mattermost.ios:48439
+2026-10-25 07:00:08.519 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 07:00:08.519 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.31s         Setting up automation session
+    t =     2.13s         Wait for com.mattermost.ios to idle
+    t =     3.97s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.00s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.00s         Checking existence of `"loginIDField" TextField`
+    t =     5.08s Tap "loginIDField" TextField
+    t =     5.08s     Wait for com.mattermost.ios to idle
+    t =     5.08s     Find the "loginIDField" TextField
+    t =     5.09s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.11s         Wait for com.apple.springboard to idle
+    t =     5.13s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.13s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.13s     Synthesize event
+    t =     5.43s     Wait for com.mattermost.ios to idle
+    t =     5.49s Type 'stub-user' into "loginIDField" TextField
+    t =     5.49s     Wait for com.mattermost.ios to idle
+    t =     5.87s     Find the "loginIDField" TextField
+    t =     5.93s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.96s         Wait for com.apple.springboard to idle
+    t =     5.98s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.98s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.99s     Synthesize event
+    t =     6.35s     Wait for com.mattermost.ios to idle
+    t =     6.35s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.40s Tap "loginPasswordField" SecureTextField
+    t =     6.40s     Wait for com.mattermost.ios to idle
+    t =     6.40s     Find the "loginPasswordField" SecureTextField
+    t =     6.43s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.46s         Wait for com.apple.springboard to idle
+    t =     6.48s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.48s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.49s     Synthesize event
+    t =     6.77s     Wait for com.mattermost.ios to idle
+    t =     6.78s Type '<redacted>' into "loginPasswordField" SecureTextField
+    t =     6.78s     Wait for com.mattermost.ios to idle
+    t =     6.78s     Find the "loginPasswordField" SecureTextField
+    t =     6.82s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.86s         Wait for com.apple.springboard to idle
+    t =     6.88s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.88s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.89s     Synthesize event
+    t =     7.30s     Wait for com.mattermost.ios to idle
+    t =     7.30s Tap "loginSubmitButton" Button
+    t =     7.30s     Wait for com.mattermost.ios to idle
+    t =     7.31s     Find the "loginSubmitButton" Button
+    t =     7.34s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     7.37s         Wait for com.apple.springboard to idle
+    t =     7.39s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.40s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.40s     Synthesize event
+    t =     7.69s     Wait for com.mattermost.ios to idle
+    t =     8.84s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.89s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.89s         Checking existence of `"nativeShell" Any`
+    t =     9.98s Waiting 40.0s for "channelSidebar.category.channels" Any to exist
+    t =    11.00s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.category.channels" Any`
+    t =    11.00s         Checking existence of `"channelSidebar.category.channels" Any`
+    t =    11.22s Checking existence of `"channelSidebar.category.direct_messages" Any`
+    t =    11.41s Waiting 20.0s for "channelSidebar.channel.stubchanbeta000000000000002" Any to exist
+    t =    12.43s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.stubchanbeta000000000000002" Any`
+    t =    12.43s         Checking existence of `"channelSidebar.channel.stubchanbeta000000000000002" Any`
+    t =    12.64s Waiting 20.0s for "channelSidebar.channel.stubchanalpha00000000000001" Any to exist
+    t =    13.65s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.stubchanalpha00000000000001" Any`
+    t =    13.65s         Checking existence of `"channelSidebar.channel.stubchanalpha00000000000001" Any`
+    t =    13.85s Find the "channelSidebar.channel.stubchanbeta000000000000002" Any
+    t =    14.03s Find the "channelSidebar.channel.stubchanalpha00000000000001" Any
+    t =    14.21s Find the "channelSidebar.channel.stubchanbeta000000000000002" Button
+    t =    14.38s Find the "channelSidebar.channel.stubchanalpha00000000000001" Button
+    t =    14.57s Find the "channelSidebar.channel.stubchanalpha00000000000001" Button
+    t =    14.75s Checking existence of `"channelSidebar.channel.stubchanmuted000000000000003" Any`
+    t =    14.93s Find the "channelSidebar.channel.stubchanmuted000000000000003" Any
+    t =    15.10s Find the "channelSidebar.channel.stubchanbeta000000000000002" Button
+    t =    15.28s Waiting 10.0s for "channelSidebar.totals" Any to exist
+    t =    16.30s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.totals" Any`
+    t =    16.30s         Checking existence of `"channelSidebar.totals" Any`
+    t =    16.51s Find the "channelSidebar.totals" Any
+    t =    16.70s Find the Target Application 'com.mattermost.ios'
+    t =    16.89s Added attachment named 't33-stub-01-categories-and-rows'
+    t =    16.89s Tear Down
+Test Case '-[MattermostUITests.T33ChannelSidebarStubTests testTheListDrawsTheStubsCategoriesInTheServersOrder]' passed (17.176 seconds).
+Test Case '-[MattermostUITests.T33ChannelSidebarStubTests testTheQuickSwitcherFindsADirectMessageByTheOtherPersonsName]' started.
+    t =     0.00s Start Test at 2026-10-25 07:00:24.607
+    t =     0.02s Set Up
+2026-10-25 07:00:24.629653+0800 MattermostUITests-Runner[48401:3816738] [connection] nw_protocol_socket_set_no_wake_from_sleep [C4:2] setsockopt SO_NOWAKEFROMSLEEP failed [22: Invalid argument]
+2026-10-25 07:00:24.629752+0800 MattermostUITests-Runner[48401:3816738] [] nw_protocol_socket_set_no_wake_from_sleep setsockopt SO_NOWAKEFROMSLEEP failed [22: Invalid argument]
+    t =     0.02s Open com.mattermost.ios
+    t =     0.03s     Launch com.mattermost.ios
+    t =     0.03s         Terminate com.mattermost.ios:48452
+2026-10-25 07:00:25.703 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 07:00:25.703 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.31s         Setting up automation session
+    t =     2.13s         Wait for com.mattermost.ios to idle
+    t =     3.95s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     4.99s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     4.99s         Checking existence of `"loginIDField" TextField`
+    t =     5.07s Tap "loginIDField" TextField
+    t =     5.07s     Wait for com.mattermost.ios to idle
+    t =     5.07s     Find the "loginIDField" TextField
+    t =     5.09s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.10s         Wait for com.apple.springboard to idle
+    t =     5.12s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.13s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.13s     Synthesize event
+    t =     5.42s     Wait for com.mattermost.ios to idle
+    t =     5.49s Type 'stub-user' into "loginIDField" TextField
+    t =     5.49s     Wait for com.mattermost.ios to idle
+    t =     5.84s     Find the "loginIDField" TextField
+    t =     5.87s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.90s         Wait for com.apple.springboard to idle
+    t =     5.92s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.92s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.92s     Synthesize event
+    t =     6.27s     Wait for com.mattermost.ios to idle
+    t =     6.27s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.30s Tap "loginPasswordField" SecureTextField
+    t =     6.30s     Wait for com.mattermost.ios to idle
+    t =     6.31s     Find the "loginPasswordField" SecureTextField
+    t =     6.33s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.36s         Wait for com.apple.springboard to idle
+    t =     6.38s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.38s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.38s     Synthesize event
+    t =     6.67s     Wait for com.mattermost.ios to idle
+    t =     6.68s Type '<redacted>' into "loginPasswordField" SecureTextField
+    t =     6.68s     Wait for com.mattermost.ios to idle
+    t =     6.68s     Find the "loginPasswordField" SecureTextField
+    t =     6.71s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.74s         Wait for com.apple.springboard to idle
+    t =     6.77s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.77s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.78s     Synthesize event
+    t =     7.19s     Wait for com.mattermost.ios to idle
+    t =     7.19s Tap "loginSubmitButton" Button
+    t =     7.19s     Wait for com.mattermost.ios to idle
+    t =     7.20s     Find the "loginSubmitButton" Button
+    t =     7.24s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     7.26s         Wait for com.apple.springboard to idle
+    t =     7.29s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.29s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.29s     Synthesize event
+    t =     7.58s     Wait for com.mattermost.ios to idle
+    t =     8.72s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.75s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.75s         Checking existence of `"nativeShell" Any`
+    t =     9.83s Waiting 40.0s for "channelSidebar.quickSwitcher" Any to exist
+    t =    10.86s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    10.86s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    11.08s Waiting 30.0s for "channelSidebar.category.direct_messages" Any to exist
+    t =    12.12s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.category.direct_messages" Any`
+    t =    12.12s         Checking existence of `"channelSidebar.category.direct_messages" Any`
+    t =    12.33s Tap "channelSidebar.quickSwitcher" Any
+    t =    12.33s     Wait for com.mattermost.ios to idle
+    t =    12.33s     Find the "channelSidebar.quickSwitcher" Any
+    t =    12.50s     Check for interrupting elements affecting "channelSidebar.quickSwitcher" Button
+    t =    12.58s         Wait for com.apple.springboard to idle
+    t =    12.60s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    12.60s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    12.62s     Synthesize event
+    t =    12.92s     Wait for com.mattermost.ios to idle
+    t =    14.02s Waiting 15.0s for "channelSidebar.quickSwitcher.field" TextField to exist
+    t =    15.05s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher.field" TextField`
+    t =    15.05s         Checking existence of `"channelSidebar.quickSwitcher.field" TextField`
+    t =    15.21s Tap "channelSidebar.quickSwitcher.field" TextField
+    t =    15.21s     Wait for com.mattermost.ios to idle
+    t =    15.21s     Find the "channelSidebar.quickSwitcher.field" TextField
+    t =    15.32s     Check for interrupting elements affecting "channelSidebar.quickSwitcher.field" TextField
+    t =    15.42s         Wait for com.apple.springboard to idle
+    t =    15.45s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    15.45s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    15.45s     Synthesize event
+    t =    15.75s     Wait for com.mattermost.ios to idle
+    t =    15.75s Type 'otheruser' into "channelSidebar.quickSwitcher.field" TextField
+    t =    15.75s     Wait for com.mattermost.ios to idle
+    t =    15.76s     Find the "channelSidebar.quickSwitcher.field" TextField
+    t =    15.93s     Check for interrupting elements affecting "channelSidebar.quickSwitcher.field" TextField
+    t =    16.04s         Wait for com.apple.springboard to idle
+    t =    16.06s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    16.06s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    16.07s     Synthesize event
+    t =    16.42s     Wait for com.mattermost.ios to idle
+    t =    16.58s Waiting 15.0s for "channelSidebar.quickSwitcher.result.stubchandm00000000000000004" Any to exist
+    t =    17.60s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher.result.stubchandm00000000000000004" Any`
+    t =    17.61s         Checking existence of `"channelSidebar.quickSwitcher.result.stubchandm00000000000000004" Any`
+    t =    17.84s Find the "channelSidebar.quickSwitcher.result.stubchandm00000000000000004" Any
+    t =    18.05s Find the Target Application 'com.mattermost.ios'
+    t =    18.26s Added attachment named 't33-stub-02-dm-by-username'
+    t =    18.26s Tap "channelSidebar.quickSwitcher.result.stubchandm00000000000000004" Button
+    t =    18.26s     Wait for com.mattermost.ios to idle
+    t =    18.26s     Find the "channelSidebar.quickSwitcher.result.stubchandm00000000000000004" Button
+    t =    18.48s     Check for interrupting elements affecting "channelSidebar.quickSwitcher.result.stubchandm00000000000000004" Button
+    t =    18.56s         Wait for com.apple.springboard to idle
+    t =    18.59s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    18.59s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    18.61s     Synthesize event
+    t =    18.91s     Wait for com.mattermost.ios to idle
+    t =    19.40s Checking existence of `"channelSidebar.quickSwitcher.field" TextField`
+    t =    19.50s Waiting 10.0s for "nativeChannelPane" Any to exist
+    t =    20.52s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelPane" Any`
+    t =    20.52s         Checking existence of `"nativeChannelPane" Any`
+    t =    20.64s Checking existence of `"nativeEmptyDestination" Any`
+    t =    20.87s Find the "nativeChannelTitle" StaticText
+    t =    20.94s Tear Down
+Test Case '-[MattermostUITests.T33ChannelSidebarStubTests testTheQuickSwitcherFindsADirectMessageByTheOtherPersonsName]' passed (21.173 seconds).
+Test Suite 'T33ChannelSidebarStubTests' passed at 2026-10-25 07:00:45.780.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 73.350 (73.354) seconds
+Test Suite 'T33ChannelSidebarUITests' started at 2026-10-25 07:00:45.782.
+Test Case '-[MattermostUITests.T33ChannelSidebarUITests testAMutedChannelShowsNoUnreadStateAndLeavesTheTotals]' started.
+    t =     0.00s Start Test at 2026-10-25 07:00:45.783
+    t =     0.03s Set Up
+    t =     0.46s Open com.mattermost.ios
+    t =     0.46s     Launch com.mattermost.ios
+    t =     0.46s         Terminate com.mattermost.ios:48472
+2026-10-25 07:00:47.303 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 07:00:47.303 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.73s         Setting up automation session
+    t =     2.62s         Wait for com.mattermost.ios to idle
+    t =     4.48s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.49s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.50s         Checking existence of `"loginIDField" TextField`
+    t =     5.58s Tap "loginIDField" TextField
+    t =     5.58s     Wait for com.mattermost.ios to idle
+    t =     5.58s     Find the "loginIDField" TextField
+    t =     5.60s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.61s         Wait for com.apple.springboard to idle
+    t =     5.63s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.63s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.64s     Synthesize event
+    t =     5.93s     Wait for com.mattermost.ios to idle
+    t =     6.02s Type 'perfprobe' into "loginIDField" TextField
+    t =     6.02s     Wait for com.mattermost.ios to idle
+    t =     6.41s     Find the "loginIDField" TextField
+    t =     6.47s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.50s         Wait for com.apple.springboard to idle
+    t =     6.52s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.52s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.52s     Synthesize event
+    t =     6.88s     Wait for com.mattermost.ios to idle
+    t =     6.88s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.93s Tap "loginPasswordField" SecureTextField
+    t =     6.93s     Wait for com.mattermost.ios to idle
+    t =     6.93s     Find the "loginPasswordField" SecureTextField
+    t =     6.97s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.00s         Wait for com.apple.springboard to idle
+    t =     7.02s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.02s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.03s     Synthesize event
+    t =     7.31s     Wait for com.mattermost.ios to idle
+    t =     7.31s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.31s     Wait for com.mattermost.ios to idle
+    t =     7.32s     Find the "loginPasswordField" SecureTextField
+    t =     7.36s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.39s         Wait for com.apple.springboard to idle
+    t =     7.41s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.42s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.42s     Synthesize event
+    t =     8.11s     Wait for com.mattermost.ios to idle
+    t =     8.12s Tap "loginSubmitButton" Button
+    t =     8.12s     Wait for com.mattermost.ios to idle
+    t =     8.12s     Find the "loginSubmitButton" Button
+    t =     8.17s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.20s         Wait for com.apple.springboard to idle
+    t =     8.22s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     8.23s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     8.23s     Synthesize event
+    t =     8.52s     Wait for com.mattermost.ios to idle
+    t =     8.81s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.84s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.84s         Checking existence of `"nativeShell" Any`
+    t =     9.91s Waiting 40.0s for "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any to exist
+    t =    10.94s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any`
+    t =    10.95s         Checking existence of `"channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any`
+    t =    11.16s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any
+    t =    11.33s Waiting 10.0s for "channelSidebar.totals" Any to exist
+    t =    12.36s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.totals" Any`
+    t =    12.36s         Checking existence of `"channelSidebar.totals" Any`
+    t =    12.59s Find the "channelSidebar.totals" Any
+    t =    12.77s Find the Target Application 'com.mattermost.ios'
+    t =    12.95s Added attachment named 't33-06-muted-channel'
+    t =    12.98s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    13.42s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    13.89s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    14.35s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    14.82s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    15.03s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    15.21s Find the "channelSidebar.totals" Any
+    t =    15.39s Find the Target Application 'com.mattermost.ios'
+    t =    15.57s Added attachment named 't33-07-muted-mention'
+    t =    15.60s Find the "channelSidebar.totals" Any
+    t =    15.80s Find the Target Application 'com.mattermost.ios'
+    t =    15.97s Added attachment named 't33-08-totals-move'
+    t =    16.06s Tear Down
+Test Case '-[MattermostUITests.T33ChannelSidebarUITests testAMutedChannelShowsNoUnreadStateAndLeavesTheTotals]' passed (16.368 seconds).
+Test Case '-[MattermostUITests.T33ChannelSidebarUITests testAReorderThroughTheContextMenuWritesTheServerAndSurvivesRelaunch]' started.
+    t =     0.00s Start Test at 2026-10-25 07:01:02.153
+    t =     0.04s Set Up
+    t =     0.25s Open com.mattermost.ios
+    t =     0.25s     Launch com.mattermost.ios
+    t =     0.25s         Terminate com.mattermost.ios:48635
+2026-10-25 07:01:03.501 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 07:01:03.501 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.56s         Setting up automation session
+    t =     2.44s         Wait for com.mattermost.ios to idle
+    t =     4.32s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.34s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.34s         Checking existence of `"loginIDField" TextField`
+    t =     5.43s Tap "loginIDField" TextField
+    t =     5.43s     Wait for com.mattermost.ios to idle
+    t =     5.43s     Find the "loginIDField" TextField
+    t =     5.45s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.46s         Wait for com.apple.springboard to idle
+    t =     5.48s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.48s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.49s     Synthesize event
+    t =     5.78s     Wait for com.mattermost.ios to idle
+    t =     5.83s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.83s     Wait for com.mattermost.ios to idle
+    t =     6.21s     Find the "loginIDField" TextField
+    t =     6.27s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.30s         Wait for com.apple.springboard to idle
+    t =     6.32s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.32s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.32s     Synthesize event
+    t =     6.68s     Wait for com.mattermost.ios to idle
+    t =     6.68s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.73s Tap "loginPasswordField" SecureTextField
+    t =     6.73s     Wait for com.mattermost.ios to idle
+    t =     6.73s     Find the "loginPasswordField" SecureTextField
+    t =     6.77s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.80s         Wait for com.apple.springboard to idle
+    t =     6.82s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.82s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.82s     Synthesize event
+    t =     7.12s     Wait for com.mattermost.ios to idle
+    t =     7.12s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.12s     Wait for com.mattermost.ios to idle
+    t =     7.12s     Find the "loginPasswordField" SecureTextField
+    t =     7.16s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.20s         Wait for com.apple.springboard to idle
+    t =     7.23s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.23s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.23s     Synthesize event
+    t =     7.92s     Wait for com.mattermost.ios to idle
+    t =     7.92s Tap "loginSubmitButton" Button
+    t =     7.92s     Wait for com.mattermost.ios to idle
+    t =     7.92s     Find the "loginSubmitButton" Button
+    t =     7.97s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.01s         Wait for com.apple.springboard to idle
+    t =     8.03s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     8.03s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     8.04s     Synthesize event
+    t =     8.33s     Wait for com.mattermost.ios to idle
+    t =     8.60s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.64s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.64s         Checking existence of `"nativeShell" Any`
+    t =     9.73s Waiting 40.0s for "channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any to exist
+    t =    10.78s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any`
+    t =    10.78s         Checking existence of `"channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any`
+    t =    11.01s Press "channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any for 1.2 seconds
+    t =    11.01s     Wait for com.mattermost.ios to idle
+    t =    11.02s     Find the "channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any
+    t =    11.20s     Check for interrupting elements affecting "channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Button
+    t =    11.27s         Wait for com.apple.springboard to idle
+    t =    11.29s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    11.29s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    11.32s     Synthesize event
+    t =    12.76s     Wait for com.mattermost.ios to idle
+    t =    13.09s Waiting 10.0s for "Move up" Button to exist
+    t =    14.11s     Checking `Expect predicate `existsNoRetry == 1` for object "Move up" Button`
+    t =    14.11s         Checking existence of `"Move up" Button`
+    t =    14.22s Tap "Move up" Button
+    t =    14.22s     Wait for com.mattermost.ios to idle
+    t =    14.23s     Find the "Move up" Button
+    t =    14.31s     Check for interrupting elements affecting "arrow.up" Button
+    t =    14.39s         Wait for com.apple.springboard to idle
+    t =    14.40s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    14.41s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    14.41s     Synthesize event
+    t =    14.70s     Wait for com.mattermost.ios to idle
+    t =    15.54s Terminate com.mattermost.ios:48652
+    t =    16.55s Open com.mattermost.ios
+    t =    16.55s     Launch com.mattermost.ios
+2026-10-25 07:01:18.707 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 07:01:18.707 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =    16.77s         Setting up automation session
+    t =    17.65s         Wait for com.mattermost.ios to idle
+    t =    19.52s Waiting 20.0s for "loginIDField" TextField to exist
+    t =    20.55s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =    20.55s         Checking existence of `"loginIDField" TextField`
+    t =    20.64s Tap "loginIDField" TextField
+    t =    20.64s     Wait for com.mattermost.ios to idle
+    t =    20.64s     Find the "loginIDField" TextField
+    t =    20.66s     Check for interrupting elements affecting "loginIDField" TextField
+    t =    20.68s         Wait for com.apple.springboard to idle
+    t =    20.70s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    20.70s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    20.70s     Synthesize event
+    t =    20.99s     Wait for com.mattermost.ios to idle
+    t =    21.05s Type 'perfprobe' into "loginIDField" TextField
+    t =    21.05s     Wait for com.mattermost.ios to idle
+    t =    21.41s     Find the "loginIDField" TextField
+    t =    21.47s     Check for interrupting elements affecting "loginIDField" TextField
+    t =    21.50s         Wait for com.apple.springboard to idle
+    t =    21.52s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    21.52s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    21.52s     Synthesize event
+    t =    21.88s     Wait for com.mattermost.ios to idle
+    t =    21.88s Checking existence of `"loginPasswordField" SecureTextField`
+    t =    21.93s Tap "loginPasswordField" SecureTextField
+    t =    21.93s     Wait for com.mattermost.ios to idle
+    t =    21.93s     Find the "loginPasswordField" SecureTextField
+    t =    21.97s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =    22.00s         Wait for com.apple.springboard to idle
+    t =    22.02s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    22.02s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    22.02s     Synthesize event
+    t =    22.31s     Wait for com.mattermost.ios to idle
+    t =    22.31s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =    22.31s     Wait for com.mattermost.ios to idle
+    t =    22.31s     Find the "loginPasswordField" SecureTextField
+    t =    22.36s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =    22.39s         Wait for com.apple.springboard to idle
+    t =    22.42s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    22.42s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    22.42s     Synthesize event
+    t =    23.10s     Wait for com.mattermost.ios to idle
+    t =    23.11s Tap "loginSubmitButton" Button
+    t =    23.11s     Wait for com.mattermost.ios to idle
+    t =    23.11s     Find the "loginSubmitButton" Button
+    t =    23.16s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =    23.19s         Wait for com.apple.springboard to idle
+    t =    23.21s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    23.21s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    23.22s     Synthesize event
+    t =    23.51s     Wait for com.mattermost.ios to idle
+    t =    23.77s Waiting 40.0s for "nativeShell" Any to exist
+    t =    24.81s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    24.81s         Checking existence of `"nativeShell" Any`
+    t =    24.88s Waiting 40.0s for "channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any to exist
+    t =    25.93s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any`
+    t =    25.93s         Checking existence of `"channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any`
+    t =    26.15s Waiting 40.0s for "channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any to exist
+    t =    27.18s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any`
+    t =    27.18s         Checking existence of `"channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any`
+    t =    27.38s Find the "channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any
+    t =    27.57s Find the "channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any
+    t =    27.75s Find the Target Application 'com.mattermost.ios'
+    t =    27.94s Added attachment named 't33-09-reorder-after-relaunch'
+    t =    27.98s Tear Down
+Test Case '-[MattermostUITests.T33ChannelSidebarUITests testAReorderThroughTheContextMenuWritesTheServerAndSurvivesRelaunch]' passed (28.227 seconds).
+Test Case '-[MattermostUITests.T33ChannelSidebarUITests testTheQuickSwitcherFuzzyFindsAChannelAndOpensIt]' started.
+    t =     0.00s Start Test at 2026-10-25 07:01:30.380
+    t =     0.02s Set Up
+    t =     0.21s Open com.mattermost.ios
+    t =     0.21s     Launch com.mattermost.ios
+    t =     0.21s         Terminate com.mattermost.ios:48674
+2026-10-25 07:01:31.636 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 07:01:31.636 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.47s         Setting up automation session
+    t =     2.29s         Wait for com.mattermost.ios to idle
+    t =     4.22s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.28s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.28s         Checking existence of `"loginIDField" TextField`
+    t =     5.37s Tap "loginIDField" TextField
+    t =     5.37s     Wait for com.mattermost.ios to idle
+    t =     5.37s     Find the "loginIDField" TextField
+    t =     5.39s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.40s         Wait for com.apple.springboard to idle
+    t =     5.42s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.42s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     5.43s     Synthesize event
+    t =     5.71s     Wait for com.mattermost.ios to idle
+    t =     5.79s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.79s     Wait for com.mattermost.ios to idle
+    t =     6.14s     Find the "loginIDField" TextField
+    t =     6.20s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.23s         Wait for com.apple.springboard to idle
+    t =     6.25s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.25s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.25s     Synthesize event
+    t =     6.60s     Wait for com.mattermost.ios to idle
+    t =     6.60s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.64s Tap "loginPasswordField" SecureTextField
+    t =     6.65s     Wait for com.mattermost.ios to idle
+    t =     6.65s     Find the "loginPasswordField" SecureTextField
+    t =     6.68s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.71s         Wait for com.apple.springboard to idle
+    t =     6.73s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.73s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.73s     Synthesize event
+    t =     7.02s     Wait for com.mattermost.ios to idle
+    t =     7.03s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.03s     Wait for com.mattermost.ios to idle
+    t =     7.03s     Find the "loginPasswordField" SecureTextField
+    t =     7.08s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.27s         Wait for com.apple.springboard to idle
+    t =     7.29s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.30s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.30s     Synthesize event
+    t =     8.00s     Wait for com.mattermost.ios to idle
+    t =     8.00s Tap "loginSubmitButton" Button
+    t =     8.00s     Wait for com.mattermost.ios to idle
+    t =     8.00s     Find the "loginSubmitButton" Button
+    t =     8.04s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.06s         Wait for com.apple.springboard to idle
+    t =     8.09s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     8.09s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     8.09s     Synthesize event
+    t =     8.38s     Wait for com.mattermost.ios to idle
+    t =     8.68s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.70s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.70s         Checking existence of `"nativeShell" Any`
+    t =     9.80s Waiting 40.0s for "channelSidebar.quickSwitcher" Any to exist
+    t =    10.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    10.83s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    11.11s Tap "channelSidebar.quickSwitcher" Any
+    t =    11.11s     Wait for com.mattermost.ios to idle
+    t =    11.12s     Find the "channelSidebar.quickSwitcher" Any
+    t =    11.53s     Check for interrupting elements affecting "channelSidebar.quickSwitcher" Button
+    t =    11.92s         Wait for com.apple.springboard to idle
+    t =    12.02s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    12.03s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    12.25s     Synthesize event
+    t =    12.56s     Wait for com.mattermost.ios to idle
+    t =    13.32s Waiting 15.0s for "channelSidebar.quickSwitcher.field" TextField to exist
+    t =    20.65s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher.field" TextField`
+    t =    20.65s         Checking existence of `"channelSidebar.quickSwitcher.field" TextField`
+    t =    20.84s Tap "channelSidebar.quickSwitcher.field" TextField
+    t =    20.84s     Wait for com.mattermost.ios to idle
+    t =    20.84s     Find the "channelSidebar.quickSwitcher.field" TextField
+    t =    21.03s     Check for interrupting elements affecting "channelSidebar.quickSwitcher.field" TextField
+    t =    21.16s         Wait for com.apple.springboard to idle
+    t =    21.19s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    21.19s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    21.20s     Synthesize event
+    t =    21.53s     Wait for com.mattermost.ios to idle
+    t =    21.54s Type 'pffd' into "channelSidebar.quickSwitcher.field" TextField
+    t =    21.54s     Wait for com.mattermost.ios to idle
+    t =    21.59s     Find the "channelSidebar.quickSwitcher.field" TextField
+    t =    21.75s     Check for interrupting elements affecting "channelSidebar.quickSwitcher.field" TextField
+    t =    21.88s         Wait for com.apple.springboard to idle
+    t =    21.90s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    21.91s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    21.91s     Synthesize event
+    t =    22.18s     Wait for com.mattermost.ios to idle
+    t =    22.44s Waiting 15.0s for "channelSidebar.quickSwitcher.result.71jj7bz8rbrjbq7szjw9amzoqa" Any to exist
+    t =    23.45s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher.result.71jj7bz8rbrjbq7szjw9amzoqa" Any`
+    t =    23.45s         Checking existence of `"channelSidebar.quickSwitcher.result.71jj7bz8rbrjbq7szjw9amzoqa" Any`
+    t =    23.75s Find the Target Application 'com.mattermost.ios'
+    t =    24.03s Added attachment named 't33-02-quick-switcher-fuzzy'
+    t =    24.03s Tap "channelSidebar.quickSwitcher.result.71jj7bz8rbrjbq7szjw9amzoqa" Any
+    t =    24.03s     Wait for com.mattermost.ios to idle
+    t =    24.04s     Find the "channelSidebar.quickSwitcher.result.71jj7bz8rbrjbq7szjw9amzoqa" Any
+    t =    24.39s     Check for interrupting elements affecting "channelSidebar.quickSwitcher.result.71jj7bz8rbrjbq7szjw9amzoqa" Button
+    t =    24.61s         Wait for com.apple.springboard to idle
+    t =    24.66s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    24.67s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =    24.72s     Synthesize event
+    t =    25.04s     Wait for com.mattermost.ios to idle
+    t =    25.36s Waiting 20.0s for "nativeChannelTitle" Any to exist
+    t =    26.45s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelTitle" Any`
+    t =    26.46s         Checking existence of `"nativeChannelTitle" Any`
+    t =    26.58s Find the "nativeChannelTitle" Any
+    t =    26.70s Checking existence of `"channelSidebar.quickSwitcher.field" TextField`
+    t =    26.80s Find the Target Application 'com.mattermost.ios'
+    t =    27.02s Added attachment named 't33-03-quick-switcher-opened'
+    t =    27.02s Tear Down
+Test Case '-[MattermostUITests.T33ChannelSidebarUITests testTheQuickSwitcherFuzzyFindsAChannelAndOpensIt]' passed (27.283 seconds).
+Test Case '-[MattermostUITests.T33ChannelSidebarUITests testTheSidebarRendersTheServersChannelsAndCategories]' started.
+    t =     0.00s Start Test at 2026-10-25 07:01:57.664
+    t =     0.03s Set Up
+    t =     0.25s Open com.mattermost.ios
+    t =     0.25s     Launch com.mattermost.ios
+    t =     0.25s         Terminate com.mattermost.ios:48691
+2026-10-25 07:19:24.030 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 07:19:24.175 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =  1046.96s         Setting up automation session
+    t =  1047.94s         Wait for com.mattermost.ios to idle
+    t =  1050.04s Waiting 20.0s for "loginIDField" TextField to exist
+    t =  1051.06s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =  1051.06s         Checking existence of `"loginIDField" TextField`
+    t =  1051.14s Tap "loginIDField" TextField
+    t =  1051.14s     Wait for com.mattermost.ios to idle
+    t =  1051.14s     Find the "loginIDField" TextField
+    t =  1051.16s     Check for interrupting elements affecting "loginIDField" TextField
+    t =  1051.18s         Wait for com.apple.springboard to idle
+    t =  1051.21s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =  1051.21s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =  1051.21s     Synthesize event
+    t =  1359.49s     Wait for com.mattermost.ios to idle
+    t =  1359.72s Type 'perfprobe' into "loginIDField" TextField
+    t =  1359.72s     Wait for com.mattermost.ios to idle
+    t =  1361.49s     Find the "loginIDField" TextField
+    t =  1362.86s     Check for interrupting elements affecting "loginIDField" TextField
+    t =  1362.97s         Wait for com.apple.springboard to idle
+    t =  1363.03s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =  1363.04s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =  1363.05s     Synthesize event
+    t =  1363.45s     Wait for com.mattermost.ios to idle
+    t =  1363.45s Checking existence of `"loginPasswordField" SecureTextField`
+    t =  1363.50s Tap "loginPasswordField" SecureTextField
+    t =  1363.50s     Wait for com.mattermost.ios to idle
+    t =  1363.50s     Find the "loginPasswordField" SecureTextField
+    t =  1363.62s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =  1363.69s         Wait for com.apple.springboard to idle
+    t =  1363.72s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =  1363.72s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =  1363.73s     Synthesize event
+    t =  1364.02s     Wait for com.mattermost.ios to idle
+    t =  1364.05s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =  1364.05s     Wait for com.mattermost.ios to idle
+    t =  1364.06s     Find the "loginPasswordField" SecureTextField
+    t =  1364.12s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =  1364.17s         Wait for com.apple.springboard to idle
+    t =  1364.20s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =  1364.21s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =  1364.21s     Synthesize event
+    t =  1364.90s     Wait for com.mattermost.ios to idle
+    t =  1364.90s Tap "loginSubmitButton" Button
+    t =  1364.90s     Wait for com.mattermost.ios to idle
+    t =  1364.90s     Find the "loginSubmitButton" Button
+    t =  1364.94s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =  1364.99s         Wait for com.apple.springboard to idle
+    t =  1365.05s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =  1365.06s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =  1365.06s     Synthesize event
+    t =  1365.39s     Wait for com.mattermost.ios to idle
+    t =  1366.00s Waiting 40.0s for "nativeShell" Any to exist
+    t =  1367.02s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =  1367.03s         Checking existence of `"nativeShell" Any`
+    t =  1367.13s Waiting 40.0s for "nativeTeamSidebar" Any to exist
+    t =  1368.15s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeTeamSidebar" Any`
+    t =  1368.15s         Checking existence of `"nativeTeamSidebar" Any`
+    t =  1368.31s Waiting 30.0s for "channelSidebar.category.channels" Any to exist
+    t =  1369.34s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.category.channels" Any`
+    t =  1369.34s         Checking existence of `"channelSidebar.category.channels" Any`
+    t =  1369.63s Waiting 20.0s for "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any to exist
+    t =  1370.65s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any`
+    t =  1370.65s         Checking existence of `"channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any`
+    t =  1371.00s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any
+    t =  1371.23s Waiting 20.0s for "channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any to exist
+    t =  1372.25s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any`
+    t =  1372.25s         Checking existence of `"channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any`
+    t =  1372.50s Find the "channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any
+    t =  1372.72s Waiting 20.0s for "channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any to exist
+    t =  1373.75s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any`
+    t =  1373.75s         Checking existence of `"channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any`
+    t =  1373.98s Find the "channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow" Any
+    t =  1374.21s Find the Target Application 'com.mattermost.ios'
+    t =  1374.46s Added attachment named 't33-01-channel-list-real-server'
+    t =  1374.46s Tear Down
+Test Case '-[MattermostUITests.T33ChannelSidebarUITests testTheSidebarRendersTheServersChannelsAndCategories]' passed (1374.688 seconds).
+Test Case '-[MattermostUITests.T33ChannelSidebarUITests testUnreadAndMentionBoldStateMovesLiveAfterAnotherUsersPost]' started.
+    t =     0.00s Start Test at 2026-10-25 07:24:52.354
+    t =     0.04s Set Up
+    t =     0.29s Open com.mattermost.ios
+    t =     0.29s     Launch com.mattermost.ios
+    t =     0.30s         Terminate com.mattermost.ios:48730
+2026-10-25 07:24:53.675 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 07:24:53.675 xcodebuild[48375:3816259] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.53s         Setting up automation session
+    t =     2.86s         Wait for com.mattermost.ios to idle
+    t =     5.15s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     6.16s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     6.16s         Checking existence of `"loginIDField" TextField`
+    t =     6.26s Tap "loginIDField" TextField
+    t =     6.26s     Wait for com.mattermost.ios to idle
+    t =     6.26s     Find the "loginIDField" TextField
+    t =     6.28s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.30s         Wait for com.apple.springboard to idle
+    t =     6.33s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.33s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     6.34s     Synthesize event
+    t =     6.63s     Wait for com.mattermost.ios to idle
+    t =     6.92s Type 'perfprobe' into "loginIDField" TextField
+    t =     6.92s     Wait for com.mattermost.ios to idle
+    t =     7.25s     Find the "loginIDField" TextField
+    t =     7.31s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     7.35s         Wait for com.apple.springboard to idle
+    t =     7.38s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.38s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.39s     Synthesize event
+    t =     7.73s     Wait for com.mattermost.ios to idle
+    t =     7.74s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     7.78s Tap "loginPasswordField" SecureTextField
+    t =     7.78s     Wait for com.mattermost.ios to idle
+    t =     7.78s     Find the "loginPasswordField" SecureTextField
+    t =     7.81s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.85s         Wait for com.apple.springboard to idle
+    t =     7.87s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.87s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     7.88s     Synthesize event
+    t =     8.16s     Wait for com.mattermost.ios to idle
+    t =     8.17s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     8.17s     Wait for com.mattermost.ios to idle
+    t =     8.17s     Find the "loginPasswordField" SecureTextField
+    t =     8.21s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     8.26s         Wait for com.apple.springboard to idle
+    t =     8.29s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     8.29s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     8.30s     Synthesize event
+    t =     8.98s     Wait for com.mattermost.ios to idle
+    t =     8.99s Tap "loginSubmitButton" Button
+    t =     8.99s     Wait for com.mattermost.ios to idle
+    t =     8.99s     Find the "loginSubmitButton" Button
+    t =     9.03s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     9.07s         Wait for com.apple.springboard to idle
+    t =     9.10s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     9.10s Ignoring failure to get hierarchy for remote element in process 42384 (Error getting main window kAXErrorServerNotFound)
+    t =     9.11s     Synthesize event
+    t =     9.40s     Wait for com.mattermost.ios to idle
+    t =     9.75s Waiting 40.0s for "nativeShell" Any to exist
+    t =    10.78s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    10.78s         Checking existence of `"nativeShell" Any`
+    t =    10.87s Waiting 40.0s for "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any to exist
+    t =    11.88s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any`
+    t =    11.88s         Checking existence of `"channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any`
+    t =    12.15s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Any
+    t =    12.62s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    13.10s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    13.58s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    14.09s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    14.57s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    14.80s Find the Target Application 'com.mattermost.ios'
+    t =    15.05s Added attachment named 't33-04-live-unread'
+    t =    15.09s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    15.60s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    16.09s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    16.62s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    17.12s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    17.36s Find the Target Application 'com.mattermost.ios'
+    t =    17.59s Added attachment named 't33-05-live-mention'
+    t =    17.62s Find the "channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye" Button
+    t =    17.92s Tear Down
+Test Case '-[MattermostUITests.T33ChannelSidebarUITests testUnreadAndMentionBoldStateMovesLiveAfterAnotherUsersPost]' passed (18.200 seconds).
+Test Suite 'T33ChannelSidebarUITests' passed at 2026-10-25 07:25:10.554.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 1464.767 (1464.773) seconds
+Test Suite 'MattermostUITests.xctest' passed at 2026-10-25 07:25:10.555.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 1538.117 (1538.129) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 07:25:10.556.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 1538.117 (1538.130) seconds
+2026-10-25 07:25:11.143 xcodebuild[48375:3816259] [MT] IDETestOperationsObserverDebug: 1540.382 elapsed -- Testing started completed.
+2026-10-25 07:25:11.143 xcodebuild[48375:3816259] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-25 07:25:11.143 xcodebuild[48375:3816259] [MT] IDETestOperationsObserverDebug: 1540.382 sec, +1540.382 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t33-t33tests7-7ada19.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started

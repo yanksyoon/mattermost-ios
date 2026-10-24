@@ -65,6 +65,77 @@ def stub_teams(count: int) -> list:
     ]
 
 
+def stub_channels() -> list:
+    """T33: a team's channels, deliberately out of alphabetical order in the category below."""
+    return [
+        {
+            "id": "stubchanalpha00000000000001", "team_id": "stubteam100000000000000000001",
+            "name": "stub-alpha", "display_name": "Stub Alpha", "type": "O",
+            "create_at": 1_700_000_000_000, "update_at": 1_700_000_000_000, "delete_at": 0,
+            "total_msg_count": 3, "last_post_at": 1_700_000_300_000,
+        },
+        {
+            "id": "stubchanbeta000000000000002", "team_id": "stubteam100000000000000000001",
+            "name": "stub-beta", "display_name": "Stub Beta", "type": "P",
+            "create_at": 1_700_000_100_000, "update_at": 1_700_000_100_000, "delete_at": 0,
+            "total_msg_count": 2, "last_post_at": 1_700_000_600_000,
+        },
+        {
+            "id": "stubchanmuted000000000000003", "team_id": "stubteam100000000000000000001",
+            "name": "stub-muted", "display_name": "Stub Muted", "type": "O",
+            "create_at": 1_700_000_200_000, "update_at": 1_700_000_200_000, "delete_at": 0,
+            "total_msg_count": 8, "last_post_at": 1_700_000_200_000,
+        },
+        {
+            "id": "stubchandm00000000000000004", "team_id": "", "name": "id__stubuser__otheruser",
+            "display_name": "", "type": "D",
+            "create_at": 1_700_000_400_000, "update_at": 1_700_000_400_000, "delete_at": 0,
+            "total_msg_count": 1, "last_post_at": 1_700_000_400_000,
+        },
+    ]
+
+
+def stub_channel_members() -> list:
+    """The user's side of each channel: unread = total_msg_count - msg_count, as the client computes.
+
+    `stub-muted` is muted (`mark_unread: mention`) and carries 4 unread messages and **1 mention** —
+    the case where the row must stay quiet about the messages and still badge the mention.
+    """
+    return [
+        {"channel_id": "stubchanalpha00000000000001", "user_id": USER["id"],
+         "msg_count": 0, "mention_count": 2, "notify_props": {"mark_unread": "all"}},
+        {"channel_id": "stubchanbeta000000000000002", "user_id": USER["id"],
+         "msg_count": 2, "mention_count": 0, "notify_props": {"mark_unread": "all"}},
+        {"channel_id": "stubchanmuted000000000000003", "user_id": USER["id"],
+         "msg_count": 4, "mention_count": 1, "notify_props": {"mark_unread": "mention"}},
+        {"channel_id": "stubchandm00000000000000004", "user_id": USER["id"],
+         "msg_count": 1, "mention_count": 0, "notify_props": {"mark_unread": "all"}},
+    ]
+
+
+def stub_categories() -> dict:
+    """The server's sidebar layout: `beta` before `alpha` (manual order), a muted channel, a DM."""
+    user = USER["id"]
+    team = "stubteam100000000000000000001"
+    return {
+        "order": [f"favorites_{user}_{team}", f"channels_{user}_{team}",
+                  f"direct_messages_{user}_{team}"],
+        "categories": [
+            {"id": f"favorites_{user}_{team}", "user_id": user, "team_id": team,
+             "type": "favorites", "display_name": "", "sorting": "manual",
+             "channel_ids": [], "collapsed": False},
+            {"id": f"channels_{user}_{team}", "user_id": user, "team_id": team,
+             "type": "channels", "display_name": "", "sorting": "manual",
+             "channel_ids": ["stubchanbeta000000000000002", "stubchanalpha00000000000001",
+                             "stubchanmuted000000000000003"],
+             "collapsed": False},
+            {"id": f"direct_messages_{user}_{team}", "user_id": user, "team_id": team,
+             "type": "direct_messages", "display_name": "", "sorting": "recent",
+             "channel_ids": ["stubchandm00000000000000004"], "collapsed": False},
+        ],
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):  # silence request logging
         pass
@@ -224,6 +295,23 @@ class Handler(BaseHTTPRequestHandler):
             ]))
         if path == "/api/v4/users/me/teams/unread":
             return self._send(200, json.dumps([]))
+        # --- T33: the channel sidebar fixtures ---------------------------------------------------
+        # Deterministic channels/categories so the *derivation* (server order, unread arithmetic,
+        # mute, mention badge) can be driven end to end without a real server. The order is
+        # `beta` before `alpha`, which is neither alphabetical nor creation order: a client that
+        # ignores the server's `channel_ids` draws the wrong way round.
+        if path.startswith("/api/v4/users/me/teams/") and path.endswith("/channels"):
+            if getattr(self.server, "channels_fail", False):
+                return self._send(500, json.dumps({
+                    "id": "api.context.internal_error",
+                    "message": "Channels are unavailable in this fixture",
+                    "status_code": 500,
+                }))
+            return self._send(200, json.dumps(stub_channels()))
+        if path == "/api/v4/users/me/channel_members":
+            return self._send(200, json.dumps(stub_channel_members()))
+        if path.startswith("/api/v4/users/") and path.endswith("/channels/categories"):
+            return self._send(200, json.dumps(stub_categories()))
         if path.startswith("/api/v4/users/") and path.endswith("/preferences"):
             # `teams_order` is a preference; the empty list means "sort alphabetically", which is
             # what a fixture with distinguishable display names needs.
@@ -253,6 +341,37 @@ class Handler(BaseHTTPRequestHandler):
             )
         if path == "/downloads/hello.txt":
             return self._send(200, "hello from stub\n", "text/plain")
+        return self._send(404, json.dumps({"error": "not found"}))
+
+    def do_PUT(self):
+        """T33: the sidebar's two writes, answered the way a real server answers them.
+
+        `PUT /users/{uid}/teams/{tid}/channels/categories` echoes the category array it was given (a
+        real server normalises and returns the new state), and `PUT /channels/{cid}/members/{uid}/notify_props`
+        echoes the membership. Echoing is what makes a stub-backed reorder observable: the client
+        rebases on this answer.
+        """
+        path = self.path.split("?")[0]
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            body = json.loads(raw or b"{}")
+        except Exception:
+            body = {}
+        if path.endswith("/channels/categories"):
+            categories = body.get("categories") if isinstance(body, dict) else None
+            order = body.get("order") if isinstance(body, dict) else None
+            if categories is None:
+                return self._send(400, json.dumps({"message": "categories are required"}))
+            return self._send(200, json.dumps({"order": order or [], "categories": categories}))
+        if "/notify_props" in path:
+            props = body if isinstance(body, dict) else {}
+            return self._send(200, json.dumps({
+                "channel_id": path.split("/channels/")[-1].split("/")[0],
+                "user_id": USER["id"],
+                "mention_count": 0, "msg_count": 0,
+                "notify_props": props,
+            }))
         return self._send(404, json.dumps({"error": "not found"}))
 
     def _cookie_session_page(self, delay):
@@ -306,6 +425,8 @@ class StubStallServer(ThreadingHTTPServer):
     teams = 1
     teams_fail = False
     teams_delay = 0.0
+    # T33 channel-sidebar fixture (`--channels-fail`).
+    channels_fail = False
 
 
 class StubServer(HTTPServer):
@@ -314,6 +435,7 @@ class StubServer(HTTPServer):
     teams = 1
     teams_fail = False
     teams_delay = 0.0
+    channels_fail = False
 
 
 def main():
@@ -340,6 +462,9 @@ def main():
     ap.add_argument("--teams-delay", type=float, default=0.0,
                     help="stall the teams endpoint this many seconds, so the pane's loading state "
                          "is observable (threaded server)")
+    # T33: the channel sidebar fixtures (channels, membership, categories).
+    ap.add_argument("--channels-fail", action="store_true",
+                    help="answer the channel-list endpoint with 500 (the list's failure state)")
     args = ap.parse_args()
     global SITE_NAME
     SITE_NAME = args.name
@@ -359,6 +484,7 @@ def main():
     srv.teams = args.teams
     srv.teams_fail = bool(args.teams_fail)
     srv.teams_delay = args.teams_delay
+    srv.channels_fail = bool(args.channels_fail)
     if args.tls:
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         certfile, keyfile = args.tls.split(",")

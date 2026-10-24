@@ -235,6 +235,29 @@ struct MMChannelMember: Codable, Equatable, Sendable {
         self.manuallyUnread = manuallyUnread
         self.notifyProps = notifyProps
     }
+
+    /// **Tolerant decode** (added by T33).
+    ///
+    /// The wire shapes differ by endpoint: `GET /users/me/channel_members` omits
+    /// `manually_unread`, `scheme_admin`/`scheme_user` and `urgent_mention_count`, while
+    /// `GET /channels/{id}/members` includes them. Synthesised decoding therefore made the sidebar's
+    /// whole membership call fail against a real server and silently zeroed every unread counter.
+    /// Each field that a real response may omit now has the same default the member would have.
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        channelId = try values.decodeIfPresent(String.self, forKey: .channelId) ?? ""
+        userId = try values.decodeIfPresent(String.self, forKey: .userId) ?? ""
+        roles = try values.decodeIfPresent(String.self, forKey: .roles) ?? ""
+        schemeAdmin = try values.decodeIfPresent(Bool.self, forKey: .schemeAdmin) ?? false
+        schemeUser = try values.decodeIfPresent(Bool.self, forKey: .schemeUser) ?? true
+        lastViewedAt = try values.decodeIfPresent(Int64.self, forKey: .lastViewedAt) ?? 0
+        msgCount = try values.decodeIfPresent(Int64.self, forKey: .msgCount) ?? 0
+        mentionCount = try values.decodeIfPresent(Int64.self, forKey: .mentionCount) ?? 0
+        urgentMentionCount = try values.decodeIfPresent(Int64.self, forKey: .urgentMentionCount) ?? 0
+        lastUpdateAt = try values.decodeIfPresent(Int64.self, forKey: .lastUpdateAt) ?? 0
+        manuallyUnread = try values.decodeIfPresent(Bool.self, forKey: .manuallyUnread) ?? false
+        notifyProps = try values.decodeIfPresent(JSONValue.self, forKey: .notifyProps)
+    }
 }
 
 /// Per-user unread state for one channel, as the sidebar badge needs it.

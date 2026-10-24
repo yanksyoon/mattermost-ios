@@ -229,6 +229,12 @@ struct MMChannel: Codable, Equatable, Identifiable, Sendable {
     var purpose: String
     var lastPostAt: Int64
     var totalMsgCount: Int64
+    /// T33: `create_at` / `delete_at` are read by the sidebar. `delete_at` filters an archived
+    /// channel out of the list (upstream `filterArchivedChannels`, which keeps only the channel you
+    /// are currently looking at), and `create_at` is the fallback activity key for a channel that has
+    /// never been posted in (`sortChannels(…, sorting: "recent")` uses `max(lastPostAt, createAt)`).
+    var createAt: Int64
+    var deleteAt: Int64
 
     enum CodingKeys: String, CodingKey {
         case id, name, type, header, purpose
@@ -236,6 +242,8 @@ struct MMChannel: Codable, Equatable, Identifiable, Sendable {
         case teamId = "team_id"
         case lastPostAt = "last_post_at"
         case totalMsgCount = "total_msg_count"
+        case createAt = "create_at"
+        case deleteAt = "delete_at"
     }
 
     init(id: String,
@@ -246,7 +254,9 @@ struct MMChannel: Codable, Equatable, Identifiable, Sendable {
          header: String = "",
          purpose: String = "",
          lastPostAt: Int64 = 0,
-         totalMsgCount: Int64 = 0) {
+         totalMsgCount: Int64 = 0,
+         createAt: Int64 = 0,
+         deleteAt: Int64 = 0) {
         self.id = id
         self.name = name
         self.displayName = displayName
@@ -256,6 +266,8 @@ struct MMChannel: Codable, Equatable, Identifiable, Sendable {
         self.purpose = purpose
         self.lastPostAt = lastPostAt
         self.totalMsgCount = totalMsgCount
+        self.createAt = createAt
+        self.deleteAt = deleteAt
     }
 
     init(from decoder: Decoder) throws {
@@ -269,6 +281,8 @@ struct MMChannel: Codable, Equatable, Identifiable, Sendable {
         purpose = try values.decodeIfPresent(String.self, forKey: .purpose) ?? ""
         lastPostAt = try values.decodeIfPresent(Int64.self, forKey: .lastPostAt) ?? 0
         totalMsgCount = try values.decodeIfPresent(Int64.self, forKey: .totalMsgCount) ?? 0
+        createAt = try values.decodeIfPresent(Int64.self, forKey: .createAt) ?? 0
+        deleteAt = try values.decodeIfPresent(Int64.self, forKey: .deleteAt) ?? 0
     }
 }
 
@@ -485,5 +499,100 @@ struct MMTeamMembership: Codable, Equatable, Sendable {
         teamId = try values.decodeIfPresent(String.self, forKey: .teamId) ?? ""
         roles = try values.decodeIfPresent(String.self, forKey: .roles) ?? ""
         deleteAt = try values.decodeIfPresent(Int64.self, forKey: .deleteAt) ?? 0
+    }
+}
+
+/// One server-side sidebar category (`GET/PUT /users/{user_id}/teams/{team_id}/channels/categories`).
+///
+/// T33 (S08). This is the v9+ replacement for the old `sidebar_settings` preference blob: the
+/// server stores the ordered category list, each category's channel list and its sorting, so a
+/// reorder made on one device is what the next device (and the next launch) reads back. The mobile
+/// client's write path is `PUT …/channels/categories` with the **whole** array
+/// (`app/client/rest/categories.ts` `updateChannelCategories`), which is what
+/// `APIClient.updateSidebarCategories` sends.
+///
+/// Tolerant decoding on purpose: an older server that omits `muted`/`collapsed` must not fail the
+/// whole sidebar, and `type` is compared as a string (the three defaults are `favorites`,
+/// `channels`, `direct_messages`; user-made ones are `custom`).
+struct MMSidebarCategory: Codable, Equatable, Identifiable, Sendable {
+    var id: String
+    var userId: String
+    var teamId: String
+    var sortOrder: Int
+    /// `"manual"`, `"alpha"`, `"recent"`, or `""` for the server/client default.
+    var sorting: String
+    var type: String
+    var displayName: String
+    var muted: Bool
+    var collapsed: Bool
+    var channelIds: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case id, sorting, type, muted, collapsed
+        case userId = "user_id"
+        case teamId = "team_id"
+        case sortOrder = "sort_order"
+        case displayName = "display_name"
+        case channelIds = "channel_ids"
+    }
+
+    init(id: String,
+         userId: String = "",
+         teamId: String = "",
+         sortOrder: Int = 0,
+         sorting: String = "",
+         type: String = "",
+         displayName: String = "",
+         muted: Bool = false,
+         collapsed: Bool = false,
+         channelIds: [String] = []) {
+        self.id = id
+        self.userId = userId
+        self.teamId = teamId
+        self.sortOrder = sortOrder
+        self.sorting = sorting
+        self.type = type
+        self.displayName = displayName
+        self.muted = muted
+        self.collapsed = collapsed
+        self.channelIds = channelIds
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decodeIfPresent(String.self, forKey: .id) ?? ""
+        userId = try values.decodeIfPresent(String.self, forKey: .userId) ?? ""
+        teamId = try values.decodeIfPresent(String.self, forKey: .teamId) ?? ""
+        sortOrder = try values.decodeIfPresent(Int.self, forKey: .sortOrder) ?? 0
+        sorting = try values.decodeIfPresent(String.self, forKey: .sorting) ?? ""
+        type = try values.decodeIfPresent(String.self, forKey: .type) ?? ""
+        displayName = try values.decodeIfPresent(String.self, forKey: .displayName) ?? ""
+        muted = try values.decodeIfPresent(Bool.self, forKey: .muted) ?? false
+        collapsed = try values.decodeIfPresent(Bool.self, forKey: .collapsed) ?? false
+        channelIds = try values.decodeIfPresent([String].self, forKey: .channelIds) ?? []
+    }
+}
+
+/// The categories endpoint's answer: the categories plus the order to draw them in.
+///
+/// `order` is a list of category **ids**, not the `sort_order` integers: the server keeps both, and
+/// the order array is the one the web app and mobile client honour (a `sort_order` of 10/20/30 is
+/// the default, `order` is what a drag produces). When `order` is empty/incomplete the remaining
+/// categories are appended by `sort_order`, then by id — never dropped.
+struct MMSidebarCategories: Codable, Equatable, Sendable {
+    var categories: [MMSidebarCategory]
+    var order: [String]
+
+    enum CodingKeys: String, CodingKey { case categories, order }
+
+    init(categories: [MMSidebarCategory] = [], order: [String] = []) {
+        self.categories = categories
+        self.order = order
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        categories = try values.decodeIfPresent([MMSidebarCategory].self, forKey: .categories) ?? []
+        order = try values.decodeIfPresent([String].self, forKey: .order) ?? []
     }
 }

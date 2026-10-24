@@ -274,6 +274,19 @@ final class TeamSidebarCoordinator: ObservableObject {
 
     func scope(for serverID: UUID) -> TeamSocketScope? { scopes[serverID] }
 
+    /// Give the server's scope the channel→team map the channel list knows (S08/T33).
+    ///
+    /// `TeamSocketScope.channelTeams` was reserved for exactly this: without it, with a team selected,
+    /// every event for a channel that is not the *open* channel is refused, so a sidebar could never
+    /// learn that another channel of the team just became unread. Called by
+    /// `ChannelSidebarCoordinator` after each load/refresh; an empty map clears it (sign-out).
+    func setChannelTeams(_ channelTeams: [String: String], for serverID: UUID) {
+        var scope = scopes[serverID] ?? TeamSocketScope()
+        guard scope.channelTeams != channelTeams else { return }
+        scope.channelTeams = channelTeams
+        scopes[serverID] = scope
+    }
+
     // MARK: Location → model + scope
 
     private func apply(_ location: NativeLocation) {

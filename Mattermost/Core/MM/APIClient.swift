@@ -137,6 +137,32 @@ final class APIClient: @unchecked Sendable {
         return try decode(type, from: response)
     }
 
+    /// PUT with a `Codable` body and a typed response.
+    ///
+    /// Added for T33 (S08): the sidebar categories write is `PUT …/channels/categories` whose answer
+    /// is the re-read category list, and the web/native clients both rely on the server's answer
+    /// rather than on an optimistic local guess. No ETag on a write (there is nothing to
+    /// conditionally revalidate).
+    func put<T: Decodable, Body: Encodable>(_ type: T.Type,
+                                            path: String,
+                                            body: Body) async throws -> T {
+        let data = try encode(body)
+        let response = try await perform(method: .put, path: path, query: [],
+                                         body: data, requiresAuth: true,
+                                         useETag: false)
+        return try decode(type, from: response)
+    }
+
+    /// PUT whose response body the caller does not consume (`notify_props`, which answers
+    /// `{"status":"OK"}`).
+    @discardableResult
+    func putForResponse<Body: Encodable>(path: String, body: Body) async throws -> APIResponse {
+        let data = try encode(body)
+        return try await perform(method: .put, path: path, query: [],
+                                 body: data, requiresAuth: true,
+                                 useETag: false)
+    }
+
     /// POST returning the full response (login needs the `Token` header, not just the body).
     @discardableResult
     func postForResponse(path: String,

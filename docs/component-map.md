@@ -170,7 +170,7 @@ at `987e5712…`; "decomposition" always follows §1 rules.
   `W webapp/channels/src/components/select_team/`.
 - Decomposition: `SelectTeamView` + `SelectTeamViewModel` (`GET /users/{id}/teams`, join).
 
-### S08 Channel sidebar — `native` (T32/T33)
+### S08 Channel sidebar — `native` (T32 rail / T33 list)
 - Sources: `M app/screens/home/` (sub-tabs incl. `channel_list`),
   `M app/components/team_sidebar/`, `M app/components/channel_list_row/`,
   `M app/components/channel_item/` (`channel_item.tsx`, `channel_body.tsx`),
@@ -185,6 +185,13 @@ at `987e5712…`; "decomposition" always follows §1 rules.
   (`M app/utils/user/index.ts`).
 - As-is: Gekidou `Storage/Database+Categories.swift`, `Database+Channels.swift`, `Database+Users.swift`.
 - Not ported: none.
+- **Delivered:** T32 = the team rail (`TeamSidebarView`/`TeamSwitchViewModel`, S07/S08-rail);
+  T33 = the channel list (`ChannelSidebarView` + `ChannelSidebarModels`/`Service`/`Coordinator`,
+  the quick switcher, favourites, mute, the aggregate footer). See `docs/t33-build-note.md`. On the
+  pinned server the layout authority is `/users/{uid}/teams/{tid}/channels/categories` (the sidebar
+  is not stored as a `Preferences` row there). Still open on this surface: drag-and-drop reorder
+  (T33 writes the same `PUT` from a context menu), category create/rename/delete (S10), and the
+  `custom_status` rendering on a row (T34, with the post list's status dot).
 
 ### S09 Find / browse channels — `native` (T33)
 - Sources: `M app/screens/find_channels/` (`index.tsx`, `filtered_list/`, `unfiltered_list/`,
