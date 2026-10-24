@@ -67,6 +67,7 @@ package is `mattermost/desktop` (v6.4.0-era). Status last refreshed at T8 (Phase
 | React screen | Native view | Status |
 |---|---|---|
 | MainPage / shell chrome | `RootView` + toolbar switcher | native ✅ |
+| **Per-surface native ↔ webview switch (Path A/B)** | `Core/RenderMode.swift` (`Surface` ×12, `SurfaceRenderMode`, `SurfaceDefaults.nativeApprovedSurfaces` = the -AV approval registry) + `Core/SurfaceModeResolver.swift` (order: `-surfaceMode` launch flag → persisted override in `AppPreferences` `mm.surfaceModes` → injected remote/config default → compile default; tolerant of unknown names) + `UI/SurfaceHost.swift` (one `some View`, re-attaches the owned `WKWebView`, never recreates it) + `UI/UnportedSurfaceView.swift` (honest stand-in + "Use web view") + `UI/SurfaceInspector.swift` (DEBUG-only per-surface toggle). Contract: `docs/dual-render.md` | native ✅ (T26) |
 | New/Edit/Remove Server | `ServerFormView` + `.confirmationDialog` remove | native ✅ |
 | LoadingScreen | `ProgressView` linear skeleton in `ContentView` | native ✅ |
 | ConnectionError/Error | `ErrorStateView` + `IncompatibleErrorStateView` + `RetryButton` (ports `ErrorView`/`ConnectionErrorView`/`IncompatibleErrorView`: full desktop copy + clear-cache-and-reload + verify-URL links + contact-admin + tech info) | native ✅ (T11) |
