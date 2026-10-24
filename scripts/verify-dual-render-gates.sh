@@ -7,13 +7,23 @@
 #   1. `setOverride` / `clearOverride` / `clearAllOverrides` — the only APIs that can write an
 #      arbitrary render mode — are declared inside `#if DEBUG` and are never *called* from a call
 #      site that is not inside `#if DEBUG` (that is: never from Release-compilable code).
+#      The call-site scan matches the qualified spelling the app actually uses
+#      (`resolver.setOverride(…)`, T26-R review G1), and ignores declarations (`func setOverride`).
 #   2. The resolver's single read path gates tiers 1 and 2 behind `debugAffordancesEnabled`, a
-#      `#if DEBUG` constant, and the only initialiser that accepts the flag is `private`.
+#      `#if DEBUG` (or `#if DEBUG || PERF_PROBE`) constant, and the only initialiser that accepts
+#      the flag is `private`.
 #   3. `SurfaceInspector.swift` — the one view that calls those setters — is entirely `#if DEBUG`.
-#   4. No production code wires `remoteDefault` (tier 3): it is an unproduced seam until a card
-#      passes `-AV` and documents the source of truth.
+#   4. No production code *supplies* a `remoteDefault` provider (tier 3): it is an unproduced seam
+#      until a card passes `-AV` and documents the source of truth. Both wiring shapes are checked
+#      — a labelled argument (`SurfaceModeResolver(remoteDefault: { … })`) and an assignment
+#      (`self.remoteDefault = …`) (T26-R review G2).
 #   5. `SurfaceDefaults.nativeApprovedSurfaces` is still the empty registry (a non-empty one is a
 #      deliberate, separately-reviewed `-AV` change — pass `--allow-approved-registry` to skip).
+#
+# Scope and honest limits: this is a regex gate over the *app target* (`Mattermost/`, i.e. what
+# ships), not over the test targets (tests may inject a provider), it skips comment lines, and it
+# looks for direct calls and literal wiring shapes. The structural backstop is the Release build
+# itself: the debug writers do not exist there, so a Release call site cannot compile at all.
 #
 # Usage: scripts/verify-dual-render-gates.sh [--allow-approved-registry]
 # Exit: 0 = every gate holds; 1 = at least one violation (printed as "FAIL ...").
@@ -93,20 +103,36 @@ for i, line in enumerate(resolver_lines, 1):
         else:
             bad(f'{name} declared OUTSIDE #if DEBUG ({RESOLVER}:{i})')
 
+# The call-site scan. `\b(writer)\s*\(` — NOT `(?<![\w.])(writer)` — because every real call site in
+# this tree is qualified (`resolver.setOverride(…)`), and a receiver-dot exclusion made the check
+# blind to exactly the spelling the product uses (T26-R review G1). Declarations (`func writer(`)
+# and comment lines are the only things skipped; both are excluded for a stated reason: a
+# declaration is not a call, and a commented-out call cannot steer a surface.
+CALL_SITE = re.compile(r'\b(' + '|'.join(DEBUG_WRITERS) + r')\s*\(')
+DECLARATION = re.compile(r'\bfunc\s+(' + '|'.join(DEBUG_WRITERS) + r')\b')
 leaks = []
+scanned_calls = 0
 for path in swift_files():
     region, lines = debug_region_map(path)
     for i, line in enumerate(lines, 1):
-        for writer in DEBUG_WRITERS:
-            if re.search(rf'(?<![\w.]){writer}\s*\(', line) and not re.search(rf'\bfunc {writer}\b', line):
-                if not region[i]:
-                    leaks.append(f'{path}:{i}: {line.strip()}')
+        if line.strip().startswith('//'):
+            continue
+        m = CALL_SITE.search(line)
+        if not m or DECLARATION.search(line):
+            continue
+        scanned_calls += 1
+        if not region[i]:
+            leaks.append(f'{path}:{i}: {line.strip()}')
 if leaks:
     bad('non-DEBUG call site(s) of a debug-only writer:')
     for leak in leaks:
         print('        ' + leak)
+elif scanned_calls == 0:
+    bad('found no call site of any debug-only writer at all — the scan is not seeing the code '
+        '(expected the DEBUG inspector to call them); treat this as a gate failure, not a pass')
 else:
-    ok('every call site of setOverride/clearOverride/clearAllOverrides is inside #if DEBUG')
+    ok(f'all {scanned_calls} call site(s) of setOverride/clearOverride/clearAllOverrides '
+       f'(incl. qualified `resolver.setOverride(…)`) are inside #if DEBUG')
 
 print('== 2. tiers 1 and 2 are gated behind the compile-time debugAffordancesEnabled ==')
 resolver_src = '\n'.join(resolver_lines)
@@ -165,21 +191,51 @@ else:
     bad(f'{INSPECTOR} is not fully wrapped in #if DEBUG (first lines: {code_lines[:3]}, last: {code_lines[-1] if code_lines else None})')
 
 print('== 4. no production producer for the remote (tier 3) default ==')
+# A *producer* is any app-target code that supplies a provider, in either shape section 5 names:
+#   (a) a labelled argument — `SurfaceModeResolver(remoteDefault: { … })`. This is how §5 describes
+#       tier 3 ("an injected provider"), and it is the shape the previous check missed because it
+#       only matched assignments (T26-R review G2).
+#   (b) an assignment — `X.remoteDefault = …`, e.g. a future `self.remoteDefault = provider`.
+# Three argument shapes are not producers, each for a stated reason:
+#   `remoteDefault: ((Surface) -> SurfaceRenderMode?)?`  the parameter/property *type* annotation
+#   `remoteDefault: remoteDefault`                       the convenience init forwarding its own parameter
+#   `remoteDefault: nil`                                 an explicitly absent provider
+# And one assignment is not a producer: `self.remoteDefault = remoteDefault`, the private
+# initialiser storing the very parameter it was handed — identical by construction to what the
+# public initialiser received, so it cannot introduce a provider of its own (any other right-hand
+# side, e.g. `self.remoteDefault = { … }`, is reported).
+TYPE_ARG = re.compile(r'^(\(\(Surface\)|\(Surface\))')
 producers = []
 for path in swift_files():
     for i, line in enumerate(open(path, encoding='utf-8').read().splitlines(), 1):
         stripped = line.strip()
         if stripped.startswith('//'):
             continue
-        # `self.remoteDefault = remoteDefault` is the initialiser storing its own parameter.
-        if re.search(r'(?<!self)remoteDefault\s*=[^=]', stripped) and 'self.remoteDefault = remoteDefault' not in stripped:
+        hit = False
+        for m in re.finditer(r'\bremoteDefault\s*:\s*', stripped):
+            arg = stripped[m.end():]
+            if TYPE_ARG.match(arg) or re.match(r'remoteDefault\b', arg) or re.match(r'nil\b', arg):
+                continue
             producers.append(f'{path}:{i}: {stripped}')
+            hit = True
+            break
+        if hit:
+            continue
+        for m in re.finditer(r'\bremoteDefault\s*=(?!=)\s*(.*)$', stripped):
+            rhs = m.group(1).strip().rstrip(';')
+            if re.fullmatch(r'remoteDefault', rhs):
+                continue
+            if re.fullmatch(r'nil', rhs):
+                continue
+            producers.append(f'{path}:{i}: {stripped}')
+            break
 if producers:
-    bad('remoteDefault is assigned in production code (tier 3 must stay an unproduced seam):')
+    bad('remoteDefault is supplied in production code (tier 3 must stay an unproduced seam):')
     for p in producers:
         print('        ' + p)
 else:
-    ok('no production assignment to remoteDefault (tier 3 stays a seam)')
+    ok('no production producer for remoteDefault — neither a `remoteDefault:` argument nor an '
+       'assignment (tier 3 stays a seam)')
 
 print('== 5. the -AV approval registry ==')
 render_src = open(RENDER_MODE, encoding='utf-8').read()
