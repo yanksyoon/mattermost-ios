@@ -96,6 +96,80 @@ final class PostRepositoryTests: XCTestCase {
                        "no orphan files")
     }
 
+    /// The AV reproduction as a raw-SQL assertion (T29-AV F1): after an eviction no `post` row may
+    /// name a `root_id` that is not in the table. Counted from the database, not through the
+    /// repository, so a repository that hides orphans from its own read cannot pass this.
+    func testEvictionLeavesNoOrphanReplyRows() async throws {
+        harness.cleanup()
+        // The shipping shape from the AV probe: window 50, no slack, eviction on write.
+        harness = try StoreHarness(retention: MMRetentionPolicy(maxPostsPerChannel: 50,
+                                                                evictOnWrite: true,
+                                                                evictionSlack: 0))
+        var posts = [T29Fixtures.post(id: "root", channelID: "c1", createAt: 1, message: "root")]
+        posts += (1...200).map { index in
+            T29Fixtures.post(id: "r\(index)", channelID: "c1", createAt: Int64(index + 1),
+                             rootID: "root")
+        }
+        // One batch: the write-time eviction runs inside the same transaction as the insert.
+        try await harness.posts.upsert(posts)
+
+        let orphans = try orphanReplyCount()
+        XCTAssertEqual(orphans, 0, "no post with a root_id may outlive its root")
+        XCTAssertEqual(try harness.posts.count(inChannel: "c1"), 0,
+                       "the root left the window, so its whole thread left with it")
+        XCTAssertEqual(try harness.store.rowCount(in: "post"), 0)
+
+        // And the check itself is not vacuous: an orphan the repository cannot see is detectable.
+        try await harness.store.write { db in
+            try db.execute(sql: """
+                INSERT INTO post (id, channel_id, root_id, create_at) VALUES ('orphan', 'c1', 'gone', 9)
+                """)
+        }
+        XCTAssertEqual(try orphanReplyCount(), 1, "the orphan query does see an orphan when there is one")
+    }
+
+    /// The count of `post` rows whose `root_id` names a row that is not there — the invariant
+    /// `PostRepository.evict` owes, measured directly.
+    private func orphanReplyCount() throws -> Int {
+        try harness.store.read { db in
+            try Int.fetchOne(db, sql: """
+                SELECT COUNT(*) FROM post AS reply
+                 WHERE reply.root_id <> ''
+                   AND NOT EXISTS (SELECT 1 FROM post AS root WHERE root.id = reply.root_id)
+                """) ?? -1
+        }
+    }
+
+    /// T29-AV F6: a pinned post is not part of the window, even when the eviction comes from the
+    /// write path (not just an explicit `evict` call), and the pinned read finds it.
+    func testPinnedPostSurvivesWriteTimeEviction() async throws {
+        harness.cleanup()
+        harness = try StoreHarness(retention: MMRetentionPolicy(maxPostsPerChannel: 10,
+                                                                evictOnWrite: true,
+                                                                evictionSlack: 0))
+        try await harness.posts.upsert([
+            T29Fixtures.post(id: "pinned", channelID: "c1", createAt: 1, message: "keep me",
+                             isPinned: true),
+        ])
+        try await harness.posts.upsert((1...30).map {
+            T29Fixtures.post(id: "p\($0)", channelID: "c1", createAt: Int64($0 + 1))
+        })
+
+        XCTAssertNotNil(try harness.posts.post("pinned"),
+                        "pinned posts are outside the eviction window")
+        XCTAssertEqual(try harness.posts.count(inChannel: "c1"), 11,
+                       "the window plus the one pinned post")
+        XCTAssertEqual(try harness.posts.pinnedPosts(inChannel: "c1", limit: 10).map(\.id),
+                       ["pinned"])
+
+        // Unpinning puts it back in the window, and the next trim can take it.
+        try await harness.posts.upsert([
+            T29Fixtures.post(id: "pinned", channelID: "c1", createAt: 1, updateAt: 99, isPinned: false),
+        ])
+        _ = try await harness.posts.evict(channelID: "c1", keepingNewest: 10)
+        XCTAssertNil(try harness.posts.post("pinned"))
+    }
+
     func testMarkDeletedOnAMissingPostIsHarmless() async throws {
         try await harness.posts.markDeleted("does-not-exist", at: 1_000)
         XCTAssertNil(try harness.posts.post("does-not-exist"))

@@ -94,7 +94,8 @@ final class MMStoreMigrationTests: XCTestCase {
                        MMMigration.currentVersion)
         let applied = try store.read { db in try MMMigrator.appliedMigrations(db) }
         XCTAssertEqual(applied, [MMMigration.v1InitialSchema.rawValue,
-                                 MMMigration.v2PostMetadataAndUnread.rawValue])
+                                 MMMigration.v2PostMetadataAndUnread.rawValue,
+                                 MMMigration.v3ServerAPIVersion.rawValue])
 
         // Every pre-existing row is still there, with the same values.
         XCTAssertEqual(try store.rowCount(in: "team"), 1)
@@ -156,6 +157,49 @@ final class MMStoreMigrationTests: XCTestCase {
         XCTAssertEqual(member?.urgentMentionCount, 1)
         XCTAssertTrue(try channels.unread(channelID: "channel-1", userID: "user-1").isUnread,
                       "manually unread counts as unread even with msg_count 0")
+    }
+
+    /// T29-AV F5 / ADR §5: a v1 (and a v2) file upgraded to current gets `server_api_version`, reads
+    /// it back as "not recorded" rather than as a fake value, and keeps a recorded value across a
+    /// reopen.
+    func testServerAPIVersionIsAddedByTheUpgradeAndSurvivesAReopen() async throws {
+        try await makeV1Fixture()
+
+        let upgraded = try MMStore.open(at: path, serverID: "server-1",
+                                        serverURL: URL(string: "https://mm.invalid")!)
+        XCTAssertNil(try upgraded.serverAPIVersion(),
+                     "the v3 step adds the column with '', and the accessor reports that as unrecorded")
+
+        try await upgraded.recordServerAPIVersion("9.11.2")
+        XCTAssertEqual(try upgraded.serverAPIVersion(), "9.11.2")
+        upgraded.close()
+
+        let reopened = try MMStore.open(at: path, serverID: "server-1",
+                                        serverURL: URL(string: "https://mm.invalid")!)
+        defer { reopened.close() }
+        XCTAssertEqual(try reopened.schemaVersion(), MMMigration.currentVersion)
+        XCTAssertEqual(try reopened.serverAPIVersion(), "9.11.2")
+        XCTAssertEqual(try reopened.rowCount(in: "server"), 1,
+                       "the upgrade does not duplicate the server identity row")
+    }
+
+    /// The v2 half of the same fixture: a file that stopped at v2 (the schema da6dec5 shipped) must
+    /// also reach v3 and record a version.
+    func testV2FixtureUpgradesToV3AndRecordsAVersion() async throws {
+        let store = try MMStore.open(at: path, serverID: "server-1",
+                                     serverURL: URL(string: "https://mm.invalid")!,
+                                     migrations: [.v1InitialSchema, .v2PostMetadataAndUnread])
+        XCTAssertEqual(try store.schemaVersion(), 2)
+        let v2Columns = try store.read { db in try db.columns(in: "server").map(\.name) }
+        XCTAssertFalse(v2Columns.contains("server_api_version"), "v2 has no such column at all")
+        store.close()
+
+        let upgraded = try MMStore.open(at: path, serverID: "server-1",
+                                        serverURL: URL(string: "https://mm.invalid")!)
+        defer { upgraded.close() }
+        XCTAssertEqual(try upgraded.schemaVersion(), 3)
+        try await upgraded.recordServerAPIVersion("10.0.0")
+        XCTAssertEqual(try upgraded.serverAPIVersion(), "10.0.0")
     }
 
     func testMigrationIsIdempotentAcrossReopens() async throws {

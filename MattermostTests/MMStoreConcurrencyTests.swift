@@ -138,6 +138,110 @@ final class MMStoreConcurrencyTests: XCTestCase {
                        "writes from the second connection are visible to the first")
     }
 
+    /// T29-AV F2: a write that cannot get the lock within the busy timeout used to surface a raw
+    /// GRDB `DatabaseError: SQLite error 5: database is locked … BEGIN IMMEDIATE TRANSACTION`. The
+    /// store boundary now maps SQLITE_BUSY/SQLITE_LOCKED onto `MMStoreError.storeBusy`.
+    ///
+    /// The hold is 0.8 s and the second connection's timeout is 0.25 s, which is the same two-connection
+    /// shape the AV probe used (7 s hold, 5 s timeout) with the default scaled down so the suite does
+    /// not spend six seconds proving it.
+    func testAWritePastTheBusyTimeoutThrowsATypedStoreBusyError() async throws {
+        // Opened *before* the lock is held: `MMStore.open` writes (migration + server row), so it
+        // would itself block if it raced the holder.
+        let second = try MMStore.open(at: harness.path, serverID: "server-1",
+                                      serverURL: URL(string: "https://mm.invalid")!,
+                                      busyTimeout: 0.25)
+        defer { second.close() }
+
+        let store = harness.store
+        let writeStarted = Flag()
+        let holdRelease = DispatchSemaphore(value: 0)
+        let holder = Task {
+            try await store.write { db in
+                try db.execute(sql: "INSERT INTO channel (id, team_id) VALUES ('c1', '')")
+                writeStarted.set()
+                holdRelease.wait()
+                return 0
+            }
+        }
+        var spins = 0
+        while !writeStarted.isSet && spins < 400 {
+            try await Task.sleep(nanoseconds: 5_000_000)
+            spins += 1
+        }
+        XCTAssertTrue(writeStarted.isSet, "the holder never took the write lock")
+
+        let started = Date()
+        do {
+            try await second.write { db in
+                try db.execute(sql: "INSERT INTO channel (id, team_id) VALUES ('c2', '')")
+            }
+            holdRelease.signal()
+            try await holder.value
+            return XCTFail("a write past the busy timeout must not succeed")
+        } catch let error as MMStoreError {
+            guard case .storeBusy(let path, let reason) = error else {
+                holdRelease.signal()
+                try await holder.value
+                return XCTFail("expected MMStoreError.storeBusy, got \(error)")
+            }
+            XCTAssertEqual(path, harness.path, "the error names the file that was busy")
+            XCTAssertFalse(reason.isEmpty, "and carries SQLite's own message")
+        } catch {
+            holdRelease.signal()
+            try await holder.value
+            return XCTFail("expected MMStoreError.storeBusy, got a raw \(type(of: error)): \(error)")
+        }
+        let elapsed = Date().timeIntervalSince(started)
+        XCTAssertGreaterThanOrEqual(elapsed, 0.2,
+                                    "it waited out the busy timeout first (\(elapsed)s)")
+        XCTAssertLessThan(elapsed, 3, "and gave up rather than hanging (\(elapsed)s)")
+
+        holdRelease.signal()
+        try await holder.value
+
+        // Nothing was half-applied by the failed write, and both connections still work.
+        XCTAssertEqual(try store.rowCount(in: "channel"), 1, "the busy write left no row behind")
+        try await second.write { db in
+            try db.execute(sql: "INSERT INTO channel (id, team_id) VALUES ('c3', '')")
+        }
+        XCTAssertEqual(try store.rowCount(in: "channel"), 2)
+    }
+
+    /// The other half of F2: inside the busy timeout the write **waits** and succeeds, which is what
+    /// the 5 s default is for (a notification extension must not lose a write to a lock).
+    func testAWriteInsideTheBusyTimeoutWaitsAndSucceeds() async throws {
+        let second = try MMStore.open(at: harness.path, serverID: "server-1",
+                                      serverURL: URL(string: "https://mm.invalid")!)
+        defer { second.close() }
+
+        let store = harness.store
+        let writeStarted = Flag()
+        let write = Task {
+            try await store.write { db in
+                try db.execute(sql: "INSERT INTO channel (id, team_id) VALUES ('c1', '')")
+                writeStarted.set()
+                Thread.sleep(forTimeInterval: 0.4)
+                return 0
+            }
+        }
+        var spins = 0
+        while !writeStarted.isSet && spins < 400 {
+            try await Task.sleep(nanoseconds: 5_000_000)
+            spins += 1
+        }
+        XCTAssertTrue(writeStarted.isSet, "the holder never took the write lock")
+
+        let started = Date()
+        try await second.write { db in
+            try db.execute(sql: "INSERT INTO channel (id, team_id) VALUES ('c2', '')")
+        }
+        let elapsed = Date().timeIntervalSince(started)
+        try await write.value
+        XCTAssertGreaterThanOrEqual(elapsed, 0.2, "the second writer waited for the lock (\(elapsed)s)")
+        XCTAssertEqual(try harness.store.rowCount(in: "channel"), 2)
+    }
+
     func testEvictionDuringConcurrentInsertsKeepsTheBudget() async throws {
         harness.cleanup()
         harness = try StoreHarness(retention: MMRetentionPolicy(maxPostsPerChannel: 100,

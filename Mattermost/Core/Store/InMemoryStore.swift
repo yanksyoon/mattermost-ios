@@ -110,18 +110,37 @@ final class InMemoryStore: @unchecked Sendable {
 
     func evict(channelID: String, keepingNewest keep: Int) -> Int {
         withLock {
+            // Same three rules as `SQLitePostRepository.evict`: the window is on unpinned posts, and
+            // a reply whose root leaves the window leaves with it (T29-AV F1, F6).
             let ordered = posts.values
-                .filter { $0.channelId == channelID }
+                .filter { $0.channelId == channelID && !$0.isPinned }
                 .sorted { ($0.createAt, $0.id) > ($1.createAt, $1.id) }
-            let doomed = ordered.dropFirst(max(0, keep))
-            guard !doomed.isEmpty else { return 0 }
-            for post in doomed {
-                posts.removeValue(forKey: post.id)
+            let window = ordered.dropFirst(max(0, keep))
+            guard !window.isEmpty else { return 0 }
+            var doomedIDs = Set(window.map(\.id))
+            // Replies of every doomed root, one level (a reply has no children of its own).
+            for post in posts.values
+                where post.channelId == channelID && !post.rootId.isEmpty && doomedIDs.contains(post.rootId) {
+                doomedIDs.insert(post.id)
             }
-            let doomedIDs = Set(doomed.map(\.id))
+            for id in doomedIDs {
+                posts.removeValue(forKey: id)
+            }
             reactions = reactions.filter { !doomedIDs.contains($0.key.postID) }
             files = files.filter { !doomedIDs.contains($0.value.postId) }
-            return doomed.count
+            return doomedIDs.count
+        }
+    }
+
+    /// Pinned posts of a channel, newest first — the in-memory twin of
+    /// `SQLitePostRepository.pinnedPosts(inChannel:limit:)`.
+    func pinnedPosts(channelID: String, limit: Int) -> [MMPost] {
+        withLock {
+            posts.values
+                .filter { $0.channelId == channelID && $0.isPinned }
+                .sorted { ($0.createAt, $0.id) > ($1.createAt, $1.id) }
+                .prefix(max(0, limit))
+                .map { $0 }
         }
     }
 
@@ -460,6 +479,11 @@ final class InMemoryPostRepository: PostRepository {
     }
 
     func reactions(postID: String) throws -> [MMReaction] { store.reactions(postID: postID) }
+
+    func pinnedPosts(inChannel channelID: String, limit: Int) throws -> [MMPost] {
+        guard limit > 0 else { return [] }
+        return store.pinnedPosts(channelID: channelID, limit: limit)
+    }
 
     func files(postID: String) throws -> [MMFileInfo] { store.files(postID: postID) }
 

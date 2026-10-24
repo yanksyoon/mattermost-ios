@@ -142,6 +142,64 @@ final class MMStoreSizeTests: XCTestCase {
                           "bounded history must be materially smaller than unbounded history")
     }
 
+    // MARK: - 100 channels, the shipping shape (T29-AV F3)
+
+    /// The number `docs/t29-build-note.md` §4 quotes for "a busy server": 100 channels at the
+    /// shipping 200-post window. It used to be an extrapolation from five channels (0.30 MB each →
+    /// "≈ 30 MB") that was 4.4× too high; T29-AV measured 6.79 MB and this test makes that
+    /// reproducible, printing `T29-SIZE channels=100 …`.
+    func testHundredChannelsAtTheShippingWindow() async throws {
+        let channelCount = 100
+        // 251 = the window (200) + the slack (50) + 1: every channel must trim exactly once, so the
+        // file includes the freelist the trims leave behind, which is what "steady state" means.
+        let postsPerChannel = 251
+        let harness = try StoreHarness(retention: .default)
+        defer { harness.cleanup() }
+
+        let started = Date()
+        try await harness.users.upsert((1...20).map { T29Fixtures.user(id: "user-\($0)", username: "user\($0)") })
+        let channels = (1...channelCount).map {
+            T29Fixtures.channel(id: "channel-\($0)", teamID: "team-1", displayName: "Channel \($0)")
+        }
+        try await harness.channels.upsert(channels)
+        try await harness.channels.upsertMembership(channels.map {
+            T29Fixtures.member(channelID: $0.id, lastViewedAt: 1_000)
+        })
+        for channel in 1...channelCount {
+            let batch = (1...postsPerChannel).map { index in
+                let ordinal = channel * 100_000 + index
+                return T29Fixtures.post(id: String(format: "post-%07d", ordinal),
+                                        channelID: "channel-\(channel)",
+                                        userID: "user-\((ordinal % 20) + 1)",
+                                        createAt: Int64(ordinal),
+                                        message: T29Fixtures.body(seed: ordinal))
+            }
+            try await harness.posts.upsert(batch)
+        }
+        let seedSeconds = Date().timeIntervalSince(started)
+        try harness.store.checkpoint()
+        let size = try harness.store.size()
+        let kept = try harness.posts.count(inChannel: "channel-1")
+        let totalKept = try harness.store.rowCount(in: "post")
+        let megabytesPerChannel = size.megabytes / Double(channelCount)
+
+        print("""
+
+        T29-SIZE channels=\(channelCount) kept=\(kept) file_bytes=\(size.fileBytes) \
+        mb=\(String(format: "%.2f", size.megabytes)) \
+        mb_per_channel=\(String(format: "%.3f", megabytesPerChannel)) \
+        seed_s=\(String(format: "%.2f", seedSeconds))
+        """)
+
+        XCTAssertEqual(kept, 200, "the window is the budget, at 100 channels as at 5")
+        XCTAssertEqual(totalKept, kept * channelCount,
+                       "every channel is trimmed to the same window (no unbounded channel)")
+        XCTAssertLessThan(megabytesPerChannel, 0.20,
+                          "the shipping shape must not cost the old extrapolation's 0.30 MB/channel")
+        XCTAssertGreaterThan(megabytesPerChannel, 0.01,
+                             "and it is not free: ~200 posts and their indices take real pages")
+    }
+
     func testEvictionReclaimsSpaceAfterTrim() async throws {
         // Rows freed by eviction are reusable: SQLite keeps them on the freelist rather than
         // shrinking the file, which is why the retention number matters more than VACUUM.

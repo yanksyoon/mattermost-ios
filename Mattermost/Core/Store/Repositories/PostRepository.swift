@@ -30,7 +30,8 @@ protocol PostRepository: Sendable {
     func upsertFiles(_ files: [MMFileInfo]) async throws
 
     /// Trims the channel to its newest `count` posts, returning how many were removed.
-    /// Reactions and file rows of the removed posts go with them (no orphan rows).
+    /// Reactions and file rows of the removed posts go with them (no orphan rows), replies of a
+    /// removed thread root are removed too, and pinned posts are never part of the window.
     func evict(channelID: String, keepingNewest count: Int) async throws -> Int
 
     /// Applies `MMRetentionPolicy` to one channel. Returns 0 when the channel is inside its budget.
@@ -47,6 +48,10 @@ protocol PostRepository: Sendable {
 
     /// A thread: the root post followed by its replies, oldest first.
     func posts(inThread rootID: String, limit: Int) throws -> [MMPost]
+
+    /// Every pinned post in a channel, newest first (T29-AV F6). Pinned posts are exempt from the
+    /// eviction window, so this is what the Pinned screen can render without the network.
+    func pinnedPosts(inChannel channelID: String, limit: Int) throws -> [MMPost]
 
     func reactions(postID: String) throws -> [MMReaction]
     func files(postID: String) throws -> [MMFileInfo]
@@ -204,6 +209,18 @@ final class SQLitePostRepository: PostRepository {
         }
     }
 
+    func pinnedPosts(inChannel channelID: String, limit: Int) throws -> [MMPost] {
+        guard limit > 0 else { return [] }
+        return try store.read { db in
+            try MMPost.fetchAll(db, sql: """
+                SELECT * FROM post
+                 WHERE channel_id = :channel AND is_pinned = 1
+                 ORDER BY create_at DESC, id DESC
+                 LIMIT :limit
+                """, arguments: ["channel": channelID, "limit": limit])
+        }
+    }
+
     func reactions(postID: String) throws -> [MMReaction] {
         try store.read { db in
             try MMReaction.fetchAll(db, sql: """
@@ -256,23 +273,47 @@ final class SQLitePostRepository: PostRepository {
     /// Deletes every post of `channelID` older than the newest `keepingNewest`, together with the
     /// reaction and file rows that hang off them, and returns how many posts went away.
     ///
+    /// Three rules, all of them in this one transaction (T29-AV F1, F6):
+    ///
+    ///  1. **The window is on posts** — the newest `keepingNewest` by `create_at` survive.
+    ///  2. **Pinned posts are outside the window**: `is_pinned = 1` rows are never selected for
+    ///     deletion, so a channel can hold the window *plus* its pinned posts. The Pinned screen has
+    ///     nothing to render offline if eviction eats them, and the server can only re-supply them
+    ///     when it is reachable.
+    ///  3. **A reply never outlives its root.** Replies are always newer than the root they answer,
+    ///     so the window drops the root first and used to leave its replies behind as orphans: a whole
+    ///     channel page could be replies whose root no longer existed, and `posts(inThread:)` returned
+    ///     them without a root. Every post whose `root_id` is in the doomed set is deleted in the same
+    ///     transaction. One level is enough — a Mattermost thread is root plus replies, so a reply has
+    ///     no children of its own.
+    ///
+    /// Consequence, stated rather than hidden: a channel dominated by one huge thread can be trimmed
+    /// to nothing (its root falls out of the window, and every reply goes with it). That is the
+    /// intended trade — an empty channel re-fetches on the next sync, an orphaned page never heals.
+    ///
     /// Chunked: a busy channel can be trimmed by tens of thousands of rows in one call, and SQLite's
     /// bound-variable limit is 999 on older builds.
     @discardableResult
     static func evict(channelID: String, keepingNewest keeping: Int, in db: Database) throws -> Int {
         let keep = max(0, keeping)
-        let doomedIDs = try String.fetchAll(db, sql: """
+        let windowIDs = try String.fetchAll(db, sql: """
             SELECT id FROM post
-             WHERE channel_id = ?
+             WHERE channel_id = ? AND is_pinned = 0
              ORDER BY create_at DESC, id DESC
              LIMIT -1 OFFSET ?
             """, arguments: [channelID, keep])
-        guard !doomedIDs.isEmpty else { return 0 }
+        guard !windowIDs.isEmpty else { return 0 }
+
+        var doomed = windowIDs
+        var seen = Set(windowIDs)
+        for replyID in try repliesOfDoomedRoots(windowIDs, in: db) where seen.insert(replyID).inserted {
+            doomed.append(replyID)
+        }
 
         let chunkSize = 400
         var index = 0
-        while index < doomedIDs.count {
-            let chunk = Array(doomedIDs[index..<min(index + chunkSize, doomedIDs.count)])
+        while index < doomed.count {
+            let chunk = Array(doomed[index..<min(index + chunkSize, doomed.count)])
             let placeholders = Array(repeating: "?", count: chunk.count).joined(separator: ", ")
             try db.execute(sql: "DELETE FROM post_reaction WHERE post_id IN (\(placeholders))",
                            arguments: StatementArguments(chunk))
@@ -282,6 +323,24 @@ final class SQLitePostRepository: PostRepository {
                            arguments: StatementArguments(chunk))
             index += chunkSize
         }
-        return doomedIDs.count
+        return doomed.count
+    }
+
+    /// Replies whose `root_id` is one of `rootIDs`, chunked to stay inside SQLite's bound-variable
+    /// limit. The `root_id` values come from the eviction window, so they are never empty strings and
+    /// a post that is itself a root can never match.
+    private static func repliesOfDoomedRoots(_ rootIDs: [String], in db: Database) throws -> [String] {
+        let chunkSize = 400
+        var replies: [String] = []
+        var index = 0
+        while index < rootIDs.count {
+            let chunk = Array(rootIDs[index..<min(index + chunkSize, rootIDs.count)])
+            let placeholders = Array(repeating: "?", count: chunk.count).joined(separator: ", ")
+            replies += try String.fetchAll(db, sql: """
+                SELECT id FROM post WHERE root_id IN (\(placeholders))
+                """, arguments: StatementArguments(chunk))
+            index += chunkSize
+        }
+        return replies
     }
 }

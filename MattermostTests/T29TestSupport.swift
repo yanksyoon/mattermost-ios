@@ -92,11 +92,13 @@ enum T29Fixtures {
                      message: String = "hello",
                      rootID: String = "",
                      updateAt: Int64? = nil,
-                     deleteAt: Int64 = 0) -> MMPost {
+                     deleteAt: Int64 = 0,
+                     isPinned: Bool = false) -> MMPost {
         MMPost(id: id,
                createAt: createAt,
                updateAt: updateAt ?? createAt,
                deleteAt: deleteAt,
+               isPinned: isPinned,
                userId: userID,
                channelId: channelID,
                rootId: rootID,

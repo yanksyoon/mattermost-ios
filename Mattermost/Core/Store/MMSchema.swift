@@ -1,4 +1,4 @@
-// T29 — schema v1..v2 for the native local store, and the versioned migration chain that owns it.
+// T29 — schema v1..v3 for the native local store, and the versioned migration chain that owns it.
 //
 // Table shapes and the columns each query reads were taken from
 // mattermost/mattermost-mobile @ v2.45.0 (162f2560d0e1df073220f7701d5a67cc17c8abeb):
@@ -58,12 +58,14 @@ enum MMStoreTable {
 enum MMMigration: String, CaseIterable, Sendable {
     case v1InitialSchema = "v1_initial_schema"
     case v2PostMetadataAndUnread = "v2_post_metadata_and_unread"
+    case v3ServerAPIVersion = "v3_server_api_version"
 
     /// 1-based position in the chain.
     var version: Int {
         switch self {
         case .v1InitialSchema: return 1
         case .v2PostMetadataAndUnread: return 2
+        case .v3ServerAPIVersion: return 3
         }
     }
 
@@ -76,6 +78,8 @@ enum MMMigration: String, CaseIterable, Sendable {
             try MMSchema.execute(MMSchema.v1Statements, in: db)
         case .v2PostMetadataAndUnread:
             try MMSchema.execute(MMSchema.v2Statements, in: db)
+        case .v3ServerAPIVersion:
+            try MMSchema.execute(MMSchema.v3Statements, in: db)
         }
     }
 }
@@ -100,10 +104,20 @@ enum MMSchema {
 
     /// Schema v1: the twelve tables the card asks for, with the indices the repository queries use.
     ///
-    /// Index rationale (each one is here because a query in `Repositories/` reads that way, not
-    /// speculatively):
+    /// Index rationale: every index below is either reached by a statement in `Repositories/`
+    /// **today** (group 1) or is reserved for a query that a named later card runs against this same
+    /// table shape (group 2, marked). Nothing in group 2 is a guess about a query we will invent: each
+    /// is the access path for one already-scoped screen, and the alternative — adding an index in a
+    /// migration when that card lands — buys nothing, because an unused index costs one page and no
+    /// maintenance. T29-AV F7 found the previous wording ("no speculative indices") claiming
+    /// otherwise while listing `idx_reaction_user` as "screen card T40+"; the split below is the
+    /// correction, and `MMStoreTests.testIndicesTheQueriesNeedExist` asserts all seventeen.
+    ///
+    /// Queried today:
+    ///  - `idx_server_url`             — one file per server; a duplicate URL is a bug.
     ///  - `idx_post_channel_window`    — `posts(inChannel:before:limit:)` orders a channel page.
-    ///  - `idx_post_root_window`       — `posts(inThread:limit:)`, the root plus its replies.
+    ///  - `idx_post_root_window`       — `posts(inThread:limit:)`, the root plus its replies, and the
+    ///                                   `root_id IN (doomed)` cascade eviction adds.
     ///  - `idx_post_user`              — a user's posts, and `user_updated` reconciliation.
     ///  - `idx_channel_team`           — the sidebar's channel list for a team.
     ///  - `idx_channel_name`           — channel switcher prefix search.
@@ -114,6 +128,18 @@ enum MMSchema {
     ///  - `idx_user_username`          — @-autocomplete prefix search.
     ///  - `idx_draft_update_at`        — "recent drafts" ordering.
     ///  - `idx_preference_lookup`      — `preferences(userID:category:)`.
+    ///
+    /// Reserved, with the access path each is for:
+    ///  - `idx_team_name`              — team-by-name resolution (`GET /teams/name/{name}`, a deep
+    ///                                   link or a link from another server), i.e. "is this team
+    ///                                   already in the store" without a full table scan. The teams
+    ///                                   table has no repository yet (T30's sidebar owns it);
+    ///                                   T29-AV F7 flagged it as undocumented, not as unused-but-wrong.
+    ///  - `idx_team_member_user`       — "the teams this user belongs to": the sidebar's team switcher,
+    ///                                   also T30. The PK is `(team_id, user_id)`, so a lookup by
+    ///                                   `user_id` alone would otherwise scan.
+    ///  - `idx_reaction_user`          — "reactions I have made", the profile/activity surface (T40+).
+    ///                                   Marked speculative in the same sentence that used to deny it.
     static let v1Statements: [String] = [
         """
         CREATE TABLE server (
@@ -317,6 +343,24 @@ enum MMSchema {
         "ALTER TABLE channel_member ADD COLUMN urgent_mention_count INTEGER NOT NULL DEFAULT 0",
     ]
 
+    // MARK: - v3
+
+    /// Schema v3 — `server.server_api_version`, the column `docs/path-b-adr.md` §5 asks for
+    /// ("T29's SQLite layer records the server version it was written against per model").
+    ///
+    /// Why the `server` table rather than a column on every table: this client keeps **one SQLite
+    /// file per server**, so the `server` row *is* the per-model scope for the file — every row in it
+    /// was written by a client talking to that one server. Putting the column on `post`, `channel`,
+    /// `user`, … would store the same string dozens of times per row-per-table and still could not say
+    /// which version wrote which row. The cost of this choice is stated in the build note §3.3: the
+    /// granularity is per file, not per row.
+    ///
+    /// Additive, with a default: a v1/v2 file upgrades in place, existing rows read `''`, and
+    /// `MMStore.serverAPIVersion()` reports `nil` for "not recorded yet" rather than a lie (T29-AV F5).
+    static let v3Statements: [String] = [
+        "ALTER TABLE server ADD COLUMN server_api_version TEXT NOT NULL DEFAULT ''",
+    ]
+
     /// Statements for every step up to and including `migration`, in chain order. Used by the
     /// migration test to build a faithful fixture without hand-copying DDL.
     static func statements(upTo migration: MMMigration) -> [String] {
@@ -327,6 +371,7 @@ enum MMSchema {
                 switch step {
                 case .v1InitialSchema: return v1Statements
                 case .v2PostMetadataAndUnread: return v2Statements
+                case .v3ServerAPIVersion: return v3Statements
                 }
             }
     }

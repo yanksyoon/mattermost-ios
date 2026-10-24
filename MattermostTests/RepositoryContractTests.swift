@@ -138,6 +138,97 @@ enum RepositoryContract {
         XCTAssertEqual(removedAgain, 0, file: file, line: line)
     }
 
+    /// T29-AV F1: a reply is always newer than its root, so a window on `create_at` drops the root
+    /// first. Nothing with a `root_id` may outlive its root, in either backend.
+    static func evictionNeverLeavesARepliesRootBehind(_ set: RepositorySet,
+                                                     file: StaticString, line: UInt) async throws {
+        // The AV reproduction: root at 1, 200 replies at 2…201, window of 50. The old code kept the
+        // 50 newest *replies* and deleted the root.
+        var posts = [T29Fixtures.post(id: "root", channelID: "c1", createAt: 1, message: "root")]
+        posts += (1...200).map { index in
+            T29Fixtures.post(id: "r\(index)", channelID: "c1", createAt: Int64(index + 1),
+                             message: "reply \(index)", rootID: "root")
+        }
+        try await set.posts.upsert(posts)
+
+        let removed = try await set.posts.evict(channelID: "c1", keepingNewest: 50)
+        XCTAssertEqual(removed, 201, "the root plus every reply of it is doomed",
+                       file: file, line: line)
+
+        // Whatever survived, no row may name a root that is gone.
+        let page = try set.posts.posts(inChannel: "c1", before: nil, limit: 500)
+        for post in page where !post.rootId.isEmpty {
+            XCTAssertNotNil(try set.posts.post(post.rootId),
+                            "\(post.id) survived its root \(post.rootId)", file: file, line: line)
+        }
+        XCTAssertEqual(page.count, 0,
+                       "when the root leaves the window its whole thread leaves with it",
+                       file: file, line: line)
+        XCTAssertNil(try set.posts.post("root"), file: file, line: line)
+        XCTAssertNil(try set.posts.post("r200"), "the newest reply goes with the root",
+                     file: file, line: line)
+        XCTAssertEqual(try set.posts.posts(inThread: "root", limit: 10).count, 0,
+                       "a vanished thread reads as empty, not as replies with no root",
+                       file: file, line: line)
+    }
+
+    /// The other half of F1: a root that *is* inside the window keeps its whole thread, newest
+    /// replies included, and unrelated posts are untouched.
+    static func aSurvivingRootKeepsItsNewestReplies(_ set: RepositorySet,
+                                                    file: StaticString, line: UInt) async throws {
+        var posts = (1...100).map { index in
+            T29Fixtures.post(id: "p\(index)", channelID: "c1", createAt: Int64(index))
+        }
+        // The root sits above the filler, its replies above the root: everything about it survives.
+        posts.append(T29Fixtures.post(id: "root", channelID: "c1", createAt: 1_000))
+        posts += (1...5).map { index in
+            T29Fixtures.post(id: "r\(index)", channelID: "c1", createAt: Int64(1_000 + index),
+                             rootID: "root")
+        }
+        try await set.posts.upsert(posts)
+
+        let removed = try await set.posts.evict(channelID: "c1", keepingNewest: 20)
+        XCTAssertEqual(removed, 86, "everything below the newest 20 goes", file: file, line: line)
+        XCTAssertNotNil(try set.posts.post("root"), file: file, line: line)
+        XCTAssertEqual(try set.posts.posts(inThread: "root", limit: 10).map(\.id),
+                       ["root", "r1", "r2", "r3", "r4", "r5"],
+                       "the surviving root keeps every reply", file: file, line: line)
+    }
+
+    /// T29-AV F6: a pinned post is a deliberate keeper. Eviction skips it and there is a read for it,
+    /// so the Pinned screen has something to render offline.
+    static func pinnedPostsSurviveEvictionAndAreReadable(_ set: RepositorySet,
+                                                         file: StaticString, line: UInt) async throws {
+        var posts = (1...20).map { index in
+            T29Fixtures.post(id: "p\(index)", channelID: "c1", createAt: Int64(index))
+        }
+        posts.append(T29Fixtures.post(id: "pinned-old", channelID: "c1", createAt: 1,
+                                      message: "the wiki", isPinned: true))
+        posts.append(T29Fixtures.post(id: "pinned-new", channelID: "c1", createAt: 2,
+                                      message: "onboarding", isPinned: true))
+        posts.append(T29Fixtures.post(id: "pinned-other", channelID: "c2", createAt: 3,
+                                      isPinned: true))
+        try await set.posts.upsert(posts)
+
+        XCTAssertEqual(try set.posts.pinnedPosts(inChannel: "c1", limit: 10).map(\.id),
+                       ["pinned-new", "pinned-old"], "pinned, newest first", file: file, line: line)
+        XCTAssertEqual(try set.posts.pinnedPosts(inChannel: "c1", limit: 0).count, 0,
+                       file: file, line: line)
+        XCTAssertEqual(try set.posts.pinnedPosts(inChannel: "c9", limit: 10).count, 0,
+                       file: file, line: line)
+
+        let removed = try await set.posts.evict(channelID: "c1", keepingNewest: 5)
+        XCTAssertEqual(removed, 15, "only the twenty ordinary posts are in the window",
+                       file: file, line: line)
+        XCTAssertNotNil(try set.posts.post("pinned-old"),
+                        "a pinned post is never selected for eviction", file: file, line: line)
+        XCTAssertNotNil(try set.posts.post("pinned-new"), file: file, line: line)
+        XCTAssertEqual(try set.posts.count(inChannel: "c1"), 7,
+                       "the window plus the channel's pinned posts", file: file, line: line)
+        XCTAssertEqual(try set.posts.pinnedPosts(inChannel: "c1", limit: 10).map(\.id),
+                       ["pinned-new", "pinned-old"], file: file, line: line)
+    }
+
     // MARK: Channels
 
     static func unreadCountsComeFromMembership(_ set: RepositorySet,
@@ -394,6 +485,18 @@ final class SQLiteRepositoryContractTests: XCTestCase {
         try await RepositoryContract.evictionKeepsTheNewestNAndTakesChildrenWithIt(set, file: #file, line: #line)
     }
 
+    func testEvictionNeverLeavesARepliesRootBehind() async throws {
+        try await RepositoryContract.evictionNeverLeavesARepliesRootBehind(set, file: #file, line: #line)
+    }
+
+    func testASurvivingRootKeepsItsNewestReplies() async throws {
+        try await RepositoryContract.aSurvivingRootKeepsItsNewestReplies(set, file: #file, line: #line)
+    }
+
+    func testPinnedPostsSurviveEviction() async throws {
+        try await RepositoryContract.pinnedPostsSurviveEvictionAndAreReadable(set, file: #file, line: #line)
+    }
+
     func testUnreadCounts() async throws {
         try await RepositoryContract.unreadCountsComeFromMembership(set, file: #file, line: #line)
     }
@@ -457,6 +560,18 @@ final class InMemoryRepositoryContractTests: XCTestCase {
 
     func testEviction() async throws {
         try await RepositoryContract.evictionKeepsTheNewestNAndTakesChildrenWithIt(set, file: #file, line: #line)
+    }
+
+    func testEvictionNeverLeavesARepliesRootBehind() async throws {
+        try await RepositoryContract.evictionNeverLeavesARepliesRootBehind(set, file: #file, line: #line)
+    }
+
+    func testASurvivingRootKeepsItsNewestReplies() async throws {
+        try await RepositoryContract.aSurvivingRootKeepsItsNewestReplies(set, file: #file, line: #line)
+    }
+
+    func testPinnedPostsSurviveEviction() async throws {
+        try await RepositoryContract.pinnedPostsSurviveEvictionAndAreReadable(set, file: #file, line: #line)
     }
 
     func testUnreadCounts() async throws {

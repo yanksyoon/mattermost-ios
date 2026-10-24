@@ -26,6 +26,10 @@ enum MMStoreError: Error, Equatable, LocalizedError {
     case schemaTooNew(found: Int, supported: Int)
     /// A row that must exist for the write to mean anything is missing.
     case missingParentRow(table: String, id: String)
+    /// Another connection held the write lock for longer than the store's busy timeout, so SQLite
+    /// answered `SQLITE_BUSY`/`SQLITE_LOCKED`. Typed so a caller can tell "try again later" from
+    /// "this write is invalid" instead of receiving a raw GRDB `DatabaseError` (T29-AV F2).
+    case storeBusy(path: String, reason: String)
     /// SQLite rejected the statement.
     case sqlite(message: String)
 
@@ -39,6 +43,8 @@ enum MMStoreError: Error, Equatable, LocalizedError {
             return "Local store schema v\(found) is newer than this build supports (v\(supported))"
         case .missingParentRow(let table, let id):
             return "Local store is missing \(table) row \(id)"
+        case .storeBusy(let path, let reason):
+            return "Local store at \(path) is busy: \(reason)"
         case .sqlite(let message):
             return "Local store error: \(message)"
         }
@@ -383,6 +389,21 @@ struct MMSyncCursor: Equatable, Sendable {
     var scopeKey: String
     var cursor: String
     var updatedAt: Int64
+}
+
+/// What `MMStore.checkpoint()` did, so a test (and Diagnostics) can tell "the WAL was truncated"
+/// from "a reader was in the way and the checkpoint degraded to PASSIVE" (T29-AV F8).
+enum MMCheckpointOutcome: Equatable, Sendable {
+    /// The database uses a journal other than WAL (the in-memory store); nothing to fold.
+    case notWAL
+    /// `TRUNCATE` completed: the WAL is folded back into the main file and reset.
+    case truncated
+    /// `PASSIVE` was asked for explicitly.
+    case passive
+    /// `TRUNCATE` hit `SQLITE_BUSY`/`SQLITE_LOCKED` (a reader held its snapshot past the busy
+    /// timeout), so the checkpoint was retried as `PASSIVE`: pages are folded where possible and the
+    /// rest of the WAL stays on disk until the reader finishes.
+    case passiveFallback(reason: String)
 }
 
 /// Measured size of the store, in the shape a diagnostics screen and the build note both want.
