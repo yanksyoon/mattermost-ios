@@ -183,6 +183,161 @@ final class MattermostUITests: XCTestCase {
         app.buttons["Cancel"].tap()
     }
 
+    // MARK: - Dual-render harness (T26)
+
+    /// Acceptance criterion: launching with `-surfaceMode channelView=native` while every other
+    /// surface keeps its `web` default must still render a working app — the workspace pane is the
+    /// native stand-in (no webview mounted), and the shell chrome (switcher, settings, downloads,
+    /// history) is untouched. "Use web view" then returns a *rendered* webview (the stub's sign-in
+    /// form), not a blank one.
+    func testLaunchArgumentRendersNativeChannelViewWithChromeIntact() {
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-surfaceMode", "channelView=native",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        addFirstServer(app: app, name: "Local", url: Self.stubHTTP)
+
+        let standIn = element(app, "unportedSurface.channelView")
+        XCTAssertTrue(standIn.waitForExistence(timeout: Self.webLoadWait),
+                      "channelView=native must render the native stand-in")
+
+        // Negative evidence: the webview pane is not mounted at all, so it cannot be blank-but-
+        // present (that is the failure mode a "still renders" check has to exclude).
+        XCTAssertFalse(app.webViews.firstMatch.exists,
+                       "no webview pane may be mounted for a native surface")
+
+        // Shell chrome is independent of the surface decision.
+        XCTAssertTrue(app.buttons["serverSwitcher"].exists, "server switcher must survive")
+        XCTAssertTrue(app.buttons["settingsToolbarButton"].exists)
+        XCTAssertTrue(app.buttons["downloadsToolbarButton"].exists)
+        XCTAssertTrue(app.buttons["backToolbarButton"].exists)
+
+        // Settings still opens over the native pane.
+        app.buttons["settingsToolbarButton"].tap()
+        XCTAssertTrue(app.otherElements["settingsView"].waitForExistence(timeout: 5),
+                      "settings must still open while the surface is native")
+        app.buttons["Done"].tap()
+
+        // Always-usable escape hatch: back to a *loaded* webview.
+        let useWeb = app.buttons["revertToWebchannelView"]
+        XCTAssertTrue(useWeb.waitForExistence(timeout: 5))
+        useWeb.tap()
+
+        let webview = app.webViews.firstMatch
+        XCTAssertTrue(webview.waitForExistence(timeout: Self.webLoadWait),
+                      "returning to web must mount the webview again")
+        XCTAssertTrue(webview.buttons["Sign in"].waitForExistence(timeout: Self.webLoadWait),
+                      "the returning webview must actually render the stub's sign-in page")
+
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "dual-render-web-restored"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
+    /// Acceptance criterion: toggling a surface at runtime returns to a working state — no blank
+    /// screen, no duplicated webview — driven through the debug Surface inspector the way a
+    /// developer would.
+    func testSurfaceInspectorTogglesChannelViewAndReturnsToWorkingState() {
+        let app = launchFresh()
+        addFirstServer(app: app, name: "Local", url: Self.stubHTTP)
+
+        let webview = app.webViews.firstMatch
+        XCTAssertTrue(webview.waitForExistence(timeout: Self.webLoadWait))
+        XCTAssertTrue(webview.buttons["Sign in"].waitForExistence(timeout: Self.webLoadWait))
+
+        openSurfaceInspector(app)
+
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "surface-inspector"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        let picker = channelViewPicker(app)
+        XCTAssertTrue(picker.waitForExistence(timeout: 5),
+                      "the inspector must expose a renderer picker per surface")
+        picker.buttons["Native"].tap()
+        dismissSurfaceInspectorAndSettings(app)
+
+        XCTAssertTrue(element(app, "unportedSurface.channelView").waitForExistence(timeout: 10),
+                      "toggling channelView to Native must swap the pane to the native stand-in")
+        XCTAssertFalse(app.webViews.firstMatch.exists,
+                       "the webview pane must be unmounted, not stacked under the stand-in")
+
+        // Toggle back through the same UI: the webview returns, rendered, exactly once.
+        openSurfaceInspector(app)
+        let pickerAgain = channelViewPicker(app)
+        XCTAssertTrue(pickerAgain.waitForExistence(timeout: 5))
+        pickerAgain.buttons["Web view"].tap()
+        dismissSurfaceInspectorAndSettings(app)
+
+        let restored = app.webViews.firstMatch
+        XCTAssertTrue(restored.waitForExistence(timeout: Self.webLoadWait),
+                      "toggling back must restore the webview")
+        XCTAssertTrue(restored.buttons["Sign in"].waitForExistence(timeout: Self.webLoadWait),
+                      "the restored webview must still render (session re-attached, not blank)")
+        // NOTE: `app.webViews.count` is deliberately not asserted here — a full webview
+        // enumeration hangs XCUITest's accessibility snapshot on this host (measured: wedged
+        // >4 min at "Get number of matches for: Descendants matching type WebView"). The
+        // one-webview-per-server invariant is pinned deterministically in the unit suite instead
+        // (`SurfaceModeResolverTests.testWebViewInstanceIsStableAcrossSurfaceToggles`), and the
+        // `firstMatch` + rendered "Sign in" assertions above cover the visible half here.
+        XCTAssertFalse(element(app, "unportedSurface.channelView").exists)
+    }
+
+    // MARK: - Dual-render helpers
+
+    /// Settings → Developer → "Surface render modes…", scrolling the form to the developer
+    /// section (it is the last one).
+    private func openSurfaceInspector(_ app: XCUIApplication) {
+        app.buttons["settingsToolbarButton"].tap()
+        XCTAssertTrue(app.otherElements["settingsView"].waitForExistence(timeout: 5))
+
+        let button = app.buttons["surfaceInspectorButton"]
+        var attempts = 0
+        while !(button.exists && button.isHittable) && attempts < 8 {
+            app.swipeUp()
+            attempts += 1
+        }
+        XCTAssertTrue(button.waitForExistence(timeout: 5),
+                      "a DEBUG build must expose Settings → Developer → Surface render modes")
+        button.tap()
+
+        XCTAssertTrue(app.navigationBars["Surface Inspector"].waitForExistence(timeout: 5),
+                      "the Surface inspector sheet must present")
+    }
+
+    private func dismissSurfaceInspectorAndSettings(_ app: XCUIApplication) {
+        let done = app.buttons["surfaceInspectorDone"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
+        let settingsDone = app.buttons["Done"]
+        XCTAssertTrue(settingsDone.waitForExistence(timeout: 5))
+        settingsDone.tap()
+    }
+
+    /// The `channelView` row's segmented renderer picker. SwiftUI hosts a `.segmented` `Picker` as
+    /// a `segmentedControl`, but the identifier lands on the control only if it propagates; fall
+    /// back to the option buttons inside the row container.
+    private func channelViewPicker(_ app: XCUIApplication) -> XCUIElement {
+        let byIdentifier = app.segmentedControls.matching(identifier: "surfaceMode.channelView").firstMatch
+        if byIdentifier.exists { return byIdentifier }
+        let scoped = element(app, "surfaceRow.channelView")
+            .descendants(matching: .segmentedControl).firstMatch
+        if scoped.exists { return scoped }
+        // Last resort: auth/sidebar/channelView are the first three rows of the inspector list.
+        return app.segmentedControls.element(boundBy: 2)
+    }
+
+    /// Any element type carrying `identifier`. SwiftUI decides whether an identifier lands on an
+    /// `other`, a `staticText` or a `button` (and that changes across OS versions), so tests must
+    /// not assume a type.
+    private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
     // MARK: - Helpers
 
     /// Add the first server, expecting to start from the Welcome pager ("Get started").

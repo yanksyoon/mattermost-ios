@@ -39,6 +39,11 @@ struct SettingsView: View {
     @State private var isRunningDiagnostics = false
     @State private var diagnosticsError: String?
 
+    #if DEBUG
+    // T26: debug-only Surface inspector sheet (dual-render switch).
+    @State private var isPresentingSurfaceInspector = false
+    #endif
+
     // Binding shim: `SessionStore.showUnreadBadge` is the source of truth (desktop
     // `showUnreadBadge` — it drives the app-icon badge via `SessionStore`), so the form row
     // writes straight into it rather than duplicating the flag in `AppSettings`.
@@ -58,6 +63,9 @@ struct SettingsView: View {
                 serversSection
                 advancedSection
                 diagnosticsSection
+                #if DEBUG
+                developerSection
+                #endif
             }
             .navigationTitle("Desktop App Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -69,6 +77,11 @@ struct SettingsView: View {
             .sheet(isPresented: $isPresentingServerForm) {
                 ServerFormView(serverStore: serverStore, viewStore: viewStore, editing: editingServer)
             }
+            #if DEBUG
+            .sheet(isPresented: $isPresentingSurfaceInspector) {
+                SurfaceInspector()
+            }
+            #endif
             .confirmationDialog(
                 "Remove \(serverPendingRemoval?.name ?? "this server")?",
                 isPresented: Binding(get: { serverPendingRemoval != nil }, set: { if !$0 { serverPendingRemoval = nil } }),
@@ -266,6 +279,27 @@ struct SettingsView: View {
             Text("Runs the 12 desktop diagnostic steps (log level, connectivity, config, session, server connect, permissions, perf) and produces a shareable, masked report.")
         }
     }
+
+    #if DEBUG
+    // MARK: - Developer (T26 debug-only dual-render switch)
+
+    private var developerSection: some View {
+        Section {
+            Button {
+                isPresentingSurfaceInspector = true
+            } label: {
+                Label("Surface render modes…", systemImage: "square.stack.3d.up")
+            }
+            .accessibilityIdentifier("surfaceInspectorButton")
+        } header: {
+            Text("Developer")
+        } footer: {
+            Text("Debug build only. The dual-render switch lets each surface render natively "
+                 + "(Path B, a SwiftUI screen card) or through the web view (Path A). Nothing "
+                 + "ships native-by-default until its -AV validator passes.")
+        }
+    }
+    #endif
 
     /// Builds a value-type `DiagnosticsContext` on the main actor (stores/webviews/vault are
     /// main-actor state; only the snapshot travels into the runner) and runs the service.

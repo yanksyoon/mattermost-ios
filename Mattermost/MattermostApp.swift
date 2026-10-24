@@ -19,9 +19,18 @@ struct MattermostApp: App {
     @StateObject private var deepLinkRouter: DeepLinkRouter
     @StateObject private var sessionStore: SessionStore
     @StateObject private var notificationWorker: NotificationWorker
+    /// T26 dual-render: the per-surface webview/native decision point for the whole shell.
+    @StateObject private var surfaceModeResolver: SurfaceModeResolver
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
+
+    #if DEBUG
+    /// Debug-only evidence probe (T26): launch with `-surfaceInspectorSnapshot <path>` to
+    /// present the Surface inspector and write a PNG of it. Inert without the argument.
+    @State private var surfaceInspectorSnapshotPath: String?
+    @State private var isPresentingSurfaceInspectorProbe = false
+    #endif
 
     /// Debug-only render-proof (T20 Catalyst): when launched with `-shellSnapshot <path>`,
     /// writes two PNGs after the primary server's webview finishes its first load:
@@ -54,6 +63,9 @@ struct MattermostApp: App {
         // and the background poller (single UNUserNotificationCenter delegate), so both
         // routes schedule/tap-route through the same object.
         _notificationWorker = StateObject(wrappedValue: NotificationWorker.shared)
+        // T26: surface render-mode resolver. Reads the persisted override + `-surfaceMode`
+        // launch args (debug-only) into one decision point for every surface.
+        _surfaceModeResolver = StateObject(wrappedValue: SurfaceModeResolver())
         // UI-test seam: `-uiTestSeedSelfSignedServer <url>` pre-populates the (fresh) store
         // with one self-signed server so the webview loads it, hits the server-trust
         // challenge, and presents the CertPromptSheet. The add-server form can't reach this
@@ -77,6 +89,7 @@ struct MattermostApp: App {
                 .environmentObject(appSettings)
                 .environmentObject(sessionStore)
                 .environmentObject(notificationWorker)
+                .environmentObject(surfaceModeResolver)
                 .onOpenURL { url in
                     // Deep-link entry point (native counterpart of desktop `second-instance` /
                     // `open-url` → `NavigationManager.openLinkInPrimaryTab`).
@@ -109,8 +122,57 @@ struct MattermostApp: App {
                         }
                 }
                 .task { runShellSnapshotIfRequested() }
+                #if DEBUG
+                .task { runSurfaceInspectorProbeIfRequested() }
+                .sheet(isPresented: $isPresentingSurfaceInspectorProbe) {
+                    SurfaceInspector()
+                        .environmentObject(surfaceModeResolver)
+                        .onAppear {
+                            // Once the sheet is actually on screen (SwiftUI fires `.onAppear`),
+                            // capture the whole window to the requested path. Only native chrome
+                            // is present, so `drawHierarchy` captures it fully.
+                            guard let path = surfaceInspectorSnapshotPath else { return }
+                            let renderer = UIGraphicsImageRenderer(bounds: Self.keyWindow()?.bounds ?? .zero)
+                            let image = renderer.image { _ in
+                                Self.keyWindow()?.drawHierarchy(in: Self.keyWindow()?.bounds ?? .zero,
+                                                                afterScreenUpdates: true)
+                            }
+                            try? image.pngData()?.write(to: URL(fileURLWithPath: path))
+                        }
+                }
+                #endif
         }
     }
+
+    #if DEBUG
+    /// Parse the `-surfaceInspectorSnapshot <path>` launch argument, or nil.
+    private func surfaceInspectorSnapshotRequested() -> String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-surfaceInspectorSnapshot"),
+              args.indices.contains(i + 1) else { return nil }
+        return args[i + 1]
+    }
+
+    /// Delayed present of the inspector so the sheet is captured after the window settles.
+    private func runSurfaceInspectorProbeIfRequested() {
+        guard let path = surfaceInspectorSnapshotRequested() else { return }
+        surfaceInspectorSnapshotPath = path
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            isPresentingSurfaceInspectorProbe = true
+        }
+    }
+
+    private static func keyWindow() -> UIWindow? {
+        UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.windows }
+            .joined()
+            .first(where: \.isKeyWindow) ?? UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.windows }
+            .joined()
+            .first
+    }
+    #endif
 
     // MARK: Debug-only render proof (T20 Catalyst)
 
