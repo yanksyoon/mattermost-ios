@@ -804,8 +804,52 @@ final class MattermostUITests: XCTestCase {
                       "without -surfaceMode the webview pane must mount exactly as before")
         XCTAssertFalse(element(app, "nativeShell").exists,
                        "the native shell must not be constructed while the pane resolves web")
+        // T30-AV F2 made this half of the test honest. Before the fix the auth surface's identifier
+        // never reached the accessibility tree (the shell container shadowed it), so this assertion
+        // could not fail in any configuration — a green that proved nothing. The surface now has
+        // its own top-level branch, its identifier survives, and
+        // `testSignedOutServerShowsTheIdentifiableAuthSurface` proves the same queries *do* find it
+        // when the pane resolves native. Both halves are now falsifiable.
         XCTAssertFalse(element(app, "nativeAuthSurface").exists,
                        "the native auth surface belongs to the native pane only")
+        XCTAssertFalse(app.buttons["Use the web view to sign in"].exists,
+                       "the native auth surface's control must not render in the webview pane")
+    }
+
+    /// T30-AV F2 (regression): a signed-out server on the native pane renders an **identifiable**
+    /// auth surface.
+    ///
+    /// Without `-uiTestAssumeSignedIn` the production `VaultAuthGate` decides: a server with no
+    /// stored session is signed out, so the deep link must land on the auth surface instead of a
+    /// channel behind a sign-in wall. The point of asserting the *identifier* (rather than only the
+    /// visible button) is that the identifier is the hook T31's native sign-in screen and its tests
+    /// will use; an identifier that never reaches the tree is a defective seam even when the view
+    /// renders.
+    func testSignedOutServerShowsTheIdentifiableAuthSurface() {
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-surfaceMode", "shell=native",
+                               "-uiTestSeedServer", "https://mm.example",
+                               "-uiTestOpenDeepLink", "mattermost://mm.example/acme/channels/general",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        let surface = element(app, "nativeAuthSurface")
+        XCTAssertTrue(surface.waitForExistence(timeout: 20),
+                      "the signed-out auth surface must be identifiable as `nativeAuthSurface`. "
+                      + "Hierarchy:\n\(app.debugDescription)")
+        XCTAssertTrue(app.buttons["Use the web view to sign in"].exists,
+                      "the auth surface offers the documented escape hatch to the webview")
+        XCTAssertFalse(app.webViews.firstMatch.exists,
+                       "the native pane stays native while the auth surface is shown")
+        XCTAssertFalse(element(app, "nativeShell").exists,
+                       "the signed-out state is not the workspace shell; `nativeShell` names the "
+                       + "rendered shell, and conflating them is what hid the identifier (F2)")
+
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "t30r-auth-surface-identifiable"
+        shot.lifetime = .keepAlways
+        add(shot)
     }
 
     // MARK: - Live SSO (network-gated)

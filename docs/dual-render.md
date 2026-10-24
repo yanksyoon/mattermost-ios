@@ -24,8 +24,8 @@ before release (345.3 / 322.0 MB), exactly as §12.6 predicts. The `web` arm her
 T27's published 592.1 MB — the same non-reproduction T27-AV measured (493–527 MB over four re-runs),
 so read the evicted-vs-shell delta (the metric) rather than an absolute web number.
 Code: `Mattermost/Core/RenderMode.swift`, `Mattermost/Core/SurfaceModeResolver.swift`,
-`Mattermost/UI/SurfaceHost.swift`, `Mattermost/UI/UnportedSurfaceView.swift`,
-`Mattermost/UI/SurfaceInspector.swift`.
+`Mattermost/UI/SurfaceHost.swift`, `Mattermost/UI/SurfaceInspector.swift`,
+`Mattermost/UI/Native/NativeShellView.swift` (the pane surface's native branch since T30).
 Tests: `MattermostTests/SurfaceModeResolverTests.swift`, dual-render cases in
 `MattermostUITests/MattermostUITests.swift`.
 
@@ -50,7 +50,7 @@ mode, because a half-ported app in that mode is exactly the failure this card av
 | `Core/RenderMode.swift` | `Surface` (the 12 switch keys), `SurfaceRenderMode` (`web` / `native`), `SurfaceDefaults` (compile-time default + the **native-by-default approval registry**). |
 | `Core/SurfaceModeResolver.swift` | The single decision point: `resolvedMode(for:)`, persisted overrides, `-surfaceMode` launch parsing, the always-usable escape hatch. |
 | `UI/SurfaceHost.swift` | One `some View` per surface: renders the native branch or the web branch. |
-| `UI/UnportedSurfaceView.swift` | The honest stand-in used when a surface is native but no screen card is approved yet — never a blank pane. |
+| `UI/Native/NativeShellView.swift` | The pane surface's native branch since T30: the application shell, whose unported regions are explicit placeholders naming the card that ships them — never a blank pane. (The generic `UnportedSurfaceView` stand-in was deleted in T30-R: the shell replaced its only call site, so it was dead code.) |
 | `UI/SurfaceInspector.swift` | DEBUG-only sheet: every surface, its resolved mode, a Web/Native toggle, "Reset all". |
 | `Core/AppPreferences.swift` | Persistence of the user's overrides (`mm.surfaceModes`). |
 | `UI/ContentView.swift` | The first (and today only) consumer: gates the per-server webview pane as `Surface.channelView`. |
@@ -258,8 +258,11 @@ change the default until its validator has signed off.
   leave it alone" (that race stranded the page once in a batch run; see §11). The old
   `guard store.url == nil` no-oped forever on the same state and left the pane blank/incomplete — the
   R6 bug (§11).
-* **Never a blank pane.** A `native` decision with no approved card renders `UnportedSurfaceView`,
-  which explains the state and offers "Use web view".
+* **Never a blank pane.** A `native` decision renders the surface's own native branch. Until a
+  surface has a real card, that branch is an explicit placeholder that names the card which ships it
+  and offers "Use web view" (the pane's is `NativeShellView`, which carries the escape hatch in the
+  sidebar and on the auth surface); the generic `UnportedSurfaceView` stand-in was deleted in T30-R
+  once the shell replaced its last call site.
 * **Always a way back.** "Use web view" (and the inspector toggle) call
   `SurfaceModeResolver.forceWebForThisRun(_:)` / `setOverride(_:for:)`, which also drop this run's
   launch override for that surface. There is no sequence of debug flags that can strand the app on
@@ -306,8 +309,9 @@ a Release build. **Chosen fix (a): the persisted tier is DEBUG-only too.**
   today, because the registry is empty). Nothing else is lost: the launch flag was never persisted,
   and a Release build cannot create a stored choice in the first place, since the inspector and
   `setOverride`/`clearOverride`/`clearAllOverrides` do not exist there.
-* The only write path that exists in Release is **"Use web view"** in the native stand-in
-  (`UnportedSurfaceView` → `forceWebForThisRun`). In Release it is a *per-run* undo (the written row
+* The only write path that exists in Release is **"Use web view"** in a native branch
+  (`NativeShellView`'s sidebar row / auth surface → `forceWebForThisRun`). In Release it is a
+  *per-run* undo (the written row
   is not read back on the next launch). That is unreachable today — nothing can be native in a
   Release build while the registry is empty — but it is the first thing to revisit when the first
   surface is approved: at that point the Release escape hatch must become persistent (accepting
@@ -446,7 +450,7 @@ contract they implement, not a description of today's build.
 | # | Condition | Why it is there |
 |---|---|---|
 | 1 | the **pane host surface** resolves `.native` (today `channelView`: the region the one-per-server webview maps to) | the only surface whose native branch takes the webview's place |
-| 2 | that surface is in `SurfaceDefaults.nativeApprovedSurfaces` (§5) | approval is the only evidence that a *real card* exists — a stand-in can never be approved, so eviction can never hide behind `UnportedSurfaceView` |
+| 2 | that surface is in `SurfaceDefaults.nativeApprovedSurfaces` (§5) | approval is the only evidence that a *real card* exists — a placeholder or skeleton can never be approved, so eviction can never hide behind one |
 | 3 | that surface is in `SurfaceDefaults.paneOwningSurfaces` (new registry, **empty today**) | the card claims it renders every region the webview paints (sidebar, header, post list, composer, RHS) — nothing in the web app is still needed |
 | 4 | the store has no navigation in flight (`isLoading == false`) | never kill a login/SSO mid-flight |
 

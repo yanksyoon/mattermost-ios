@@ -4,7 +4,8 @@ Single source of truth for the module→native mapping. Updated at each phase bo
 Legend: `native` = implemented, `-` = not started / deferred to a later card/phase.
 
 Design of record: `~/.hermes/plans/2026-10-08_mattermost-desktop-ios-migration.md`; the desktop
-package is `mattermost/desktop` (v6.4.0-era). Status last refreshed at T8 (Phase 2).
+package is `mattermost/desktop` (v6.4.0-era). Status last refreshed at T30-R (Path B start: transport,
+local store and the native shell landed; see "Path B native cards" below).
 
 > ## 🅱️ Path B — native client decision (T24)
 > **The programme has chosen Path B (T24, `docs/path-b-adr.md`): the primary surface is becoming
@@ -67,7 +68,7 @@ package is `mattermost/desktop` (v6.4.0-era). Status last refreshed at T8 (Phase
 | React screen | Native view | Status |
 |---|---|---|
 | MainPage / shell chrome | `RootView` + toolbar switcher | native ✅ |
-| **Per-surface native ↔ webview switch (Path A/B)** | `Core/RenderMode.swift` (`Surface` ×12, `SurfaceRenderMode`, `SurfaceDefaults.nativeApprovedSurfaces` = the -AV approval registry) + `Core/SurfaceModeResolver.swift` (order: `-surfaceMode` launch flag → persisted override in `AppPreferences` `mm.surfaceModes` → injected remote/config default → compile default; tolerant of unknown names) + `UI/SurfaceHost.swift` (one `some View`, re-attaches the owned `WKWebView`, never recreates it) + `UI/UnportedSurfaceView.swift` (honest stand-in + "Use web view") + `UI/SurfaceInspector.swift` (DEBUG-only per-surface toggle). Contract: `docs/dual-render.md` | native ✅ (T26) |
+| **Per-surface native ↔ webview switch (Path A/B)** | `Core/RenderMode.swift` (`Surface` ×12, `SurfaceRenderMode`, `SurfaceDefaults.nativeApprovedSurfaces` = the -AV approval registry) + `Core/SurfaceModeResolver.swift` (order: `-surfaceMode` launch flag → persisted override in `AppPreferences` `mm.surfaceModes` → injected remote/config default → compile default; tolerant of unknown names) + `UI/SurfaceHost.swift` (one `some View`, re-attaches the owned `WKWebView`, never recreates it) + `UI/Native/NativeShellView.swift` (the pane surface's native branch since T30) + `UI/SurfaceInspector.swift` (DEBUG-only per-surface toggle). Contract: `docs/dual-render.md` (the generic `UnportedSurfaceView` stand-in was deleted in T30-R — dead code once the shell took its only call site) | native ✅ (T26, branch T30) |
 | New/Edit/Remove Server | `ServerFormView` + `.confirmationDialog` remove | native ✅ |
 | LoadingScreen | `ProgressView` linear skeleton in `ContentView` | native ✅ |
 | ConnectionError/Error | `ErrorStateView` + `IncompatibleErrorStateView` + `RetryButton` (ports `ErrorView`/`ConnectionErrorView`/`IncompatibleErrorView`: full desktop copy + clear-cache-and-reload + verify-URL links + contact-admin + tech info) | native ✅ (T11) |
@@ -75,6 +76,19 @@ package is `mattermost/desktop` (v6.4.0-era). Status last refreshed at T8 (Phase
 | Settings | `SettingsView` (Form with Toggle/Picker/Stepper — `CheckSetting`/`SelectSetting`/`NumberSetting` ports; theme syncing, unread badge, app language, log level, download-history cap, servers list) + `Core/AppSettings` (LocalConfiguration store) | native ✅ (T11) |
 | Downloads dropdown | `DownloadsView` (List + `DownloadRowView` with `ProgressView`), port of `DownloadsDropdown`/`DownloadsDropdownItemFile`/`FileSizeAndStatus`/`ProgressBar`; formatting ports `pretty-bytes` + renderer/utils | native ✅ (T11) |
 | Certificate modal | `CertPromptSheet` + `CertificateInfoSheet` (ports `modals/certificate` + `showCertificateModal`); challenge → published prompt → trust bag decision | native ✅ (T11) |
+
+## Path B native cards — REST/WS v4 transport, local store, native shell
+
+These rows have no single desktop module to replace: they are the **native data path** the Path B ADR
+(T24) requires, and each is a prerequisite for the screens in `docs/component-map.md`. Status is
+"landed", not "approved": a card's surface may flip to native only after its `-AV` card passes
+(`SurfaceDefaults.nativeApprovedSurfaces` is still empty).
+
+| Card | Native replacement | Status |
+|---|---|---|
+| **T28** transport (REST v4 + WebSocket v4) | `Core/MM/`: `APITransport`/`URLSessionTransport` + `APIClient` (bearer from `SecureVault`, ETag/304 replay, retry with backoff + jitter honouring a **clamped** `Retry-After`, `401 → onUnauthorized`), `AuthSession` (login/MFA/restore/logout + SSO cookie adoption through **that server's** `WKWebsiteDataStore(forIdentifier:)`), `SocketClient` (actor, hello + in-band auth challenge, ping/pong, backoff that resets only after a stable session, one resync per dropout), `ServerTrustPolicy` shared by HTTP **and** `wss`, `MMLog` token redaction. Pinned by 88 tests + `scripts/t28-token-grep.sh` + the self-signed `wss` fixture. | native ✅ (T28, repaired T28-R) |
+| **T29** local store | `Core/Store/`: one SQLite file per server via GRDB 7.11.1 (pinned in `Package.resolved`), schema v1 + additive v2/v3 through a named migration chain with a downgrade guard, single writer + read snapshot, `PostRepository`/`ChannelRepository`/`DraftRepository`/`SyncCursorRepository`/`PreferenceRepository`/`UserRepository`, eviction that cascades a thread's replies with its root, and `InMemoryStore` as the contract-tested double. | native ✅ (T29, repaired T29-R) |
+| **T30** native shell (navigation) | `Core/Native/NativeNavigation.swift` (one funnel: `NativeLocation` + deep-link grammar + per-server last location + auth gate + `NativeChannelDirectory` seam), `UI/Native/NativeShellView.swift` (compact = TabView with the channel view pushed; regular = `NavigationSplitView`), `UI/Native/NativePanePlaceholders.swift` (every unported region is a named placeholder, plus the auth surface and the stale-route error state). Wired through `RootView` (push stack + chrome on pushed panes) and the existing `DeepLinkRouter`/`NotificationWorker` seams. | native ✅ (T30, repaired T30-R). Limits that stay: **no channel directory yet**, so a deep link and a tapped mention converge on server + pane but not on channel identity (S08/T32-T33 installs the directory); every pane is a placeholder (T32-T36); native login is T31. |
 
 ## Phase status
 
@@ -114,6 +128,18 @@ package is `mattermost/desktop` (v6.4.0-era). Status last refreshed at T8 (Phase
   (2) an Apple APNs `.p8` auth key (human + Apple Developer account), (3) a configured MM
   server DiagnosticId. Push Notifications capability still absent from entitlements until a
   real proxy is up. — `docs/t12-push-proxy.md`.
+- Phase 5 (perf/dual-render, T26/T27): T26 DONE (`SurfaceHost`/`SurfaceModeResolver`/inspector,
+  `docs/dual-render.md`) and repaired in T26-R/T26-R4; T27 DONE (memory/perf baseline,
+  `docs/t27-build-note.md`).
+- Phase 6 (app store readiness/release gate): T18 done; T19a (diagnostics/Sentry) done;
+  T20 (Mac Catalyst build) done — `docs/t18-build-note.md`, `docs/t19a-build-note.md`,
+  `docs/t20-build-note.md`.
+- **Path B — native data path (started):** T28 DONE (REST v4 + WebSocket v4 transport, SSO cookie
+  adoption, shared TLS trust policy; repaired in T28-R), T29 DONE (per-server SQLite store with
+  migrations, repositories, eviction; repaired in T29-R), T30 DONE (native shell + navigation
+  skeleton behind the dual-render flag; repaired in T30-R — see `docs/t30-build-note.md` §12).
+  T31 (native auth) is next; the screens follow (`docs/component-map.md`). No surface is in
+  `nativeApprovedSurfaces` yet, so every shipping configuration still renders the webview.
 
 ## Test & validation status (T17)
 

@@ -188,7 +188,7 @@ final class ViewStoreTests: XCTestCase {
     }
 
     /// A stand-in pane is not enough, however it was routed to native: approval without pane
-    /// ownership (the `UnportedSurfaceView` case) can never release. §12.7's first rejected
+    /// ownership (the placeholder/skeleton case) can never release. §12.7's first rejected
     /// alternative, pinned as a test.
     func testApprovedButNotPaneOwningNeverReleases() {
         XCTAssertFalse(WebViewReleasePolicy.mayRelease(paneSurfaceResolved: .native,

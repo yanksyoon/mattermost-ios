@@ -7,8 +7,8 @@ import SwiftUI
 ///
 /// T26 dual-render: the workspace pane — the region the one-per-server webview maps to, named once
 /// as `SurfaceDefaults.paneHostSurface` — is gated by `SurfaceHost`. When that surface resolves
-/// `native` the pane shows the `UnportedSurfaceView` stand-in; when it resolves `web` (the default
-/// for every surface today) the pane renders the web app.
+/// `native` the pane shows `NativeShellView` (the application shell, T30); when it resolves `web`
+/// (the default for every surface today) the pane renders the web app.
 ///
 /// T26-R R4 (`docs/dual-render.md` §12): the scene **no longer takes a `WebViewStore`**. A released
 /// pane has no store at all, so the web branch resolves one from the `ViewStore` when it appears

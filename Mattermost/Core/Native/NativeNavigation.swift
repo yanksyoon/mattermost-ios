@@ -108,6 +108,16 @@ enum NativeTarget: Equatable {
 ///
 /// It carries ids *and* names, so "the deep link landed somewhere else than the notification tap"
 /// is a plain `==` on this struct rather than a behavioural comparison of two screens.
+///
+/// **What that equality actually proves today** (T30-AV F1, corrected in T30-R): the funnel is
+/// structural — every entry point writes this struct through `apply` — but the *facts* it fills in
+/// come from `NativeChannelDirectory`, and no implementation ships yet (it arrives with the channel
+/// list, S08/T32-T33). With `directory == nil` a `mattermost://…/channels/general` link carries a
+/// channel *name* and no team id, while a tapped mention carries a channel *id* and a team id, so
+/// the two locations agree on server and pane and differ on channel/team identity. Equality here is
+/// therefore a statement about the shipping configuration only once that directory is installed;
+/// `NativeNavigationTests.testDeepLinkAndMentionAgreeOnServerAndPaneWithoutADirectory` pins the
+/// current, weaker truth so the gap cannot quietly be re-claimed as convergence.
 struct NativeLocation: Hashable {
     var serverID: UUID?
     var serverName: String?
@@ -120,6 +130,16 @@ struct NativeLocation: Hashable {
 
     /// Whether a channel (by id or name) is selected.
     var hasChannel: Bool { channelID != nil || channelName != nil }
+
+    /// Whether this location is a destination the shell can **show** — i.e. something worth
+    /// pushing on a compact layout (or selecting in a regular layout's detail column).
+    ///
+    /// A channel qualifies; so does a permalink that names only a post (`/pl/<post>`, whose channel
+    /// needs S12/T36 to resolve) and a threads pane. T30-AV F3: `apply` used to gate the push on
+    /// `hasChannel` alone, so those two routes parsed, changed the model and left a phone on the
+    /// shell root — a link that visibly did nothing, and a "Resolving this permalink…" pane that
+    /// only a wide layout could ever reach.
+    var opensADestination: Bool { hasChannel || postID != nil || pane == .threads }
 
     /// The channel's display name, preferring the human name over the id.
     var channelDisplayName: String? { channelName ?? channelID }
@@ -239,6 +259,14 @@ enum NativeNavigationOutcome: Equatable {
 /// the shell to it, resolves the channel through the directory and applies one `NativeLocation`.
 /// That is what makes "the deep link, the tapped mention and the manual tap land in the same place"
 /// a structural property rather than a coincidence of three code paths.
+///
+/// **Scope of that claim, stated precisely** (T30-AV F1): the *funnel* is structural — one writer,
+/// one value, one push decision. The *identity* of the channel inside that value depends on
+/// `directory`, which is `nil` in every configuration that ships until S08/T32-T33 installs one.
+/// Without it the three entry points agree on server and pane but not on channel/team keys, because
+/// each caller only has half of them (a link has names, a mention has ids). The tests say exactly
+/// that, in two pieces: convergence with a directory (the property the shell is built for) and
+/// server+pane agreement without one (the property that holds today).
 ///
 /// Layout-agnostic on purpose: the value here is *where*, and the compact/regular layouts decide
 /// *how* (a push on a phone, a detail column on a wide layout). See `NativeShellView`.
@@ -381,7 +409,7 @@ final class NativeNavigation: ObservableObject {
     /// sets `location`/`path`. Back from a stale route uses this: the destination it was showing no
     /// longer exists, and the only sane place to return to is the shell.
     func popToRoot() {
-        guard location.hasChannel || location.pane == .threads else {
+        guard location.opensADestination else {
             path = []
             return
         }
@@ -411,6 +439,29 @@ final class NativeNavigation: ObservableObject {
         refreshAuthState()
     }
 
+    /// The **appearance/switch** entry point: `RootView` calls this when a server becomes active
+    /// (first appearance, the toolbar switcher, a server removal). Populates the model only while
+    /// the pane accepts native routing.
+    ///
+    /// T30-AV F4: `RootView.activate` used to call `activate(serverID:)` in *every* render mode, so
+    /// with the flag off the model was populated on the first appearance — and `startUp()`'s
+    /// "something already routed" guard (`location.serverID == nil`) then tripped on every later
+    /// appearance, where pre-T30 the code re-activated `initialServer` each time. Gating at the one
+    /// call site keeps the flag-off path literally the pre-T30 path: `location` stays empty, so the
+    /// guard keeps answering what it answered before.
+    ///
+    /// Deliberately **not** folded into `activate(serverID:)`: the model still has to accept a
+    /// direct activation (a route, a test, a future caller) whatever the pane resolves; it is the
+    /// *appearance pass* that must not touch a pane it does not own.
+    ///
+    /// - Returns: whether the model was activated.
+    @discardableResult
+    func activateIfRouting(serverID: UUID) -> Bool {
+        guard acceptsNativeRouting else { return false }
+        activate(serverID: serverID)
+        return true
+    }
+
     /// Re-read the active server's auth state (appearance, foreground, a finished sign-in).
     func refreshAuthState() {
         guard let serverStore,
@@ -433,6 +484,12 @@ final class NativeNavigation: ObservableObject {
     /// A deep link that lands on a channel pushes that channel over whatever tab the user was on
     /// (and Back returns to it), which is what "the sidebar is a tab, the channel view is a push"
     /// means — a routing request must never move the tab bar under the user.
+    ///
+    /// A route is pushed when it [`opensADestination`](NativeLocation.opensADestination): a channel,
+    /// a permalink whose channel is not resolved yet, or a threads pane. Pushing the last two is
+    /// what makes `/pl/<post>` and `/{team}/threads` visible on a phone (T30-AV F3); the pane does
+    /// the honest thing (a "Resolving this permalink…" state, a threads placeholder) instead of the
+    /// link silently doing nothing.
     private func apply(_ newLocation: NativeLocation) {
         // Remembering the location per server here (not only in `activate`) keeps a deep link that
         // lands on server B from overwriting what server A was showing.
@@ -441,13 +498,16 @@ final class NativeNavigation: ObservableObject {
         }
         location = newLocation
 
-        guard newLocation.hasChannel else {
+        guard newLocation.opensADestination else {
             // The workspace root: the sidebar is the screen again.
             path = []
             return
         }
-        // A thread opens *on top of* its channel, so Back returns to the conversation.
+        // A thread opens *on top of* its channel, so Back returns to the conversation. Only when the
+        // thread is actually scoped to that channel: a `/{team}/threads` route carries no channel
+        // and must not stack onto whatever conversation happened to be open.
         if newLocation.pane == .threads,
+           newLocation.hasChannel,
            let last = path.last,
            last.pane == .channel,
            last.channelKey == newLocation.channelKey,

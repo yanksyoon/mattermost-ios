@@ -348,14 +348,16 @@ struct NativeAuthPlaceholderView: View {
             Button {
                 // The escape hatch: returns this surface's pane to the webview for the rest of the
                 // run, whatever routed it native. Same identifier as the sidebar's escape hatch and
-                // `UnportedSurfaceView`'s, because it is the same guarantee: a native pane can
-                // always be handed back to the webview without relaunching.
+                // the old `UnportedSurfaceView`'s, because it is the same guarantee: a native pane
+                // can always be handed back to the webview without relaunching.
                 resolver.forceWebForThisRun(SurfaceDefaults.paneHostSurface)
             } label: {
                 Label("Use the web view to sign in", systemImage: "safari")
             }
             .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("revertToWeb\(SurfaceDefaults.paneHostSurface.rawValue)")
+            // (No second identifier here: SwiftUI keeps one identifier per element, and the last
+            // one wins — the T26 escape-hatch tests need `revertToWeb…` exactly where it is.)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)

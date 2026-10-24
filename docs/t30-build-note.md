@@ -87,12 +87,29 @@ channel *name* (`isValidID`, upstream's `isValidChannelId` rule). Anything else 
 router reports `.ignored` instead of guessing — a native shell that silently mis-routes is worse than
 one that says "I cannot show this yet".
 
-**Convergence** (the property the tests pin): the three entry points produce the *same*
-`NativeLocation` for the same destination. Ids and names converge through an injectable
-`NativeChannelDirectory`; until the channel list lands (T32/T33) the directory is `nil`, so a
-name-routed and an id-routed location differ in `channelID`/`channelName` but agree on server, team
-and pane. `NativeNavigationTests.testDeepLinkAndMentionAndManualSelectionConvergeOnOneLocation` is
-the assertion.
+**Convergence — what is true, exactly** (corrected in T30-R, finding F1): the three entry points go
+through **one funnel** (`open` → `apply`, the only writer of `location`/`path`), and they agree on the
+**server and the pane**. They do *not* agree on the channel's identity in the configuration that
+ships today, and this note used to claim otherwise:
+
+* in the shipping configuration `NativeNavigation.directory` is `nil` (it is installed by the channel
+  list, S08/T32-T33), so a deep link (`/acme/channels/general` — a team *name* and a channel *name*,
+  no ids) and a tapped mention (`channelID: c1`, `teamID: t1`, no names) produce locations that are
+  equal in `serverID`/`serverName`/`pane` and different in `teamID`/`teamName`/`channelID`/
+  `channelName`. The former claim "they agree on server, team and pane" was wrong about the team;
+* convergence **to one identical `NativeLocation`** is a property of the funnel *once a directory
+  resolves both name→id and id→name* — `NativeNavigationTests.
+  testConvergenceHoldsOnceADirectoryResolvesNamesAndIDs` proves it with an injected directory, which
+  is exactly why the earlier note could not be checked against the shipping app;
+* the honest shipping-configuration assertion is
+  `testDeepLinkAndMentionAgreeOnServerAndPaneWithoutADirectory`: same server, same pane, different
+  channel/team keys, and `XCTAssertNotEqual` on the locations so that the day a directory lands the
+  test fails and the claim is upgraded rather than the gap quietly forgotten.
+
+The card's acceptance criterion "a deep link and a tapped mention land on the right server + channel
+in the native stack" is therefore met **at server + pane level** today and at full-location level only
+with a directory. T30-R rewrote the claim in the code docs, this note and `docs/parity.md` instead of
+leaving a test whose green depended on a test double.
 
 ### 3.1 Auth gate (scope §2)
 
@@ -134,10 +151,11 @@ why `-uiTestAssumeSignedIn` exists as a DEBUG seam and why adopting a webview se
   (`RootView`), and the UI test taps Settings **from the pushed pane** to prove the sheet still
   presents there.
 * **Escape hatch.** T26's guarantee — a pane that resolves native can always be returned to the
-  webview without relaunching — used to live on `UnportedSurfaceView`. Now that the shell *is* the
-  pane's native card, the shell carries it: a "Use web view" row in the sidebar and the same action on
-  the auth surface, both with the identifier `revertToWebchannelView` so `UnportedSurfaceView`'s
-  contract (and the T26 UI tests) keep working.
+  webview without relaunching — used to live on a generic `UnportedSurfaceView` stand-in (deleted in
+  T30-R as dead code, F6). Now that the shell *is* the pane's native card, the shell carries it: a
+  "Use web view" row in the sidebar and the same action on the auth surface, both with the identifier
+  `revertToWebchannelView` so the T26 escape-hatch contract (and the two T26 UI tests that tap it)
+  keep working.
 
 ---
 
@@ -207,9 +225,19 @@ RESULT: PASS
 with the unit phase of the same run reporting `Executed 584 tests, with 3 tests skipped and 0
 failures`. Log: `build/logs/t30-ios-final.log` → `docs/t30-full-ios-2026-10-24.log`.
 
-The 1 skipped UI test is the pre-existing preconditions-gated one (the self-signed certificate flow on
-port 8443, which needs the TLS stub that is not running in this session); it skips with its own
-`XCTSkipUnless` reason, not silently.
+The 1 skipped UI test is `testSSOReachesIdentityProviderWithoutCertificatePrompt` — the env-gated live
+SSO check, which skips unless `TEST_RUNNER_MM_LIVE_SSO_URL` is set (corrected in T30-R, finding F5;
+the note previously named the 8443 certificate flow, which in fact **passed** against a live
+self-signed stub in this same run: `testCertificateTrustOnFirstLaunchRendersThePage`,
+`testCertPromptShownForSelfSignedServer` and `testExplicitlyUntrustedCertificateHardRejectsWithoutPrompt`).
+It skips with its own `XCTSkipUnless` reason, not silently:
+
+```
+grep "skipped" docs/t30-full-ios-2026-10-24.log
+→ MattermostUITests.swift:826: -[MattermostUITests.MattermostUITests
+    testSSOReachesIdentityProviderWithoutCertificatePrompt] : Test skipped - Live SSO test: set
+    TEST_RUNNER_MM_LIVE_SSO_URL to run
+```
 
 ### 8.3 The two T30 UI tests
 

@@ -186,6 +186,14 @@ struct RootView: View {
                 switch newMode {
                 case .native:
                     sweepReleases()
+                    // The shell just took the pane. Nothing has routed into it yet (the model is
+                    // left empty while the pane is web — T30-AV F4), so the appearance-gated
+                    // activation would not have happened: do it here, or the shell mounts with an
+                    // empty location and its auth gate unread. Guarded on the model still being
+                    // empty so a route that landed first is never reset by the flip.
+                    if navigation.location.serverID == nil, let active = activeServer {
+                        navigation.activateIfRouting(serverID: active.id)
+                    }
                 case .web:
                     // T30: leaving the native shell pops any native route it pushed — otherwise a
                     // channel pane would stay on the stack above the webview that just replaced it.
@@ -447,7 +455,12 @@ struct RootView: View {
         // T30: the native shell follows the shell's active server (and restores where the user was
         // on that server). A no-op for the webview's behaviour: the model only decides what the
         // native branch renders.
-        navigation.activate(serverID: server.id)
+        //
+        // Gated on the pane resolving native (T30-AV F4): before this, the model was populated in
+        // *both* render modes, which made `startUp()`'s "already routed" guard one-shot and let the
+        // model go stale relative to the active server in web mode. With the flag off nothing here
+        // touches the model at all, so the webview path is the pre-T30 path.
+        navigation.activateIfRouting(serverID: server.id)
         // Warm this server's webview so the switch is instant (session intact) — unless the pane
         // may be released, in which case creating one here would resurrect exactly what
         // `release(...)` just dropped (`docs/dual-render.md` §12.4).

@@ -31,7 +31,9 @@ import SwiftUI
 ///    detail column and nothing is pushed.
 ///
 /// Both layouts render **one value** — `NativeNavigation.location` — so a deep link, a notification
-/// tap and a sidebar tap land on the same place in either layout; only the presentation differs.
+/// tap and a sidebar tap produce the same *server and pane* in either layout (the channel identity
+/// inside that value is only fully resolved once a channel directory exists — S08/T32-T33, see
+/// `NativeLocation`); only the presentation differs.
 ///
 /// Nothing here is a screen: every pane is an explicit stand-in that names the card which ships it.
 /// A blank pane would be indistinguishable from a broken one.
@@ -52,21 +54,39 @@ struct NativeShellView: View {
     }
 
     var body: some View {
-        Group {
-            if showsAuthSurface {
-                NativeAuthPlaceholderView(server: server, resolver: resolver)
-            } else if horizontalSizeClass == .regular {
-                regularLayout
-            } else {
-                compactLayout
-            }
+        // The auth surface is deliberately **outside** the shell's accessibility container.
+        //
+        // T30-AV F2: with the `Group` + `.accessibilityElement(children: .contain)` +
+        // `nativeShell` wrapper around *both* branches, SwiftUI applied those modifiers to the
+        // auth child and its own `nativeAuthSurface` identifier was shadowed — the element in the
+        // tree carried `nativeShell` and "Sign in to …", and no `nativeAuthSurface` node existed
+        // in any configuration. That made the flag-off UI assertion
+        // (`XCTAssertFalse(element(app, "nativeAuthSurface").exists)`) unfalsifiable. Two things
+        // fix it: the signed-out state is not the workspace shell, so it gets its own top-level
+        // branch (and its own identifier, which T31's sign-in screen will keep), and the
+        // `nativeShell` container only wraps the shell it actually names.
+        if showsAuthSurface {
+            NativeAuthPlaceholderView(server: server, resolver: resolver)
+        } else {
+            workspaceShell
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemBackground))
+                // One accessibility container for the whole shell: UI tests identify the shell,
+                // then the panes inside it, without depending on SwiftUI's element-type choices.
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("nativeShell")
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
-        // One accessibility container for the whole shell: UI tests identify the shell, then the
-        // panes inside it, without depending on SwiftUI's element-type choices.
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("nativeShell")
+    }
+
+    /// The workspace shell itself (signed in): one `NativeLocation` rendered by whichever layout
+    /// the size class calls for.
+    @ViewBuilder
+    private var workspaceShell: some View {
+        if horizontalSizeClass == .regular {
+            regularLayout
+        } else {
+            compactLayout
+        }
     }
 
     /// Wide layout: sidebar + detail (upstream `AdditionalTabletView` behaviour).

@@ -151,7 +151,7 @@ final class ViewStore: ObservableObject {
 ///  1. the pane host surface (`SurfaceDefaults.paneHostSurface`) resolves `.native` — the only
 ///     surface whose native branch takes the webview's place;
 ///  2. that surface is `-AV`-approved (`nativeApprovedSurfaces`) — approval is the only evidence
-///     that a real card exists, so eviction can never hide behind `UnportedSurfaceView`;
+///     that a real card exists, so eviction can never hide behind a placeholder pane;
 ///  3. that surface is pane-owning (`paneOwningSurfaces`) — the card renders *every* region the
 ///     webview paints, so nothing in the web app is still needed;
 ///  4. no navigation is in flight — never kill a login/SSO mid-flight.

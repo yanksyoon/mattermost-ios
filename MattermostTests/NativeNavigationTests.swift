@@ -198,12 +198,15 @@ final class NativeNavigationTests: XCTestCase {
         XCTAssertEqual(location.teamID, "t1")
     }
 
-    // MARK: Convergence — the acceptance criterion that matters
+    // MARK: Convergence — what the funnel does and does not guarantee
 
-    /// A deep link (names), a mention tap (ids) and a manual sidebar tap (both) must land on the
-    /// **same** `NativeLocation` for the same channel. The directory is what makes that possible:
-    /// it is the seam S08 (T32/T33) fills, and here it is fed by the test instead of by the store.
-    func testDeepLinkMentionAndManualSelectionConvergeOnTheSameLocation() {
+    /// Convergence **with a directory**: a deep link (names), a mention tap (ids) and a manual
+    /// sidebar tap (both) land on the *same* `NativeLocation` for the same channel. The directory
+    /// is the seam S08 (T32/T33) fills, and here it is fed by the test instead of by the store.
+    ///
+    /// Read together with the next test: this one is the property the shell is built for, the next
+    /// one is the property that holds in the configuration that ships today (T30-AV F1).
+    func testConvergenceHoldsOnceADirectoryResolvesNamesAndIDs() {
         let serverConfig = server()
         let store = makeServerStore([serverConfig])
         let directory = FakeDirectory(identities: [
@@ -249,6 +252,96 @@ final class NativeNavigationTests: XCTestCase {
         XCTAssertEqual(location.channelName, "general")
         XCTAssertNil(location.channelID)
         XCTAssertNil(location.teamID)
+    }
+
+    /// **The truth in the shipping configuration** (T30-AV F1): with `directory == nil` the three
+    /// entry points converge on the *server and the pane* — not on the channel identity, because a
+    /// deep link only knows names and a tapped mention only knows ids.
+    ///
+    /// This is deliberately not an equality assertion on the whole location: asserting `==` here
+    /// would be asserting something the shipping configuration cannot deliver, and passing it by
+    /// injecting a directory would hide exactly the gap the AV card found. The gap closes with the
+    /// channel list (S08/T32-T33) installing a `NativeChannelDirectory`; when it does, this test
+    /// fails and whoever lands it replaces the two assertions with the equality above.
+    func testDeepLinkAndMentionAgreeOnServerAndPaneWithoutADirectory() {
+        let serverConfig = server()
+        let store = makeServerStore([serverConfig])
+        let navigation = makeNavigation(serverStore: store)
+        XCTAssertNil(navigation.directory, "the shipping configuration has no channel directory")
+
+        guard case .opened(let fromLink) = navigation.handle(
+            "mattermost://mm.example/acme/channels/general") else {
+            return XCTFail("deep link did not open")
+        }
+        guard case .opened(let fromMention) = navigation.routeMention(
+            serverID: serverConfig.id, channelID: "c1", teamID: "t1") else {
+            return XCTFail("mention tap did not open")
+        }
+
+        // What does hold: one server, one pane, one funnel.
+        XCTAssertEqual(fromLink.serverID, fromMention.serverID)
+        XCTAssertEqual(fromLink.serverName, fromMention.serverName)
+        XCTAssertEqual(fromLink.pane, fromMention.pane)
+        XCTAssertEqual(navigation.location, fromMention, "both wrote the same single model")
+
+        // What does not hold yet: the channel/team identity, because nobody can resolve it offline.
+        XCTAssertEqual(fromLink.channelKey, "general")
+        XCTAssertEqual(fromMention.channelKey, "c1")
+        XCTAssertNotEqual(fromLink, fromMention,
+                          "documented gap: name↔id resolution is S08/T32-T33; this assertion is the "
+                          + "signal that the directory has landed and the convergence claim can be "
+                          + "restored to full equality")
+    }
+
+    // MARK: Channel-less destinations are visible on a phone (T30-AV F3)
+
+    /// `/pl/<post>` names a post, not a channel. It must still **push** something: the pane renders
+    /// "Resolving this permalink…" until S12/T36 resolves the post. Before T30-R `apply` only
+    /// pushed when the location had a channel, so on a phone this link changed the model and left
+    /// the user on the shell root.
+    func testPermalinkDeepLinkPushesThePermalinkPane() {
+        let store = makeServerStore([server()])
+        let navigation = makeNavigation(serverStore: store)
+
+        guard case .opened(let location) = navigation.handle("mattermost://mm.example/acme/pl/post42") else {
+            return XCTFail("permalink deep link did not open")
+        }
+        XCTAssertFalse(location.hasChannel)
+        XCTAssertEqual(navigation.path, [location], "the permalink state must be a destination, not a no-op")
+        XCTAssertEqual(navigation.path.last?.postID, "post42")
+    }
+
+    /// `/{team}/threads` carries no channel: it must push the threads pane too (the tab stays where
+    /// the user left it — routing never moves the tab bar).
+    func testThreadsDeepLinkWithoutAChannelPushesTheThreadsPane() {
+        let store = makeServerStore([server()])
+        let navigation = makeNavigation(serverStore: store)
+        navigation.select(tab: .channels)
+
+        guard case .opened(let location) = navigation.handle("mattermost://mm.example/acme/threads") else {
+            return XCTFail("threads deep link did not open")
+        }
+        XCTAssertEqual(location.pane, .threads)
+        XCTAssertFalse(location.hasChannel)
+        XCTAssertEqual(navigation.path, [location], "the threads pane must be pushed, not silently dropped")
+        XCTAssertEqual(navigation.tab, .channels, "routing must not move the tab bar")
+    }
+
+    /// Back from a channel-less destination returns to the shell root instead of leaving the stale
+    /// destination in the model (`NativeStaleRouteView` and the Back button both use this path).
+    func testPopToRootFromAChannelLessDestinationReturnsToTheShell() {
+        let serverConfig = server()
+        let store = makeServerStore([serverConfig])
+        let navigation = makeNavigation(serverStore: store)
+
+        _ = navigation.handle("mattermost://mm.example/acme/pl/post42")
+        XCTAssertEqual(navigation.path.count, 1)
+
+        navigation.popToRoot()
+
+        XCTAssertTrue(navigation.path.isEmpty)
+        XCTAssertNil(navigation.location.postID)
+        XCTAssertEqual(navigation.location.serverID, serverConfig.id, "the shell stays on the same server")
     }
 
     // MARK: Auth surface
@@ -388,6 +481,53 @@ final class NativeNavigationTests: XCTestCase {
         XCTAssertFalse(makeNavigation(serverStore: store, mode: "channelView=web").acceptsNativeRouting)
         XCTAssertFalse(makeNavigation(serverStore: store, mode: nil).acceptsNativeRouting,
                        "the shipping default is the webview")
+    }
+
+    /// T30-AV F4: the appearance pass (`RootView.activate`) must not populate the model while the
+    /// pane is the webview. `startUp()`'s "something already routed" guard reads
+    /// `location.serverID`; populating it in web mode made that guard one-shot where pre-T30 the
+    /// initial server was re-activated on every appearance.
+    func testAppearanceInWebModeNeverPopulatesTheModel() {
+        let first = server("First", host: "one.example")
+        let second = server("Second", host: "two.example")
+        let store = makeServerStore([first, second])
+        store.switchTo(id: first.id)
+        let navigation = makeNavigation(serverStore: store, mode: nil)
+
+        XCTAssertFalse(navigation.acceptsNativeRouting)
+        XCTAssertFalse(navigation.activateIfRouting(serverID: first.id),
+                       "with the flag off the appearance pass must leave the shell's model alone")
+        XCTAssertNil(navigation.location.serverID,
+                     "startUp()'s guard must still see an unrouted model — i.e. it keeps re-activating")
+
+        // A later appearance (the user switched server, RootView appeared again) is still a no-op,
+        // which is exactly the pre-T30 behaviour the guard is protecting.
+        store.switchTo(id: second.id)
+        XCTAssertFalse(navigation.activateIfRouting(serverID: second.id))
+        XCTAssertNil(navigation.location.serverID)
+        XCTAssertTrue(navigation.path.isEmpty)
+    }
+
+    /// …and the same call does activate while the shell owns the pane, so the gate is a gate and not
+    /// a silent removal of the feature.
+    func testAppearanceInNativeModePopulatesTheModel() {
+        let first = server("First", host: "one.example")
+        let second = server("Second", host: "two.example")
+        let store = makeServerStore([first, second])
+        store.switchTo(id: first.id)
+        let navigation = makeNavigation(serverStore: store, mode: "shell=native")
+
+        XCTAssertTrue(navigation.activateIfRouting(serverID: first.id))
+        XCTAssertEqual(navigation.location.serverID, first.id)
+        XCTAssertFalse(navigation.location.hasChannel, "the workspace root, not a channel")
+
+        // Switching servers restores that server's own last location (unchanged behaviour).
+        _ = navigation.openChannel(NativeChannelRequest(serverID: first.id, teamName: "acme",
+                                                        channelName: "general"))
+        navigation.activateIfRouting(serverID: second.id)
+        XCTAssertEqual(navigation.location.serverID, second.id)
+        navigation.activateIfRouting(serverID: first.id)
+        XCTAssertEqual(navigation.location.channelName, "general")
     }
 
     // MARK: Seams — the routers actually divert

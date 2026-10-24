@@ -21,9 +21,12 @@ import SwiftUI
 ///    the webview: its cookies/localStorage/scroll state and in-memory page survive, and switching
 ///    back re-attaches the *same* object (asserted by
 ///    `SurfaceModeResolverTests.testWebViewInstanceIsStableAcrossSurfaceToggles`).
-///  - **Never a blank screen.** A surface may resolve `native` before its card lands; callers pass
-///    `UnportedSurfaceView` as the native branch when they have nothing ported yet, which explains
-///    the state and offers a one-tap route back to the webview.
+///  - **Never a blank screen.** A surface may resolve `native` before its card lands; the caller's
+///    native branch is then an explicit, honest stand-in that names the card which ships it and
+///    offers a one-tap route back to the webview (the pane's is `NativeShellView`'s auth surface and
+///    sidebar row, both `revertToWeb…`). There is no generic fallback view: a surface without a
+///    native branch has no call site, which is how the tree stays free of dead stand-ins
+///    (T30-AV F6 removed the last one).
 ///  - **Re-creatable.** If the webview was torn down (`ViewStore.remove(serverID:)` on server
 ///    removal, or a never-loaded store), the `web` branch must load on appear — `ContentView` does
 ///    this, so a surface can always come back to a working webview.
