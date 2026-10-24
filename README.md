@@ -95,14 +95,24 @@ Run.
 ## Tests
 
 ```bash
-# iPhone: 256 unit tests + 6 XCUITest flows
-xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' -derivedDataPath build/ddata
+# Guarded runner (recommended): keeps derived data outside ~/Documents, watches for wedges,
+# and is the only way to prove a *failing* test reports instead of hanging (docs/test-plan.md §6).
+scripts/qa-test.py                     # iOS simulator, whole scheme
+scripts/qa-test.py --platform mac      # Mac Catalyst, MattermostTests
+scripts/qa-test.py --self-test         # break-proof: a deliberate failure must be reported
 
-# Mac (Catalyst): 236 unit tests
+# Raw xcodebuild still works. Keep derived data OUTSIDE ~/Documents for any run where a test
+# may fail: XCTest symbolizes failures in-process and the test host's open() of a debug-map
+# object under ~/Documents blocks on a macOS TCC consent that never arrives (looks like a hang).
+xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -derivedDataPath ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa
+
+# Mac (Catalyst):
 xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
   -destination 'platform=macOS,variant=Mac Catalyst' \
-  -derivedDataPath build/ddata-mac -only-testing:MattermostTests
+  -derivedDataPath ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-mac \
+  -only-testing:MattermostTests
 ```
 
 Status of this tree: **iOS 290/290 unit + 6/6 UI green**; **macOS 290/290 unit green** (the

@@ -20,9 +20,12 @@ server + interactive webview — runtime concerns, covered by UI/soak below).
 
 Command:
 ```
+scripts/qa-test.py --platform ios --only-testing MattermostTests
+# or, raw xcodebuild (keep derived data OUTSIDE ~/Documents -- see §6):
 xcodebuild -project Mattermost.xcodeproj -scheme Mattermost \
   -destination 'id=C36282C3-F865-4270-9164-28220818CFCE' \
-  -derivedDataPath build/ddata -only-testing:MattermostTests test-without-building
+  -derivedDataPath ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa \
+  -only-testing:MattermostTests test-without-building
 ```
 
 | Area (task) | File(s) | Status |
@@ -65,7 +68,8 @@ python3 build/uitest-server/mm_stub.py --port 8443 --tls \
    build/uitest-server/cert.pem,build/uitest-server/key.pem --name "Self Signed Test" &
 xcodebuild -project Mattermost.xcodeproj -scheme Mattermost \
   -destination 'id=C36282C3-F865-4270-9164-28220818CFCE' \
-  -derivedDataPath build/ddata -only-testing:MattermostUITests test
+  -derivedDataPath ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa \
+  -only-testing:MattermostUITests test
 ```
 
 | Flow (task) | Test | Status |
@@ -129,3 +133,61 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 30 \
   -keyout build/uitest-server/key.pem -out build/uitest-server/cert.pem \
   -subj "/CN=127.0.0.1" -addext "subjectAltName=IP:127.0.0.1"
 ```
+
+## 6. Harness: a *failing* unit test used to wedge the test host (T14b)
+
+Symptom: `xcodebuild test` stalls forever at `Test Case '…' started.`, no failure line, no
+`** TEST FAILED **`; only the caller's timeout ends it (`** BUILD INTERRUPTED **`). It happens
+only when a test *fails*, so an intentionally-broken test is indistinguishable from a deadlock in
+product code. Reproduced deterministically with `XCTAssertEqual(1, 2)` in `WebViewStoreTests` (log
+and `sample` attached to the T14b board card: `t_14b5684e`).
+
+Not a product bug. When an assertion fails, XCTest symbolizes the failure **in-process**; `sample`
+of the wedged host puts the main thread at
+
+```
+-[XCTestCase recordIssue:] -> -[XCTSourceCodeFrame symbolInfoWithError:]
+  -> -[XCTInProcessSymbolicationService …] -> CSSymbolOwnerGetSymbolWithAddress
+  -> CSCppSymbolOwnerCache::create_symbol_owner_data -> extract_debug_map_data_from_header
+  -> CSSymbolicatorCreateWithPathArchitectureFlagsAndNotification -> CSFileIsCoreFile
+  -> fopen -> open$NOCANCEL                      (blocked, 0 % CPU)
+```
+
+(`build/logs/t14/sample-ios-sim-74129.txt` at the time of writing; also attached to the card),
+line-for-line the stack in the ticket. CoreSymbolication
+opens the object files named in the binary's debug map. When the build products sit inside a
+**TCC-protected folder** — this repo lives in `~/Documents`, so every `-derivedDataPath build/…`
+does — `sandboxd` asks `tccd` for access on behalf of `com.mattermost.ios` and the `open()` blocks
+until the consent is answered. Nothing answers in a non-interactive run, so it blocks forever.
+`tccd` shows the request at the same millisecond the failing case starts:
+
+```
+tccd[436] [com.apple.TCC:access] AUTHREQ_ATTRIBUTION … accessing={TCCDProcess:
+  identifier=com.mattermost.ios, pid=74129 …, binary_path=…/CoreSimulator/Devices/…/Mattermost.app/Mattermost}
+```
+
+The Catalyst occurrence in `t_ca6db268` (pid 68124) shows the same request with
+`service=kTCCServiceSystemPolicyAllFiles` and
+`Failed to match existing code requirement for subject com.mattermost.ios` — an ad-hoc-signed host
+gets a fresh TCC subject per build, so the consent would have to be re-granted on every rebuild.
+Passing runs never symbolize, which is why the suite looked green: only the failing path reads the
+protected folder.
+
+**Fix — `scripts/qa-test.py` (guarded runner):**
+- derives into `~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa` by default and *refuses* a
+  derived-data path inside `~/Documents`, `~/Desktop`, `~/Downloads` unless
+  `--allow-tcc-unsafe-derived-data` is given (that is the wedge trigger, not a style preference);
+- watches the run: if tests have started and output stops for `--stall-timeout` (default 240 s), it
+  samples the test host, kills the run, prints the `recordIssue -> CSSymbolOwner -> open` diagnosis
+  plus the `tccd` lines, and exits **124** — a wedge can no longer look like "still running";
+- writes a `.xcresult`, parses `** TEST SUCCEEDED **` / `** TEST FAILED **` and returns
+  0 / 1 / 2 / 124 (`xcodebuild` returns 65 on a reported failure, but nothing at all on a hang);
+- `--self-test` is the standing break-proof: it injects a deliberately failing test into
+  `MattermostTests/WebViewStoreTests.swift`, runs it, asserts a source-located `error:` line,
+  `** TEST FAILED **`, a non-zero exit and no wedge, then reverts the file (it refuses to run if
+  that file is dirty).
+
+Rule that follows: **never point a test run's derived data into `~/Documents`** — use
+`scripts/qa-test.py`, or `-derivedDataPath ~/Library/Developer/Xcode/DerivedData/…` for raw
+`xcodebuild`. A `build/…` path is fine for plain `xcodebuild build`, but any run in which a test
+may fail will hang there.
