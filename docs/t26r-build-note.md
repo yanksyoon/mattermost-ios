@@ -317,6 +317,17 @@ Stub fixtures for the flows were already listening on `:8111` (HTTP), `:8443` (s
 `:8112` (slow subresource, `--stall-image 45`), as §6 describes. Gate: `RESULT: PASS`, exit 0
 (`docs/t26r-gate-2026-10-24.log`).
 
+The Catalyst run above ran in the working tree, which also holds T27's uncommitted `PerfProbe.swift`.
+To prove the round-2 commits are self-contained, the same suite was re-run in a **detached worktree at
+`bb2239b`** (no `PerfProbe.swift`, no `PerfProbe` in `project.pbxproj`, no T27 scripts):
+
+```
+Executed 347 tests, with 1 test skipped and 0 failures (0 unexpected) in 3.325 (3.575) seconds
+** TEST SUCCEEDED **   (exit 0)
+# docs/t26r-r2-clean-tree-catalyst-2026-10-24.log
+# and there: bash scripts/verify-dual-render-gates.sh -> RESULT: PASS, 2 call sites seen
+```
+
 ## 4. Decisions recorded
 
 * **R2 = option (a)** (gate the persisted tier behind `#if DEBUG`), because the `-AV` programme's
