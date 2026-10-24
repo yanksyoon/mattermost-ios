@@ -21,3 +21,7 @@ xcuserdata/
 # Editor
 .vscode/
 .idea/
+
+# Vendored upstream Mattermost Push Proxy (nested git + 51MB build binary)
+# Provenance is recorded in PushProxy/upstream_manifest.json, not the tree itself.
+PushProxy/upstream/

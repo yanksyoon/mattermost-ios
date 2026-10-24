@@ -1,0 +1,20 @@
+{
+  "project": "mattermost-ios",
+  "component": "Mattermost Push Proxy (upstream vendored build)",
+  "source": "https://github.com/mattermost/mattermost-push-proxy",
+  "license": "Apache-2.0",
+  "pinned_ref": "v6.6.0",
+  "pinned_sha": "20f2a046fef76a7ab1c121cd01bc2b06206979be",
+  "cloned_at": "2026-10-24",
+  "build_host": {
+    "os": "macOS 26.3.1",
+    "arch": "arm64",
+    "go": "go1.26.3"
+  },
+  "binary": "PushProxy/upstream/bin/mattermost-push-proxy",
+  "runtime_config": "PushProxy/upstream/mattermost-push-proxy.json",
+  "bind": "127.0.0.1:8066",
+  "deployment_status": "LOCAL ONLY - binds loopback; NOT hosted publicly",
+  "proven_after_apple_boundary": false,
+  "apple_boundary_blocker": "no Apple-issued APNs auth key (.p8) exists; AuthKeyFile is a REPLACE_ placeholder and Apple target fails Initialize()"
+}

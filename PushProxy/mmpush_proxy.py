@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""mmpush_proxy.py - Mock Mattermost Push Proxy (SIMULACRUM).
+"""mmpush_proxy.py - Mock Mattermost Push Proxy (SIMULACRUM / CONTRACT FIXTURE).
+
+SUPERSEDED by T12a (docs/t12a-build-note.md): the REAL upstream
+mattermost-push-proxy (v6.6.0) is built, run and verified under PushProxy/upstream/.
+This file is kept ONLY as a contract fixture — a runnable stand-in that documents the
+HTTP surface and APNs payload shape for T13 (APNs registration + NSE) to develop
+against in the no-`.p8` case. It is NOT delivery evidence and must not be presented as
+such. Readiness is probed by mmpush_check.py against the real proxy instead.
 
 A runnable stand-in for the real mattermost-push-proxy for the case where no
 real proxy / APNs auth is reachable (this host cannot reach the official
