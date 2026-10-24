@@ -25,7 +25,7 @@ Contract of record: **`docs/dual-render.md`** (updated by this card).
 | `Mattermost/Core/WebViewStore.swift` | `hasFinishedPageLoad` + `markPageLoadStarted/Finished`; `LoadNeed` + pure `loadNeed(...)` + `loadIfNeeded(_:)` (load / resume / leave alone); `stopForDismantle()` records an interrupted page synchronously; `markPageLoadFailed`/`isCancellation` keep a stopped navigation resumable; `load()` clears the finished flag |
 | `Mattermost/UI/WebViewContainer.swift` | coordinator calls `markPageLoadStarted()` (didStartProvisional) and `markPageLoadFinished()` (didFinish); failure callbacks route through `markPageLoadFailed`; `dismantleUIView` calls `store.stopForDismantle()` instead of touching `webView.stopLoading()` directly |
 | `Mattermost/UI/ContentView.swift` | `loadIfNeeded()` (the `url == nil` guard) replaced by `store.loadIfNeeded(server.url)` on both appear paths |
-| `scripts/verify-dual-render-gates.sh` | **new**: mechanical gate for R2/R3 (writer declarations + call sites inside `#if DEBUG`, read-path/persist gate, private initialiser, inspector wrapper, no `remoteDefault` producer, `PERF_PROBE` absent from project settings, empty registry) |
+| `scripts/verify-dual-render-gates.sh` | **new**: mechanical gate for R2/R3 (writer declarations + call sites inside `#if DEBUG`, read-path/persist gate, private initialiser, inspector wrapper, no `remoteDefault` producer, `PERF_PROBE` absent from project settings, empty registry). Round 2 (review G1/G2): call-site scan matches qualified calls and fails on zero hits; tier-3 check matches a labelled `remoteDefault:` argument as well as an assignment, with four named exemptions |
 | `MattermostTests/SurfaceModeResolverTests.swift` | +7 tests (R2 Release semantics via the seam, R5 reset/hasAnyOverride) |
 | `MattermostTests/WebViewStoreTests.swift` | +5 tests (`testLoadNeedTruthTable`, `testStopForDismantleRecordsOnlyUnfinishedPages`, `testCancellationIsNotAPageError`, `testGenuineFailureIsAPageError`, `testLoadIfNeededLeavesAFinishedPageAlone`) |
 | `MattermostUITests/MattermostUITests.swift` | +1 UI flow (`testMidLoadSurfaceToggleResumesTheInterruptedWebview`) + `stubStalledHTTP` constant + `isFixtureReachable` preflight (the flow skips with the stub command when `:8112` is not running, instead of failing on a missing gitignored fixture) |
@@ -49,7 +49,7 @@ $ bash scripts/verify-dual-render-gates.sh
   ok    setOverride declared inside #if DEBUG (Mattermost/Core/SurfaceModeResolver.swift:161)
   ok    clearOverride declared inside #if DEBUG (Mattermost/Core/SurfaceModeResolver.swift:171)
   ok    clearAllOverrides declared inside #if DEBUG (Mattermost/Core/SurfaceModeResolver.swift:180)
-  ok    every call site of setOverride/clearOverride/clearAllOverrides is inside #if DEBUG
+  ok    all 2 call site(s) of setOverride/clearOverride/clearAllOverrides (incl. qualified `resolver.setOverride(…)`) are inside #if DEBUG
 == 2. tiers 1 and 2 are gated behind the compile-time debugAffordancesEnabled ==
   ok    debugAffordancesEnabled is a compile-time DEBUG (or DEBUG || PERF_PROBE) true/false constant
   ok    read path (init) decodes no override when debug affordances are off
@@ -60,7 +60,7 @@ $ bash scripts/verify-dual-render-gates.sh
 == 3. the inspector view is entirely #if DEBUG ==
   ok    Mattermost/UI/SurfaceInspector.swift is wrapped in a single #if DEBUG ... #endif
 == 4. no production producer for the remote (tier 3) default ==
-  ok    no production assignment to remoteDefault (tier 3 stays a seam)
+  ok    no production producer for remoteDefault — neither a `remoteDefault:` argument nor an assignment (tier 3 stays a seam)
 == 5. the -AV approval registry ==
   ok    nativeApprovedSurfaces is empty (no surface is native-by-default)
 
@@ -68,13 +68,89 @@ RESULT: PASS — dual-render debug affordances cannot reach a Release build.
 $
 ```
 
-**Negative controls** (the gate is not vacuous — both were run and reverted):
+Full transcript: `docs/t26r-gate-2026-10-24.log`.
+
+**Negative controls, round 1** (the gate is not vacuous — both were run and reverted):
 
 * making the flag-taking initialiser non-`private` →
   `FAIL  the initialiser taking debugAffordances is not private (Release code could opt in)`, exit 1;
 * putting `SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) PERF_PROBE` in an `.xcconfig` →
   `FAIL  PERF_PROBE is defined in project build settings …` (`./NegativeProbe.xcconfig:1`), exit 1.
   After removing it: `RESULT: PASS`, exit 0.
+
+**Negative controls, round 2 — the two checks that used to pass vacuously (review G1/G2).** The
+first version of this script printed `PASS` while both conditions were violated, because
+(a) the call-site regex was `(?<![\w.])setOverride\s*\(`, which excludes a preceding dot — and
+*every* call site in this tree is qualified (`resolver.setOverride(…)`), so it had zero true
+positives on the product's own syntax; and (b) the tier-3 check only matched assignments, so a
+provider injected as a labelled argument — the shape §5 itself describes — was invisible. Both were
+re-fixed and each fix was proved by putting the review's probe into the app target, running the gate,
+and reverting.
+
+G1 — qualified call site outside `#if DEBUG` (`Mattermost/Core/__GateProbeG1.swift`, temporary):
+
+```swift
+func __reviewProbeQualifiedCallSite(resolver: SurfaceModeResolver) {
+    resolver.setOverride(.native, for: .channelView)   // no #if DEBUG around it
+}
+```
+
+```
+$ bash scripts/verify-dual-render-gates.sh | tee docs/t26r-gate-probe-g1.log
+...
+  FAIL  non-DEBUG call site(s) of a debug-only writer:
+        Mattermost/Core/__GateProbeG1.swift:6: resolver.setOverride(.native, for: .channelView)
+...
+RESULT: FAIL — 1 dual-render gate violation(s).
+$ echo $?
+1
+```
+
+and the blindness of the old pattern on that exact line, measured:
+
+```
+line: resolver.setOverride(.native, for: .channelView)
+old pattern (?<![\w.])setOverride\s*\(  -> False
+new pattern \bsetOverride\s*\(          -> True
+```
+
+G2 — tier-3 producer injected as a labelled argument (`Mattermost/Core/__GateProbeG2.swift`,
+temporary):
+
+```swift
+func __reviewProbeRemoteDefaultProducer() -> SurfaceModeResolver {
+    SurfaceModeResolver(remoteDefault: { $0 == .channelView ? .native : nil })
+}
+```
+
+```
+$ bash scripts/verify-dual-render-gates.sh | tee docs/t26r-gate-probe-g2.log
+...
+== 4. no production producer for the remote (tier 3) default ==
+  FAIL  remoteDefault is supplied in production code (tier 3 must stay an unproduced seam):
+        Mattermost/Core/__GateProbeG2.swift:7: SurfaceModeResolver(remoteDefault: { $0 == .channelView ? .native : nil })
+...
+RESULT: FAIL — 1 dual-render gate violation(s).
+$ echo $?
+1
+```
+
+```
+line: SurfaceModeResolver(remoteDefault: { $0 == .channelView ? .native : nil })
+old pattern (?<!self)remoteDefault\s*=[^=] -> False
+new labelled-argument scan sees the label   -> True | arg: { $0 == .channelView ? .native : nil })
+```
+
+This one matters behaviourally, not cosmetically: Release *does* honour tier 3
+(`testReleaseSemanticsStillHonourRemoteDefaultAndCompileDefault`), so that producer would have put a
+shipped build on `.native` with an empty `-AV` registry — the exact invariant R3 exists to protect.
+
+Both probe files were deleted after their run (`git status` shows neither); the transcripts are
+committed. Two further guard rails went in with the fix: the call-site scan now **fails when it finds
+zero call sites** (so a scan that can no longer see the code cannot report success), and the four
+non-producer exemptions in check 4 are named in the script header and in `docs/dual-render.md` §5
+(type annotation, `remoteDefault: remoteDefault` forwarding, explicit `nil`,
+`self.remoteDefault = remoteDefault`).
 
 ### Mac Catalyst, full unit suite
 
@@ -213,6 +289,34 @@ Executed 347 tests, with 1 test skipped and 0 failures (0 unexpected) in 2.927 s
   commit split: it proves nothing in the landed code depends on a symbol that only exists in T27's
   uncommitted files.
 
+### Round 2 — re-validation after the G1/G2 gate fix
+
+Review round 1 (`t_96f5f1c9` comment, 15:27) accepted every finding as landed and asked for one
+thing: the two gate checks that passed vacuously had to be fixed, proved with the same probes, and
+the docs narrowed to what the script really covers (§3 above and `docs/dual-render.md` §5/§11).
+Round 2 changed **only** `scripts/verify-dual-render-gates.sh` and the two docs — no product code, no
+test code — so the counts are expected to be **unchanged**, and they are:
+
+```
+# Mac Catalyst, unit suite (docs/t26r-r2-catalyst-unit-2026-10-24.log)
+Executed 347 tests, with 1 test skipped and 0 failures (0 unexpected) in 2.832 (3.119) seconds
+  (the skip is still MentionPollerTests.testLiveMentionsFetch_optIn, MattermostTests/MentionPollerTests.swift:542)
+** TEST SUCCEEDED **   (exit 0)
+
+# iOS Simulator: 347 unit + the three dual-render UI flows, one batch
+# (docs/t26r-r2-ios-unit-and-dual-render-2026-10-24.log)
+Executed 347 tests, with 1 test skipped and 0 failures (0 unexpected) in 3.964 (4.074) seconds
+testLaunchArgumentRendersNativeChannelViewWithChromeIntact              passed (17.480 seconds)
+testSurfaceInspectorTogglesChannelViewAndReturnsToWorkingState         passed (42.666 seconds)
+testMidLoadSurfaceToggleResumesTheInterruptedWebview                   passed (78.069 seconds)
+Executed 3 tests, with 0 failures (0 unexpected) in 138.214 (138.221) seconds
+** TEST SUCCEEDED **   (exit 0)
+```
+
+Stub fixtures for the flows were already listening on `:8111` (HTTP), `:8443` (self-signed TLS) and
+`:8112` (slow subresource, `--stall-image 45`), as §6 describes. Gate: `RESULT: PASS`, exit 0
+(`docs/t26r-gate-2026-10-24.log`).
+
 ## 4. Decisions recorded
 
 * **R2 = option (a)** (gate the persisted tier behind `#if DEBUG`), because the `-AV` programme's
@@ -241,10 +345,26 @@ Executed 347 tests, with 1 test skipped and 0 failures (0 unexpected) in 2.927 s
   `-surfaceMode`. It cannot leak into a shipped build: the condition is passed per-invocation on the
   `xcodebuild` command line, and gate check 2b fails if it ever appears in `.pbxproj`/`.xcconfig`/
   `project.yml`. This is the only cross-card seam in this diff.
+* **The gate script is a cheap early warning, not a proof (review round 2).** It is a regex gate over
+  the app target that now matches both call spellings and both tier-3 wiring shapes, and it fails on
+  zero call sites; it does not model the language. The structural guarantee for the three writers is
+  the compiler (they do not exist outside `#if DEBUG`). For tier 3 there is no compiler guard, which
+  is exactly why the labelled-argument shape had to be added: Release *does* honour `remoteDefault`,
+  and `docs/dual-render.md` §5/§11 now say "early warning, Release build + review as backstop"
+  instead of "cannot slip in unnoticed".
+* **`self.remoteDefault = remoteDefault` stays exempt by name** in check 4 (the review asked why):
+  that assignment is the single `private` initialiser storing the parameter it was just given, so it
+  can only ever install what its caller supplied — the same value the public initialiser already had.
+  It cannot *introduce* a provider. Anything else on the right-hand side (`self.remoteDefault = { … }`)
+  is reported, and `remoteDefault = nil` is exempt because removing a provider cannot create a native
+  decision.
 
 ## 5. Files / logs
 
-* New: `scripts/verify-dual-render-gates.sh`, `docs/t26r-build-note.md`, this card's logs.
+* New: `scripts/verify-dual-render-gates.sh`, `docs/t26r-build-note.md`, this card's logs —
+  `docs/t26r-gate-2026-10-24.log` (round-2 gate PASS) plus the two proof transcripts
+  `docs/t26r-gate-probe-g1.log` / `docs/t26r-gate-probe-g2.log` (both `RESULT: FAIL`, exit 1, with the
+  probe files deleted afterwards).
 * Untouched on purpose: `Mattermost.xcodeproj/project.pbxproj` and `Mattermost/MattermostApp.swift`
   (T27's untracked `PerfProbe` work was in the tree during this card; it is **not** part of this
   commit, and no new file needed target wiring here). The only T27-facing line in this diff is the

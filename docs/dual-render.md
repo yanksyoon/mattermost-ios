@@ -131,7 +131,7 @@ was (T26-R R3).** Every route, and what gates it:
 |---|---|---|
 | tier 1 `-surfaceMode …=native` | a launch argument | **compiled out of Release**: nothing is parsed unless `debugAffordancesEnabled` |
 | tier 2 stored row (`mm.surfaceModes`) | the DEBUG Surface inspector, or `forceWebForThisRun` (web only) | **not decoded in Release**; the only writers are inside `#if DEBUG` |
-| tier 3 `remoteDefault` closure | an injected provider | **no producer exists**; wiring one is a reviewable diff (gate script) |
+| tier 3 `remoteDefault` closure | an injected provider | **no producer exists**; both wiring shapes (`remoteDefault:` argument, assignment) fail the gate script |
 | tier 4 compile default | `nativeApprovedSurfaces` | the `-AV` approval itself (§5) |
 | native branch of `SurfaceHost` | mounts a screen card | only reachable through `resolvedMode(for:)`, i.e. one of the rows above |
 
@@ -144,13 +144,37 @@ by convention:
 * `forceWebForThisRun` (the "Use web view" escape hatch, which must exist in Release) only ever
   writes `.web`; it cannot reach `.native`.
 * The read path (`SurfaceModeResolver.init`) decodes tiers 1 and 2 only when
-  `SurfaceModeResolver.debugAffordancesEnabled` is true, which is `#if DEBUG`. A Release build
-  passes a literal `false` and the resolver stores empty dictionaries.
-* `scripts/verify-dual-render-gates.sh` re-checks all of the above mechanically (writer declarations
-  and call sites inside `#if DEBUG`, the read-path/persist gates, the private initialiser, the
-  inspector file wrapper, no `remoteDefault` producer, no `PERF_PROBE` in the project's build
-  settings, empty registry). Run it in review; it fails loudly if any of these regress. It does not
-  replace the `-AV` — it protects the gate.
+  `SurfaceModeResolver.debugAffordancesEnabled` is true, which is `#if DEBUG || PERF_PROBE`
+  (`PERF_PROBE` is the non-shipping perf-harness condition — §8 — and it never appears in the
+  project's own build settings, which the gate script proves). A Release build passes a literal
+  `false` and the resolver stores empty dictionaries.
+* `scripts/verify-dual-render-gates.sh` re-checks all of the above mechanically. **What it actually
+  checks, and what it therefore cannot claim** — stated explicitly because the first version of this
+  script passed *vacuously* on two of these checks (T26-R review G1/G2; probe transcripts in
+  `docs/t26r-build-note.md` §3):
+  - writer **declarations** inside `#if DEBUG`;
+  - writer **call sites**: any `setOverride(` / `clearOverride(` / `clearAllOverrides(` in the app
+    target, **qualified or bare** — `resolver.setOverride(…)` is the spelling the app actually uses,
+    and the old receiver-dot exclusion was blind to exactly that — excluding only `func`
+    declarations and comment lines. It also fails when it finds *zero* call sites, so a scan that can
+    no longer see the code cannot report success;
+  - the read-path and `persist()` gates, the `private` initialiser, the inspector file wrapper;
+  - tier-3 producers in **both** wiring shapes — a labelled argument
+    (`SurfaceModeResolver(remoteDefault: { … })`, the shape this section describes) *and* an
+    assignment (`x.remoteDefault = …`) — with four named exemptions: the parameter/property type
+    annotation, the convenience initialiser's own forwarding (`remoteDefault: remoteDefault`), an
+    explicit `nil`, and `self.remoteDefault = remoteDefault` (the private initialiser storing the very
+    parameter it was handed, which cannot introduce a provider of its own);
+  - no `PERF_PROBE` in the project's build settings;
+  - the empty `-AV` registry.
+
+  Honest limits: it is a **regex** gate over the app target (`Mattermost/` — the test targets may
+  inject a provider freely), it skips comment lines, and it reasons line by line. A provider routed
+  indirectly — a method reference captured without a call, a closure assembled several lines away, a
+  helper type proxying `remoteDefault` — is not something it can see. The structural backstop for
+  the three writers is the compiler (they do not exist outside `#if DEBUG`, so a Release call site
+  cannot build at all); the script is the cheap early warning for the shapes that *do* compile. It
+  does not replace the `-AV` — it protects the gate.
 
 A card is allowed to *merge* its `SurfaceHost` native branch **before** the flip (that is how the
 screen becomes reachable through `-surfaceMode …=native` and the inspector) — it just may not
@@ -328,8 +352,11 @@ flag).
 ## 11. Known limits (stated, not hidden)
 
 * **No remote/config default is wired.** Tier 3 is an injectable closure with no producer; adding a
-  real one is a separate card (it needs a server-side or build-channel source of truth) and is
-  guarded by `scripts/verify-dual-render-gates.sh` so it cannot slip in unnoticed.
+  real one is a separate card (it needs a server-side or build-channel source of truth). Both wiring
+  shapes — a `remoteDefault:` argument and an assignment — fail
+  `scripts/verify-dual-render-gates.sh`, which is the cheap early warning rather than a proof: a
+  producer routed indirectly past the regex would still only be caught by a Release build and review
+  (§5 states the limit).
 * **Only `channelView` has a host.** The other 11 surfaces are togglable (inspector / launch flag)
   and resolve correctly, but no view mounts them yet — their hosts arrive with their screen cards.
   Toggling e.g. `threads` therefore changes nothing on screen today, because threads are rendered

@@ -1,0 +1,21 @@
+== 1. arbitrary-mode writers are declared and called only inside #if DEBUG ==
+  ok    setOverride declared inside #if DEBUG (Mattermost/Core/SurfaceModeResolver.swift:161)
+  ok    clearOverride declared inside #if DEBUG (Mattermost/Core/SurfaceModeResolver.swift:171)
+  ok    clearAllOverrides declared inside #if DEBUG (Mattermost/Core/SurfaceModeResolver.swift:180)
+  FAIL  non-DEBUG call site(s) of a debug-only writer:
+        Mattermost/Core/__GateProbeG1.swift:6: resolver.setOverride(.native, for: .channelView)
+== 2. tiers 1 and 2 are gated behind the compile-time debugAffordancesEnabled ==
+  ok    debugAffordancesEnabled is a compile-time DEBUG (or DEBUG || PERF_PROBE) true/false constant
+  ok    read path (init) decodes no override when debug affordances are off
+  ok    the one initialiser that takes the flag is private
+  ok    persist() writes nothing when debug affordances are off
+== 2b. PERF_PROBE (the only other way to enable the debug tiers) is not in the project ==
+  ok    PERF_PROBE appears in no .pbxproj/.xcconfig/project.yml — command line only
+== 3. the inspector view is entirely #if DEBUG ==
+  ok    Mattermost/UI/SurfaceInspector.swift is wrapped in a single #if DEBUG ... #endif
+== 4. no production producer for the remote (tier 3) default ==
+  ok    no production producer for remoteDefault — neither a `remoteDefault:` argument nor an assignment (tier 3 stays a seam)
+== 5. the -AV approval registry ==
+  ok    nativeApprovedSurfaces is empty (no surface is native-by-default)
+
+RESULT: FAIL — 1 dual-render gate violation(s).
