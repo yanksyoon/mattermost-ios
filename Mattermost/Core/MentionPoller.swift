@@ -162,6 +162,16 @@ final class MentionPoller {
         SecureVault().getSecret(key: .authToken, serverURL: url)
     }
 
+    /// Called when a poll gets a `401` — the stored token is no longer accepted.
+    ///
+    /// The poller cannot reuse the server's `AuthSession` client: it runs from a
+    /// `BGAppRefreshTask` with no scene, so it owns an ephemeral `URLSession` that it can tear down
+    /// on task expiration. Without this report a revoked token left polling failing silently while
+    /// the shell still believed it was signed in (T31-AV F3). `MattermostApp.bindShellStores()`
+    /// wires it to `AuthCoordinator.reportUnauthorized(_:)`, i.e. into the same single re-auth path
+    /// every other authenticated call uses. Unbound → logged no-op.
+    var unauthorizedReporter: ((ServerConfig) async -> Void)?
+
     /// Gate consulted before the delivery loop. Exists so the poller never triggers the
     /// system permission prompt from a background launch (`presentMention` requests the
     /// prompt on first mention — appropriate only while foregrounded).
@@ -197,6 +207,13 @@ final class MentionPoller {
         case transport(String)
         case httpStatus(Int)
         case decoding(String)
+
+        /// A `401`: the stored token was rejected. Distinct from any other HTTP failure because it
+        /// is not the poll's problem — it is the session's, and it aborts the whole poll.
+        var isSessionExpiry: Bool {
+            if case .httpStatus(401) = self { return true }
+            return false
+        }
 
         var errorDescription: String? {
             switch self {
@@ -309,6 +326,9 @@ final class MentionPoller {
                         currentCounts[channel.channelId] = channel.mentionCount
                     }
                 } catch {
+                    // Auth failure is not this team's problem: abort the poll so it reaches the
+                    // re-auth path instead of being logged as a per-team hiccup.
+                    if Self.isSessionExpiry(error) { throw error }
                     // Per-team tolerance: one team's unread fetch failing must not kill the
                     // whole poll. That team's channels keep their old snapshot entries, so
                     // the next poll will still see the delta.
@@ -354,6 +374,8 @@ final class MentionPoller {
                         }
                     }
                 } catch {
+                    // As above: a 401 aborts; any other per-channel failure is tolerated.
+                    if Self.isSessionExpiry(error) { throw error }
                     // Per-channel tolerance as above: log, skip, keep old snapshot entry.
                     Logger.debug("MentionPoller", "\(server.name): channel \(channelID) posts fetch failed: \(error)")
                 }
@@ -399,9 +421,24 @@ final class MentionPoller {
             Logger.info("MentionPoller", "\(server.name): polled — \(delivered) new mention(s) notified, watermark \(state.watermarkTs)")
             return ServerPollResult(serverID: server.id, outcome: .polled(notifiedCount: delivered, watermarkTs: state.watermarkTs))
         } catch {
+            if Self.isSessionExpiry(error) {
+                Logger.info("MentionPoller", "\(server.name): the stored token was rejected (401) — requesting re-auth")
+                if let reporter = unauthorizedReporter {
+                    await reporter(server)
+                } else {
+                    Logger.debug("MentionPoller", "\(server.name): no re-auth reporter bound; the shell will notice at the next restore")
+                }
+                return ServerPollResult(serverID: server.id, outcome: .failed("session expired"))
+            }
             Logger.debug("MentionPoller", "\(server.name): poll failed — \(error)")
             return ServerPollResult(serverID: server.id, outcome: .failed(error.localizedDescription))
         }
+    }
+
+    /// Whether `error` is a `401` from any depth of the poll (top level or a per-team/per-channel
+    /// fetch that would otherwise be tolerated).
+    nonisolated static func isSessionExpiry(_ error: Error) -> Bool {
+        (error as? PollError)?.isSessionExpiry ?? false
     }
 
     // MARK: - Pure helpers (unit-tested)

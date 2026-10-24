@@ -782,6 +782,262 @@ final class T31AuthCoordinatorTests: XCTestCase {
         XCTAssertFalse(certTrust.isTrusted(serverURL, certificate: prompt.certificate))
         XCTAssertFalse(certTrust.isExplicitlyUntrusted(for: serverURL))
     }
+
+    // MARK: T31-AV F1 — an expiry drops the webview's copy of the credential too
+
+    /// The AV finding in one test: sign-out cleared both copies, expiry cleared one, so "Your
+    /// session expired" could be followed by the pane escape hatch still being signed in. The
+    /// restore-rejection path is the one an expiry takes at launch.
+    func testASessionExpiryClearsTheWebviewCookieAsWellAsTheVault() async throws {
+        try vault.setSecret("revoked-token", key: .authToken, serverURL: serverURL)
+        let transport = FakeAPITransport(stubs: [
+            .ok(payload("api.context.session_expired.app_error", "Session expired", status: 401))
+        ])
+        let coordinator = makeCoordinator(transport)
+
+        let restored = try await coordinator.restore(server)
+
+        XCTAssertNil(restored)
+        XCTAssertEqual(coordinator.phase(for: server.id), .expired)
+        XCTAssertNil(vault.getSecret(key: .authToken, serverURL: serverURL),
+                     "the vault copy is gone")
+        XCTAssertEqual(cookies.cleared.map(\.serverID), [server.id],
+                       "an expiry must drop the webview's MMAUTHTOKEN too — otherwise one login has "
+                       + "two states and the pane escape hatch stays signed in after "
+                       + "\"Your session expired\"")
+        XCTAssertEqual(cookies.cleared.map(\.url), [serverURL],
+                       "the cookie clear is scoped to this server, not another")
+    }
+
+    /// The same guarantee on the *live* path: a 401 from a call on the session's own client (what a
+    /// screen does) clears both copies before the banner, and notifies the shell exactly once.
+    func testA401FromANonRestoreCallClearsBothCopiesBeforeTheBanner() async throws {
+        let transport = FakeAPITransport(stubs: [
+            .ok(.json(userJSON(), headers: ["Token": "tok-live"])),
+            .ok(payload("api.context.session_expired.app_error", "Session expired", status: 401)),
+        ])
+        let (coordinator, client) = try makeCoordinatorAndClient(transport)
+        var notifications: [UUID] = []
+        coordinator.onChange = { notifications.append($0) }
+
+        _ = try await coordinator.signIn(server, loginID: "ada", password: "pw")
+        XCTAssertEqual(coordinator.authState(for: server), .signedIn)
+        notifications.removeAll()
+
+        // A screen's first GET, on the client the coordinator injected — not a restore.
+        do {
+            _ = try await client.get(MMUser.self, path: "/users/me", useETag: false)
+            XCTFail("the revoked token must not answer 200")
+        } catch {
+            XCTAssertEqual(error as? MMError, .unauthorized(message: "Session expired"))
+        }
+
+        try await waitUntil("the expiry transition") { coordinator.phase(for: server.id) == .expired }
+        XCTAssertNil(vault.getSecret(key: .authToken, serverURL: serverURL))
+        XCTAssertEqual(cookies.cleared.map(\.serverID), [server.id],
+                       "one 401 → one cookie clear (the sink and the call site both notice)")
+        XCTAssertEqual(notifications, [server.id], "one re-auth notification, not a storm")
+    }
+
+    // MARK: T31-AV F2 — the local clear happens before the network
+
+    /// A transport whose `/users/logout` stalls for 2 s: the vault must already be empty while that
+    /// call is in flight, or a kill in the window keeps a usable token for a server being removed.
+    private final class StallingLogoutTransport: APITransport {
+        func send(_ request: APIRequest) async throws -> APIResponse {
+            if request.url.path.hasSuffix("/users/logout") {
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+                throw APITransportError.offline
+            }
+            return .json(["id": "u1", "username": "ada"], headers: ["Token": "tok-live"])
+        }
+    }
+
+    func testSignOutClearsTheVaultBeforeTheLogoutCallCompletes() async throws {
+        let vault = self.vault!
+        let certTrust = self.certTrust!
+        let serverURL = self.serverURL
+        let coordinator = AuthCoordinator(vault: vault, certTrust: certTrust, cookieClearing: cookies) { config, _ in
+            let client = try APIClient(serverURL: config.url,
+                                       transport: StallingLogoutTransport(),
+                                       retryPolicy: .none,
+                                       tokenProvider: { vault.getSecret(key: .authToken, serverURL: config.url) },
+                                       sleep: { _ in },
+                                       random: { 0 })
+            return AuthSession(serverID: config.id, serverURL: config.url, vault: vault, client: client)
+        }
+        _ = try await coordinator.signIn(server, loginID: "ada", password: "pw")
+        XCTAssertEqual(vault.getSecret(key: .authToken, serverURL: serverURL), "tok-live")
+
+        let signOut = Task { await coordinator.signOut(server) }
+        try await Task.sleep(nanoseconds: 400_000_000)
+
+        XCTAssertNil(vault.getSecret(key: .authToken, serverURL: serverURL),
+                     "0.4 s into a sign-out whose /users/logout is still in flight, the vault must "
+                     + "already be empty: otherwise a termination here leaves a usable token behind")
+        XCTAssertNil(vault.getSecret(key: .userID, serverURL: serverURL))
+        XCTAssertEqual(coordinator.phase(for: server.id), .signedOut,
+                       "the shell sees the sign-out immediately, not when the network answers")
+
+        await signOut.value
+        XCTAssertEqual(cookies.cleared.count, 1, "the webview copy is cleared as well")
+    }
+
+    /// The half `SettingsView` depends on: the vault clear is **synchronous**, so it has happened
+    /// before the server row is removed on the same turn (a detached `Task` has not run yet).
+    func testBeginSignOutIsSynchronousAndStillRevokesWithTheDiscardedToken() async throws {
+        let transport = FakeAPITransport(stubs: [
+            .ok(.json(userJSON(), headers: ["Token": "tok-live"])),
+            .ok(.json([:])),
+        ])
+        let coordinator = makeCoordinator(transport)
+        _ = try await coordinator.signIn(server, loginID: "ada", password: "pw")
+
+        // No `await` between this call and the assertions — this is the Settings-remove turn.
+        let discarded = coordinator.beginSignOut(server)
+
+        XCTAssertNil(vault.getSecret(key: .authToken, serverURL: serverURL),
+                     "removing a server must clear its token on the same turn")
+        XCTAssertNil(vault.getSecret(key: .userID, serverURL: serverURL))
+        XCTAssertEqual(coordinator.phase(for: server.id), .signedOut)
+        XCTAssertEqual(discarded.token, "tok-live", "the token is remembered for the revocation")
+
+        await coordinator.finishSignOut(discarded)
+
+        XCTAssertEqual(transport.lastRequest?.url.path, "/api/v4/users/logout")
+        XCTAssertEqual(transport.lastRequest?.headers["Authorization"], "Bearer tok-live",
+                       "revocation still authenticates — with the token the device just dropped, "
+                       + "so the ordered sign-out does not silently become an unauthenticated call")
+        XCTAssertEqual(cookies.cleared.count, 1)
+    }
+
+    // MARK: T31-AV F3 — a 401 from a call path that does not use the session's client
+
+    /// `MentionPoller` owns its own `URLSession` (background task, no scene), so its 401s cannot
+    /// reach `AuthSession.onUnauthorized`. `reportUnauthorized` is the explicit route into the one
+    /// re-auth path; this is the coordinator half of that contract.
+    func testAReportedUnauthorizedExpiresTheSessionAndClearsBothCopies() async throws {
+        let transport = FakeAPITransport(stubs: [
+            .ok(.json(userJSON(), headers: ["Token": "tok-live"])),
+        ])
+        let coordinator = makeCoordinator(transport)
+        var notifications: [UUID] = []
+        coordinator.onChange = { notifications.append($0) }
+        _ = try await coordinator.signIn(server, loginID: "ada", password: "pw")
+        notifications.removeAll()
+
+        // What the poller's reporter closure does when a poll gets a 401.
+        await coordinator.reportUnauthorized(server)
+
+        XCTAssertEqual(coordinator.phase(for: server.id), .expired,
+                       "a poller's 401 must reach the same re-auth path as any other native call")
+        XCTAssertEqual(coordinator.authState(for: server), .signedOut)
+        XCTAssertNil(vault.getSecret(key: .authToken, serverURL: serverURL))
+        XCTAssertEqual(cookies.cleared.map(\.serverID), [server.id],
+                       "and it clears the webview copy, exactly like a client-side 401")
+        XCTAssertEqual(notifications, [server.id])
+    }
+
+    func testAStale401ReportForASignedOutServerRaisesNoBanner() async throws {
+        let coordinator = makeCoordinator(FakeAPITransport(stubs: []))
+
+        await coordinator.reportUnauthorized(server)
+
+        XCTAssertEqual(coordinator.phase(for: server.id), .unresolved,
+                       "a 401 for a server with no stored session is not an expiry")
+        XCTAssertTrue(cookies.cleared.isEmpty)
+    }
+
+    // MARK: Helpers
+
+    /// A coordinator whose `AuthSession` client the test also holds, so a test can make a call
+    /// *through* the session's client (the documented way for a screen to reach the server).
+    private func makeCoordinatorAndClient(_ transport: FakeAPITransport) throws -> (AuthCoordinator, APIClient) {
+        let vault = self.vault!
+        let certTrust = self.certTrust!
+        var created: APIClient?
+        let coordinator = AuthCoordinator(vault: vault, certTrust: certTrust, cookieClearing: cookies) { config, _ in
+            let client = try APIClient(serverURL: config.url,
+                                       transport: transport,
+                                       retryPolicy: .none,
+                                       tokenProvider: { vault.getSecret(key: .authToken, serverURL: config.url) },
+                                       sleep: { _ in },
+                                       random: { 0 })
+            created = client
+            return AuthSession(serverID: config.id, serverURL: config.url, vault: vault, client: client)
+        }
+        _ = try coordinator.session(for: server)
+        return (coordinator, try XCTUnwrap(created, "the coordinator did not build a session"))
+    }
+
+    /// Poll `condition` until it holds; XCTest has no async expectation for a main-actor object.
+    private func waitUntil(_ what: String,
+                           timeout: TimeInterval = 3,
+                           _ condition: () -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTFail("timed out waiting for \(what)")
+    }
+}
+
+// MARK: - Error copy (every branch the AV finding named)
+
+/// T31-AV F7: `LoginErrorCopy` is the user-visible copy of the auth surface, and only its network and
+/// credential branches had a test. Every remaining branch is pinned here, including the two that
+/// prefer the server's own sentence when it sends one.
+final class T31LoginErrorCopyTests: XCTestCase {
+
+    func testEveryUncoveredBranchMapsToItsOwnSentence() {
+        let cases: [(MMError, String)] = [
+            (.rateLimited(retryAfter: 30), "Too many attempts. Try again in 30s."),
+            (.rateLimited(retryAfter: nil), "Too many attempts. Try again shortly."),
+            (.forbidden(message: nil), "You do not have permission to sign in to this server."),
+            (.notFound, "This server has no sign-in endpoint. Check the server address."),
+            (MMError.server(status: 503, message: nil), "The server had a problem (503). Try again."),
+            (MMError.client(status: 400, message: nil), "The server rejected that sign-in."),
+            (.malformedResponse("body was not JSON"),
+             "The server's answer could not be read. Check that this is a Mattermost server."),
+            (.notSignedIn, "Your session expired. Sign in again."),
+            (.invalidURL("nope"), "That server address is not valid."),
+            (.cancelled, "Sign-in was cancelled."),
+        ]
+        for (error, expected) in cases {
+            XCTAssertEqual(LoginErrorCopy.message(for: error), expected, "copy for \(error)")
+        }
+    }
+
+    func testTheServerOwnSentenceWinsWhenItSendsOne() {
+        XCTAssertEqual(LoginErrorCopy.message(for: MMError.server(status: 503, message: "Maintenance until 12:00")),
+                       "Maintenance until 12:00",
+                       "an operator who customises the server's message sees their own words")
+        XCTAssertEqual(LoginErrorCopy.message(for: MMError.client(status: 400, message: "Login is disabled")),
+                       "Login is disabled")
+    }
+
+    func testANonMattermostErrorFallsBackToItsOwnDescription() {
+        struct Boom: LocalizedError { var errorDescription: String? { "boom" } }
+        XCTAssertEqual(LoginErrorCopy.message(for: Boom()), "boom")
+    }
+
+    /// The same table through the form, so the copy is proven to be wired to the screen state and not
+    /// only to the helper: a rate-limited server keeps the user on the form with that sentence.
+    @MainActor
+    func testARateLimitedSignInShowsTheRetrySentenceOnTheForm() async {
+        let authenticator = FakeLoginAuthenticator(results: [.failure(.rateLimited(retryAfter: 12))])
+        let model = LoginViewModel(serverName: "T",
+                                   serverURL: URL(string: "https://mm.example.com")!,
+                                   authenticator: authenticator)
+        model.loginID = "ada"
+        model.password = "pw"
+
+        await model.submit()
+
+        XCTAssertEqual(model.phase, .failed)
+        XCTAssertEqual(model.errorMessage, "Too many attempts. Try again in 12s.")
+    }
 }
 
 // MARK: - A log sink for the duration of one test

@@ -173,6 +173,13 @@ struct RootView: View {
                         Text("This clears the server's signed-in session on this device.")
                     }
                     .onAppear {
+                        // T31-R: these two stores are what `open(_:)` needs to resolve a route, and
+                        // the app's `.task` used to be the only thing that bound them. `.task` can
+                        // start after this appearance, and when it did the first route came back
+                        // `.unsupported("no server store is bound")`: no location was written, so a
+                        // signed-out server showed the workspace skeleton instead of the auth
+                        // surface (reproduced on the T31 tree, on an erased device).
+                        navigation.bind(serverStore: serverStore, viewStore: viewStore)
                         startUp()
                         // Any server mounted before this appearance (a relaunch with servers
                         // already configured) is a release candidate under the policy.

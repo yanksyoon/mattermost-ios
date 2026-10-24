@@ -277,6 +277,18 @@ final class NativeNavigation: ObservableObject {
 
     weak var serverStore: ServerStore?
     weak var viewStore: ViewStore?
+
+    /// Bind the shell stores this model routes against.
+    ///
+    /// Idempotent and cheap, so the view that owns the stores can call it on every appearance
+    /// instead of relying on the app's `.task` to have won the race against the first route. When
+    /// that task lost, `open(_:)` answered `.unsupported("no server store is bound to the native
+    /// navigation model")`, no location was ever written, and a signed-out server rendered the
+    /// workspace skeleton with no auth surface at all (T31-R; reproduced on the T31 tree).
+    func bind(serverStore: ServerStore, viewStore: ViewStore) {
+        self.serverStore = serverStore
+        self.viewStore = viewStore
+    }
     /// The one render-mode decision (T26). The shell is the native branch of
     /// `SurfaceDefaults.paneHostSurface`, so routing only diverts here while that surface resolves
     /// `native`.

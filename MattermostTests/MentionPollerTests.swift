@@ -528,6 +528,103 @@ final class MentionPollerTests: XCTestCase {
         XCTAssertEqual(decoded, state)
     }
 
+    // MARK: - T31-AV F3: a 401 from the poller reaches the one re-auth path
+
+    /// A poll whose first request is answered `401` must (a) stop, not grind through the rest of the
+    /// drill-down as a tolerated per-team failure, and (b) report the server once so the shell can
+    /// raise its re-auth banner. Before T31-R the poller swallowed the 401 into `.failed("HTTP 401")`
+    /// and the shell kept believing it was signed in until the next launch.
+    func testA401AbortsThePollAndReportsReAuthOnce() async {
+        let server = makeServer()
+        MockURLProtocol.handler = recordingHandler { _ in
+            self.textResponse(#"{"id":"api.context.session_expired.app_error","message":"Session expired","status_code":401}"#,
+                              status: 401)
+        }
+        defer { MockURLProtocol.handler = nil }
+
+        let poller = makePoller(server: server)
+        var reported: [UUID] = []
+        poller.unauthorizedReporter = { config in reported.append(config.id) }
+
+        let result = await poller.poll(server: server, token: "test-token")
+
+        XCTAssertEqual(result.outcome, .failed("session expired"))
+        XCTAssertEqual(reported, [server.id], "exactly one re-auth report per poll")
+        XCTAssertEqual(requestedPaths.count, 1,
+                       "a 401 aborts the poll instead of continuing the drill-down: \(requestedPaths)")
+    }
+
+    /// The per-team/per-channel `catch` blocks tolerate failures so one bad channel cannot kill a
+    /// poll — a 401 must not be swallowed by that tolerance (it is the session's failure, not a
+    /// channel's). Without the rethrow, this poll returned `.seeded` and reported nothing.
+    func testA401OnANestedUnreadFetchIsNotSwallowedByThePerTeamTolerance() async {
+        let server = makeServer()
+        MockURLProtocol.handler = recordingHandler { request in
+            let path = request.url!.path
+            if path.hasSuffix("/users/me/teams/unread") {
+                return try self.jsonResponse([["team_id": "team1", "mention_count": 2, "msg_count": 9]],
+                                             status: 200)
+            }
+            if path.contains("/channels/unread") {
+                return self.textResponse(#"{"id":"api.context.session_expired.app_error","status_code":401}"#,
+                                         status: 401)
+            }
+            return try self.textResponse("unexpected \(request.url!)", status: 404)
+        }
+        defer { MockURLProtocol.handler = nil }
+
+        let poller = makePoller(server: server)
+        var reported: [UUID] = []
+        poller.unauthorizedReporter = { config in reported.append(config.id) }
+
+        let result = await poller.poll(server: server, token: "test-token")
+
+        XCTAssertEqual(result.outcome, .failed("session expired"))
+        XCTAssertEqual(reported, [server.id], "the nested 401 must reach the re-auth path")
+        XCTAssertTrue(requestedPaths.contains { $0.contains("/channels/unread") })
+        XCTAssertEqual(poller.loadState(for: server.id).watermarkTs, 0,
+                       "an aborted poll must not advance the watermark or seed the first run")
+    }
+
+    /// The seam `MattermostApp.bindShellStores()` wires: the poller's reporter closure is the
+    /// coordinator's `reportUnauthorized`, and a 401 poll therefore flips the shell's own gate to
+    /// `.expired` — the same transition a client-side 401 produces.
+    func testThePollersReportReachesTheAuthCoordinator() async throws {
+        let serverURL = URL(string: "https://chat.example.com")!
+        let server = ServerConfig(name: "Polled", url: serverURL)
+        let vault = SecureVault(serviceNamespace: "t31r-poll-\(UUID().uuidString)",
+                                secureStore: InMemorySecretStore())
+        let transport = FakeAPITransport(stubs: [
+            .ok(.json(["id": "u1", "username": "ada"], headers: ["Token": "tok-live"])),
+        ])
+        let coordinator = AuthCoordinator(vault: vault,
+                                          certTrust: CertTrust(secureStore: InMemorySecretStore()),
+                                          cookieClearing: FakeCookieClearing()) { config, _ in
+            let client = try APIClient(serverURL: config.url,
+                                       transport: transport,
+                                       retryPolicy: .none,
+                                       tokenProvider: { vault.getSecret(key: .authToken, serverURL: config.url) })
+            return AuthSession(serverID: config.id, serverURL: config.url, vault: vault, client: client)
+        }
+        _ = try await coordinator.signIn(server, loginID: "ada", password: "pw")
+        XCTAssertEqual(coordinator.authState(for: server), .signedIn)
+
+        MockURLProtocol.handler = { _ in
+            self.textResponse(#"{"id":"api.context.session_expired.app_error","status_code":401}"#, status: 401)
+        }
+        defer { MockURLProtocol.handler = nil }
+
+        let poller = makePoller(server: server)
+        poller.unauthorizedReporter = { config in await coordinator.reportUnauthorized(config) }
+
+        _ = await poller.poll(server: server, token: "tok-live")
+
+        XCTAssertEqual(coordinator.phase(for: server.id), .expired,
+                       "a 401 seen by the poller must expire the session the shell is rendering")
+        XCTAssertNil(vault.getSecret(key: .authToken, serverURL: serverURL),
+                     "and the revoked credential is dropped, exactly as on a client-side 401")
+    }
+
     // MARK: - Opt-in live fetch (real network; TEST_RUNNER_MM_LIVE_* env-gated)
 
     /// Real mentions fetch against a real server, exactly like the acceptance criterion's

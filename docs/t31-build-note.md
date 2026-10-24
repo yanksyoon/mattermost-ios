@@ -10,6 +10,12 @@ This note is deliberately written so its claims can be re-run: every number belo
 command in §13, and the two "real server" screenshots come from a live `mattermost` server rather
 than a fixture (§7).
 
+> **T31-R (the T31-AV repair) changed three behaviours and shipped the surface.** The expiry path now
+> clears the webview cookie as well, sign-out clears the vault *before* the network call, and a 401
+> seen by the background mention poller reaches the re-auth path; `.auth` is native by default. The
+> finding-by-finding record, with the fails-before/fails-after runs, is
+> `docs/t31r-patch-note.md`.
+
 ---
 
 ## 1. What shipped
@@ -40,14 +46,20 @@ SurfaceHost(.auth) {
 }
 ```
 
-* `Surface.auth` has **no** entry in `SurfaceDefaults.nativeApprovedSurfaces`, so the shipping
-  configuration still renders the T30 stand-in, with the chrome and the documented escape hatch.
-  Flipping the surface to native is `T31-AV`'s decision, not this card's.
-* Consequently the T30-R regression test (`testSignedOutServerShowsTheIdentifiableAuthSurface`) and
-  the flag-off test (`testWebPaneIsUnchangedWithoutTheSurfaceFlag`) run **unchanged** and still
-  assert the stand-in path.
-* Nothing in the native branch hard-wires native: the only way to see it is
-  `-surfaceMode auth=native` (DEBUG/measurement seam) or a later approval.
+* `Surface.auth` was **not** in `SurfaceDefaults.nativeApprovedSurfaces` when T31 landed, so the
+  shipping configuration rendered the T30 stand-in; that was deliberate, because flipping the
+  surface is `T31-AV`'s decision, not the card's. **T31-R changed this**: T31-AV approved the
+  surface (verdict §F8) and the flip landed in its own commit — `.auth` is now in the registry
+  (`RenderMode.swift`), so the native sign-in form renders by default and the T30 stand-in is
+  reachable only with `-surfaceMode auth=web` (UI test
+  `testTheAuthStandInIsStillReachableThroughTheSurfaceFlag`). See `docs/t31r-patch-note.md` §5.
+* The T30-R regression test (`testSignedOutServerShowsTheIdentifiableAuthSurface`) still runs and
+  still proves the identifier reaches the tree — it now asserts the native form is what renders in
+  that launch; the flag-off test (`testWebPaneIsUnchangedWithoutTheSurfaceFlag`) is untouched and
+  still asserts the webview pane path.
+* The last bullet above is now only half true: since T31-R the shipping default *is* native, and
+  `-surfaceMode auth=native` is a no-op override kept in the T31 UI tests to say so explicitly.
+  `-surfaceMode auth=web` is the escape hatch, and it renders the stand-in.
 
 ## 3. The state machine
 
@@ -60,15 +72,27 @@ SurfaceHost(.auth) {
   `.signedIn`; a rejected one → `.expired` (banner + form, never a silent bare form).
 * **Offline is not an expiry.** A transport failure leaves the phase `unresolved` and keeps the
   stored session (unit: `testAnUnreachableServerKeepsTheStoredSessionAtLaunch`).
-* **One re-auth path.** Each live `AuthSession.@Published needsReauth` is observed once; any 401 on
-  any authenticated call flips that server to `.expired`, `onChange` re-asks the shell, and the auth
-  surface shows the banner. No screen has to notice a 401 (unit:
-  `testA401OnALiveSessionTurnsTheGateToReauthWithoutAnyScreenInvolved`).
-* **Sign-out clears both copies of the credential.** The vault token/userID *and* the webview's
-  `MMAUTHTOKEN` cookie are removed even when the `/users/logout` call fails (unit:
-  `testSignOutClearsTheCredentialEvenWhenTheServerCallFails`,
+* **One re-auth path — and an expiry drops *both* credential copies.** Each live
+  `AuthSession.@Published needsReauth` is observed once; any 401 on any authenticated call flips
+  that server to `.expired`, `onChange` re-asks the shell, and the auth surface shows the banner. No
+  screen has to notice a 401 (unit:
+  `testA401OnALiveSessionTurnsTheGateToReauthWithoutAnyScreenInvolved`). Since T31-R the vault token
+  **and** the webview's `MMAUTHTOKEN` are cleared before the phase moves
+  (`AuthCoordinator.requireReauth`, unit `testASessionExpiryClearsTheWebviewCookieAsWellAsTheVault`),
+  and a 401 seen by a call path that does not use the session's client — today the background
+  `MentionPoller` — reports through `AuthCoordinator.reportUnauthorized(_:)` into the same
+  transition (unit `testA401AbortsThePollAndReportsReAuthOnce`,
+  `testThePollersReportReachesTheAuthCoordinator`).
+* **Sign-out clears both copies of the credential, before the network call.** The vault
+  token/userID *and* the webview's `MMAUTHTOKEN` cookie are removed even when the `/users/logout`
+  call fails (unit: `testSignOutClearsTheCredentialEvenWhenTheServerCallFails`,
   `testSignOutWithoutALiveSessionStillClearsTheStoredCredential`, plus a real
-  `WKWebsiteDataStore` test that the removal touches only that server's store).
+  `WKWebsiteDataStore` test that the removal touches only that server's store). Since T31-R the
+  local clear is **synchronous and first** (`beginSignOut`), the revocation after it
+  (`finishSignOut`) authenticates with the token that was just discarded: a kill during the
+  3-attempt/30 s logout window can no longer leave a usable Keychain token for a removed server
+  (unit `testSignOutClearsTheVaultBeforeTheLogoutCallCompletes`,
+  `testBeginSignOutIsSynchronousAndStillRevokesWithTheDiscardedToken`).
 * **`restoreAll` is idempotent** — a resolved server is not re-validated every time the server list
   changes (unit: `testRestoreAllIsIdempotentAndSkipsResolvedServers`).
 
@@ -114,7 +138,7 @@ against a real identity provider (§11).
 | Wrong password | inline server sentence: unit `testWrongPasswordKeepsTheUserOnTheFormWithTheServersSentence`, `testWrongPasswordWithoutAServerSentenceFallsBackToTheMobileCopy`; UI `testRejectedPasswordIsAnInlineErrorOnTheNativeForm`; **live** `testRealServerRejectsAWrongPasswordWithItsOwnSentence` (screenshot `t31-20`) |
 | MFA required / MFA wrong code | unit `testMFARequiredMovesToTheSecondStepAndVerifiesWithTheSameCredential`, `testWrongMFACodeStaysOnTheSecondStepWithItsOwnMessage`, `testMFAChallengeThenSuccess`; UI `testMFAChallengeThenAcceptedCodeSignsIn` (screenshots `t31-03`, `t31-04`) |
 | Network failure | unit `testNetworkFailuresProduceTheirOwnCopy` (offline / timeout / transport / untrusted certificate) and `testAnUnreachableServerKeepsTheStoredSessionAtLaunch` |
-| No credential logged or written outside `SecureVault` | `testAWholeSignInAttemptWritesNoCredentialToALogLine` (captures every `os_log` line of a full sign-in and asserts neither the password nor the token appears), `testPasswordNeverAppearsInTheModelsOwnDescription`; the token is read back from the vault; `scripts/t28-token-grep.sh` still applies to the tree |
+| No credential logged, and none written outside `SecureVault` **on the native path** | `testAWholeSignInAttemptWritesNoCredentialToALogLine` (captures every `os_log` line of a full sign-in and asserts neither the password nor the token appears), `testPasswordNeverAppearsInTheModelsOwnDescription`; the token is read back from the vault; `scripts/t28-token-grep.sh` still applies to the tree. **Scoped wording (T31-AV F4):** a session established *in the webview* (SSO, or the pane's own login) keeps WebKit's `HttpOnly` `MMAUTHTOKEN` cookie in `Library/WebKit/…/WebsiteDataStore/<id>/Cookies/Cookies.binarycookies`. That is a second, deliberately separate store — the webview is the IdP's own session and page JS cannot read the cookie — and the native path never writes it. Both copies are cleared on sign-out, and since T31-R on expiry as well (see §3). No credential is ever written to `UserDefaults`, a log line, or the app container by native code (T31-AV re-verified: 0 hits for the fixture password/`stub-token-native`/`stub-token-mfa` in the container, the plists, 5 crash files, the simulator log or the host log). |
 | Relaunch restores without a login prompt | unit `testRestoreResolvesASignedInSessionWithOneIdentityCall`; UI `testRealServerSignInThenRelaunchRestoresTheSession` (relaunch with no reset, screenshot `t31-22`); revoked case `testRevokedStoredSessionShowsTheSessionExpiredBanner` (screenshot `t31-05`) |
 | A 401 surfaces one re-auth path | unit `testA401OnALiveSessionTurnsTheGateToReauthWithoutAnyScreenInvolved`, `testARejectedStoredTokenExpiresTheSessionAndClearsTheCredential`; UI `testRevokedStoredSessionShowsTheSessionExpiredBanner` |
 | SSO does not regress | the shipped `testSSOReachesIdentityProviderWithoutCertificatePrompt` and the 8443 certificate tests run unchanged in the full UI suite (§13); the SSO sheet reuses the same `WebViewContainer`/`CertTrust` code |
@@ -168,17 +192,38 @@ confirmation, signed-out result.
 
 ## 9. Tests added
 
-`MattermostTests/T31-AuthTests.swift` — 37 tests:
+`MattermostTests/T31-AuthTests.swift` — **37 tests when T31 landed** (counts as the runner executed
+them; the earlier version of this note said 13/8/14, which was wrong — T31-AV F6):
 
-* `T31LoginViewModelTests` (13): field rules, lowercased id, server sentence vs. fallback copy, MFA
-  hand-off, MFA retry, offline/timeout/transport/certificate copy, empty submit, error clearing,
+* `T31LoginViewModelTests` (**12**): field rules, lowercased id, server sentence vs. fallback copy,
+  MFA hand-off, MFA retry, offline/timeout/transport/certificate copy, empty submit, error clearing,
   back-from-MFA, redacted description, and the whole-flow log capture.
-* `T31MFAViewModelTests` (2): local empty-code refusal, accepted code reports the session.
-* `T31SSOViewModelTests` (8): poll-until-token, already-signed-in, rejected cookie, poll budget,
+* `T31MFAViewModelTests` (**2**): local empty-code refusal, accepted code reports the session.
+* `T31SSOViewModelTests` (**7**): poll-until-token, already-signed-in, rejected cookie, poll budget,
   restart, status-line navigation, and a real `WKWebsiteDataStore` cookie-clearing test.
-* `T31AuthCoordinatorTests` (14): optimistic gate, restore success/rejection/offline, idempotent
+* `T31AuthCoordinatorTests` (**16**): optimistic gate, restore success/rejection/offline, idempotent
   `restoreAll`, fresh server, sign-in, failed login is not an expiry, MFA challenge, 401 on a live
   session, webview adoption, sign-out (live / failed network / no session), certificate decisions.
+
+Total **37**, which is the number the T31 card declared (the per-class split above is the corrected
+one).
+
+T31-R (the AV repair) added **13** more in the same file, now 50:
+
+* `T31AuthCoordinatorTests` (+6): expiry clears the webview cookie (`…ExpiryClearsTheWebviewCookie…`),
+  a 401 on a non-restore call clears both copies, sign-out clears the vault before the logout call
+  returns, `beginSignOut` is synchronous and still revokes with the discarded token, a reported
+  (non-client) 401 expires the session, a stale 401 report raises no banner.
+* `T31LoginErrorCopyTests` (+4): every `LoginErrorCopy` branch the AV finding named
+  (`rateLimited`/`forbidden`/`notFound`/`server`/`client`/`malformedResponse`/`notSignedIn`/
+  `invalidURL`/`cancelled`), the server-sentence-wins branches, a non-`MMError` fallback, and one
+  table row proven through the form.
+* `MattermostTests/MentionPollerTests` (+3): a 401 aborts the poll and reports once, a nested
+  401 is not swallowed by the per-team tolerance, and the poller's report reaches
+  `AuthCoordinator.reportUnauthorized` (the wiring `MattermostApp` installs).
+* `SurfaceModeResolverTests`/`ViewStoreTests`: updated where they encoded "the registry is empty"
+  (`testOnlyTheApprovedRegistryDefaultsToNative`, the release-unreachable loop), plus the UI
+  fallback test `testTheAuthStandInIsStillReachableThroughTheSurfaceFlag`.
 
 `MattermostUITests/MattermostUITests.swift` — 7 tests: 5 against the auth stub
 (`build/uitest-server/mm_stub.py --port 8114`, `--session-invalid` on `:8115`) and 2 network-gated
@@ -206,9 +251,10 @@ against a real server.
 ## 11. Limits — not claimed
 
 * The **SSO sheet is not UI-tested end to end**: it needs a live identity provider. Its machine is
-  unit-tested (8 tests), it reuses the webview path that the shipped SSO UI test still guards, and
+  unit-tested (7 tests), it reuses the webview path that the shipped SSO UI test still guards, and
   the shipped certificate/SSO tests are unchanged and green — but nobody has driven the sheet
-  through a browser yet.
+  through a browser yet. (T31-R re-stated this; nothing on this host can close it — the local server
+  reports `EnableSaml:false` and every OAuth provider false.)
 * The MFA and expired-banner screenshots are fixture runs (§7); the local server used here has no
   MFA enrolled and no revocable stored token for a screenshot.
 * A session established **in the webview** (e.g. the user signs in through the pane's webview) is
@@ -217,8 +263,13 @@ against a real server.
   pane-mode question T31-AV should decide with the surface approval.
 * Only one server is exercised by the UI tests (the seeding seam adds one); multi-server sign-out is
   covered at the coordinator/unit level.
-* Catalyst renders the same views, but no Catalyst screenshot of the auth surface is in the bundle —
-  the layout fix in §8.2 was verified on iPhone.
+* **No Catalyst screenshot of the auth surface.** The views and the whole unit suite run on Catalyst,
+  but the `-authSurfaceSnapshot` probe photographs a `UIWindow`, so the captures in `docs/t31r-shots/`
+  are iOS (iPhone + iPad) only. Recorded rather than implied.
+* **Dynamic Type AX3 / dark mode / iPad regular width are captured for the sign-in screen only**
+  (`docs/t31r-shots/auth-surface-*.png`), not for the MFA step or the expired banner: those states
+  need a scripted transition the capture probe does not drive, and the fixture screenshots in
+  `docs/t31-shots/` still show them in the default appearance.
 * `AuthCoordinator` keeps one `AuthSession` per server for the app lifetime; removing a server does
   not evict the object (it is left `.signedOut`). Harmless today, worth revisiting when the
   coordinator grows foreground-refresh work.
@@ -278,7 +329,7 @@ Final sweep on this host (iPhone 17 Pro / iOS 26.5 simulator, Catalyst 26.5):
 
 | Run | Result |
 |---|---|
-| `scripts/qa-test.py --platform mac` (whole `MattermostTests`) | **642 run, 4 skipped, 0 failed** — `RESULT: PASS` |
-| `scripts/qa-test.py --platform ios --only-testing MattermostUITests` | **23 run, 3 skipped, 0 failed** — `RESULT: PASS` |
+| `scripts/qa-test.py --platform mac` (whole `MattermostTests`) | **642 run, 4 skipped, 0 failed** — `RESULT: PASS` (T31; **655** after T31-R) |
+| `scripts/qa-test.py --platform ios --only-testing MattermostUITests` | **23 run, 3 skipped, 0 failed** — `RESULT: PASS` (T31; **24** after T31-R's new stand-in test) |
 | real-server pair (§7) | **2 run, 0 failed** — `** TEST SUCCEEDED **` |
-| `scripts/verify-dual-render-gates.sh` | **RESULT: PASS** (gates 1–10) |
+| `scripts/verify-dual-render-gates.sh` | **RESULT: PASS** (gates 1–10) — as of T31-R the plain run fails gate 5 *because* the surface is approved; `--allow-approved-registry` is the approval audit (`docs/t31r-patch-note.md` §10.3) |

@@ -146,6 +146,20 @@ final class APIClient: @unchecked Sendable {
                           requiresAuth: requiresAuth, useETag: false)
     }
 
+    /// `POST /users/logout` with an **explicitly supplied** bearer token.
+    ///
+    /// The one caller is `AuthSession.revokeSession(discardedToken:)`, and it exists because of the
+    /// sign-out ordering (T31-AV F2): the local credential is deleted *before* the revocation, so the
+    /// injected token provider (which reads the vault) would answer `nil` and the logout would go out
+    /// unauthenticated. There is deliberately no general `token:` parameter on `postForResponse` —
+    /// a screen must not be able to authenticate as somebody else's token; this method can only do
+    /// one thing, to one path.
+    @discardableResult
+    func revokeSession(token: String) async throws -> APIResponse {
+        try await perform(method: .post, path: "/users/logout", query: [], body: nil,
+                          requiresAuth: true, useETag: false, explicitToken: token)
+    }
+
     /// DELETE with no response body contract (Mattermost returns `{"status":"OK"}`).
     @discardableResult
     func delete(path: String, requiresAuth: Bool = true) async throws -> APIResponse {
@@ -192,14 +206,15 @@ final class APIClient: @unchecked Sendable {
                          query: [URLQueryItem],
                          body: Data?,
                          requiresAuth: Bool,
-                         useETag: Bool) async throws -> APIResponse {
+                         useETag: Bool,
+                         explicitToken: String? = nil) async throws -> APIResponse {
         guard let url = baseURL.apiV4(path, query: query) else {
             throw MMError.invalidURL(path)
         }
         var headers: [String: String] = ["Accept": "application/json"]
         if body != nil { headers["Content-Type"] = "application/json; charset=utf-8" }
         if requiresAuth {
-            guard let token = tokenProvider(), !token.isEmpty else {
+            guard let token = explicitToken ?? tokenProvider(), !token.isEmpty else {
                 throw MMError.notSignedIn
             }
             headers["Authorization"] = "Bearer \(token)"

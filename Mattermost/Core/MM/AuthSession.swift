@@ -186,19 +186,58 @@ final class AuthSession: ObservableObject {
 
     // MARK: - Logout
 
-    /// `POST /users/logout`, then drop the stored credentials either way. A failed network call must
-    /// not leave a usable credential on the device.
-    func logout() async {
-        _ = try? await client.postForResponse(path: "/users/logout", body: nil, requiresAuth: true)
+    /// Drop every local copy of this server's credential **now**, and return the token that was
+    /// discarded so the caller can still attempt revocation with it.
+    ///
+    /// The order is the security property (T31-AV F2): a sign-out that clears the vault *after* the
+    /// `/users/logout` round-trip leaves a usable token in the Keychain for the whole duration of
+    /// that call — 3 attempts with 0.5 s → 1 s backoff, up to the 30 s request timeout — and a
+    /// termination inside that window keeps it there for a server the user just removed. So the
+    /// local clear is synchronous and comes first; only the network call can be slow.
+    ///
+    /// - Returns: the token the device no longer holds, or `nil` when there was none.
+    @discardableResult
+    func beginSignOut() -> String? {
+        let discarded = currentToken
         // A sign-out is a full clear: token *and* the user id that identifies its owner.
         try? vault.deleteSecret(.authToken, serverURL: serverURL)
         try? vault.deleteSecret(.userID, serverURL: serverURL)
         client.clearETagCache()
         needsReauth = false
         state = .signedOut
+        return discarded
+    }
+
+    /// Best-effort revocation with the token `beginSignOut()` handed back (the vault no longer
+    /// holds it, so the client's token provider cannot be used here). Never throws: the device is
+    /// already clean, and a server that cannot be reached expires the token on its own schedule.
+    func revokeSession(discardedToken: String?) async {
+        guard let token = discardedToken, !token.isEmpty else { return }
+        _ = try? await client.revokeSession(token: token)
+    }
+
+    /// `POST /users/logout` and drop the stored credentials either way. A failed network call must
+    /// not leave a usable credential on the device — which is why the clear happens first.
+    func logout() async {
+        let discarded = beginSignOut()
+        await revokeSession(discardedToken: discarded)
     }
 
     // MARK: - 401 surfacing
+
+    /// A 401 observed by a call path that does **not** go through this session's client.
+    ///
+    /// `APIClient.onUnauthorized` covers every call made *through* this session (`AuthSession`
+    /// installs the hook itself). A path that owns its own transport — today the background
+    /// `MentionPoller`, which needs an ephemeral `URLSession` that survives scene teardown — calls
+    /// this instead, and gets the identical outcome: the vault copy is dropped, `needsReauth` is
+    /// flagged once, and `AuthCoordinator` raises the one re-auth banner (T31-AV F3).
+    ///
+    /// The `signedIn` guard is what keeps a failed *login* from looking like an expiry, so a stale
+    /// 401 arriving after a sign-out is a no-op.
+    func reportUnauthorized() {
+        handleUnauthorized()
+    }
 
     /// A 401 from any authenticated call: the server no longer accepts the token.
     private func handleUnauthorized() {

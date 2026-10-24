@@ -87,6 +87,10 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
     private var sessions: [UUID: AuthSession] = [:]
     private var unauthorizedObservers: [UUID: AnyCancellable] = [:]
     private var resolving: Set<UUID> = []
+    /// Servers whose expiry transition (cookie clear → phase) is in flight. A second 401 shares the
+    /// one transition instead of clearing twice or notifying the shell twice, and `await`ing it
+    /// guarantees the phase has been written when the caller resumes.
+    private var expiring: [UUID: Task<Void, Never>] = [:]
 
     /// - Parameters:
     ///   - makeSession: a seam so tests can supply an `AuthSession` backed by a fake transport.
@@ -152,12 +156,16 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
         sessions[server.id] = created
         // A 401 from *any* authenticated call on this server must land in one place. `AuthSession`
         // only flags re-auth for a live session, so a failed login never arrives here as an expiry.
+        // The transition is `requireReauth`, which also drops the webview's copy of the credential
+        // (T31-AV F1) — an expiry that cleared only the vault left the pane escape hatch signed in.
         unauthorizedObservers[server.id] = created.$needsReauth
             .removeDuplicates()
             .dropFirst()
             .sink { [weak self] needsReauth in
                 guard needsReauth else { return }
-                self?.setPhase(.expired, for: server.id)
+                Task { @MainActor [weak self] in
+                    await self?.requireReauth(server)
+                }
             }
         return created
     }
@@ -181,10 +189,14 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
             let restored = try await session.restore()
             if let restored {
                 setPhase(.signedIn(username: restored.username, userID: restored.userID), for: server.id)
-            } else {
+            } else if session.needsReauth {
                 // No stored token, or the server rejected it (AuthSession has already cleared the
-                // credential and flagged re-auth in that case).
-                setPhase(session.needsReauth ? .expired : .signedOut, for: server.id)
+                // vault copy and flagged re-auth). The expiry transition clears the webview's copy
+                // too, before the phase moves, so a consumer that sees `.expired` knows the device
+                // holds no credential for this server at all.
+                await requireReauth(server)
+            } else {
+                setPhase(.signedOut, for: server.id)
             }
             return restored
         } catch {
@@ -235,24 +247,90 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
 
     // MARK: - Sign out
 
-    /// Sign out of one server: revoke on the server (best effort), clear the vault credential, and
-    /// clear the session cookie the webview holds.
+    /// A credential a sign-out has already discarded. Returned by `beginSignOut` so the async half
+    /// (`finishSignOut`) has nothing left to look up — and therefore cannot be reordered back in
+    /// front of the local clear.
+    struct DiscardedCredential: Equatable {
+        var server: ServerConfig
+        /// The token the device no longer holds. `nil` when nothing was stored.
+        var token: String?
+    }
+
+    /// **Synchronous** first half of a sign-out: both credential stores are cleared before this
+    /// returns, and the phase is already `.signedOut`.
     ///
-    /// The cookie half matters: an SSO session exists twice on this device (vault token + webview
-    /// cookie). Dropping only the vault copy would leave a *usable* credential in the webview when
-    /// the server call failed (offline), which is precisely what "a failed network call must not
-    /// leave a usable credential on the device" forbids.
-    func signOut(_ server: ServerConfig) async {
+    /// It is synchronous on purpose (T31-AV F2). `SettingsView` removes the server on the same turn
+    /// it asks for the sign-out, and `Task { await signOut(…) }` has not run a single line when that
+    /// removal happens — so a sign-out expressed only as a detached `Task` is, for one turn, no
+    /// sign-out at all. The vault delete (the copy a kill would leave *usable*) is therefore done
+    /// here; only the webview cookie (WebKit's async store) and the best-effort revocation are async.
+    @discardableResult
+    func beginSignOut(_ server: ServerConfig) -> DiscardedCredential {
+        let discarded: String?
         if let session = sessions[server.id] {
-            await session.logout()
+            discarded = session.beginSignOut()
         } else {
             // No live session object: clear the stored credential directly.
+            discarded = vault.getSecret(key: .authToken, serverURL: server.url)
             try? vault.deleteSecret(.authToken, serverURL: server.url)
             try? vault.deleteSecret(.userID, serverURL: server.url)
         }
-        await cookieClearing.clearAuthCookie(for: server.url, serverID: server.id)
         pendingCertificatePrompt = nil
         setPhase(.signedOut, for: server.id)
+        return DiscardedCredential(server: server, token: discarded)
+    }
+
+    /// Async second half: clear the webview's `MMAUTHTOKEN` (the second copy of the same login),
+    /// then attempt revocation with the token `beginSignOut` discarded.
+    ///
+    /// Both halves matter and neither can resurrect a credential: an SSO session exists twice on
+    /// this device (vault token + webview cookie), and a failed network call must leave neither
+    /// usable — which is exactly what "a failed logout must not leave a usable credential on the
+    /// device" forbids. The revocation is best effort; the server expires the token on its own
+    /// schedule if it was never reached.
+    func finishSignOut(_ discarded: DiscardedCredential) async {
+        await cookieClearing.clearAuthCookie(for: discarded.server.url, serverID: discarded.server.id)
+        if let session = sessions[discarded.server.id] {
+            await session.revokeSession(discardedToken: discarded.token)
+        }
+    }
+
+    /// Sign out of one server end to end: local clear first, then the cookie, then the revocation.
+    func signOut(_ server: ServerConfig) async {
+        let discarded = beginSignOut(server)
+        await finishSignOut(discarded)
+    }
+
+    // MARK: - 401 reported by another call path (not this server's client)
+
+    /// A 401 seen on a call path that does **not** go through this server's `AuthSession` client —
+    /// today the background `MentionPoller`, which owns an ephemeral `URLSession` because it runs
+    /// from a `BGAppRefreshTask` with no scene.
+    ///
+    /// Without this, a revoked token left the poller failing silently while the shell still believed
+    /// it was signed in, until the next launch/restore (T31-AV F3). It is deliberately the *same*
+    /// transition a client-side 401 produces — vault copy dropped, webview cookie cleared, phase
+    /// `.expired`, one `onChange` — so the app has one re-auth path regardless of who noticed.
+    ///
+    /// The rule this encodes for every later screen: **do not build your own `APIClient`/`URLSession`
+    /// for authenticated server calls** — take the server's `AuthSession.client` so the 401 lands
+    /// here for free. This entry point exists for the one caller that cannot.
+    func reportUnauthorized(_ server: ServerConfig) async {
+        let current = phase(for: server.id)
+        let hadStoredToken = hasStoredToken(for: server)
+        // A 401 for a server the shell already treats as signed out is not an expiry (it is a stale
+        // request, or a failed login); it must not raise the banner.
+        guard current.isSignedIn || (current == .unresolved && hadStoredToken) else { return }
+
+        if let session = sessions[server.id] {
+            // Drops the vault copy and flags `needsReauth` (also observed by the sink above; the
+            // expiry transition is idempotent, so only one banner and one cookie clear happen).
+            session.reportUnauthorized()
+        } else {
+            try? vault.deleteSecret(.authToken, serverURL: server.url)
+            try? vault.deleteSecret(.userID, serverURL: server.url)
+        }
+        await requireReauth(server)
     }
 
     // MARK: - Certificate decisions (native transport)
@@ -267,6 +345,35 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
     }
 
     // MARK: - Phase writes
+
+    /// The single expiry transition: **both** copies of the dead credential go, then the phase.
+    ///
+    /// Ordering is the contract (T31-AV F1/F4). The vault token is deleted by `AuthSession` before
+    /// this runs; the webview's `MMAUTHTOKEN` is the second copy of the same login and used to
+    /// survive an expiry, so "Your session expired" could be followed by the pane escape hatch still
+    /// being signed in. Writing the phase last means anyone who observes `.expired` — the shell, a
+    /// test — can rely on the device holding no credential at all.
+    ///
+    /// Idempotent: a second 401 (or the Combine sink racing the restore path) shares the transition
+    /// in flight rather than clearing the cookie twice, and both callers resume only once the phase
+    /// has been written — so `await`ing this function means "the device holds no credential and the
+    /// shell has been told", never "somebody else is doing that".
+    private func requireReauth(_ server: ServerConfig) async {
+        if let inFlight = expiring[server.id] {
+            await inFlight.value
+            return
+        }
+        guard phase(for: server.id) != .expired else { return }
+        let transition = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.cookieClearing.clearAuthCookie(for: server.url, serverID: server.id)
+            self.setPhase(.expired, for: server.id)
+            MMLog.info("MMAuth", "session expired on \(server.name): both credential copies cleared")
+        }
+        expiring[server.id] = transition
+        await transition.value
+        expiring[server.id] = nil
+    }
 
     /// The one place a phase is written, so the shell notification cannot be forgotten.
     private func setPhase(_ phase: Phase, for serverID: UUID) {

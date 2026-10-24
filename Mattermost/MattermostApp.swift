@@ -241,6 +241,12 @@ struct MattermostApp: App {
                     // over the standard defaults / logged no-ops.
                     MentionPoller.shared.serverStore = serverStore
                     MentionPoller.shared.sessionStore = sessionStore
+                    // T31-AV F3: the poller owns its own `URLSession` (background task, no scene), so
+                    // its 401s never reached `AuthSession.onUnauthorized`. Report them into the one
+                    // re-auth path instead of leaving the shell "signed in" on a revoked token.
+                    MentionPoller.shared.unauthorizedReporter = { [weak authCoordinator] server in
+                        await authCoordinator?.reportUnauthorized(server)
+                    }
 
                     // SettingsView's download-history Stepper writes `AppSettings`; re-trim the
                     // open journal live so the UI and the persisted cap never diverge.
@@ -268,6 +274,9 @@ struct MattermostApp: App {
                 // T30 evidence probe: `-nativeShellSnapshot <dir>` writes light/dark PNGs of the
                 // shell (plus an accessibility text size pair). Inert without the argument.
                 .task { runNativeShellSnapshotIfRequested() }
+                // T31-R evidence probe: `-authSurfaceSnapshot <dir>` — the four captures for the
+                // auth screens (light/dark × normal/AX3). Inert without the argument.
+                .task { runAuthSurfaceSnapshotIfRequested() }
                 #endif
                 #if DEBUG || PERF_PROBE
                 .task { runPerfProbeIfRequested() }
@@ -382,8 +391,20 @@ struct MattermostApp: App {
     /// rather than claims. Needs no Screen Recording consent (`drawHierarchy` on the app's own
     /// window), which is why the shell has this instead of `screencapture`.
     private func runNativeShellSnapshotIfRequested() {
+        runSnapshotProbe(argument: "-nativeShellSnapshot", prefix: "native-shell", tag: "T30")
+    }
+
+    /// `-authSurfaceSnapshot <dir>`: the same four captures for whatever is on screen, used by T31-R
+    /// to record the **auth** screens at normal and AX3 text sizes in light and dark mode (launch it
+    /// with `-surfaceMode auth=native` and a seeded, signed-out server). Same mechanism, same reason:
+    /// a capture the app takes itself needs no Screen Recording TCC, so an unattended run can make it.
+    private func runAuthSurfaceSnapshotIfRequested() {
+        runSnapshotProbe(argument: "-authSurfaceSnapshot", prefix: "auth-surface", tag: "T31")
+    }
+
+    private func runSnapshotProbe(argument: String, prefix: String, tag: String) {
         let args = ProcessInfo.processInfo.arguments
-        guard let i = args.firstIndex(of: "-nativeShellSnapshot"), args.indices.contains(i + 1) else { return }
+        guard let i = args.firstIndex(of: argument), args.indices.contains(i + 1) else { return }
         let dir = args[i + 1]
         Task { @MainActor in
             // Let the first frame, the (seeded) server activation and the shell settle.
@@ -401,9 +422,9 @@ struct MattermostApp: App {
                 // A text-size change is a relayout, not a redraw: give SwiftUI a full second before
                 // capturing so the picture is of the settled layout, not a half-applied one.
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
-                writeWindowImage(to: dir + "/native-shell-" + name + ".png")
+                writeWindowImage(to: dir + "/" + prefix + "-" + name + ".png")
             }
-            Logger.info("T30", "native shell snapshots written to \(dir)")
+            Logger.info(tag, "\(prefix) snapshots written to \(dir)")
         }
     }
 

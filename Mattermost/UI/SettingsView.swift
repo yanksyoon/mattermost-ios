@@ -98,10 +98,15 @@ struct SettingsView: View {
                     if let server = serverPendingRemoval {
                         // T31: removing a server must not leave its credential behind. The vault
                         // token and the webview's session cookie are what a *later* re-add of the
-                        // same URL would silently inherit, so removal signs the server out first
-                        // (the network call is best effort; the local clear is not).
-                        Task { await auth.signOut(server) }
+                        // same URL would silently inherit, so removal signs the server out first.
+                        // The local clear is **synchronous** and happens on this turn, before the
+                        // server disappears (T31-AV F2: a detached `Task` has not run a line by the
+                        // time `remove` executes, and a termination in that window used to keep a
+                        // usable Keychain token for a server the user had just removed). The
+                        // cookie clear and the network revocation follow asynchronously.
+                        let discarded = auth.beginSignOut(server)
                         _ = serverStore.remove(id: server.id)
+                        Task { await auth.finishSignOut(discarded) }
                     }
                     serverPendingRemoval = nil
                 }
