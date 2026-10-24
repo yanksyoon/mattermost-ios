@@ -1,6 +1,10 @@
 # T28 build note — native transport: AuthSession + REST v4 client + WebSocket v4 client
 
 - **Status:** delivered 2026-10-24. Handed to **T28-AV** (adversarial validation).
+- **Repair round:** **T28-R**, 2026-10-24 — every T28-AV finding (F1–F9) fixed or answered with
+  evidence; see §7b. Suite: 451 tests, 3 skipped, 0 failures on Mac Catalyst **and** iPhone 16 Pro
+  (iOS 18.3) simulator; `t28-token-grep.sh` PASS; `t28-selfsigned-check.sh` PASS (now including the
+  real `wss` transport).
 - **Card:** T28 (native transport — AuthSession + REST v4 client + WebSocket v4 client).
 - **Program anchor:** `docs/path-b-adr.md` §4 stage 0 ("auth + transport + store are
   prerequisites; no screen materialises without them"), `docs/native-inventory.md` §"pagination and
@@ -19,17 +23,17 @@
 | `Mattermost/Core/MM/MMPagination.swift` | 86 | `MMPostPage` cursors (`page`/`per_page`, `before`, `after`, `since`) + `nextOlderPage(from:)` / `nextNewerPage(from:)` derived from the server's `order`/`has_next`. |
 | `Mattermost/Core/MM/MMError.swift` | 92 | Typed errors: `unauthorized`, `forbidden`, `notFound`, `rateLimited(retryAfter:)`, `server(status:message:)`, `client`, `mfaRequired`, `invalidMFA`, `timeout`, `offline`, `certificateUntrusted(origin:)`, `cancelled`, `malformedResponse`, `transport`, `invalidURL`, `notSignedIn`. Plus `APITransportError` (pre-HTTP transport failures). |
 | `Mattermost/Core/MM/APITransport.swift` | 253 | `APITransport` protocol (the test seam), `APIRequest`/`APIResponse`, `URLSessionTransport`, and `TransportSessionDelegate` — one delegate that serves TLS server trust for HTTP **and** `wss`, consulting the webview's `CertTrust` bag. |
-| `Mattermost/Core/MM/APIClient.swift` | 372 | async/await REST v4 client: bearer auth from the vault, typed decode, ETag/`If-None-Match` + 304 replay, retry with exponential backoff + jitter honouring `Retry-After`, `401 → onUnauthorized`. |
+| `Mattermost/Core/MM/APIClient.swift` | 376 | async/await REST v4 client: bearer auth from the vault, typed decode, ETag/`If-None-Match` + 304 replay, retry with exponential backoff + jitter honouring `Retry-After` (**clamped to `maxDelay`**, §7b F4), `401 → onUnauthorized`. |
 | `Mattermost/Core/MM/MMEndpoints.swift` | 92 | Typed endpoint wrappers used by this card and inherited by screens: `ping`, `currentUser`, `posts(channelID:page:)`, `thread(rootPostID:)`, `post(id:)`, `channel(id:)`, `users(ids:)`, `preferences`, `statuses`. |
-| `Mattermost/Core/MM/AuthSession.swift` | 268 | Login, MFA, session restore, logout, SSO adoption, 401 → re-auth surfacing. Credentials in the **existing** `SecureVault` (`authToken` + `userID`). |
-| `Mattermost/Core/MM/WebSessionAdoption.swift` | 96 | Reads the `HttpOnly` `MMAUTHTOKEN` cookie the webview already holds via `WKWebsiteDataStore.httpCookieStore` (shell side only, never page JS) + pure `SessionCookiePolicy` matching. |
+| `Mattermost/Core/MM/AuthSession.swift` | 238 | Login, MFA, session restore, logout, SSO adoption (cookie-store reader only — the take-a-token entry point was removed in §7b F9), 401 → re-auth surfacing. Credentials in the **existing** `SecureVault` (`authToken` + `userID`). |
+| `Mattermost/Core/MM/WebSessionAdoption.swift` | 86 | Reads the `HttpOnly` `MMAUTHTOKEN` cookie the webview already holds via **that server's** `WKWebsiteDataStore(forIdentifier:)` (§7b F1) + pure `SessionCookiePolicy` matching. |
 | `Mattermost/Core/MM/ServerTrustPolicy.swift` | 105 | The pure TLS decision matrix (third party / public chain / recorded accept / recorded refusal / prompt) shared by HTTP and `wss`. |
-| `Mattermost/Core/MM/SocketEvent.swift` | 254 | `MMSocketFrame` + the typed `SocketEvent` matrix (hello, posted, post_edited, post_deleted, channel_viewed, typing, status_change, preferences_changed, user_updated, reaction_added/removed, `unhandled(name:)`) with per-event dedupe keys. |
-| `Mattermost/Core/MM/SocketClient.swift` | 430 | Actor-based WebSocket v4 client: authentication challenge, hello, 30 s ping with missed-pong timeout, exponential backoff with jitter, one resync per reconnect, cross-reconnect duplicate suppression, multi-subscriber typed stream. `WebSocketTransport` is the `URLSessionWebSocketTask` implementation sharing the same trust delegate. |
+| `Mattermost/Core/MM/SocketEvent.swift` | 243 | `MMSocketFrame` + the typed `SocketEvent` matrix (hello, posted, post_edited, post_deleted, channel_viewed, typing, status_change, preferences_changed, user_updated, reaction_added/removed, `unhandled(name:)`) with **narrow** replay keys — post/user revisions and hello only (§7b F3). |
+| `Mattermost/Core/MM/SocketClient.swift` | 475 | Actor-based WebSocket v4 client: bearer upgrade header **and** in-band authentication challenge, hello, 30 s ping with missed-pong timeout, exponential backoff with jitter that only resets after a *stable* session (§7b F2), one resync per dropout (§7b F5), narrow cross-reconnect replay suppression, multi-subscriber typed stream. `WebSocketTransport` is the `URLSessionWebSocketTask` implementation sharing the same trust delegate. |
 | `Mattermost/Core/Logger.swift` *(modified, +11)* | — | `#if DEBUG` `Logger.testSink` so tests can prove what would be logged. Cannot exist in a Release binary. |
-| `MattermostTests/{APIClientTests,AuthSessionTests,SocketClientTests,ServerTrustPolicyTests,TokenLoggingTests,SelfSignedTrustTests,T28TestSupport}.swift` | 1 555 | 78 new tests (77 green + 1 fixture-gated skip in the ordinary run; the fixture run is green too). |
-| `scripts/t28-token-grep.sh` | 62 | The grep the card asks for, as a runnable check (exit 0/1). |
-| `scripts/t28-selfsigned-check.sh`, `scripts/t28_selfsigned_fixture.py` | 88 + 66 | Generates a throwaway self-signed cert for 127.0.0.1, serves `/api/v4/system/ping` over HTTPS, runs the self-signed test, prints `RESULT: PASS/FAIL`. |
+| `MattermostTests/{APIClientTests,AuthSessionTests,SocketClientTests,ServerTrustPolicyTests,TokenLoggingTests,SelfSignedTrustTests,T28TestSupport}.swift` | 2 311 | 88 tests (85 green + 3 fixture/gated skips in the ordinary offline run; the TLS fixture run executes the 2 self-signed ones too). |
+| `scripts/t28-token-grep.sh` | 122 | The static half of the grep the card asks for, as a runnable check (exit 0/1): source patterns **multi-line-aware** plus a scan of every committed `docs/**/*.log` (§7b F6). |
+| `scripts/t28-selfsigned-check.sh`, `scripts/t28_selfsigned_fixture.py` | 76 + 117 | Generates a throwaway self-signed cert for 127.0.0.1, serves `/api/v4/system/ping` over HTTPS **and a WebSocket upgrade on `/api/v4/websocket`**, runs `SelfSignedTrustTests`, prints `RESULT: PASS/FAIL` — and refuses to pass if the wss test skipped. |
 
 ## 2. Library evaluation (card item 5: "prefer an existing tested library")
 
@@ -105,13 +109,18 @@ vocabulary (rest/error.ts).
 1. **Backoff is exponential with jitter** (`base 1 s`, `×2`, cap `60 s`, ±20 %), where mobile's
    WebSocket client is linear (`min(3 s × failCount, 5 min)` after 7 failures) and its REST client
    has no backoff at all. The card asks for exponential + jitter, and the REST side honours the
-   server's `Retry-After` first.
+   server's `Retry-After` first (clamped to `maxDelay` — §7b F4). Since §7b F2 the socket ladder
+   only resets after a connection has stayed up for `stableSessionInterval` (5 s), so upstream's
+   "count failures even after an open" behaviour is matched for the accept-then-kill case.
 2. **Resync is an injected closure**, not a global sync routine. The transport reports *when*
-   (`ResyncReason.reconnected` / `.heartbeatTimeout`); the caller decides *what* to refetch. This is
-   what makes "assert resync fires once" testable.
-3. **Duplicate suppression is explicit** (`SocketEvent.dedupeKey` over a 512-entry window), where
-   mobile relies on the server not replaying for non-reliable sockets. The reconnect test proves a
-   replayed `posted` is dropped and a genuinely new post still arrives.
+   (`.reconnected`); the caller decides *what* to refetch. This is what makes "assert resync fires
+   once" testable — and since §7b F5 it really is once per dropout (the heartbeat timeout no longer
+   asks for its own resync).
+3. **Duplicate suppression is explicit and narrow** (`SocketEvent.dedupeKey`: post/user revisions
+   and hello only, 512-entry window), where mobile relies on the server not replaying for
+   non-reliable sockets. Events whose occurrence is the signal (`channel_viewed`, reactions,
+   `status_change`, `preferences_changed`, `typing`) are never suppressed (§7b F3). The residual
+   risk — a server replaying one of those after a reconnect — is a redundant refresh, not a loss.
 4. **Trust is `CertTrust`-based, not pinning-based** (see §3).
 5. **`Int64` milliseconds** in models instead of upstream's `Double`; **`JSONValue`** instead of
    `[String: Any]` for `props`/`metadata` (Sendable, no `Database.default.json(from:)` round-trip).
@@ -134,7 +143,14 @@ vocabulary (rest/error.ts).
 - **`X-MM-Session-Attributes` is not sent** (§3) — no native producer exists.
 - **No APNs/push path here** (T43) and no push-proxy interaction: this card is REST + WS only.
 - The self-signed test **skips** when no fixture is listening; that is deliberate (the suite must
-  run offline), and the check script is the evidence that it passes when the fixture exists.
+  run offline), and the check script is the evidence that it passes when the fixture exists. Since
+  §7b F8 that check also drives the **real `WebSocketTransport`** over `wss` (the fixture answers
+  the upgrade with one `hello` frame), and `t28-selfsigned-check.sh` now fails if that test skipped,
+  so the wss trust path is executed, not inspected.
+- The backoff reset uses a wall clock (`now`, injected). `stableSessionInterval` (5 s) is a
+  judgement call: a server that accepts, sends `hello` and dies inside five seconds keeps the
+  ladder climbing (a flap), one that survives it is a session. Tests drive the clock, so the value
+  is asserted, not assumed.
 - `SocketClient` reconnection uses the injected clock; the live `SystemSocketClock` only sleeps, and
   a connection that silences without closing is caught by the heartbeat (30 s ping, 1 missed pong),
   not by a TCP keepalive.
@@ -157,6 +173,122 @@ vocabulary (rest/error.ts).
    double optional that did not compile) — fixed before the first green run.
 4. **`MMBaseURL.websocket()` built components from a `URL`** instead of `URLComponents`, which
    cannot mutate `scheme` — fixed before the first green run.
+
+## 7b. T28-R repair — the T28-AV findings (F1–F9)
+
+T28-AV (`t_4064841e`) audited HEAD `027ddeb` with `av_probes.swift` and found nine defects on top of
+a passing acceptance suite. Each entry below: the probe that caught it, the fix, and the test that
+now holds the line. Two are worth reading closely — F6(a) is **not** a defect (the auditor's tool
+redacted the very input it was checking), and F2's fix is a heuristic with a stated interval.
+
+| # | Severity | Verdict | Fix | Regression test(s) |
+|---|---|---|---|---|
+| F1 | HIGH | fixed | reader bound to the server's store; no default-argument init | `AuthSessionTests.testProductionReaderReadsTheServersOwnStoreAndNoOther`, `testAdoptingAWebSessionEndToEndThroughThePerServerCookieStore` |
+| F2 | MEDIUM | fixed | ladder resets only after `stableSessionInterval` of open | `SocketClientTests.testRepeatedOpenThenInstantCloseEscalatesTheBackoffLadder`, `testALongLivedSessionThenADropStartsTheLadderAtBase`, `testALongLivedSessionResetsAnAlreadyClimbedLadder` |
+| F3 | MEDIUM | fixed | replay keys narrowed to identities that cannot recur | `testTwoChannelViewedEventsOnOneConnectionAreBothDelivered`, `testAReAddedReactionIsDelivered`, `testOnlyReplayableIdentitiesCarryADedupeKey` |
+| F4 | MEDIUM-LOW | fixed | server `Retry-After` clamped for the sleep only | `APIClientTests.testAbsurdRetryAfterIsClampedForTheSleepAndKeptInTheError` |
+| F5 | LOW | fixed | heartbeat timeout no longer asks for a resync | `SocketClientTests.testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect` |
+| F6 | LOW | (a) **not a defect**, (b) fixed | tests made self-proving; script is multi-line-aware and scans logs | `TokenLoggingTests` + `scripts/t28-token-grep.sh` (both directions exercised) |
+| F7 | LOW | fixed | the upgrade really does carry `Authorization` | `testHandshakeHeadersCarryTheBearerTokenWhenOneIsConfigured`, `testHandshakeHeadersOmitAuthorizationWithoutAToken` |
+| F8 | LOW | fixed | real `wss` exercised against the TLS fixture | `SelfSignedTrustTests.testRealWebSocketTransportOpensOnlyAfterTheCertificateIsTrusted` |
+| F9 | LOW | fixed | take-a-token entry point deleted | (its two tests were deleted with it; `adoptWebSession` keeps its three) |
+
+**F1 — the SSO reader read the wrong `WKWebsiteDataStore` (HIGH).**
+Probe: a cookie written to `WKWebsiteDataStore(forIdentifier: serverA)` was returned by a reader
+built on that store, returned `nil` by one built on `.default()`, and `nil` by
+`WebKitSessionCookieReader()` — i.e. the production-shaped call. Every real server writes its session
+into a per-server store (`ViewStore.ensureStore(for:)` → `WebViewStore(dataStoreIdentifier:)`), so
+the SSO hand-off would have reported `notSignedIn` on every real sign-in.
+Fix: `init(serverID:)` builds `WKWebsiteDataStore(forIdentifier:)`; there is **no** initializer with
+a defaulted store, so the buggy call shape cannot be written again; an explicit `init(dataStore:)`
+remains for callers that already hold a store. The cookie list is fetched with the async
+`httpCookieStore.allCookies()` (same call `Diagnostics` already made).
+Tests: two server UUIDs, one cookie — the owning server's reader returns it, the other server's
+reader and the shared `.default()` store return `nil` (cross-server leak stays impossible), and the
+full `adoptWebSession(using: WebKitSessionCookieReader(serverID:))` hand-off adopts it end to end.
+Proven to bite: setting `init(serverID:)` back to `.default()` made the test fail (the runner then
+wedges on failure recording — the known Catalyst quirk in §6 — which is what the interrupted log
+shows).
+
+**F2 — repeated kills hammered the server (MEDIUM).**
+Probe: six `opened → closed` cycles produced `retryDelays == [1, 1, 1, 1, 1, 1]`, because
+`run()` reset `attempt` on `.opened`.
+Fix: `.opened` no longer touches the ladder. When a connection ends, the ladder resets only if the
+connection stayed up for `Configuration.stableSessionInterval` (5 s, measured with an injected
+`now`); otherwise it keeps climbing, so an accept-then-kill server backs off 1 → 2 → 4 → 8 …
+Tests: 4 flap cycles assert `[1, 2, 4, 8]` (strictly escalating), one long-lived session then a
+drop asserts `[1, 2]` (the card's acceptance), and a ladder already at 2 goes *back* to 1 after a
+long-lived session (`[1, 1, 2]`), so the reset is a reset and not a no-op. The original
+`testReconnectProducesOneBackoffSequenceAndOneResync` still asserts `[1, 2]`.
+Proven to bite: setting `stableSessionInterval` to 0 reproduced the probe line by line —
+`connection lost; attempt 1 in 1.00s` on every cycle instead of a climbing attempt number.
+
+**F3 — duplicate suppression swallowed legitimate repeats (MEDIUM).**
+Probe: two `channel_viewed` (seq 1, 2) → one delivered, one "duplicate"; `reaction_added →
+reaction_removed → reaction_added` lost the re-add.
+Fix: `SocketEvent.dedupeKey` now exists only for identities that cannot legitimately recur — `hello`,
+post revisions (`id` + `update_at` + `delete_at` via `posted`/`post_edited`/`post_deleted`) and user
+revisions (`id` + `update_at`). `channel_viewed`, `status_change`, `preferences_changed`, both
+reaction events and `typing` are never suppressed. Residual risk, accepted and written into the
+code: a server replaying one of those after a reconnect costs a redundant refresh — the opposite
+trade, and the right one, because the old behaviour lost real events.
+Tests: both `channel_viewed` delivered with `duplicateEventCount == 0`; the re-added reaction
+delivered; a table test pins which events carry a key; the replayed-`posted`-after-reconnect test
+still suppresses the replay and still counts two duplicates.
+
+**F4 — `Retry-After` was uncapped (MEDIUM-LOW).**
+Probe: `Retry-After: 86400` made `APIClient.perform` sleep 86 400 s, ignoring `maxDelay` (20 s).
+Fix: the **slept** delay is `min(serverValue, retryPolicy.maxDelay)`; `MMError.rateLimited(retryAfter:)`
+still carries the server's exact value, so a screen can say "try again in X".
+Test: 429 + `Retry-After: 86400` sleeps exactly `[20]` and then throws `.rateLimited(retryAfter: 86400)`.
+
+**F5 — one dropout resynced twice (LOW).**
+Fix: `heartbeatTick()` recycles the connection without calling `resync`; the reconnect's
+`.reconnected` is the single refetch point. `ResyncReason.heartbeatTimeout` was removed rather than
+left dead.
+Test: heartbeat timeout → `resyncCount == 0` and no reason recorded; the reconnect then yields
+exactly `[.reconnected]` and `resyncCount == 1`.
+
+**F6 — token evidence was weaker than it claimed (LOW).**
+(a) **Not a defect.** The AV reported two vacuous assertions at `TokenLoggingTests:49` and `:171`
+("`abc.def-123` / `def456` are not in the input"). They are: `grep -c 'abc\.def-123'` finds it twice
+— line 48 (the `MMLog.redact` input) and line 49 (the assertion) — and `def456` likewise at 168/171.
+The audit's tooling redacts `Bearer <credential>` in *its own output*, so the input line it read had
+already been masked. Confirmation that the file really says so: the repair edits matched those exact
+literals in place.
+Hardened anyway, because a test that cannot show its own fixture contains the secret is one edit
+away from vacuity: both tests now build the input by interpolation (`"… Bearer \(bearerSecret) …"`)
+and assert `input.contains(secret)` **before** asserting the redaction, so the fixture self-check
+fails loudly if someone neuters it.
+(b) Fixed. The script's docstring now states it is the static half and points at `TokenLoggingTests`
+for behaviour. Check 1b reassembles `Logger`/`MMLog` calls that span lines (awk, paren-balanced) before
+matching — the old single-line grep missed exactly that shape. New check 4 scans every committed
+`docs/**/*.log` for `Bearer <16+ chars>`, `MMAUTHTOKEN=<value>` and JSON `"token": "<value>"`
+(`<redacted>` placeholders do not match). Both new checks were exercised: a planted two-line log
+call and a fake `Bearer PROBE…` log line each turned the script red (`RESULT: FAIL`); with them
+removed it passes over 30 committed log files.
+
+**F7 — the header comment described an `Authorization` header that was never sent (LOW).**
+Fix (the card's first option): `Configuration.headers` adds `Authorization: Bearer <token>` when a
+token is configured, so the upgrade carries the bearer *and* the in-band challenge the comment
+describes. The dictionary goes straight to the transport factory and is never logged; `TokenLoggingTests`
+asserts the token is present in the header and absent from every captured log line.
+Tests: header present with a token, absent without one.
+
+**F8 — the real `WebSocketTransport` was untested (LOW).**
+Fix: the TLS fixture is now a `ThreadingHTTPServer` that also answers `GET /api/v4/websocket` with
+`101 Switching Protocols`, one unmasked `hello` text frame and a clean close. The new test drives the
+real `URLSessionWebSocketTask` transport: the untrusted certificate fails the handshake (typed
+`.failed` + a `CertificatePrompt`), recording the decision in `CertTrust` (what `CertPromptSheet`'s
+Trust button does) makes the same transport open and receive `hello`. The check script now fails if
+this test skipped, so a fixture-less run cannot pass silently.
+Evidence: `docs/t28-selfsigned-2026-10-24.log` — `fixture: wss: upgrade accepted for
+/api/v4/websocket`, `Executed 3 tests, with 0 failures`, `** TEST SUCCEEDED **`, `RESULT: PASS`.
+
+**F9 — an unused take-a-token entry point (LOW).**
+Fix: `AuthSession.adoptSSOSession(token:userID:username:)` deleted, with its two tests. The cookie
+reader is the only producer of an SSO session, and the type's doc comment says so — a future JS
+bridge has nothing to hand a token to.
 
 ## 8. Verification (commands and the runner's own verdict)
 
@@ -183,8 +315,25 @@ bash scripts/t28-selfsigned-check.sh 18443
   -> Executed 2 tests, with 0 failures (0 unexpected)
   -> RESULT: PASS — native TLS succeeds after the certificate decision is recorded in CertTrust
      (log: docs/t28-selfsigned-2026-10-24.log)
+
+# T28-R re-run (repair round, 2026-10-24) — the numbers above are the T28 run, these are HEAD
+xcodebuild test ... -derivedDataPath build/ddata-t28r -only-testing:MattermostTests DEBUG_INFORMATION_FORMAT=dwarf
+  Mac Catalyst         -> Executed 451 tests, with 3 tests skipped and 0 failures (log: docs/t28r-catalyst-unit-2026-10-24.log)
+  iPhone 16 Pro 18.3   -> Executed 451 tests, with 3 tests skipped and 0 failures (log: docs/t28r-ios-unit-2026-10-24.log)
+  -> ** TEST SUCCEEDED ** on both (grepped, not inferred from xcodebuild's exit code)
+  the 3 skips: MentionPollerTests.testLiveMentionsFetch_optIn (pre-existing opt-in live test) and the
+  two certificate-fixture tests, which run and pass under scripts/t28-selfsigned-check.sh below.
+
+bash scripts/t28-token-grep.sh
+  -> 30 log files scanned; RESULT: PASS (the two new checks were first proven to fail — see §7b F6)
+
+bash scripts/t28-selfsigned-check.sh 18443
+  -> fixture: wss: upgrade accepted for /api/v4/websocket
+  -> Executed 3 tests, with 0 failures (0 unexpected)
+  -> RESULT: PASS — native TLS succeeds after the certificate decision is recorded in CertTrust
+     (log: docs/t28-selfsigned-2026-10-24.log)
 ```
 
-New-suite counts (Catalyst): `APIClientTests` 27, `AuthSessionTests` 20, `SocketClientTests` 11,
-`ServerTrustPolicyTests` 11, `TokenLoggingTests` 7, `SelfSignedTrustTests` 2 (1 fixture-gated skip
-in the offline run) — 78 new tests, all green.
+New-suite counts (Catalyst, after T28-R): `APIClientTests` 28, `AuthSessionTests` 20,
+`SocketClientTests` 19, `ServerTrustPolicyTests` 11, `TokenLoggingTests` 7, `SelfSignedTrustTests` 3
+(2 fixture-gated skips offline) — 88 tests across the T28 suites, all green (85 in the offline run).

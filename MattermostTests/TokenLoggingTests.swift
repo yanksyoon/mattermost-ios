@@ -45,8 +45,13 @@ final class TokenLoggingTests: XCTestCase {
     // MARK: - Redaction primitives
 
     func testRedactStripsBearerCredentials() {
-        let redacted = MMLog.redact("sending Authorization: Bearer abc.def-123 to server")
-        XCTAssertFalse(redacted.contains("abc.def-123"))
+        // The input has to actually carry the credential, or "the secret is gone" proves nothing
+        // (T28-AV F6a). Building it by interpolation keeps the assertion honest.
+        let bearerSecret = "abc.def-123"
+        let input = "sending Authorization: Bearer \(bearerSecret) to server"
+        XCTAssertTrue(input.contains(bearerSecret), "fixture self-check: the input holds the secret")
+        let redacted = MMLog.redact(input)
+        XCTAssertFalse(redacted.contains(bearerSecret))
         XCTAssertTrue(redacted.contains("<redacted>"))
     }
 
@@ -147,6 +152,8 @@ final class TokenLoggingTests: XCTestCase {
 
         XCTAssertTrue(transport.sent.contains { $0.contains(token) },
                       "the token must be sent in the challenge frame")
+        XCTAssertEqual(factory.madeHeaders.first?["Authorization"], "Bearer \(token)",
+                       "the upgrade header carries the token too (T28-AV F7)")
         XCTAssertFalse(lines.isEmpty, "the socket must log something")
         for line in lines {
             XCTAssertFalse(line.contains(token), "a log line leaked the socket token: \(line)")
@@ -165,10 +172,17 @@ final class TokenLoggingTests: XCTestCase {
     /// Evidence for the reviewer:
     ///   bash scripts/t28-token-grep.sh   -> exit 0, "RESULT: PASS"
     func testRedactionHappensAtTheLogBoundary() {
-        MMLog.info("MMTest", "login for ada with token=abc123 and Authorization: Bearer def456")
+        // Both secrets are in the input by construction (T28-AV F6a): a vacuous assertion here
+        // would let a real leak through.
+        let keyValueSecret = "abc123"
+        let bearerSecret = "def456"
+        let line = "login for ada with token=\(keyValueSecret) and Authorization: Bearer \(bearerSecret)"
+        XCTAssertTrue(line.contains(keyValueSecret) && line.contains(bearerSecret),
+                      "fixture self-check: the input holds both secrets")
+        MMLog.info("MMTest", line)
         let joined = lines.joined(separator: "\n")
-        XCTAssertFalse(joined.contains("abc123"), "key/value credentials are redacted")
-        XCTAssertFalse(joined.contains("def456"), "bearer credentials are redacted")
+        XCTAssertFalse(joined.contains(keyValueSecret), "key/value credentials are redacted")
+        XCTAssertFalse(joined.contains(bearerSecret), "bearer credentials are redacted")
         XCTAssertTrue(joined.contains("<redacted>"))
     }
 }

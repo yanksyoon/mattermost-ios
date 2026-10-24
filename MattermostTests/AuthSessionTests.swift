@@ -1,4 +1,5 @@
 import Foundation
+import WebKit
 import XCTest
 @testable import Mattermost
 
@@ -246,20 +247,6 @@ final class AuthSessionTests: XCTestCase {
         XCTAssertEqual(transport.requests.last?.url.path, "/api/v4/users/logout")
     }
 
-    func testAdoptingAnSSOSessionPersistsTheWebviewToken() throws {
-        let auth = try makeSession(FakeAPITransport(stubs: []))
-        let session = try auth.adoptSSOSession(token: "sso-token-42", userID: "u9", username: "grace")
-        XCTAssertEqual(session.token, "sso-token-42")
-        XCTAssertEqual(vault.getSecret(key: .authToken, serverURL: serverURL), "sso-token-42")
-        XCTAssertEqual(auth.state, .signedIn(session))
-    }
-
-    func testAdoptingAnEmptySSOTokenFails() throws {
-        let auth = try makeSession(FakeAPITransport(stubs: []))
-        XCTAssertThrowsError(try auth.adoptSSOSession(token: "  ", userID: "u9", username: "grace"))
-        XCTAssertEqual(auth.state, .signedOut)
-    }
-
     // MARK: - Webview hand-off (SSO)
 
     private struct StubCookieReader: SessionCookieReading {
@@ -305,6 +292,61 @@ final class AuthSessionTests: XCTestCase {
         }
         XCTAssertNil(vault.getSecret(key: .authToken, serverURL: serverURL),
                      "a cookie the server rejects must not be persisted")
+    }
+
+    // MARK: - Per-server cookie store (T28-AV F1)
+
+    /// The regression the AV found: this app writes the session cookie into a **per-server**
+    /// `WKWebsiteDataStore(forIdentifier: server.id)`, so a reader pointed at `.default()` answered
+    /// `nil` for every real sign-in. The production-shaped reader (`init(serverID:)`) must read the
+    /// server's own store — and must not see another server's cookie.
+    func testProductionReaderReadsTheServersOwnStoreAndNoOther() async throws {
+        let serverA = UUID()
+        let serverB = UUID()
+        let cookie = try XCTUnwrap(HTTPCookie(properties: [
+            .name: "MMAUTHTOKEN", .value: "sso-token-abc",
+            .domain: "mm.example.com", .path: "/"
+        ]))
+        let storeA = WKWebsiteDataStore(forIdentifier: serverA)
+        await storeA.httpCookieStore.setCookie(cookie)
+
+        let tokenA = await WebKitSessionCookieReader(serverID: serverA).authToken(for: serverURL)
+        XCTAssertEqual(tokenA, "sso-token-abc",
+                       "the production reader must read the store the webview writes the session to")
+
+        let tokenB = await WebKitSessionCookieReader(serverID: serverB).authToken(for: serverURL)
+        XCTAssertNil(tokenB, "another server's reader must never see this server's credential")
+
+        let tokenDefault = await WebKitSessionCookieReader(dataStore: .default())
+            .authToken(for: serverURL)
+        XCTAssertNil(tokenDefault,
+                     "the shared default store is not where a per-server session lives (the F1 bug)")
+
+        await storeA.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+                                modifiedSince: .distantPast)
+    }
+
+    /// The whole hand-off, with the real reader and the real per-server store: the token the
+    /// webview holds is what the native session adopts.
+    func testAdoptingAWebSessionEndToEndThroughThePerServerCookieStore() async throws {
+        let transport = FakeAPITransport(stubs: [.ok(.json(userJSON(id: "u7", username: "grace")))])
+        let auth = try makeSession(transport)
+        let store = WKWebsiteDataStore(forIdentifier: serverID)
+        let cookie = try XCTUnwrap(HTTPCookie(properties: [
+            .name: "MMAUTHTOKEN", .value: "sso-token-end-to-end",
+            .domain: "mm.example.com", .path: "/"
+        ]))
+        await store.httpCookieStore.setCookie(cookie)
+
+        let session = try await auth.adoptWebSession(
+            using: WebKitSessionCookieReader(serverID: serverID))
+
+        XCTAssertEqual(session.token, "sso-token-end-to-end")
+        XCTAssertEqual(session.userID, "u7")
+        XCTAssertEqual(vault.getSecret(key: .authToken, serverURL: serverURL), "sso-token-end-to-end")
+
+        await store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+                               modifiedSince: .distantPast)
     }
 
     // MARK: - Cookie matching

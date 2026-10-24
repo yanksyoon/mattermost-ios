@@ -61,7 +61,14 @@ xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
 
 status=${PIPESTATUS[0]}
 echo | tee -a "$LOG"
-if [ "$status" -eq 0 ] && grep -q "Executed 2 tests, with 0 failures" "$LOG"; then
+# `xcodebuild` exits 0 even when a test fails, so the runner's own verdict is what counts. The
+# WebSocket case (T28-AV F8) runs here too: it skips itself when the fixture is absent, so a
+# "0 failures" that skipped it would be a false pass — hence the explicit "did it run" check.
+if [ "$status" -eq 0 ] \
+   && grep -qE "Executed [0-9]+ tests?, with 0 failures" "$LOG" \
+   && grep -q "testRealWebSocketTransportOpensOnlyAfterTheCertificateIsTrusted" "$LOG" \
+   && ! grep -q "testRealWebSocketTransportOpensOnlyAfterTheCertificateIsTrusted.*skipped" "$LOG" \
+   && grep -q "\*\* TEST SUCCEEDED \*\*" "$LOG"; then
   echo "RESULT: PASS — native TLS succeeds after the certificate decision is recorded in CertTrust" | tee -a "$LOG"
   exit 0
 fi

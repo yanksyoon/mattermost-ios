@@ -224,8 +224,16 @@ final class APIClient: @unchecked Sendable {
                 guard idempotent, attempt < retryPolicy.maxAttempts else {
                     throw Self.error(for: failure)
                 }
-                let delay = failure.retryAfter
-                    ?? retryPolicy.delay(forAttempt: attempt, random: random())
+                // The server's `Retry-After` is honoured, but never trusted to block the app: a
+                // hostile or misconfigured `Retry-After: 86400` must not park a request for a day.
+                // The *slept* delay is clamped; the thrown `.rateLimited(retryAfter:)` keeps the
+                // server's exact value so a screen can still say "try again in 24 h".
+                let delay: TimeInterval
+                if let serverDelay = failure.retryAfter {
+                    delay = min(serverDelay, retryPolicy.maxDelay)
+                } else {
+                    delay = retryPolicy.delay(forAttempt: attempt, random: random())
+                }
                 onRetryScheduled?(attempt, delay, failure.reason)
                 MMLog.debug("MMAPI", "retrying \(method.rawValue) \(path) attempt \(attempt + 1) "
                     + "after \(String(format: "%.2f", delay))s (\(failure.reason))")

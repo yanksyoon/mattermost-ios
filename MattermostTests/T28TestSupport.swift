@@ -282,6 +282,35 @@ final class TestSocketClock: SocketClock, @unchecked Sendable {
     }
 }
 
+/// A wall clock a test can move by hand. `SocketClient` measures how long a connection stayed up
+/// to decide whether it was a session or a flap; without this the open-then-killed test would have
+/// to sleep for real seconds.
+final class TestNow: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current: Date
+
+    init(_ start: Date = Date(timeIntervalSince1970: 1_700_000_000)) {
+        self.current = start
+    }
+
+    var now: Date {
+        lock.lock()
+        defer { lock.unlock() }
+        return current
+    }
+
+    /// The closure `SocketClient(now:)` takes.
+    var provider: @Sendable () -> Date {
+        { self.now }
+    }
+
+    func advance(_ seconds: TimeInterval) {
+        lock.lock()
+        current = current.addingTimeInterval(seconds)
+        lock.unlock()
+    }
+}
+
 /// Collects a socket event stream so a test can assert on an ordered snapshot without racing the
 /// consumer.
 final class EventBox: @unchecked Sendable {

@@ -11,8 +11,9 @@
 //    (`min(3s * failCount, 5min)` after 7 failures);
 //  - reconnect resync is an injected closure (the caller refetches changed state), where mobile
 //    calls a global sync routine;
-//  - duplicate suppression across a reconnect is explicit (`SocketEvent.dedupeKey`), where mobile
-//    relies on the server replaying nothing for non-reliable sockets.
+//  - duplicate suppression across a reconnect is explicit and narrow (`SocketEvent.dedupeKey`:
+//    post/user revisions and hello only), where mobile relies on the server replaying nothing for
+//    non-reliable sockets. Events whose occurrence is itself the signal are never suppressed.
 
 import Foundation
 
@@ -216,32 +217,26 @@ enum SocketEvent: Equatable, Sendable {
         }
     }
 
-    /// A stable identity for duplicate suppression across a reconnect. `typing` is deliberately
-    /// excluded: it is transient, id-less and must be delivered every time.
+    /// A stable identity for replay suppression **across a reconnect** — and only for identities
+    /// that cannot legitimately recur: a post revision (`id` + `update_at` + `delete_at`), a user
+    /// revision (`id` + `update_at`), and a `hello` (once per connection id).
+    ///
+    /// Everything whose *occurrence* is the signal is deliberately un-keyed: `typing` (transient),
+    /// `channel_viewed` (the same user can view the same channel twice), `status_change`
+    /// (away → away is a real event), `preferences_changed`, and reactions (add → remove → add is
+    /// three real events). Content-hashing those over a global window silently swallowed genuine
+    /// events (T28-AV finding F3). The residual risk — a server replaying one of them after a
+    /// reconnect — costs a redundant UI refresh instead of a lost event, which is the right trade.
     var dedupeKey: String? {
         switch self {
-        case .typing:
-            return nil
         case .hello(let hello):
             return "hello|\(hello.connectionID)|\(hello.serverVersion)"
-        case .posted(let post), .postEdited(let post):
+        case .posted(let post), .postEdited(let post), .postDeleted(let post):
             return "\(name)|\(post.id)|\(post.updateAt)|\(post.deleteAt)"
-        case .postDeleted(let post):
-            return "post_deleted|\(post.id)|\(post.updateAt)|\(post.deleteAt)"
-        case .channelViewed(let viewed):
-            return "channel_viewed|\(viewed.channelID)|\(viewed.userID)"
-        case .statusChange(let change):
-            return "status_change|\(change.userID)|\(change.status)"
-        case .preferencesChanged(let preferences):
-            return "preferences_changed|" + preferences
-                .map { "\($0.category).\($0.name)=\($0.value)" }
-                .sorted()
-                .joined(separator: ",")
         case .userUpdated(let user):
             return "user_updated|\(user.id)|\(user.updateAt)"
-        case .reactionAdded(let reaction), .reactionRemoved(let reaction):
-            return "\(name)|\(reaction.postId)|\(reaction.userId)|\(reaction.emojiName)"
-        case .unhandled:
+        case .typing, .channelViewed, .statusChange, .preferencesChanged,
+             .reactionAdded, .reactionRemoved, .unhandled:
             return nil
         }
     }

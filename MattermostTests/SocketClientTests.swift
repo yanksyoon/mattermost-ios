@@ -34,6 +34,7 @@ final class SocketClientTests: XCTestCase {
                              clock: SocketClock = TestSocketClock(autoRelease: true),
                              token: String? = "tok-socket",
                              pingInterval: TimeInterval? = nil,
+                             now: @escaping @Sendable () -> Date = { Date() },
                              backoff: SocketClient.Backoff = SocketClient.Backoff(base: 1,
                                                                                  factor: 2,
                                                                                  maxDelay: 60,
@@ -49,6 +50,7 @@ final class SocketClientTests: XCTestCase {
             transportFactory: { url, headers in factory.make(url, headers) },
             clock: clock,
             random: { 0.5 },
+            now: now,
             resync: resync)
         let stream = await client.subscribe()
         let box = EventBox()
@@ -80,6 +82,36 @@ final class SocketClientTests: XCTestCase {
         let frame = try XCTUnwrap(transport.sent.first { $0.contains("authentication_challenge") })
         XCTAssertTrue(frame.contains("tok-socket"), "the token travels in the challenge frame")
         XCTAssertEqual(harness.factory.madeHeaders.first?["Origin"], "https://mm.example.com")
+
+        await harness.client.stop()
+        harness.consumer.cancel()
+    }
+
+    /// T28-AV F7: the header comment claimed the upgrade carries `Authorization` *and* the in-band
+    /// challenge. Only the challenge existed. The factory must receive the bearer header too.
+    func testHandshakeHeadersCarryTheBearerTokenWhenOneIsConfigured() async {
+        let transport = ScriptedSocketTransport()
+        let harness = await makeHarness([transport], token: "tok-header-1")
+        await harness.client.start()
+        await waitUntil("transport") { harness.factory.created.count == 1 }
+
+        let headers = harness.factory.madeHeaders.first
+        XCTAssertEqual(headers?["Authorization"], "Bearer tok-header-1")
+        XCTAssertEqual(headers?["Origin"], "https://mm.example.com")
+        XCTAssertEqual(headers?["X-Requested-With"], "XMLHttpRequest")
+
+        await harness.client.stop()
+        harness.consumer.cancel()
+    }
+
+    /// ... and an anonymous socket (no token) must not carry an empty bearer header.
+    func testHandshakeHeadersOmitAuthorizationWithoutAToken() async {
+        let transport = ScriptedSocketTransport()
+        let harness = await makeHarness([transport], token: nil)
+        await harness.client.start()
+        await waitUntil("transport") { harness.factory.created.count == 1 }
+
+        XCTAssertNil(harness.factory.madeHeaders.first?["Authorization"])
 
         await harness.client.stop()
         harness.consumer.cancel()
@@ -128,6 +160,99 @@ final class SocketClientTests: XCTestCase {
         XCTAssertEqual(resyncReasons.reasons, [.reconnected])
         let resyncCount = await harness.client.resyncCount
         XCTAssertEqual(resyncCount, 1, "one resync per reconnect, never a duplicate")
+
+        await harness.client.stop()
+        harness.consumer.cancel()
+    }
+
+    // MARK: - Backoff ladder vs. an accept-then-kill server (T28-AV F2)
+
+    /// A server that accepts the upgrade and closes immediately must not be reconnected at the
+    /// base delay forever: `retryDelays` has to escalate, or k kills hammer the server k times a
+    /// second. (Before the fix this produced `[1, 1, 1, 1]`.)
+    func testRepeatedOpenThenInstantCloseEscalatesTheBackoffLadder() async throws {
+        let transports = (0..<4).map { _ in ScriptedSocketTransport() }
+        let now = TestNow()
+        let harness = await makeHarness(transports, now: now.provider)
+
+        await harness.client.start()
+        for (index, transport) in transports.enumerated() {
+            await waitUntil("transport \(index + 1)") {
+                harness.factory.created.count == index + 1
+            }
+            transport.push(.opened)
+            await waitUntil("open \(index + 1)") { await harness.client.state == .open }
+            now.advance(0.1) // a flap, not a session: far below stableSessionInterval (5 s)
+            transport.push(.closed(code: 1006, reason: nil))
+            await waitUntil("retry \(index + 1) scheduled") {
+                await harness.client.retryDelays.count == index + 1
+            }
+        }
+
+        let delays = await harness.client.retryDelays
+        XCTAssertEqual(delays, [1, 2, 4, 8],
+                       "open-then-instant-close must climb the ladder, not reset it")
+        for (previous, next) in zip(delays, delays.dropFirst()) {
+            XCTAssertGreaterThan(next, previous, "delays must strictly escalate")
+        }
+
+        await harness.client.stop()
+        harness.consumer.cancel()
+    }
+
+    /// A connection that stays up counts as a session, so the ladder starts over: the card's
+    /// acceptance "one long-lived open then a drop still asserts [1, 2]".
+    func testALongLivedSessionThenADropStartsTheLadderAtBase() async throws {
+        let first = ScriptedSocketTransport()
+        let second = ScriptedSocketTransport()
+        let now = TestNow()
+        let harness = await makeHarness([first, second], now: now.provider)
+
+        await harness.client.start()
+        await waitUntil("first transport") { harness.factory.created.count == 1 }
+        first.push(.opened)
+        await waitUntil("open") { await harness.client.state == .open }
+        now.advance(10) // well past stableSessionInterval
+        first.push(.closed(code: 1006, reason: nil))
+
+        await waitUntil("second transport") { harness.factory.created.count == 2 }
+        second.push(.failed("connection reset"))
+        await waitUntil("two retries") { await harness.client.retryDelays.count == 2 }
+
+        let delays = await harness.client.retryDelays
+        XCTAssertEqual(delays, [1, 2],
+                       "a long-lived session resets the ladder; the next failure doubles from base")
+
+        await harness.client.stop()
+        harness.consumer.cancel()
+    }
+
+    /// The reset is a *reset*, not a no-op: a ladder that had already climbed to 2 goes back to 1
+    /// after a long-lived session instead of continuing at 2.
+    func testALongLivedSessionResetsAnAlreadyClimbedLadder() async throws {
+        let first = ScriptedSocketTransport()
+        let second = ScriptedSocketTransport()
+        let third = ScriptedSocketTransport()
+        let now = TestNow()
+        let harness = await makeHarness([first, second, third], now: now.provider)
+
+        await harness.client.start()
+        await waitUntil("first transport") { harness.factory.created.count == 1 }
+        first.push(.failed("connection refused"))
+
+        await waitUntil("second transport") { harness.factory.created.count == 2 }
+        second.push(.opened)
+        await waitUntil("open") { await harness.client.state == .open }
+        now.advance(10)
+        second.push(.closed(code: 1006, reason: nil))
+
+        await waitUntil("third transport") { harness.factory.created.count == 3 }
+        third.push(.failed("connection refused"))
+        await waitUntil("three retries") { await harness.client.retryDelays.count == 3 }
+
+        let delays = await harness.client.retryDelays
+        XCTAssertEqual(delays, [1, 1, 2],
+                       "refused -> 1, long-lived session resets -> 1, refused -> 2")
 
         await harness.client.stop()
         harness.consumer.cancel()
@@ -208,6 +333,66 @@ final class SocketClientTests: XCTestCase {
         harness.consumer.cancel()
     }
 
+    // MARK: - Legitimate repeats are not duplicates (T28-AV F3)
+
+    /// Viewing the same channel twice is two real events. The old content-hashed dedupe key
+    /// dropped the second one on the same connection.
+    func testTwoChannelViewedEventsOnOneConnectionAreBothDelivered() async throws {
+        let transport = ScriptedSocketTransport()
+        let harness = await makeHarness([transport])
+        await harness.client.start()
+        await waitUntil("transport") { harness.factory.created.count == 1 }
+        transport.push(.opened)
+        let viewed = ["channel_id": "c1", "user_id": "u1"]
+        transport.pushEvent("channel_viewed", seq: 1, data: viewed)
+        transport.pushEvent("channel_viewed", seq: 2, data: viewed)
+
+        await waitUntil("both channel_viewed events") { harness.box.count == 2 }
+        XCTAssertEqual(harness.box.events.map(\.name), ["channel_viewed", "channel_viewed"])
+        let duplicates = await harness.client.duplicateEventCount
+        XCTAssertEqual(duplicates, 0, "a second view of the same channel is not a replay")
+
+        await harness.client.stop()
+        harness.consumer.cancel()
+    }
+
+    /// add → remove → add is three real events; the re-add must reach subscribers.
+    func testAReAddedReactionIsDelivered() async throws {
+        let transport = ScriptedSocketTransport()
+        let harness = await makeHarness([transport])
+        await harness.client.start()
+        await waitUntil("transport") { harness.factory.created.count == 1 }
+        transport.push(.opened)
+        let reaction = "{\"user_id\":\"u2\",\"post_id\":\"p1\",\"emoji_name\":\"+1\",\"create_at\":5}"
+        transport.pushEvent("reaction_added", seq: 1, data: ["reaction": reaction])
+        transport.pushEvent("reaction_removed", seq: 2, data: ["reaction": reaction])
+        transport.pushEvent("reaction_added", seq: 3, data: ["reaction": reaction])
+
+        await waitUntil("all three reaction events") { harness.box.count == 3 }
+        XCTAssertEqual(harness.box.events.map(\.name),
+                       ["reaction_added", "reaction_removed", "reaction_added"])
+        let duplicates = await harness.client.duplicateEventCount
+        XCTAssertEqual(duplicates, 0, "the re-add after a remove is a new event, not a duplicate")
+
+        await harness.client.stop()
+        harness.consumer.cancel()
+    }
+
+    /// The narrow dedupe keys still do their job for identities that cannot legitimately recur.
+    func testOnlyReplayableIdentitiesCarryADedupeKey() {
+        let post = MMPost(id: "p1", createAt: 1, updateAt: 2, userId: "u1", channelId: "c1", message: "hi")
+        XCTAssertEqual(SocketEvent.posted(post).dedupeKey, "posted|p1|2|0")
+        XCTAssertEqual(SocketEvent.postEdited(post).dedupeKey, "post_edited|p1|2|0")
+        XCTAssertNil(SocketEvent.channelViewed(SocketChannelViewed(channelID: "c1", userID: "u1")).dedupeKey)
+        XCTAssertNil(SocketEvent.statusChange(SocketStatusChange(userID: "u1", status: "away")).dedupeKey)
+        XCTAssertNil(SocketEvent.typing(SocketTyping(channelID: "c1", parentID: "", userID: "u2")).dedupeKey)
+        XCTAssertNil(SocketEvent.preferencesChanged([]).dedupeKey)
+        XCTAssertNil(SocketEvent.reactionAdded(MMReaction(userId: "u2", postId: "p1",
+                                                          emojiName: "+1", createAt: 5)).dedupeKey)
+        XCTAssertNil(SocketEvent.reactionRemoved(MMReaction(userId: "u2", postId: "p1",
+                                                             emojiName: "+1", createAt: 5)).dedupeKey)
+    }
+
     func testSequenceGateDropsAReplayOnTheSameConnection() async throws {
         let transport = ScriptedSocketTransport()
         let harness = await makeHarness([transport])
@@ -227,11 +412,12 @@ final class SocketClientTests: XCTestCase {
 
     // MARK: - Heartbeat
 
-    func testHeartbeatTimeoutRecyclesTheConnectionAndResyncs() async throws {
+    func testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect() async throws {
         let transport = ScriptedSocketTransport()
+        let reconnect = ScriptedSocketTransport()
         let clock = TestSocketClock(autoRelease: false)
         let resyncReasons = ResyncLog()
-        let harness = await makeHarness([transport],
+        let harness = await makeHarness([transport, reconnect],
                                         clock: clock,
                                         pingInterval: 0.01,
                                         resync: { reason in resyncReasons.append(reason) })
@@ -246,7 +432,20 @@ final class SocketClientTests: XCTestCase {
 
         clock.release() // second tick with no pong: recycle
         await waitUntil("connection recycled") { transport.closeCount == 1 }
-        XCTAssertEqual(resyncReasons.reasons, [.heartbeatTimeout])
+        // T28-AV F5: the timeout itself must NOT resync — the reconnect is the one refetch point.
+        XCTAssertEqual(resyncReasons.count, 0,
+                       "a heartbeat timeout recycles the socket; the reconnect reports the resync")
+
+        await waitUntil("backoff scheduled") { clock.requestedDelays.contains { $0 >= 0.5 } }
+        clock.release() // let the run loop reconnect
+        await waitUntil("reconnected transport") { harness.factory.created.count == 2 }
+        reconnect.push(.opened)
+
+        await waitUntil("resync after the reconnect") { resyncReasons.count == 1 }
+        XCTAssertEqual(resyncReasons.reasons, [.reconnected],
+                       "exactly one resync for the whole dropout")
+        let resyncCount = await harness.client.resyncCount
+        XCTAssertEqual(resyncCount, 1)
 
         await harness.client.stop()
         harness.consumer.cancel()

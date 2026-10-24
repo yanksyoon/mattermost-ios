@@ -56,19 +56,29 @@ enum SessionCookiePolicy {
 }
 
 /// The production reader: asks the webview's own cookie store for the session token.
+///
+/// The store matters. This app gives every server its **own** persistent
+/// `WKWebsiteDataStore(forIdentifier: server.id)` (`ViewStore.ensureStore(for:)` →
+/// `WebViewStore(dataStoreIdentifier:)`), so `.default()` holds no session cookie for any server
+/// and a reader pointed at it answers `nil` for every real sign-in. There is therefore no
+/// default-value initializer: a caller has to say which store it means — either the server id
+/// (production) or a store it already owns (tests, diagnostics).
 struct WebKitSessionCookieReader: SessionCookieReading {
     let dataStore: WKWebsiteDataStore
 
-    init(dataStore: WKWebsiteDataStore = .default()) {
+    /// Production: the isolated store of the server whose webview signed in.
+    init(serverID: UUID) {
+        self.dataStore = WKWebsiteDataStore(forIdentifier: serverID)
+    }
+
+    /// Explicit store (tests, and callers that already hold the server's `WebViewStore`). No
+    /// default argument: `.default()` is never the store a server's session lives in.
+    init(dataStore: WKWebsiteDataStore) {
         self.dataStore = dataStore
     }
 
     func authToken(for serverURL: URL) async -> String? {
-        let cookies: [HTTPCookie] = await withCheckedContinuation { continuation in
-            dataStore.httpCookieStore.getAllCookies { cookies in
-                continuation.resume(returning: cookies)
-            }
-        }
+        let cookies = await dataStore.httpCookieStore.allCookies()
         return SessionCookiePolicy.value(named: SessionCookiePolicy.authCookieName,
                                          in: cookies,
                                          for: serverURL)

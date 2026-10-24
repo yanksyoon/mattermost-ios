@@ -154,6 +154,31 @@ final class APIClientTests: XCTestCase {
         XCTAssertEqual(transport.requestCount, 3, "maxAttempts attempts, then give up")
     }
 
+    /// T28-AV F4: a hostile `Retry-After: 86400` must not park the app for a day. The **sleep** is
+    /// clamped to `maxDelay`; the thrown error keeps the server's exact value for the UI.
+    func testAbsurdRetryAfterIsClampedForTheSleepAndKeptInTheError() async throws {
+        let transport = FakeAPITransport(repeating: .json(["message": "Too many requests"],
+                                                          status: 429,
+                                                          headers: ["Retry-After": "86400"]))
+        var delays: [TimeInterval] = []
+        let client = try makeClient(transport,
+                                    retryPolicy: APIClient.RetryPolicy(maxAttempts: 2,
+                                                                       baseDelay: 0.5,
+                                                                       maxDelay: 20,
+                                                                       jitterRatio: 0),
+                                    delays: { delays.append($0) })
+        do {
+            _ = try await client.currentUser()
+            XCTFail("expected .rateLimited")
+        } catch {
+            XCTAssertEqual(error as? MMError, .rateLimited(retryAfter: 86400),
+                           "the server's value survives in the typed error")
+        }
+        XCTAssertEqual(delays, [20], "the slept delay is clamped to RetryPolicy.maxDelay")
+        XCTAssertTrue(delays.allSatisfy { $0 <= 20 })
+        XCTAssertEqual(transport.requestCount, 2)
+    }
+
     func testRetryAfterHTTPDateIsParsed() throws {
         let now = Date(timeIntervalSince1970: 1_700_000_000)
         let formatter = DateFormatter()

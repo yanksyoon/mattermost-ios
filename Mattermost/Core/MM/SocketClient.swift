@@ -42,11 +42,13 @@ actor SocketClient {
     }
 
     /// Why a resync was requested. The caller refetches only what the reason implies.
+    ///
+    /// There is exactly one reason today, on purpose: a heartbeat timeout also recycles the
+    /// connection, and the reconnect that follows reports `.reconnected`. Asking for a resync at
+    /// the timeout *as well* would refetch twice for one dropout (T28-AV finding F5).
     enum ResyncReason: String, Sendable {
         /// The socket dropped and came back: anything could have changed while it was down.
         case reconnected
-        /// A heartbeat went unanswered and the connection was recycled deliberately.
-        case heartbeatTimeout
     }
 
     struct Configuration: Sendable {
@@ -59,13 +61,23 @@ actor SocketClient {
         /// Missed pongs tolerated before the connection is recycled (mobile: 1).
         var maxMissedPongs: Int = 1
         var backoff = Backoff()
+        /// How long a connection must stay up before it counts as a *real* session and resets the
+        /// backoff ladder. A server that accepts the upgrade and closes immediately never reaches
+        /// it, so repeated kills keep escalating instead of hammering at the base delay.
+        var stableSessionInterval: TimeInterval = 5
 
         /// Handshake headers. `origin` matters: the server rejects an upgrade without it.
+        /// The bearer token rides here **and** in the in-band `authentication_challenge` frame;
+        /// some reverse proxies strip upgrade headers and the challenge keeps those working.
+        /// This dictionary is never logged (it is handed straight to the transport factory).
         var headers: [String: String] {
             var headers = ["X-Requested-With": "XMLHttpRequest"]
             if let origin, !origin.isEmpty { headers["Origin"] = origin }
             if let preauthSecret, !preauthSecret.isEmpty {
                 headers["X-Mattermost-Preauth-Secret"] = preauthSecret
+            }
+            if let token, !token.isEmpty {
+                headers["Authorization"] = "Bearer \(token)"
             }
             return headers
         }
@@ -76,6 +88,9 @@ actor SocketClient {
     private let clock: SocketClock
     private let resync: (@Sendable (ResyncReason) async -> Void)?
     private let random: () -> Double
+    /// Monotonic-ish wall clock used only to measure how long a connection stayed up. Injected so
+    /// the open-then-killed ladder is testable without sleeping.
+    private let now: @Sendable () -> Date
 
     private(set) var state: State = .idle
     /// Delays actually slept through, in order — the observable backoff sequence.
@@ -84,7 +99,8 @@ actor SocketClient {
     private(set) var resyncCount = 0
     /// Events delivered to subscribers (after duplicate suppression).
     private(set) var deliveredEventCount = 0
-    /// Events dropped as duplicates (a replay after reconnect, or a repeat on one connection).
+    /// Events dropped as duplicates — an event identity that cannot legitimately recur, seen
+    /// again after a reconnect (a replayed post revision or hello).
     private(set) var duplicateEventCount = 0
 
     private var subscribers: [UUID: AsyncStream<SocketEvent>.Continuation] = [:]
@@ -104,11 +120,13 @@ actor SocketClient {
          transportFactory: @escaping (URL, [String: String]) -> SocketTransport,
          clock: SocketClock = SystemSocketClock(),
          random: @escaping () -> Double = { Double.random(in: 0..<1) },
+         now: @escaping @Sendable () -> Date = { Date() },
          resync: (@Sendable (ResyncReason) async -> Void)? = nil) {
         self.configuration = configuration
         self.transportFactory = transportFactory
         self.clock = clock
         self.random = random
+        self.now = now
         self.resync = resync
     }
 
@@ -192,6 +210,7 @@ actor SocketClient {
         while !stopped {
             state = .connecting
             serverSequence = 0
+            var openedAt: Date?
             let transport = transportFactory(configuration.url, configuration.headers)
             currentTransport = transport
             transport.resume()
@@ -200,7 +219,11 @@ actor SocketClient {
             for await event in transport.events {
                 switch event {
                 case .opened:
-                    attempt = 0
+                    // Deliberately does NOT reset the ladder here: a server that accepts the
+                    // upgrade and closes at once would otherwise be reconnected at the base delay
+                    // forever (T28-AV finding F2). The reset happens below, once the connection
+                    // has proven it was a real session.
+                    openedAt = now()
                     await handleOpen()
                 case .text(let text):
                     handle(frameText: text)
@@ -214,6 +237,12 @@ actor SocketClient {
             currentTransport = nil
             if stopped { break }
             state = .closed
+
+            if let openedAt,
+               now().timeIntervalSince(openedAt) >= configuration.stableSessionInterval {
+                // The connection lived long enough to be a session, not a flap: start over.
+                attempt = 0
+            }
 
             attempt += 1
             let delay = configuration.backoff.delay(forAttempt: attempt, random: random())
@@ -321,7 +350,9 @@ actor SocketClient {
         guard state == .open else { return false }
         if missedPongs >= configuration.maxMissedPongs {
             MMLog.info("MMSocket", "heartbeat timeout; recycling connection")
-            await resync?(.heartbeatTimeout)
+            // No resync here: recycling closes the transport, the run loop reconnects, and the
+            // reconnect reports `.reconnected` once. Resyncing at the timeout too would refetch
+            // twice for a single dropout (T28-AV finding F5).
             heartbeatTask?.cancel()
             heartbeatTask = nil
             currentTransport?.close()

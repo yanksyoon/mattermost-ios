@@ -15,8 +15,12 @@ import Foundation
 ///
 /// SSO/SAML/OIDC stay exactly where they are: the webview hand-off in `WebViewContainer`, whose
 /// certificate handling is load-bearing. When that flow completes, the shell calls
-/// `adoptSSOSession(...)` with the token the web app ended up holding, and everything downstream
-/// (REST, socket, screen state) is native from there.
+/// `adoptWebSession(using:)` with a reader bound to **that server's** webview cookie store, and
+/// everything downstream (REST, socket, screen state) is native from there.
+///
+/// There is deliberately no `adoptSSOSession(token:…)` take-a-token entry point: the cookie store
+/// is the only legitimate producer of an SSO session, so the shell has no API that would let a JS
+/// bridge hand native code a token string it obtained some other way.
 @MainActor
 final class AuthSession: ObservableObject {
 
@@ -125,18 +129,6 @@ final class AuthSession: ObservableObject {
                                    userID: user.id,
                                    username: user.username,
                                    token: token))
-    }
-
-    /// SSO hand-off: the webview finished the SAML/OIDC flow and the shell captured the token the
-    /// web app is holding. No SAML logic is reimplemented — this only adopts the result.
-    @discardableResult
-    func adoptSSOSession(token: String, userID: String, username: String) throws -> Session {
-        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { throw MMError.notSignedIn }
-        return try persist(Session(serverID: serverID,
-                                   userID: userID,
-                                   username: username,
-                                   token: trimmed))
     }
 
     /// SSO hand-off, read straight from the webview's cookie store.
