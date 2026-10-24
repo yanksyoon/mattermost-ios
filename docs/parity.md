@@ -6,6 +6,24 @@ Legend: `native` = implemented, `-` = not started / deferred to a later card/pha
 Design of record: `~/.hermes/plans/2026-10-08_mattermost-desktop-ios-migration.md`; the desktop
 package is `mattermost/desktop` (v6.4.0-era). Status last refreshed at T8 (Phase 2).
 
+> ## 🅱️ Path B — native client decision (T24)
+> **The programme has chosen Path B (T24, `docs/path-b-adr.md`): the primary surface is becoming
+> native SwiftUI driven by the Mattermost REST API v4 + WebSocket v4, not the web app.**
+> The webview is retained as a first-class **per-surface escape hatch** (T46: native / webview /
+> dropped per screen) behind the T26 dual-render switch until each screen is ported. The columns
+> below therefore describe *reconstruction targets / statement of work* for the native data path,
+> not merely the current shell health.
+> - Licence boundary (recorded in the ADR): `mattermost-mobile` = Apache-2.0 (reimplement
+>   patterns safely); `mattermost-webapp` = AGPL-3.0 (observe behaviour, never copy source);
+>   every surface is a reimplementation against the public `https://api.mattermost.com` contract.
+> - Memory premise is measured, not folklore: cited to **T27** (`docs/` memory/performance
+>   baseline) once it reports.
+> - Data model: REST/WS v4 pinned per server; older-server features gated explicitly, never
+>   silently degraded.
+> - Build order + out-of-scope list (Calls/Boards/Playbooks/plugins/System Console → webview):
+>   see the ADR §2.
+> This banner is the single-link anchor from the parity table to the Path B ADR.
+
 ## `src/common/` → Swift services
 
 | Desktop module | Desktop file | Native replacement | Status |
