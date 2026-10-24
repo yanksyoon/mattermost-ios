@@ -1,0 +1,121 @@
+# WebSocket v4 event types reacted to by the official client
+
+Evidence: `refs/mattermost-mobile/app/constants/websocket.ts` (Apache-2.0), the
+`WebsocketEvents` enum. The client connects to `SERVER/api/v4/websocket`
+(`refs/mattermost-mobile/app/client/websocket/index.ts`).
+Events with a `custom_` prefix belong to server plugins (Calls, Apps, Agents, ...) and
+arrive on the same socket; a native client must tolerate unknown event names.
+
+- POSTED  ->  `posted`
+- POST_ACKNOWLEDGEMENT_ADDED  ->  `post_acknowledgement_added`
+- POST_ACKNOWLEDGEMENT_REMOVED  ->  `post_acknowledgement_removed`
+- POST_EDITED  ->  `post_edited`
+- POST_DELETED  ->  `post_deleted`
+- POST_UNREAD  ->  `post_unread`
+- CATEGORY_CREATED  ->  `sidebar_category_created`
+- CATEGORY_UPDATED  ->  `sidebar_category_updated`
+- CATEGORY_DELETED  ->  `sidebar_category_deleted`
+- CATEGORY_ORDER_UPDATED  ->  `sidebar_category_order_updated`
+- CHANNEL_CONVERTED  ->  `channel_converted`
+- CHANNEL_CREATED  ->  `channel_created`
+- CHANNEL_DELETED  ->  `channel_deleted`
+- CHANNEL_UNARCHIVED  ->  `channel_restored`
+- CHANNEL_UPDATED  ->  `channel_updated`
+- CHANNEL_VIEWED  ->  `channel_viewed`
+- MULTIPLE_CHANNELS_VIEWED  ->  `multiple_channels_viewed`
+- CHANNEL_MEMBER_UPDATED  ->  `channel_member_updated`
+- CHANNEL_SCHEME_UPDATED  ->  `channel_scheme_updated`
+- DIRECT_ADDED  ->  `direct_added`
+- GROUP_ADDED  ->  `group_added`
+- ADDED_TO_TEAM  ->  `added_to_team`
+- LEAVE_TEAM  ->  `leave_team`
+- UPDATE_TEAM  ->  `update_team`
+- USER_ADDED  ->  `user_added`
+- USER_REMOVED  ->  `user_removed`
+- USER_UPDATED  ->  `user_updated`
+- USER_ROLE_UPDATED  ->  `user_role_updated`
+- ROLE_UPDATED  ->  `role_updated`
+- TYPING  ->  `typing`
+- STOP_TYPING  ->  `stop_typing`
+- PREFERENCE_CHANGED  ->  `preference_changed`
+- PREFERENCES_CHANGED  ->  `preferences_changed`
+- PREFERENCES_DELETED  ->  `preferences_deleted`
+- EPHEMERAL_MESSAGE  ->  `ephemeral_message`
+- STATUS_CHANGED  ->  `status_change`
+- PING  ->  `ping`
+- PONG  ->  `pong`
+- HELLO  ->  `hello`
+- WEBRTC  ->  `webrtc`
+- REACTION_ADDED  ->  `reaction_added`
+- REACTION_REMOVED  ->  `reaction_removed`
+- EMOJI_ADDED  ->  `emoji_added`
+- LICENSE_CHANGED  ->  `license_changed`
+- CONFIG_CHANGED  ->  `config_changed`
+- PLUGIN_ENABLED  ->  `plugin_enabled`
+- PLUGIN_DISABLED  ->  `plugin_disabled`
+- PLUGIN_STATUSES_CHANGED  ->  `plugin_statuses_changed`
+- OPEN_DIALOG  ->  `open_dialog`
+- INCREASE_POST_VISIBILITY_BY_ONE  ->  `increase_post_visibility_by_one`
+- MEMBERROLE_UPDATED  ->  `memberrole_updated`
+- THREAD_UPDATED  ->  `thread_updated`
+- THREAD_FOLLOW_CHANGED  ->  `thread_follow_changed`
+- THREAD_READ_CHANGED  ->  `thread_read_changed`
+- DELETE_TEAM  ->  `delete_team`
+- RESTORE_TEAM  ->  `restore_team`
+- APPS_FRAMEWORK_REFRESH_BINDINGS  ->  `custom_com.mattermost.apps_refresh_bindings`
+- POST_TRANSLATION_UPDATED  ->  `post_translation_updated`
+- CALLS_CHANNEL_ENABLED  ->  `custom_<calls-plugin>/_channel_enable_voice` (plugin event)
+- CALLS_CHANNEL_DISABLED  ->  `custom_<calls-plugin>/_channel_disable_voice` (plugin event)
+- CALLS_USER_JOINED  ->  `custom_<calls-plugin>/_user_joined` (plugin event)
+- CALLS_USER_LEFT  ->  `custom_<calls-plugin>/_user_left` (plugin event)
+- CALLS_USER_MUTED  ->  `custom_<calls-plugin>/_user_muted` (plugin event)
+- CALLS_USER_UNMUTED  ->  `custom_<calls-plugin>/_user_unmuted` (plugin event)
+- CALLS_USER_VOICE_ON  ->  `custom_<calls-plugin>/_user_voice_on` (plugin event)
+- CALLS_USER_VOICE_OFF  ->  `custom_<calls-plugin>/_user_voice_off` (plugin event)
+- CALLS_CALL_START  ->  `custom_<calls-plugin>/_call_start` (plugin event)
+- CALLS_CALL_END  ->  `custom_<calls-plugin>/_call_end` (plugin event)
+- CALLS_SCREEN_ON  ->  `custom_<calls-plugin>/_user_screen_on` (plugin event)
+- CALLS_SCREEN_OFF  ->  `custom_<calls-plugin>/_user_screen_off` (plugin event)
+- CALLS_USER_RAISE_HAND  ->  `custom_<calls-plugin>/_user_raise_hand` (plugin event)
+- CALLS_USER_UNRAISE_HAND  ->  `custom_<calls-plugin>/_user_unraise_hand` (plugin event)
+- CALLS_USER_REACTED  ->  `custom_<calls-plugin>/_user_reacted` (plugin event)
+- CALLS_JOB_STATE  ->  `custom_<calls-plugin>/_call_job_state` (plugin event)
+- CALLS_HOST_CHANGED  ->  `custom_<calls-plugin>/_call_host_changed` (plugin event)
+- CALLS_USER_DISMISSED_NOTIFICATION  ->  `custom_<calls-plugin>/_user_dismissed_notification` (plugin event)
+- CALLS_CAPTION  ->  `custom_<calls-plugin>/_caption` (plugin event)
+- CALLS_HOST_MUTE  ->  `custom_<calls-plugin>/_host_mute` (plugin event)
+- CALLS_HOST_LOWER_HAND  ->  `custom_<calls-plugin>/_host_lower_hand` (plugin event)
+- CALLS_HOST_REMOVED  ->  `custom_<calls-plugin>/_host_removed` (plugin event)
+- CALLS_CALL_STATE  ->  `custom_<calls-plugin>/_call_state` (plugin event)
+- GROUP_RECEIVED  ->  `received_group`
+- GROUP_MEMBER_ADD  ->  `group_member_add`
+- GROUP_MEMBER_DELETE  ->  `group_member_delete`
+- GROUP_ASSOCIATED_TO_TEAM  ->  `received_group_associated_to_team`
+- GROUP_DISSOCIATED_TO_TEAM  ->  `received_group_not_associated_to_team`
+- GROUP_ASSOCIATED_TO_CHANNEL  ->  `received_group_associated_to_channel`
+- GROUP_DISSOCIATED_TO_CHANNEL  ->  `received_group_not_associated_to_channel`
+- CHANNEL_BOOKMARK_CREATED  ->  `channel_bookmark_created`
+- CHANNEL_BOOKMARK_UPDATED  ->  `channel_bookmark_updated`
+- CHANNEL_BOOKMARK_SORTED  ->  `channel_bookmark_sorted`
+- CHANNEL_BOOKMARK_DELETED  ->  `channel_bookmark_deleted`
+- SCHEDULED_POST_CREATED  ->  `scheduled_post_created`
+- SCHEDULED_POST_UPDATED  ->  `scheduled_post_updated`
+- SCHEDULED_POST_DELETED  ->  `scheduled_post_deleted`
+- CUSTOM_PROFILE_ATTRIBUTES_VALUES_UPDATED  ->  `custom_profile_attributes_values_updated`
+- PROPERTY_FIELD_CREATED  ->  `property_field_created`
+- PROPERTY_FIELD_UPDATED  ->  `property_field_updated`
+- PROPERTY_FIELD_DELETED  ->  `property_field_deleted`
+- PROPERTY_VALUES_UPDATED  ->  `property_values_updated`
+- CUSTOM_PROFILE_ATTRIBUTES_FIELD_UPDATED  ->  `custom_profile_attributes_field_updated`
+- CUSTOM_PROFILE_ATTRIBUTES_FIELD_CREATED  ->  `custom_profile_attributes_field_created`
+- CUSTOM_PROFILE_ATTRIBUTES_FIELD_DELETED  ->  `custom_profile_attributes_field_deleted`
+- AGENTS_POST_UPDATE  ->  `custom_mattermost-ai_postupdate`
+- AGENTS_TOOL_CALL_STATUS  ->  `custom_mattermost-ai_tool_call_status_updated`
+- AGENTS_CONVERSATION_UPDATED  ->  `custom_mattermost-ai_conversation_updated`
+- BOR_POST_REVEALED  ->  `post_revealed`
+- BOR_POST_BURNED  ->  `post_burned`
+- BURN_ON_READ_ALL_REVEALED  ->  `burn_on_read_all_revealed`
+- FILE_DOWNLOAD_REJECTED  ->  `file_download_rejected`
+- SHOW_TOAST  ->  `show_toast`
+- CHANNEL_ACCESS_CONTROL_UPDATED  ->  `channel_access_control_updated`
+- PERMISSION_POLICY_UPDATED  ->  `permission_policy_updated`
