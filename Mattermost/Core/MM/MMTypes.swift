@@ -416,3 +416,74 @@ struct MMServerErrorPayload: Codable, Equatable, Sendable {
     /// The server's documented MFA challenge id (`POST /users/login` with MFA enabled).
     static let mfaRequiredID = "api.context.mfa_required"
 }
+
+// MARK: - Teams (T32)
+
+/// A `TeamUnread` row: `GET /api/v4/users/me/teams/unread`.
+///
+/// The server sends a dozen counters here (`mention_count_root`, `msg_count_root`, `thread_count`,
+/// `thread_mention_count`, `thread_urgent_mention_count`, …). This client renders the two the team
+/// rail's badge is defined by — `mention_count` (the number in the badge) and `msg_count` (the dot
+/// when there are unread messages but no mentions) — and tolerates the rest being present or absent,
+/// so a newer or older server cannot fail the whole rail.
+struct MMTeamUnread: Codable, Equatable, Identifiable, Sendable {
+    var teamId: String
+    var mentionCount: Int
+    var msgCount: Int
+
+    var id: String { teamId }
+
+    enum CodingKeys: String, CodingKey {
+        case teamId = "team_id"
+        case mentionCount = "mention_count"
+        case msgCount = "msg_count"
+    }
+
+    init(teamId: String = "", mentionCount: Int = 0, msgCount: Int = 0) {
+        self.teamId = teamId
+        self.mentionCount = mentionCount
+        self.msgCount = msgCount
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        teamId = try values.decodeIfPresent(String.self, forKey: .teamId) ?? ""
+        mentionCount = try values.decodeIfPresent(Int.self, forKey: .mentionCount) ?? 0
+        msgCount = try values.decodeIfPresent(Int.self, forKey: .msgCount) ?? 0
+    }
+}
+
+/// A `TeamMember` row: `GET /api/v4/users/me/teams/members`.
+///
+/// The team rail needs the *membership* rather than the team: a soft-deleted membership
+/// (`delete_at > 0`) means the user is no longer in that team even though `/users/me/teams` may
+/// still list it, and a membership row for somebody else (the endpoint can be asked for other
+/// users) must not put a team in this rail. Only those three fields are consumed.
+struct MMTeamMembership: Codable, Equatable, Sendable {
+    var userId: String
+    var teamId: String
+    var roles: String
+    var deleteAt: Int64
+
+    enum CodingKeys: String, CodingKey {
+        case roles
+        case userId = "user_id"
+        case teamId = "team_id"
+        case deleteAt = "delete_at"
+    }
+
+    init(userId: String = "", teamId: String = "", roles: String = "", deleteAt: Int64 = 0) {
+        self.userId = userId
+        self.teamId = teamId
+        self.roles = roles
+        self.deleteAt = deleteAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        userId = try values.decodeIfPresent(String.self, forKey: .userId) ?? ""
+        teamId = try values.decodeIfPresent(String.self, forKey: .teamId) ?? ""
+        roles = try values.decodeIfPresent(String.self, forKey: .roles) ?? ""
+        deleteAt = try values.decodeIfPresent(Int64.self, forKey: .deleteAt) ?? 0
+    }
+}

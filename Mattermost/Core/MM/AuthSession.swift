@@ -53,7 +53,11 @@ final class AuthSession: ObservableObject {
     let serverURL: URL
 
     private let vault: SecureVault
-    private let client: APIClient
+    /// The server's REST client. **Internal on purpose since T32**: a screen card must not build its
+    /// own `APIClient`/`URLSession` for authenticated calls (`AuthCoordinator` states the rule), it
+    /// takes the session's client so every 401 lands in `onUnauthorized` → the app's one re-auth
+    /// path. It stays read-only from outside — nothing but this object may reconfigure it.
+    let client: APIClient
 
     /// - Parameters:
     ///   - client: an `APIClient` for this server. Its token provider must read the same vault

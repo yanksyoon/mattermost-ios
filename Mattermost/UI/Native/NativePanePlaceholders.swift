@@ -25,6 +25,8 @@ struct NativeChannelSidebarPane: View {
     /// routed it native. `UnportedSurfaceView` used to be that stand-in for this surface; now that
     /// the shell is the pane's native card, the shell has to carry the affordance.
     @EnvironmentObject private var resolver: SurfaceModeResolver
+    /// T32: the app-level owner of the team rail (one model + one socket per server).
+    @EnvironmentObject private var teams: TeamSidebarCoordinator
 
     /// The location, but only while it belongs to this server (an inactive mounted scene shows
     /// nothing selected rather than another server's channel).
@@ -32,14 +34,36 @@ struct NativeChannelSidebarPane: View {
         navigation.location.serverID == server.id ? navigation.location : nil
     }
 
+    /// T32: the sidebar surface's own gate. `sidebar=native` puts the team rail in front of the
+    /// channel list; `sidebar=web` (the default until T32-AV approves) keeps exactly the T30
+    /// placeholder that shipped, so the rail cannot appear without its own flag.
+    private var showsNativeTeams: Bool {
+        resolver.resolvedMode(for: .sidebar) == .native
+    }
+
     var body: some View {
+        if showsNativeTeams {
+            NativeTeamSidebarPane(server: server,
+                                  navigation: navigation,
+                                  model: teams.model(for: server)) {
+                sidebarList
+            }
+        } else {
+            sidebarList
+        }
+    }
+
+    private var sidebarList: some View {
         List {
             Section {
                 row(server.name, systemImage: "server.rack")
-                if let team = location?.teamName {
-                    row(team, systemImage: "person.3")
-                } else if location?.teamID != nil {
-                    row(location?.teamID ?? "", systemImage: "person.3")
+                if location?.teamName != nil || location?.teamID != nil {
+                    row(teamTitle(name: location?.teamName, id: location?.teamID) ?? "", systemImage: "person.3")
+                        // T32: the one stable read-out of "which team is current" for a UI test and
+                        // for VoiceOver (the rail's icons carry their own label, but the rail is
+                        // hidden when there is a single team).
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("sidebarCurrentTeam")
                 }
                 Button {
                     resolver.forceWebForThisRun(SurfaceDefaults.paneHostSurface)
@@ -98,6 +122,18 @@ struct NativeChannelSidebarPane: View {
             }
         }
         .accessibilityIdentifier("nativeSidebar")
+    }
+
+    /// The current team as a human reads it. `NativeLocation.teamName` carries the team's URL name
+    /// (`ops`), because that is what a deep link names; the rail knows the display name
+    /// (`Operations`), so prefer that and fall back to whatever the location has.
+    private func teamTitle(name: String?, id: String?) -> String? {
+        let entries = teams.model(for: server).entries
+        if let name, let match = entries.first(where: { $0.name == name }) { return match.displayName }
+        if let id, let match = entries.first(where: { $0.id == id }) { return match.displayName }
+        if let name, !name.isEmpty { return name }
+        if let id, !id.isEmpty { return id }
+        return nil
     }
 
     private func row(_ title: String, systemImage: String) -> some View {

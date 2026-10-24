@@ -65,4 +65,49 @@ extension APIClient {
     func statuses(ids: [String]) async throws -> [MMStatus] {
         try await post([MMStatus].self, path: "/users/status/ids", body: ids)
     }
+
+    // MARK: - Teams (T32, S07/S08)
+
+    /// `GET /users/me/teams` — the teams the signed-in user belongs to (upstream
+    /// `app/client/rest/teams.ts` `getMyTeams`).
+    ///
+    /// ETag-conditional on purpose: the team list changes rarely (a join, a rename, a new icon), and
+    /// a `304` replay is exactly the right answer for a rail that re-reads it on every appearance.
+    func myTeams() async throws -> [MMTeam] {
+        try await get([MMTeam].self, path: "/users/me/teams", useETag: true)
+    }
+
+    /// `GET /users/me/teams/members` — the user's team memberships, which is what tells a
+    /// soft-deleted membership (left / removed team) apart from a live one.
+    func myTeamMemberships() async throws -> [MMTeamMembership] {
+        try await get([MMTeamMembership].self, path: "/users/me/teams/members", useETag: true)
+    }
+
+    /// `GET /users/me/teams/unread` — per-team mention and message counters (the rail's badges).
+    ///
+    /// **No ETag**: a replayed `304` body here would pin the badges to the numbers they had when the
+    /// rail first appeared, which is precisely the staleness the card forbids. The endpoint is cheap
+    /// (one row per team) and the client refreshes it on socket activity.
+    func teamUnreads() async throws -> [MMTeamUnread] {
+        try await get([MMTeamUnread].self, path: "/users/me/teams/unread", useETag: false)
+    }
+
+    /// `GET /teams/{team_id}/image` path + the `_` cache-buster upstream sends
+    /// (`app/client/rest/teams.ts` `getTeamIconUrl`).
+    func teamIconPath(teamID: String, lastUpdateAt: Int64) -> String {
+        "/teams/\(teamID)/image"
+    }
+
+    /// Authenticated team-icon bytes. The endpoint is behind the session, so `AsyncImage` (which
+    /// cannot send an `Authorization` header) is not an option; the bytes go through the same
+    /// `APIClient` — and therefore the same 401 → re-auth path — as every other native call.
+    func teamIconData(teamID: String, lastUpdateAt: Int64) async throws -> Data {
+        var query: [URLQueryItem] = []
+        if lastUpdateAt > 0 {
+            query.append(URLQueryItem(name: "_", value: String(lastUpdateAt)))
+        }
+        return try await getData(path: teamIconPath(teamID: teamID, lastUpdateAt: lastUpdateAt),
+                                 query: query,
+                                 useETag: true)
+    }
 }

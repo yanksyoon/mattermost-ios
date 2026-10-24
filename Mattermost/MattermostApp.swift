@@ -27,6 +27,11 @@ struct MattermostApp: App {
     /// T31: the app-level auth owner — one live `AuthSession` per server, restore at launch, and
     /// the shell's `NativeAuthGate`. The sign-in surface talks to this object; nothing else may.
     @StateObject private var authCoordinator: AuthCoordinator
+    /// T32: the app-level owner of the team rail — one model and **one socket** per server, plus the
+    /// team scope that socket delivers through. Owned here for the same reason `AuthCoordinator` is:
+    /// the sidebar view is re-created by SwiftUI (tab switch, size-class change), and a model or a
+    /// WebSocket owned by the view would be re-created with it.
+    @StateObject private var teamSidebarCoordinator: TeamSidebarCoordinator
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
@@ -96,6 +101,9 @@ struct MattermostApp: App {
         // surface always talk to the same object. Its `serverStore`/`onChange` seams are bound in
         // `bindShellStores()` for the same reason the navigator's are (see that method).
         _authCoordinator = StateObject(wrappedValue: AuthCoordinator())
+        // T32: the team rail's owner. Its `auth`/`navigation` seams are bound in `bindShellStores()`
+        // for the same `@StateObject` reason as the two above.
+        _teamSidebarCoordinator = StateObject(wrappedValue: TeamSidebarCoordinator())
         #if DEBUG
         // UI-test seam: `-uiTestAssumeSignedIn` makes the native shell render as if the seeded
         // server had a session, so its panes can be exercised against a stub server that has no
@@ -213,6 +221,8 @@ struct MattermostApp: App {
                 // T31: the auth owner is app-wide state (the shell's gate, the sign-in surface, the
                 // SSO hand-off and Settings' sign-out all read it).
                 .environmentObject(authCoordinator)
+                // T32: the team rail owner is app-wide for the same reason (one socket per server).
+                .environmentObject(teamSidebarCoordinator)
                 // T31: the SSO hand-off mounts the server's existing webview inside a sheet, so the
                 // store owner has to be reachable from the environment too (the pane's web branch
                 // still receives it as a parameter).
@@ -364,8 +374,16 @@ struct MattermostApp: App {
         #else
         nativeNavigation.authGate = authCoordinator
         #endif
-        authCoordinator.onChange = { [weak nativeNavigation] _ in
+        // T32: the rail reads the current team from `NativeNavigation.location` (one source of
+        // truth) and owns one socket per server. Bound here, with the other shell seams.
+        teamSidebarCoordinator.bind(auth: authCoordinator,
+                                    navigation: nativeNavigation,
+                                    serverStore: serverStore)
+        authCoordinator.onChange = { [weak nativeNavigation, weak teamSidebarCoordinator] serverID in
             nativeNavigation?.refreshAuthState()
+            // A sign-out/expiry must take the rail's socket down with the credential it was built
+            // with; a finished sign-in is what lets it come up.
+            teamSidebarCoordinator?.authPhaseChanged(serverID)
         }
     }
 

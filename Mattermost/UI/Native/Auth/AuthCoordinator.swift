@@ -145,6 +145,16 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
         return !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// The signed-in user's id for `serverID`, when the session has resolved it.
+    ///
+    /// Screen cards need it to tell *their own* rows apart from everyone else's (T32's team
+    /// memberships, and later every "is this mine?" question). It is deliberately `nil` before a
+    /// restore resolves: callers treat "unknown" as "do not filter", never as a different user.
+    func userID(for serverID: UUID) -> String? {
+        if case .signedIn(_, let userID) = phase(for: serverID) { return userID }
+        return nil
+    }
+
     /// The live session for `server`, creating and observing it on first use.
     ///
     /// - Throws: `MMError.invalidURL`/transport-construction failures from `APIClient`.

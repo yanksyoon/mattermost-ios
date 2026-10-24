@@ -146,6 +146,32 @@ struct MMTeam: Codable, Equatable, Identifiable, Sendable {
         self.updateAt = updateAt
         self.deleteAt = deleteAt
     }
+
+    /// Tolerant decoding, matching what the server actually sends (T32).
+    ///
+    /// Two real-server behaviours break the synthesized decoder: `last_team_icon_update` is
+    /// **omitted entirely** for a team with no icon, and `group_constrained` arrives as `null` for
+    /// teams without group constraints. A strict decode therefore throws on ordinary teams, which
+    /// would take the whole `/users/me/teams` page down with it. Absent or `null` becomes the zero
+    /// value; only `id` matters for identity. (Same rule as `MMPost.init(from:)`.)
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decodeIfPresent(String.self, forKey: .id) ?? ""
+        name = try values.decodeIfPresent(String.self, forKey: .name) ?? ""
+        displayName = try values.decodeIfPresent(String.self, forKey: .displayName) ?? ""
+        description = try values.decodeIfPresent(String.self, forKey: .description) ?? ""
+        type = try values.decodeIfPresent(String.self, forKey: .type) ?? ""
+        allowedDomains = try values.decodeIfPresent(String.self, forKey: .allowedDomains) ?? ""
+        // `decodeIfPresent` returns nil for an explicit JSON `null`, so `?? false` covers both
+        // "key missing" and "null".
+        isAllowOpenInvite = try values.decodeIfPresent(Bool.self, forKey: .isAllowOpenInvite) ?? false
+        isGroupConstrained = try values.decodeIfPresent(Bool.self, forKey: .isGroupConstrained) ?? false
+        lastTeamIconUpdatedAt = try values.decodeIfPresent(Int64.self, forKey: .lastTeamIconUpdatedAt) ?? 0
+        inviteId = try values.decodeIfPresent(String.self, forKey: .inviteId) ?? ""
+        createAt = try values.decodeIfPresent(Int64.self, forKey: .createAt) ?? 0
+        updateAt = try values.decodeIfPresent(Int64.self, forKey: .updateAt) ?? 0
+        deleteAt = try values.decodeIfPresent(Int64.self, forKey: .deleteAt) ?? 0
+    }
 }
 
 /// A channel membership *with* the per-user channel state (`GET /api/v4/users/me/teams/{id}/channels`

@@ -1220,4 +1220,92 @@ final class MattermostUITests: XCTestCase {
                        "a token the server accepted must not raise the expired banner")
         attachShot(second, named: "t31-22-real-server-restored")
     }
+
+    // MARK: - T32 native team sidebar (live server)
+
+    /// The card's three acceptance criteria, against the real local server that
+    /// `scripts/t32_team_seed.py` seeds (two teams, `teams_order = [perf, ops]`, `ops` carrying real
+    /// mention counts, an uploaded icon on `ops` and none on `perf`):
+    ///
+    ///  1. the rail is drawn from the server's teams, in the `teams_order` order, not alphabetically;
+    ///  2. the mention count shown is the server's own number, and the selected team shows none;
+    ///  3. tapping a team switches the team the shell is on, and switching back works.
+    ///
+    ///     TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 \
+    ///     TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
+    ///     TEST_RUNNER_MM_AUTH_PASSWORD=<the fixture password in scripts/perf_seed.py> \
+    ///     TEST_RUNNER_MM_AUTH_SHOT_DIR=/abs/path xcodebuild test …
+    ///
+    /// The credentials are the throwaway local fixtures the seed scripts already commit; they are
+    /// read from the environment and never printed or attached.
+    func testRealServerTeamRailShowsBothTeamsAndSwitchesBetweenThem() throws {
+        let env = ProcessInfo.processInfo.environment
+        let raw = env["MM_AUTH_SERVER"] ?? ""
+        let login = env["MM_AUTH_LOGIN"] ?? ""
+        let password = env["MM_AUTH_PASSWORD"] ?? ""
+        try XCTSkipUnless(!raw.isEmpty && !login.isEmpty && !password.isEmpty,
+                          "Live team-rail test: set TEST_RUNNER_MM_AUTH_SERVER / _LOGIN / _PASSWORD")
+        guard let url = URL(string: raw), url.host != nil else {
+            throw XCTSkip("MM_AUTH_SERVER is not a URL")
+        }
+
+        let app = XCUIApplication()
+        // `sidebar=native` is T32's own flag: the rail is opt-in until T32-AV approves it, so
+        // without this argument every earlier UI test keeps the T30 placeholder it was written for.
+        app.launchArguments = [Self.resetArg,
+                               "-uiTestForgetSession", raw,
+                               "-uiTestSeedServer", url.absoluteString,
+                               "-uiTestSeedServerName", "Local Mattermost",
+                               "-surfaceMode", "shell=native",
+                               "-surfaceMode", "auth=native",
+                               "-surfaceMode", "sidebar=native",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        signInThroughTheNativeForm(app, loginID: login, password: password)
+        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+                      "the sign-in must reach the shell:\n\(app.debugDescription)")
+
+        // 1. The rail, and the server's team order: `perf` first (teams_order), not "Operations".
+        let rail = element(app, "teamSidebar.rail")
+        XCTAssertTrue(rail.waitForExistence(timeout: 30),
+                      "a two-team account must get the rail:\n\(app.debugDescription)")
+
+        let ops = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@",
+                        "teamSidebar.team.", "Operations")
+        ).firstMatch
+        let perf = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@",
+                        "teamSidebar.team.", "Perf")
+        ).firstMatch
+        XCTAssertTrue(ops.waitForExistence(timeout: 20), "the seeded second team must be in the rail")
+        XCTAssertTrue(perf.exists, "the first team must be in the rail")
+
+        let current = element(app, "sidebarCurrentTeam")
+        XCTAssertTrue(current.waitForExistence(timeout: 10))
+        XCTAssertEqual(current.label, "Perf",
+                       "teams_order says perf first, so that is the team the shell opens on")
+
+        // 2. The badge is the server's number (ops = 2 mentions from the seed), and the team that is
+        // already current draws none.
+        XCTAssertTrue((ops.value as? String ?? "").contains("2"),
+                      "ops must carry the server's mention count, got '\(ops.value ?? "nil")'")
+        XCTAssertTrue((perf.value as? String ?? "").contains("Current team"),
+                      "the selected team must say so, got '\(perf.value ?? "nil")'")
+        attachShot(app, named: "t32-01-rail-two-teams")
+
+        // 3. Switch to Operations, then back to Perf.
+        ops.tap()
+        XCTAssertTrue(waitUntil(timeout: 20) { current.exists && current.label == "Operations" },
+                      "tapping Operations must move the shell to that team, got '\(current.label)'")
+        XCTAssertFalse(app.webViews.firstMatch.exists,
+                       "a team switch is native navigation, not a webview reload")
+        attachShot(app, named: "t32-02-switched-to-operations")
+
+        perf.tap()
+        XCTAssertTrue(waitUntil(timeout: 20) { current.exists && current.label == "Perf" },
+                      "switching back must return to Perf, got '\(current.label)'")
+        attachShot(app, named: "t32-03-switched-back-to-perf")
+    }
 }
