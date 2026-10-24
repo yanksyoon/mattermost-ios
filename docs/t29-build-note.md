@@ -479,6 +479,10 @@ The same ten suites on Mac Catalyst (`--platform mac`, same `--only-testing` lis
 network, no Keychain, no UI), and the numbers agree: the `T29-SIZE` lines are byte-identical on the
 two platforms (`file_bytes=8163328` for the 100-channel fixture, `4558848` for the 10k fixture).
 
+The raw runner logs are committed next to this note, so the numbers above can be checked without
+re-running anything: `docs/t29r-t29-catalyst-2026-10-24.log`, `docs/t29r-t29-ios-2026-10-24.log`,
+`docs/t29r-full-catalyst-2026-10-24.log`, `docs/t29r-full-ios-2026-10-24.log`.
+
 Full scheme, Mac Catalyst:
 
 ```

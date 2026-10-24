@@ -1,0 +1,1053 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=iOS Simulator,id=81A7F251-8B31-4945-8783-5A264C14B8D5" -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t29r-ios-t29-de872a.xcresult -only-testing MattermostTests/MMStoreTests -only-testing MattermostTests/MMStoreMigrationTests -only-testing MattermostTests/MMStoreConcurrencyTests -only-testing MattermostTests/MMStoreSizeTests -only-testing MattermostTests/PostRepositoryTests -only-testing MattermostTests/ChannelRepositoryTests -only-testing MattermostTests/DraftRepositoryTests -only-testing MattermostTests/SyncCursorRepositoryTests -only-testing MattermostTests/SQLiteRepositoryContractTests -only-testing MattermostTests/InMemoryRepositoryContractTests
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift @ 7.11.1
+
+Writing result bundle at path:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t29r-ios-t29-de872a.xcresult
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, arch:arm64, id:81A7F251-8B31-4945-8783-5A264C14B8D5, OS:18.3.1, name:iPhone 16 Pro }
+{ platform:iOS Simulator, arch:x86_64, id:81A7F251-8B31-4945-8783-5A264C14B8D5, OS:18.3.1, name:iPhone 16 Pro }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (7 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDBSQLite' in project 'GRDB'
+    Target 'GRDBSQLite' in project 'GRDB' (no dependencies)
+    Target 'GRDB_GRDB' in project 'GRDB' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
+
+Build description signature: e9721fcaab7c847a5003515789566e81
+Build description path: /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/XCBuildData/e9721fcaab7c847a5003515789566e81.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist (in target 'GRDB_GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist
+
+Ld /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB.o normal (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios13.0-simulator -r -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -w -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -filelist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/Objects-normal/arm64/GRDB.LinkFileList -nostdlib -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/Objects-normal/arm64/GRDB_lto.o -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/Objects-normal/arm64/GRDB_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/Objects-normal/arm64/GRDB.swiftmodule @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/Objects-normal/arm64/GRDB-linker-args.resp -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB.o
+
+GenerateAssetSymbols /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Assets.xcassets (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Assets.xcassets --compile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app --output-format human-readable-text --notices --warnings --export-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_dependencies --output-partial-info-plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist --app-icon AppIcon --accent-color AccentColor --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 17.0 --platform iphonesimulator --bundle-identifier com.mattermost.ios --generate-swift-asset-symbols /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/GeneratedAssetSymbols.swift --generate-objc-asset-symbols /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/GeneratedAssetSymbols.h --generate-asset-symbol-index /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/* com.apple.actool.compilation-results */
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/GeneratedAssetSymbols.h
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/GeneratedAssetSymbols.swift
+
+
+LinkAssetCatalog /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Assets.xcassets (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-linkAssetCatalog --thinned /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_output/thinned --thinned-dependencies /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_dependencies_thinned --thinned-info-plist-content /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist_thinned --unthinned /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_output/unthinned --unthinned-dependencies /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_dependencies_unthinned --unthinned-info-plist-content /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist_unthinned --output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app --plist-output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist
+note: Emplaced /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/AppIcon60x60@2x.png (in target 'Mattermost' from project 'Mattermost')
+note: Emplaced /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Assets.car (in target 'Mattermost' from project 'Mattermost')
+note: Emplaced /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/AppIcon76x76@2x~ipad.png (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriver Mattermost normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Mattermost -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+ExtractAppIntentsMetadata (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name GRDB --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 13.0 --bundle-identifier grdb.swift.GRDB --output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB.appintents --target-triple arm64-apple-ios13.0-simulator --binary-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB.o --dependency-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/Objects-normal/arm64/GRDB_dependency_info.dat --stringsdata-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/Objects-normal/arm64/GRDB.SwiftFileList --metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/GRDB.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/GRDB.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/Objects-normal/arm64/GRDB.SwiftConstValuesFileList --force --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-24 22:18:00.958 appintentsmetadataprocessor[94466:2035826] Starting appintentsmetadataprocessor export
+2026-10-24 22:18:00.991 appintentsmetadataprocessor[94466:2035826] Extracted no relevant App Intents symbols, skipping writing output
+
+RegisterExecutionPolicyException /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB.o (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-RegisterExecutionPolicyException /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB.o
+
+Ld /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/GRDB_5DC4DB053_PackageProduct normal (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios13.0-simulator -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -w -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -filelist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/Objects-normal/arm64/GRDB_5DC4DB053_PackageProduct.LinkFileList -install_name @rpath/GRDB_5DC4DB053_PackageProduct.framework/GRDB_5DC4DB053_PackageProduct -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/Objects-normal/arm64/GRDB_5DC4DB053_PackageProduct_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/Objects-normal/arm64/GRDB_5DC4DB053_PackageProduct_dependency_info.dat -fobjc-link-runtime -fprofile-instr-generate -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Wl,-no_warn_duplicate_libraries -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/GRDB_5DC4DB053_PackageProduct -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/Objects-normal/arm64/GRDB.swiftmodule @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB.build/Objects-normal/arm64/GRDB-linker-args.resp
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist -producttype com.apple.product-type.framework -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist
+
+GenerateTAPI /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator/GRDB_5DC4DB053_PackageProduct.framework/GRDB_5DC4DB053_PackageProduct.tbd (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/tapi stubify -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/GRDB_5DC4DB053_PackageProduct -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator/GRDB_5DC4DB053_PackageProduct.framework/GRDB_5DC4DB053_PackageProduct.tbd
+
+Ld /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib normal (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -install_name @rpath/Mattermost.debug.dylib -Xlinker -dead_strip -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_dependency_info.dat -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __entitlements -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __ents_der -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent.der -Xlinker -no_adhoc_codesign -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -remove-static-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --preserve-metadata\=identifier,entitlements,flags --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework: replacing existing signature
+
+SwiftCompile normal arm64 Compiling\ InMemoryStore.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/InMemoryStore.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/InMemoryStore.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/InMemoryStore.swift:434:23: warning: result of call to 'evict(channelID:keepingNewest:)' is unused
+                store.evict(channelID: channelID, keepingNewest: maxPosts)
+                      ^    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ Mattermost (in target 'Mattermost' from project 'Mattermost')
+EmitSwiftModule normal arm64 (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:141:41: warning: conformance of 'DownloadWorker.DownloadFlow' to protocol 'URLSessionDownloadDelegate' crosses into main actor-isolated code and can cause data races; this is an error in the Swift 6 language mode
+    final class DownloadFlow: NSObject, URLSessionDownloadDelegate, WKDownloadDelegate {
+                                        ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:141:41: note: isolate this conformance to the main actor with '@MainActor'
+    final class DownloadFlow: NSObject, URLSessionDownloadDelegate, WKDownloadDelegate {
+                                        ^
+                                        @MainActor 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:141:17: note: mark all declarations used in the conformance 'nonisolated'
+    final class DownloadFlow: NSObject, URLSessionDownloadDelegate, WKDownloadDelegate {
+                ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:141:41: note: turn data races into runtime errors with '@preconcurrency'
+    final class DownloadFlow: NSObject, URLSessionDownloadDelegate, WKDownloadDelegate {
+                                        ^
+                                        @preconcurrency 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:208:14: note: main actor-isolated instance method 'urlSession(_:downloadTask:didFinishDownloadingTo:)' cannot satisfy nonisolated requirement
+        func urlSession(_ session: URLSession, downloadTask task: URLSessionDownloadTask,
+             ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:220:14: note: main actor-isolated instance method 'urlSession(_:downloadTask:didWriteData:totalBytesWritten:totalBytesExpectedToWrite:)' cannot satisfy nonisolated requirement
+        func urlSession(_ session: URLSession, downloadTask task: URLSessionDownloadTask,
+             ^
+
+SwiftCompile normal arm64 Compiling\ GeneratedAssetSymbols.swift /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ MMStoreModels.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/MMStoreModels.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/MMStoreModels.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ PostRepository.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/Repositories/PostRepository.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/Repositories/PostRepository.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ MMSchema.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/MMSchema.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/MMSchema.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ MMStore.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/MMStore.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/MMStore.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling GeneratedAssetSymbols.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling MMSchema.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 Compiling\ MMMigrator.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/MMMigrator.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/MMMigrator.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling PostRepository.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling MMStore.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 Compiling\ PreferenceUserRepositories.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/Repositories/PreferenceUserRepositories.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/Repositories/PreferenceUserRepositories.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ DraftRepository.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/Repositories/DraftRepository.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/Repositories/DraftRepository.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ ChannelRepository.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/Repositories/ChannelRepository.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/Repositories/ChannelRepository.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ SyncCursorRepository.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/Repositories/SyncCursorRepository.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/Repositories/SyncCursorRepository.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling MMMigrator.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling DraftRepository.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling SyncCursorRepository.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling PreferenceUserRepositories.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ChannelRepository.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling MMStoreModels.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 Compiling\ MMStoreRecords.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/MMStoreRecords.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/Store/MMStoreRecords.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling InMemoryStore.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling MMStoreRecords.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for Mattermost (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriver\ Compilation\ Requirements Mattermost normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Mattermost -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+SwiftDriver\ Compilation Mattermost normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Mattermost -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/arm64-apple-ios-simulator.swiftdoc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftdoc (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftdoc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/arm64-apple-ios-simulator.swiftdoc
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/arm64-apple-ios-simulator.swiftmodule /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftmodule (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftmodule /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/arm64-apple-ios-simulator.swiftmodule
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/arm64-apple-ios-simulator.abi.json /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.abi.json (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.abi.json /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/arm64-apple-ios-simulator.abi.json
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftsourceinfo (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftsourceinfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo
+
+SwiftDriver MattermostUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostUITests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+SwiftDriver MattermostTests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostTests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib normal (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -filelist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.LinkFileList -install_name @rpath/Mattermost.debug.dylib -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -Xlinker -rpath -Xlinker @executable_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_dependency_info.dat -fobjc-link-runtime -fprofile-instr-generate -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftmodule @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-linker-args.resp -Wl,-no_warn_duplicate_libraries -Xlinker -alias -Xlinker _main -Xlinker ___debug_main_executable_dylib_entry_point /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/GRDB_5DC4DB053_PackageProduct -Xlinker -no_adhoc_codesign -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib
+
+ConstructStubExecutorLinkFileList /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-ExecutorLinkFileList-normal-arm64.txt (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    construct-stub-executor-link-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor_no_swift_entry_point.a /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libPreviewsJITStubExecutor.a --output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-ExecutorLinkFileList-normal-arm64.txt
+note: Using stub executor library with Swift entry point. (in target 'Mattermost' from project 'Mattermost')
+
+Ld /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost normal (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -Xlinker -rpath -Xlinker @executable_path -Xlinker -rpath -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -Xlinker -rpath -Xlinker @executable_path/Frameworks -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -e ___debug_blank_executor_main -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_dylib -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-DebugDylibPath-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_instlnm -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-DebugDylibInstallName-normal-arm64.txt -Xlinker -filelist -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-ExecutorLinkFileList-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __entitlements -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __ents_der -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app-Simulated.xcent.der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib -Xlinker -no_adhoc_codesign -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost
+
+ExtractAppIntentsMetadata (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name Mattermost --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 17.0 --bundle-identifier com.mattermost.ios --output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app --target-triple arm64-apple-ios17.0-simulator --binary-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost --dependency-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_dependency_info.dat --stringsdata-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftFileList --metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-24 22:18:03.475 appintentsmetadataprocessor[94493:2036176] Starting appintentsmetadataprocessor export
+2026-10-24 22:18:03.478 appintentsmetadataprocessor[94493:2036176] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -format binary -platform iphonesimulator -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks/GRDB_5DC4DB053_PackageProduct.framework /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -remove-static-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks/GRDB_5DC4DB053_PackageProduct.framework (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --preserve-metadata\=identifier,entitlements,flags --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks/GRDB_5DC4DB053_PackageProduct.framework
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks/GRDB_5DC4DB053_PackageProduct.framework: replacing existing signature
+
+SwiftDriver\ Compilation MattermostUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostUITests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+SwiftDriver\ Compilation\ Requirements MattermostUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostUITests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ MattermostTests (in target 'MattermostTests' from project 'Mattermost')
+
+EmitSwiftModule normal arm64 (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift:199:29: warning: conformance of 'RecordingBadge' to protocol 'BadgeSettable' crosses into main actor-isolated code and can cause data races; this is an error in the Swift 6 language mode
+final class RecordingBadge: BadgeSettable {
+                            ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift:199:29: note: isolate this conformance to the main actor with '@MainActor'
+final class RecordingBadge: BadgeSettable {
+                            ^
+                            @MainActor 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift:199:13: note: mark all declarations used in the conformance 'nonisolated'
+final class RecordingBadge: BadgeSettable {
+            ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift:199:29: note: turn data races into runtime errors with '@preconcurrency'
+final class RecordingBadge: BadgeSettable {
+                            ^
+                            @preconcurrency 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift:201:10: note: main actor-isolated instance method 'setBadge' cannot satisfy nonisolated requirement
+    func setBadge(_ count: Int) {
+         ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/NotificationWorkerTests.swift:364:37: warning: conformance of 'MockScheduling' to protocol 'NotificationScheduling' crosses into main actor-isolated code and can cause data races; this is an error in the Swift 6 language mode
+private final class MockScheduling: NotificationScheduling {
+                                    ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/NotificationWorkerTests.swift:364:37: note: isolate this conformance to the main actor with '@MainActor'
+private final class MockScheduling: NotificationScheduling {
+                                    ^
+                                    @MainActor 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/NotificationWorkerTests.swift:364:37: note: turn data races into runtime errors with '@preconcurrency'
+private final class MockScheduling: NotificationScheduling {
+                                    ^
+                                    @preconcurrency 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/NotificationWorkerTests.swift:365:9: note: main actor-isolated property 'delegate' cannot satisfy nonisolated requirement
+    var delegate: UNUserNotificationCenterDelegate?
+        ^
+
+SwiftCompile normal arm64 Compiling\ DownloadsViewTests.swift,\ CertPromptTests.swift,\ SettingsViewTests.swift,\ DiagnosticsTests.swift,\ SentryServiceTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/DownloadsViewTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/CertPromptTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SettingsViewTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/DiagnosticsTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SentryServiceTests.swift (in target 'MattermostTests' from project 'Mattermost')
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/DownloadsViewTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/CertPromptTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SettingsViewTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/DiagnosticsTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SentryServiceTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ DraftRepositoryTests.swift,\ SyncCursorRepositoryTests.swift,\ MMStoreConcurrencyTests.swift,\ MMStoreSizeTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/DraftRepositoryTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SyncCursorRepositoryTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreConcurrencyTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreSizeTests.swift (in target 'MattermostTests' from project 'Mattermost')
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/DraftRepositoryTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SyncCursorRepositoryTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreConcurrencyTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreConcurrencyTests.swift:81:25: warning: expression of type 'Int' is unused
+        try await write.value
+                  ~~~~~~^~~~~
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreConcurrencyTests.swift:180:30: warning: expression of type 'Int' is unused
+            try await holder.value
+                      ~~~~~~~^~~~~
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreConcurrencyTests.swift:185:34: warning: expression of type 'Int' is unused
+                try await holder.value
+                          ~~~~~~~^~~~~
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreConcurrencyTests.swift:192:30: warning: expression of type 'Int' is unused
+            try await holder.value
+                      ~~~~~~~^~~~~
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreConcurrencyTests.swift:201:26: warning: expression of type 'Int' is unused
+        try await holder.value
+                  ~~~~~~~^~~~~
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreConcurrencyTests.swift:240:25: warning: expression of type 'Int' is unused
+        try await write.value
+                  ~~~~~~^~~~~
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreSizeTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ ServerInfoTests.swift,\ ServerURLValidatorTests.swift,\ SecureVaultTests.swift,\ CertTrustDebugTests.swift,\ WelcomeViewTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ServerInfoTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ServerURLValidatorTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SecureVaultTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/CertTrustDebugTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/WelcomeViewTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ServerInfoTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ServerURLValidatorTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SecureVaultTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/CertTrustDebugTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/WelcomeViewTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ SelfSignedTrustTests.swift,\ T28TestSupport.swift,\ T29TestSupport.swift,\ MMStoreTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SelfSignedTrustTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/T28TestSupport.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/T29TestSupport.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SelfSignedTrustTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/T28TestSupport.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/T28TestSupport.swift:55:14: warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+Foundation.NSLock.lock:2:11: note: 'lock()' declared here
+open func lock()}
+          ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/T28TestSupport.swift:63:14: warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+Foundation.NSLock.unlock:2:11: note: 'unlock()' declared here
+open func unlock()}
+          ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/T28TestSupport.swift:173:14: warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+Foundation.NSLock.lock:2:11: note: 'lock()' declared here
+open func lock()}
+          ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/T28TestSupport.swift:175:14: warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+Foundation.NSLock.unlock:2:11: note: 'unlock()' declared here
+open func unlock()}
+          ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/T28TestSupport.swift:260:14: warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.lock()
+             ^
+Foundation.NSLock.lock:2:11: note: 'lock()' declared here
+open func lock()}
+          ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/T28TestSupport.swift:263:14: warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+        lock.unlock()
+             ^
+Foundation.NSLock.unlock:2:11: note: 'unlock()' declared here
+open func unlock()}
+          ^
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/T29TestSupport.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ MentionPollerTests.swift,\ SurfaceModeResolverTests.swift,\ PerfProbeTests.swift,\ APIClientTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MentionPollerTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SurfaceModeResolverTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/PerfProbeTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/APIClientTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MentionPollerTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MentionPollerTests.swift:106:20: warning: no calls to throwing functions occur within 'try' expression
+            return try self.textResponse("unexpected \(request.url!)", status: 404)
+                   ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MentionPollerTests.swift:158:20: warning: no calls to throwing functions occur within 'try' expression
+            return try self.textResponse("unexpected \(request.url!)", status: 404)
+                   ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MentionPollerTests.swift:225:20: warning: no calls to throwing functions occur within 'try' expression
+            return try self.textResponse("unexpected \(request.url!)", status: 404)
+                   ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MentionPollerTests.swift:269:20: warning: no calls to throwing functions occur within 'try' expression
+            return try self.textResponse("unexpected \(request.url!)", status: 404)
+                   ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MentionPollerTests.swift:302:20: warning: no calls to throwing functions occur within 'try' expression
+            return try self.textResponse("unexpected \(request.url!)", status: 404)
+                   ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MentionPollerTests.swift:334:20: warning: no calls to throwing functions occur within 'try' expression
+            return try self.textResponse("unexpected \(request.url!)", status: 404)
+                   ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MentionPollerTests.swift:399:20: warning: no calls to throwing functions occur within 'try' expression
+            return try self.textResponse("unexpected \(request.url!)", status: 404)
+                   ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MentionPollerTests.swift:434:20: warning: no calls to throwing functions occur within 'try' expression
+            return try self.textResponse("unexpected \(request.url!)", status: 404)
+                   ^
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SurfaceModeResolverTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/PerfProbeTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/APIClientTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ MMStoreMigrationTests.swift,\ RepositoryContractTests.swift,\ PostRepositoryTests.swift,\ ChannelRepositoryTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreMigrationTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/RepositoryContractTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/PostRepositoryTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ChannelRepositoryTests.swift (in target 'MattermostTests' from project 'Mattermost')
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/MMStoreMigrationTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/RepositoryContractTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/PostRepositoryTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ChannelRepositoryTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ EncryptedFileSecretStoreTests.swift,\ FallbackSecretStoreTests.swift,\ SecureVaultFallbackTests.swift,\ CertTrustFallbackTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/EncryptedFileSecretStoreTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/FallbackSecretStoreTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SecureVaultFallbackTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/CertTrustFallbackTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/EncryptedFileSecretStoreTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/FallbackSecretStoreTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SecureVaultFallbackTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/CertTrustFallbackTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ ThemeSyncTests.swift,\ CertTrustTests.swift,\ DownloadWorkerTests.swift,\ SessionStoreTests.swift,\ NotificationWorkerTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ThemeSyncTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/CertTrustTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/DownloadWorkerTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/NotificationWorkerTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ThemeSyncTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/CertTrustTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/DownloadWorkerTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift:199:29: warning: conformance of 'RecordingBadge' to protocol 'BadgeSettable' crosses into main actor-isolated code and can cause data races; this is an error in the Swift 6 language mode
+final class RecordingBadge: BadgeSettable {
+                            ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift:199:29: note: isolate this conformance to the main actor with '@MainActor'
+final class RecordingBadge: BadgeSettable {
+                            ^
+                            @MainActor 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift:199:13: note: mark all declarations used in the conformance 'nonisolated'
+final class RecordingBadge: BadgeSettable {
+            ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift:199:29: note: turn data races into runtime errors with '@preconcurrency'
+final class RecordingBadge: BadgeSettable {
+                            ^
+                            @preconcurrency 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SessionStoreTests.swift:201:10: note: main actor-isolated instance method 'setBadge' cannot satisfy nonisolated requirement
+    func setBadge(_ count: Int) {
+         ^
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/NotificationWorkerTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/NotificationWorkerTests.swift:364:37: warning: conformance of 'MockScheduling' to protocol 'NotificationScheduling' crosses into main actor-isolated code and can cause data races; this is an error in the Swift 6 language mode
+private final class MockScheduling: NotificationScheduling {
+                                    ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/NotificationWorkerTests.swift:364:37: note: isolate this conformance to the main actor with '@MainActor'
+private final class MockScheduling: NotificationScheduling {
+                                    ^
+                                    @MainActor 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/NotificationWorkerTests.swift:364:37: note: turn data races into runtime errors with '@preconcurrency'
+private final class MockScheduling: NotificationScheduling {
+                                    ^
+                                    @preconcurrency 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/NotificationWorkerTests.swift:365:9: note: main actor-isolated property 'delegate' cannot satisfy nonisolated requirement
+    var delegate: UNUserNotificationCenterDelegate?
+        ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/NotificationWorkerTests.swift:311:26: warning: weak reference will always be nil because the referenced object is deallocated here
+        worker.viewStore = ViewStore()
+                         ^
+
+SwiftCompile normal arm64 Compiling\ AuthSessionTests.swift,\ SocketClientTests.swift,\ ServerTrustPolicyTests.swift,\ TokenLoggingTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/AuthSessionTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SocketClientTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ServerTrustPolicyTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/TokenLoggingTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/AuthSessionTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/SocketClientTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ServerTrustPolicyTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/TokenLoggingTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ ServerStoreTests.swift,\ WebViewStoreTests.swift,\ ViewStoreTests.swift,\ BridgeTests.swift,\ DeepLinkRouterTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ServerStoreTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/WebViewStoreTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ViewStoreTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/BridgeTests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/DeepLinkRouterTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ServerStoreTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/WebViewStoreTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/ViewStoreTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/BridgeTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostTests/DeepLinkRouterTests.swift (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for MattermostTests (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftDriver\ Compilation\ Requirements MattermostTests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostTests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+SwiftDriverJobDiscovery normal arm64 Compiling EncryptedFileSecretStoreTests.swift, FallbackSecretStoreTests.swift, SecureVaultFallbackTests.swift, CertTrustFallbackTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostTests.swiftmodule/arm64-apple-ios-simulator.swiftmodule /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.swiftmodule (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.swiftmodule /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostTests.swiftmodule/arm64-apple-ios-simulator.swiftmodule
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostTests.swiftmodule/arm64-apple-ios-simulator.swiftdoc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.swiftdoc (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.swiftdoc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostTests.swiftmodule/arm64-apple-ios-simulator.swiftdoc
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostTests.swiftmodule/arm64-apple-ios-simulator.abi.json /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.abi.json (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.abi.json /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostTests.swiftmodule/arm64-apple-ios-simulator.abi.json
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostTests.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.swiftsourceinfo (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.swiftsourceinfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostTests.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo
+
+SwiftDriverJobDiscovery normal arm64 Compiling ServerInfoTests.swift, ServerURLValidatorTests.swift, SecureVaultTests.swift, CertTrustDebugTests.swift, WelcomeViewTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ThemeSyncTests.swift, CertTrustTests.swift, DownloadWorkerTests.swift, SessionStoreTests.swift, NotificationWorkerTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling DownloadsViewTests.swift, CertPromptTests.swift, SettingsViewTests.swift, DiagnosticsTests.swift, SentryServiceTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling MentionPollerTests.swift, SurfaceModeResolverTests.swift, PerfProbeTests.swift, APIClientTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling SelfSignedTrustTests.swift, T28TestSupport.swift, T29TestSupport.swift, MMStoreTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling AuthSessionTests.swift, SocketClientTests.swift, ServerTrustPolicyTests.swift, TokenLoggingTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling DraftRepositoryTests.swift, SyncCursorRepositoryTests.swift, MMStoreConcurrencyTests.swift, MMStoreSizeTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ServerStoreTests.swift, WebViewStoreTests.swift, ViewStoreTests.swift, BridgeTests.swift, DeepLinkRouterTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling MMStoreMigrationTests.swift, RepositoryContractTests.swift, PostRepositoryTests.swift, ChannelRepositoryTests.swift (in target 'MattermostTests' from project 'Mattermost')
+
+SwiftDriver\ Compilation MattermostTests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostTests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests normal (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -bundle -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -filelist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -Xlinker -rpath -Xlinker @loader_path/Frameworks -Xlinker -rpath -Xlinker @executable_path/Frameworks -Xlinker -dead_strip -bundle_loader /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests_dependency_info.dat -fobjc-link-runtime -fprofile-instr-generate -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.swiftmodule @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests-linker-args.resp -Wl,-no_warn_duplicate_libraries -Wl,-no_warn_duplicate_libraries -Xlinker -needed_framework -Xlinker XCTest -framework XCTest -Xlinker -needed-lXCTestSwiftSupport -lXCTestSwiftSupport /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/GRDB_5DC4DB053_PackageProduct /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib -Xlinker -no_adhoc_codesign -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests
+
+ExtractAppIntentsMetadata (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name MattermostTests --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 17.0 --bundle-identifier com.mattermost.iosTests --output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest --target-triple arm64-apple-ios17.0-simulator --binary-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests --dependency-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests_dependency_info.dat --stringsdata-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.SwiftFileList --metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/MattermostTests.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/Objects-normal/arm64/MattermostTests.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-24 22:18:05.433 appintentsmetadataprocessor[94513:2036343] Starting appintentsmetadataprocessor export
+2026-10-24 22:18:05.434 appintentsmetadataprocessor[94513:2036343] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --entitlements /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app.xcent --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app
+
+Validate /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-validationUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app -shallow-bundle -infoplist-subpath Info.plist
+
+Ld /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests normal (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -bundle -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -filelist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @loader_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_dependency_info.dat -fobjc-link-runtime -fprofile-instr-generate -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-linker-args.resp -Xlinker -needed_framework -Xlinker XCTest -framework XCTest -Xlinker -needed-lXCTestSwiftSupport -lXCTestSwiftSupport -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __entitlements -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.xctest-Simulated.xcent -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __ents_der -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.xctest-Simulated.xcent.der -Xlinker -no_adhoc_codesign -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist
+
+ExtractAppIntentsMetadata (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name MattermostUITests --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 17.0 --bundle-identifier com.mattermost.iosUITests --output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest --target-triple arm64-apple-ios17.0-simulator --binary-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --dependency-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_dependency_info.dat --stringsdata-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList --metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-24 22:18:05.825 appintentsmetadataprocessor[94520:2036402] Starting appintentsmetadataprocessor export
+2026-10-24 22:18:05.826 appintentsmetadataprocessor[94520:2036402] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest
+
+2026-10-24 22:18:07.553408+0800 Mattermost[94524:2036631] [AppDelegate] os_log_type_t(rawValue: 1).AppDelegate: Mattermost iOS launched @ Logger.swift.info(_:_:):66
+2026-10-24 22:18:07.553778+0800 Mattermost[94524:2036631] [SentryService] os_log_type_t(rawValue: 1).SentryService: NSSetUncaughtExceptionHandler installed @ Logger.swift.info(_:_:):66
+2026-10-24 22:18:07.554138+0800 Mattermost[94524:2036631] [SentryService] os_log_type_t(rawValue: 1).SentryService: Sentry is enabled but not configured (no DSN provided); SDK start skipped (no-op) @ Logger.swift.info(_:_:):66
+2026-10-24 22:18:07.554366+0800 Mattermost[94524:2036631] [BackgroundRefreshScheduler] os_log_type_t(rawValue: 1).BackgroundRefreshScheduler: registered refresh task com.mattermost.ios.refresh (registered=true) @ Logger.swift.info(_:_:):66
+Test Suite 'Selected tests' started at 2026-10-24 22:18:07.832.
+Test Suite 'MattermostTests.xctest' started at 2026-10-24 22:18:07.833.
+Test Suite 'ChannelRepositoryTests' started at 2026-10-24 22:18:07.833.
+Test Case '-[MattermostTests.ChannelRepositoryTests testChannelsAreOrderedByNewestActivityInsideATeam]' started.
+Test Case '-[MattermostTests.ChannelRepositoryTests testChannelsAreOrderedByNewestActivityInsideATeam]' passed (0.020 seconds).
+Test Case '-[MattermostTests.ChannelRepositoryTests testChannelUpsertIsIdempotentAndUpdatesInPlace]' started.
+2026-10-24 22:18:07.856280+0800 Mattermost[94524:2036696] [default] Failed to resolve host network app id to config: bundleID: com.apple.WebKit.Networking instance ID: Optional([_EXExtensionInstanceIdentifier: 2F4559C6-6021-4CD2-99B5-A76A534E6CFB])
+Test Case '-[MattermostTests.ChannelRepositoryTests testChannelUpsertIsIdempotentAndUpdatesInPlace]' passed (0.012 seconds).
+Test Case '-[MattermostTests.ChannelRepositoryTests testDeletingAChannelAlsoRemovesItsReactionsAndFiles]' started.
+Test Case '-[MattermostTests.ChannelRepositoryTests testDeletingAChannelAlsoRemovesItsReactionsAndFiles]' passed (0.013 seconds).
+Test Case '-[MattermostTests.ChannelRepositoryTests testRecentChannelsFollowLastViewed]' started.
+Test Case '-[MattermostTests.ChannelRepositoryTests testRecentChannelsFollowLastViewed]' passed (0.010 seconds).
+Test Case '-[MattermostTests.ChannelRepositoryTests testServerUnreadCountersApplyAfterARead]' started.
+Test Case '-[MattermostTests.ChannelRepositoryTests testServerUnreadCountersApplyAfterARead]' passed (0.011 seconds).
+Test Case '-[MattermostTests.ChannelRepositoryTests testSetUnreadOnAChannelWithNoMembershipRowIsANoOp]' started.
+Test Case '-[MattermostTests.ChannelRepositoryTests testSetUnreadOnAChannelWithNoMembershipRowIsANoOp]' passed (0.009 seconds).
+Test Case '-[MattermostTests.ChannelRepositoryTests testUnreadTotalsAreScopedToOneUser]' started.
+Test Case '-[MattermostTests.ChannelRepositoryTests testUnreadTotalsAreScopedToOneUser]' passed (0.009 seconds).
+Test Suite 'ChannelRepositoryTests' passed at 2026-10-24 22:18:07.920.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.085 (0.087) seconds
+Test Suite 'DraftRepositoryTests' started at 2026-10-24 22:18:07.920.
+Test Case '-[MattermostTests.DraftRepositoryTests testAttachmentJSONRoundTrips]' started.
+Test Case '-[MattermostTests.DraftRepositoryTests testAttachmentJSONRoundTrips]' passed (0.009 seconds).
+Test Case '-[MattermostTests.DraftRepositoryTests testDeleteAllRemovesEveryDraft]' started.
+Test Case '-[MattermostTests.DraftRepositoryTests testDeleteAllRemovesEveryDraft]' passed (0.008 seconds).
+Test Case '-[MattermostTests.DraftRepositoryTests testDraftSurvivesACloseAndReopen]' started.
+Test Case '-[MattermostTests.DraftRepositoryTests testDraftSurvivesACloseAndReopen]' passed (0.014 seconds).
+Test Case '-[MattermostTests.DraftRepositoryTests testEmptyMessageIsStillADraftRow]' started.
+Test Case '-[MattermostTests.DraftRepositoryTests testEmptyMessageIsStillADraftRow]' passed (0.009 seconds).
+Test Case '-[MattermostTests.DraftRepositoryTests testNilFilesRoundTripsAsAnEmptyArray]' started.
+Test Case '-[MattermostTests.DraftRepositoryTests testNilFilesRoundTripsAsAnEmptyArray]' passed (0.008 seconds).
+Test Case '-[MattermostTests.DraftRepositoryTests testRecentDraftsAreOrderedByLastEdit]' started.
+Test Case '-[MattermostTests.DraftRepositoryTests testRecentDraftsAreOrderedByLastEdit]' passed (0.009 seconds).
+Test Case '-[MattermostTests.DraftRepositoryTests testRepeatedSavesKeepOneRowPerChannel]' started.
+Test Case '-[MattermostTests.DraftRepositoryTests testRepeatedSavesKeepOneRowPerChannel]' passed (0.012 seconds).
+Test Suite 'DraftRepositoryTests' passed at 2026-10-24 22:18:07.992.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.070 (0.072) seconds
+Test Suite 'InMemoryRepositoryContractTests' started at 2026-10-24 22:18:07.992.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testASurvivingRootKeepsItsNewestReplies]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testASurvivingRootKeepsItsNewestReplies]' passed (0.005 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testChannelDelete]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testChannelDelete]' passed (0.002 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testChannelPage]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testChannelPage]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testCursors]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testCursors]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testDrafts]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testDrafts]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testEviction]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testEviction]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testEvictionNeverLeavesARepliesRootBehind]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testEvictionNeverLeavesARepliesRootBehind]' passed (0.002 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testManualUnread]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testManualUnread]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testMarkRead]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testMarkRead]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testPinnedPostsSurviveEviction]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testPinnedPostsSurviveEviction]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testPostDelete]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testPostDelete]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testPostEdit]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testPostEdit]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testPostInsertAndReadBack]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testPostInsertAndReadBack]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testPreferences]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testPreferences]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testStalePayloadDoesNotUndoAnEdit]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testStalePayloadDoesNotUndoAnEdit]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testThreadOrder]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testThreadOrder]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testUnreadCounts]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testUnreadCounts]' passed (0.001 seconds).
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testUsers]' started.
+Test Case '-[MattermostTests.InMemoryRepositoryContractTests testUsers]' passed (0.001 seconds).
+Test Suite 'InMemoryRepositoryContractTests' passed at 2026-10-24 22:18:08.019.
+	 Executed 18 tests, with 0 failures (0 unexpected) in 0.022 (0.026) seconds
+Test Suite 'MMStoreConcurrencyTests' started at 2026-10-24 22:18:08.019.
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testAReadOnTheMainThreadDoesNotWaitForAnInFlightWrite]' started.
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testAReadOnTheMainThreadDoesNotWaitForAnInFlightWrite]' passed (0.422 seconds).
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testASecondConnectionToTheSameFileSeesCommittedWrites]' started.
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testASecondConnectionToTheSameFileSeesCommittedWrites]' passed (0.020 seconds).
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testAThrowingWriteIsRolledBackWhole]' started.
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testAThrowingWriteIsRolledBackWhole]' passed (0.012 seconds).
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testAWriteInsideTheBusyTimeoutWaitsAndSucceeds]' started.
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testAWriteInsideTheBusyTimeoutWaitsAndSucceeds]' passed (0.514 seconds).
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testAWritePastTheBusyTimeoutThrowsATypedStoreBusyError]' started.
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testAWritePastTheBusyTimeoutThrowsATypedStoreBusyError]' passed (0.358 seconds).
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testEvictionDuringConcurrentInsertsKeepsTheBudget]' started.
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testEvictionDuringConcurrentInsertsKeepsTheBudget]' passed (0.490 seconds).
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testManyConcurrentWritersAllLand]' started.
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testManyConcurrentWritersAllLand]' passed (0.118 seconds).
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testWritesRunOffTheMainThread]' started.
+Test Case '-[MattermostTests.MMStoreConcurrencyTests testWritesRunOffTheMainThread]' passed (0.011 seconds).
+Test Suite 'MMStoreConcurrencyTests' passed at 2026-10-24 22:18:09.968.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 1.945 (1.949) seconds
+Test Suite 'MMStoreMigrationTests' started at 2026-10-24 22:18:09.968.
+Test Case '-[MattermostTests.MMStoreMigrationTests testMigrationIsIdempotentAcrossReopens]' started.
+Test Case '-[MattermostTests.MMStoreMigrationTests testMigrationIsIdempotentAcrossReopens]' passed (0.023 seconds).
+Test Case '-[MattermostTests.MMStoreMigrationTests testServerAPIVersionIsAddedByTheUpgradeAndSurvivesAReopen]' started.
+Test Case '-[MattermostTests.MMStoreMigrationTests testServerAPIVersionIsAddedByTheUpgradeAndSurvivesAReopen]' passed (0.022 seconds).
+Test Case '-[MattermostTests.MMStoreMigrationTests testUpgradedSchemaAcceptsWritesToTheNewColumns]' started.
+Test Case '-[MattermostTests.MMStoreMigrationTests testUpgradedSchemaAcceptsWritesToTheNewColumns]' passed (0.016 seconds).
+Test Case '-[MattermostTests.MMStoreMigrationTests testV1FixtureUpgradesToCurrentWithoutDataLoss]' started.
+Test Case '-[MattermostTests.MMStoreMigrationTests testV1FixtureUpgradesToCurrentWithoutDataLoss]' passed (0.013 seconds).
+Test Case '-[MattermostTests.MMStoreMigrationTests testV2FixtureUpgradesToV3AndRecordsAVersion]' started.
+Test Case '-[MattermostTests.MMStoreMigrationTests testV2FixtureUpgradesToV3AndRecordsAVersion]' passed (0.010 seconds).
+Test Suite 'MMStoreMigrationTests' passed at 2026-10-24 22:18:10.054.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.084 (0.086) seconds
+Test Suite 'MMStoreSizeTests' started at 2026-10-24 22:18:10.054.
+Test Case '-[MattermostTests.MMStoreSizeTests testEvictionReclaimsSpaceAfterTrim]' started.
+
+T29-SIZE eviction before_bytes=4558848 after_bytes=4558848 before_free_pages=0 after_free_pages=1030 posts_kept=50
+Test Case '-[MattermostTests.MMStoreSizeTests testEvictionReclaimsSpaceAfterTrim]' passed (1.349 seconds).
+Test Case '-[MattermostTests.MMStoreSizeTests testHundredChannelsAtTheShippingWindow]' started.
+
+T29-SIZE channels=100 kept=200 file_bytes=8163328 mb=7.79 mb_per_channel=0.078 seed_s=2.92
+Test Case '-[MattermostTests.MMStoreSizeTests testHundredChannelsAtTheShippingWindow]' passed (2.936 seconds).
+Test Case '-[MattermostTests.MMStoreSizeTests testRetentionPolicyBoundsDiskForABusyServer]' started.
+
+T29-SIZE retention unbounded_bytes=4558848 bounded_bytes=1589248 mb=1.52 posts_kept_per_channel=200 max=200
+Test Case '-[MattermostTests.MMStoreSizeTests testRetentionPolicyBoundsDiskForABusyServer]' passed (2.533 seconds).
+Test Case '-[MattermostTests.MMStoreSizeTests testTenThousandPostFixtureSizeAndLatency]' started.
+
+T29-SIZE fixture=unbounded posts=10000 channels=5 file_bytes=4558848 used_bytes=4526080 mb=4.35 bytes_per_post=456 page_query_ms=0.98 seed_s=1.22
+Test Case '-[MattermostTests.MMStoreSizeTests testTenThousandPostFixtureSizeAndLatency]' passed (1.338 seconds).
+Test Suite 'MMStoreSizeTests' passed at 2026-10-24 22:18:18.211.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 8.156 (8.157) seconds
+Test Suite 'MMStoreTests' started at 2026-10-24 22:18:18.211.
+Test Case '-[MattermostTests.MMStoreTests testCheckpointDegradesToPassiveWhenAReaderHoldsTheWAL]' started.
+Test Case '-[MattermostTests.MMStoreTests testCheckpointDegradesToPassiveWhenAReaderHoldsTheWAL]' passed (0.300 seconds).
+Test Case '-[MattermostTests.MMStoreTests testCheckpointTruncatesTheWALWhenNothingElseReads]' started.
+Test Case '-[MattermostTests.MMStoreTests testCheckpointTruncatesTheWALWhenNothingElseReads]' passed (0.028 seconds).
+Test Case '-[MattermostTests.MMStoreTests testCloseIsIdempotent]' started.
+Test Case '-[MattermostTests.MMStoreTests testCloseIsIdempotent]' passed (0.027 seconds).
+Test Case '-[MattermostTests.MMStoreTests testEveryTableTheCardRequiresExists]' started.
+Test Case '-[MattermostTests.MMStoreTests testEveryTableTheCardRequiresExists]' passed (0.011 seconds).
+Test Case '-[MattermostTests.MMStoreTests testFreshStoreIsAtCurrentSchemaVersion]' started.
+Test Case '-[MattermostTests.MMStoreTests testFreshStoreIsAtCurrentSchemaVersion]' passed (0.010 seconds).
+Test Case '-[MattermostTests.MMStoreTests testIndicesTheQueriesNeedExist]' started.
+Test Case '-[MattermostTests.MMStoreTests testIndicesTheQueriesNeedExist]' passed (0.012 seconds).
+Test Case '-[MattermostTests.MMStoreTests testInMemoryStoreHasNoFileButFullSchema]' started.
+Test Case '-[MattermostTests.MMStoreTests testInMemoryStoreHasNoFileButFullSchema]' passed (0.014 seconds).
+Test Case '-[MattermostTests.MMStoreTests testOpeningAFileWrittenByANewerBuildIsRefused]' started.
+Test Case '-[MattermostTests.MMStoreTests testOpeningAFileWrittenByANewerBuildIsRefused]' passed (0.016 seconds).
+Test Case '-[MattermostTests.MMStoreTests testReopeningDoesNotReapplyMigrationsOrLoseRows]' started.
+Test Case '-[MattermostTests.MMStoreTests testReopeningDoesNotReapplyMigrationsOrLoseRows]' passed (0.014 seconds).
+Test Case '-[MattermostTests.MMStoreTests testSchemaUsesWALForFileStores]' started.
+Test Case '-[MattermostTests.MMStoreTests testSchemaUsesWALForFileStores]' passed (0.011 seconds).
+Test Case '-[MattermostTests.MMStoreTests testServerAPIVersionSurvivesAReopen]' started.
+Test Case '-[MattermostTests.MMStoreTests testServerAPIVersionSurvivesAReopen]' passed (0.010 seconds).
+Test Case '-[MattermostTests.MMStoreTests testServerRowMakesTheFileSelfDescribing]' started.
+Test Case '-[MattermostTests.MMStoreTests testServerRowMakesTheFileSelfDescribing]' passed (0.007 seconds).
+Test Case '-[MattermostTests.MMStoreTests testStoreSizeReportsPagesAndFileBytes]' started.
+Test Case '-[MattermostTests.MMStoreTests testStoreSizeReportsPagesAndFileBytes]' passed (0.060 seconds).
+Test Suite 'MMStoreTests' passed at 2026-10-24 22:18:18.735.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.520 (0.525) seconds
+Test Suite 'PostRepositoryTests' started at 2026-10-24 22:18:18.736.
+Test Case '-[MattermostTests.PostRepositoryTests testChannelPageQueryUsesTheChannelWindowIndex]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testChannelPageQueryUsesTheChannelWindowIndex]' passed (0.007 seconds).
+Test Case '-[MattermostTests.PostRepositoryTests testDefaultPolicyIsTwoHundredPostsPerChannel]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testDefaultPolicyIsTwoHundredPostsPerChannel]' passed (0.009 seconds).
+Test Case '-[MattermostTests.PostRepositoryTests testEvictIfNeededIsANoOpInsideBudget]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testEvictIfNeededIsANoOpInsideBudget]' passed (0.016 seconds).
+Test Case '-[MattermostTests.PostRepositoryTests testEvictingEverythingLeavesNoReactionOrFileRows]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testEvictingEverythingLeavesNoReactionOrFileRows]' passed (0.184 seconds).
+Test Case '-[MattermostTests.PostRepositoryTests testEvictionLeavesNoOrphanReplyRows]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testEvictionLeavesNoOrphanReplyRows]' passed (0.043 seconds).
+Test Case '-[MattermostTests.PostRepositoryTests testMarkDeletedOnAMissingPostIsHarmless]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testMarkDeletedOnAMissingPostIsHarmless]' passed (0.008 seconds).
+Test Case '-[MattermostTests.PostRepositoryTests testPinnedPostSurvivesWriteTimeEviction]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testPinnedPostSurvivesWriteTimeEviction]' passed (0.024 seconds).
+Test Case '-[MattermostTests.PostRepositoryTests testReactionInsertIsIdempotent]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testReactionInsertIsIdempotent]' passed (0.007 seconds).
+Test Case '-[MattermostTests.PostRepositoryTests testReactionRemovalIsTargeted]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testReactionRemovalIsTargeted]' passed (0.008 seconds).
+Test Case '-[MattermostTests.PostRepositoryTests testThreadQueryUsesTheRootWindowIndex]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testThreadQueryUsesTheRootWindowIndex]' passed (0.007 seconds).
+Test Case '-[MattermostTests.PostRepositoryTests testUnboundedPolicyNeverTrims]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testUnboundedPolicyNeverTrims]' passed (0.046 seconds).
+Test Case '-[MattermostTests.PostRepositoryTests testWriteTimeEvictionKeepsTheChannelInsideItsBudget]' started.
+Test Case '-[MattermostTests.PostRepositoryTests testWriteTimeEvictionKeepsTheChannelInsideItsBudget]' passed (0.018 seconds).
+Test Suite 'PostRepositoryTests' passed at 2026-10-24 22:18:19.117.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.379 (0.382) seconds
+Test Suite 'SQLiteRepositoryContractTests' started at 2026-10-24 22:18:19.117.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testASurvivingRootKeepsItsNewestReplies]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testASurvivingRootKeepsItsNewestReplies]' passed (0.019 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testChannelDelete]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testChannelDelete]' passed (0.010 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testChannelPage]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testChannelPage]' passed (0.009 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testCursors]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testCursors]' passed (0.009 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testDrafts]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testDrafts]' passed (0.009 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testEviction]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testEviction]' passed (0.011 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testEvictionNeverLeavesARepliesRootBehind]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testEvictionNeverLeavesARepliesRootBehind]' passed (0.031 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testManualUnread]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testManualUnread]' passed (0.009 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testMarkRead]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testMarkRead]' passed (0.008 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testPinnedPostsSurviveEviction]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testPinnedPostsSurviveEviction]' passed (0.012 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testPostDelete]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testPostDelete]' passed (0.009 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testPostEdit]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testPostEdit]' passed (0.008 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testPostInsertAndReadBack]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testPostInsertAndReadBack]' passed (0.008 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testPreferences]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testPreferences]' passed (0.008 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testStalePayloadDoesNotUndoAnEdit]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testStalePayloadDoesNotUndoAnEdit]' passed (0.009 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testThreadOrder]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testThreadOrder]' passed (0.008 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testUnreadCounts]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testUnreadCounts]' passed (0.009 seconds).
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testUsers]' started.
+Test Case '-[MattermostTests.SQLiteRepositoryContractTests testUsers]' passed (0.008 seconds).
+Test Suite 'SQLiteRepositoryContractTests' passed at 2026-10-24 22:18:19.316.
+	 Executed 18 tests, with 0 failures (0 unexpected) in 0.194 (0.198) seconds
+Test Suite 'SyncCursorRepositoryTests' started at 2026-10-24 22:18:19.316.
+Test Case '-[MattermostTests.SyncCursorRepositoryTests testAllReturnsNewestFirstWithinAScope]' started.
+Test Case '-[MattermostTests.SyncCursorRepositoryTests testAllReturnsNewestFirstWithinAScope]' passed (0.008 seconds).
+Test Case '-[MattermostTests.SyncCursorRepositoryTests testClearAllWipesEveryScope]' started.
+Test Case '-[MattermostTests.SyncCursorRepositoryTests testClearAllWipesEveryScope]' passed (0.008 seconds).
+Test Case '-[MattermostTests.SyncCursorRepositoryTests testCursorsSurviveACloseAndReopen]' started.
+Test Case '-[MattermostTests.SyncCursorRepositoryTests testCursorsSurviveACloseAndReopen]' passed (0.013 seconds).
+Test Case '-[MattermostTests.SyncCursorRepositoryTests testScopesDoNotCollide]' started.
+Test Case '-[MattermostTests.SyncCursorRepositoryTests testScopesDoNotCollide]' passed (0.007 seconds).
+Test Case '-[MattermostTests.SyncCursorRepositoryTests testUnknownScopeNameInTheTableIsIgnoredRatherThanCrashing]' started.
+Test Case '-[MattermostTests.SyncCursorRepositoryTests testUnknownScopeNameInTheTableIsIgnoredRatherThanCrashing]' passed (0.007 seconds).
+Test Suite 'SyncCursorRepositoryTests' passed at 2026-10-24 22:18:19.361.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.044 (0.045) seconds
+Test Suite 'MattermostTests.xctest' passed at 2026-10-24 22:18:19.361.
+	 Executed 97 tests, with 0 failures (0 unexpected) in 11.498 (11.528) seconds
+Test Suite 'Selected tests' passed at 2026-10-24 22:18:19.361.
+	 Executed 97 tests, with 0 failures (0 unexpected) in 11.498 (11.529) seconds
+2026-10-24 22:18:19.830 xcodebuild[94447:2035677] [MT] IDETestOperationsObserverDebug: 13.968 elapsed -- Testing started completed.
+2026-10-24 22:18:19.830 xcodebuild[94447:2035677] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-24 22:18:19.830 xcodebuild[94447:2035677] [MT] IDETestOperationsObserverDebug: 13.968 sec, +13.968 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t29r-ios-t29-de872a.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started
