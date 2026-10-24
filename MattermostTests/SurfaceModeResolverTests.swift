@@ -33,25 +33,35 @@ final class SurfaceModeResolverTests: XCTestCase {
 
     // MARK: Compile-time default
 
-    /// Nothing ships native-by-default: the approval registry is empty, so every surface falls
-    /// back to the web view until its screen card's `-AV` validation approves native (T46).
-    func testEverySurfaceDefaultsToWeb() {
-        XCTAssertTrue(SurfaceDefaults.nativeApprovedSurfaces.isEmpty,
-                      "no surface may be native-by-default before its -AV validator passes")
+    /// The registry is the **only** route to native-by-default (`docs/dual-render.md` §5). As of
+    /// T31-R it holds exactly one entry — `.auth`, approved by T31-AV (F8) — and every other
+    /// surface still falls back to the web view. Pinning the exact set is the point: a card that
+    /// quietly adds its surface here fails this test and the `-AV` gate script.
+    func testOnlyTheApprovedRegistryDefaultsToNative() {
+        XCTAssertEqual(SurfaceDefaults.nativeApprovedSurfaces, [.auth],
+                      "T31-AV approved `.auth` and nothing else; adding to this set is an -AV claim")
         let resolver = makeResolver()
         for surface in Surface.allCases {
-            XCTAssertEqual(resolver.resolvedMode(for: surface), .web,
-                           "\(surface) must default to the web view")
+            let expected: SurfaceRenderMode = SurfaceDefaults.nativeApprovedSurfaces.contains(surface)
+                ? .native : .web
+            XCTAssertEqual(resolver.resolvedMode(for: surface), expected,
+                           "\(surface) must resolve to its compile-time default")
         }
     }
 
     /// Native-by-default is reached only through the approval registry, never inline.
     func testNativeByDefaultRequiresApproval() {
         // The structural rule: `defaultMode` returns native ONLY for an approved surface.
-        // With the registry empty, every surface must be `.web`.
         for surface in Surface.allCases {
-            XCTAssertEqual(SurfaceDefaults.defaultMode(for: surface), .web)
+            let expected: SurfaceRenderMode = SurfaceDefaults.nativeApprovedSurfaces.contains(surface)
+                ? .native : .web
+            XCTAssertEqual(SurfaceDefaults.defaultMode(for: surface), expected,
+                           "\(surface): only an approved surface may default native")
         }
+        XCTAssertEqual(SurfaceDefaults.defaultMode(for: .auth), .native,
+                       "the approved surface really is native by default")
+        XCTAssertEqual(SurfaceDefaults.defaultMode(for: .channelView), .web,
+                       "an unapproved surface really is web by default")
     }
 
     // MARK: Debug override wins (launch argument)
@@ -59,14 +69,14 @@ final class SurfaceModeResolverTests: XCTestCase {
     func testLaunchArgumentOverrideWinsOverCompileTimeDefault() {
         let resolver = makeResolver(arguments: ["-surfaceMode", "channelView=native"])
         XCTAssertEqual(resolver.resolvedMode(for: .channelView), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .auth), .web, "unlisted surfaces keep their default")
+        XCTAssertEqual(resolver.resolvedMode(for: .threads), .web, "unlisted surfaces keep their default")
         XCTAssertTrue(resolver.isLaunchOverridden(.channelView))
     }
 
     func testLaunchArgumentSingleTokenFormIsAccepted() {
         let resolver = makeResolver(arguments: ["-surfaceMode=composer=native", "foo"])
         XCTAssertEqual(resolver.resolvedMode(for: .composer), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .auth), .web)
+        XCTAssertEqual(resolver.resolvedMode(for: .threads), .web)
     }
 
     func testUnknownSurfaceIsRejected() {
@@ -74,7 +84,7 @@ final class SurfaceModeResolverTests: XCTestCase {
         let resolver = makeResolver(arguments: ["-surfaceMode", "notASurface=native",
                                                 "-surfaceMode", "channelView=native"])
         XCTAssertEqual(resolver.resolvedMode(for: .channelView), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .auth), .web)
+        XCTAssertEqual(resolver.resolvedMode(for: .threads), .web)
         XCTAssertEqual(resolver.launchOverrides.count, 1,
                        "only the valid pair is retained, the unknown surface is dropped")
     }
@@ -100,7 +110,7 @@ final class SurfaceModeResolverTests: XCTestCase {
         XCTAssertEqual(second.overrides[.sidebar], .native)
 
         // And an unrelated surface still defaults to web.
-        XCTAssertEqual(second.resolvedMode(for: .auth), .web)
+        XCTAssertEqual(second.resolvedMode(for: .threads), .web)
     }
 
     func testTogglingBackToDefaultClearsOverride() {
@@ -175,7 +185,7 @@ final class SurfaceModeResolverTests: XCTestCase {
     func testRemoteDefaultFillsBetweenPersistedAndCompileTimeDefault() {
         let resolver = makeResolver(remoteDefault: { $0 == .profile ? .native : nil })
         XCTAssertEqual(resolver.resolvedMode(for: .profile), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .auth), .web,
+        XCTAssertEqual(resolver.resolvedMode(for: .calls), .web,
                        "unhandled surfaces fall through to the compile-time default")
     }
 
@@ -234,9 +244,15 @@ final class SurfaceModeResolverTests: XCTestCase {
         let resolver = makeResolver(arguments: ["-surfaceMode", "shell=native"])
         XCTAssertEqual(resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface), .native)
         XCTAssertTrue(resolver.isLaunchOverridden(SurfaceDefaults.paneHostSurface))
-        // Everything else stays on the web view: the alias names one surface, not the app.
+        // The alias names one surface, not the app: everything else keeps its compile-time default.
+        // (Since T31-R that is not uniformly `.web` — `.auth` is approved native — so the assertion is
+        // about *not being steered by this flag*, which is the property the alias can break.)
         for surface in Surface.allCases where surface != SurfaceDefaults.paneHostSurface {
-            XCTAssertEqual(resolver.resolvedMode(for: surface), .web)
+            XCTAssertFalse(resolver.isLaunchOverridden(surface),
+                           "\(surface) must not be steered by the shell alias")
+            XCTAssertEqual(resolver.resolvedMode(for: surface),
+                           SurfaceDefaults.defaultMode(for: surface),
+                           "\(surface) keeps its compile-time default")
         }
     }
 
@@ -354,7 +370,7 @@ final class SurfaceModeResolverTests: XCTestCase {
             preferences: AppPreferences(defaults: defaults),
             remoteDefault: { $0 == .profile ? .native : nil })
         XCTAssertEqual(releaseResolver.resolvedMode(for: .profile), .native)
-        XCTAssertEqual(releaseResolver.resolvedMode(for: .auth), .web)
+        XCTAssertEqual(releaseResolver.resolvedMode(for: .calls), .web)
     }
 
     // MARK: R5 — the reset paths beat a launch override too (T26-R)

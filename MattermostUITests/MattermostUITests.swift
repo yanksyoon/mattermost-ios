@@ -823,8 +823,13 @@ final class MattermostUITests: XCTestCase {
     /// stored session is signed out, so the deep link must land on the auth surface instead of a
     /// channel behind a sign-in wall. The point of asserting the *identifier* (rather than only the
     /// visible button) is that the identifier is the hook T31's native sign-in screen and its tests
-    /// will use; an identifier that never reaches the tree is a defective seam even when the view
-    /// renders.
+    /// use; an identifier that never reaches the tree is a defective seam even when the view renders.
+    ///
+    /// T31-R: `.auth` is now **native by default** (T31-AV approved the surface), so the branch that
+    /// renders here is the native sign-in form, not the T30 stand-in — there is no `-surfaceMode`
+    /// flag in this launch. The escape hatch is therefore asserted to be *absent* (the native form
+    /// owns the screen) and the fallback is proven by
+    /// `testTheAuthStandInIsStillReachableThroughTheSurfaceFlag` immediately below.
     func testSignedOutServerShowsTheIdentifiableAuthSurface() {
         let app = XCUIApplication()
         app.launchArguments = [Self.resetArg,
@@ -838,8 +843,12 @@ final class MattermostUITests: XCTestCase {
         XCTAssertTrue(surface.waitForExistence(timeout: 20),
                       "the signed-out auth surface must be identifiable as `nativeAuthSurface`. "
                       + "Hierarchy:\n\(app.debugDescription)")
-        XCTAssertTrue(app.buttons["Use the web view to sign in"].exists,
-                      "the auth surface offers the documented escape hatch to the webview")
+        XCTAssertTrue(app.textFields["loginIDField"].waitForExistence(timeout: 10),
+                      "the shipping configuration renders the native sign-in form (T31-R flipped "
+                      + "`.auth` to native by default after the T31-AV approval)")
+        XCTAssertFalse(app.buttons["Use the web view to sign in"].exists,
+                       "the native card replaces the stand-in; the escape hatch is the pane's, not "
+                       + "the sign-in screen's")
         XCTAssertFalse(app.webViews.firstMatch.exists,
                        "the native pane stays native while the auth surface is shown")
         XCTAssertFalse(element(app, "nativeShell").exists,
@@ -850,6 +859,29 @@ final class MattermostUITests: XCTestCase {
         shot.name = "t30r-auth-surface-identifiable"
         shot.lifetime = .keepAlways
         add(shot)
+    }
+
+    /// The fallback half of the flip: `-surfaceMode auth=web` still renders the T30 stand-in with the
+    /// "Use the web view to sign in" control, so approving the surface did not remove the documented
+    /// escape hatch for a user whose native sign-in cannot work.
+    func testTheAuthStandInIsStillReachableThroughTheSurfaceFlag() {
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-surfaceMode", "shell=native",
+                               "-surfaceMode", "auth=web",
+                               "-uiTestSeedServer", "https://mm.example",
+                               "-uiTestOpenDeepLink", "mattermost://mm.example/acme/channels/general",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        let surface = element(app, "nativeAuthSurface")
+        XCTAssertTrue(surface.waitForExistence(timeout: 20),
+                      "the stand-in still mounts when the surface resolves web. "
+                      + "Hierarchy:\n\(app.debugDescription)")
+        XCTAssertTrue(app.buttons["Use the web view to sign in"].waitForExistence(timeout: 10),
+                      "the web branch keeps the escape hatch — the approval is reversible per launch")
+        XCTAssertFalse(app.textFields["loginIDField"].exists,
+                       "the native sign-in form is not mounted while the surface resolves web")
     }
 
     // MARK: - Live SSO (network-gated)

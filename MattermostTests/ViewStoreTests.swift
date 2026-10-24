@@ -272,9 +272,13 @@ final class ViewStoreTests: XCTestCase {
 
     /// The acceptance criterion in its strongest form: with the shipping registries, the release
     /// path is **unreachable** — for every surface, every resolution, either navigational state.
+    ///
+    /// Since T31-R the approval registry is no longer empty (`.auth` is native by default), but
+    /// release is a *third* condition: a surface must also own the pane, and no card does — so an
+    /// approved surface still cannot destroy a webview. The loop below proves both halves.
     func testEmptyRegistriesMakeReleaseUnreachable() {
-        XCTAssertTrue(SurfaceDefaults.nativeApprovedSurfaces.isEmpty,
-                      "no surface may be native-by-default until its -AV card lands")
+        XCTAssertEqual(SurfaceDefaults.nativeApprovedSurfaces, [.auth],
+                      "the one approved surface (T31-AV) is not a pane owner")
         XCTAssertTrue(SurfaceDefaults.paneOwningSurfaces.isEmpty,
                       "no card owns a pane yet: release must be inert in this build")
 

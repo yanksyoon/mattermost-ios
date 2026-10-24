@@ -136,13 +136,27 @@ Mechanically that means exactly one edit: appending the surface to
 
 ```swift
 // Mattermost/Core/RenderMode.swift
-public static let nativeApprovedSurfaces: Set<Surface> = []
+public static let nativeApprovedSurfaces: Set<Surface> = [.auth]
 ```
 
-* Empty registry = web everywhere (today's state, and the state any `-AV`-less build must stay in).
+* **The registry is an approval ledger, not a scratch list.** Each entry is one `-AV` sign-off, and
+  the doc row it cites:
+
+  | Surface | Approved by | Evidence |
+  |---|---|---|
+  | `.auth` | T31-AV (card `t_c57a7551`, verdict `PASS-WITH-FINDINGS`, F8 = approve the surface) | `docs/t31r-patch-note.md` §5 (flip) and its F1–F4 repairs, which landed *with* the flip |
+  | _(none yet)_ | | |
+
+* **Empty registry = web everywhere** (that was the state from T26 until T31-R). Anything not in the
+  registry still defaults to the web view, so an unapproved card can never ship its surface native.
+* `scripts/verify-dual-render-gates.sh` gate 5 fails on a non-empty registry unless
+  `--allow-approved-registry` is passed, which is how the approval commit is audited: the flag is
+  only ever used *by* the commit that carries the ledger entry (`docs/t31r-patch-note.md` §5 records
+  both runs — without the flag, gate 5 alone fails; with it, gates 1–10 pass).
 * **Native-by-default** is unreachable any other way: `SurfaceDefaults.defaultMode(for:)` is the
   only function that decides it, and it consults nothing but that set
-  (`testEverySurfaceDefaultsToWeb`, `testNativeByDefaultRequiresApproval` pin this).
+  (`SurfaceModeResolverTests.testOnlyTheApprovedRegistryDefaultsToNative`,
+  `testNativeByDefaultRequiresApproval` pin this).
 * A card that hard-wires `.native` in a view, constructs its own `WKWebView`, or adds a private
   bypass fails `-AV` review — see §6 step 4 and §8.
 

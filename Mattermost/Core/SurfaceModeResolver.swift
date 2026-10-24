@@ -11,8 +11,8 @@ import Combine
 ///      `AppPreferences` (`mm.surfaceModes`). Read only when `debugAffordancesEnabled`.
 ///   3. **Remote/config default** — an optional injected provider. No such default exists yet;
 ///      a future server- or build-driven default would plug in here.
-///   4. **Compile-time default** — `SurfaceDefaults.defaultMode(for:)`: `.web` everywhere until
-///      a screen card's `-AV` validation approves native.
+///   4. **Compile-time default** — `SurfaceDefaults.defaultMode(for:)`: `.web` everywhere except a
+///      surface whose `-AV` validation approved native (today only `.auth`, T31-R).
 ///
 /// A Release build therefore resolves **only** from tiers 3 and 4 (`debugAffordancesEnabled ==
 /// false`): no launch flag and no stored row can put a shipped app on a native screen. The

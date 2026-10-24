@@ -10,8 +10,9 @@ import Foundation
 /// its own surface when it opts in; there is deliberately no global "port everything" switch.
 /// See `docs/dual-render.md` for the opt-in contract.
 public enum Surface: String, CaseIterable, Codable, Identifiable, Sendable {
-    /// Login / auth flow. Today this runs inside the webview (SSO/OAuth); the webview stays
-    /// the reference until a native auth screen card lands.
+    /// Login / auth flow. SSO/OAuth still runs inside the webview (the IdP hand-off), while the
+    /// sign-in form, the MFA step and the expiry banner are the native S01/S02/S03 cards — native by
+    /// default since the T31-AV approval (T31-R).
     case auth
     /// Left channel/team sidebar.
     case sidebar
@@ -77,11 +78,18 @@ public enum SurfaceDefaults {
 
     /// Surfaces whose native screen card has passed its `-AV` adversarial validation.
     ///
-    /// T26 ships with zero approvals (no screen has been ported yet), so every surface
-    /// defaults to `.web` and the webview remains a fully-working fallback. A screen card
-    /// flips its own surface to native-by-default by appending its rawValue here **after**
-    /// its `-AV` card has passed — this exact diff is what the validator checks.
-    public static let nativeApprovedSurfaces: Set<Surface> = []
+    /// **Approval ledger** (each entry is one `-AV` sign-off, and the doc row it cites):
+    ///
+    /// | Surface | Approved by | Evidence |
+    /// |---|---|---|
+    /// | `.auth` | T31-AV (`t_c57a7551`, verdict `PASS-WITH-FINDINGS`, F8 = approve) | `docs/t31r-patch-note.md` §5; findings F1–F4 repaired by T31-R before the flip was treated as final |
+    ///
+    /// Everything not listed here defaults to `.web`, so an unapproved card can never ship its
+    /// surface native. A card flips its own surface to native-by-default by appending its rawValue
+    /// **after** its `-AV` card has passed, in its own clearly-labelled commit — that exact diff is
+    /// what the next validator audits (`scripts/verify-dual-render-gates.sh` gate 5 fails on a
+    /// non-empty registry unless `--allow-approved-registry` accompanies the approval commit).
+    public static let nativeApprovedSurfaces: Set<Surface> = [.auth]
 
     /// Surfaces whose native card renders the *entire* per-server work area — every region the
     /// one-per-server WKWebView paints (sidebar, channel header, post list, composer, RHS). Empty:
