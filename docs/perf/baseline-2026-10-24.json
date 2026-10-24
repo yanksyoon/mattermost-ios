@@ -6,7 +6,7 @@
     "os": "26.3.1",
     "arch": "arm64",
     "xcode": "Xcode 26.6",
-    "timestamp": "2026-10-24 16:49:48 +0800",
+    "timestamp": "2026-10-24 16:59:04 +0800",
     "cpu_count": 10
   },
   "server": {
@@ -20,6 +20,11 @@
     }
   },
   "measurement": {
+    "window": {
+      "first_started": "2026-10-24 16:46:11 +0800",
+      "last_ended": "2026-10-24 16:48:34 +0800"
+    },
+    "reported_at": "2026-10-24 16:59:04 +0800",
     "metrics": {
       "phys_footprint": "footprint --noCategories -j (kernel physical footprint, what Instruments reports)",
       "rss": "ps -axo rss, sampled every 0.5s"
