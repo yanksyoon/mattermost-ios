@@ -194,6 +194,25 @@ navigation failed                2
   (which construct exactly what a Release compile computes) and by the gate script. Flagged rather
   than faked.
 
+### Clean-tree verification (the commits are self-contained)
+
+T27's untracked perf work was in the tree for every run above, so the two commits were re-verified
+from a **detached worktree at HEAD that contains none of it**
+(`git worktree add --detach … 64f2d2a`; no `PerfProbe.swift`, no `PerfProbe` reference in
+`MattermostApp.swift`, no `-perfProbe` registration in `project.pbxproj`):
+
+```
+$ xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
+    -destination 'platform=macOS,variant=Mac Catalyst' \
+    -derivedDataPath <scratch>/t26r-verify-dd -only-testing:MattermostTests DEBUG_INFORMATION_FORMAT=dwarf
+Executed 347 tests, with 1 test skipped and 0 failures (0 unexpected) in 2.927 s
+** TEST SUCCEEDED **   (exit 0)
+```
+
+* Log: `docs/t26r-clean-tree-verify-2026-10-24.log`. This is the strongest single check on the
+  commit split: it proves nothing in the landed code depends on a symbol that only exists in T27's
+  uncommitted files.
+
 ## 4. Decisions recorded
 
 * **R2 = option (a)** (gate the persisted tier behind `#if DEBUG`), because the `-AV` programme's
