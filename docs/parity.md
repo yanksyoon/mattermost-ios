@@ -4,8 +4,9 @@ Single source of truth for the module→native mapping. Updated at each phase bo
 Legend: `native` = implemented, `-` = not started / deferred to a later card/phase.
 
 Design of record: `~/.hermes/plans/2026-10-08_mattermost-desktop-ios-migration.md`; the desktop
-package is `mattermost/desktop` (v6.4.0-era). Status last refreshed at T30-R (Path B start: transport,
-local store and the native shell landed; see "Path B native cards" below).
+package is `mattermost/desktop` (v6.4.0-era). Status last refreshed at T31 (Path B start: transport,
+local store, the native shell; native auth + session screens behind the dual-render flag — see
+"Path B native cards" below).
 
 > ## 🅱️ Path B — native client decision (T24)
 > **The programme has chosen Path B (T24, `docs/path-b-adr.md`): the primary surface is becoming
@@ -88,7 +89,8 @@ These rows have no single desktop module to replace: they are the **native data 
 |---|---|---|
 | **T28** transport (REST v4 + WebSocket v4) | `Core/MM/`: `APITransport`/`URLSessionTransport` + `APIClient` (bearer from `SecureVault`, ETag/304 replay, retry with backoff + jitter honouring a **clamped** `Retry-After`, `401 → onUnauthorized`), `AuthSession` (login/MFA/restore/logout + SSO cookie adoption through **that server's** `WKWebsiteDataStore(forIdentifier:)`), `SocketClient` (actor, hello + in-band auth challenge, ping/pong, backoff that resets only after a stable session, one resync per dropout), `ServerTrustPolicy` shared by HTTP **and** `wss`, `MMLog` token redaction. Pinned by 88 tests + `scripts/t28-token-grep.sh` + the self-signed `wss` fixture. | native ✅ (T28, repaired T28-R) |
 | **T29** local store | `Core/Store/`: one SQLite file per server via GRDB 7.11.1 (pinned in `Package.resolved`), schema v1 + additive v2/v3 through a named migration chain with a downgrade guard, single writer + read snapshot, `PostRepository`/`ChannelRepository`/`DraftRepository`/`SyncCursorRepository`/`PreferenceRepository`/`UserRepository`, eviction that cascades a thread's replies with its root, and `InMemoryStore` as the contract-tested double. | native ✅ (T29, repaired T29-R) |
-| **T30** native shell (navigation) | `Core/Native/NativeNavigation.swift` (one funnel: `NativeLocation` + deep-link grammar + per-server last location + auth gate + `NativeChannelDirectory` seam), `UI/Native/NativeShellView.swift` (compact = TabView with the channel view pushed; regular = `NavigationSplitView`), `UI/Native/NativePanePlaceholders.swift` (every unported region is a named placeholder, plus the auth surface and the stale-route error state). Wired through `RootView` (push stack + chrome on pushed panes) and the existing `DeepLinkRouter`/`NotificationWorker` seams. | native ✅ (T30, repaired T30-R). Limits that stay: **no channel directory yet**, so a deep link and a tapped mention converge on server + pane but not on channel identity (S08/T32-T33 installs the directory); every pane is a placeholder (T32-T36); native login is T31. |
+| **T30** native shell (navigation) | `Core/Native/NativeNavigation.swift` (one funnel: `NativeLocation` + deep-link grammar + per-server last location + auth gate + `NativeChannelDirectory` seam), `UI/Native/NativeShellView.swift` (compact = TabView with the channel view pushed; regular = `NavigationSplitView`), `UI/Native/NativePanePlaceholders.swift` (every unported region is a named placeholder, plus the auth surface and the stale-route error state). Wired through `RootView` (push stack + chrome on pushed panes) and the existing `DeepLinkRouter`/`NotificationWorker` seams. | native ✅ (T30, repaired T30-R). Limits that stay: **no channel directory yet**, so a deep link and a tapped mention converge on server + pane but not on channel identity (S08/T32-T33 installs the directory); every pane is a placeholder (T32-T36); native login is T31 (landed — the row above). |
+| **T31** native auth & session surface | `UI/Native/Auth/`: `AuthCoordinator` (one `AuthSession` per server; phases unresolved → signedIn / signedOut / expired; the gate answers from the vault before the network, so a relaunch never flashes a login form; `restoreAll` at launch; a 401 from **any** native call flips the gate to one re-auth path; sign-out clears the vault entry, the live session and the webview's `MMAUTHTOKEN`), `LoginViewModel`/`MFAViewModel` (mobile `login/form.tsx` + `mfa/index.tsx` rules: trimmed + lowercased id, submit enabled only with both fields, the server's own rejection sentence inline, a second-factor step that keeps its own error and clears the rejected digits), `SSOViewModel`/`SSOView` (SSO deliberately stays a webview: the IdP runs in the existing `WebViewContainer`, the sheet polls that server's `WKWebsiteDataStore`, adopts the session, then lands on the native shell), `LoginView`/`MFAView` (S01/S02) + `SessionExpiredBanner` (S03), and Settings' **Session** section (sign-out with a confirmation; *removing* a server now signs it out too, so no credential outlives its server). Gated by `SurfaceHost(.auth)`; until `-AV` approves the surface the branch that renders is still the T30 stand-in. Evidence: `docs/t31-build-note.md`, screenshots in `docs/t31-shots/` (the sign-in, rejection and restore shots are a real `mattermost` server at `127.0.0.1:8065`). | native ✅ (T31). Limits that stay: the SSO **sheet** is unit-tested but not UI-tested (needs a live IdP — the shipped `testSSOReachesIdentityProviderWithoutCertificatePrompt` still guards the webview path), and a session established **in the webview** is adopted only when the native shell asks it to (SSO sheet / next native sign-in), not continuously. |
 
 ## Phase status
 
@@ -137,8 +139,10 @@ These rows have no single desktop module to replace: they are the **native data 
 - **Path B — native data path (started):** T28 DONE (REST v4 + WebSocket v4 transport, SSO cookie
   adoption, shared TLS trust policy; repaired in T28-R), T29 DONE (per-server SQLite store with
   migrations, repositories, eviction; repaired in T29-R), T30 DONE (native shell + navigation
-  skeleton behind the dual-render flag; repaired in T30-R — see `docs/t30-build-note.md` §12).
-  T31 (native auth) is next; the screens follow (`docs/component-map.md`). No surface is in
+  skeleton behind the dual-render flag; repaired in T30-R — see `docs/t30-build-note.md` §12),
+  T31 DONE (native auth + session surface: sign-in, MFA, session restore/expiry, sign-out and the
+  webview SSO hand-off, behind the dual-render flag — see `docs/t31-build-note.md`).
+  The remaining screens follow (`docs/component-map.md`). No surface is in
   `nativeApprovedSurfaces` yet, so every shipping configuration still renders the webview.
 
 ## Test & validation status (T17)

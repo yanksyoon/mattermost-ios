@@ -137,3 +137,28 @@ Reimplementation notes that matter for the licence boundary: the Swift model (`N
 `NativeNavigation`) is written from the REST/URL contract, not translated from the RN navigation
 state objects; no `compass-icons` glyphs are embedded (SF Symbols are used instead), so no icon
 font or NOTICE entry is added by this card.
+
+## 8. T31 native auth & session surface — upstream read set (Apache-2.0, mobile @ `v2.45.0`)
+
+T31 (`Mattermost/UI/Native/Auth/`, `docs/t31-build-note.md`) reimplements the **sign-in, MFA and
+session-expiry screens** and the *shape* of the login/logout orchestration in SwiftUI. No upstream
+file is copied: the RN sources are TypeScript and cannot be transpiled into this repo, and none of
+their code, strings or styles are reproduced verbatim. They were read at the pin to fix the form
+rules the acceptance criteria name:
+
+| Upstream path (`mattermost/mattermost-mobile` @ `162f2560d0e1df073220f7701d5a67cc17c8abeb`) | Used for |
+|---|---|
+| `app/screens/login/form.tsx` | field set (email/username, password), the "submit disabled until both fields have input" rule, the `login_id.toLowerCase()` normalisation before `POST /users/login`, and where the server's rejection sentence is shown |
+| `app/screens/login/index.tsx` | screen composition: server name as the heading, the form, the SSO alternative below it |
+| `app/screens/login/sso_options.tsx` | SSO as a **second route to the same session** rather than a separate surface |
+| `app/screens/mfa/index.tsx`, `mfa/shield.tsx` | the token step: shield glyph, "Enter MFA Token" heading, the explanation, the single numeric field, `Proceed`, and "use a different account" |
+| `app/screens/sso/sso.tsx`, `sso_authentication.tsx`, `sso_authentication_with_external_browser.tsx` | the decision to keep the identity provider inside a webview and adopt the resulting session (our `SSOView` hosts the existing `WebViewContainer` and polls that server's cookie store instead of copying their webview component) |
+| `app/actions/remote/session.ts` | the phase model our `AuthCoordinator` mirrors: login → (MFA) → session; restore at launch; 401 → re-auth; logout clears the local session |
+| `app/queries/servers/system.ts` (`getCurrentUserId`/`getCurrentUser`), `app/store/` session shapes | what "a signed-in server" means locally (id + username kept with the token) |
+
+Reimplementation notes that matter for the licence boundary: the Swift machines
+(`AuthCoordinator`, `LoginViewModel`, `MFAViewModel`, `SSOViewModel`) are written against
+`https://api.mattermost.com` (`/users/login`, `/users/login/mfa`, `/users/me`, `/users/logout`) and
+the existing `AuthSession`/`SecureVault`/`CertTrust` types, not translated from RN reducers; error
+copy is either the **server's own message** or a Mattermost sentence re-worded in our own file, and
+SF Symbols replace every `compass-icons` glyph, so no icon font or extra NOTICE entry is added.

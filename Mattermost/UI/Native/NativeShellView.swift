@@ -42,6 +42,10 @@ struct NativeShellView: View {
     @ObservedObject var navigation: NativeNavigation
 
     @EnvironmentObject private var resolver: SurfaceModeResolver
+    /// T31: the app-level auth owner. The signed-out branch is `AuthSurfaceView`, which renders the
+    /// native sign-in screen behind `SurfaceHost(.auth)` and falls back to the T30 stand-in while
+    /// that surface still resolves web (the shipping configuration until T31-AV approves it).
+    @EnvironmentObject private var auth: AuthCoordinator
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     /// An unauthenticated server shows the auth surface instead of a workspace (scope §2).
@@ -66,7 +70,10 @@ struct NativeShellView: View {
         // branch (and its own identifier, which T31's sign-in screen will keep), and the
         // `nativeShell` container only wraps the shell it actually names.
         if showsAuthSurface {
-            NativeAuthPlaceholderView(server: server, resolver: resolver)
+            // T31: the sign-in screen is its own surface card (`SurfaceHost(.auth)` inside), so it
+            // stays behind the dual-render switch; it is still outside the shell's accessibility
+            // container so its `nativeAuthSurface` identifier reaches the tree (T30-AV F2).
+            AuthSurfaceView(server: server, coordinator: auth)
         } else {
             workspaceShell
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

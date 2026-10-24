@@ -24,6 +24,9 @@ struct MattermostApp: App {
     /// T30: the native shell's navigation model — the one funnel deep links, notification taps and
     /// manual taps go through. Owned here so it outlives any single server's scene.
     @StateObject private var nativeNavigation: NativeNavigation
+    /// T31: the app-level auth owner — one live `AuthSession` per server, restore at launch, and
+    /// the shell's `NativeAuthGate`. The sign-in surface talks to this object; nothing else may.
+    @StateObject private var authCoordinator: AuthCoordinator
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
@@ -89,6 +92,10 @@ struct MattermostApp: App {
         // `init` points at an object the views never see.
         let navigation = NativeNavigation(resolver: _surfaceModeResolver.wrappedValue)
         _nativeNavigation = StateObject(wrappedValue: navigation)
+        // T31: the auth owner is created before any view exists, so the shell's gate and the sign-in
+        // surface always talk to the same object. Its `serverStore`/`onChange` seams are bound in
+        // `bindShellStores()` for the same reason the navigator's are (see that method).
+        _authCoordinator = StateObject(wrappedValue: AuthCoordinator())
         #if DEBUG
         // UI-test seam: `-uiTestAssumeSignedIn` makes the native shell render as if the seeded
         // server had a session, so its panes can be exercised against a stub server that has no
@@ -142,12 +149,38 @@ struct MattermostApp: App {
         // UI-test seam: `-uiTestSeedServer <url>` adds one plain server so a test can reach the
         // native shell without driving the add-server form (the form validates the URL over the
         // network, which the native shell does not need). Debug-only and inert in normal use.
+        // `-uiTestSeedServerName <name>` optionally names it (evidence runs against a real server
+        // read better as that server's name; the default keeps every existing test's fixture).
         if let idx = args.firstIndex(of: "-uiTestSeedServer"), args.indices.contains(idx + 1),
            let url = URL(string: args[idx + 1]) {
-            let config = ServerConfig(name: "UI Test Server", url: url)
+            var name = "UI Test Server"
+            if let nameIdx = args.firstIndex(of: "-uiTestSeedServerName"),
+               args.indices.contains(nameIdx + 1), !args[nameIdx + 1].isEmpty {
+                name = args[nameIdx + 1]
+            }
+            let config = ServerConfig(name: name, url: url)
             _serverStore.wrappedValue.add(config)
             _serverStore.wrappedValue.switchTo(id: config.id)
             _viewStore.wrappedValue.setPrimary(config.id)
+        }
+        // UI-test seam: `-uiTestForgetSession <url>` starts that server signed *out* by deleting its
+        // stored credential. Without it a suite that signs in once would start every later test in
+        // the signed-in shell (the gate reads the vault before it reads the network, by design) and
+        // the sign-in tests would only pass on a clean device. Processed *before* the token seam
+        // below, so "forget, then seed a token" means what it reads as.
+        if let idx = args.firstIndex(of: "-uiTestForgetSession"), args.indices.contains(idx + 1),
+           let url = URL(string: args[idx + 1]) {
+            let vault = SecureVault()
+            try? vault.deleteSecret(.authToken, serverURL: url)
+            try? vault.deleteSecret(.userID, serverURL: url)
+        }
+        // UI-test seam: `-uiTestSeedStoredToken <token>` puts a session token in the vault for the
+        // seeded server, so the relaunch/expiry paths can be exercised without a real sign-in
+        // (there is no way to make a stub server mint one). It writes a *fake* string the stub never
+        // accepts; it never reads or logs a real credential, and it does not exist in Release.
+        if let idx = args.firstIndex(of: "-uiTestSeedStoredToken"), args.indices.contains(idx + 1),
+           let server = _serverStore.wrappedValue.servers.last {
+            try? SecureVault().setSecret(args[idx + 1], key: .authToken, serverURL: server.url)
         }
         #endif
         #if DEBUG || PERF_PROBE
@@ -177,6 +210,13 @@ struct MattermostApp: App {
                 .environmentObject(notificationWorker)
                 .environmentObject(surfaceModeResolver)
                 .environmentObject(nativeNavigation)
+                // T31: the auth owner is app-wide state (the shell's gate, the sign-in surface, the
+                // SSO hand-off and Settings' sign-out all read it).
+                .environmentObject(authCoordinator)
+                // T31: the SSO hand-off mounts the server's existing webview inside a sheet, so the
+                // store owner has to be reachable from the environment too (the pane's web branch
+                // still receives it as a parameter).
+                .environmentObject(viewStore)
                 // T30 debug-only screenshot probe: force one appearance / text size per capture.
                 // Inert (and never touches the user's own Dynamic Type) unless the probe is running.
                 .modifier(NativeShellSnapshotEnvironment(scheme: snapshotColorScheme,
@@ -214,6 +254,14 @@ struct MattermostApp: App {
                     // T30: replay a deep link the test could not deliver through the system.
                     openUITestDeepLinkIfRequested()
                     #endif
+
+                    // T31: restore every stored session now that the shell is up. This is the
+                    // relaunch path: a vault token is validated with `GET /users/me` before it is
+                    // trusted, and only a server's rejection turns the shell to re-auth (a 401 →
+                    // `AuthCoordinator.Phase.expired` → the sign-in surface with its banner). An
+                    // unreachable server leaves the stored session alone, so an offline launch is not
+                    // a login prompt.
+                    await authCoordinator.restoreAll(serverStore.servers)
                 }
                 .task { runShellSnapshotIfRequested() }
                 #if DEBUG
@@ -296,6 +344,20 @@ struct MattermostApp: App {
         notificationWorker.nativeNavigation = nativeNavigation
         nativeNavigation.serverStore = serverStore
         nativeNavigation.viewStore = viewStore
+        // T31: the shell's auth gate is the live coordinator (one `AuthSession` per server), and a
+        // phase change — a finished sign-in, a sign-out, a 401 from any native call — re-asks the
+        // shell. `-uiTestAssumeSignedIn` keeps its substituted gate: that seam exists precisely to
+        // exercise the shell against a server that has no session.
+        #if DEBUG
+        if !ProcessInfo.processInfo.arguments.contains("-uiTestAssumeSignedIn") {
+            nativeNavigation.authGate = authCoordinator
+        }
+        #else
+        nativeNavigation.authGate = authCoordinator
+        #endif
+        authCoordinator.onChange = { [weak nativeNavigation] _ in
+            nativeNavigation?.refreshAuthState()
+        }
     }
 
     #if DEBUG

@@ -26,6 +26,10 @@ struct SettingsView: View {
     let viewStore: ViewStore?
     @ObservedObject var appSettings: AppSettings
     @ObservedObject var sessionStore: SessionStore
+    /// T31: the app-level auth owner. Settings is the shell's home for "sign out of this server":
+    /// the native session lives in this object, so a sign-out here and a 401 anywhere else are the
+    /// same state change.
+    @EnvironmentObject private var auth: AuthCoordinator
 
     @Environment(\.dismiss) private var dismiss
 
@@ -33,6 +37,8 @@ struct SettingsView: View {
     @State private var editingServer: ServerConfig?
     @State private var isPresentingServerForm = false
     @State private var serverPendingRemoval: ServerConfig?
+    /// Non-nil while the sign-out confirmation is up for that server.
+    @State private var serverPendingSignOut: ServerConfig?
 
     // T19a: diagnostics report state (generated report files for the ShareLinks).
     @State private var diagnosticsReportURLs: [URL]?
@@ -61,6 +67,7 @@ struct SettingsView: View {
                 notificationsSection
                 languageSection
                 serversSection
+                sessionSection
                 advancedSection
                 diagnosticsSection
                 #if DEBUG
@@ -89,6 +96,11 @@ struct SettingsView: View {
             ) {
                 Button("Remove", role: .destructive) {
                     if let server = serverPendingRemoval {
+                        // T31: removing a server must not leave its credential behind. The vault
+                        // token and the webview's session cookie are what a *later* re-add of the
+                        // same URL would silently inherit, so removal signs the server out first
+                        // (the network call is best effort; the local clear is not).
+                        Task { await auth.signOut(server) }
                         _ = serverStore.remove(id: server.id)
                     }
                     serverPendingRemoval = nil
@@ -96,6 +108,24 @@ struct SettingsView: View {
                 Button("Cancel", role: .cancel) { serverPendingRemoval = nil }
             } message: {
                 Text("This clears the server's signed-in session on this device.")
+            }
+            .confirmationDialog(
+                "Sign out of \(serverPendingSignOut?.name ?? "this server")?",
+                isPresented: Binding(get: { serverPendingSignOut != nil },
+                                     set: { if !$0 { serverPendingSignOut = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Sign out", role: .destructive) {
+                    if let server = serverPendingSignOut {
+                        Task { await auth.signOut(server) }
+                    }
+                    serverPendingSignOut = nil
+                }
+                Button("Cancel", role: .cancel) { serverPendingSignOut = nil }
+            } message: {
+                Text("The session stored for this server on this device is cleared, and revoked on "
+                     + "the server. You will need to sign in again. Messages on the server are not "
+                     + "affected.")
             }
         }
         .accessibilityIdentifier("settingsView")
@@ -222,6 +252,38 @@ struct SettingsView: View {
             }
         } header: {
             Text("Servers")
+        }
+    }
+
+    // MARK: - Session (T31: sign-out + confirmation)
+
+    /// The native session's home in the shell: which servers this device holds a session for, and
+    /// the sign-out action with its confirmation.
+    ///
+    /// Only servers with a **native** session appear. After a webview-only sign-in there is no
+    /// vault credential to clear, so a "sign out" row there would be a button that does nothing —
+    /// the web app's own account menu remains the answer for that path.
+    @ViewBuilder
+    private var sessionSection: some View {
+        let signedIn = serverStore.servers.filter { auth.authState(for: $0) == .signedIn }
+        if !signedIn.isEmpty {
+            Section {
+                ForEach(signedIn) { server in
+                    Button(role: .destructive) {
+                        serverPendingSignOut = server
+                    } label: {
+                        Label("Sign out of \(server.name)",
+                              systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                    .accessibilityIdentifier("signOutButton")
+                }
+            } header: {
+                Text("Session")
+            } footer: {
+                Text("Signing out clears the session this device stores for the server, and revokes "
+                     + "it on the server.")
+                    .font(.caption)
+            }
         }
     }
 

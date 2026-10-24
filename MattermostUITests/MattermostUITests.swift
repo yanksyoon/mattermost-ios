@@ -896,4 +896,296 @@ final class MattermostUITests: XCTestCase {
         shot.lifetime = .keepAlways
         add(shot)
     }
+
+    // MARK: - T31 native auth & session surface (S01–S03)
+
+    /// Auth-fixture stubs (`build/uitest-server/mm_stub.py`):
+    ///   8114 — `POST /users/login` (wrong password / MFA challenge), `/users/login/mfa`, `/users/logout`,
+    ///          and `GET /users/me` → 200, so a stored token restores.
+    ///   8115 — same, but `GET /users/me` → 401 `api.context.session_expired`, i.e. a relaunch whose
+    ///          stored session the server has since revoked.
+    static let stubAuth = "http://127.0.0.1:8114"
+    static let stubAuthExpired = "http://127.0.0.1:8115"
+
+    /// Launch straight into the native shell's sign-in surface, against an auth stub.
+    private func launchNativeAuth(server: String = MattermostUITests.stubAuth,
+                                  extra: [String] = []) throws -> XCUIApplication {
+        try XCTSkipUnless(Self.isTLSPortOpen(server),
+                          "auth stub not running — start it with: python3 build/uitest-server/mm_stub.py --port 8114")
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-uiTestSeedServer", server,
+                               "-uiTestSeedServerName", "Auth Test Server",
+                               // Start signed out even on a device where an earlier test signed in
+                               // (the gate trusts the vault before the network, by design).
+                               "-uiTestForgetSession", server,
+                               "-surfaceMode", "shell=native",
+                               "-surfaceMode", "auth=native",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"] + extra
+        app.launch()
+        return app
+    }
+
+    private func attachShot(_ app: XCUIApplication, named name: String) {
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = name
+        shot.lifetime = .keepAlways
+        add(shot)
+        // Optional on-disk copy for the card's evidence bundle.
+        guard let dir = ProcessInfo.processInfo.environment["MM_AUTH_SHOT_DIR"], !dir.isEmpty else { return }
+        let url = URL(fileURLWithPath: dir).appendingPathComponent("\(name).png")
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                 withIntermediateDirectories: true)
+        try? app.screenshot().pngRepresentation.write(to: url)
+    }
+
+    private func signInThroughTheNativeForm(_ app: XCUIApplication,
+                                           loginID: String,
+                                           password: String) {
+        let idField = app.textFields["loginIDField"]
+        XCTAssertTrue(idField.waitForExistence(timeout: 20),
+                      "the native sign-in surface must mount:\n\(app.debugDescription)")
+        idField.tap()
+        idField.typeText(loginID)
+        let passwordField = app.secureTextFields["loginPasswordField"]
+        XCTAssertTrue(passwordField.exists)
+        passwordField.tap()
+        passwordField.typeText(password)
+        app.buttons["loginSubmitButton"].tap()
+    }
+
+    /// Type the MFA code into the numeric field. `typeText` goes through the HID path, which the
+    /// iOS 26 simulator's numeric keypad does not always accept; if the field is still empty
+    /// afterwards, press the keypad keys the way a person would. Either way the field is asserted
+    /// to hold the code before the test continues, so a silent no-op cannot pass.
+    private func enterMFACode(_ app: XCUIApplication, _ code: String) {
+        let field = app.textFields["mfaCodeField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10),
+                      "the token field must be on screen:\n\(app.debugDescription)")
+        field.tap()
+        field.typeText(code)
+        if (field.value as? String) != code {
+            for digit in code {
+                let key = app.keys[String(digit)]
+                XCTAssertTrue(key.waitForExistence(timeout: 3),
+                              "numeric keypad has no key \(digit):\n\(app.debugDescription)")
+                key.tap()
+            }
+        }
+        XCTAssertEqual(field.value as? String, code, "the code must reach the field")
+    }
+
+    /// S01 — the sign-in screen is native (form, not a webview), and it is a real surface card:
+    /// it only appears because `-surfaceMode auth=native` asked for it, and its submit stays
+    /// disabled until both fields carry input.
+    func testNativeSignInSurfaceIsAFormNotAWebview() throws {
+        let app = try launchNativeAuth()
+
+        XCTAssertTrue(element(app, "nativeAuthSurface").waitForExistence(timeout: 20),
+                      "the native auth surface must mount:\n\(app.debugDescription)")
+        XCTAssertTrue(app.textFields["loginIDField"].exists)
+        XCTAssertTrue(app.secureTextFields["loginPasswordField"].exists)
+        let submit = app.buttons["loginSubmitButton"]
+        XCTAssertTrue(submit.exists)
+        XCTAssertFalse(submit.isEnabled, "mobile's form enables Sign in only when both fields have input")
+        XCTAssertFalse(app.webViews.firstMatch.exists,
+                       "the sign-in surface is native; the webview is not what renders it")
+        XCTAssertFalse(app.buttons["Use the web view to sign in"].exists,
+                       "the native form replaces the placeholder's escape hatch")
+
+        attachShot(app, named: "t31-01-native-signin")
+    }
+
+    /// S01b — a rejected credential is an inline error on the same screen, in the server's own
+    /// words (the stub answers with Mattermost's real `invalid_credentials` sentence).
+    func testRejectedPasswordIsAnInlineErrorOnTheNativeForm() throws {
+        let app = try launchNativeAuth()
+        signInThroughTheNativeForm(app, loginID: "ada@example.com", password: "wrong-password")
+
+        let error = element(app, "loginErrorText")
+        XCTAssertTrue(error.waitForExistence(timeout: 20),
+                      "the rejection must surface inline:\n\(app.debugDescription)")
+        XCTAssertTrue(error.label.contains("Enter a valid email or username and/or password."),
+                      "expected the server's sentence, got: \(error.label)")
+        XCTAssertTrue(app.textFields["loginIDField"].exists, "a wrong password does not navigate away")
+        XCTAssertFalse(element(app, "nativeShell").exists, "nor does it sign the shell in")
+
+        attachShot(app, named: "t31-02-native-signin-rejected")
+    }
+
+    /// S02 — the MFA step: the server's challenge moves the screen to the token form, a wrong code
+    /// stays there with its own message, the right code lands in the signed-in shell.
+    func testMFAChallengeThenAcceptedCodeSignsIn() throws {
+        let app = try launchNativeAuth()
+        signInThroughTheNativeForm(app, loginID: "mfa@example.com", password: "correct-horse")
+
+        XCTAssertTrue(element(app, "mfaView").waitForExistence(timeout: 20),
+                      "an mfa_required answer must move to the token step:\n\(app.debugDescription)")
+        enterMFACode(app, "000000")
+        app.buttons["mfaSubmitButton"].tap()
+
+        let error = element(app, "mfaErrorText")
+        XCTAssertTrue(error.waitForExistence(timeout: 20),
+                      "a rejected code must say so on the token step:\n\(app.debugDescription)")
+        XCTAssertTrue(error.label.contains("not accepted"), "got: \(error.label)")
+        XCTAssertTrue(element(app, "mfaView").exists, "still on the token step")
+        attachShot(app, named: "t31-03-mfa-rejected")
+
+        XCTAssertEqual(app.textFields["mfaCodeField"].value as? String, "Enter MFA Token",
+                       "the rejected digits are cleared, so they cannot be resent by mistake")
+        enterMFACode(app, "123456")
+        app.buttons["mfaSubmitButton"].tap()
+
+        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 25),
+                      "an accepted code signs the shell in:\n\(app.debugDescription)")
+        XCTAssertFalse(element(app, "nativeAuthSurface").exists)
+        attachShot(app, named: "t31-04-mfa-signed-in")
+    }
+
+    /// S03 — a relaunch whose stored session the server no longer honours shows the sign-in screen
+    /// with the "session expired" banner (not a bare form, and not a signed-in shell).
+    func testRevokedStoredSessionShowsTheSessionExpiredBanner() throws {
+        let app = try launchNativeAuth(server: Self.stubAuthExpired,
+                                       extra: ["-uiTestSeedStoredToken", "stale-stub-token"])
+
+        XCTAssertTrue(element(app, "sessionExpiredBanner").waitForExistence(timeout: 25),
+                      "a 401 on restore must explain itself:\n\(app.debugDescription)")
+        XCTAssertTrue(app.textFields["loginIDField"].waitForExistence(timeout: 10),
+                      "and offer the form again")
+        XCTAssertFalse(element(app, "nativeShell").exists,
+                       "a revoked session must not be left looking signed in")
+
+        attachShot(app, named: "t31-05-session-expired")
+    }
+
+    /// S03b — sign-out from Settings: confirmation, then the shell returns to the sign-in surface.
+    func testSignOutFromSettingsReturnsToTheSignInSurface() throws {
+        let app = try launchNativeAuth()
+        signInThroughTheNativeForm(app, loginID: "ada@example.com", password: "correct-horse")
+        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 25),
+                      "sign-in must reach the shell first:\n\(app.debugDescription)")
+
+        app.buttons["settingsToolbarButton"].tap()
+        XCTAssertTrue(element(app, "settingsView").waitForExistence(timeout: 10))
+
+        // The Session section sits below General/Notifications/Language, after Servers — scroll to it
+        // the way a person would (the form is lazy, so an off-screen row does not exist yet).
+        let signOut = app.buttons["signOutButton"]
+        var scrolls = 0
+        while !(signOut.exists && signOut.isHittable) && scrolls < 8 {
+            app.swipeUp()
+            scrolls += 1
+        }
+        XCTAssertTrue(signOut.waitForExistence(timeout: 5),
+                      "Settings offers sign-out for a server with a native session:\n\(app.debugDescription)")
+        attachShot(app, named: "t31-06-settings-session")
+        signOut.tap()
+
+        let confirm = app.buttons["Sign out"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5),
+                      "sign-out is confirmed, not one-tap")
+        attachShot(app, named: "t31-07-signout-confirm")
+        confirm.tap()
+
+        let done = app.buttons["Done"]
+        if done.waitForExistence(timeout: 5) { done.tap() }
+
+        XCTAssertTrue(app.textFields["loginIDField"].waitForExistence(timeout: 20),
+                      "after sign-out the shell shows the sign-in surface again:\n\(app.debugDescription)")
+        XCTAssertFalse(element(app, "nativeShell").exists)
+        attachShot(app, named: "t31-08-signed-out")
+    }
+
+    // MARK: - T31 against a real server (network-gated)
+
+    /// Wrong password against a **real** Mattermost server: the sentence on screen is the server's
+    /// own `invalid_credentials` message, which is evidence the form round-trips through
+    /// `POST /api/v4/users/login` rather than a local check.
+    ///
+    ///     TEST_RUNNER_MM_AUTH_SERVER=https://chat.example.com xcodebuild test …
+    ///
+    /// Needs no credentials — only a reachable server.
+    func testRealServerRejectsAWrongPasswordWithItsOwnSentence() throws {
+        let env = ProcessInfo.processInfo.environment
+        let raw = env["MM_AUTH_SERVER"] ?? ""
+        try XCTSkipUnless(!raw.isEmpty, "Live auth test: set TEST_RUNNER_MM_AUTH_SERVER to run")
+        guard let url = URL(string: raw), let host = url.host else {
+            throw XCTSkip("MM_AUTH_SERVER is not a URL")
+        }
+
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-uiTestSeedServer", raw,
+                               "-uiTestSeedServerName", "Local Mattermost",
+                               "-uiTestForgetSession", raw,
+                               "-surfaceMode", "shell=native",
+                               "-surfaceMode", "auth=native",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        signInThroughTheNativeForm(app, loginID: "no-such-user@\(host)", password: "definitely-not-the-password")
+
+        let error = element(app, "loginErrorText")
+        XCTAssertTrue(error.waitForExistence(timeout: 40),
+                      "a real server must answer:\n\(app.debugDescription)")
+        XCTAssertFalse(error.label.isEmpty)
+        XCTAssertTrue(app.textFields["loginIDField"].exists)
+        attachShot(app, named: "t31-20-real-server-rejection")
+    }
+
+    /// The card's S01/S03 evidence: sign in on the native form against a real server, then kill the
+    /// app and relaunch — no reset, so the stored session is what does the signing in.
+    ///
+    ///     TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 \
+    ///     TEST_RUNNER_MM_AUTH_LOGIN=<throwaway user> \
+    ///     TEST_RUNNER_MM_AUTH_PASSWORD=<its password> \
+    ///     TEST_RUNNER_MM_AUTH_SHOT_DIR=/abs/path xcodebuild test …
+    ///
+    /// Credentials come from the environment and are never printed or attached.
+    func testRealServerSignInThenRelaunchRestoresTheSession() throws {
+        let env = ProcessInfo.processInfo.environment
+        let raw = env["MM_AUTH_SERVER"] ?? ""
+        let login = env["MM_AUTH_LOGIN"] ?? ""
+        let password = env["MM_AUTH_PASSWORD"] ?? ""
+        try XCTSkipUnless(!raw.isEmpty && !login.isEmpty && !password.isEmpty,
+                          "Live sign-in test: set TEST_RUNNER_MM_AUTH_SERVER / _LOGIN / _PASSWORD")
+        guard let url = URL(string: raw), url.host != nil else {
+            throw XCTSkip("MM_AUTH_SERVER is not a URL")
+        }
+
+        let first = XCUIApplication()
+        let launchArgs = ["-uiTestSeedServer", url.absoluteString,
+                          "-uiTestSeedServerName", "Local Mattermost",
+                          "-surfaceMode", "shell=native",
+                          "-surfaceMode", "auth=native",
+                          "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        first.launchArguments = [Self.resetArg, "-uiTestForgetSession", raw] + launchArgs
+        first.launch()
+
+        signInThroughTheNativeForm(first, loginID: login, password: password)
+        XCTAssertTrue(element(first, "nativeShell").waitForExistence(timeout: 40),
+                      "a real sign-in must reach the shell:\n\(first.debugDescription)")
+        attachShot(first, named: "t31-21-real-server-signed-in")
+
+        // Relaunch with no reset and no seed: the server entry and the vault token are what the
+        // second launch has to work with.
+        first.terminate()
+        let second = XCUIApplication()
+        second.launchArguments = launchArgs
+        second.launch()
+
+        XCTAssertTrue(element(second, "nativeShell").waitForExistence(timeout: 40),
+                      "the stored session must restore on relaunch:\n\(second.debugDescription)")
+        XCTAssertFalse(second.textFields["loginIDField"].exists,
+                       "a restored session must not show the sign-in form")
+
+        // Give the restore call time to come back: if the token were rejected, the banner and the
+        // form would appear here — that is exactly what this sleep makes observable.
+        Thread.sleep(forTimeInterval: 6)
+        XCTAssertTrue(element(second, "nativeShell").exists,
+                      "the restore must still be signed in, not flipped to re-auth")
+        XCTAssertFalse(element(second, "sessionExpiredBanner").exists,
+                       "a token the server accepted must not raise the expired banner")
+        attachShot(second, named: "t31-22-real-server-restored")
+    }
 }
