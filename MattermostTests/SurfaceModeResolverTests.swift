@@ -276,6 +276,111 @@ final class SurfaceModeResolverTests: XCTestCase {
         XCTAssertFalse(resolver.isLaunchOverridden(.channelView))
     }
 
+    // MARK: R2/R3 — the debug tiers are compiled out of Release (T26-R)
+
+    /// `#if DEBUG` in the test bundle mirrors the app target, so this pins that the suite is
+    /// exercising the debug-affordance build (`SurfaceModeResolver.debugAffordancesEnabled`).
+    func testDebugAffordancesAreCompiledInForThisBuild() {
+        #if DEBUG
+        XCTAssertTrue(SurfaceModeResolver.debugAffordancesEnabled,
+                      "a Debug build carries the launch + persisted override tiers")
+        #else
+        XCTFail("the unit suite is expected to run against a DEBUG build")
+        #endif
+    }
+
+    /// R2 choice (a): the persisted tier is a debug affordance, so a Release build **ignores a
+    /// stored row**. `releaseSemantics` builds exactly what a Release build computes.
+    func testPersistedOverrideIsIgnoredWithoutDebugAffordances() {
+        // A row a DEBUG build could have written (a stale `native` choice for an unapproved
+        // surface) must not survive into Release: a shipped app may never show a stand-in.
+        AppPreferences(defaults: defaults).set(["channelView": "native"],
+                                               forKey: SurfaceModeResolver.Keys.surfaceModes)
+
+        let debugResolver = makeResolver()
+        XCTAssertEqual(debugResolver.resolvedMode(for: .channelView), .native,
+                       "sanity: a Debug build honours the stored row")
+
+        let releaseResolver = SurfaceModeResolver.releaseSemantics(
+            preferences: AppPreferences(defaults: defaults))
+        XCTAssertTrue(releaseResolver.overrides.isEmpty, "Release decodes no persisted overrides")
+        XCTAssertEqual(releaseResolver.resolvedMode(for: .channelView), .web,
+                       "Release must fall back to the compile-time default")
+    }
+
+    /// R2 choice (a), tier 1: a launch flag is not parsed in a Release build either.
+    func testLaunchOverrideIsIgnoredWithoutDebugAffordances() {
+        let releaseResolver = SurfaceModeResolver.releaseSemantics(
+            preferences: AppPreferences(defaults: defaults),
+            arguments: ["-surfaceMode", "channelView=native"])
+        XCTAssertTrue(releaseResolver.launchOverrides.isEmpty)
+        XCTAssertEqual(releaseResolver.resolvedMode(for: .channelView), .web)
+    }
+
+    /// Only the debug tiers go away in Release: the remote seam (tier 3) and the compile-time
+    /// default (tier 4) still decide.
+    func testReleaseSemanticsStillHonourRemoteDefaultAndCompileDefault() {
+        let releaseResolver = SurfaceModeResolver.releaseSemantics(
+            preferences: AppPreferences(defaults: defaults),
+            remoteDefault: { $0 == .profile ? .native : nil })
+        XCTAssertEqual(releaseResolver.resolvedMode(for: .profile), .native)
+        XCTAssertEqual(releaseResolver.resolvedMode(for: .auth), .web)
+    }
+
+    // MARK: R5 — the reset paths beat a launch override too (T26-R)
+
+    /// "Reset all to defaults" must mean it: stored rows **and** this run's launch entries go, so
+    /// no surface is left native by a flag the button could not otherwise clear.
+    func testClearAllOverridesAlsoDropsLaunchOverrides() {
+        let resolver = makeResolver(arguments: ["-surfaceMode", "channelView=native",
+                                                "-surfaceMode", "threads=native"])
+        resolver.setOverride(.native, for: .search)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelView), .native)
+        XCTAssertEqual(resolver.resolvedMode(for: .threads), .native)
+        XCTAssertEqual(resolver.resolvedMode(for: .search), .native)
+
+        resolver.clearAllOverrides()
+
+        XCTAssertTrue(resolver.overrides.isEmpty)
+        XCTAssertTrue(resolver.launchOverrides.isEmpty, "a launch override must not survive the reset")
+        for surface in [Surface.channelView, .threads, .search] {
+            XCTAssertEqual(resolver.resolvedMode(for: surface), .web,
+                           "\(surface) must fall back to its compile-time default")
+        }
+    }
+
+    /// A single-surface clear drops that surface's launch override as well (otherwise the row
+    /// would look stuck: the flag outranks the cleared stored value).
+    func testClearOverrideDropsLaunchOverrideForThatSurface() {
+        let resolver = makeResolver(arguments: ["-surfaceMode", "channelView=native",
+                                                "-surfaceMode", "threads=native"])
+        resolver.clearOverride(for: .channelView)
+
+        XCTAssertEqual(resolver.resolvedMode(for: .channelView), .web)
+        XCTAssertFalse(resolver.isLaunchOverridden(.channelView))
+        XCTAssertEqual(resolver.resolvedMode(for: .threads), .native,
+                       "other surfaces keep their launch override")
+        XCTAssertTrue(resolver.isLaunchOverridden(.threads))
+    }
+
+    /// `hasAnyOverride` drives the "Reset all to defaults" button, so a pure `-surfaceMode` launch
+    /// (no stored row) is resettable rather than a dead button (R5).
+    func testHasAnyOverrideCoversLaunchAndStoredOverrides() {
+        XCTAssertFalse(makeResolver().hasAnyOverride, "defaults: nothing to reset")
+
+        let launchOnly = makeResolver(arguments: ["-surfaceMode", "channelView=native"])
+        XCTAssertTrue(launchOnly.overrides.isEmpty, "a launch flag stores nothing")
+        XCTAssertEqual(launchOnly.launchOverrides.count, 1)
+        XCTAssertTrue(launchOnly.hasAnyOverride, "a launch override alone must enable the reset")
+
+        let storedOnly = makeResolver()
+        storedOnly.setOverride(.native, for: .sidebar)
+        XCTAssertTrue(storedOnly.hasAnyOverride)
+
+        launchOnly.clearAllOverrides()
+        XCTAssertFalse(launchOnly.hasAnyOverride)
+    }
+
     // MARK: Harness invariant — one webview per server, re-attached not recreated
 
     /// `SurfaceHost`'s `web` branch must re-attach the webview the shell already owns. If a

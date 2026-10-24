@@ -45,7 +45,10 @@ struct WebViewContainer: UIViewRepresentable {
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
         uiView.navigationDelegate = nil
         uiView.uiDelegate = nil
-        coordinator.store.webView.stopLoading()
+        // The store records "I stopped an unfinished page" itself: `WKWebView.isLoading` flips to
+        // false asynchronously (KVO), so a resume decision taken right after this call cannot rely on
+        // it (T26-R R6, race found by re-running the UI repro in a batch).
+        coordinator.store.stopForDismantle()
     }
 
     // MARK: Coordinator — the native policy surface
@@ -205,6 +208,8 @@ struct WebViewContainer: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             store.pageError = nil
+            // A new navigation supersedes the previous page: it is no longer "finished" (T26-R R6).
+            store.markPageLoadStarted()
         }
 
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
@@ -215,18 +220,20 @@ struct WebViewContainer: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             store.isLoading = false
+            store.markPageLoadFinished()
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            store.isLoading = false
-            store.pageError = error
+            // Cancellations (a surface toggle dismantling this view → `stopLoading()`, or a
+            // superseding navigation) are not page failures: they leave the page resumable
+            // (T26-R R6). `markPageLoadFailed` decides and logs which case this is.
+            store.markPageLoadFailed(error)
         }
 
         func webView(_ webView: WKWebView,
                      didFailProvisionalNavigation navigation: WKNavigation!,
                      withError error: Error) {
-            store.isLoading = false
-            store.pageError = error
+            store.markPageLoadFailed(error)
         }
 
         /// TLS / server-trust challenge handling. Phase 0 pass-through is now replaced by the

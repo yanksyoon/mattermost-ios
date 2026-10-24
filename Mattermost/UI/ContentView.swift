@@ -37,10 +37,12 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            // First mount of this server's scene: start the one navigation it owns. This runs
-            // regardless of the surface mode, so the webview is warm (loaded, signed in) and
-            // ready to be re-attached rather than blank if the user flips the surface back.
-            loadIfNeeded()
+            // First mount of this server's scene: start the navigation it owns — unless the store
+            // already has a page in flight or a finished page, in which case it is left alone
+            // (`WebViewStore.loadIfNeeded`). This runs regardless of the surface mode, so the
+            // webview is warm (loaded, signed in) and ready to be re-attached rather than blank if
+            // the user flips the surface back.
+            store.loadIfNeeded(server.url)
         }
     }
 
@@ -53,8 +55,9 @@ struct ContentView: View {
                 .ignoresSafeArea()
                 // Re-creatable on demand: a store that was never loaded (launched straight into
                 // native, or re-added after `ViewStore.remove(serverID:)`) loads the first time
-                // the web branch actually appears.
-                .onAppear { loadIfNeeded() }
+                // the web branch actually appears — and a load that the surface toggle stopped
+                // mid-flight is resumed instead of being left stranded (T26-R R6).
+                .onAppear { store.loadIfNeeded(server.url) }
 
             if store.pageError != nil {
                 // Cover the webview with the retryable error state when navigation failed.
@@ -73,14 +76,6 @@ struct ContentView: View {
                     .transition(.opacity)
             }
         }
-    }
-
-    /// Start the scene's single navigation, once. Idempotent: a store that is already loading or
-    /// loaded (its `url` is committed) is left alone, so re-attaching the webview never
-    /// re-navigates and never discards the signed-in page.
-    private func loadIfNeeded() {
-        guard store.url == nil else { return }
-        store.load(server.url)
     }
 
     /// Desktop `handleLink` for the error bullets: open the URL in Safari (the shell cannot

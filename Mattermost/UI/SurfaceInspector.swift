@@ -1,9 +1,15 @@
 import SwiftUI
 
+#if DEBUG
 /// Debug-only "Surface inspector" (T26 scope §4): lists every surface, its resolved render mode,
 /// and a toggle, behind one sheet.
 ///
-/// Only present in `DEBUG` builds (callers gate on `SurfaceModeResolver.isDebug`). Each row:
+/// **The whole file is inside `#if DEBUG`.** It is also the only caller of
+/// `SurfaceModeResolver.setOverride`/`clearOverride`/`clearAllOverrides`, which exist only in DEBUG
+/// builds — so a Release compile has neither the view nor the writer it would need
+/// (`docs/dual-render.md` §5/§8).
+///
+/// Each row:
 ///  - shows the surface tile and its live resolved mode badge (Web / Native);
 ///  - flags a surface whose choice comes from a `-surfaceMode` launch argument (shown, not
 ///    editable — the flag wins this run);
@@ -37,7 +43,9 @@ struct SurfaceInspector: View {
                     } label: {
                         Text("Reset all to defaults")
                     }
-                    .disabled(resolver.overrides.isEmpty)
+                    // Live whenever anything steers a surface away from its compile default —
+                    // a stored row *or* this run's launch override (T26-R R5).
+                    .disabled(!resolver.hasAnyOverride)
                 }
             }
             .navigationTitle("Surface Inspector")
@@ -125,3 +133,4 @@ private struct ModeBadge: View {
             )
     }
 }
+#endif

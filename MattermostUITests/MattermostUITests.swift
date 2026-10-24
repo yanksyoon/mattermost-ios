@@ -30,6 +30,9 @@ final class MattermostUITests: XCTestCase {
     /// server; resolves to loopback like 8111.
     static let stubHTTP2 = "http://localhost:8111"
     static let stubTLS = "https://127.0.0.1:8443"
+    /// Stub whose `GET /` stalls mid-body (`--stall-html`): the document commits, the navigation
+    /// stays in flight. Fixture for the T26-R R6 mid-load toggle repro.
+    static let stubStalledHTTP = "http://127.0.0.1:8112"
 
     static let resetArg = "-uiTestResetPersistedState"
     static let webLoadWait: TimeInterval = 20
@@ -287,7 +290,77 @@ final class MattermostUITests: XCTestCase {
         XCTAssertFalse(element(app, "unportedSurface.channelView").exists)
     }
 
+    /// T26-R R6 [investigate]: a surface toggle that dismantles the web branch **while the
+    /// webview's main-frame navigation is still in flight** must not strand a stopped page.
+    ///
+    /// The fixture is the slow stub (`http://127.0.0.1:8112`, `--stall-image 45`): `GET /` is a
+    /// normal page that commits immediately, but its `<img src="/slow.png">` is trickled over 45 s
+    /// and the `Sign in` button is hidden until that image's `onload` fires. So when the toggle
+    /// below dismantles the web branch, the document is committed (`url != nil`) and the load is
+    /// unfinished — exactly the state in which `dismantleUIView` → `stopLoading()` used to leave a
+    /// page that `loadIfNeeded()` then refused to resume. The button can only appear if the load
+    /// completes, and after an interruption that requires the shell to resume the navigation.
+    ///
+    /// Note: WebKit exposes web-content accessibility only once a load settles, so the test cannot
+    /// assert on the page mid-load; "no `Sign in`" is the incomplete-load precondition, and the
+    /// pre-fix failure of this test is what proved the bug.
+    func testMidLoadSurfaceToggleResumesTheInterruptedWebview() throws {
+        // The slow stub is a gitignored fixture (`build/uitest-server/mm_stub.py`), like every stub
+        // this suite uses. Skip with the exact command instead of failing the suite on a host where
+        // it is not running — a red suite for a missing fixture hides real regressions.
+        try XCTSkipUnless(Self.isFixtureReachable(Self.stubStalledHTTP),
+                          "slow stub not running — start it with: python3 build/uitest-server/mm_stub.py "
+                          + "--port 8112 --stall-image 45 --name \"Slow Test\"")
+        let app = launchFresh()
+        addFirstServer(app: app, name: "Stalled", url: Self.stubStalledHTTP)
+
+        let webview = app.webViews.firstMatch
+        XCTAssertTrue(webview.waitForExistence(timeout: Self.webLoadWait),
+                      "the slow server's page must mount")
+        XCTAssertFalse(webview.buttons["Sign in"].exists,
+                       "precondition: the body is still incomplete, so nothing has finished the load")
+
+        // Dismantle the web branch mid-load, then bring it back through the same UI.
+        openSurfaceInspector(app)
+        channelViewPicker(app).buttons["Native"].tap()
+        dismissSurfaceInspectorAndSettings(app)
+        XCTAssertTrue(element(app, "unportedSurface.channelView").waitForExistence(timeout: 10),
+                      "the native stand-in must mount (this dismantles the webview view)")
+
+        openSurfaceInspector(app)
+        let pickerAgain = channelViewPicker(app)
+        XCTAssertTrue(pickerAgain.waitForExistence(timeout: 5))
+        pickerAgain.buttons["Web view"].tap()
+        dismissSurfaceInspectorAndSettings(app)
+
+        let restored = app.webViews.firstMatch
+        XCTAssertTrue(restored.waitForExistence(timeout: 10),
+                      "returning to web must re-mount the webview")
+        // The stub's image needs 45 s, and a resumed navigation re-fetches it: 75 s leaves room
+        // for a resume but not for "the original transfer finished late" (it was stopped).
+        XCTAssertTrue(restored.buttons["Sign in"].waitForExistence(timeout: 75),
+                      "the load interrupted by the toggle must be resumed, not left stranded")
+    }
+
     // MARK: - Dual-render helpers
+
+    /// Whether a stub fixture answers `/api/v4/system/ping` (3 s budget).
+    ///
+    /// Every stub this suite uses lives in `build/uitest-server/` (gitignored), so a flow that needs
+    /// a *specific* stub invocation must be able to tell "fixture missing" from "behaviour broken".
+    static func isFixtureReachable(_ base: String, timeout: TimeInterval = 3) -> Bool {
+        guard let url = URL(string: base + "/api/v4/system/ping") else { return false }
+        let semaphore = DispatchSemaphore(value: 0)
+        var reachable = false
+        var request = URLRequest(url: url)
+        request.timeoutInterval = timeout
+        URLSession.shared.dataTask(with: request) { _, response, _ in
+            reachable = (response as? HTTPURLResponse)?.statusCode == 200
+            semaphore.signal()
+        }.resume()
+        _ = semaphore.wait(timeout: .now() + timeout + 2)
+        return reachable
+    }
 
     /// Settings → Developer → "Surface render modes…", scrolling the form to the developer
     /// section (it is the last one).
