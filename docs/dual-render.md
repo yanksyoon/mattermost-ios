@@ -375,9 +375,9 @@ flag).
   deliberately *not* implemented here: it needs a memory baseline for a ported surface, a policy for
   the per-server session (evicting the `WKWebView` does not lose cookies, but it does lose the
   in-memory page and costs a reload), and a rule for `channelView` while it is still a stand-in
-  (evicting behind a stand-in would make the "Use web view" escape hatch slow). That decision is
-  delegated: `t_58d5611e` (architect) owns the eviction/parking policy and files the implementation
-  cards; until it lands, every surface keeps its warm webview.
+  (evicting behind a stand-in would make the "Use web view" escape hatch slow). **That decision is now
+  made — it is §12, the webview release policy.** It is recorded there and not implemented yet: until
+  its implementation card lands, every surface keeps its warm webview.
 * **A mid-load surface toggle no longer strands the page (T26-R R6, was a real bug — two variants).**
   The old `ContentView.loadIfNeeded()` guarded on `store.url == nil`, so a load interrupted by
   `dismantleUIView` → `stopLoading()` (committed page, nothing in flight) was never resumed — the
@@ -406,3 +406,169 @@ flag).
 * **Launch flag is DEBUG-only**, so the acceptance criterion "launch with
   `-surfaceMode channelView=native`" is a Debug-build behaviour by construction (Release ignores it
   rather than half-honouring it).
+
+## 12. Webview release policy (T26-R R4 decision)
+
+**Decided 2026-10-24 by `mmios-architect` (card `t_58d5611e`). Status: decided, not implemented.**
+Implementation: the card that carries this decision (mmios-ios, parented on T27). Validation: its
+`-AV` (mmios-qa). Until both land, every surface keeps its warm webview — this section is the
+contract they implement, not a description of today's build.
+
+### 12.1 The rule
+
+> **A per-server webview is released only when an `-AV`-approved card renders the *whole pane* it
+> occupies.** Warm by default; release is a **pane-level** decision, never a per-surface one.
+
+`ViewStore.release(serverID:)` requires **all four** of:
+
+| # | Condition | Why it is there |
+|---|---|---|
+| 1 | the **pane host surface** resolves `.native` (today `channelView`: the region the one-per-server webview maps to) | the only surface whose native branch takes the webview's place |
+| 2 | that surface is in `SurfaceDefaults.nativeApprovedSurfaces` (§5) | approval is the only evidence that a *real card* exists — a stand-in can never be approved, so eviction can never hide behind `UnportedSurfaceView` |
+| 3 | that surface is in `SurfaceDefaults.paneOwningSurfaces` (new registry, **empty today**) | the card claims it renders every region the webview paints (sidebar, header, post list, composer, RHS) — nothing in the web app is still needed |
+| 4 | the store has no navigation in flight (`isLoading == false`) | never kill a login/SSO mid-flight |
+
+**Registry invariant:** `paneOwningSurfaces ⊆ nativeApprovedSurfaces`, checked by
+`scripts/verify-dual-render-gates.sh`. A surface cannot be declared pane-owning before it passes
+`-AV`; the pre-approval measurement in §12.6 uses a `PERF_PROBE`-only arm instead of the registry.
+
+**Today both registries are empty**, so the policy is inert: zero behaviour change, and no
+release-affecting behaviour exists behind an `-AV`-less surface.
+
+### 12.2 What "release" means — destroy, not park
+
+| Candidate | Page memory | WebContent/Networking process | Verdict |
+|---|---|---|---|
+| Leave as-is (today) | kept | kept | rejected: this is the R4 problem |
+| **Park** (`loadHTMLString("about:blank")`, keep the object) | freed | **kept** | rejected: page lost *and* process kept — the worst of both, and it moves neither §12.6 metric |
+| **Destroy** (drop the store, let the `WKWebView` deallocate) | freed | freed | **chosen** |
+
+`release(serverID:)` does exactly this: `stopLoading()` → nil the navigation/UI delegates → record
+`lastURLs[serverID] = store.url` → drop the store from `ViewStore.stores`. It does **not** call
+`WKWebsiteDataStore.remove(forIdentifier:)` — that is `remove(serverID:)` (server removal) and it is
+the only thing that logs the user out.
+
+### 12.3 What survives a release, and what does not
+
+| Survives | Lost |
+|---|---|
+| cookies, localStorage, IndexedDB, the signed-in **session** (persistent `WKWebsiteDataStore(forIdentifier:)`) | the in-memory page: DOM, JS heap, scroll position, SPA router state |
+| certificate trust decisions (`CertTrust` is Keychain-backed, not webview state) | JS-held drafts not yet persisted by the server |
+| downloads, notifications, mention polling (all native) | `ThemeSync`/`Bridge` pushes (they no-op without a store) |
+| the last page URL (`ViewStore.lastURLs`) | — |
+
+The return trip is therefore **one page load + SPA bootstrap**, normally **no re-login**, landing on
+the channel the user was on (`lastURLs[serverID] ?? server.url`). An SSO IdP that does not keep its own
+session may still re-prompt; that is the same cost as a cold launch, stated rather than hidden.
+
+### 12.4 The return trip, and the honest weakening of §7
+
+"Use web view" is unchanged: one tap, `forceWebForThisRun`, instant resolution flip. What changes is
+what the pane shows *after* the flip when the store was released:
+
+1. the web branch's `onAppear` recreates the store (`ViewStore.ensureStore(for:)` — the **creating**
+   accessor) and calls `loadIfNeeded(lastURLs[serverID] ?? server.url)`;
+2. until the first `didCommit` the pane shows a **blocking, honest** "Reopening web view…" state with
+   a `ProgressView` — no blank pane, no second tap, no silent dead tap;
+3. then the web app, signed in, on the remembered page.
+
+§7's "re-attach is instant" still holds for every warm webview — which is every webview under this
+policy **except** a released pane. That exception is the price of the memory win and is stated here
+instead of being papered over.
+
+**The resurrection trap.** `ViewStore.view(for:)` *creates* a store on first use, and `RootView`
+currently calls it from its own `body` (toolbar + scene). A released store must not be recreated by a
+SwiftUI body pass, or the policy silently defeats itself. Reads go through the **non-creating**
+`view(forServerID:)`; only the web branch's `onAppear` may create. `RootView`'s `WebNavToolbar` is
+omitted when that read is `nil` (Back/Reload are webview-only chrome).
+
+### 12.5 Where the decision lives in code
+
+| File | Change |
+|---|---|
+| `Core/RenderMode.swift` | `SurfaceDefaults.paneOwningSurfaces: Set<Surface> = []` + doc: pane ownership is an `-AV` claim |
+| `Core/ViewStore.swift` | `release(serverID:)`, `ensureStore(for:)`, `lastURLs`, and the pure predicate `WebViewReleasePolicy.mayRelease(...)` |
+| `UI/ContentView.swift` | web branch renders the reloading state until the store exists and commits |
+| `UI/RootView.swift` | **the only** caller of `release(...)`: on `onAppear` and on `onChange` of the pane surface's resolved mode; toolbar reads the non-creating accessor |
+| `Core/PerfProbe.swift` | a `nativeEvicted` measurement mode (§12.6); it must not resurrect a released store |
+| `scripts/verify-dual-render-gates.sh` | registry invariant `paneOwningSurfaces ⊆ nativeApprovedSurfaces`, and no shipping call site may pass `allowUnapproved: true` |
+
+The predicate is explicit about the one sanctioned bypass:
+
+```swift
+static func mayRelease(paneSurfaceResolved: SurfaceRenderMode,
+                       approved: Bool,
+                       paneOwning: Bool,
+                       navigationInFlight: Bool,
+                       allowUnapproved: Bool = false) -> Bool
+```
+
+`allowUnapproved: true` exists for exactly one caller — the perf probe's `nativeEvicted` arm, inside
+`#if DEBUG || PERF_PROBE` — so the pre-approval measurement never becomes a shipping bypass. The gate
+script asserts no other call site passes it.
+
+### 12.6 Measurement — the metric the change must move
+
+Ranked by authority:
+
+1. **WebContent process count** for the released server: **1 → 0**
+   (`run.json` → `tracked_pids.webcontent == []`, `per_process_footprint.webcontent == []`).
+2. **Steady-state total physical footprint** of the `nativeEvicted` arm: from ≈ `web` down to
+   **≤ `shell` + 60 MiB** (headroom for the native card's own views/view models).
+3. RSS total, secondary only (jetsam acts on footprint).
+
+The probe's existing `native` arm is **warm** by construction: it creates the store, waits for the
+workspace, logs in, and only then measures the stand-in on top (`PerfProbe.run` → `config.mode ==
+.native`). That is the correct "before" data point (today's `native` should measure ≈ `web`), but a
+released pane cannot run that DOM sequence at all, so `nativeEvicted` is a separate arm: seed the
+server config, release the store before sampling, run **no** DOM stages, sit out the steady-state
+window, and record `note: pane released, no webview`. Its footprint is comparable to `shell` + the
+native card, not to the warm arm's post-login state — the comparison that carries the claim is the
+WebContent count and the shell-relative ceiling, and §12.6 says so instead of pretending the arms are
+interchangeable.
+
+Before-numbers already on disk from the parked T27 harness (Mac Catalyst, Release + `PERF_PROBE`,
+`build/perf/20261024-140359`, **not** a landed baseline — `docs/perf/` does not exist yet):
+
+| Run | app | WebContent | GPU | Networking | total footprint | RSS total |
+|---|---|---|---|---|---|---|
+| `shell` (no server, no webview) | 28.9 MiB | 0 (no process) | 0 | 0 | 28.9 MiB | 80.8 MiB |
+| `web` 2026-10-24 14:03 | 38.0 MiB | 426.1 MiB | 19.0 MiB | 16.3 MiB | **499.5 MiB** | 785.3 MiB |
+| `web` 2026-10-24 14:01 | 40.9 MiB | 358.5 MiB | 30.9 MiB | 28.3 MiB | 458.7 MiB | 456.5 MiB |
+
+So one loaded webview costs **≈ 420–470 MiB** of footprint, **85–93 % of it in WebContent**. That is the
+delta a released pane must reclaim; a policy that keeps the WebContent process (parking) reclaims none
+of the metric that justifies the programme.
+
+Sequencing, non-negotiable: **T27 must land a green baseline first**, and it must include a warm
+`native` arm. The 14:01/14:03 runs still fail `scrollPosts`/`openThread`, and §11's "native costs the
+same as web" is a code-reading prediction, not a measurement — the baseline is what turns it into a
+number. The implementation card is parented on T27.
+
+### 12.7 Rejected alternatives
+
+| Alternative | Why it was rejected |
+|---|---|
+| Release whenever a surface resolves `.native` | debug tiers (inspector, `-surfaceMode`) reach `.native` with no card; releasing behind a stand-in would strand the user on a stand-in *and* pay a reload, and would break `testLaunchArgumentRendersNativeChannelViewWithChromeIntact` |
+| Release when *all* surfaces resolve native | 11 of the 12 surfaces have no host at all today, so "all native" can be true while the webview is still the only thing painting the sidebar. Pane ownership, not a resolution count, is the real condition |
+| Park (`about:blank`) | frees the page but keeps the process: neither §12.6 metric moves |
+| Release on `.background` only | keeps the escape hatch instant, but leaves the measured foreground footprint unchanged, so it demonstrates nothing. Legitimate as a *complement* later; it cannot be the v1 policy |
+| Release per region (e.g. when `threads` ports) | the 12 surfaces are regions of **one** web app; a region card cannot replace the pane |
+
+### 12.8 Consequences and risks
+
+* **Notification taps and deep links.** `NotificationWorker` and `DeepLinkRouter` already guard on
+  `view(forServerID:)` being nil, so with the pane released they **silently no-op**. A pane-owning
+  card must route a notification tap natively to that channel (implication for T43); until then a
+  released pane degrades a tap to "open on the native pane", which is stated, not silent.
+* **Multi-server.** Resolution is app-wide, so a pane-owning release applies to *every* server's
+  store uniformly (`RootView` mounts all of them). A future per-server override would have to
+  re-open this rule.
+* **The win arrives with the composite pane, not with the first region card.** Per-surface memory
+  only drops when one card renders the whole work area; the first realistic candidate is a native
+  channel view that also renders the native sidebar + composer (T32/T33/T34/T35 composed), or the
+  native workspace skeleton (T30). This is a schedule consequence, stated so nobody re-files R4 as a
+  bug when porting `reactions` does not move the number.
+* **`-AV` obligation for a pane-owning card.** Approving one requires proving, with the webview
+  released, that *every* region the webview used to paint is still rendered natively (one screenshot
+  per region in the §10 style) — not just the surface the card is named after.
