@@ -121,7 +121,15 @@ xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
 * `** TEST SUCCEEDED **` — exit 0
 * Log: `docs/t26-full-suite-ios-2026-10-24.log`
 * Baseline before this card: 312 unit / 7 UI (T19a). Delta: **+23 unit, +2 UI, 0 regressions**.
-  The single skip in each bundle is the pre-existing network-gated live-SSO test.
+  The single skip in each bundle is **not the same test** (corrected by T26-R R1; this note used to
+  call both of them "the live-SSO test"):
+  - **unit bundle** (`MattermostTests`): `MentionPollerTests.testLiveMentionsFetch_optIn` — the
+    network-gated live mention poll, needs `TEST_RUNNER_MM_LIVE_URL` / `TEST_RUNNER_MM_LIVE_TOKEN`
+    (`grep -n "Test skipped" docs/t26-catalyst-unit-2026-10-24.log` → line 789).
+  - **UI bundle** (`MattermostUITests`): `testSSOReachesIdentityProviderWithoutCertificatePrompt` —
+    the network-gated live SSO flow, needs `TEST_RUNNER_MM_LIVE_SSO_URL`
+    (`grep -n "Test skipped" docs/t26-full-suite-ios-2026-10-24.log` → line 1805).
+  No dual-render test is skipped in either bundle.
 
 ### The two dual-render UI flows (acceptance criteria 2 and 3)
 
