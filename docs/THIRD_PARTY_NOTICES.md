@@ -71,3 +71,22 @@ Rules:
 This repo contains **no Mattermost server code and no AGPL licence text**. The only Mattermost
 content are Apache-2.0 client/webapp references cited above, and every ported file carries the
 header from §3. The server is accessed exclusively through the public REST v4 + WebSocket v4 API.
+
+## 5. T28 native transport — upstream read set (Apache-2.0, mobile @ `v2.45.0`)
+
+T28 (`Mattermost/Core/MM/`, `docs/t28-build-note.md`) ports **behaviour and structure**, not files:
+no upstream `.swift`/`.ts` file is vendored verbatim. Each new source file carries a header naming
+the upstream file it derives from; the full read set was:
+
+| Upstream path (`mattermost/mattermost-mobile` @ `162f2560…`) | Used for |
+|---|---|
+| `ios/Gekidou/Sources/Gekidou/Networking/Network.swift` | `/api/v4` prefixing, bearer + `X-Requested-With` headers, response handling |
+| `ios/Gekidou/Sources/Gekidou/Networking/Network+{Posts,Channel,Team,Thread,Users,Category}.swift` | endpoint paths and pagination query shapes |
+| `ios/Gekidou/Sources/Gekidou/Networking/Network+Error.swift`, `Network+Delegate.swift` | error typing; TLS challenge hook (replaced by this repo's `CertTrust` model) |
+| `ios/Gekidou/Sources/Gekidou/DataTypes/{Post,PostResponse,User}.swift` | tolerant `Codable` shapes |
+| `ios/Gekidou/Sources/Gekidou/SessionAttributes/SessionAttributesOutboundHeader.swift` | read only — not sent yet (documented in the build note §3) |
+| `app/client/websocket/index.ts` | `authentication_challenge`, hello, 30 s ping/missed-pong, sequence handling, reconnect |
+| `app/client/rest/error.ts` | typed error vocabulary |
+| `@mattermost/react-native-network-client@1.11.4` (Apache-2.0) | URLSession/WebSocket architecture reference |
+
+Divergences from each of these are listed in `docs/t28-build-note.md` §5.

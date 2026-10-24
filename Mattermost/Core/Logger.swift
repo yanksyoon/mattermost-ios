@@ -14,6 +14,14 @@ enum Logger {
     /// Per-category `OSLog` handles, lazily created so they aren't opened unless used.
     private static var cache: [String: OSLog] = [:]
 
+    #if DEBUG
+    /// Test-only mirror of every line about to be logged, before the level gate (T28). Used by
+    /// `TokenLoggingTests` to prove no credential reaches a log line: the sink sees the same
+    /// strings `os_log` would, so "not in the sink" means "not in the log". DEBUG builds only —
+    /// it cannot exist in a Release binary.
+    static var testSink: ((String) -> Void)?
+    #endif
+
     /// Minimum severity allowed through to the system log. `info` matches the desktop default.
     private static var minimumLevel: OSLogType = .info
 
@@ -42,6 +50,9 @@ enum Logger {
 
     static func log(_ level: OSLogType, _ category: String, _ message: String,
                     file: String = #file, function: String = #function, line: Int = #line) {
+        #if DEBUG
+        testSink?("\(category): \(message)")
+        #endif
         guard shouldLog(level) else { return }
         #if DEBUG
         let fname = (file as NSString).lastPathComponent
