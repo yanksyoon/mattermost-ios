@@ -36,6 +36,9 @@ final class MattermostUITests: XCTestCase {
 
     static let resetArg = "-uiTestResetPersistedState"
     static let webLoadWait: TimeInterval = 20
+    /// Stub whose `GET /` plants a session cookie on the first load and serves a signed-in
+    /// workspace page (3 s late) on later loads — the T26-R R4a release/reopen fixture.
+    static let stubSession = "http://127.0.0.1:8113"
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -342,10 +345,122 @@ final class MattermostUITests: XCTestCase {
                       "the load interrupted by the toggle must be resumed, not left stranded")
     }
 
+    /// T26-R R4a acceptance: a pane whose webview was **released** must come back honestly — a
+    /// visible blocking "Reopening web view…" state, then the web app signed in, without a second
+    /// tap and without a re-login.
+    ///
+    /// Fixture: `mm_stub.py --port 8113 --cookie-session 3` (gitignored, like every stub here).
+    /// The stub plants an `MMAUTHTOKEN` cookie on the first page load and serves a signed-in
+    /// workspace page (`Workspace`, no login form) — three seconds late — on every later request
+    /// that carries the cookie. The assertions therefore cover three distinct claims at once:
+    ///   * the released store really was destroyed: `webPaneReopening` only exists while there is no
+    ///     committed page, i.e. after a brand-new store/WebContent process started loading;
+    ///   * the session survived the release: the reopened page renders the workspace, not the
+    ///     sign-in form, because the cookie came back out of the persistent per-server data store
+    ///     (`docs/dual-render.md` §12.3);
+    ///   * the webview-only chrome returns with the webview (Back/Reload are absent while released).
+    ///
+    /// `-releaseWebViewForTesting` arms the policy's `allowUnapproved` bypass for this run only:
+    /// DEBUG builds, and only when `debugAffordancesEnabled` is true. Both shipping registries stay
+    /// empty, so no shipping configuration can take this path.
+    func testReleasedPaneReopensWebViewWithSessionAndHonestState() throws {
+        try XCTSkipUnless(Self.isFixtureReachable(Self.stubSession),
+                          "session stub not running — start it with: python3 build/uitest-server/mm_stub.py "
+                          + "--port 8113 --cookie-session 3 --name \"Session Test\"")
+        try XCTSkipUnless(Self.sessionFixtureDelay(Self.stubSession) >= 2,
+                          "the stub at \(Self.stubSession) is not the cookie-session fixture (or its "
+                          + "delay is under 2 s, which makes the reopening state unobservable) — "
+                          + "restart it with: python3 build/uitest-server/mm_stub.py --port 8113 "
+                          + "--cookie-session 3 --name \"Session Test\"")
+
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-releaseWebViewForTesting",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        addFirstServer(app: app, name: "Session", url: Self.stubSession)
+
+        // 1. The first load plants the session cookie and shows the sign-in form.
+        let webview = app.webViews.firstMatch
+        XCTAssertTrue(webview.waitForExistence(timeout: Self.webLoadWait),
+                      "the added server's page must mount")
+        XCTAssertTrue(webview.buttons["Sign in"].waitForExistence(timeout: Self.webLoadWait),
+                      "the first load is the stub's sign-in page (it is what plants the cookie)")
+        XCTAssertTrue(app.buttons["backToolbarButton"].exists,
+                      "a live webview offers history chrome")
+
+        // 2. Flip the pane native through the debug inspector — the release policy now applies.
+        openSurfaceInspector(app)
+        channelViewPicker(app).buttons["Native"].tap()
+        dismissSurfaceInspectorAndSettings(app)
+
+        XCTAssertTrue(element(app, "unportedSurface.channelView").waitForExistence(timeout: 10),
+                      "the native stand-in must mount")
+        XCTAssertFalse(app.webViews.firstMatch.exists,
+                       "the released webview is not mounted — it is destroyed, not parked")
+        XCTAssertTrue(waitUntil(timeout: 5) { !app.buttons["backToolbarButton"].exists },
+                      "a released pane has no webview history, so the history chrome must be gone")
+
+        // 3. "Use web view": honest state first, then the signed-in web app.
+        let useWeb = app.buttons["revertToWebchannelView"]
+        XCTAssertTrue(useWeb.waitForExistence(timeout: 5))
+        useWeb.tap()
+
+        let reopening = app.descendants(matching: .any)
+            .matching(identifier: "webPaneReopening").firstMatch
+        let stateShown = reopening.waitForExistence(timeout: 5)
+        if !stateShown {
+            // Diagnostics only on the failure path: what the pane actually exposed to XCUITest.
+            print("PANETREE-BEGIN\n\(app.debugDescription)\nPANETREE-END")
+        }
+        XCTAssertTrue(stateShown,
+                      "a released pane must show the blocking 'Reopening web view…' state")
+        let reopeningShot = XCTAttachment(screenshot: app.screenshot())
+        reopeningShot.name = "released-pane-reopening"
+        reopeningShot.lifetime = .keepAlways
+        add(reopeningShot)
+
+        let restored = app.webViews.firstMatch
+        XCTAssertTrue(restored.waitForExistence(timeout: Self.webLoadWait),
+                      "the webview must re-mount")
+        XCTAssertTrue(restored.staticTexts["Workspace"].waitForExistence(timeout: Self.webLoadWait),
+                      "the reopened pane renders the signed-in workspace")
+        XCTAssertFalse(restored.buttons["Sign in"].exists,
+                       "…and not the login form: the session survived the release (§12.3)")
+        XCTAssertTrue(app.buttons["backToolbarButton"].waitForExistence(timeout: 5),
+                      "webview-only chrome comes back with the webview")
+
+        let restoredShot = XCTAttachment(screenshot: app.screenshot())
+        restoredShot.name = "released-pane-reopened-session-intact"
+        restoredShot.lifetime = .keepAlways
+        add(restoredShot)
+    }
+
     // MARK: - Dual-render helpers
 
+    /// Seconds the cookie-session stub stalls the authenticated page, or 0 when the endpoint says
+    /// this stub is not that fixture (3 s budget). Same guard-rail as `isFixtureReachable`: a
+    /// fixture mismatch must skip the flow, not fail it.
+    static func sessionFixtureDelay(_ base: String) -> Double {
+        guard let url = URL(string: base + "/__session-fixture") else { return 0 }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 3
+        let semaphore = DispatchSemaphore(value: 0)
+        var delay = 0.0
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            if let data,
+               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let value = object["delay_s"] as? Double {
+                delay = value
+            }
+            semaphore.signal()
+        }.resume()
+        _ = semaphore.wait(timeout: .now() + 5)
+        return delay
+    }
+
     /// Whether a stub fixture answers `/api/v4/system/ping` (3 s budget).
-    ///
     /// Every stub this suite uses lives in `build/uitest-server/` (gitignored), so a flow that needs
     /// a *specific* stub invocation must be able to tell "fixture missing" from "behaviour broken".
     static func isFixtureReachable(_ base: String, timeout: TimeInterval = 3) -> Bool {

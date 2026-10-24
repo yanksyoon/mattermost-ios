@@ -270,7 +270,7 @@ final class NotificationWorkerTests: XCTestCase {
 
         // Mount the server's webview and attach a recording bridge delegate (as the SPA would).
         let bridge = RecordingJsBridge()
-        let store = viewStore.view(for: server)
+        let store = viewStore.ensureStore(for: server)
         store.bridge.delegate = bridge
         worker.reactAppInitialized(serverID: server.id) // SPA already up
 
@@ -290,7 +290,7 @@ final class NotificationWorkerTests: XCTestCase {
         let viewStore = ViewStore()
         worker.viewStore = viewStore
         let bridge = RecordingJsBridge()
-        let store = viewStore.view(for: server)
+        let store = viewStore.ensureStore(for: server)
         store.bridge.delegate = bridge
 
         // Cold start: SPA not initialized yet -> path queued, nothing pushed.

@@ -40,9 +40,16 @@ final class PerfProbe {
         /// Server seeded, channel view rendered by the WKWebView (today's Path A default).
         case web
         /// Server seeded, channel view is the native stand-in (`-surfaceMode channelView=native`).
+        /// **Warm**: the webview is created, logged in and left alive behind the pane.
         case native
         /// No server at all: the shell alone, no webview, no WebContent process.
         case shell
+        /// Server seeded, then the pane's webview is **released** (`ViewStore.release`) and no DOM
+        /// stage runs — `docs/dual-render.md` §12.6's arm: what the shell costs once a pane-owning
+        /// native card owns the work area. Its evidence is the WebContent process count
+        /// (`run.json` → `pids.webcontent == []`) and the shell-relative footprint ceiling, not a
+        /// comparison with the warm `web`/`native` arms.
+        case nativeEvicted
     }
 
     struct Config {
@@ -176,7 +183,15 @@ final class PerfProbe {
 
     /// Run the whole scripted sequence against `store`'s webview and write the result files.
     /// Never throws: every failure is recorded as a failed stage.
-    func run(store: WebViewStore?) async {
+    ///
+    /// - Parameters:
+    ///   - store: the pane's live webview store, when the launch created one.
+    ///   - viewStore: the shell's store owner. Only the `nativeEvicted` arm needs it (it is what
+    ///     `release(serverID:)` acts on); every DOM-driving arm ignores it.
+    ///   - serverID: the seeded server's id, paired with `viewStore`.
+    func run(store: WebViewStore?,
+             viewStore: ViewStore? = nil,
+             serverID: UUID? = nil) async {
         appendJournal(["stage": "probe", "phase": "begin",
                        "mode": config.mode.rawValue,
                        "server": config.serverURL?.absoluteString ?? "none",
@@ -184,6 +199,11 @@ final class PerfProbe {
                        "scroll_steps": config.scrollSteps,
                        "os": ProcessInfo.processInfo.operatingSystemVersionString,
                        "device_model": Self.hardwareModel()])
+
+        if config.mode == .nativeEvicted {
+            await runReleasedPane(store: store, viewStore: viewStore, serverID: serverID)
+            return
+        }
 
         guard config.mode != .shell else {
             // Shell-only run: nothing to drive. Sit still long enough for the sampler to record a
@@ -269,6 +289,37 @@ final class PerfProbe {
 
     private func endStageAbsent(_ name: String) {
         appendJournal(["stage": name, "phase": "skipped", "detail": ["reason": "no credentials"]])
+    }
+
+    /// The `nativeEvicted` arm (`docs/dual-render.md` §12.6).
+    ///
+    /// It calls `ViewStore.release(serverID:)` — the production teardown — and then drives nothing:
+    /// there is no page left to script. Like `shell`, it finishes immediately and lets the
+    /// sampler's steady-state window run over the released state.
+    ///
+    /// Why it does not go through `WebViewReleasePolicy`: the predicate's third condition
+    /// (`paneOwningSurfaces`) is an `-AV` claim about a *card*. A measurement arm must not fake
+    /// one — it measures the mechanism (destroy the webview, keep the data store) before any card
+    /// has been approved, and says so in its own result. The sanctioned `allowUnapproved` bypass
+    /// belongs to real callers (a DEBUG UI-test launch), not to this instrument.
+    private func runReleasedPane(store: WebViewStore?, viewStore: ViewStore?, serverID: UUID?) async {
+        beginStage("releasePane", ["had_store": store != nil])
+        var detail: [String: Any] = ["had_store": store != nil]
+        var released = false
+        if let viewStore, let serverID {
+            viewStore.release(serverID: serverID)
+            released = viewStore.view(forServerID: serverID) == nil
+            detail["last_url"] = viewStore.lastURLs[serverID]?.absoluteString ?? "none"
+        } else {
+            detail["reason"] = "no ViewStore/server id handed to the probe"
+        }
+        detail["released"] = released
+        endStage("releasePane", ok: released, detail: detail)
+
+        await finish(store: nil, extra: [
+            "note": "pane released, no webview",
+            "webview": "none — the store was released before sampling; no DOM stage runs in this arm",
+        ])
     }
 
     /// Wait until the web app has rendered *the thing we measure* — a login form or the

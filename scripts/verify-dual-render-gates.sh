@@ -19,6 +19,14 @@
 #      (`self.remoteDefault = …`) (T26-R review G2).
 #   5. `SurfaceDefaults.nativeApprovedSurfaces` is still the empty registry (a non-empty one is a
 #      deliberate, separately-reviewed `-AV` change — pass `--allow-approved-registry` to skip).
+#   6. `paneOwningSurfaces ⊆ nativeApprovedSurfaces` (T26-R R4, docs/dual-render.md §12.1): a surface
+#      may not be declared pane-owning — and therefore able to release the per-server webview —
+#      before it has been approved. Both `Set<Surface>` literals are parsed and compared as sets.
+#   7. The webview release policy's one sanctioned bypass (`allowUnapproved: true`, §12.5) appears
+#      only inside `#if DEBUG` / `#if DEBUG || PERF_PROBE`, so a Release build has no route from a
+#      debug/measurement flag to a released pane. Same call-site + `debug_region_map` machinery as
+#      gate 1; like gate 1 it fails when it finds no call site at all, because a scan that cannot
+#      see the sanctioned seam is not proving anything.
 #
 # Scope and honest limits: this is a regex gate over the *app target* (`Mattermost/`, i.e. what
 # ships), not over the test targets (tests may inject a provider), it skips comment lines, and it
@@ -249,6 +257,66 @@ elif ALLOW_APPROVED:
 else:
     bad(f'nativeApprovedSurfaces is non-empty ({approved.group(1).strip()}) without -AV evidence '
         'in this run; pass --allow-approved-registry when the approval commit is the subject')
+
+print('== 6. pane ownership is a subset of the -AV approval registry ==')
+# §12.1: `paneOwningSurfaces ⊆ nativeApprovedSurfaces`. A pane-owning surface is the *only* thing
+# that can release a per-server webview, so declaring one before its `-AV` has passed would put the
+# eviction power behind an unvalidated card. Both literals are parsed as `Set<Surface>` text; the
+# surface cases are compared, not the formatting, so `.channelView` and a reordered literal read the
+# same (this gate cares about the claim, not the spelling).
+def surface_set(literal):
+    return set(re.findall(r'\.([A-Za-z_][A-Za-z0-9_]*)', literal or ''))
+
+pane_owning = re.search(r'paneOwningSurfaces: Set<Surface> = (\[[^\]]*\])', render_src)
+if not pane_owning:
+    bad('paneOwningSurfaces could not be read from '
+        f'{RENDER_MODE} (expected `paneOwningSurfaces: Set<Surface> = [ … ]`)')
+else:
+    pane_set = surface_set(pane_owning.group(1))
+    approved_set = surface_set(approved.group(1)) if approved else set()
+    unknown = sorted(s for s in pane_set | approved_set
+                     if s not in {c for c in re.findall(r'case (\w+)', render_src)})
+    if unknown:
+        bad(f'registry literal(s) name something that is not a Surface case: {unknown}')
+    elif not pane_set:
+        ok('paneOwningSurfaces is empty (no card owns the pane) — trivially a subset of '
+           f'nativeApprovedSurfaces {sorted(approved_set)}')
+    elif pane_set <= approved_set:
+        ok(f'paneOwningSurfaces {sorted(pane_set)} is a subset of nativeApprovedSurfaces '
+           f'{sorted(approved_set)}')
+    else:
+        bad(f'paneOwningSurfaces {sorted(pane_set)} is NOT a subset of nativeApprovedSurfaces '
+            f'{sorted(approved_set)} — unapproved: {sorted(pane_set - approved_set)} '
+            '(pane ownership is an -AV claim, docs/dual-render.md §12.1)')
+
+print('== 7. the release-policy bypass (allowUnapproved: true) compiles only in a debug region ==')
+# §12.5: `allowUnapproved: true` exists for measurement (the `nativeEvicted` perf arm and the DEBUG
+# UI-test launch flag), never for shipping. Same shape as gate 1's call-site scan: comment lines and
+# the declaration (`allowUnapproved: Bool = false`) cannot match, and a scan that finds nothing is a
+# failure rather than a pass — the sanctioned DEBUG seam must be visible.
+BYPASS_CALL = re.compile(r'\ballowUnapproved\s*:\s*true\b')
+bypass_sites = []
+for path in swift_files():
+    region, lines = debug_region_map(path)
+    for i, line in enumerate(lines, 1):
+        if line.strip().startswith('//'):
+            continue
+        if not BYPASS_CALL.search(line):
+            continue
+        bypass_sites.append((path, i, line.strip(), region[i]))
+bypass_leaks = [f'{p}:{i}: {text}' for (p, i, text, is_debug) in bypass_sites if not is_debug]
+if bypass_leaks:
+    bad('call site(s) outside #if DEBUG / #if DEBUG || PERF_PROBE pass allowUnapproved: true:')
+    for leak in bypass_leaks:
+        print('        ' + leak)
+elif not bypass_sites:
+    bad('found no call site passing allowUnapproved: true at all — the sanctioned DEBUG seam is '
+        'invisible to this scan (expected `WebViewReleasePolicy.shouldRelease` to make one); treat '
+        'this as a gate failure, not a pass')
+else:
+    where = ', '.join(f'{p}:{i}' for (p, i, _t, _d) in bypass_sites)
+    ok(f'all {len(bypass_sites)} call site(s) passing allowUnapproved: true are inside a debug '
+       f'region ({where}); a Release build cannot reach it')
 
 print()
 if failures:

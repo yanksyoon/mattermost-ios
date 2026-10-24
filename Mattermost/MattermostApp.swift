@@ -204,13 +204,16 @@ struct MattermostApp: App {
     // MARK: - T27 measurement seam
 
     /// Start the scripted perf sequence once the first frame is on screen. The store is fetched
-    /// eagerly (`view(for:)` creates it on first use) so a nil store means the shell genuinely
+    /// eagerly (`ensureStore` creates it on first use) so a nil store means the shell genuinely
     /// never built a webview — which the probe records as such rather than silently skipping.
+    ///
+    /// The probe also gets the `ViewStore` itself, because the `nativeEvicted` arm has to release
+    /// the store (`docs/dual-render.md` §12.6) — the one thing no view can do on its behalf.
     private func runPerfProbeIfRequested() {
         guard let probe = perfProbe else { return }
         let store: WebViewStore?
         if let perfServerID, let cfg = serverStore.servers.first(where: { $0.id == perfServerID }) {
-            store = viewStore.view(for: cfg)
+            store = viewStore.ensureStore(for: cfg)
         } else {
             store = nil
         }
@@ -218,7 +221,7 @@ struct MattermostApp: App {
             // Let the first frame, toolbar and (for `web`/`native`) the first navigation start
             // before the sequence begins, so the sampler sees a real launch phase.
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            await probe.run(store: store)
+            await probe.run(store: store, viewStore: viewStore, serverID: perfServerID)
         }
     }
     #endif

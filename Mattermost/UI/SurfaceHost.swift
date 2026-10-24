@@ -16,7 +16,7 @@ import SwiftUI
 ///    `#if DEBUG` or a hard-coded `.native`. A screen card that bypasses the host is rejected by
 ///    its `-AV` validator.
 ///  - **Webview identity is preserved.** The `web` branch must render the webview the app already
-///    owns (`ViewStore.view(for:)` → `WebViewStore.webView`), never construct a `WKWebView`. The
+///    owns (`ViewStore.ensureStore(for:)` → `WebViewStore.webView`), never construct a `WKWebView`. The
 ///    store owns the instance, so switching to native dismantles the `UIViewRepresentable` but not
 ///    the webview: its cookies/localStorage/scroll state and in-memory page survive, and switching
 ///    back re-attaches the *same* object (asserted by

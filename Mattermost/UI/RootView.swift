@@ -10,6 +10,10 @@ struct RootView: View {
     @ObservedObject var viewStore: ViewStore
     @EnvironmentObject var appSettings: AppSettings
     @EnvironmentObject var sessionStore: SessionStore
+    /// The single render-mode decision point. `RootView` is the **only** caller of
+    /// `ViewStore.release(...)` (T26-R R4, `docs/dual-render.md` §12.5) and therefore has to
+    /// observe the pane surface's resolution itself.
+    @EnvironmentObject private var resolver: SurfaceModeResolver
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var isPresentingServerForm = false
@@ -25,6 +29,11 @@ struct RootView: View {
             return serverStore.servers.first { $0.id == id }
         }
         return nil
+    }
+
+    /// The surface the one-per-server webview maps to, resolved right now.
+    private var paneMode: SurfaceRenderMode {
+        resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface)
     }
 
     var body: some View {
@@ -46,8 +55,12 @@ struct RootView: View {
                 if !serverStore.servers.isEmpty {
                     ToolbarItem(placement: .principal) { serverSwitcher }
 
-                    // History chrome follows the *active* server's webview only.
-                    if let activeStore = activeServer.map({ viewStore.view(for: $0) }) {
+                    // History chrome follows the *active* server's webview only — and only while
+                    // that webview exists. Reads go through the non-creating accessor: a released
+                    // pane has no Back/Reload to offer and must not be resurrected by a body pass
+                    // (`docs/dual-render.md` §12.4, "the resurrection trap").
+                    if let active = activeServer,
+                       let activeStore = viewStore.view(forServerID: active.id) {
                         WebNavToolbar(store: activeStore)
                     }
                     ToolbarItemGroup(placement: .topBarTrailing) {
@@ -105,7 +118,30 @@ struct RootView: View {
                     } message: {
                         Text("This clears the server's signed-in session on this device.")
                     }
-                    .onAppear(perform: startUp)
+                    .onAppear {
+                        startUp()
+                        // Any server mounted before this appearance (a relaunch with servers
+                        // already configured) is a release candidate under the policy.
+                        sweepReleases()
+                    }
+            .onChange(of: paneMode) { _, newMode in
+                // The pane's renderer changed. This is the runtime path a user takes ("Use web
+                // view", the debug inspector, `-surfaceMode`) and it is where the release policy
+                // actually bites (§12.1): every mounted server's webview is released the moment
+                // an approved, pane-owning native card owns the pane.
+                switch newMode {
+                case .native:
+                    sweepReleases()
+                case .web:
+                    // Returning to the webview: the active server's store must exist for its branch
+                    // to mount (inactive scenes do the same from their own appearance). The load
+                    // itself belongs to the branch — `WebPaneHost` calls `loadIfNeeded` with the
+                    // remembered URL, which is the honest return trip of §12.4.
+                    if let active = activeServer {
+                        _ = viewStore.ensureStore(for: active)
+                    }
+                }
+            }
             .onChange(of: scenePhase) { _, newPhase in
                 // Desktop hides/shows window web contents; iOS backgrounding is the analogue.
                 guard let active = activeServer,
@@ -157,11 +193,89 @@ struct RootView: View {
     @ViewBuilder
     private func scene(for server: ServerConfig) -> some View {
         let isActive = server.id == activeServer?.id
-        ContentView(server: server, store: viewStore.view(for: server))
+        ContentView(server: server, viewStore: viewStore)
             // Keep inactive servers mounted so their webview (and session) survives a switch.
             .opacity(isActive ? 1 : 0)
             .allowsHitTesting(isActive)
             .accessibilityHidden(!isActive)
+            // Warming on *appearance* rather than while building the body: creating a store from
+            // a body pass is the resurrection trap (`docs/dual-render.md` §12.4), and this
+            // callback is also where a scene that was mounted while the pane was released gets its
+            // webview back the moment the pane returns to `.web`.
+            .onAppear { warmUpStore(for: server) }
+    }
+
+    // MARK: Webview lifecycle (T26-R R4, docs/dual-render.md §12)
+
+    /// Every mounted server, one policy decision each.
+    private func sweepReleases() {
+        for server in serverStore.servers {
+            releaseIfNeeded(server)
+        }
+    }
+
+    /// Whether the pane *could* be released right now, ignoring a navigation that happens to be in
+    /// flight. Drives the one question the shell must answer before it creates anything: is this
+    /// pane allowed to be reclaimed? (When it is, creating a store would immediately undo the
+    /// release.)
+    private func paneMayBeReleased() -> Bool {
+        WebViewReleasePolicy.shouldRelease(
+            paneSurfaceResolved: paneMode,
+            approved: SurfaceDefaults.nativeApprovedSurfaces.contains(SurfaceDefaults.paneHostSurface),
+            paneOwning: SurfaceDefaults.paneOwningSurfaces.contains(SurfaceDefaults.paneHostSurface),
+            navigationInFlight: false)
+    }
+
+    /// Keep today's warmth: a mounted server's store exists (and, behind a native pane, has begun
+    /// loading) so switching to it is instant and its session is live **except** when the policy
+    /// allows this pane to be released, in which case nothing is created. Both registries are empty
+    /// today, so this is exactly the pre-R4 behaviour.
+    ///
+    /// The load is issued here only while the pane is **native** (where no web branch exists to do
+    /// it). While the pane is the webview, `WebPaneHost`'s appearance owns the navigation — loading
+    /// from both places issued the same request twice and cancelled the first one.
+    private func warmUpStore(for server: ServerConfig) {
+        guard !paneMayBeReleased() else { return }
+        let store = viewStore.ensureStore(for: server)
+        guard paneMode == .native else { return }
+        // `loadIfNeeded`, not `load`: a page the surface toggle stopped mid-flight is resumed
+        // (T26-R R6) rather than restarted, and a live/finished page is left alone.
+        store.loadIfNeeded(server.url)
+    }
+
+    /// The single release decision: read the pane state, ask the pure policy, and release only if
+    /// it says yes. `view(forServerID:)` is the **non-creating** accessor on purpose — a released
+    /// store must stay released.
+    private func releaseIfNeeded(_ server: ServerConfig, retryIfNavigationInFlight: Bool = true) {
+        let pane = SurfaceDefaults.paneHostSurface
+        let store = viewStore.view(forServerID: server.id)
+        let approved = SurfaceDefaults.nativeApprovedSurfaces.contains(pane)
+        let paneOwning = SurfaceDefaults.paneOwningSurfaces.contains(pane)
+        let inFlight = store?.isLoading ?? false
+
+        if WebViewReleasePolicy.shouldRelease(paneSurfaceResolved: paneMode,
+                                              approved: approved,
+                                              paneOwning: paneOwning,
+                                              navigationInFlight: inFlight) {
+            viewStore.release(serverID: server.id)
+            return
+        }
+
+        // One bounded retry. This sweep can run in the very update that dismantles the web branch,
+        // and `WKWebView.isLoading` flips asynchronously (KVO), so the only condition standing
+        // between an approved pane and its release can be a stale `true`. Re-asking the same
+        // predicate after the load has settled keeps that race from silently leaving the webview
+        // warm; a navigation that is genuinely still loading (a login / SSO hop) still refuses,
+        // because the predicate — not this retry — decides.
+        guard retryIfNavigationInFlight, store != nil, inFlight,
+              WebViewReleasePolicy.shouldRelease(paneSurfaceResolved: paneMode,
+                                                 approved: approved,
+                                                 paneOwning: paneOwning,
+                                                 navigationInFlight: false) else { return }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            releaseIfNeeded(server, retryIfNavigationInFlight: false)
+        }
     }
 
     // MARK: Server switcher
@@ -267,10 +381,10 @@ struct RootView: View {
     private func activate(_ server: ServerConfig) {
         serverStore.switchTo(id: server.id)
         viewStore.setPrimary(server.id)
-        let store = viewStore.view(for: server)
-        if store.url == nil {
-            store.load(server.url)
-        }
+        // Warm this server's webview so the switch is instant (session intact) — unless the pane
+        // may be released, in which case creating one here would resurrect exactly what
+        // `release(...)` just dropped (`docs/dual-render.md` §12.4).
+        warmUpStore(for: server)
     }
 
     private func remove(_ server: ServerConfig) {

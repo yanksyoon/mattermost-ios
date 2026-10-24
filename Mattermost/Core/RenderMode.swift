@@ -83,6 +83,26 @@ public enum SurfaceDefaults {
     /// its `-AV` card has passed — this exact diff is what the validator checks.
     public static let nativeApprovedSurfaces: Set<Surface> = []
 
+    /// Surfaces whose native card renders the *entire* per-server work area — every region the
+    /// one-per-server WKWebView paints (sidebar, channel header, post list, composer, RHS). Empty:
+    /// no card owns a pane yet. `paneOwningSurfaces ⊆ nativeApprovedSurfaces` is enforced by
+    /// `scripts/verify-dual-render-gates.sh`; appending here is an `-AV` claim, not a build flag.
+    ///
+    /// Pane ownership is the *third* condition of the webview release policy
+    /// (`docs/dual-render.md` §12.1): a surface may only trigger `ViewStore.release(...)` when its
+    /// native card really replaces the webview, which is a stronger claim than "a screen card
+    /// renders this region" and therefore stricter than `nativeApprovedSurfaces` — the subset
+    /// check in the gate script is what keeps the two from drifting.
+    public static let paneOwningSurfaces: Set<Surface> = []
+
+    /// The surface whose native branch takes the webview's place — the region the single
+    /// per-server `WKWebView` maps to, and therefore the surface the release policy watches.
+    ///
+    /// Named once here so no view or store hard-codes `.channelView` (the resolver's `-surfaceMode`
+    /// tests and `ContentView`'s `SurfaceHost` both read this). Reassigned only by a card that moves
+    /// the pane host, which is a structural change, not a per-surface decision.
+    public static let paneHostSurface: Surface = .channelView
+
     /// The render mode a surface falls back to when no debug override and no remote/config
     /// default applies.
     public static func defaultMode(for surface: Surface) -> SurfaceRenderMode {

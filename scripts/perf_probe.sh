@@ -231,7 +231,10 @@ run_one() {
   if [[ "$mode" != "shell" ]]; then
     common_args+=(-perfProbeServer "$SERVER_URL")
   fi
-  if [[ "$mode" == "native" ]]; then
+  # Both native-shaped arms put the pane in the native renderer: `native` measures the *warm*
+  # webview behind it, `nativeEvicted` (T26-R R4a) measures the shell after the probe releases that
+  # webview — without the native pane the web branch would own the pane and re-create it.
+  if [[ "$mode" == "native" || "$mode" == "nativeEvicted" ]]; then
     common_args+=(-surfaceMode "channelView=native")
   fi
 

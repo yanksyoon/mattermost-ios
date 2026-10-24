@@ -390,7 +390,7 @@ final class SurfaceModeResolverTests: XCTestCase {
         let resolver = makeResolver()
         let viewStore = ViewStore()
         let server = ServerConfig(name: "Local", url: URL(string: "http://127.0.0.1:8111")!)
-        let firstStore = viewStore.view(for: server)
+        let firstStore = viewStore.ensureStore(for: server)
         let webView = firstStore.webView
 
         resolver.setOverride(.native, for: .channelView)
@@ -398,7 +398,7 @@ final class SurfaceModeResolverTests: XCTestCase {
         resolver.setOverride(.web, for: .channelView)
         XCTAssertEqual(resolver.resolvedMode(for: .channelView), .web)
 
-        let reattached = viewStore.view(for: server)
+        let reattached = viewStore.ensureStore(for: server)
         XCTAssertTrue(reattached === firstStore,
                       "the harness must re-attach the same per-server store")
         XCTAssertTrue(reattached.webView === webView,
