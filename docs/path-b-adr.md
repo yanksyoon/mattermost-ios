@@ -107,39 +107,68 @@ definition of done. Claiming otherwise would be indefensible.
 
 ## 3. Licence boundary — what "clean reimplementation" means here
 
-Three sources of truth, three different legal positions. This section is the reviewer's checklist.
+> **Correction (T25b, 2026-10-24) — a previous factual error, fixed here.**
+> This section used to claim the Mattermost webapp source was AGPL-3.0 ("observation only,
+> never copied"). That was wrong, on two counts, and the licence decision in
+> `docs/native-inventory.md` §7 already flagged the first:
+> 1. The **current** webapp UI lives in the `mattermost/mattermost` monorepo under
+>    `webapp/` — its `LICENSE.txt` line 15 licenses `webapp/` and all subdirectories
+>    (including `webapp/channels/src/`) under **Apache-2.0** (verified 2026-10-24 by reading the
+>    file at the pinned tag).
+> 2. The **legacy** standalone repo `mattermost/mattermost-webapp` carries an **Apache-2.0**
+>    `LICENSE.txt` today (verified 2026-10-24: `gh api repos/mattermost/mattermost-webapp/license`
+>    → Apache-2.0, and the file head at `master` is the Apache License 2.0).
+>
+> **Consequence:** translating the Mattermost webapp UI (mobile client and webapp components) into
+> SwiftUI **is permitted with attribution** — see `docs/THIRD_PARTY_NOTICES.md` for the pinned
+> tags, SHAs, and per-file header to carry. What remains AGPL-3.0 / commercial and is **never**
+> ported is the **server** source (`mattermost/mattermost` `server/`, `enterprise/`, and any other
+> AGPL/CC tree). The client only ever talks to the server through the public REST v4 + WS v4 API.
+
+Sources of truth, and their verified legal positions (verified 2026-10-24 via
+`gh api repos/<org>/<repo>/license` plus reading `LICENSE.txt` heads; see
+`docs/THIRD_PARTY_NOTICES.md` for SHAs):
 
 | Source | Licence | How we use it |
 |---|---|---|
-| `mattermost/mattermost-mobile` | Apache-2.0 | **Safe reference.** Screen inventory, API usage, edge cases. Patterns may be reimplemented in Swift. |
-| `mattermost/mattermost-webapp` | AGPL-3.0 | **Observation only.** Behaviour (browser/network observation) may inform, but its source is **never copied, transpiled, or ported** into this repo. |
+| `mattermost/mattermost-mobile` (RN client, `app/` + Gekidou iOS layer) | Apache-2.0 | **Translate with attribution.** Screen inventory, rendering components, REST/WS clients, and the 50 Gekidou Swift files are all Apache-2.0 and may be ported. |
+| `mattermost/mattermost` monorepo — `webapp/` (live web app UI) | Apache-2.0 (`webapp/LICENSE.txt` line 15: "Admin Tools and Configuration Files (… `webapp/` and all subdirectories thereof)") | **Translate with attribution** for the webapp-only surfaces we cross-check (markdown semantics, combined system messages, admin-free components). |
+| `mattermost/mattermost-webapp` (legacy standalone repo) | Apache-2.0 (LICENSE.txt head; previously believed AGPL — see correction above) | **Translate with attribution** if ever needed; current work uses the monorepo tree. |
+| `mattermost/mattermost` monorepo — `server/`, `enterprise/` (Go server) | AGPL-3.0 / commercial | **Never copied, transpiled, or ported.** Out of scope for every card in this program. |
+| `mattermost/mattermost-webapp`-era AGPL trees elsewhere | AGPL-3.0 | **Observation only.** Do not cite paths from AGPL trees in inventory docs (`docs/native-inventory.md` §7). |
 | Server API | public, documented at `https://api.mattermost.com` (REST v4 + WS v4) | The contract. A native client is a **reimplementation against this public contract**, not a reverse-engineering of the UI. |
 
 **What "clean reimplementation from the public API" means:**
 
 1. Every protocol interaction is written against the **documented** endpoint + event contract, not
-   against observed payload shapes lifted from webapp code paths.
+   against observed payload shapes lifted from code paths (nothing needs lifting — the Apache-2.0
+   trees are open for reading).
 2. Swift types (models, payloads, WS events) are our own `Codable` definitions derived from the
    documented schema; where they must match a webapp field name for interop (e.g. a post `type`,
-   a reaction `emoji`), we write the field name and cite the API doc / mobile reference, we do not
-   copy a webapp type declaration.
+   a reaction `emoji`), we write the field name and cite the API doc / mobile reference.
 3. Behavioural parity (e.g. "recalculating the unread badge") is achieved by reading the API's
-   documented semantics or the mobile reference — never by reading webapp source and re-stating it.
+   documented semantics, the mobile reference, or the Apache-2.0 webapp components — always with
+   attribution per §3 of `docs/component-map.md` and `docs/THIRD_PARTY_NOTICES.md`.
 
 **How a reviewer checks it (checklist, mirrors T25-AV):**
 
-- Diff a candidate PR for comment blocks / string literals / struct shape that match webapp source
-  verbatim → reject. AGPL text must not appear.
-- A file must be attributable to a **public API doc URL** or a path in the Apache-2.0 mobile
-  reference. If a payload struct can be tied to neither, flag it.
+- Diff a candidate PR for comment blocks / string literals / struct shape that match a **server**
+  source tree → reject. AGPL/commercial server text must not appear.
+- Verbatim material copied from an Apache-2.0 client/webapp file is **allowed only with** the
+  per-file header naming the upstream file + licence and a matching row in
+  `docs/THIRD_PARTY_NOTICES.md` (component-map §3 rule). Unattributed copies are rejected.
+- A file must be attributable to a **public API doc URL**, a path in the Apache-2.0 mobile
+  reference, or an Apache-2.0 webapp component path. If a payload struct can be tied to none of
+  these, flag it.
 - The `.md` inventory (`docs/native-inventory.md`) carries, per row, the evidence string — a
   `https://api.mattermost.com/...` endpoint, a captured request, or a mobile reference path.
 - CI/tooling intended to detect AGPL leakage is not required for this ADR; the human review +
   inventory evidence trail is the enforcement mechanism for now.
 
 **Naming asymmetry to keep straight:** "https://api.mattermost.com" (the API contract, fine to
-build against) is *not* "https://github.com/mattermost/mattermost-webapp" (AGPL source, observe
-only). A reviewer may quiz any PR on which of the three a given line relies on.
+build against) and the Apache-2.0 client/webapp trees (fine to translate **with attribution**)
+are *not* the AGPL server source in `mattermost/mattermost` (`server/`, `enterprise/`; never
+copied). A reviewer may quiz any PR on which of the four a given line relies on.
 
 ---
 
