@@ -132,7 +132,7 @@ Sources of truth, and their verified legal positions (verified 2026-10-24 via
 | Source | Licence | How we use it |
 |---|---|---|
 | `mattermost/mattermost-mobile` (RN client, `app/` + Gekidou iOS layer) | Apache-2.0 | **Translate with attribution.** Screen inventory, rendering components, REST/WS clients, and the 50 Gekidou Swift files are all Apache-2.0 and may be ported. |
-| `mattermost/mattermost` monorepo — `webapp/` (live web app UI) | Apache-2.0 (`webapp/LICENSE.txt` line 15: "Admin Tools and Configuration Files (… `webapp/` and all subdirectories thereof)") | **Translate with attribution** for the webapp-only surfaces we cross-check (markdown semantics, combined system messages, admin-free components). |
+| `mattermost/mattermost` monorepo — `webapp/` (live web app UI) | Apache-2.0 (`LICENSE.txt` line 15: "Admin Tools and Configuration Files (… `webapp/` and all subdirectories thereof)") | **Translate with attribution** for the webapp-only surfaces we cross-check (markdown semantics, combined system messages, admin-free components). |
 | `mattermost/mattermost-webapp` (legacy standalone repo) | Apache-2.0 (LICENSE.txt head; previously believed AGPL — see correction above) | **Translate with attribution** if ever needed; current work uses the monorepo tree. |
 | `mattermost/mattermost` monorepo — `server/`, `enterprise/` (Go server) | AGPL-3.0 / commercial | **Never copied, transpiled, or ported.** Out of scope for every card in this program. |
 | `mattermost/mattermost-webapp`-era AGPL trees elsewhere | AGPL-3.0 | **Observation only.** Do not cite paths from AGPL trees in inventory docs (`docs/native-inventory.md` §7). |
