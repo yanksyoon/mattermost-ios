@@ -1,0 +1,44 @@
+
+===== P0. the project file as committed =====
+sha256: 925097d292b139600893ecd7360294f2c98848020d637ffa3e30076776707f08
+object definitions: 196 | distinct ids: 196
+PBXFileSystemSynchronizedRootGroup: 3
+PBXFileReference entries: 78
+
+===== P1. a brand-new file dropped into Mattermost/UI/Native/ — no project edit at all =====
+sha256 before build: 925097d292b139600893ecd7360294f2c98848020d637ffa3e30076776707f08
+build rc=0
+** BUILD SUCCEEDED **
+compare object: /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/t30b-pickup/Build/Intermediates.noindex/Mattermost.build/Debug-maccatalyst/Mattermost.build/Objects-normal/arm64/T30bPickupProbe.o
+compiled in the log: 3 mention(s)
+sha256 after build : 925097d292b139600893ecd7360294f2c98848020d637ffa3e30076776707f08
+
+===== P2. the same file, deliberately broken — the build must name it =====
+build rc=65 (non-zero = the compiler is compiling a file the project file never heard of)
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t30b-gate-demo/Mattermost/UI/Native/T30bPickupProbe.swift:4:33: error: expected expression in list of expressions
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t30b-gate-demo/Mattermost/UI/Native/T30bPickupProbe.swift:4:33: error: Expected expression in list of expressions
+** BUILD FAILED **
+sha256 after failed build: 925097d292b139600893ecd7360294f2c98848020d637ffa3e30076776707f08
+
+===== P3. the probe is deleted — the build goes green again, still no project edit =====
+build rc=0
+** BUILD SUCCEEDED **
+sha256 after delete: 925097d292b139600893ecd7360294f2c98848020d637ffa3e30076776707f08
+
+===== P4. the same thing in the synchronized *test* tree: a new unit-test file, no project edit =====
+sha256 before: 925097d292b139600893ecd7360294f2c98848020d637ffa3e30076776707f08
+
+========================================================================
+run        : t30b-pickup-tests
+outcome    : finished (xcodebuild rc=0, 50s)
+tests      : 1 run, 0 skipped, 0 failed
+log        : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t30b-gate-demo/build/logs/t30b-pickup-tests.log
+xcresult   : /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/t30b-pickup-tests/TestResults/t30b-pickup-tests-5c4280.xcresult
+RESULT: PASS
+sha256 after : 925097d292b139600893ecd7360294f2c98848020d637ffa3e30076776707f08
+
+===== P5. and in the synchronized UI-test tree (iOS simulator) =====
+skipped (SKIP_UITEST=1): the simulator is busy with another run in this session
+
+===== P6. tree restored =====
+sha256 final: 925097d292b139600893ecd7360294f2c98848020d637ffa3e30076776707f08

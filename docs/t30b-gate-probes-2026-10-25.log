@@ -1,0 +1,101 @@
+
+===== D0. baseline: the gate on the untouched worktree =====
+== 8. the native UI tree is still a synchronized folder (T30b) ==
+  ok    Mattermost/UI/Native is a synchronized group (C00000000000000000000001) registered on target F50000000000000000000001
+  ok    Mattermost/UI/Native: 3 git-tracked file(s)
+  ok    MattermostTests is a synchronized group (C00000000000000000000002) registered on target F50000000000000000000002
+  ok    MattermostTests: 46 git-tracked file(s)
+  ok    MattermostUITests is a synchronized group (C00000000000000000000003) registered on target F50000000000000000000003
+  ok    MattermostUITests: 1 git-tracked file(s)
+  ok    none of the 50 source file(s) in the synchronized trees has a hand-written project-file entry
+== 9. project.pbxproj defines every object id exactly once ==
+  ok    all 196 object ids are defined exactly once (196 definitions)
+  ok    every id named by a group's children list is defined
+== 10. this diff adds no PBXFileReference outside the allowance (T30b) ==
+  note  no change to Mattermost.xcodeproj/project.pbxproj against a25b7eb8695561d051f6efdeade175bb793ff19d — nothing to audit here. Run a card branch with --base main to audit its diff.
+
+RESULT: PASS — dual-render debug affordances cannot reach a Release build.
+
+===== D1. someone reverts the synchronized folder (drops the target registration) =====
+== 8. the native UI tree is still a synchronized folder (T30b) ==
+  FAIL  Mattermost/UI/Native is a synchronized group (C00000000000000000000001) but target F50000000000000000000001 does not list it in fileSystemSynchronizedGroups — its files would not be built at all
+  ok    Mattermost/UI/Native: 3 git-tracked file(s)
+  ok    MattermostTests is a synchronized group (C00000000000000000000002) registered on target F50000000000000000000002
+  ok    MattermostTests: 46 git-tracked file(s)
+  ok    MattermostUITests is a synchronized group (C00000000000000000000003) registered on target F50000000000000000000003
+  ok    MattermostUITests: 1 git-tracked file(s)
+  ok    none of the 50 source file(s) in the synchronized trees has a hand-written project-file entry
+== 9. project.pbxproj defines every object id exactly once ==
+  ok    all 196 object ids are defined exactly once (196 definitions)
+  ok    every id named by a group's children list is defined
+== 10. this diff adds no PBXFileReference outside the allowance (T30b) ==
+  note  no change to Mattermost.xcodeproj/project.pbxproj against a25b7eb8695561d051f6efdeade175bb793ff19d — nothing to audit here. Run a card branch with --base main to audit its diff.
+
+RESULT: FAIL — 1 dual-render gate violation(s).
+gate exit: 1
+
+===== D2. someone hand-registers a file that the synchronized folder already carries =====
+== 8. the native UI tree is still a synchronized folder (T30b) ==
+  ok    Mattermost/UI/Native is a synchronized group (C00000000000000000000001) registered on target F50000000000000000000001
+  ok    Mattermost/UI/Native: 3 git-tracked file(s)
+  ok    MattermostTests is a synchronized group (C00000000000000000000002) registered on target F50000000000000000000002
+  ok    MattermostTests: 46 git-tracked file(s)
+  ok    MattermostUITests is a synchronized group (C00000000000000000000003) registered on target F50000000000000000000003
+  ok    MattermostUITests: 1 git-tracked file(s)
+  FAIL  synchronized-tree file(s) also registered in the project file (duplicate compile): SheetHost.swift
+== 9. project.pbxproj defines every object id exactly once ==
+  ok    all 198 object ids are defined exactly once (198 definitions)
+  ok    every id named by a group's children list is defined
+== 10. this diff adds no PBXFileReference outside the allowance (T30b) ==
+  FAIL  new PBXFileReference(s) introduced against a25b7eb8695561d051f6efdeade175bb793ff19d outside the allowance:
+        SheetHost.swift: a .swift file belongs in a synchronized folder, not in Mattermost.xcodeproj/project.pbxproj
+
+RESULT: FAIL — 2 dual-render gate violation(s).
+
+===== D3. the duplicate-object-id defect that two concurrent editors produced twice =====
+== 8. the native UI tree is still a synchronized folder (T30b) ==
+  ok    Mattermost/UI/Native is a synchronized group (C00000000000000000000001) registered on target F50000000000000000000001
+  ok    Mattermost/UI/Native: 3 git-tracked file(s)
+  ok    MattermostTests is a synchronized group (C00000000000000000000002) registered on target F50000000000000000000002
+  ok    MattermostTests: 46 git-tracked file(s)
+  ok    MattermostUITests is a synchronized group (C00000000000000000000003) registered on target F50000000000000000000003
+  ok    MattermostUITests: 1 git-tracked file(s)
+  ok    none of the 50 source file(s) in the synchronized trees has a hand-written project-file entry
+== 9. project.pbxproj defines every object id exactly once ==
+  FAIL  Mattermost.xcodeproj/project.pbxproj defines the same object id more than once: ['C00000000000000000000001'] (two workers wrote the same id; one of the two entries is silently dropped)
+  ok    every id named by a group's children list is defined
+== 10. this diff adds no PBXFileReference outside the allowance (T30b) ==
+  ok    Mattermost.xcodeproj/project.pbxproj changed against a25b7eb8695561d051f6efdeade175bb793ff19d but added no PBXFileReference — new files ride the synchronized folders
+
+RESULT: FAIL — 1 dual-render gate violation(s).
+
+===== D4. a card registers its new screen by hand instead of dropping it in the folder =====
+== 10. this diff adds no PBXFileReference outside the allowance (T30b) ==
+  FAIL  new PBXFileReference(s) introduced against main outside the allowance:
+        FakeScreenView.swift: a .swift file belongs in a synchronized folder, not in Mattermost.xcodeproj/project.pbxproj
+
+RESULT: FAIL — 1 dual-render gate violation(s).
+
+===== D5. the one allowance: a resource entry, without and with the flag =====
+--- without --allow-pbxproj-resource-entry:
+== 10. this diff adds no PBXFileReference outside the allowance (T30b) ==
+  FAIL  new PBXFileReference(s) introduced against main outside the allowance:
+        Launch.imageset: "Launch.imageset" is not one of the allowed non-source resources ['Assets.xcassets', 'Info.plist', 'Mattermost.entitlements', 'PrivacyInfo.xcprivacy']
+
+RESULT: FAIL — 1 dual-render gate violation(s).
+--- a *listed* resource, without the flag:
+== 10. this diff adds no PBXFileReference outside the allowance (T30b) ==
+  FAIL  new PBXFileReference(s) introduced against main outside the allowance:
+        PrivacyInfo.xcprivacy: resource entry needs --allow-pbxproj-resource-entry (this is the one allowance, and it is deliberate)
+
+RESULT: FAIL — 1 dual-render gate violation(s).
+--- the same diff WITH the flag:
+== 10. this diff adds no PBXFileReference outside the allowance (T30b) ==
+  ok    Mattermost.xcodeproj/project.pbxproj changed against main but added no PBXFileReference — new files ride the synchronized folders
+
+RESULT: PASS — dual-render debug affordances cannot reach a Release build.
+
+===== D6. restored worktree =====
+  note  no change to Mattermost.xcodeproj/project.pbxproj against a25b7eb8695561d051f6efdeade175bb793ff19d — nothing to audit here. Run a card branch with --base main to audit its diff.
+
+RESULT: PASS — dual-render debug affordances cannot reach a Release build.
