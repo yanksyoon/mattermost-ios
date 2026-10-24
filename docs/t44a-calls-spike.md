@@ -246,6 +246,34 @@ card's recommendation is protocol reimplementation from the server message contr
 *as a specification*, with a recorded legal sign-off before native Calls ships. Flagging it now
 rather than at review time.
 
+### 4.7 Precedent: Mattermost already ships a native Calls client — and it is Apache-2.0
+
+The strongest evidence that this is a reimplementation job and not a reverse-engineering one:
+`mattermost/mattermost-mobile` **v2.45.0** (checked 2026-10-24) is a React-Native client with a
+complete native Calls product:
+
+- `package.json:25-26,107` — `"@mattermost/calls-native": "file:./libraries/@mattermost/calls-native"`,
+  `"@mattermost/calls": "github:mattermost/calls-common#bf5c7a25d43478b7949a45d4cbbdacac17705b59"`,
+  **`"react-native-webrtc": "124.0.7"`** — i.e. the same Google WebRTC engine family this spike
+  vendors, plus Mattermost's own native glue.
+- `libraries/@mattermost/calls-native/` — podspec + `ios/Source/MMCallsNative.{h,mm}` + Swift
+  (`CallsBridge+Events.swift`), `src/NativeMMCallsNative.ts`: the bridge between JS and the device
+  audio/session layer.
+- `app/products/calls/connection/websocket_client.ts`, `websocket_event_handlers.ts`,
+  `app/products/calls/native_call.ts`, `native_call_mappings.ts` — a non-web signalling client (WS
+  actions + event handlers) written against the same plugin contract this spike traced, in
+  Apache-2.0 TypeScript.
+
+So the protocol work in §4.5 has an Apache-2.0 sibling implementation that may be **reimplemented in
+Swift without licence friction** — a far better reference for T44c than the AGPL `calls-common`
+`rtc_peer.ts`, and consistent with this programme's existing rule (`docs/component-map.md`, T25b:
+mattermost-mobile is the authority; AGPL webapp is observe-only).
+
+The one thing the official client does **not** do is screen share: `ios/` has no broadcast-extension
+target (`Mattermost`, `MattermostShare`, `NotificationService`, `ErrorReporting` only), and
+`app/products/calls/screens/call_screen/` has no screen-share control. See §6.
+
+
 ---
 
 ## 5. Question 3 — memory: a native engine must not cost what the webview costs
@@ -287,6 +315,11 @@ to stay on the webview.
 ## 6. Question 4 — screen share
 
 **Yes, it needs a Broadcast Upload Extension on iOS, and that is a new target, not a code path.**
+
+Corroboration first: **the official Mattermost mobile client does not ship screen share at all** —
+its `ios/` project has no broadcast-extension target and its call screen has no screen-share control
+(§4.7). Whatever we do here is beyond even the platform's own native client, which is why it is
+carved out of the verdict rather than included in it.
 
 - The web client captures with `navigator.mediaDevices.getDisplayMedia(...)`
   (`calls/webapp/src/utils.ts:298-300`) — a whole-screen/window capture API. iOS has no equivalent;
@@ -359,8 +392,10 @@ is required for a native engine. What is required beyond the strings:
    - **T44b engine shell** — vendored framework, `RTCPeerConnectionFactory` lifecycle, audio session,
      capture permissions, no UI. Must not disturb the webview path.
    - **T44c signalling port** — `custom_com.mattermost.calls_*` actions and `signal` events on the
-     existing `SocketClient`, plus the Swift port of `rtc_peer.ts` semantics (SDP/ICE, `calls-dc`
-     ping, media map). This is the card where the interop gate lives.
+     existing `SocketClient`, plus the Swift port of the signalling/peer semantics. Mirror
+     `mattermost-mobile` v2.45.0 `app/products/calls/connection/` (Apache-2.0) and treat
+     `calls-common/src/rtc_peer.ts` as the specification behind it. This is the card where the
+     interop gate lives.
    - **T44d call surface** — SwiftUI expanded view / participants / mute / video / hand raise,
      the actual `calls` surface card.
    - **T44e screen share** — ReplayKit broadcast extension, only after P3 answers the Catalyst
