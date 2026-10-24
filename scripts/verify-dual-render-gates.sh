@@ -27,6 +27,22 @@
 #      debug/measurement flag to a released pane. Same call-site + `debug_region_map` machinery as
 #      gate 1; like gate 1 it fails when it finds no call site at all, because a scan that cannot
 #      see the sanctioned seam is not proving anything.
+#   8. The native UI tree is still a *synchronized folder* (T30b): `Mattermost/UI/Native`, and the
+#      two test trees, are `PBXFileSystemSynchronizedRootGroup`s registered on their targets, every
+#      file on disk under them is still tracked by git, and no `.swift` file in a synchronized tree
+#      also carries a hand-written `PBXFileReference`/`PBXBuildFile` (that double registration is a
+#      duplicate-compile, i.e. the failure mode of "revert the folder, keep the file").
+#   9. `project.pbxproj` defines every object id exactly once (the duplicate-id defect that two
+#      concurrent editors of that file produced twice on this board), and every id a group's
+#      `children` list names is defined.
+#  10. A diff may not introduce a new `PBXFileReference` for a source file (T30b): screen cards add
+#      `.swift` files to a synchronized folder, where no project-file entry exists or is needed. The
+#      one allowance is the non-source resources that stay outside the synchronized trees
+#      (`Info.plist`, `Mattermost.entitlements`, `PrivacyInfo.xcprivacy`, `Assets.xcassets`), and
+#      even those are a hard failure unless `--allow-pbxproj-resource-entry` is passed, so adding
+#      one is a deliberate, reviewable act. The diff is `git diff <base>...HEAD` plus the working
+#      tree; `--base`/`PBXPROJ_BASE` choose the base (default: the merge-base with `main` when on a
+#      branch, `HEAD` on `main` — a run with no diff to audit says so and audits nothing).
 #
 # Scope and honest limits: this is a regex gate over the *app target* (`Mattermost/`, i.e. what
 # ships), not over the test targets (tests may inject a provider), it skips comment lines, and it
@@ -34,15 +50,21 @@
 # itself: the debug writers do not exist there, so a Release call site cannot compile at all.
 #
 # Usage: scripts/verify-dual-render-gates.sh [--allow-approved-registry]
+#                                          [--base <git ref>] [--allow-pbxproj-resource-entry]
 # Exit: 0 = every gate holds; 1 = at least one violation (printed as "FAIL ...").
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 1
 
 python3 - "$@" <<'PY'
-import os, re, sys
+import os, re, subprocess, sys
 
 ALLOW_APPROVED = '--allow-approved-registry' in sys.argv
+ALLOW_RESOURCE_ENTRY = '--allow-pbxproj-resource-entry' in sys.argv
+BASE_ARG = None
+if '--base' in sys.argv:
+    BASE_ARG = sys.argv[sys.argv.index('--base') + 1] if sys.argv.index('--base') + 1 < len(sys.argv) else None
+BASE_ARG = BASE_ARG or os.environ.get('PBXPROJ_BASE')
 
 SRC_DIRS = ['Mattermost']
 DEBUG_WRITERS = ('setOverride', 'clearOverride', 'clearAllOverrides')
@@ -317,6 +339,175 @@ else:
     where = ', '.join(f'{p}:{i}' for (p, i, _t, _d) in bypass_sites)
     ok(f'all {len(bypass_sites)} call site(s) passing allowUnapproved: true are inside a debug '
        f'region ({where}); a Release build cannot reach it')
+
+print('== 8. the native UI tree is still a synchronized folder (T30b) ==')
+# Why this gate exists: the per-file PBXFileReference/PBXBuildFile pairs are what two workers editing
+# project.pbxproj collide on. The synchronized folder is the fix, and it is invisible in a build
+# log — reverting it (Xcode's "Convert to group", or someone re-adding one file by hand) restores the
+# collision silently. So the claim is asserted, per tree, together with the two ways it breaks:
+# a group that no target registers (files build but nothing compiles them) and a folder git does not
+# carry (an empty folder on a fresh clone).
+PBXPROJ = 'Mattermost.xcodeproj/project.pbxproj'
+pbx = open(PBXPROJ, encoding='utf-8').read()
+
+def pbx_objects(text):
+    """(id, isa or None, body) for every `\\t\\t<id> /* comment */ = { ... };` object.
+
+    A regex cannot delimit these objects: a comment may run across lines, and `};` inside a nested
+    list is not the end of the object (the first version of this gate matched one object from line 10
+    to line 189 for exactly that reason). So the braces are counted, with quoted strings skipped so a
+    brace inside a string cannot unbalance the scan.
+    """
+    for m in re.finditer(r'^[ \t]*([0-9A-F]{24})(?: /\*[^\n]*?\*/)? = \{', text, re.M):
+        start = text.index('{', m.start())
+        depth, i, in_str, escaped = 0, start, False, False
+        while i < len(text):
+            ch = text[i]
+            if in_str:
+                if escaped:
+                    escaped = False
+                elif ch == '\\':
+                    escaped = True
+                elif ch == '"':
+                    in_str = False
+            elif ch == '"':
+                in_str = True
+            elif ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    body = text[start:i + 1]
+                    isa = re.search(r'^\s*isa = (\w+);', body, re.M)
+                    yield m.group(1), (isa.group(1) if isa else None), body
+                    break
+            i += 1
+
+
+objects = list(pbx_objects(pbx))
+synchronized = {oid: body for oid, isa, body in objects if isa == 'PBXFileSystemSynchronizedRootGroup'}
+groups_by_path = {}
+for oid, body in synchronized.items():
+    path = re.search(r'path = ([^;]+);', body)
+    if path:
+        groups_by_path[path.group(1).strip().strip('"')] = oid
+
+SYNC_TREES = {
+    'Mattermost/UI/Native': 'F50000000000000000000001',   # the native screen tree (this card's unlock)
+    'MattermostTests': 'F50000000000000000000002',        # a screen card ships its unit tests too
+    'MattermostUITests': 'F50000000000000000000003',
+}
+SEED_FILE = 'Mattermost/UI/Native/SheetHost.swift'        # component-map §1: the shared sheet host
+targets = {oid: body for oid, isa, body in objects if isa == 'PBXNativeTarget'}
+synced_basenames = set()
+for tree, target in SYNC_TREES.items():
+    gid = groups_by_path.get(tree)
+    if not gid:
+        bad(f'{tree} is NOT a PBXFileSystemSynchronizedRootGroup — the tree was reverted to '
+            f'hand-registered files, which is the collision this card removed (docs/parallel-work.md §3)')
+        continue
+    listed = re.search(r'fileSystemSynchronizedGroups = \((.*?)\);', targets.get(target, ''), re.S)
+    if not listed or gid not in listed.group(1):
+        bad(f'{tree} is a synchronized group ({gid}) but target {target} does not list it in '
+            f'fileSystemSynchronizedGroups — its files would not be built at all')
+    else:
+        ok(f'{tree} is a synchronized group ({gid}) registered on target {target}')
+    tracked = subprocess.run(['git', 'ls-files', '--', tree], capture_output=True, text=True).stdout.split()
+    if not tracked:
+        bad(f'{tree} has no git-tracked files — a synchronized folder git does not carry is an empty '
+            f'directory on every fresh clone, and the group then matches nothing')
+    else:
+        ok(f'{tree}: {len(tracked)} git-tracked file(s)')
+    if tree == 'Mattermost/UI/Native' and SEED_FILE not in tracked:
+        bad(f'{SEED_FILE} is missing from the synchronized UI tree (component-map §1 designates it as '
+            f'the shared file the folder is seeded with)')
+    synced_basenames |= {os.path.basename(f) for f in tracked if f.endswith('.swift')}
+
+# Double registration: a file in a synchronized tree must have no hand-written entry. The pair
+# (`PBXFileReference` + `in Sources`) is what Xcode writes for a manually added file; both halves are
+# checked because either one alone makes the build compile the file twice.
+double = []
+for name in sorted(synced_basenames):
+    if re.search(r'/\* ' + re.escape(name) + r' in (?:Sources|Resources) \*/', pbx):
+        double.append(name)
+if double:
+    bad('synchronized-tree file(s) also registered in the project file (duplicate compile): '
+        + ', '.join(double))
+else:
+    ok(f'none of the {len(synced_basenames)} source file(s) in the synchronized trees has a '
+       f'hand-written project-file entry')
+
+print('== 9. project.pbxproj defines every object id exactly once ==')
+# The defect this card repaired: two workers each picked an unused-looking object id for their new
+# file, and the file ended up with the same id defined twice. Xcode tolerates it by picking one and
+# dropping the other, so the build stays green while a file silently stops being compiled.
+definitions = re.findall(r'^\t{2,4}([0-9A-F]{24})(?: /\*.*?\*/)? = \{', pbx, re.M)
+duplicates = sorted({d for d in definitions if definitions.count(d) > 1})
+if duplicates:
+    bad(f'{PBXPROJ} defines the same object id more than once: {duplicates} '
+        f'(two workers wrote the same id; one of the two entries is silently dropped)')
+else:
+    ok(f'all {len(set(definitions))} object ids are defined exactly once '
+       f'({len(definitions)} definitions)')
+defined_ids = set(definitions)
+dangling = []
+for oid, isa, body in objects:
+    if isa != 'PBXGroup':
+        continue
+    for child in re.findall(r'^[ \t]+([0-9A-F]{24})(?: /\*[^\n]*?\*/)?,', body, re.M):
+        if child not in defined_ids:
+            dangling.append(f'{oid} -> {child}')
+if dangling:
+    bad(f'group(s) name object ids that are not defined: {dangling}')
+else:
+    ok('every id named by a group\'s children list is defined')
+
+print('== 10. this diff adds no PBXFileReference outside the allowance (T30b) ==')
+# Acceptance: "adding a new file to the tree requires no pbxproj edit". A card that adds a .swift
+# file therefore must not appear here at all — the synchronized folder picks it up. The single
+# allowance is the four non-source items that stay outside the synchronized trees (the card's own
+# list: the folder "mixes sources with Info.plist, Mattermost.entitlements, PrivacyInfo.xcprivacy and
+# Assets.xcassets, and those must keep their current handling"), and even those are only accepted with
+# an explicit flag, so a resource registration is a deliberate act rather than a default.
+def git(*args):
+    return subprocess.run(['git', *args], capture_output=True, text=True).stdout
+
+base = BASE_ARG
+if not base:
+    branch = git('rev-parse', '--abbrev-ref', 'HEAD').strip()
+    if branch and branch != 'main' and git('rev-parse', '--verify', '--quiet', 'main').strip():
+        base = git('merge-base', 'main', 'HEAD').strip() or 'HEAD'
+    else:
+        base = 'HEAD'
+diff = git('diff', f'{base}...HEAD', '--', PBXPROJ) + git('diff', 'HEAD', '--', PBXPROJ)
+added_lines = [line[1:] for line in diff.splitlines() if line.startswith('+') and not line.startswith('+++')]
+DIFF_FILE_REF = re.compile(
+    r'^\s*([0-9A-F]{24})\s*/\*(.*?)\*/\s*= \{isa = PBXFileReference;.*?path = ([^;]+);')
+ALLOWED_RESOURCES = {'Info.plist', 'Mattermost.entitlements', 'PrivacyInfo.xcprivacy', 'Assets.xcassets'}
+offending = []
+for line in added_lines:
+    m = DIFF_FILE_REF.match(line)
+    if not m:
+        continue
+    _id, name, path = m.group(1), m.group(2).strip(), m.group(3).strip().strip('"')
+    if path.endswith('.swift'):
+        offending.append(f'{name}: a .swift file belongs in a synchronized folder, not in {PBXPROJ}')
+    elif path not in ALLOWED_RESOURCES:
+        offending.append(f'{name}: "{path}" is not one of the allowed non-source resources '
+                         f'{sorted(ALLOWED_RESOURCES)}')
+    elif not ALLOW_RESOURCE_ENTRY:
+        offending.append(f'{name}: resource entry needs --allow-pbxproj-resource-entry (this is the '
+                         f'one allowance, and it is deliberate)')
+if offending:
+    bad(f'new PBXFileReference(s) introduced against {base} outside the allowance:')
+    for item in offending:
+        print('        ' + item)
+elif added_lines:
+    ok(f'{PBXPROJ} changed against {base} but added no PBXFileReference — new files ride the '
+       f'synchronized folders')
+else:
+    print(f'  note  no change to {PBXPROJ} against {base} — nothing to audit here. Run a card branch '
+          f'with --base main to audit its diff.')
 
 print()
 if failures:
