@@ -25,6 +25,14 @@ struct MattermostApp: App {
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
 
+    #if DEBUG || PERF_PROBE
+    /// T27 measurement seam: non-nil only when launched with `-perfProbe <dir>`.
+    /// See `PerfProbe` — it drives a fixed sequence and writes its stage journal for the
+    /// external sampler in `scripts/perf_probe.sh`.
+    @State private var perfProbe: PerfProbe?
+    @State private var perfServerID: UUID?
+    #endif
+
     #if DEBUG
     /// Debug-only evidence probe (T26): launch with `-surfaceInspectorSnapshot <path>` to
     /// present the Surface inspector and write a PNG of it. Inert without the argument.
@@ -79,6 +87,21 @@ struct MattermostApp: App {
             _serverStore.wrappedValue.switchTo(id: config.id)
             _viewStore.wrappedValue.setPrimary(config.id)
         }
+        #if DEBUG || PERF_PROBE
+        // T27: the perf harness seeds the workspace it is about to measure, so the run starts
+        // from a known server with no hand-typed state. `mode == .shell` seeds nothing — that
+        // run measures the shell with no webview at all.
+        if let perfConfig = PerfProbe.requested(arguments: args) {
+            _perfProbe = State(initialValue: PerfProbe(config: perfConfig))
+            if let url = perfConfig.serverURL {
+                let config = ServerConfig(name: "Perf", url: url)
+                _serverStore.wrappedValue.add(config)
+                _serverStore.wrappedValue.switchTo(id: config.id)
+                _viewStore.wrappedValue.setPrimary(config.id)
+                _perfServerID = State(initialValue: config.id)
+            }
+        }
+        #endif
     }
 
     var body: some Scene {
@@ -122,6 +145,9 @@ struct MattermostApp: App {
                         }
                 }
                 .task { runShellSnapshotIfRequested() }
+                #if DEBUG || PERF_PROBE
+                .task { runPerfProbeIfRequested() }
+                #endif
                 #if DEBUG
                 .task { runSurfaceInspectorProbeIfRequested() }
                 .sheet(isPresented: $isPresentingSurfaceInspectorProbe) {
@@ -171,6 +197,29 @@ struct MattermostApp: App {
             .compactMap { ($0 as? UIWindowScene)?.windows }
             .joined()
             .first
+    }
+    #endif
+
+    #if DEBUG || PERF_PROBE
+    // MARK: - T27 measurement seam
+
+    /// Start the scripted perf sequence once the first frame is on screen. The store is fetched
+    /// eagerly (`view(for:)` creates it on first use) so a nil store means the shell genuinely
+    /// never built a webview — which the probe records as such rather than silently skipping.
+    private func runPerfProbeIfRequested() {
+        guard let probe = perfProbe else { return }
+        let store: WebViewStore?
+        if let perfServerID, let cfg = serverStore.servers.first(where: { $0.id == perfServerID }) {
+            store = viewStore.view(for: cfg)
+        } else {
+            store = nil
+        }
+        Task { @MainActor in
+            // Let the first frame, toolbar and (for `web`/`native`) the first navigation start
+            // before the sequence begins, so the sampler sees a real launch phase.
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await probe.run(store: store)
+        }
     }
     #endif
 

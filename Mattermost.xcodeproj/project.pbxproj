@@ -76,10 +76,12 @@ F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */ = {isa = PBX
 		F4000000000000000000001B /* MentionPollerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000045 /* MentionPollerTests.swift */; };
 		F3000000000000000000002A /* RenderMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000046 /* RenderMode.swift */; };
 		F3000000000000000000002B /* SurfaceModeResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000047 /* SurfaceModeResolver.swift */; };
+		F3000000000000000000002F /* PerfProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000004C /* PerfProbe.swift */; };
 		F3000000000000000000002C /* SurfaceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000048 /* SurfaceHost.swift */; };
 		F3000000000000000000002D /* SurfaceInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000049 /* SurfaceInspector.swift */; };
 		F3000000000000000000002E /* UnportedSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000004A /* UnportedSurfaceView.swift */; };
 		F4000000000000000000001C /* SurfaceModeResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000004B /* SurfaceModeResolverTests.swift */; };
+		F4000000000000000000001D /* PerfProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000004D /* PerfProbeTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -174,10 +176,12 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 		F20000000000000000000045 /* MentionPollerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentionPollerTests.swift; sourceTree = "<group>"; };
 		F20000000000000000000046 /* RenderMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenderMode.swift; sourceTree = "<group>"; };
 		F20000000000000000000047 /* SurfaceModeResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceModeResolver.swift; sourceTree = "<group>"; };
+		F2000000000000000000004C /* PerfProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerfProbe.swift; sourceTree = "<group>"; };
 		F20000000000000000000048 /* SurfaceHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceHost.swift; sourceTree = "<group>"; };
 		F20000000000000000000049 /* SurfaceInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceInspector.swift; sourceTree = "<group>"; };
 		F2000000000000000000004A /* UnportedSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnportedSurfaceView.swift; sourceTree = "<group>"; };
 		F2000000000000000000004B /* SurfaceModeResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceModeResolverTests.swift; sourceTree = "<group>"; };
+		F2000000000000000000004D /* PerfProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerfProbeTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -273,8 +277,9 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 				F20000000000000000000044 /* MentionPoller.swift */,
 				F20000000000000000000046 /* RenderMode.swift */,
 				F20000000000000000000047 /* SurfaceModeResolver.swift */,
-				);
-				path = Core;
+				F2000000000000000000004C /* PerfProbe.swift */,
+			);
+			path = Core;
 				sourceTree = "<group>";
 				};
 		F00000000000000000000006 /* UI */ = {
@@ -333,6 +338,7 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				F20000000000000000000042 /* CertTrustFallbackTests.swift */,
 				F20000000000000000000045 /* MentionPollerTests.swift */,
 				F2000000000000000000004B /* SurfaceModeResolverTests.swift */,
+				F2000000000000000000004D /* PerfProbeTests.swift */,
 				);
 				path = MattermostTests;
 				sourceTree = "<group>";
@@ -511,7 +517,8 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				F3000000000000000000002C /* SurfaceHost.swift in Sources */,
 				F3000000000000000000002D /* SurfaceInspector.swift in Sources */,
 				F3000000000000000000002E /* UnportedSurfaceView.swift in Sources */,
-				);
+				F3000000000000000000002F /* PerfProbe.swift in Sources */,
+			);
 				runOnlyForDeploymentPostprocessing = 0;
 				};
 			F60000000000000000000004 /* Sources */ = {
@@ -544,6 +551,7 @@ F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */,
 				F4000000000000000000001A /* CertTrustFallbackTests.swift in Sources */,
 				F4000000000000000000001B /* MentionPollerTests.swift in Sources */,
 				F4000000000000000000001C /* SurfaceModeResolverTests.swift in Sources */,
+				F4000000000000000000001D /* PerfProbeTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 				};
