@@ -25,12 +25,19 @@ struct ContentView: View {
     /// is what makes a released pane representable: there may simply be no store to pass.
     @ObservedObject var viewStore: ViewStore
 
+    /// T30: the native navigation model (injected by `MattermostApp`). The shell is the pane's
+    /// native branch, and `RootView` binds its `path` for the compact push.
+    @EnvironmentObject private var navigation: NativeNavigation
+
     var body: some View {
         SurfaceHost(SurfaceDefaults.paneHostSurface) {
-            // No channel-view screen card has passed its -AV validation yet, so the native branch
-            // is the explicit stand-in (never a blank pane). When a pane-owning card lands it plugs
-            // in here — and that is the change that lets `ViewStore.release(serverID:)` run.
-            UnportedSurfaceView(surface: SurfaceDefaults.paneHostSurface)
+            // T30: the native shell — sidebar + channel view + threads as placeholders — is the
+            // pane's native card. It is **not** in `SurfaceDefaults.nativeApprovedSurfaces` and not
+            // pane-owning, so this branch is reachable only through the DEBUG dual-render
+            // affordances (`-surfaceMode` / the Surface inspector); every shipping configuration
+            // still renders the webview below, and the release policy still refuses to release a
+            // webview for it.
+            NativeShellView(server: server, navigation: navigation)
                 .ignoresSafeArea()
         } web: {
             WebPaneHost(server: server, viewStore: viewStore)

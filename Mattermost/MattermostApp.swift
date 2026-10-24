@@ -21,9 +21,17 @@ struct MattermostApp: App {
     @StateObject private var notificationWorker: NotificationWorker
     /// T26 dual-render: the per-surface webview/native decision point for the whole shell.
     @StateObject private var surfaceModeResolver: SurfaceModeResolver
+    /// T30: the native shell's navigation model — the one funnel deep links, notification taps and
+    /// manual taps go through. Owned here so it outlives any single server's scene.
+    @StateObject private var nativeNavigation: NativeNavigation
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
+
+    /// T30 debug-only screenshot probe state (`-nativeShellSnapshot <dir>`): the appearance and text
+    /// size the probe forces for one capture. `nil` means "the system's own".
+    @State private var snapshotColorScheme: SwiftUI.ColorScheme?
+    @State private var snapshotDynamicTypeSize: DynamicTypeSize?
 
     #if DEBUG || PERF_PROBE
     /// T27 measurement seam: non-nil only when launched with `-perfProbe <dir>`.
@@ -74,6 +82,22 @@ struct MattermostApp: App {
         // T26: surface render-mode resolver. Reads the persisted override + `-surfaceMode`
         // launch args (debug-only) into one decision point for every surface.
         _surfaceModeResolver = StateObject(wrappedValue: SurfaceModeResolver())
+        // T30: the native shell's navigation model, built from the same resolver instance the views
+        // observe (so "is the pane native?" has exactly one answer). Its *store* seams are bound in
+        // `bindShellStores()` on first use, **not** here: reading a `@StateObject`'s `wrappedValue`
+        // before it is installed hands back a throwaway instance, so a `weak` reference taken in
+        // `init` points at an object the views never see.
+        let navigation = NativeNavigation(resolver: _surfaceModeResolver.wrappedValue)
+        _nativeNavigation = StateObject(wrappedValue: navigation)
+        #if DEBUG
+        // UI-test seam: `-uiTestAssumeSignedIn` makes the native shell render as if the seeded
+        // server had a session, so its panes can be exercised against a stub server that has no
+        // real login. It substitutes the *gate*, never the routing: the auth surface, the deep-link
+        // funnel and the panes all run their production code paths.
+        if args.contains("-uiTestAssumeSignedIn") {
+            navigation.authGate = AssumedSignedInAuthGate()
+        }
+        #endif
         // UI-test seam: `-uiTestForgetCertTrust <url>` deletes any recorded certificate-trust
         // decision for that origin before the seeded server loads, so a flow that must exercise
         // the **first-time** certificate prompt stays deterministic on a port that an earlier run
@@ -114,6 +138,18 @@ struct MattermostApp: App {
             _serverStore.wrappedValue.switchTo(id: config.id)
             _viewStore.wrappedValue.setPrimary(config.id)
         }
+        #if DEBUG
+        // UI-test seam: `-uiTestSeedServer <url>` adds one plain server so a test can reach the
+        // native shell without driving the add-server form (the form validates the URL over the
+        // network, which the native shell does not need). Debug-only and inert in normal use.
+        if let idx = args.firstIndex(of: "-uiTestSeedServer"), args.indices.contains(idx + 1),
+           let url = URL(string: args[idx + 1]) {
+            let config = ServerConfig(name: "UI Test Server", url: url)
+            _serverStore.wrappedValue.add(config)
+            _serverStore.wrappedValue.switchTo(id: config.id)
+            _viewStore.wrappedValue.setPrimary(config.id)
+        }
+        #endif
         #if DEBUG || PERF_PROBE
         // T27: the perf harness seeds the workspace it is about to measure, so the run starts
         // from a known server with no hand-typed state. `mode == .shell` seeds nothing — that
@@ -140,11 +176,15 @@ struct MattermostApp: App {
                 .environmentObject(sessionStore)
                 .environmentObject(notificationWorker)
                 .environmentObject(surfaceModeResolver)
+                .environmentObject(nativeNavigation)
+                // T30 debug-only screenshot probe: force one appearance / text size per capture.
+                // Inert (and never touches the user's own Dynamic Type) unless the probe is running.
+                .modifier(NativeShellSnapshotEnvironment(scheme: snapshotColorScheme,
+                                                          typeSize: snapshotDynamicTypeSize))
                 .onOpenURL { url in
                     // Deep-link entry point (native counterpart of desktop `second-instance` /
                     // `open-url` → `NavigationManager.openLinkInPrimaryTab`).
-                    deepLinkRouter.serverStore = serverStore
-                    deepLinkRouter.viewStore = viewStore
+                    bindShellStores()
                     deepLinkRouter.ready()
                     _ = deepLinkRouter.handle(url)
                 }
@@ -152,8 +192,7 @@ struct MattermostApp: App {
                     // Bind the notification worker to the shell stores and drop per-server
                     // mention state when a server is removed (desktop: AppState reacts to
                     // SERVER_LOGGED_IN_CHANGED/SERVER_REMOVED; the shell owns that binding).
-                    notificationWorker.serverStore = serverStore
-                    notificationWorker.viewStore = viewStore
+                    bindShellStores()
                     notificationWorker.activate()
                     sessionStore.observeServerRemovals(from: serverStore)
 
@@ -170,8 +209,18 @@ struct MattermostApp: App {
                         .sink { limit in
                             downloadWorker.history.setMaxRecords(limit)
                         }
+
+                    #if DEBUG
+                    // T30: replay a deep link the test could not deliver through the system.
+                    openUITestDeepLinkIfRequested()
+                    #endif
                 }
                 .task { runShellSnapshotIfRequested() }
+                #if DEBUG
+                // T30 evidence probe: `-nativeShellSnapshot <dir>` writes light/dark PNGs of the
+                // shell (plus an accessibility text size pair). Inert without the argument.
+                .task { runNativeShellSnapshotIfRequested() }
+                #endif
                 #if DEBUG || PERF_PROBE
                 .task { runPerfProbeIfRequested() }
                 #endif
@@ -224,6 +273,86 @@ struct MattermostApp: App {
             .compactMap { ($0 as? UIWindowScene)?.windows }
             .joined()
             .first
+    }
+
+    #endif
+
+    /// Bind the app-level stores into the pass-through routers (deep links, notification taps, the
+    /// native shell's navigator).
+    ///
+    /// Called from the scene's `.task` and from `onOpenURL` — i.e. **after** the `@StateObject`s are
+    /// installed, whichever of the two runs first. Wiring these `weak` seams in `init` did not hold:
+    /// the first version of T30 set `deepLinkRouter.nativeNavigation` there, and by the time the
+    /// views ran the property was nil, so a native deep link silently took the webview path (see
+    /// `docs/t30-build-note.md` §9.1 — the observable fact; the exact `@StateObject`
+    /// read-before-install semantics that produced it are not something to depend on either way).
+    /// Idempotent: re-assigning the same objects is a no-op, so every entry point can call it.
+    private func bindShellStores() {
+        deepLinkRouter.serverStore = serverStore
+        deepLinkRouter.viewStore = viewStore
+        deepLinkRouter.nativeNavigation = nativeNavigation
+        notificationWorker.serverStore = serverStore
+        notificationWorker.viewStore = viewStore
+        notificationWorker.nativeNavigation = nativeNavigation
+        nativeNavigation.serverStore = serverStore
+        nativeNavigation.viewStore = viewStore
+    }
+
+    #if DEBUG
+    /// `-uiTestOpenDeepLink <url>`: hand a URL to the same `DeepLinkRouter` entry `onOpenURL` uses.
+    ///
+    /// XCUITest cannot deliver a system `mattermost://` open on this toolchain (there is no
+    /// `XCUIApplication.open(_:)`, and the Safari round trip is flaky), so the test substitutes the
+    /// **delivery**, not the handling: the URL still goes through `DeepLinkRouter.handle` →
+    /// `DeepLinkRouter`'s native seam → `NativeNavigation`.
+    private func openUITestDeepLinkIfRequested() {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-uiTestOpenDeepLink"), args.indices.contains(i + 1),
+              let url = URL(string: args[i + 1]) else { return }
+        bindShellStores()
+        deepLinkRouter.ready()
+        let outcome = deepLinkRouter.handle(url)
+        Logger.info("T30", "uiTest deep link \(url.absoluteString) -> \(outcome)")
+    }
+
+    /// `-nativeShellSnapshot <dir>`: write four window PNGs of the native shell — light, dark, and
+    /// each again at the `accessibility3` text size — so Dynamic Type and dark mode are evidence
+    /// rather than claims. Needs no Screen Recording consent (`drawHierarchy` on the app's own
+    /// window), which is why the shell has this instead of `screencapture`.
+    private func runNativeShellSnapshotIfRequested() {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-nativeShellSnapshot"), args.indices.contains(i + 1) else { return }
+        let dir = args[i + 1]
+        Task { @MainActor in
+            // Let the first frame, the (seeded) server activation and the shell settle.
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            let captures: [(String, SwiftUI.ColorScheme, DynamicTypeSize)] = [
+                ("light", .light, .large),
+                ("dark", .dark, .large),
+                ("light-ax3", .light, .accessibility3),
+                ("dark-ax3", .dark, .accessibility3),
+            ]
+            for (name, scheme, size) in captures {
+                snapshotColorScheme = scheme
+                snapshotDynamicTypeSize = size
+                // A text-size change is a relayout, not a redraw: give SwiftUI a full second before
+                // capturing so the picture is of the settled layout, not a half-applied one.
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                writeWindowImage(to: dir + "/native-shell-" + name + ".png")
+            }
+            Logger.info("T30", "native shell snapshots written to \(dir)")
+        }
+    }
+
+    @MainActor
+    private func writeWindowImage(to path: String) {
+        guard let window = Self.keyWindow() else { return }
+        let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
+        let image = renderer.image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        try? image.pngData()?.write(to: URL(fileURLWithPath: path))
     }
     #endif
 
@@ -397,6 +526,25 @@ struct MattermostApp: App {
                 }
                 try? image.pngData()?.write(to: URL(fileURLWithPath: path + ".window.png"))
             }
+        }
+    }
+}
+
+/// T30: applies the screenshot probe's forced appearance / text size **only when the probe set
+/// one**. With no probe running (`typeSize == nil`) the app keeps the user's own Dynamic Type — a
+/// blanket `.environment(\.dynamicTypeSize, …)` would have been an accessibility regression shipped
+/// for the sake of a screenshot.
+private struct NativeShellSnapshotEnvironment: ViewModifier {
+    let scheme: SwiftUI.ColorScheme?
+    let typeSize: DynamicTypeSize?
+
+    func body(content: Content) -> some View {
+        if let typeSize {
+            content
+                .environment(\.dynamicTypeSize, typeSize)
+                .preferredColorScheme(scheme)
+        } else {
+            content.preferredColorScheme(scheme)
         }
     }
 }

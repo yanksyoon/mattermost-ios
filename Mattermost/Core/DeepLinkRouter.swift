@@ -86,6 +86,11 @@ final class DeepLinkRouter: ObservableObject {
     /// Drives a webview to the routed SPA path once a server is active.
     weak var viewStore: ViewStore?
 
+    /// T30: the native shell's router. Consulted **at call time**, and only while the pane host
+    /// surface resolves `native` (`NativeNavigation.acceptsNativeRouting`), so flipping the pane
+    /// back to the webview restores the SPA path immediately with no stale flag.
+    weak var nativeNavigation: NativeNavigation?
+
     private var isReady = false
     private var queued: DeepLink?
 
@@ -120,6 +125,28 @@ final class DeepLinkRouter: ObservableObject {
             queued = link
             Logger.debug("DeepLinkRouter", "queued deep link until shell ready")
             return .queued
+        }
+
+        // T30: while the native shell owns the pane, the same parsed link goes through the native
+        // navigation funnel instead of the webview's SPA router. Both routers get the *same*
+        // `DeepLink`, so there is one parse and one place-matching rule for the two paths.
+        if let nativeNavigation, nativeNavigation.acceptsNativeRouting {
+            switch nativeNavigation.handle(link) {
+            case .opened(let location):
+                Logger.debug("DeepLinkRouter", "native shell opened \(location.serverName ?? "server") \(location.channelDisplayName ?? "workspace root")")
+                return .routed
+            case .needsAuth:
+                // Configured, but the server has no session: the shell shows its auth surface, which
+                // is still a successful route (the user lands on the server they linked to).
+                return .routed
+            case .needsServerAdd(let serverURL):
+                return .needsServerAdd(serverURL: serverURL)
+            case .unsupported(let reason):
+                // Reported, not silently SPA-pushed: a path the native shell cannot show would
+                // otherwise look like a dead link. The web path resumes when the pane goes back.
+                Logger.debug("DeepLinkRouter", "native shell cannot route deep link: \(reason)")
+                return .ignored
+            }
         }
 
         guard let serverStore else { return .ignored }

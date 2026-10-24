@@ -14,6 +14,12 @@ struct RootView: View {
     /// `ViewStore.release(...)` (T26-R R4, `docs/dual-render.md` §12.5) and therefore has to
     /// observe the pane surface's resolution itself.
     @EnvironmentObject private var resolver: SurfaceModeResolver
+    /// T30: the native shell's navigation model. `RootView` owns the **push** stack binding and the
+    /// destination for a native channel/thread route, because that stack is the one the shell's
+    /// compact layout pushes onto (a channel view is a push on a phone, a detail column on a wide
+    /// layout — see `NativeShellView`'s layout decision).
+    @EnvironmentObject private var navigation: NativeNavigation
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var isPresentingServerForm = false
@@ -36,8 +42,51 @@ struct RootView: View {
         resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface)
     }
 
+    /// The push stack binding. A compact layout pushes the channel view; a regular-width layout
+    /// renders the same `NativeLocation` in its detail column and must never push (the same split
+    /// upstream draws between `channel_list.tsx` and `AdditionalTabletView`). Binding a constant on
+    /// regular width also means a rotation from compact → regular pops the pushed pane while
+    /// `NativeNavigation.location` keeps the selection, so nothing is lost either way.
+    private var panePath: Binding<[NativeLocation]> {
+        horizontalSizeClass == .compact ? $navigation.path : .constant([])
+    }
+
+    /// The shell's trailing chrome (downloads / settings / add server), shared by the navigation
+    /// stack's root and by every native destination it pushes. T30: a pushed pane gets its own
+    /// navigation bar, so declaring the chrome only on the root would take the server switcher and
+    /// Settings away the moment a user opens a channel in the native shell.
+    @ToolbarContentBuilder
+    private var shellToolbarItems: some ToolbarContent {
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            Button {
+                isPresentingDownloads = true
+            } label: {
+                Image(systemName: "arrow.down.circle")
+            }
+            .accessibilityLabel("Downloads")
+            .accessibilityIdentifier("downloadsToolbarButton")
+
+            Button {
+                isPresentingSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .accessibilityLabel("Settings")
+            .accessibilityIdentifier("settingsToolbarButton")
+
+            Button {
+                editingServer = nil
+                isPresentingServerForm = true
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel("Add server")
+            .accessibilityIdentifier("addServerToolbarButton")
+        }
+    }
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: panePath) {
             ZStack {
                 if serverStore.servers.isEmpty {
                     // Genuine first run → the Welcome/onboarding carousel (desktop `WelcomeScreen`).
@@ -48,6 +97,36 @@ struct RootView: View {
                         scene(for: server)
                     }
                 }
+            }
+            // T30: the native channel/thread route the shell's compact layout pushes. Declared on
+            // the stack's content (not inside a lazy container) so it registers with this stack.
+            //
+            // A pushed destination gets its own navigation bar, which would otherwise hide the
+            // shell chrome behind it — and then a user sitting in a native channel could not switch
+            // servers, reach Settings or add a server, an ability the webview pane keeps for free.
+            // The destination therefore re-declares the same chrome (`shellToolbarItems`), so the
+            // chrome is a property of the *shell*, not of whichever pane is on top.
+            .navigationDestination(for: NativeLocation.self) { location in
+                NativeDestinationPaneView(location: location, navigation: navigation,
+                                          serverIsConfigured: serverStore.servers.contains { $0.id == location.serverID })
+                    .toolbar {
+                        if !serverStore.servers.isEmpty {
+                            ToolbarItem(placement: .principal) { serverSwitcher }
+                            shellToolbarItems
+                        }
+                    }
+                    .sheet(isPresented: $isPresentingServerForm) {
+                        ServerFormView(serverStore: serverStore, viewStore: viewStore, editing: editingServer)
+                    }
+                    .sheet(isPresented: $isPresentingDownloads) {
+                        DownloadsView()
+                    }
+                    .sheet(isPresented: $isPresentingSettings) {
+                        SettingsView(serverStore: serverStore,
+                                     viewStore: viewStore,
+                                     appSettings: appSettings,
+                                     sessionStore: sessionStore)
+                    }
             }
             .toolbar {
                 // The switcher/add chrome only belongs once at least one server exists;
@@ -63,32 +142,7 @@ struct RootView: View {
                        let activeStore = viewStore.view(forServerID: active.id) {
                         WebNavToolbar(store: activeStore)
                     }
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button {
-                            isPresentingDownloads = true
-                        } label: {
-                            Image(systemName: "arrow.down.circle")
-                        }
-                        .accessibilityLabel("Downloads")
-                        .accessibilityIdentifier("downloadsToolbarButton")
-
-                        Button {
-                            isPresentingSettings = true
-                        } label: {
-                            Image(systemName: "gearshape")
-                        }
-                        .accessibilityLabel("Settings")
-                        .accessibilityIdentifier("settingsToolbarButton")
-
-                        Button {
-                            editingServer = nil
-                            isPresentingServerForm = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                        .accessibilityLabel("Add server")
-                        .accessibilityIdentifier("addServerToolbarButton")
-                    }
+                    shellToolbarItems
                 }
             }
             .sheet(isPresented: $isPresentingServerForm) {
@@ -133,6 +187,9 @@ struct RootView: View {
                 case .native:
                     sweepReleases()
                 case .web:
+                    // T30: leaving the native shell pops any native route it pushed — otherwise a
+                    // channel pane would stay on the stack above the webview that just replaced it.
+                    navigation.path = []
                     // Returning to the webview: the active server's store must exist for its branch
                     // to mount (inactive scenes do the same from their own appearance). The load
                     // itself belongs to the branch — `WebPaneHost` calls `loadIfNeeded` with the
@@ -373,6 +430,12 @@ struct RootView: View {
         // (via `onboardingOrEmptyState`) on a genuine first launch, and the user adds their first
         // server through it ("Get started" → add-server form). Once a server exists we simply
         // surface the last-active / first-by-order server from `ServerStore.initialServer`.
+        //
+        // T30: unless something already routed. A deep link / notification tap delivered before this
+        // appearance has picked a server (and possibly a channel) deliberately; activating the
+        // *initial* server here would override that decision — the cold-launch race the card calls
+        // out as "the seam that breaks first".
+        guard navigation.location.serverID == nil else { return }
         if let initial = serverStore.initialServer {
             activate(initial)
         }
@@ -381,6 +444,10 @@ struct RootView: View {
     private func activate(_ server: ServerConfig) {
         serverStore.switchTo(id: server.id)
         viewStore.setPrimary(server.id)
+        // T30: the native shell follows the shell's active server (and restores where the user was
+        // on that server). A no-op for the webview's behaviour: the model only decides what the
+        // native branch renders.
+        navigation.activate(serverID: server.id)
         // Warm this server's webview so the switch is instant (session intact) — unless the pane
         // may be released, in which case creating one here would resurrect exactly what
         // `release(...)` just dropped (`docs/dual-render.md` §12.4).

@@ -262,10 +262,22 @@ public final class SurfaceModeResolver: ObservableObject {
         for spec in specs {
             let parts = spec.split(separator: "=", maxSplits: 1).map(String.init)
             guard parts.count == 2,
-                  let surface = Surface(rawValue: parts[0]),
+                  let surface = launchSurface(for: parts[0]),
                   let mode = SurfaceRenderMode(rawValue: parts[1]) else { continue }
             result[surface] = mode
         }
         return result
+    }
+
+    /// Resolve a launch-argument surface token to a `Surface`.
+    ///
+    /// Accepts the 12 surface raw values **plus** the launch-only alias
+    /// `SurfaceDefaults.paneHostAlias` ("shell"), which names the pane host surface — see that
+    /// constant for why the alias exists and why it is not a `Surface` case. An unknown token is
+    /// rejected (and therefore ignored), exactly as before.
+    static func launchSurface(for token: String) -> Surface? {
+        if let surface = Surface(rawValue: token) { return surface }
+        if token == SurfaceDefaults.paneHostAlias { return SurfaceDefaults.paneHostSurface }
+        return nil
     }
 }

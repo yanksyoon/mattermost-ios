@@ -113,3 +113,27 @@ at the pin:
 `gh api repos/groue/GRDB.swift/license --jq '.license.spdx_id'` → `MIT`.
 No GRDB source is vendored into this repo; it is a package dependency, so the MIT text ships with
 the binary in the normal SwiftPM way (recorded here because the app's Licences screen lists it).
+
+## 7. T30 native app shell — upstream read set (Apache-2.0, mobile @ `v2.45.0`)
+
+T30 (`Mattermost/Core/Native/NativeNavigation.swift`, `Mattermost/UI/Native/`,
+`docs/t30-build-note.md`) reimplements **navigation structure and deep-link rules** in SwiftUI. No
+upstream file is copied: the RN sources are TypeScript and cannot be transpiled into this repo, and
+none of their code, strings or styles are reproduced verbatim. They were read at the pin to fix the
+shape of the model:
+
+| Upstream path (`mattermost/mattermost-mobile` @ `162f2560d0e1df073220f7701d5a67cc17c8abeb`) | Used for |
+|---|---|
+| `app/screens/home/channel_list/channel_list.tsx` | the two compositions the shell mirrors: phone = servers rail + team sidebar + channel list; tablet adds the additional view |
+| `app/screens/home/channel_list/additional_tablet_view/additional_tablet_view.tsx` | regular-width layout: sidebar beside the channel view, no push |
+| `app/screens/home/tab_bar/index.tsx`, `tab_bar.tsx` | which top-level destinations exist, and in what order |
+| `app/screens/home/channel_list/servers/` | the servers rail / switcher entry point |
+| `app/screens/home/channel_list/categories_list/` | the sidebar list shape (sections, unread affordances) that the channel-list placeholder is shaped after |
+| `app/utils/deep_link/index.ts` | `CHANNEL_PATH` = `*serverUrl/:teamName/:path/:identifier`, permalink (`/pl/`) and threads (`/…/threads`) route rules, and what an unparsable link should do |
+| `app/constants/deep_linking.ts`, `app/utils/url/path.ts`, `app/utils/url/index.ts` | path/identity helpers behind those rules |
+| `app/init/deep_link.ts`, `app/navigation` | when a link is acted on relative to app ready (the queue-until-ready rule `DeepLinkRouter` already had) |
+
+Reimplementation notes that matter for the licence boundary: the Swift model (`NativeLocation`,
+`NativeNavigation`) is written from the REST/URL contract, not translated from the RN navigation
+state objects; no `compass-icons` glyphs are embedded (SF Symbols are used instead), so no icon
+font or NOTICE entry is added by this card.

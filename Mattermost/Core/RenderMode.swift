@@ -103,6 +103,18 @@ public enum SurfaceDefaults {
     /// the pane host, which is a structural change, not a per-surface decision.
     public static let paneHostSurface: Surface = .channelView
 
+    /// Launch-argument alias for `paneHostSurface` (T30).
+    ///
+    /// The T30 card's acceptance criterion spells its flag `-surfaceMode shell=native`, because the
+    /// thing that card mounts is the *shell* — the native equivalent of the whole workspace chrome
+    /// (sidebar + channel view + threads), which is exactly what the pane host surface maps to. The
+    /// alias exists so that flag works as written, and it is **launch-only**: there is no
+    /// `Surface.shell` case (the 12 surfaces are the inventory-driven render regions, and a "shell"
+    /// region would duplicate `channelView` in the inspector, in `mm.surfaceModes`, and in the
+    /// approval registry). It is parsed in the DEBUG-only launch tier (`parseLaunchOverrides`), so
+    /// it cannot steer a Release build — same rule as every other launch override.
+    public static let paneHostAlias = "shell"
+
     /// The render mode a surface falls back to when no debug override and no remote/config
     /// default applies.
     public static func defaultMode(for surface: Surface) -> SurfaceRenderMode {

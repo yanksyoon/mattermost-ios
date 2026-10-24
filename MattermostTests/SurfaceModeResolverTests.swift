@@ -221,6 +221,36 @@ final class SurfaceModeResolverTests: XCTestCase {
         XCTAssertEqual(SurfaceModeResolver.Keys.surfaceModes, "mm.surfaceModes")
     }
 
+    // MARK: T30 — the `shell` launch alias
+
+    /// `-surfaceMode shell=native` is the T30 card's flag spelling. `shell` is **not** a `Surface`
+    /// (the 12 inventory surfaces are the render regions, and a `shell` region would duplicate
+    /// `channelView` in the inspector, in `mm.surfaceModes` and in the approval registry), so it is
+    /// a launch-only alias for the pane host surface.
+    func testShellLaunchAliasAddressesThePaneHostSurface() {
+        XCTAssertEqual(SurfaceDefaults.paneHostAlias, "shell")
+        XCTAssertNil(Surface(rawValue: "shell"), "the alias must not become a 13th surface")
+
+        let resolver = makeResolver(arguments: ["-surfaceMode", "shell=native"])
+        XCTAssertEqual(resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface), .native)
+        XCTAssertTrue(resolver.isLaunchOverridden(SurfaceDefaults.paneHostSurface))
+        // Everything else stays on the web view: the alias names one surface, not the app.
+        for surface in Surface.allCases where surface != SurfaceDefaults.paneHostSurface {
+            XCTAssertEqual(resolver.resolvedMode(for: surface), .web)
+        }
+    }
+
+    /// The alias resolves through the same launch parser, so its malformed forms degrade exactly
+    /// like every other flag (`shell=nativee`, `shellx=native`, an unknown mode).
+    func testMalformedShellAliasDegradesToTheDefault() {
+        XCTAssertEqual(makeResolver(arguments: ["-surfaceMode", "shell=nativee"])
+                        .resolvedMode(for: SurfaceDefaults.paneHostSurface), .web)
+        XCTAssertEqual(makeResolver(arguments: ["-surfaceMode", "shellx=native"])
+                        .resolvedMode(for: SurfaceDefaults.paneHostSurface), .web)
+        XCTAssertEqual(makeResolver(arguments: ["-surfaceMode", "shell"])
+                        .resolvedMode(for: SurfaceDefaults.paneHostSurface), .web)
+    }
+
     func testModeRawValuesAreTheDocumentedSpellings() {
         XCTAssertEqual(SurfaceRenderMode.web.rawValue, "web")
         XCTAssertEqual(SurfaceRenderMode.native.rawValue, "native")

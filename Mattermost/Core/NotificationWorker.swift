@@ -66,6 +66,11 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     weak var serverStore: ServerStore?
     weak var viewStore: ViewStore?
 
+    /// T30: the native shell's router. Same rule as `DeepLinkRouter.nativeNavigation` — consulted at
+    /// call time and only while the pane host surface resolves `native`, so a tap never lands in a
+    /// router that is not on screen.
+    weak var nativeNavigation: NativeNavigation?
+
     private let scheduling: NotificationScheduling
     private let preferences: AppPreferences
 
@@ -245,6 +250,19 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
             Logger.debug("NotificationWorker", "mention tap routed to unknown server \(serverID)")
             return
         }
+
+        // T30: while the native shell owns the pane there is no SPA to push into — the tap goes
+        // through the same native funnel a deep link uses (so both land on one `NativeLocation`).
+        // No queue is needed: the native router can hold a destination for a pane that has not
+        // mounted yet, unlike the webview's SPA, which only exists after `react-app-initialized`.
+        if let nativeNavigation, nativeNavigation.acceptsNativeRouting {
+            let outcome = nativeNavigation.routeMention(serverID: serverID,
+                                                        channelID: channelID,
+                                                        teamID: teamID)
+            Logger.info("NotificationWorker", "mention tap -> native shell (\(outcome))")
+            return
+        }
+
         serverStore.switchTo(id: server.id)
         viewStore?.setPrimary(server.id)
         Logger.info("NotificationWorker", "mention tap -> server \(server.name) channel \(channelID)")

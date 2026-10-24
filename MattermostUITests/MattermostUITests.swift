@@ -333,7 +333,7 @@ final class MattermostUITests: XCTestCase {
 
         addFirstServer(app: app, name: "Local", url: Self.stubHTTP)
 
-        let standIn = element(app, "unportedSurface.channelView")
+        let standIn = element(app, "nativeShell")
         XCTAssertTrue(standIn.waitForExistence(timeout: Self.webLoadWait),
                       "channelView=native must render the native stand-in")
 
@@ -395,7 +395,7 @@ final class MattermostUITests: XCTestCase {
         picker.buttons["Native"].tap()
         dismissSurfaceInspectorAndSettings(app)
 
-        XCTAssertTrue(element(app, "unportedSurface.channelView").waitForExistence(timeout: 10),
+        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 10),
                       "toggling channelView to Native must swap the pane to the native stand-in")
         XCTAssertFalse(app.webViews.firstMatch.exists,
                        "the webview pane must be unmounted, not stacked under the stand-in")
@@ -418,7 +418,7 @@ final class MattermostUITests: XCTestCase {
         // one-webview-per-server invariant is pinned deterministically in the unit suite instead
         // (`SurfaceModeResolverTests.testWebViewInstanceIsStableAcrossSurfaceToggles`), and the
         // `firstMatch` + rendered "Sign in" assertions above cover the visible half here.
-        XCTAssertFalse(element(app, "unportedSurface.channelView").exists)
+        XCTAssertFalse(element(app, "nativeShell").exists)
     }
 
     /// T26-R R6 [investigate]: a surface toggle that dismantles the web branch **while the
@@ -455,7 +455,7 @@ final class MattermostUITests: XCTestCase {
         openSurfaceInspector(app)
         channelViewPicker(app).buttons["Native"].tap()
         dismissSurfaceInspectorAndSettings(app)
-        XCTAssertTrue(element(app, "unportedSurface.channelView").waitForExistence(timeout: 10),
+        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 10),
                       "the native stand-in must mount (this dismantles the webview view)")
 
         openSurfaceInspector(app)
@@ -523,7 +523,7 @@ final class MattermostUITests: XCTestCase {
         channelViewPicker(app).buttons["Native"].tap()
         dismissSurfaceInspectorAndSettings(app)
 
-        XCTAssertTrue(element(app, "unportedSurface.channelView").waitForExistence(timeout: 10),
+        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 10),
                       "the native stand-in must mount")
         XCTAssertFalse(app.webViews.firstMatch.exists,
                        "the released webview is not mounted — it is destroyed, not parked")
@@ -718,6 +718,94 @@ final class MattermostUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
         return cond()
+    }
+
+    // MARK: - T30 native shell
+
+    /// T30 acceptance: `-surfaceMode shell=native` mounts the native chrome — sidebar, placeholder
+    /// panes, working server switcher — and a `mattermost://<server>/<team>/channels/<name>` deep
+    /// link lands on that server **and channel inside the native stack** (the channel pane is
+    /// pushed onto the shell's stack), with no webview pane mounted at all.
+    ///
+    /// Three DEBUG seams stand in for what a UI test cannot produce, and none of them touch the
+    /// code under test: `-uiTestSeedServer` adds a server without driving the add-server form (which
+    /// validates the URL over the network), `-uiTestAssumeSignedIn` substitutes the *auth gate* so
+    /// the panes render for a stub server that has no real session (native login is T31), and
+    /// `-uiTestOpenDeepLink` substitutes the *delivery* of the URL — XCTest cannot send a system
+    /// `mattermost://` open on this toolchain. The handling is the production path:
+    /// `DeepLinkRouter.handle` → `NativeNavigation` → the shell's push.
+    func testNativeShellDeepLinkLandsOnTheChannelInTheNativeStack() {
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-surfaceMode", "shell=native",
+                               "-uiTestSeedServer", "https://mm.example",
+                               "-uiTestAssumeSignedIn",
+                               "-uiTestOpenDeepLink", "mattermost://mm.example/acme/channels/general",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        let shell = element(app, "nativeShell")
+
+        // The deep link landed: the channel pane is on top of the shell, showing the linked channel.
+        // (A pushed destination replaces the shell's root in the accessibility hierarchy, so the
+        // pane — not `nativeShell` — is what is visible at launch with a link.)
+        let pane = element(app, "nativeChannelPane")
+        XCTAssertTrue(pane.waitForExistence(timeout: 15),
+                      "a channel deep link must push the native channel pane")
+        let title = element(app, "nativeChannelTitle")
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.label, "general",
+                       "the pane must show the channel the link named, got '\(title.label)'")
+
+        // ...and it was pushed *onto the native shell*, not onto a webview.
+        XCTAssertFalse(app.webViews.firstMatch.exists,
+                       "no webview pane may be mounted while the native shell owns the pane")
+
+        // The window's chrome survives the surface decision (it is shell chrome, not the pane) —
+        // and it must still *work* over a pushed pane: Settings opens from the destination's own
+        // toolbar, not from a bar the push has hidden.
+        XCTAssertTrue(app.buttons["serverSwitcher"].waitForExistence(timeout: 10),
+                      "the server switcher must still be there while the native shell is mounted")
+        app.buttons["settingsToolbarButton"].tap()
+        XCTAssertTrue(element(app, "settingsView").waitForExistence(timeout: 8),
+                      "Settings must open from the pushed pane's chrome")
+        app.buttons["Done"].firstMatch.tap()
+        XCTAssertTrue(pane.waitForExistence(timeout: 8),
+                      "closing Settings must return to the pushed channel pane")
+
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "t30-native-shell-deeplink"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        // Popping back lands on the shell itself — sidebar, placeholder panes and all.
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(shell.waitForExistence(timeout: 10),
+                      "the pane was pushed on the native shell: back must reveal it")
+        XCTAssertTrue(element(app, "nativeSidebar").exists,
+                      "the shell's sidebar hosts the channel list placeholder")
+    }
+
+    /// The other half of the same acceptance criterion: **no flag, no change**. With the pane
+    /// resolving `web` (the shipping default) the app is today's app — the webview pane mounts and
+    /// the native shell (including its auth surface) is never constructed.
+    func testWebPaneIsUnchangedWithoutTheSurfaceFlag() throws {
+        try XCTSkipUnless(Self.isFixtureReachable(Self.stubHTTP),
+                          "stub not running — start it with: python3 build/uitest-server/mm_stub.py "
+                          + "--port 8111 --name \"Local Mattermost Test\"")
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-uiTestSeedServer", Self.stubHTTP,
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        let webview = app.webViews.firstMatch
+        XCTAssertTrue(webview.waitForExistence(timeout: Self.webLoadWait),
+                      "without -surfaceMode the webview pane must mount exactly as before")
+        XCTAssertFalse(element(app, "nativeShell").exists,
+                       "the native shell must not be constructed while the pane resolves web")
+        XCTAssertFalse(element(app, "nativeAuthSurface").exists,
+                       "the native auth surface belongs to the native pane only")
     }
 
     // MARK: - Live SSO (network-gated)

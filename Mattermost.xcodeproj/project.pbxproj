@@ -102,6 +102,10 @@ F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */ = {isa = PBX
 		F3000000000000000000002C /* SurfaceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000048 /* SurfaceHost.swift */; };
 		F3000000000000000000002D /* SurfaceInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000049 /* SurfaceInspector.swift */; };
 		F3000000000000000000002E /* UnportedSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000004A /* UnportedSurfaceView.swift */; };
+		F300000000000000000000B0 /* NativeNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B0 /* NativeNavigation.swift */; };
+		F300000000000000000000B1 /* NativeShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B1 /* NativeShellView.swift */; };
+		F300000000000000000000B2 /* NativePanePlaceholders.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B2 /* NativePanePlaceholders.swift */; };
+		F400000000000000000000B3 /* NativeNavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B3 /* NativeNavigationTests.swift */; };
 		F4000000000000000000001C /* SurfaceModeResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000004B /* SurfaceModeResolverTests.swift */; };
 		F4000000000000000000001D /* PerfProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000004D /* PerfProbeTests.swift */; };
 		F30000000000000000000090 /* MMStoreModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000090 /* MMStoreModels.swift */; };
@@ -224,6 +228,10 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 		F20000000000000000000048 /* SurfaceHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceHost.swift; sourceTree = "<group>"; };
 		F20000000000000000000049 /* SurfaceInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceInspector.swift; sourceTree = "<group>"; };
 		F2000000000000000000004A /* UnportedSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnportedSurfaceView.swift; sourceTree = "<group>"; };
+		F200000000000000000000B0 /* NativeNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeNavigation.swift; sourceTree = "<group>"; };
+		F200000000000000000000B1 /* NativeShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeShellView.swift; sourceTree = "<group>"; };
+		F200000000000000000000B2 /* NativePanePlaceholders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePanePlaceholders.swift; sourceTree = "<group>"; };
+		F200000000000000000000B3 /* NativeNavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeNavigationTests.swift; sourceTree = "<group>"; };
 		F2000000000000000000004B /* SurfaceModeResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceModeResolverTests.swift; sourceTree = "<group>"; };
 		F2000000000000000000004D /* PerfProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerfProbeTests.swift; sourceTree = "<group>"; };
 		F20000000000000000000060 /* MMLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMLog.swift; sourceTree = "<group>"; };
@@ -367,6 +375,7 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 				F2000000000000000000004C /* PerfProbe.swift */,
 				F00000000000000000000060 /* MM */,
 				F00000000000000000000070 /* Store */,
+				F000000000000000000000B0 /* Native */,
 			);
 			path = Core;
 				sourceTree = "<group>";
@@ -418,6 +427,23 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 			path = Repositories;
 			sourceTree = "<group>";
 		};
+		F000000000000000000000B0 /* Native */ = {
+			isa = PBXGroup;
+			children = (
+				F200000000000000000000B0 /* NativeNavigation.swift */,
+			);
+			path = Native;
+			sourceTree = "<group>";
+		};
+		F000000000000000000000B1 /* Native */ = {
+			isa = PBXGroup;
+			children = (
+				F200000000000000000000B1 /* NativeShellView.swift */,
+				F200000000000000000000B2 /* NativePanePlaceholders.swift */,
+			);
+			path = Native;
+			sourceTree = "<group>";
+		};
 		F00000000000000000000006 /* UI */ = {
 			isa = PBXGroup;
 			children = (
@@ -433,8 +459,9 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 				F20000000000000000000048 /* SurfaceHost.swift */,
 				F20000000000000000000049 /* SurfaceInspector.swift */,
 				F2000000000000000000004A /* UnportedSurfaceView.swift */,
-				);
-				path = UI;
+				F000000000000000000000B1 /* Native */,
+			);
+			path = UI;
 				sourceTree = "<group>";
 			};
 		F00000000000000000000008 /* MattermostUITests */ = {
@@ -492,6 +519,7 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				F200000000000000000000A7 /* SyncCursorRepositoryTests.swift */,
 				F200000000000000000000A8 /* MMStoreConcurrencyTests.swift */,
 				F200000000000000000000A9 /* MMStoreSizeTests.swift */,
+				F200000000000000000000B3 /* NativeNavigationTests.swift */,
 				);
 				path = MattermostTests;
 				sourceTree = "<group>";
@@ -679,6 +707,9 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				F3000000000000000000002C /* SurfaceHost.swift in Sources */,
 				F3000000000000000000002D /* SurfaceInspector.swift in Sources */,
 				F3000000000000000000002E /* UnportedSurfaceView.swift in Sources */,
+				F300000000000000000000B0 /* NativeNavigation.swift in Sources */,
+				F300000000000000000000B1 /* NativeShellView.swift in Sources */,
+				F300000000000000000000B2 /* NativePanePlaceholders.swift in Sources */,
 				F3000000000000000000002F /* PerfProbe.swift in Sources */,
 				F30000000000000000000060 /* MMLog.swift in Sources */,
 				F30000000000000000000061 /* MMJSON.swift in Sources */,
@@ -756,6 +787,7 @@ F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */,
 				F40000000000000000000097 /* SyncCursorRepositoryTests.swift in Sources */,
 				F40000000000000000000098 /* MMStoreConcurrencyTests.swift in Sources */,
 				F40000000000000000000099 /* MMStoreSizeTests.swift in Sources */,
+				F400000000000000000000B3 /* NativeNavigationTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 				};

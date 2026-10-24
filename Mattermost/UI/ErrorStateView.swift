@@ -38,16 +38,24 @@ struct ErrorStateView: View {
     /// link handler.
     var onOpenExternal: () -> Void = {}
 
+    /// Headline. Defaults to the connection-failure copy (desktop `ConnectionErrorView`); callers
+    /// whose failure is not a connection failure override it — e.g. the native shell's pane when the
+    /// route it is showing belongs to a server that has since been removed.
+    var title: String = "Couldn't connect to this server"
+
+    /// The first paragraph. `nil` keeps the connection-failure wording that explains the retry loop.
+    var detail: String?
+
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 44))
                 .foregroundStyle(.orange)
 
-            Text("Couldn't connect to this server")
+            Text(title)
                 .font(.headline)
 
-            Text("We're having trouble connecting to this \(appName) server. We'll keep trying to establish a connection.")
+            Text(detail ?? "We're having trouble connecting to this \(appName) server. We'll keep trying to establish a connection.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -112,9 +120,12 @@ struct ErrorStateView: View {
     /// retry action (desktop `ConnectionErrorView` default). Cache/browser links default to
     /// the same retry (a reload is the closest native "clear and try again" without
     /// destructive cache wiping every retry).
-    init(error: Error?, url: URL? = nil, onRetry: @escaping () -> Void) {
+    init(error: Error?, url: URL? = nil, title: String = "Couldn't connect to this server",
+         detail: String? = nil, onRetry: @escaping () -> Void) {
         self.error = error
         self.url = url
+        self.title = title
+        self.detail = detail
         self.onRetry = onRetry
         self.onClearCacheAndReload = onRetry
         self.onOpenExternal = onRetry
