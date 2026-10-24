@@ -90,3 +90,26 @@ the upstream file it derives from; the full read set was:
 | `@mattermost/react-native-network-client@1.11.4` (Apache-2.0) | URLSession/WebSocket architecture reference |
 
 Divergences from each of these are listed in `docs/t28-build-note.md` §5.
+
+## 6. T29 native local store — upstream read set and the database library
+
+T29 (`Mattermost/Core/Store/`, `docs/t29-build-note.md`) ports **schema shapes and query
+structure**, not files. The storage layer of the mobile client is Apache-2.0 Swift, and was read
+at the pin:
+
+| Upstream path (`mattermost/mattermost-mobile` @ `162f2560…`) | Used for |
+|---|---|
+| `ios/Gekidou/Sources/Gekidou/Storage/Database.swift` | busy timeout (5 s), WAL expectations, one writer |
+| `ios/Gekidou/Sources/Gekidou/Storage/Database+Posts.swift` | channel page window, thread window, soft-delete handling |
+| `ios/Gekidou/Sources/Gekidou/Storage/Database+Channels.swift` | membership upsert, unread/mention state, `hasMyChannelUrgentMentionCountColumn(_:)` (the late-column evidence behind schema v2) |
+| `ios/Gekidou/Sources/Gekidou/Storage/Database+Users.swift`, `Database+Team.swift` | user/team row shapes |
+| `ios/Gekidou/Sources/Gekidou/Storage/Database+Preferences.swift` | `(user, category, name) → value` preference table |
+| `ios/Gekidou/Sources/Gekidou/Storage/Database+Mentions.swift`, `Database+Thread.swift` | thread reply ordering; the mention/unread queries the sidebar needs |
+| `app/database/schema/server/table_schemas/*.ts` | which columns exist per table at the pin |
+
+**Database library added this card:** [`GRDB.swift`](https://github.com/groue/GRDB.swift) (MIT),
+`7.11.1` resolved by SwiftPM, declared in `Mattermost.xcodeproj/project.pbxproj` as
+`upToNextMajorVersion` from `7.0.0`. Licence verified on 2026-10-24 with
+`gh api repos/groue/GRDB.swift/license --jq '.license.spdx_id'` → `MIT`.
+No GRDB source is vendored into this repo; it is a package dependency, so the MIT text ships with
+the binary in the normal SwiftPM way (recorded here because the app's Licences screen lists it).

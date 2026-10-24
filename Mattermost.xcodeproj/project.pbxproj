@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000000000000000000003 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000002 /* GRDB */; };
 		F30000000000000000000001 /* MattermostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* MattermostApp.swift */; };
 		F30000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* AppDelegate.swift */; };
 		F30000000000000000000003 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* Logger.swift */; };
@@ -103,6 +104,28 @@ F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */ = {isa = PBX
 		F3000000000000000000002E /* UnportedSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000004A /* UnportedSurfaceView.swift */; };
 		F4000000000000000000001C /* SurfaceModeResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000004B /* SurfaceModeResolverTests.swift */; };
 		F4000000000000000000001D /* PerfProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000004D /* PerfProbeTests.swift */; };
+		F30000000000000000000090 /* MMStoreModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000090 /* MMStoreModels.swift */; };
+		F30000000000000000000091 /* MMSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000091 /* MMSchema.swift */; };
+		F30000000000000000000092 /* MMMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000092 /* MMMigrator.swift */; };
+		F30000000000000000000093 /* MMStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000093 /* MMStore.swift */; };
+		F30000000000000000000094 /* MMStoreRecords.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000094 /* MMStoreRecords.swift */; };
+		F30000000000000000000095 /* InMemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000095 /* InMemoryStore.swift */; };
+		F30000000000000000000096 /* PostRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000096 /* PostRepository.swift */; };
+		F30000000000000000000097 /* ChannelRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000097 /* ChannelRepository.swift */; };
+		F30000000000000000000098 /* DraftRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000098 /* DraftRepository.swift */; };
+		F30000000000000000000099 /* SyncCursorRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000099 /* SyncCursorRepository.swift */; };
+		F3000000000000000000009A /* PreferenceUserRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000009A /* PreferenceUserRepositories.swift */; };
+		F40000000000000000000090 /* T29TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A0 /* T29TestSupport.swift */; };
+		F40000000000000000000091 /* MMStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A1 /* MMStoreTests.swift */; };
+		F40000000000000000000092 /* MMStoreMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A2 /* MMStoreMigrationTests.swift */; };
+		F40000000000000000000093 /* RepositoryContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A3 /* RepositoryContractTests.swift */; };
+		F40000000000000000000094 /* PostRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A4 /* PostRepositoryTests.swift */; };
+		F40000000000000000000095 /* ChannelRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A5 /* ChannelRepositoryTests.swift */; };
+		F40000000000000000000096 /* DraftRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A6 /* DraftRepositoryTests.swift */; };
+		F40000000000000000000097 /* SyncCursorRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A7 /* SyncCursorRepositoryTests.swift */; };
+		F40000000000000000000098 /* MMStoreConcurrencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A8 /* MMStoreConcurrencyTests.swift */; };
+		F40000000000000000000099 /* MMStoreSizeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A9 /* MMStoreSizeTests.swift */; };
+		A10000000000000000000004 /* GRDB in Frameworks (tests) */ = {isa = PBXBuildFile; productRef = A10000000000000000000002 /* GRDB */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -224,13 +247,34 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 		F20000000000000000000074 /* TokenLoggingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenLoggingTests.swift; sourceTree = "<group>"; };
 		F20000000000000000000075 /* SelfSignedTrustTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfSignedTrustTests.swift; sourceTree = "<group>"; };
 		F20000000000000000000076 /* T28TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = T28TestSupport.swift; sourceTree = "<group>"; };
+		F20000000000000000000090 /* MMStoreModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMStoreModels.swift; sourceTree = "<group>"; };
+		F20000000000000000000091 /* MMSchema.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMSchema.swift; sourceTree = "<group>"; };
+		F20000000000000000000092 /* MMMigrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMMigrator.swift; sourceTree = "<group>"; };
+		F20000000000000000000093 /* MMStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMStore.swift; sourceTree = "<group>"; };
+		F20000000000000000000094 /* MMStoreRecords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMStoreRecords.swift; sourceTree = "<group>"; };
+		F20000000000000000000095 /* InMemoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InMemoryStore.swift; sourceTree = "<group>"; };
+		F20000000000000000000096 /* PostRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRepository.swift; sourceTree = "<group>"; };
+		F20000000000000000000097 /* ChannelRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelRepository.swift; sourceTree = "<group>"; };
+		F20000000000000000000098 /* DraftRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftRepository.swift; sourceTree = "<group>"; };
+		F20000000000000000000099 /* SyncCursorRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCursorRepository.swift; sourceTree = "<group>"; };
+		F2000000000000000000009A /* PreferenceUserRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferenceUserRepositories.swift; sourceTree = "<group>"; };
+		F200000000000000000000A0 /* T29TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = T29TestSupport.swift; sourceTree = "<group>"; };
+		F200000000000000000000A1 /* MMStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMStoreTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000A2 /* MMStoreMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMStoreMigrationTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000A3 /* RepositoryContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryContractTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000A4 /* PostRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRepositoryTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000A5 /* ChannelRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelRepositoryTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000A6 /* DraftRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftRepositoryTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000A7 /* SyncCursorRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCursorRepositoryTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000A8 /* MMStoreConcurrencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMStoreConcurrencyTests.swift; sourceTree = "<group>"; };
+		F200000000000000000000A9 /* MMStoreSizeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMStoreSizeTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
 /* Begin PBXFrameworksBuildPhase section */
 		F60000000000000000000002 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000003 /* GRDB in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -238,6 +282,7 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000004 /* GRDB in Frameworks (tests) */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -321,6 +366,7 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 				F20000000000000000000047 /* SurfaceModeResolver.swift */,
 				F2000000000000000000004C /* PerfProbe.swift */,
 				F00000000000000000000060 /* MM */,
+				F00000000000000000000070 /* Store */,
 			);
 			path = Core;
 				sourceTree = "<group>";
@@ -344,6 +390,32 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 				F20000000000000000000077 /* WebSessionAdoption.swift */,
 			);
 			path = MM;
+			sourceTree = "<group>";
+		};
+		F00000000000000000000070 /* Store */ = {
+			isa = PBXGroup;
+			children = (
+				F20000000000000000000090 /* MMStoreModels.swift */,
+				F20000000000000000000091 /* MMSchema.swift */,
+				F20000000000000000000092 /* MMMigrator.swift */,
+				F20000000000000000000093 /* MMStore.swift */,
+				F20000000000000000000094 /* MMStoreRecords.swift */,
+				F20000000000000000000095 /* InMemoryStore.swift */,
+				F00000000000000000000071 /* Repositories */,
+			);
+			path = Store;
+			sourceTree = "<group>";
+		};
+		F00000000000000000000071 /* Repositories */ = {
+			isa = PBXGroup;
+			children = (
+				F20000000000000000000096 /* PostRepository.swift */,
+				F20000000000000000000097 /* ChannelRepository.swift */,
+				F20000000000000000000098 /* DraftRepository.swift */,
+				F20000000000000000000099 /* SyncCursorRepository.swift */,
+				F2000000000000000000009A /* PreferenceUserRepositories.swift */,
+			);
+			path = Repositories;
 			sourceTree = "<group>";
 		};
 		F00000000000000000000006 /* UI */ = {
@@ -410,6 +482,16 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				F20000000000000000000074 /* TokenLoggingTests.swift */,
 				F20000000000000000000075 /* SelfSignedTrustTests.swift */,
 				F20000000000000000000076 /* T28TestSupport.swift */,
+				F200000000000000000000A0 /* T29TestSupport.swift */,
+				F200000000000000000000A1 /* MMStoreTests.swift */,
+				F200000000000000000000A2 /* MMStoreMigrationTests.swift */,
+				F200000000000000000000A3 /* RepositoryContractTests.swift */,
+				F200000000000000000000A4 /* PostRepositoryTests.swift */,
+				F200000000000000000000A5 /* ChannelRepositoryTests.swift */,
+				F200000000000000000000A6 /* DraftRepositoryTests.swift */,
+				F200000000000000000000A7 /* SyncCursorRepositoryTests.swift */,
+				F200000000000000000000A8 /* MMStoreConcurrencyTests.swift */,
+				F200000000000000000000A9 /* MMStoreSizeTests.swift */,
 				);
 				path = MattermostTests;
 				sourceTree = "<group>";
@@ -430,6 +512,9 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 			dependencies = (
 			);
 			name = Mattermost;
+			packageProductDependencies = (
+				A10000000000000000000002 /* GRDB */,
+			);
 			productName = Mattermost;
 			productReference = F10000000000000000000001 /* Mattermost.app */;
 			productType = "com.apple.product-type.application";
@@ -448,6 +533,9 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				F80000000000000000000001 /* PBXTargetDependency */,
 			);
 			name = MattermostTests;
+			packageProductDependencies = (
+				A10000000000000000000002 /* GRDB */,
+			);
 			productName = MattermostTests;
 			productReference = F10000000000000000000002 /* MattermostTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -502,6 +590,9 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				Base,
 			);
 			mainGroup = F00000000000000000000002;
+			packageReferences = (
+				A10000000000000000000001 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+			);
 			productRefGroup = F00000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -603,9 +694,20 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				F3000000000000000000006B /* SocketEvent.swift in Sources */,
 				F3000000000000000000006C /* SocketClient.swift in Sources */,
 				F30000000000000000000077 /* WebSessionAdoption.swift in Sources */,
+				F30000000000000000000090 /* MMStoreModels.swift in Sources */,
+				F30000000000000000000091 /* MMSchema.swift in Sources */,
+				F30000000000000000000092 /* MMMigrator.swift in Sources */,
+				F30000000000000000000093 /* MMStore.swift in Sources */,
+				F30000000000000000000094 /* MMStoreRecords.swift in Sources */,
+				F30000000000000000000095 /* InMemoryStore.swift in Sources */,
+				F30000000000000000000096 /* PostRepository.swift in Sources */,
+				F30000000000000000000097 /* ChannelRepository.swift in Sources */,
+				F30000000000000000000098 /* DraftRepository.swift in Sources */,
+				F30000000000000000000099 /* SyncCursorRepository.swift in Sources */,
+				F3000000000000000000009A /* PreferenceUserRepositories.swift in Sources */,
 			);
-				runOnlyForDeploymentPostprocessing = 0;
-				};
+			runOnlyForDeploymentPostprocessing = 0;
+			};
 			F60000000000000000000004 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -644,6 +746,16 @@ F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */,
 				F40000000000000000000074 /* TokenLoggingTests.swift in Sources */,
 				F40000000000000000000075 /* SelfSignedTrustTests.swift in Sources */,
 				F40000000000000000000076 /* T28TestSupport.swift in Sources */,
+				F40000000000000000000090 /* T29TestSupport.swift in Sources */,
+				F40000000000000000000091 /* MMStoreTests.swift in Sources */,
+				F40000000000000000000092 /* MMStoreMigrationTests.swift in Sources */,
+				F40000000000000000000093 /* RepositoryContractTests.swift in Sources */,
+				F40000000000000000000094 /* PostRepositoryTests.swift in Sources */,
+				F40000000000000000000095 /* ChannelRepositoryTests.swift in Sources */,
+				F40000000000000000000096 /* DraftRepositoryTests.swift in Sources */,
+				F40000000000000000000097 /* SyncCursorRepositoryTests.swift in Sources */,
+				F40000000000000000000098 /* MMStoreConcurrencyTests.swift in Sources */,
+				F40000000000000000000099 /* MMStoreSizeTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 				};
@@ -981,6 +1093,25 @@ F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */,
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A10000000000000000000001 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/groue/GRDB.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000002 /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			productName = GRDB;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F00000000000000000000001 /* Project object */;
 }
