@@ -104,6 +104,33 @@ Selectors were derived by **observing** the Apache-2.0 webapp (`components/commo
 The single skip is the pre-existing opt-in live-network test (`MentionPollerTests.testLiveMentionsFetch_optIn`),
 not a dual-render or perf test.
 
+### 7.1 Independent clean-build re-verification
+
+After the baseline was committed, the incremental Catalyst build dir was moved aside
+(`mv build/perf-catalyst build/perf-catalyst-incremental.bak`) and the harness rebuilt the arm from
+scratch:
+
+```sh
+scripts/perf_probe.sh --targets catalyst --modes web,shell,native --repeat 1 \
+  --out-root build/perf-cleanbuild --no-baseline
+```
+
+Result: exit 0, `BUILD SUCCEEDED`, all three arms green (`stages: workspaceLoad,login,
+openChannel,scrollPosts,openThread | failed: (none)`, 8.848 s), runs in
+`build/perf-cleanbuild/20261024-165111/`.
+
+| arm | steady phys_footprint | baseline band (2 runs) | inside? |
+|---|---:|---|---|
+| `catalyst/web` | **560.4 MB** | 573.1 … 611.1 MB | no, 2.2 % below the low end |
+| `catalyst/shell` | **31.0 MB** | 30.0 … 30.1 MB | +0.9 MB (one extra framework page) |
+| `catalyst/native` | **326.2 MB** | 293.1 … 329.8 MB | yes |
+
+So the honest tolerance is **≈ ±10 %** on the `web` arm (consolidated 560.4–611.1 MB across three
+independent runs), not the 6.6 % two-run band in `docs/perf/README.md`; the `shell` floor is stable
+to ~1 MB. Nothing about the claim changes — a 10 % wobble on 560 MB is 56 MB, two orders of
+magnitude above the shell floor and far below the 460–562 MB delta — but a later card must not
+call a 2 % deviation a regression, or a 5 % improvement a win.
+
 ## 8. Limits — what this does **not** measure
 
 * **Not a device measurement.** Both targets run on this Mac. A device run needs a physical

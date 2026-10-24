@@ -472,7 +472,10 @@ def render_markdown(baseline: dict) -> str:
         lines.append("## Run-to-run spread\n")
         lines.append("Every arm below was run more than once on the same host with the same seeded")
         lines.append("workspace. A baseline is only reproducible if a re-run lands inside this spread;")
-        lines.append("the raw per-run values are in the JSON (`runs[].steady`).\n")
+        lines.append("the raw per-run values are in the JSON (`runs[].steady`). This is the")
+        lines.append("*within-session* spread; an independent clean-build re-verification on the same")
+        lines.append("host and commit is recorded in `docs/t27-build-note.md` §7.1 — read the band as a")
+        lines.append("tolerance of roughly ±10 %, not a hard limit.\n")
         lines.append("| target | channel view | runs | total steady phys_footprint min…max "
                      "| spread | WebContent steady min…max | spread |")
         lines.append("|---|---|---:|---:|---:|---:|---:|")
