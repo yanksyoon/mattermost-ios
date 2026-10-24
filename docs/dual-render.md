@@ -1,6 +1,28 @@
 # Dual-render harness (T26) — per-surface native vs WKWebView
 
 Status: **landed** (T26, 2026-10-24). Owner: `mmios-ios`. Validator: `T26-AV`.
+
+Round **R4a** (T26-R, 2026-10-24): §12 implemented. `RenderMode.paneOwningSurfaces` is the registry
+(both it and `nativeApprovedSurfaces` are empty in shipping, by design); `ViewStore` owns one
+`WKWebView` + one isolated persistent `WKWebsiteDataStore` per server UUID, with
+`ensureStore(for:)` (creates), `view(forServerID:)` (reads only — never resurrects a released pane),
+`release(serverID:)` (destroys, keeps `lastURLs`) and the `mayRelease` truth table;
+`ContentView.WebPaneReopening` is the blocking honest state of the return trip; `PerfProbe` gained
+the `nativeEvicted` arm; `verify-dual-render-gates.sh` gained the pane-ownership subset check.
+Tests: `MattermostTests/ViewStoreTests.swift` (release policy + per-server isolation),
+`MattermostUITests/MattermostUITests.swift::testReleasedPaneReopensWebViewWithSessionAndHonestState`.
+
+Measured on this commit (`bash scripts/perf_probe.sh --skip-build --targets catalyst --modes
+web,shell,native,nativeEvicted --repeat 2 --no-baseline`, run root
+`build/perf-r4a-final/20261024-175054`, all 8 arms green, steady kernel phys_footprint in MiB,
+repeat 1 / repeat 2): `web` 494.2 / 495.7, `native` 281.5 / 280.1, `nativeEvicted` **34.9 / 35.2**,
+`shell` 29.5 / 29.5. The evicted arm sits 5.4–5.7 MiB above the shell floor with
+`tracked_pids.webcontent == []` (§12.6 asked for ≤ shell + 60 MiB), while `native` still carries one
+WebContent (428–445 MB RSS): the per-server webview's memory is returned, not parked. Peak is not the
+number to read for the release: `nativeEvicted`'s peak still contains the WebContent its store spun up
+before release (345.3 / 322.0 MB), exactly as §12.6 predicts. The `web` arm here lands ~12 % below
+T27's published 592.1 MB — the same non-reproduction T27-AV measured (493–527 MB over four re-runs),
+so read the evicted-vs-shell delta (the metric) rather than an absolute web number.
 Code: `Mattermost/Core/RenderMode.swift`, `Mattermost/Core/SurfaceModeResolver.swift`,
 `Mattermost/UI/SurfaceHost.swift`, `Mattermost/UI/UnportedSurfaceView.swift`,
 `Mattermost/UI/SurfaceInspector.swift`.
