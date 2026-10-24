@@ -112,8 +112,16 @@ struct RootView: View {
                       let store = viewStore.view(forServerID: active.id) else { return }
                 if newPhase == .background {
                     store.stopLoading()
-                } else if newPhase == .active, store.url == nil {
-                    store.load(active.url)
+                    // T14: hand the system a BGAppRefreshTask slot for the mention poller
+                    // (fires minutes later while suspended; iOS decides exactly when).
+                    BackgroundRefreshScheduler.scheduleNextRefresh()
+                } else if newPhase == .active {
+                    // Live webviews own mention delivery while active — a scheduled refresh
+                    // (which the OS would only run in the background anyway) is stale.
+                    BackgroundRefreshScheduler.cancelPending()
+                    if store.url == nil {
+                        store.load(active.url)
+                    }
                 }
             }
         }

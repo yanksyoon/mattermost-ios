@@ -50,7 +50,10 @@ struct MattermostApp: App {
         _appSettings = StateObject(wrappedValue: AppSettings())
         _deepLinkRouter = StateObject(wrappedValue: DeepLinkRouter())
         _sessionStore = StateObject(wrappedValue: SessionStore())
-        _notificationWorker = StateObject(wrappedValue: NotificationWorker())
+        // T14: the shell shares ONE NotificationWorker between the foreground bridge path
+        // and the background poller (single UNUserNotificationCenter delegate), so both
+        // routes schedule/tap-route through the same object.
+        _notificationWorker = StateObject(wrappedValue: NotificationWorker.shared)
         // UI-test seam: `-uiTestSeedSelfSignedServer <url>` pre-populates the (fresh) store
         // with one self-signed server so the webview loads it, hits the server-trust
         // challenge, and presents the CertPromptSheet. The add-server form can't reach this
@@ -90,6 +93,12 @@ struct MattermostApp: App {
                     notificationWorker.viewStore = viewStore
                     notificationWorker.activate()
                     sessionStore.observeServerRemovals(from: serverStore)
+
+                    // T14: bind the background mention poller to the live stores. Without
+                    // this (pure background launch) the poller falls back to fresh stores
+                    // over the standard defaults / logged no-ops.
+                    MentionPoller.shared.serverStore = serverStore
+                    MentionPoller.shared.sessionStore = sessionStore
 
                     // SettingsView's download-history Stepper writes `AppSettings`; re-trim the
                     // open journal live so the UI and the persisted cap never diverge.

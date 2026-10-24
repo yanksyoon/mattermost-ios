@@ -83,6 +83,33 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<!--
+		T14 Background App Refresh (Option A notifications). Two plain Info.plist keys —
+		verified against the BackgroundTasks SDK headers and Apple's "Configuring your app
+		for background tasks" documentation they need NO paid Apple capability or
+		entitlement (unlike APNs, which requires a Push Notifications entitlement bound to
+		a paid Apple Developer Program account). They are:
+
+		  UIBackgroundModes = fetch
+		    The classic background-fetch mode; required for BGAppRefreshTask launches
+		    (BGTaskScheduler documents "fetch" as the mode its refresh tasks need).
+
+		  BGTaskSchedulerPermittedIdentifiers = [com.mattermost.ios.refresh]
+		    The task identifier the scheduler is allowed to launch. Must match
+		    BackgroundRefreshScheduler.taskIdentifier exactly; a task whose identifier
+		    is not listed here is silently never launched.
+
+		See docs/t14-build-note.md for the lldb simulation procedure
+		(_simulateLaunchForTaskWithIdentifier:) that exercises the task on the simulator.
+	-->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.mattermost.ios.refresh</string>
+	</array>
+	<!--
 		Sentry DSN (T19a). The Sentry handler reads this key; an empty/missing value means the
 		no-op path: SentrySDK.start is never called (verified by unit test). Set a real DSN
 		here the day the Sentry Cocoa SDK is linked into the target (see SentrySDKLink.swift

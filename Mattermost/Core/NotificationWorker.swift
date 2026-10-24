@@ -26,6 +26,12 @@ import UIKit
 @MainActor
 final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
 
+    /// The one worker the whole shell shares — the foreground bridge path (T8) and the
+    /// T14 background poller both deliver through it. A single `UNUserNotificationCenter`
+    /// delegate means scheduling, badge, and tap-routing behave identically whichever path
+    /// produced the request. `MattermostApp` routes its `@StateObject` through this.
+    static let shared = NotificationWorker()
+
     // MARK: - Outcomes
 
     enum NotSentReason: Equatable {

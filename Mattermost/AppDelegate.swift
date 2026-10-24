@@ -18,6 +18,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         SentryService.shared.start()
         SentryService.shared.addBreadcrumb(category: "app", message: "didFinishLaunching", level: "info")
 
+        // T14: register the BGAppRefreshTask that drives Option-A mention polling. The
+        // handler funnels through MentionPoller, whose stores are bound by MattermostApp.task
+        // (normal launches) or degrade to logged no-ops (pure background launches).
+        // Registering happens exactly once; a second register for the same identifier would
+        // crash, so the scheduler guards itself.
+        BackgroundRefreshScheduler.shared.register { [weak mentionPoller = MentionPoller.shared] in
+            guard let mentionPoller else { return }
+            _ = await mentionPoller.pollAllServers()
+        }
+
         // Remote push registration is intentionally NOT performed here — it requires a Push
         // Proxy (risk R1, Phase 4) and entitlement.
         return true

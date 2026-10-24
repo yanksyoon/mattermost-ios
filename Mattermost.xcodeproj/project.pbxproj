@@ -71,6 +71,9 @@ F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */ = {isa = PBX
 		F40000000000000000000018 /* FallbackSecretStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000040 /* FallbackSecretStoreTests.swift */; };
 		F40000000000000000000019 /* SecureVaultFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000041 /* SecureVaultFallbackTests.swift */; };
 		F4000000000000000000001A /* CertTrustFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000042 /* CertTrustFallbackTests.swift */; };
+		F30000000000000000000028 /* BackgroundRefreshScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000043 /* BackgroundRefreshScheduler.swift */; };
+		F30000000000000000000029 /* MentionPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000044 /* MentionPoller.swift */; };
+		F4000000000000000000001B /* MentionPollerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000045 /* MentionPollerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -160,6 +163,9 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 		F20000000000000000000040 /* FallbackSecretStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FallbackSecretStoreTests.swift; sourceTree = "<group>"; };
 		F20000000000000000000041 /* SecureVaultFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureVaultFallbackTests.swift; sourceTree = "<group>"; };
 		F20000000000000000000042 /* CertTrustFallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertTrustFallbackTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000043 /* BackgroundRefreshScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRefreshScheduler.swift; sourceTree = "<group>"; };
+		F20000000000000000000044 /* MentionPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentionPoller.swift; sourceTree = "<group>"; };
+		F20000000000000000000045 /* MentionPollerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentionPollerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -251,6 +257,8 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */ = {isa = PBXFileReferen
 				F2000000000000000000003C /* SentrySDKLink.swift */,
 				F2000000000000000000003D /* SecretStore.swift */,
 				F2000000000000000000003E /* EncryptedFileSecretStore.swift */,
+				F20000000000000000000043 /* BackgroundRefreshScheduler.swift */,
+				F20000000000000000000044 /* MentionPoller.swift */,
 				);
 				path = Core;
 				sourceTree = "<group>";
@@ -306,6 +314,7 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				F20000000000000000000040 /* FallbackSecretStoreTests.swift */,
 				F20000000000000000000041 /* SecureVaultFallbackTests.swift */,
 				F20000000000000000000042 /* CertTrustFallbackTests.swift */,
+				F20000000000000000000045 /* MentionPollerTests.swift */,
 				);
 				path = MattermostTests;
 				sourceTree = "<group>";
@@ -477,6 +486,8 @@ F20000000000000000000031 /* CertTrustDebugTests.swift */,
 				F30000000000000000000025 /* SentrySDKLink.swift in Sources */,
 				F30000000000000000000026 /* SecretStore.swift in Sources */,
 				F30000000000000000000027 /* EncryptedFileSecretStore.swift in Sources */,
+				F30000000000000000000028 /* BackgroundRefreshScheduler.swift in Sources */,
+				F30000000000000000000029 /* MentionPoller.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 				};
@@ -508,6 +519,7 @@ F40000000000000000000010 /* CertTrustDebugTests.swift in Sources */,
 				F40000000000000000000018 /* FallbackSecretStoreTests.swift in Sources */,
 				F40000000000000000000019 /* SecureVaultFallbackTests.swift in Sources */,
 				F4000000000000000000001A /* CertTrustFallbackTests.swift in Sources */,
+				F4000000000000000000001B /* MentionPollerTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 				};
