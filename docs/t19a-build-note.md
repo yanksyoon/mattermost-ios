@@ -155,43 +155,97 @@ New unit tests added (2 files):
 These exercise the acceptance-listed behaviors: step enumeration, connectivity against
 localhost, report assembly, Sentry no-op, SDK-start guard.
 
-## 5. Not verified here — environment blocker (host issue, not code)
+## 5. Verification — COMPLETED 2026-10-24 (was blocked 2026-10-23)
 
-`xcodebuild` REQUIRES the CoreSimulator bootstrap, which this sandboxed worker cannot
-reach (it was reachable for T18 at 14:59 and is broken since ~15:00):
+On 2026-10-23 the CoreSimulator bootstrap was unreachable from the sandboxed worker
+(full error transcript below), so `xcodebuild` build/test could not execute here. That
+was an environment wall, not code, and it has since cleared. On 2026-10-24 a
+non-sandboxed session at Xcode 26.6 (17F113) ran the real xcodebuild build + tests.
+**`BUILD SUCCEEDED` and `TEST SUCCEEDED` are now claimed with evidence below.**
 
-- `xcrun simctl list devices booted` →
-  `Unable to lookup com.apple.CoreSimulator.CoreSimulatorService (1051.55) in the
-  bootstrap. ... Connection refused ... This can happen if running with a sandbox profile.`
-- `xcodebuild -project Mattermost.xcodeproj -scheme Mattermost -destination
-  'generic/platform=iOS Simulator' build` → `Abort trap: 6` (exit 134); crash report
-  `/Library/Logs/DiagnosticReports/xcodebuild-2026-10-23-151954.ips` shows the fault in
-  `xpc_add_bundle` while DVT loads the CoreSimulator locator plugin. Same abort for
-  `generic/platform=macOS` and for `Sentry.xcodeproj -list`.
-- `launchctl print gui/501` → `141: Reentrancy avoided` (bootstrap namespace unreachable
-  from this context).
+### 2026-10-23 environment wall (historical — resolved)
+- `xcrun simctl list devices booted` → `Unable to lookup
+  com.apple.CoreSimulator.CoreSimulatorService (1051.55) ... Connection refused ...
+  This can happen if running with a sandbox profile.`
+- `xcodebuild ... build` → `Abort trap: 6` (exit 134); crash report
+  `/Library/Logs/DiagnosticReports/xcodebuild-2026-10-23-151954.ips` (xpc_add_bundle
+  during DVT CoreSimulator locator plugin load).
+- `launchctl print gui/501` → `141: Reentrancy avoided`.
 
-**Consequently: `BUILD SUCCEEDED` (xcodebuild) and the test RUN (xcodebuild test) are NOT
-claimed — they are blocked. Nothing in this note should be read as a simulator build or a
-test run.**
+### 2026-10-24 verification run (exact commands + real counts)
+Host: Xcode 26.6 (17F113). Repo root: `/Users/yangsooyoon/Documents/yanks/code/mattermost-ios`.
+Private derived-data path `build/ddata-t19a` (no clobber of any concurrent build). iPad
+simulator `81A7F251-8B31-4945-8783-5A264C14B8D5` (T18 device id) was Booted.
 
-To finish verification once the simulator service is reachable again (open Simulator.app
-from a GUI session, or reboot/login), run exactly:
+Unit tests, Mac Catalyst destination:
 
 ```
-cd /Users/yangsooyoon/mattermost-ios
-xcrun simctl boot "iPhone 16 Pro" || true     # T18 device id 81A7F251-8B31-4945-8783-5A264C14B8D5
-xcodebuild -project Mattermost.xcodeproj -scheme Mattermost -configuration Debug \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
-  -derivedDataPath build/DerivedData-t19a build        # expect: ** BUILD SUCCEEDED **
-xcodebuild -project Mattermost.xcodeproj -scheme Mattermost \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
-  -derivedDataPath build/DerivedData-t19a test          # expect: ** TEST SUCCEEDED ** + counts
-bash scripts/verify-release-gate.sh build/DerivedData-t19a/Build/Products/Debug-iphonesimulator/Mattermost.app
+xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
+  -destination 'platform=macOS,variant=Mac Catalyst' \
+  -derivedDataPath build/ddata-t19a -only-testing:MattermostTests
+  -> ** TEST SUCCEEDED ** (exit 0)
 ```
 
-Expected suite deltas vs the T17/T18 baseline (220 unit / 6 UI): +15 diagnostics tests,
-+4 Sentry tests → 239 unit / 6 UI.
+Log: `build/ddata-t19a-test.log`; xcresult:
+`build/ddata-t19a/Logs/Test/Test-Mattermost-2026.10.24_11-27-14-+0800.xcresult`.
+
+UI tests, iOS Simulator (requires the local stub servers, see below):
+
+```
+xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
+  -destination 'platform=iOS Simulator,id=81A7F251-8B31-4945-8783-5A264C14B8D5' \
+  -derivedDataPath build/ddata-t19a -only-testing:MattermostUITests
+  -> ** TEST SUCCEEDED ** (exit 0)
+```
+
+Log: `build/ddata-t19a-uitest.log`; xcresult:
+`build/ddata-t19a/Logs/Test/Test-Mattermost-2026.10.24_11-28-25-+0800.xcresult`.
+
+### Real test counts (differ from the 239/6 expectation — reported, not assumed)
+The note originally expected **239 unit / 6 UI** (T17/T18 baseline 220 unit / 6 UI,
++15 diagnostics, +4 Sentry). The actual tree at HEAD `c54e594` (T14 landed since, plus
+the T19a files) has more tests than that expectation; the real counts are:
+
+| bundle | suite | executed | skipped | failed |
+|--------|-------|----------|---------|--------|
+| MattermostTests (unit) | all | **312** | 1 | 0 |
+|  — includes DiagnosticsTests | | 25 | 0 | 0 |
+|  — includes SentryServiceTests | | 11 | 0 | 0 |
+| MattermostUITests (UI) | all tests | **7** | 1 | 0 |
+
+- Unit: `Executed 312 tests, with 1 test skipped and 0 failures ... ** TEST SUCCEEDED **`.
+- The 1 skipped unit test is the live mention-poll test
+  (`MentionPollerTests.testLiveMentionsFetch_optIn`; needs
+  `TEST_RUNNER_MM_LIVE_URL`/`TEST_RUNNER_MM_LIVE_TOKEN` — network-gated by design).
+- UI: `Executed 7 tests, with 1 test skipped and 0 failures ... ** TEST SUCCEEDED **`.
+  The 1 skipped is the network-gated live-SSO test
+  (`testSSOReachesIdentityProviderWithoutCertificatePrompt`; needs
+  `TEST_RUNNER_MM_LIVE_SSO_URL`).
+- **The Diagnostics/Sentry ported suites specifically:** DiagnosticsTests executed 25
+  tests, SentryServiceTests 11 (36 total, 0 failures) — these exceed the note's earlier
+  "15 + 4" figure because the committed test files grew to 25 and 11 test funcs
+  respectively (verified by `grep -cE 'func test'` on both files at HEAD `c54e594`).
+
+### UI-test stub server prerequisite (must be running, or UI fails)
+The UI suite's determinism depends on two local stub Mattermost servers
+(`build/uitest-server/mm_stub.py`). If they are not listening, flows that validate a URL
+("Save enables only after the stub validates the URL") time out — first UI attempt here
+that ran without the stubs produced **5 failures** for exactly that reason. Start them,
+then re-run (the run above was done with both up):
+
+```
+python3 build/uitest-server/mm_stub.py --port 8111 --name "Local Mattermost Test"   # http 127.0.0.1:8111
+python3 build/uitest-server/mm_stub.py --port 8443 --tls cert.pem,key.pem --name "Self Signed Test"  # https 127.0.0.1:8443
+```
+
+Release gate:
+
+```
+bash scripts/verify-release-gate.sh   -> two calls: RESULT: PASS — release gate satisfied.
+```
+
+Built product confirmed present:
+`build/ddata-t19a/Build/Products/Debug-maccatalyst/Mattermost.app`.
 
 ## 6. Unverified / out of scope (stated, never asserted)
 
