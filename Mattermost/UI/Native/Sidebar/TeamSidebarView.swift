@@ -231,6 +231,10 @@ struct TeamIconButton: View {
 
 /// Zero teams. Upstream `select_team/no_teams.tsx` copy, with a retry (a list can be empty because
 /// the request failed, and the rail is the only place the user could notice).
+///
+/// T32-R: this screen *replaces* the channel list, so it also carries the pane's
+/// `NativeSidebarAnchorRow` — the pane keeps naming its server, and `nativeSidebar` stays resolvable
+/// in the state (F2's "every content state").
 struct TeamSidebarEmptyState: View {
     let server: ServerConfig
     @ObservedObject var model: TeamSwitchViewModel
@@ -238,6 +242,12 @@ struct TeamSidebarEmptyState: View {
 
     var body: some View {
         List {
+            Section {
+                NativeSidebarAnchorRow(server: server)
+            } header: {
+                Text("Workspace")
+            }
+
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 10) {
@@ -280,8 +290,13 @@ struct TeamSidebarEmptyState: View {
                 .accessibilityIdentifier("revertToWeb\(SurfaceDefaults.paneHostSurface.rawValue)")
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("teamSidebar.emptyState")
+        // T32-R (F3): **no** `teamSidebar.emptyState` on this `List`. A list's own identifier does
+        // not reach the accessibility tree once a container above it is identified — this pane's
+        // `nativeTeamSidebar` wrapper takes it — which is why the T32-AV probe's `emptyState`
+        // assertion could never match while the inner elements did. The identifiers that resolve for
+        // this state are `nativeTeamSidebar` (the region), `nativeSidebar` (the anchor row),
+        // `teamSidebar.empty` (the copy) and `teamSidebar.retry`; they are the ones the build note and
+        // the parity row name, and `T32-SidebarIdentifiersTests` asserts them.
     }
 }
 
@@ -294,6 +309,12 @@ struct TeamSidebarFailureState: View {
 
     var body: some View {
         List {
+            Section {
+                NativeSidebarAnchorRow(server: server)
+            } header: {
+                Text("Workspace")
+            }
+
             Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Could not load your teams", systemImage: "exclamationmark.triangle")
@@ -321,8 +342,9 @@ struct TeamSidebarFailureState: View {
                 .accessibilityIdentifier("revertToWeb\(SurfaceDefaults.paneHostSurface.rawValue)")
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("teamSidebar.errorState")
+        // T32-R (F3): no `teamSidebar.errorState` on the `List`, for the same reason the empty state
+        // has none — the resolving identifiers are `nativeTeamSidebar`, `nativeSidebar`,
+        // `teamSidebar.error` and `teamSidebar.retry`.
     }
 }
 

@@ -1287,10 +1287,20 @@ final class MattermostUITests: XCTestCase {
         XCTAssertEqual(current.label, "Perf",
                        "teams_order says perf first, so that is the team the shell opens on")
 
-        // 2. The badge is the server's number (ops = 2 mentions from the seed), and the team that is
-        // already current draws none.
-        XCTAssertTrue((ops.value as? String ?? "").contains("2"),
-                      "ops must carry the server's mention count, got '\(ops.value ?? "nil")'")
+        // 2. The badge is the server's number, and the team that is already current draws none.
+        //
+        // The expected number is read from the server, not hard-coded: mentions *accumulate* in this
+        // throwaway fixture (any later probe that posts an @-mention into `ops-standup` moves the
+        // count), and a hard-coded 2 turned that into a false failure during the T32-R repair — the
+        // rail was right and the test was stale (docs/t32r-repair-note.md §3.5).
+        let serverMentions = try self.serverMentions(server: url, login: login,
+                                                     password: password, teamName: "ops")
+        let expectedBadge = serverMentions == 1
+            ? "1 mention"
+            : (serverMentions > 99 ? "more than 99 mentions" : "\(serverMentions) mentions")
+        XCTAssertTrue((ops.value as? String ?? "").contains(expectedBadge),
+                      "ops must carry the server's own mention count (\(serverMentions)), "
+                      + "got '\(ops.value ?? "nil")'")
         XCTAssertTrue((perf.value as? String ?? "").contains("Current team"),
                       "the selected team must say so, got '\(perf.value ?? "nil")'")
         attachShot(app, named: "t32-01-rail-two-teams")
@@ -1307,5 +1317,63 @@ final class MattermostUITests: XCTestCase {
         XCTAssertTrue(waitUntil(timeout: 20) { current.exists && current.label == "Perf" },
                       "switching back must return to Perf, got '\(current.label)'")
         attachShot(app, named: "t32-03-switched-back-to-perf")
+    }
+
+    // MARK: - Live-server read-outs (T32)
+
+    /// The server's own mention count for one team, read with the same fixture credentials the test
+    /// signs in with.
+    ///
+    /// Why the test asks instead of hard-coding: the fixture's mentions *accumulate* — a later probe
+    /// posting an @-mention into the seeded channel moves the count — so a literal number in the
+    /// assertion (T32 shipped `contains("2")`) starts failing for the fixture's history rather than
+    /// for the app. Reads `/users/me/teams` then `/users/me/teams/unread`, i.e. the two endpoints the
+    /// rail itself uses.
+    private func serverMentions(server: URL, login: String, password: String,
+                                teamName: String) throws -> Int {
+        let (_, loginResponse) = try restRequest(server.appendingPathComponent("api/v4/users/login"),
+                                                method: "POST",
+                                                body: ["login_id": login, "password": password])
+        guard loginResponse.statusCode == 200,
+              let token = loginResponse.value(forHTTPHeaderField: "Token") else {
+            throw XCTSkip("the live server did not issue a token for the fixture account")
+        }
+        let (teamsData, _) = try restRequest(server.appendingPathComponent("api/v4/users/me/teams"),
+                                             token: token)
+        let teams = (try? JSONSerialization.jsonObject(with: teamsData)) as? [[String: Any]] ?? []
+        guard let teamID = teams.first(where: { ($0["name"] as? String) == teamName })?["id"] as? String
+        else { throw XCTSkip("the fixture server has no team named \(teamName)") }
+        let (unreadData, _) = try restRequest(
+            server.appendingPathComponent("api/v4/users/me/teams/unread"), token: token)
+        let unread = (try? JSONSerialization.jsonObject(with: unreadData)) as? [[String: Any]] ?? []
+        return unread.first(where: { ($0["team_id"] as? String) == teamID })?["mention_count"] as? Int ?? 0
+    }
+
+    /// One synchronous REST call (XCTest has no async seams in this file; a semaphore is enough for a
+    /// local read-out).
+    private func restRequest(_ url: URL, method: String = "GET", token: String? = nil,
+                             body: [String: Any]? = nil) throws -> (Data, HTTPURLResponse) {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = 20
+        if let token { request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        }
+        let done = DispatchSemaphore(value: 0)
+        var data = Data()
+        var http: HTTPURLResponse?
+        var failure: Error?
+        URLSession.shared.dataTask(with: request) { payload, response, error in
+            data = payload ?? Data()
+            http = response as? HTTPURLResponse
+            failure = error
+            done.signal()
+        }.resume()
+        _ = done.wait(timeout: .now() + 25)
+        if let failure { throw failure }
+        guard let http else { throw XCTSkip("no answer from \(url.absoluteString)") }
+        return (data, http)
     }
 }

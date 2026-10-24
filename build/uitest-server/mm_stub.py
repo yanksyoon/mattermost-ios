@@ -12,6 +12,12 @@ webview-downloadable file so the Downloads flow has a real landed file.
 Run (HTTP):    python3 mm_stub.py --port 8065
 Run (TLS):     python3 mm_stub.py --port 8443 --tls cert.pem key.pem
 Run (slow):    python3 mm_stub.py --port 8112 --stall-image 45
+Run (T32 sidebar states, T32-R):
+  one team  →  python3 mm_stub.py --port 8111                     (default: --teams 1, no rail)
+  no teams  →  python3 mm_stub.py --port 8116 --teams 0           (the rail's empty state)
+  2 teams   →  python3 mm_stub.py --port 8117 --teams 2           (the rail)
+  loading   →  python3 mm_stub.py --port 8118 --teams-delay 8     (pane's loading state)
+  failed    →  python3 mm_stub.py --port 8119 --teams-fail        (the rail's failure state)
 
 `--stall-image SECONDS` serves `GET /` as a normal page (delivered whole, so WKWebView commits it)
 whose `<img src="/slow.png">` is trickled across SECONDS, and gates a `Sign in` button on that
@@ -38,6 +44,25 @@ USER = {
     "last_name": "User",
     "nickname": "stub",
 }
+
+
+def stub_teams(count: int) -> list:
+    """`count` deterministic teams for the sidebar fixtures (T32-R).
+
+    Display names are `Stub Team 1..N` so a test can tell which team is current, and
+    `last_team_icon_update` is omitted — the same shape a real server sends for a team with no
+    uploaded icon (the tolerant `MMTeam` decoder handles it, and no icon request is made).
+    """
+    return [
+        {
+            "id": f"stubteam{i:01d}000000000000000000{i:01d}",
+            "name": f"stub-team-{i}",
+            "display_name": f"Stub Team {i}",
+            "type": "O",
+            "delete_at": 0,
+        }
+        for i in range(1, count + 1)
+    ]
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -175,6 +200,34 @@ class Handler(BaseHTTPRequestHandler):
             }))
         if path == "/api/v4/system/ping":
             return self._send(200, json.dumps({"status": "OK"}))
+        # --- T32-R: the team rail fixtures -------------------------------------------------------
+        # `--teams N` decides how many teams `/users/me/teams` answers with, so the three content
+        # states of the sidebar pane (one team = no rail, zero teams = the empty state, 2+ = the
+        # rail) can be reached deterministically without a real server. `--teams-fail` and
+        # `--teams-delay` drive the failure and loading states.
+        if path == "/api/v4/users/me/teams":
+            if getattr(self.server, "teams_fail", False):
+                return self._send(500, json.dumps({
+                    "id": "api.context.internal_error",
+                    "message": "Teams are unavailable in this fixture",
+                    "status_code": 500,
+                }))
+            delay = getattr(self.server, "teams_delay", 0.0)
+            if delay > 0:
+                time.sleep(delay)
+            return self._send(200, json.dumps(stub_teams(getattr(self.server, "teams", 1))))
+        if path == "/api/v4/users/me/teams/members":
+            count = getattr(self.server, "teams", 1)
+            return self._send(200, json.dumps([
+                {"user_id": USER["id"], "team_id": team["id"], "roles": "team_user", "delete_at": 0}
+                for team in stub_teams(count)
+            ]))
+        if path == "/api/v4/users/me/teams/unread":
+            return self._send(200, json.dumps([]))
+        if path.startswith("/api/v4/users/") and path.endswith("/preferences"):
+            # `teams_order` is a preference; the empty list means "sort alphabetically", which is
+            # what a fixture with distinguishable display names needs.
+            return self._send(200, json.dumps([]))
         if path == "/api/v4/config/client":
             return self._send(200, json.dumps({
                 "Version": "6.4.0",
@@ -249,11 +302,18 @@ class StubStallServer(ThreadingHTTPServer):
     stall_image = 0.0
     cookie_session = 0.0
     session_invalid = False
+    # T32-R sidebar fixtures (see `--teams` / `--teams-fail` / `--teams-delay`).
+    teams = 1
+    teams_fail = False
+    teams_delay = 0.0
 
 
 class StubServer(HTTPServer):
     """The plain stub. Carries the T31 `--session-invalid` switch as a real attribute."""
     session_invalid = False
+    teams = 1
+    teams_fail = False
+    teams_delay = 0.0
 
 
 def main():
@@ -271,6 +331,15 @@ def main():
     ap.add_argument("--session-invalid", action="store_true",
                     help="answer GET /api/v4/users/me with 401 api.context.session_expired "
                          "(T31 re-auth banner fixture)")
+    # T32-R: the sidebar pane's content states, reachable without a real server.
+    ap.add_argument("--teams", type=int, default=1,
+                    help="how many teams GET /api/v4/users/me/teams answers with (default 1: the "
+                         "one-team pane, no rail; 0: the empty state; 2+: the rail)")
+    ap.add_argument("--teams-fail", action="store_true",
+                    help="answer the teams endpoint with 500 (the rail's failure state)")
+    ap.add_argument("--teams-delay", type=float, default=0.0,
+                    help="stall the teams endpoint this many seconds, so the pane's loading state "
+                         "is observable (threaded server)")
     args = ap.parse_args()
     global SITE_NAME
     SITE_NAME = args.name
@@ -282,9 +351,14 @@ def main():
     elif args.cookie_session > 0:
         srv = StubStallServer(("127.0.0.1", args.port), Handler)
         srv.cookie_session = args.cookie_session
+    elif args.teams_delay > 0:
+        srv = StubStallServer(("127.0.0.1", args.port), Handler)
     else:
         srv = StubServer(("127.0.0.1", args.port), Handler)
     srv.session_invalid = bool(args.session_invalid)
+    srv.teams = args.teams
+    srv.teams_fail = bool(args.teams_fail)
+    srv.teams_delay = args.teams_delay
     if args.tls:
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         certfile, keyfile = args.tls.split(",")

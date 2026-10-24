@@ -56,7 +56,7 @@ struct NativeChannelSidebarPane: View {
     private var sidebarList: some View {
         List {
             Section {
-                row(server.name, systemImage: "server.rack")
+                NativeSidebarAnchorRow(server: server)
                 if location?.teamName != nil || location?.teamID != nil {
                     row(teamTitle(name: location?.teamName, id: location?.teamID) ?? "", systemImage: "person.3")
                         // T32: the one stable read-out of "which team is current" for a UI test and
@@ -121,7 +121,17 @@ struct NativeChannelSidebarPane: View {
                     .font(.footnote)
             }
         }
-        .accessibilityIdentifier("nativeSidebar")
+        // T32-R (F2): the identifier deliberately does **not** sit on this `List`.
+        //
+        // `nativeSidebar` used to be the `List`'s own identifier, and `NativeTeamSidebarPane` wraps
+        // this list in `.accessibilityElement(children: .contain)` + `nativeTeamSidebar`. When the
+        // wrapper's subtree resolves to a single element — the one-team and loading states, where
+        // the rail is not built — SwiftUI applies the wrapper's identifier to the child, so
+        // `nativeSidebar` vanished exactly where the shipped T30 assertion needs it
+        // (`MattermostUITests.swift`: "the shell's sidebar hosts the channel list placeholder").
+        // The identifier now lives on `NativeSidebarAnchorRow`, which is a *leaf* (a row), present in
+        // every state of the pane including the team region's own empty/failure screens, so no
+        // container wrapper can shadow it.
     }
 
     /// The current team as a human reads it. `NativeLocation.teamName` carries the team's URL name
@@ -150,6 +160,39 @@ struct NativeChannelSidebarPane: View {
         // DMs/GMs have no `#`; the shell cannot tell yet (no channel-type data), so it says so
         // honestly by only using `#` for named public-looking channels.
         (location.channelName?.contains("__") ?? false) ? "person.crop.circle" : "number"
+    }
+}
+
+// MARK: - The pane's anchor row
+
+/// The sidebar pane's **anchor row**: the server this pane belongs to, and the element that carries
+/// the pane's `nativeSidebar` identifier.
+///
+/// Why a row and not the pane/`List` (T32-R, F2): the team region wraps the pane in a container
+/// identified `nativeTeamSidebar`, and SwiftUI gives a container's identifier to its child whenever
+/// the subtree resolves to a single element — which is exactly the one-team and loading states (no
+/// rail) and the team region's empty/failure screens (no channel list). A *leaf* keeps its own
+/// identifier no matter what wraps it, so `nativeSidebar` is resolvable in every state of the pane,
+/// with the `sidebar` flag off (this row is inside T30's list) and on (the team region draws it in
+/// the states that replace the list). `MattermostUITests.swift`'s shipped assertion and
+/// `T32-SidebarIdentifiersTests` both depend on that.
+struct NativeSidebarAnchorRow: View {
+    let server: ServerConfig
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "server.rack")
+                .foregroundStyle(.secondary)
+                // Decorative: the combined element's label must read "Local Mattermost", not
+                // "server.rack, Local Mattermost" (an SF Symbol with no explicit label is named by
+                // its symbol name).
+                .accessibilityHidden(true)
+            Text(server.name)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("nativeSidebar")
     }
 }
 

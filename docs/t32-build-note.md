@@ -186,6 +186,22 @@ Screenshots (iPad, light): `docs/t32-shots/t32-01-rail-two-teams.png`,
    which would have removed `nativeSidebar` from the accessibility tree mid-load and broken earlier UI
    tests. Now the pane's T30 content is always drawn; only a *definitive* empty/failed answer replaces
    it.
+8. **T32-R correction to #7 (F2, T32-AV): "always drawn" was necessary but not sufficient.** The
+   content was drawn, but T32's own wrapper handed its identifier to the content: with
+   `sidebar=native` and a **one-team** account the pane has a single child, so SwiftUI applied
+   `NativeTeamSidebarPane`'s `.accessibilityElement(children: .contain)` +
+   `.accessibilityIdentifier("nativeTeamSidebar")` to that child (a `CollectionView`) and the
+   `List`'s own `nativeSidebar` identifier disappeared — exactly the state (one team, and the
+   loading state, which also has no rail) where `MattermostUITests`' shipped T30 assertion looks for
+   it. Reproduced A/B by T32-AV (their AVR5) and again here with `docs/t32r-repair-note.md`'s
+   fixtures. The empty/failure screens had no pane identifier at all.
+9. **The empty/failure screens' container identifiers never reached the tree** (T32-AV F3):
+   `teamSidebar.emptyState` / `teamSidebar.errorState` sat on `List`s inside the team region's
+   identified container and were never queryable, while the inner `teamSidebar.empty` /
+   `teamSidebar.error` / `teamSidebar.retry` were. Removed rather than moved: the docs and the
+   parity row now name the identifiers that actually resolve.
+
+The repair for 8 and 9 is §14; the `docs/THIRD_PARTY_NOTICES.md` gap T32-AV raised as F1 is §9 there.
 
 ## 9. Tests added
 
@@ -206,6 +222,11 @@ Screenshots (iPad, light): `docs/t32-shots/t32-01-rail-two-teams.png`,
 
 `MattermostUITests/MattermostUITests.swift` — +1 live test
 (`testRealServerTeamRailShowsBothTeamsAndSwitchesBetweenThem`).
+
+T32-R (repair, §14) — `MattermostUITests/T32-SidebarIdentifiersTests.swift`: 6 stub-backed UI tests,
+one per content state plus the `sidebar=web` control, pinning the identifier contract in §14.1
+(they fail on `108377a` and pass after the repair). Run them with
+`bash scripts/t32r-sidebar-identifiers.sh`.
 
 ## 10. Decisions worth knowing
 
@@ -247,6 +268,13 @@ Modified: `Mattermost/Core/MM/MMEndpoints.swift`, `Mattermost/Core/MM/MMTypes.sw
 `Mattermost/UI/Native/NativePanePlaceholders.swift`, `Mattermost/MattermostApp.swift`,
 `MattermostUITests/MattermostUITests.swift`.
 
+T32-R (repair, §14) — new: `MattermostUITests/T32-SidebarIdentifiersTests.swift`,
+`scripts/t32r-sidebar-identifiers.sh`, `docs/t32r-repair-note.md`; modified:
+`Mattermost/UI/Native/NativePanePlaceholders.swift` (`NativeSidebarAnchorRow`),
+`Mattermost/UI/Native/Sidebar/TeamSidebarView.swift` (empty/failure screens + the identifiers that
+resolve), `build/uitest-server/mm_stub.py` (team fixtures), `docs/THIRD_PARTY_NOTICES.md` §9,
+`docs/parity.md`, this note.
+
 ## 13. Reproduce
 
 ```sh
@@ -268,3 +296,76 @@ python3 scripts/qa-test.py --platform ios --sim DC3E9FB7-E4A0-4B24-8DBB-7960A059
 Note: UI tests cannot run on **Mac Catalyst** on this host — the UI-test target's
 `MACOSX_DEPLOYMENT_TARGET` (26.5, inherited from the SDK) is newer than macOS 26.3.1. That is
 pre-existing and unrelated to this card; the iOS simulator destination is the supported one.
+
+## 14. T32-R — the T32-AV repair (F1/F2/F3)
+
+T32-AV returned **PASS-WITH-FINDINGS** on `108377a` and did not approve the `sidebar` flip. This
+section records what the repair changed and what the audit added; the full evidence, commands and
+transcripts are in `docs/t32r-repair-note.md` and the AV's verdict (attached to the review card).
+
+### 14.1 The identifier contract after the repair
+
+The pane exposes **two** stable identifiers, and both now resolve in every content state:
+
+| Identifier | Names | Resolves |
+|---|---|---|
+| `nativeSidebar` | the pane itself (its anchor row: the server the pane belongs to) | every state, `sidebar=web` and `sidebar=native` |
+| `nativeTeamSidebar` | T32's team region | every state with `sidebar=native` (must **not** exist with `sidebar=web`) |
+
+The state screens are addressed by the identifiers that actually resolve:
+
+| State | Identifiers |
+|---|---|
+| loading | `nativeSidebar`, `nativeTeamSidebar` (the pane content is drawn, never blanked) |
+| one team (no rail) | `nativeSidebar`, `nativeTeamSidebar`, `sidebarCurrentTeam` |
+| rail (2+ teams) | `nativeSidebar`, `nativeTeamSidebar`, `teamSidebar.rail`, `teamSidebar.team.<id>` |
+| zero teams | `nativeSidebar`, `nativeTeamSidebar`, `teamSidebar.empty`, `teamSidebar.retry` |
+| load failed | `nativeSidebar`, `nativeTeamSidebar`, `teamSidebar.error`, `teamSidebar.retry` |
+
+`teamSidebar.emptyState` and `teamSidebar.errorState` are **gone**: they sat on `List`s inside the
+identified team region and could never reach the accessibility tree (F3). Moving them would only
+rename a dead identifier, so the container form was dropped and the table above is the contract.
+
+### 14.2 What changed
+
+- **F2** — `nativeSidebar` moved from the pane's `List` to a leaf row (`NativeSidebarAnchorRow`), and
+  that row is now drawn by the team region's empty and failure screens as well. A leaf keeps its
+  identifier no matter which container wraps it, so the one-team and loading states stop losing it.
+  The empty/failure screens therefore also name their server (`Workspace` section), which is a fact
+  the pane always has.
+- **F3** — the dead container identifiers were removed; the build note and the parity row now name the
+  identifiers that resolve, and `T32-SidebarIdentifiersTests` asserts each state is reachable.
+- **F1** — `docs/THIRD_PARTY_NOTICES.md` §9 records T32's upstream read set (the same shape as §5–§8).
+- **Tests** — `MattermostUITests/T32-SidebarIdentifiersTests.swift`: six UI tests, one per content
+  state plus the flag-off control, run against deterministic stubs
+  (`scripts/t32r-sidebar-identifiers.sh` starts them; `build/uitest-server/mm_stub.py` gained
+  `--teams/--teams-delay/--teams-fail` and the `/users/me/teams*` endpoints).
+
+### 14.3 What T32-AV closed, and what stays a limit
+
+Closed by the audit (the implementer had listed these as untested, and they now have real-server
+evidence — throwaway accounts, not fixtures):
+
+- a **real 0-team account** reaches the empty state with upstream's copy, a retry and the web-view
+  escape hatch, and gets no rail (their AVR2);
+- a **real 1-team account** gets no rail, the correct current team and the pane's rows (their AVR3) —
+  this is the state F2 broke, and it is now pinned by a stub test that fails on `108377a`.
+
+Confirmed by the audit, and still limits rather than defects:
+
+- **"Exactly one WebSocket" is not observable on this host.** The code holds one `SocketClient` and
+  one pump task per server id, and the unit test pins `subscriptionCount == 1` / `connectCount == 1`
+  for ten rapid switches, but `/proc/net/tcp` inside the server container cannot separate WebSocket
+  connections from HTTP keep-alive (and the count grows per launch as `URLSession` pools). What the
+  sampling does show: the count went flat across ten switches, i.e. switching opened no new
+  connections. Recorded as evidence for the claim, not proof of "exactly one".
+- **`channelTeams` has no writer anywhere in the tree** (`grep -rn channelTeams Mattermost/` finds only
+  `TeamSocketScope.swift`). With a team selected and no channel open, `TeamSocketScope.accepts()`
+  therefore matches only via `activeChannelID`, and on a team root that is `nil` — so *every*
+  channel-scoped event is refused (counted in `refusedEventCount`) until T33 fills the directory.
+  What that does **not** break: the per-team counter refresh is driven by the post events *before*
+  the scope check (`TeamSidebarCoordinator.handle`), which is why the rail's badge did move live in
+  T32-AV's AVR1. What it does mean: the refusal path has no live consumer to observe until T34, and
+  the scope's `channelTeams` branch (`channelTeams[channelID] == teamID`) is unit-tested only.
+- The rest of §11 stands unchanged (no channel list yet, no team-list refresh on `team_*` events,
+  `teams_order` read-only, reactions refused, memory-only icon cache).

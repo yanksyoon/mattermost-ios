@@ -162,3 +162,31 @@ Reimplementation notes that matter for the licence boundary: the Swift machines
 the existing `AuthSession`/`SecureVault`/`CertTrust` types, not translated from RN reducers; error
 copy is either the **server's own message** or a Mattermost sentence re-worded in our own file, and
 SF Symbols replace every `compass-icons` glyph, so no icon font or extra NOTICE entry is added.
+
+## 9. T32 native team sidebar — upstream read set (Apache-2.0, mobile @ `v2.45.0`)
+
+T32 (`Mattermost/UI/Native/Sidebar/`, `docs/t32-build-note.md`) reimplements the **team rail, team
+switching and the zero-team screen** in SwiftUI, and reads the mobile pin's team-unread and
+`teams_order` rules. No upstream file is copied or transpiled: the RN sources are TypeScript, and
+none of their code, strings or styles are reproduced verbatim. They were read at the pin
+`162f2560d0e1df073220f7701d5a67cc17c8abeb` to fix the rules the acceptance criteria name:
+
+| Upstream path (`mattermost/mattermost-mobile` @ `162f2560d0e1df073220f7701d5a67cc17c8abeb`) | Used for |
+|---|---|
+| `app/components/team_sidebar/team_sidebar.tsx` | the rail as a fixed-width column beside the channel list, collapsed to 0 width when the user has one team, list growing from the top |
+| `app/components/team_sidebar/team_list/team_list.tsx`, `team_list/index.ts` | one scrollable column of items, and `myOrderedTeams` (the `teams_order` preference first, display name after) |
+| `app/components/team_sidebar/team_list/team_item/team_item.tsx` | the item: selected ring, badge precedence (mentions → unread dot → none), no badge on the selected team |
+| `app/components/team_sidebar/team_list/team_item/team_icon.tsx` | rounded icon tile, display-name initials when there is no uploaded icon, `/teams/{id}/image?_{last_team_icon_update}` |
+| `app/actions/remote/team.ts` (`handleTeamChange`) | a tap on the current team is a no-op; otherwise the current team changes and the current channel is cleared |
+| `app/client/rest/teams.ts` | `getMyTeams` (`/users/me/teams`), `getMyTeamMembers` (`/users/me/teams/members`), the team-icon URL |
+| `app/constants/preferences.ts` (`TEAMS_ORDER`) | the preference category that decides rail order (read only — this card does not write it) |
+| `app/screens/select_team/no_teams.tsx` | the zero-team state: its copy and the actions it offers |
+
+Reimplementation notes that matter for the licence boundary: the Swift types
+(`TeamSidebarDerivation`, `TeamSwitchViewModel`, `TeamSidebarCoordinator`, `TeamSocketScope`) are
+written against `https://api.mattermost.com` (`/users/me/teams`, `/users/me/teams/members`,
+`/users/me/teams/unread`, `/users/{id}/preferences`, `/teams/{id}/image`) and this repo's existing
+`APIClient`/`AuthSession`/`SocketClient` types, not translated from RN reducers or selectors; the
+zero-team copy is one short sentence pair re-worded in our own file, and **SF Symbols replace every
+`compass-icons` glyph** (the rail draws no icon-font asset), so no icon font or extra NOTICE entry is
+added.
