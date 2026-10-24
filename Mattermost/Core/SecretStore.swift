@@ -46,8 +46,8 @@ enum SecretStoreError: Error, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .keychainUnavailable(let s): return "Keychain unavailable (status \\(s), -34018 class — no application-identifier entitlement)"
-        case .keychainFailure(let s): return "Keychain operation failed (status \\(s))"
+        case .keychainUnavailable(let s): return "Keychain unavailable (status \(s), -34018 class — no application-identifier entitlement)"
+        case .keychainFailure(let s): return "Keychain operation failed (status \(s))"
         }
     }
 }
@@ -100,15 +100,20 @@ struct KeychainSecretPersisting: SecretPersisting {
     }
 
     func set(service: String, account: String, value: Data) throws {
-        var base = Self.baseQuery(service: service, account: account)
-        base[kSecAttrAccessible as String] = accessible
+        // Identity of the item: class + service + account (+ platform shim). This — and only this —
+        // is a legal `SecItemUpdate` search query. `kSecAttrAccessible` is an *attribute*, not a
+        // search key: putting it in the query makes SecItemUpdate return `errSecParam` (-50) on iOS,
+        // so every "write over an existing item" silently failed (measured on iOS 26 sim: re-trusting
+        // an origin whose `wss://` mirror already existed threw and dropped the user's decision —
+        // t_ca6db268). It belongs in the attributes on add, and is kept up to date on update.
+        let identity = Self.baseQuery(service: service, account: account)
 
         // Probe-then-write, mirroring the iOS-proven pattern from the pre-refactor
         // `SecureVault`: check existence first (read query, no return data), then update the
         // existing item in place or add a new one. Calling `SecItemUpdate` on an *absent*
         // item is unreliable on iOS (surfaces `errSecInteractionNotAllowed`, -25303, rather
         // than `errSecItemNotFound`), so we must know existence before choosing the write.
-        var probe = Self.baseQuery(service: service, account: account)
+        var probe = identity
         probe[kSecReturnData as String] = false
         probe[kSecMatchLimit as String] = kSecMatchLimitOne
         var probeResult: AnyObject?
@@ -116,19 +121,20 @@ struct KeychainSecretPersisting: SecretPersisting {
         switch probeStatus {
         case errSecSuccess:
             // Present → update the payload in place (generic-password UX: same primary key).
-            try self.update(base: base, value: value)
+            try self.update(identity: identity, value: value)
             return
         case errSecItemNotFound:
             // Absent → add; a duplicate here means another writer won the race, so retry as
             // an update (same add-or-update contract as the earlier explicit has-then-add).
-            var add = base
+            var add = identity
+            add[kSecAttrAccessible as String] = accessible
             add[kSecValueData as String] = value
             let addStatus = SecItemAdd(add as CFDictionary, nil)
             switch addStatus {
             case errSecSuccess:
                 return
             case errSecDuplicateItem:
-                try self.update(base: base, value: value)
+                try self.update(identity: identity, value: value)
             case errSecMissingEntitlement:
                 throw SecretStoreError.keychainUnavailable(addStatus)
             default:
@@ -141,11 +147,14 @@ struct KeychainSecretPersisting: SecretPersisting {
         }
     }
 
-    /// Update the existing item's payload in place.
-    private func update(base: [String: Any], value: Data) throws {
-        var update = base
-        update[kSecValueData as String] = value
-        let status = SecItemUpdate(base as CFDictionary, update as CFDictionary)
+    /// Update the existing item's payload in place. The search query carries the item identity
+    /// only; the access policy is re-asserted as an updatable attribute.
+    private func update(identity: [String: Any], value: Data) throws {
+        let attributes: [String: Any] = [
+            kSecValueData as String: value,
+            kSecAttrAccessible as String: accessible,
+        ]
+        let status = SecItemUpdate(identity as CFDictionary, attributes as CFDictionary)
         switch status {
         case errSecSuccess: return
         case errSecMissingEntitlement: throw SecretStoreError.keychainUnavailable(status)

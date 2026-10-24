@@ -1,4 +1,5 @@
 import XCTest
+import Network
 
 /// XCUITest suite for the Mattermost iOS shell (native chrome: onboarding pager,
 /// add-server form, server switcher, settings, downloads, cert prompt).
@@ -187,6 +188,133 @@ final class MattermostUITests: XCTestCase {
         XCTAssertTrue(dontAsk.exists)
         // Declining for now dismisses the prompt.
         app.buttons["Cancel"].tap()
+    }
+
+    /// t_ca6db268 regression: **first-time** "Trust" must render the page.
+    ///
+    /// A first navigation to a self-signed server dies inside the TLS handshake, so nothing
+    /// commits and `WKWebView.url` stays nil. `WebViewStore.retry()` used to be
+    /// `if let url { load(url) }`, so answering the prompt recorded the decision, dismissed the
+    /// sheet and issued *no* navigation — the pane stayed blank forever (measured by T26-R R4-AV
+    /// on four fresh origins: `webStaticTexts=0`, no prompt, no error state, 45 s).
+    ///
+    /// The flow asserted here is the whole user story, on a genuinely fresh trust record:
+    /// prompt → Trust → the stub's sign-in page renders, no second prompt, no error overlay; then
+    /// a *relaunch* of the same origin (same Keychain trust record, fresh shell state) must not
+    /// prompt and must still render — the "trust survives" half that already worked, kept honest.
+    ///
+    /// `-uiTestForgetCertTrust <url>` (DEBUG-only seam, `MattermostApp.init`) clears any recorded
+    /// decision for the origin first: the trust bag is Keychain-backed and
+    /// `-uiTestResetPersistedState` deliberately leaves the Keychain alone, so without it a second
+    /// run on this port would silently skip the prompt and prove nothing.
+    func testCertificateTrustOnFirstLaunchRendersThePage() throws {
+        try XCTSkipUnless(Self.isTLSPortOpen(Self.stubTLS),
+                          "self-signed TLS stub not running — start it with: python3 "
+                          + "build/uitest-server/mm_stub.py --port 8443 --tls cert.pem,key.pem "
+                          + "--name \"Self Signed Test\"")
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-uiTestForgetCertTrust", Self.stubTLS,
+                               "-uiTestSeedSelfSignedServer", Self.stubTLS,
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        // 1. A fresh origin prompts (precondition — otherwise nothing below means anything).
+        let prompt = app.otherElements["certPromptSheet"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: Self.webLoadWait),
+                      "a never-decided self-signed origin must present the certificate prompt")
+        app.buttons["Trust"].tap()
+        XCTAssertTrue(waitUntil(timeout: 10) { !prompt.exists }, "Trust must dismiss the prompt")
+
+        // 2. The page actually renders. This is the assertion that failed before the fix.
+        let webview = app.webViews.firstMatch
+        XCTAssertTrue(webview.waitForExistence(timeout: Self.webLoadWait),
+                      "the webview pane must be mounted")
+        let rendered = webview.buttons["Sign in"].waitForExistence(timeout: Self.webLoadWait)
+        XCTAssertTrue(rendered,
+                      "trusting a certificate the first time must load the page, not strand a blank pane")
+        XCTAssertFalse(app.buttons["errorRetryButton"].exists,
+                       "the failure overlay must not be the thing that renders")
+        XCTAssertFalse(prompt.exists, "a recorded trust decision must not prompt again")
+
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "cert-trust-first-time-page-rendered"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        // 3. A later launch of the same origin honours the record: no prompt, still renders.
+        app.terminate()
+        app.launchArguments = [Self.resetArg,
+                               "-uiTestSeedSelfSignedServer", Self.stubTLS,
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        XCTAssertFalse(app.otherElements["certPromptSheet"].waitForExistence(timeout: 5),
+                       "a previously-trusted origin must not prompt again")
+        let relaunched = app.webViews.firstMatch
+        XCTAssertTrue(relaunched.waitForExistence(timeout: Self.webLoadWait))
+        XCTAssertTrue(relaunched.buttons["Sign in"].waitForExistence(timeout: Self.webLoadWait),
+                      "the recorded trust decision must be honoured on the next launch")
+
+        // Leave the shared fixture clean: this suite's other certificate test expects a *fresh*
+        // origin on the same stub port, and the trust bag outlives the app (Keychain).
+        clearRecordedTrust(Self.stubTLS)
+    }
+
+    /// The other half of the prompt contract: "Don't Trust and Don't Ask Again" is an explicit
+    /// refusal, so it must hard-reject — no re-prompt now or on a later launch — and must leave the
+    /// honest connection-error state rather than a silent blank pane.
+    func testExplicitlyUntrustedCertificateHardRejectsWithoutPrompt() throws {
+        try XCTSkipUnless(Self.isTLSPortOpen(Self.stubTLS),
+                          "self-signed TLS stub not running — start it with: python3 "
+                          + "build/uitest-server/mm_stub.py --port 8443 --tls cert.pem,key.pem "
+                          + "--name \"Self Signed Test\"")
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-uiTestForgetCertTrust", Self.stubTLS,
+                               "-uiTestSeedSelfSignedServer", Self.stubTLS,
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        let prompt = app.otherElements["certPromptSheet"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: Self.webLoadWait))
+        app.buttons["Don't Trust and Don't Ask Again"].tap()
+
+        let refused = app.staticTexts["Couldn't connect to this server"]
+        XCTAssertTrue(refused.waitForExistence(timeout: Self.webLoadWait),
+                      "a refused certificate must surface the connection-error state")
+        XCTAssertFalse(prompt.exists, "an explicit refusal must not re-prompt")
+
+        // A later launch re-consults the recorded refusal: still no prompt, still rejected.
+        app.terminate()
+        app.launchArguments = [Self.resetArg,
+                               "-uiTestSeedSelfSignedServer", Self.stubTLS,
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        XCTAssertFalse(app.otherElements["certPromptSheet"].waitForExistence(timeout: 5),
+                       "an explicitly-untrusted origin must never prompt again")
+        XCTAssertTrue(app.staticTexts["Couldn't connect to this server"]
+                        .waitForExistence(timeout: Self.webLoadWait),
+                      "the refusal must still be enforced after a relaunch")
+        XCTAssertFalse(app.webViews.firstMatch.buttons["Sign in"].waitForExistence(timeout: 5),
+                       "a hard-rejected certificate must not deliver the page")
+
+        // Leave no refusal behind: the trust bag is Keychain-backed and outlives the app, and the
+        // suite's other certificate test needs a fresh origin on this port.
+        clearRecordedTrust(Self.stubTLS)
+    }
+
+    /// Forget a recorded certificate decision for `origin` through the DEBUG launch seam
+    /// (`MattermostApp`'s `-uiTestForgetCertTrust`), so a test cannot leak trust state into the
+    /// next one. Launch-and-terminate: nothing is asserted here.
+    private func clearRecordedTrust(_ origin: String) {
+        let app = XCUIApplication()
+        app.launchArguments = [Self.resetArg,
+                               "-uiTestForgetCertTrust", origin,
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        app.terminate()
     }
 
     // MARK: - Dual-render harness (T26)
@@ -475,6 +603,31 @@ final class MattermostUITests: XCTestCase {
         }.resume()
         _ = semaphore.wait(timeout: .now() + timeout + 2)
         return reachable
+    }
+
+    /// TCP-only "is a process listening here?" probe for the **self-signed** TLS stub.
+    ///
+    /// `isFixtureReachable` goes through `URLSession`, which correctly refuses a self-signed
+    /// certificate — so it can never see that fixture, and using it as the guard would silently
+    /// skip the certificate flows. Here the fixture's whole point is that its chain is invalid, so
+    /// the probe must be transport-level: connect, then drop the connection.
+    static func isTLSPortOpen(_ base: String, timeout: TimeInterval = 3) -> Bool {
+        guard let url = URL(string: base), let host = url.host, let port = url.port,
+              let nwPort = NWEndpoint.Port(rawValue: UInt16(port)) else { return false }
+        let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: .tcp)
+        let semaphore = DispatchSemaphore(value: 0)
+        var open = false
+        connection.stateUpdateHandler = { state in
+            switch state {
+            case .ready: open = true; semaphore.signal()
+            case .failed, .cancelled, .waiting: semaphore.signal()
+            default: break
+            }
+        }
+        connection.start(queue: .global())
+        _ = semaphore.wait(timeout: .now() + timeout)
+        connection.cancel()
+        return open
     }
 
     /// Settings → Developer → "Surface render modes…", scrolling the form to the developer

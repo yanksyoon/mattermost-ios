@@ -275,6 +275,10 @@ final class CertTrust {
         do {
             try secureStore.set(service: service(for: origin), account: account, value: payload)
         } catch {
+            // `String(reflecting:)` keeps the backend's associated value (the raw `OSStatus`), which
+            // the human-readable description drops — the difference between "entitlement refused"
+            // and "interaction not allowed" is what a trust-write failure has to be diagnosed on.
+            Logger.error("CertTrust", "persist failed for \(origin): \(String(reflecting: error))")
             throw CertTrustError.storeFailed(String(describing: error))
         }
         if secureStore.backendDescription != "Keychain" {

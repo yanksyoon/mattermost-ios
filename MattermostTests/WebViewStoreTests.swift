@@ -269,4 +269,100 @@ final class WebViewStoreTests: XCTestCase {
                                              isLoading: false, hasFinishedPageLoad: false,
                                              hasPageError: store.pageError != nil), .none)
     }
+
+    // MARK: Certificate retry — a navigation that never committed must still be re-drivable
+
+    /// Truth table for `WebViewStore.retryTarget` (t_ca6db268). The row that mattered in the wild is
+    /// `(committed: nil, requested: …)` → the requested URL: a first-time self-signed server dies in
+    /// its TLS handshake, so `webView.url` stays nil and the old `retry()` (`if let url`) silently
+    /// did nothing — the pane stayed blank after the user tapped **Trust**.
+    /// The end-to-end behaviour is covered by
+    /// `MattermostUITests.testCertificateTrustOnFirstLaunchRendersThePage`.
+    func testRetryTargetTruthTable() {
+        let committed = URL(string: "https://chat.example.com/channels/town-square")!
+        let requested = URL(string: "https://chat.example.com")!
+
+        // Nothing committed yet: re-drive what the shell asked for (the first-time cert case).
+        XCTAssertEqual(WebViewStore.retryTarget(committedURL: nil, lastRequestedURL: requested),
+                       requested)
+        // Committed page failed: unchanged behaviour — reload exactly that page.
+        XCTAssertEqual(WebViewStore.retryTarget(committedURL: committed, lastRequestedURL: requested),
+                       committed, "a committed page wins over the requested URL")
+        // Nothing at all: no-op, and `retry()` says so instead of pretending.
+        XCTAssertNil(WebViewStore.retryTarget(committedURL: nil, lastRequestedURL: nil))
+        XCTAssertFalse(WebViewStore().retry(), "a store that never loaded anything has nothing to retry")
+    }
+
+    /// `load()` records the request, so it survives a navigation that never commits, and
+    /// `retry()` then issues a real navigation instead of no-oping.
+    ///
+    /// The URL is a reserved `.invalid` name on purpose: this pins the store's bookkeeping, not the
+    /// network. (A loopback TLS stub was tried first and wedged the main thread inside
+    /// `WKWebView.load` on the simulator — the unit suite must not depend on a live handshake.)
+    func testLoadRecordsTheRequestedURLSoRetryCanReDriveIt() {
+        let store = WebViewStore()
+        let target = URL(string: "https://retry-target.invalid/")!
+
+        XCTAssertNil(store.lastRequestedURL)
+        store.load(target)
+        // Deliberately no assertion on `store.url` here: WebKit may publish the *provisional* URL
+        // before anything commits, and a failure inside this test's host app wedges XCTest's issue
+        // handler. The claim this test owns is the bookkeeping — `load()` records the request, and a
+        // store with nothing committed can still re-drive it (the bug state itself is reproduced
+        // end-to-end by `MattermostUITests.testCertificateTrustOnFirstLaunchRendersThePage`).
+        XCTAssertEqual(store.lastRequestedURL, target,
+                       "load() must record the request: a navigation that never commits has no `url`")
+        XCTAssertTrue(store.retry(), "retry must re-drive the requested URL, not return silently")
+        XCTAssertEqual(store.lastRequestedURL, target, "the retry re-records the same request")
+        XCTAssertFalse(store.hasFinishedPageLoad, "a retry is a fresh navigation, not a finished page")
+    }
+
+    /// The webview can start navigations itself (an SSO redirect, an in-page link). Those become the
+    /// retry target too — but only if the webview could load them; an app-scheme URL is handed to
+    /// the OS and must never be re-issued by the store.
+    func testNoteNavigationRequestTracksWebURLsOnly() {
+        let store = WebViewStore()
+        let landed = URL(string: "https://chat.example.com/login/sso/saml")!
+        let deepLink = URL(string: "mattermost://chat.example.com/landing")!
+
+        store.noteNavigationRequest(landed)
+        XCTAssertEqual(store.lastRequestedURL, landed)
+        store.noteNavigationRequest(deepLink)
+        XCTAssertEqual(store.lastRequestedURL, landed,
+                       "a non-web scheme is handed to the OS; it must not become a retry target")
+        store.noteNavigationRequest(nil)
+        XCTAssertEqual(store.lastRequestedURL, landed)
+        XCTAssertFalse(WebViewStore.isWebURL(deepLink))
+        XCTAssertTrue(WebViewStore.isWebURL(landed))
+    }
+
+    /// An explicit refusal must be legible: the pane shows the connection-error state instead of a
+    /// blank page, and the cancellation that follows the hard-reject must not erase it (cancellations
+    /// are otherwise deliberately not page errors).
+    func testExplicitCertificateRefusalSurfacesAsAPageError() {
+        let store = WebViewStore()
+        let origin = URL(string: "https://127.0.0.1:8443")!
+
+        store.markCertificateRefused(origin)
+        XCTAssertNotNil(store.pageError, "a refused certificate is a page failure, not a silent blank pane")
+        XCTAssertEqual(store.lastRequestedURL, origin,
+                       "the origin becomes re-drivable (the error state's retry) even if nothing committed")
+        XCTAssertFalse(store.isLoading)
+
+        // WebKit reports the cancelled handshake as a cancellation; that must not clear the refusal.
+        store.markPageLoadFailed(NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled))
+        XCTAssertNotNil(store.pageError)
+    }
+
+    /// The navigation policy and the store's retry gate must agree on what the webview may load —
+    /// one set, two readers (a divergence would re-drive a URL the delegate would refuse).
+    func testNavigationPolicyAndRetryShareOneSchemeAllowList() {
+        XCTAssertEqual(WebViewContainer.WebNavigationPolicy.webSchemes,
+                       WebViewStore.loadableSchemes)
+        for raw in ["https://chat.example.com", "about:blank", "data:text/html,hi"] {
+            let url = URL(string: raw)!
+            XCTAssertTrue(WebViewStore.isWebURL(url))
+            XCTAssertEqual(WebViewContainer.WebNavigationPolicy.decision(for: url), .load)
+        }
+    }
 }

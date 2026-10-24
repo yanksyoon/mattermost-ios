@@ -74,6 +74,33 @@ struct MattermostApp: App {
         // T26: surface render-mode resolver. Reads the persisted override + `-surfaceMode`
         // launch args (debug-only) into one decision point for every surface.
         _surfaceModeResolver = StateObject(wrappedValue: SurfaceModeResolver())
+        // UI-test seam: `-uiTestForgetCertTrust <url>` deletes any recorded certificate-trust
+        // decision for that origin before the seeded server loads, so a flow that must exercise
+        // the **first-time** certificate prompt stays deterministic on a port that an earlier run
+        // already trusted. The trust bag is Keychain-backed and `-uiTestResetPersistedState`
+        // deliberately leaves the Keychain alone, so without this a second run of the
+        // prompt→Trust flow would silently skip the prompt and prove nothing.
+        //
+        // DEBUG-only, like every other test affordance here: it can only *remove* a trust
+        // decision (never grant one), and it is inert in a shipping build because the argument
+        // branch does not exist there.
+        #if DEBUG
+        if let idx = args.firstIndex(of: "-uiTestForgetCertTrust"),
+           args.indices.contains(idx + 1),
+           let url = URL(string: args[idx + 1]) {
+            try? CertTrust().remove(for: url)
+            // `CertTrust.add` also mirrors every decision onto the same host's `wss://` origin
+            // (desktop parity), so a mirror record outlives a plain `remove`. Leaving it behind
+            // would carry an old `dontTrust` — or hide a would-be first-time prompt — across runs,
+            // so forget it too. Removals only, and only for the https origin the argument names.
+            if url.scheme?.lowercased() == "https",
+               var mirrorComponents = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+                mirrorComponents.scheme = "wss"
+                if let mirror = mirrorComponents.url { try? CertTrust().remove(for: mirror) }
+            }
+            Logger.info("CertPrompt", "uiTest: cleared recorded trust for \(url.absoluteString)")
+        }
+        #endif
         // UI-test seam: `-uiTestSeedSelfSignedServer <url>` pre-populates the (fresh) store
         // with one self-signed server so the webview loads it, hits the server-trust
         // challenge, and presents the CertPromptSheet. The add-server form can't reach this

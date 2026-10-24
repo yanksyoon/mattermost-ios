@@ -65,7 +65,7 @@ struct WebViewContainer: UIViewRepresentable {
             case handOff
         }
 
-        static let webSchemes: Set<String> = ["http", "https", "about", "data", "blob", "javascript"]
+        static let webSchemes: Set<String> = WebViewStore.loadableSchemes
 
         static func decision(for url: URL?) -> Decision {
             guard let scheme = url?.scheme?.lowercased() else { return .load }
@@ -149,10 +149,21 @@ struct WebViewContainer: UIViewRepresentable {
                     Logger.info("CertPrompt", "recorded certificate decision for \(prompt.origin.absoluteString) (trust: \(trust), dontTrustAgain: \(dontTrustAgain))")
                 }
                 if trust || dontTrustAgain {
-                    store.retry()
+                    // Re-drive the navigation so the freshly recorded decision is applied by the
+                    // next server-trust challenge. `retry()` re-issues the committed page when
+                    // there is one and otherwise the last *requested* URL — the latter is the
+                    // first-time case, where the TLS handshake died before anything committed and
+                    // the old `if let url` no-op left the pane blank forever (t_ca6db268).
+                    if !store.retry() {
+                        // Nothing was ever requested through the store (a challenge raised by a
+                        // navigation the shell did not start): drive the configured server so the
+                        // decision is not silently dropped.
+                        store.load(serverURL)
+                    }
                 }
             } catch {
-                Logger.error("CertPrompt", "failed to record certificate decision: \(error.localizedDescription)")
+                Logger.error("CertPrompt", "failed to record certificate decision: "
+                            + String(reflecting: error))
             }
         }
 
@@ -294,8 +305,12 @@ struct WebViewContainer: UIViewRepresentable {
             guard let recorded = certTrust.trustedCertificate(for: serverURL),
                   CertTrust.areEqual(recorded, b: presented), !recorded.dontTrust else {
                 if certTrust.isExplicitlyUntrusted(for: serverURL) {
-                    // User refused this certificate before: do not re-prompt, hard-reject.
+                    // User refused this certificate before: do not re-prompt, hard-reject — and
+                    // show the refusal. The cancel can arrive as a cancellation, which the
+                    // navigation delegate must not treat as "resumable", so the error is recorded
+                    // here where the reason is known (t_ca6db268).
                     completionHandler(.cancelAuthenticationChallenge, nil)
+                    store.markCertificateRefused(serverURL)
                     Logger.info("WebView", "rejected explicitly-untrusted certificate for \(challenge.protectionSpace.host)")
                     return
                 }
@@ -365,6 +380,13 @@ struct WebViewContainer: UIViewRepresentable {
             // handing them to the app looks like "the page after sign-in never loads".
             switch WebNavigationPolicy.decision(for: navigationAction.request.url) {
             case .load:
+                // Keep the store's retry target in step with the request that is actually being
+                // made: a redirect chain (SSO) or an in-page navigation can be the navigation
+                // whose TLS challenge the user then answers, and `webView.url` stays nil until
+                // something commits.
+                if navigationAction.targetFrame?.isMainFrame ?? true {
+                    store.noteNavigationRequest(navigationAction.request.url)
+                }
                 decisionHandler(.allow)
             case .handOff:
                 decisionHandler(.cancel)

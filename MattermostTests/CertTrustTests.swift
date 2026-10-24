@@ -123,4 +123,60 @@ final class CertTrustTests: XCTestCase {
         XCTAssertFalse(CertTrust.areEqual(a, b: ComparableCertificate(data: "abc", issuerName: "CN=other")))
         XCTAssertFalse(CertTrust.areEqual(a, b: ComparableCertificate(data: "abd", issuerName: "CN=iss")))
     }
+
+    // MARK: Keychain update path (re-trusting an origin that already has a record)
+
+    /// Writing the same `(service, account)` twice must overwrite, not throw.
+    ///
+    /// This is the path a *repeated* trust decision takes — the second visit to a server whose
+    /// certificate was previously accepted (and, before t_ca6db268, the `wss://` mirror that
+    /// `CertTrust.add` writes on every trust: leaving it behind made the next trust fail with a
+    /// Keychain error and silently drop the user's decision).
+    func testKeychainSetOverwritesAnExistingItem() throws {
+        // The *direct* Keychain backend needs the data-protection keychain, which an ad-hoc
+        // Catalyst test host cannot have (no `application-identifier` entitlement — T20 measured
+        // -34018 on every write). The property still matters on Catalyst, where the shipping
+        // composite routes those writes to the encrypted file: see
+        // `testCompositeSetOverwritesAnExistingItem`, which runs on both platforms.
+        #if targetEnvironment(macCatalyst)
+        throw XCTSkip("ad-hoc Catalyst host has no keychain entitlement (-34018); "
+                      + "testCompositeSetOverwritesAnExistingItem covers the fallback path")
+        #endif
+        let keychain = KeychainSecretPersisting()
+        let service = "CertTrustTests-overwrite-\(UUID().uuidString)"
+        let account = "certificate"
+
+        defer { try? keychain.delete(service: service, account: account) }
+        // Two distinct payloads: the second write must land, not merely not-crash.
+        try keychain.set(service: service, account: account, value: Data("first".utf8))
+        try keychain.set(service: service, account: account, value: Data("second".utf8))
+
+        XCTAssertEqual(try keychain.get(service: service, account: account), Data("second".utf8),
+                       "an existing item must be updated in place")
+    }
+
+    /// The same write contract through the **shipping** store: `FallbackSecretPersisting`
+    /// (Keychain first, encrypted file when the Keychain refuses this process).
+    ///
+    /// On iOS this drives the Keychain update path; on ad-hoc Catalyst it drives the file fallback,
+    /// where every Keychain write is refused with -34018. Whichever backend this host uses, the
+    /// second write must replace the first — the property that was broken when `SecItemUpdate` was
+    /// given `kSecAttrAccessible` in its *search query* (t_ca6db268).
+    func testCompositeSetOverwritesAnExistingItem() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CertTrustTests-composite-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = FallbackSecretPersisting(primary: KeychainSecretPersisting(),
+                                            fallback: EncryptedFileSecretPersisting(directory: dir))
+        let service = "CertTrustTests-composite-\(UUID().uuidString)"
+        let account = "certificate"
+        defer { try? store.delete(service: service, account: account) }
+
+        try store.set(service: service, account: account, value: Data("first".utf8))
+        try store.set(service: service, account: account, value: Data("second".utf8))
+
+        XCTAssertEqual(try store.get(service: service, account: account), Data("second".utf8),
+                       "a repeated write must replace the value on whichever backend this platform uses")
+    }
 }

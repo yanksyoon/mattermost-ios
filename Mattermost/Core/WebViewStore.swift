@@ -36,6 +36,19 @@ final class WebViewStore: ObservableObject {
     /// presents `CertPromptSheet` off this value. `nil` == no pending prompt.
     @Published var pendingCertificatePrompt: CertificatePrompt?
 
+    /// The last URL this store asked the webview to load, or that the webview itself started
+    /// navigating to (a redirect / an in-page link). `nil` until the shell issues its first load.
+    ///
+    /// It exists because `url` (the KVO-bound `webView.url`) only ever carries a **committed**
+    /// page. A navigation that dies before committing — most importantly a TLS handshake whose
+    /// server-trust challenge the user has not answered yet — leaves `webView.url == nil`, so
+    /// anything that wants to re-drive it (`retry()`, the certificate prompt's Trust button, the
+    /// `clearCacheAndReload` troubleshooting bullet) needs the request it was given rather than
+    /// the page that was never committed. That was a real user-visible bug: trusting a
+    /// self-signed server for the first time dismissed the prompt and left the pane blank
+    /// forever (T26-R R4-AV finding F4 → t_ca6db268).
+    private(set) var lastRequestedURL: URL?
+
     /// True once the current page's **main-frame navigation finished** (`didFinish`); reset when a
     /// navigation starts.
     ///
@@ -164,9 +177,33 @@ final class WebViewStore: ObservableObject {
     func load(_ url: URL) {
         pageError = nil
         hasFinishedPageLoad = false
+        lastRequestedURL = url
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
         webView.load(request)
     }
+
+    /// Record a navigation the webview is about to start on its own (redirect chain, in-page
+    /// link, popup handed to this webview). Keeps `lastRequestedURL` in step with the request
+    /// that actually failed, so a certificate retry re-drives *that* URL and not a stale one.
+    func noteNavigationRequest(_ url: URL?) {
+        guard let url, Self.isWebURL(url) else { return }
+        lastRequestedURL = url
+    }
+
+    /// Whether a navigation to `url` can be (re)issued by `WKWebView`.
+    static func isWebURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return loadableSchemes.contains(scheme)
+    }
+
+    /// Schemes this webview may load. The navigation policy (`WebViewContainer.WebNavigationPolicy`)
+    /// is the single decision point at the delegate; it reads this same set, so "the webview loads
+    /// it" and "the store may re-drive it" can never drift apart. Anything else (`mattermost://`,
+    /// `msauth://`, `com.okta…://`) is handed to the OS and must never become a retry target.
+    ///
+    /// `nonisolated`: the delegate's navigation callback that reads it is not main-actor bound, and
+    /// the set is immutable `Sendable` data, so sharing it needs no hop.
+    nonisolated static let loadableSchemes: Set<String> = ["http", "https", "about", "data", "blob", "javascript"]
 
     /// What the shell owes this store when its web branch (re)appears.
     ///
@@ -296,8 +333,53 @@ final class WebViewStore: ObservableObject {
     }
 
     /// Recovery entry for retry UI: re-issue the loaded (or configured) URL.
-    func retry() {
-        if let url { load(url) }
+    ///
+    /// A committed page wins (the "the page failed after it committed" case: reload exactly what
+    /// the user was looking at). When nothing committed — a first navigation stopped by an
+    /// unanswered TLS challenge, a validation probe, a cache wipe — the last *requested* URL is
+    /// re-driven instead of returning silently, which is what left a first-time "Trust" with a
+    /// blank pane (t_ca6db268). Both inputs are explicit so the rule is unit-tested as a truth
+    /// table (`WebViewStoreTests.testRetryTargetTruthTable`) rather than only through a live
+    /// webview.
+    static func retryTarget(committedURL: URL?, lastRequestedURL: URL?) -> URL? {
+        committedURL ?? lastRequestedURL
+    }
+
+    /// Re-drive the page: the committed URL when there is one, else the last requested URL.
+    /// Returns whether a navigation was actually issued, so callers/tests can tell a no-op
+    /// apart from a retry.
+    @discardableResult
+    func retry() -> Bool {
+        guard let target = Self.retryTarget(committedURL: url, lastRequestedURL: lastRequestedURL) else {
+            Logger.info("WebView", "retry ignored: no committed and no requested URL")
+            return false
+        }
+        Logger.info("WebView", "retry -> \(target.absoluteString) "
+                    + "(\(url == nil ? "no committed page; last requested" : "committed page"))")
+        load(target)
+        return true
+    }
+
+    /// Surface an **explicit certificate refusal** ("Don't Trust and Don't Ask Again") as a page
+    /// error.
+    ///
+    /// `cancelAuthenticationChallenge` reaches the navigation delegate as
+    /// `NSURLErrorCancelled` on some WebKit versions, and `markPageLoadFailed` deliberately ignores
+    /// that ("stopped; resumable") — right for a load the surface toggle stopped, wrong here:
+    /// nothing will ever resume a handshake the user refused, so the pane would sit blank with no
+    /// error and no retry affordance. Recorded as a genuine failure instead, which is also what the
+    /// user asked for by refusing.
+    func markCertificateRefused(_ origin: URL) {
+        isLoading = false
+        hasFinishedPageLoad = false
+        if lastRequestedURL == nil { lastRequestedURL = origin }
+        pageError = NSError(
+            domain: NSURLErrorDomain,
+            code: NSURLErrorServerCertificateUntrusted,
+            userInfo: [NSLocalizedDescriptionKey:
+                        "The certificate for \(origin.absoluteString) was not trusted."]
+        )
+        Logger.info("CertPrompt", "explicit refusal for \(origin.absoluteString) -> page error")
     }
 
     /// Record the user's certificate decision and dismiss the pending prompt. `trust` == add
