@@ -193,3 +193,34 @@ Run it as `scripts/verify-dual-render-gates.sh` on `main`, and
 3. **Ownership is a convention enforced by review, not by the compiler.** Gates 8–10 enforce the
    *mechanical* half (no hand registration, no duplicate ids). A card editing another card's view
    file compiles fine; the merge-order table and the `-AV` cards are what catch it.
+
+---
+
+## 9. Publishing — commit AND push
+
+Gates 8–10 have a blind spot: gate 10 audits `git diff <base>...HEAD`, and nothing above cares
+whether those commits ever left this machine. They can sit on local `main` indefinitely — they did,
+for two days and 44 commits, while the GitHub remote stayed on the 2026-10-23 tip — and every card
+in the chain still reported PASS. Correctness was verified; durability never was.
+
+`scripts/verify-pushed.py` is the assertion that the work is published.
+
+| Check | Claim | Fails when |
+|---|---|---|
+| `LOCAL==REMOTE` | the commit the card verified is the commit the remote serves | local HEAD differs from the SHA `git ls-remote` reports (queried live — a stale remote-tracking ref can lie), or the ref does not exist remotely |
+| `NO WORKTREES` | no parallel checkout is tracked | any `.worktrees/` path appears in `git ls-files`; one `git add -A` would otherwise commit a whole second checkout |
+| `NO SECRETS` | no signing or credential material is tracked | a `.p8` / `.p12` / `.key` / `.pem` / `auth.json` / `secrets.json` file is tracked |
+
+Rules:
+
+1. A card closes only after `git push origin main` **and** `python3 scripts/verify-pushed.py`
+   printing `RESULT: PASS`. No push, no close. If the push fails (auth, network, protected branch),
+   report it as a blocker rather than closing on local history.
+2. An `-AV` card audits the commit **reachable from `origin/main`**, not local `main`. A commit that
+   is verified but unpushed is a finding, not a pass. Repair cards inherit the same gate.
+3. `--self-test` must pass before the gate is trusted. It builds a throwaway bare remote and proves
+   `LOCAL==REMOTE`, `NO WORKTREES` and `NO SECRETS` each fail when deliberately violated. A check
+   that only ever passes is exactly the vacuous-check defect this programme was already repaired
+   for once (`scripts/verify-dual-render-gates.sh`, T26-R).
+4. `.worktrees/` stays gitignored, and is mirrored into `.git/info/exclude` so the protection is live
+   even in a clone that has not pulled the `.gitignore` change.
