@@ -8,6 +8,7 @@
 // segment split the view renders.
 
 import XCTest
+import Combine
 @testable import Mattermost
 
 @MainActor
@@ -222,5 +223,56 @@ final class T34EmojiTests: XCTestCase {
         guard case .emojiImage = segments[1] else { return XCTFail("image segment") }
         guard case .text(let tail) = segments[2] else { return XCTFail("tail segment") }
         XCTAssertEqual(tail.inlinePresentationIntent, nil)
+    }
+
+    /// T34 review F7 (the live defect): `/emoji` lands *after* the first page of posts is drawn, so a
+    /// row that resolved its shortcodes once kept the literal `:t34parrot:` on screen forever. The
+    /// catalogue has to publish the name list, or nothing redraws the paragraph that uses it.
+    func testLoadingNamesPublishesSoAnAlreadyDrawnParagraphRedraws() async {
+        let stub = Stub()
+        stub.pages[0] = [emoji("6e7i", "t34parrot")]
+        let catalogue = catalogue(stub)
+
+        var changes = 0
+        let observation = catalogue.objectWillChange.sink { _ in changes += 1 }
+        defer { observation.cancel() }
+
+        XCTAssertFalse(catalogue.isCustom("t34parrot"), "nothing is known before the fetch")
+        await catalogue.loadNamesIfNeeded()
+
+        XCTAssertTrue(catalogue.isCustom("t34parrot"))
+        XCTAssertGreaterThan(changes, 0,
+                             "the name list must publish, or a drawn paragraph never redraws")
+    }
+
+    /// The composed paragraph is an `HStack` of text runs and images and has no label of its own, so
+    /// the accessibility text is what a reader hears: the sentence, with each resolved emoji *named*
+    /// rather than spelled as `:shortcode:` — and, when the server did not resolve it, the literal
+    /// shortcode is still visible to a test looking for it.
+    func testAccessibilityTextNamesResolvedEmojiAndKeepsUnknownShortcodesLiteral() {
+        let runs: [MarkdownInline] = [.text("a custom emoji "),
+                                      .emoji(name: "t34parrot"),
+                                      .text(" and a built-in "),
+                                      .emoji(name: "tada"),
+                                      .text(" beside it")]
+        XCTAssertEqual(MarkdownText.accessibilityText(runs, custom: ["t34parrot"]),
+                       "a custom emoji t34parrot and a built-in 🎉 beside it")
+        XCTAssertEqual(MarkdownText.accessibilityText(runs, custom: []),
+                       "a custom emoji :t34parrot: and a built-in 🎉 beside it",
+                       "an unresolved custom emoji must stay literal, never silently dropped")
+    }
+
+    /// `/emoji/{id}/image` sends whatever the uploader's PNG is; `Text(Image)` would draw it at full
+    /// size and break the paragraph's line spacing (T34-R3, seen on the live screenshot: a 40 pt
+    /// emoji sat on its own line above the sentence). The renderer draws a text-sized copy instead.
+    func testAServerEmojiIsDrawnAtTextSize() {
+        let upload = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40)).image { context in
+            UIColor.systemBlue.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 40, height: 40))
+        }
+        let sized = upload.emojiSized(height: 18)
+        XCTAssertEqual(sized.size.height, 18, accuracy: 0.5)
+        XCTAssertEqual(sized.size.width, 18, accuracy: 0.5, "a square emoji stays square")
+        XCTAssertEqual(upload.size.height, 40, "the cached upload itself is untouched")
     }
 }

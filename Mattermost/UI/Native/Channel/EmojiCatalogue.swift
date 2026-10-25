@@ -79,7 +79,12 @@ final class EmojiCatalogue: ObservableObject {
 
     /// Lower-cased name → emoji id. Custom emoji names are matched case-insensitively by the server,
     /// and upstream lower-cases the shortcode before lookup.
-    private(set) var identifiers: [String: String] = [:]
+    ///
+    /// Published, not a plain property: `GET /emoji` is fetched once per server and lands *after* the
+    /// first page of posts is already drawn, so a row that resolved its shortcodes once would keep
+    /// showing `:name:` until it happened to be recycled. T34 review F7 — the live UI run caught a
+    /// literal `:t34parrot:` on screen for exactly this reason.
+    @Published private(set) var identifiers: [String: String] = [:]
     /// Loaded images, published so the rows redraw as they arrive.
     @Published private(set) var images: [String: UIImage] = [:]
     private(set) var didLoadNames = false

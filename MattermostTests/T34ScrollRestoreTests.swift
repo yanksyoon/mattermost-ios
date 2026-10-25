@@ -52,6 +52,38 @@ final class T34ScrollRestoreTests: XCTestCase {
         XCTAssertTrue(ScrollRestorePlan.isNoOp(.infinity))
     }
 
+    // MARK: - Which row the reader is on
+
+    /// Preference values are positions inside the scroll **content**, so the anchor has to be chosen
+    /// after subtracting the content offset. Taking the smallest raw value picked the first row of the
+    /// loaded window instead of the row under the reader's eye — the defect behind the 585 pt jump the
+    /// live anchor test measured (T34-R3).
+    func testTheAnchorIsTheTopmostRowBelowTheViewportEdgeNotTheFirstRowInTheContent() {
+        // The reader has scrolled 4 000 pt into a window whose first row is at content y = 0.
+        let rows: [String: CGFloat] = ["oldest": 0, "above": 3_800, "edge": 4_120, "next": 4_400]
+        let anchor = ScrollRestorePlan.topVisible(rows: rows, contentOffsetY: 4_000)
+        XCTAssertEqual(anchor?.id, "edge")
+        XCTAssertEqual(anchor?.offsetFromTop ?? -1, 120, accuracy: 0.001)
+    }
+
+    func testRowsScrolledPastTheEdgeAreIgnored() {
+        let rows: [String: CGFloat] = ["gone": 3_000, "slightlyAbove": 3_998, "visible": 4_100]
+        let anchor = ScrollRestorePlan.topVisible(rows: rows, contentOffsetY: 4_000)
+        XCTAssertEqual(anchor?.id, "visible",
+                       "a row 2 pt above the edge is not the reader's place; the next one is")
+    }
+
+    func testAnOverscrollFallsBackToTheNearestRow() {
+        let rows: [String: CGFloat] = ["a": 3_900, "b": 5_000]
+        let anchor = ScrollRestorePlan.topVisible(rows: rows, contentOffsetY: 6_000)
+        XCTAssertEqual(anchor?.id, "b", "every row is above the viewport: the nearest one is the answer")
+        XCTAssertEqual(anchor?.offsetFromTop ?? 0, -1_000, accuracy: 0.001)
+    }
+
+    func testNoRowsMeansNoAnchor() {
+        XCTAssertNil(ScrollRestorePlan.topVisible(rows: [:], contentOffsetY: 100))
+    }
+
     // MARK: - The handoff
 
     func testTheAnchorCarriesTheOffsetNotJustThePost() {

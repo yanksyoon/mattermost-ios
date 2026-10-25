@@ -22,6 +22,12 @@ import UIKit
 enum ScrollRestorePlan {
     /// Points to move the content by so a post returns to the distance from the top it had before
     /// an older page was prepended. Positive = content moves up (towards newer posts).
+    ///
+    /// Both arguments are **distances below the viewport's top edge**, not raw positions inside the
+    /// scroll content: a content-space value keeps growing as pages are prepended, so comparing two of
+    /// them would compare a position against a position taken in a different layout (T34-R3: the live
+    /// anchor test measured a 585 pt jump because the anchor was the first row of the window, not the
+    /// row the reader was looking at).
     static func adjustment(recordedOffsetFromTop: CGFloat, currentOffsetFromTop: CGFloat) -> CGFloat {
         guard recordedOffsetFromTop.isFinite, currentOffsetFromTop.isFinite else { return 0 }
         return currentOffsetFromTop - recordedOffsetFromTop
@@ -33,6 +39,33 @@ enum ScrollRestorePlan {
 
     static func isNoOp(_ adjustment: CGFloat) -> Bool {
         !adjustment.isFinite || abs(adjustment) < tolerance
+    }
+
+    /// The row the reader is looking at: the one with the smallest **distance below the viewport's top
+    /// edge** (`rows` are the preference values, which SwiftUI reports in the scroll content's
+    /// coordinate space, so the offset has to be subtracted first).
+    ///
+    /// Rows scrolled past the edge (negative distance, within a point of tolerance) are ignored, and if
+    /// every row is above the edge — an over-scroll — the nearest one is still the honest answer.
+    static func topVisible(rows: [String: CGFloat],
+                           contentOffsetY: CGFloat) -> (id: String, offsetFromTop: CGFloat)? {
+        var candidates: [(id: String, distance: CGFloat)] = []
+        for (id, position) in rows where position.isFinite {
+            candidates.append((id: id, distance: position - contentOffsetY))
+        }
+        candidates.sort { lhs, rhs in
+            lhs.distance == rhs.distance ? lhs.id < rhs.id : lhs.distance < rhs.distance
+        }
+        for candidate in candidates where candidate.distance >= -tolerance {
+            return (candidate.id, candidate.distance)
+        }
+        var nearest: (id: String, distance: CGFloat)?
+        for candidate in candidates {
+            if nearest == nil || abs(candidate.distance) < abs(nearest!.distance) {
+                nearest = candidate
+            }
+        }
+        return nearest.map { (id: $0.id, offsetFromTop: $0.distance) }
     }
 }
 
@@ -52,6 +85,28 @@ final class ChannelScrollController: ObservableObject {
         let visibleBottom = scrollView.contentOffset.y + scrollView.bounds.height
         return max(0, scrollView.contentSize.height + inset.bottom - visibleBottom)
     }
+    /// How far the top edge of the content still is, in points (0 when the reader is at the top).
+    var distanceFromTop: CGFloat {
+        guard let scrollView else { return 0 }
+        return max(0, scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
+    }
+
+    /// True when the content fits inside the viewport, so there is nothing to scroll: a window shorter
+    /// than a screen is both "at the top" and "at the bottom", and the pane should fill itself.
+    var contentFitsViewport: Bool {
+        guard let scrollView else { return false }
+        let inset = scrollView.adjustedContentInset
+        return scrollView.contentSize.height + inset.top + inset.bottom <= scrollView.bounds.height + 1
+    }
+
+    /// True while the reader is touching this scroll view or it is still coasting. Our own
+    /// programmatic scrolls (the paging restore) are neither, which is what keeps a merge from looking
+    /// like a reader request for another page.
+    var isUserScrolling: Bool {
+        guard let scrollView else { return false }
+        return scrollView.isDragging || scrollView.isDecelerating || scrollView.isTracking
+    }
+
     /// `distanceFromBottom` under a point, to absorb sub-pixel layout noise.
     var isAtBottom: Bool { distanceFromBottom <= 1 }
 

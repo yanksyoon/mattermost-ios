@@ -146,15 +146,21 @@ final class T34ChannelPostListUITests: XCTestCase {
                               + "got '\(reaction.label)'")
             }
             if postID == customEmojiID {
-                let resolved = waitUntil(timeout: 20) {
-                    !blockLabel(app, postID: postID).contains(":t34parrot:")
+                // The server's own emoji: `:t34parrot:` must be drawn from `GET /emoji`, and the
+                // words around it must survive. Both are read from the accessibility labels, so a
+                // literal shortcode anywhere on screen is the failure — not a container that happens
+                // to have no label of its own.
+                let literal = app.descendants(matching: .any)
+                    .matching(NSPredicate(format: "label CONTAINS %@", ":t34parrot:"))
+                let sentence = app.descendants(matching: .any)
+                    .matching(NSPredicate(format: "label CONTAINS %@", "a custom emoji"))
+                let resolved = waitUntil(timeout: 30) {
+                    literal.count == 0 && sentence.count > 0
                 }
                 XCTAssertTrue(resolved,
-                              "the server's :t34parrot: is still drawn as a literal shortcode: "
-                              + "'\(blockLabel(app, postID: postID))'")
-                XCTAssertTrue(blockLabel(app, postID: postID).contains("custom emoji"),
-                              "the sentence around the emoji must still be there: "
-                              + "'\(blockLabel(app, postID: postID))'")
+                              "the server's :t34parrot: must be an image, not a literal shortcode "
+                              + "(literal elements: \(literal.count), "
+                              + "sentence elements: \(sentence.count))")
                 attach(app, "t34-showcase-custom-emoji")
             }
         }
@@ -213,32 +219,68 @@ final class T34ChannelPostListUITests: XCTestCase {
         let older = try channelPosts(channel.id, perPage: 60, before: firstPage.last?["id"] as? String)
         XCTAssertFalse(older.isEmpty, "the long channel must have an older page")
 
-        let app = launchAndOpen(channelName: channel.name)
+        let app = launchAndOpen(channelName: channel.name, exposeLoadEarlier: true)
         let list = element(app, "channelPostList")
         XCTAssertTrue(list.waitForExistence(timeout: 60),
                       "the post list must mount:\n\(app.debugDescription)")
+
+        // The pane holds exactly the server's first page before anything is paged in.
+        XCTAssertTrue(waitUntil(timeout: 30) { loadedPosts(app) == 60 },
+                      "the pane should open on the server's 60 newest posts, holds \(loadedPosts(app))")
 
         // The newest post of the first page is on screen; the oldest is not (60 posts do not fit).
         let newest = try XCTUnwrap(firstPage.first?["id"] as? String)
         XCTAssertTrue(element(app, "post.\(newest)").waitForExistence(timeout: 30))
 
-        // Swipe down (towards older posts, which are above) until the sentinel is reachable.
+        // Swipe down (towards older posts, which are above) until the sentinel is genuinely *on screen*.
+        // `exists` is not the same thing: the lazy stack realizes rows ahead of the viewport, so the
+        // sentinel exists while it is still off-screen — and the pane only pages when the reader is
+        // really at the top. Each gesture needs a settle, or the fast swipes coalesce and the list
+        // barely moves (a live run fired 40 gestures in 7 s and ended up mid-list).
         let sentinel = element(app, "channelPostList.loadEarlier")
         var swipes = 0
-        while !sentinel.exists, swipes < 40 {
+        while swipes < 40 {
+            if sentinel.exists, !sentinel.frame.isEmpty, sentinel.frame.intersects(list.frame) { break }
             list.swipeDown(velocity: .fast)
+            Thread.sleep(forTimeInterval: 0.35)
             swipes += 1
         }
         XCTAssertTrue(sentinel.waitForExistence(timeout: 30),
                       "the load-earlier sentinel never appeared after \(swipes) swipes")
+        XCTAssertFalse(sentinel.frame.isEmpty, "the sentinel must have a frame (it is on screen)")
 
-        // After the load, keep scrolling towards the old end: the page that just landed is above the
-        // reader, so its posts only become reachable once they swipe up into it.
+        // The sentinel is the pane's "load earlier" request. Reaching the top arms it; the tap is the
+        // explicit request (auto-fire is reserved for a window shorter than a screen — see the parity
+        // delta in docs/t34-build-note.md, which records why the auto-fire-on-scroll version paged in
+        // three windows from one visit).
+        if loadedPosts(app) == 60 {
+            sentinel.tap()
+        }
+
+        // The older page must merge into the pane, not merely be drawn somewhere unknown.
+        // `loadEarlier()` merging is also covered by the fixture-backed unit pager test; this is the
+        // same claim against the live server.
+        XCTAssertTrue(waitUntil(timeout: 40) { loadedPosts(app) > 60 },
+                      "reaching the top must page the older posts in "
+                      + "(pane still holds \(loadedPosts(app)) posts)")
+        XCTAssertGreaterThanOrEqual(loadedPosts(app), 120,
+                                    "one page insert adds 60 posts to the 60 already held")
+
+        // The pane now holds the older page *at the older end*: its oldest post must be the older
+        // page's oldest. That is the pane's own account of the merge, and it catches a page stitched
+        // onto the wrong end without needing to scroll anywhere.
+        let olderOldest = try XCTUnwrap(older.last?["id"] as? String)
+        XCTAssertTrue(waitUntil(timeout: 20) { oldestLoadedPost(app) == olderOldest },
+                      "the pane's oldest post should be the older page's oldest "
+                      + "(\(olderOldest)), not \(oldestLoadedPost(app))")
+
+        // Display order is oldest-first, so the row directly above the reader is the *newest* post of
+        // the page that just landed: a couple of swipes prove the merge is drawn where it belongs.
         let olderNewest = try XCTUnwrap(older.first?["id"] as? String)
-        XCTAssertTrue(scrollTowardOlderPosts(app, "post.\(olderNewest)"),
-                      "the page that loaded is not reachable by scrolling:\n" + "\(app.debugDescription)")
+        XCTAssertTrue(scrollTowardOlderPosts(app, "post.\(olderNewest)", maxSwipes: 12),
+                      "the page that just merged is not drawn above the reader:\n" + "\(app.debugDescription)")
 
-        // No post is drawn twice, and the first page's oldest post is still exactly once.
+        // No post is drawn twice.
         let identifiers = postRows(app).map(\.identifier)
         XCTAssertEqual(Set(identifiers).count, identifiers.count,
                        "a post id was drawn twice: \(identifiers)")
@@ -322,7 +364,12 @@ final class T34ChannelPostListUITests: XCTestCase {
         let trigger = element(app, "channelPostList.forceLoadEarlier")
         XCTAssertTrue(trigger.waitForExistence(timeout: 20),
                       "the test seam (-uiTestExposeLoadEarlier) is not mounted")
+        let held = loadedPosts(app)
+        XCTAssertEqual(held, 60, "one page is loaded before the trigger")
         trigger.tap()
+        XCTAssertTrue(waitUntil(timeout: 40) { loadedPosts(app) > held },
+                      "the trigger must merge an older page "
+                      + "(pane holds \(loadedPosts(app)) posts, was \(held))")
         attach(app, "t34-scroll-after-load")
 
         // The anchor must still be on screen, at the same offset. `PostRowView` rows are lazy: if the
@@ -636,20 +683,57 @@ final class T34ChannelPostListUITests: XCTestCase {
         return (0..<query.count).map { query.element(boundBy: $0).label }.joined(separator: " ")
     }
 
-    /// Swipe towards the **older** end until `identifier` is in the tree, stopping as soon as the list
-    /// stops moving (it is at the very top) so a missing post costs seconds, not a swipe budget.
+    /// Swipe towards the **older** end until `identifier` is in the tree.
+    ///
+    /// "Are we at the top of the channel?" cannot be answered by "did the last swipe move anything":
+    /// a swipe down at the top is what *starts a page load*, and while that request is in flight the
+    /// layout does not move either — the reader has to keep swiping once the page lands. So the walk
+    /// looks at two cheap signals per swipe (the pane's loaded-post count from the test seam, and the
+    /// sentinel's own label) and only stops when the count stopped growing **and** the sentinel says
+    /// this is the beginning of the channel.
     private func scrollTowardOlderPosts(_ app: XCUIApplication, _ identifier: String,
-                                        maxSwipes: Int = 60) -> Bool {
+                                        maxSwipes: Int = 40) -> Bool {
         let list = element(app, "channelPostList")
-        var lastTop = CGFloat.greatestFiniteMagnitude
+        let sentinel = element(app, "channelPostList.loadEarlier")
+        var stalled = 0
+        var lastCount = loadedPosts(app)
         for _ in 0..<maxSwipes {
             if element(app, identifier).exists { return true }
             list.swipeDown(velocity: .fast)
-            let top = postRows(app).first?.frame.minY ?? lastTop
-            if abs(top - lastTop) <= 1 { return element(app, identifier).exists }
-            lastTop = top
+            // A swipe at the top hands the sentinel a load; give the merge a moment before reading.
+            Thread.sleep(forTimeInterval: 0.6)
+            if element(app, identifier).exists { return true }
+            let count = loadedPosts(app)
+            let atBeginning = sentinel.exists && sentinel.label.contains("beginning")
+            if count == lastCount && atBeginning {
+                stalled += 1
+                if stalled >= 2 { return element(app, identifier).exists }
+            } else {
+                stalled = 0
+            }
+            lastCount = count
         }
         return element(app, identifier).exists
+    }
+
+    /// The number of posts this pane is holding, as the test seam button publishes it
+    /// (`-uiTestExposeLoadEarlier`, accessibility value "<n> posts loaded"). `-1` when the seam is not
+    /// mounted. A page insert has to change this number, so the test does not have to infer the merge
+    /// from where the lazy list happens to have scrolled.
+    private func loadedPosts(_ app: XCUIApplication) -> Int {
+        let seam = element(app, "channelPostList.forceLoadEarlier")
+        guard seam.exists, let value = seam.value as? String else { return -1 }
+        return Int(value.split(separator: " ").first ?? "") ?? -1
+    }
+
+    /// The id of the oldest post the pane holds, from the same seam value
+    /// (`"<n> posts loaded, oldest <id>"`). `nil` when the seam is not mounted.
+    private func oldestLoadedPost(_ app: XCUIApplication) -> String? {
+        let seam = element(app, "channelPostList.forceLoadEarlier")
+        guard seam.exists, let value = seam.value as? String else { return nil }
+        guard let marker = value.range(of: "oldest ") else { return nil }
+        let id = String(value[marker.upperBound...]).trimmingCharacters(in: .whitespaces)
+        return id.isEmpty || id == "none" ? nil : id
     }
 
     /// Scroll towards the **newer** end (swipe up) until `identifier` — optionally with a given label —

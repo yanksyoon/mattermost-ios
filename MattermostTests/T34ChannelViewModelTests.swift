@@ -126,13 +126,23 @@ final class T34ChannelViewModelTests: XCTestCase {
         XCTAssertFalse(model.hasMore)
     }
 
-    func testHasNextFalseIsAuthoritativeEvenForAFullPage() async {
+    /// The pinned server answers `has_next: false` on **every** channel page, including the first of
+    /// six (measured: `per_page=60` on a 503-post channel). Paging must therefore follow the page
+    /// length, not the flag — this is the regression that made the live "scroll to the top" test show
+    /// one page and "This is the beginning of the channel".
+    func testAFullPageKeepsPagingEvenWhenTheServerSaysHasNextIsFalse() async {
         let service = FakeService(pageSize: 2, firstPages: [
             list([post("b", at: 2_000), post("a", at: 1_000)], hasNext: false)
         ])
+        service.olderPages["a"] = list([post("older", at: 500)], hasNext: false)
         let model = model(service)
         await model.load()
-        XCTAssertFalse(model.hasMore)
+        XCTAssertTrue(model.hasMore, "a full page is not the end, whatever has_next says")
+
+        let grew = await model.loadEarlier()
+        XCTAssertTrue(grew)
+        XCTAssertEqual(model.loadedPostIDs, ["b", "a", "older"])
+        XCTAssertFalse(model.hasMore, "a short page ends the window")
     }
 
     func testLoadIfNeededDoesNotRefetchAnAlreadyLoadedWindow() async {
@@ -155,6 +165,8 @@ final class T34ChannelViewModelTests: XCTestCase {
         let grew = await model.loadEarlier()
         XCTAssertTrue(grew)
         XCTAssertEqual(model.loadedPostIDs, ["c", "b", "a"], "the shared boundary post must not duplicate")
+        XCTAssertEqual(model.oldestLoadedPostID, "a",
+                       "the window must grow at its older end — what the live UI test reads from the seam")
         XCTAssertEqual(service.requestedCursors, [nil, "b"])
         XCTAssertNil(model.loadEarlierError)
     }

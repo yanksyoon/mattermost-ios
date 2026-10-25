@@ -122,14 +122,30 @@ struct MarkdownView: View {
 /// attachment from attributes), so the run is split into segments and concatenated: `Text` + `Text`
 /// keeps one wrapping paragraph, and each segment keeps the attributes it was given. A shortcode the
 /// server does not know stays literal text (`:name:`), which is what the server itself renders.
+///
+/// The catalogue is **observed** rather than sampled once: `GET /emoji` lands after the first page of
+/// posts is already on screen, so a body that resolved its shortcodes at first draw would keep the
+/// literal `:name:` until the row was recycled (T34 review F7 — the live render proved it).
 struct MarkdownInlineText: View {
     let runs: [MarkdownInline]
     var emoji: EmojiCatalogue?
 
-    @State private var images: [String: UIImage] = [:]
+    var body: some View {
+        if let emoji {
+            CatalogueInlineText(runs: runs, catalogue: emoji)
+        } else {
+            Text(MarkdownText.attributed(runs))
+        }
+    }
+}
+
+/// `MarkdownInlineText` with the server's emoji catalogue in hand.
+private struct CatalogueInlineText: View {
+    let runs: [MarkdownInline]
+    @ObservedObject var catalogue: EmojiCatalogue
 
     private var customNames: [String] {
-        EmojiCatalogue.customNames(in: runs, catalogue: emoji)
+        EmojiCatalogue.customNames(in: runs, catalogue: catalogue)
     }
 
     var body: some View {
@@ -139,22 +155,22 @@ struct MarkdownInlineText: View {
             } else {
                 MarkdownText.composed(runs,
                                       custom: Set(customNames),
-                                      images: images)
+                                      images: catalogue.images)
                     // The composed form is a small `HStack` (text, emoji image, text…), and a bare
                     // stack has an empty accessibility label. Combined, VoiceOver reads the sentence
-                    // with the emoji in place — and the UI test can see that the words survived.
+                    // with the emoji in place; the explicit label names the emoji the server's image
+                    // stands for instead of leaking the raw `:shortcode:`.
                     .accessibilityElement(children: .combine)
+                    .accessibilityLabel(Text(MarkdownText.accessibilityText(runs,
+                                                                            custom: Set(customNames))))
             }
         }
-        // `task(id:)` re-runs when the paragraph's set of custom emoji changes (a row is recycled
-        // for a different post), and each image is fetched at most once by the catalogue.
+        // One fetch per name, deduplicated inside the catalogue; the published image table redraws
+        // this paragraph when the bytes land.
         .task(id: customNames) {
-            guard !customNames.isEmpty, let emoji else { return }
-            var loaded: [String: UIImage] = [:]
             for name in customNames {
-                if let image = await emoji.image(for: name) { loaded[name] = image }
+                _ = await catalogue.image(for: name)
             }
-            images = loaded
         }
     }
 }
@@ -376,8 +392,23 @@ extension MarkdownText {
         return output
     }
 
-    /// The rendered paragraph: `Text` concatenation so custom emoji images sit inline with the text.
+    /// The sentence as it should be *heard*: text segments verbatim, every resolved custom emoji as
+    /// its name instead of the raw `:shortcode:` the reader never sees.
     ///
+    /// Used as the accessibility label of a composed paragraph, where the rendered `HStack` of text
+    /// runs and images has no label of its own.
+    static func accessibilityText(_ runs: [MarkdownInline], custom: Set<String>) -> String {
+        segments(runs, custom: custom).map { segment in
+            switch segment {
+            case .text(let attributed):
+                return String(attributed.characters)
+            case .emojiImage(let name):
+                return name.replacingOccurrences(of: "_", with: " ")
+            }
+        }.joined()
+    }
+
+    /// The rendered paragraph: `Text` concatenation so custom emoji images sit inline with the text.
     /// An image for a name that has not loaded yet falls back to the shortcode's character (or the
     /// literal `:name:`), so a slow image never leaves a gap in the sentence.
     static func composed(_ runs: [MarkdownInline],
@@ -389,10 +420,31 @@ extension MarkdownText {
                 return text + Text(attributed)
             case .emojiImage(let name):
                 if let image = images[name] {
-                    return text + Text(Image(uiImage: image).renderingMode(.original))
+                    // Text-sized, not the upload's own pixels: a 40 pt PNG inside `Text` pushes the
+                    // paragraph's lines apart and drops the emoji onto its own line instead of
+                    // sitting inline with the sentence.
+                    return text + Text(Image(uiImage: image.emojiSized()).renderingMode(.original))
                 }
                 return text + Text(EmojiShortcodes.character(for: name) ?? ":\(name):")
             }
+        }
+    }
+}
+
+extension UIImage {
+    /// A copy of a server emoji image at the height of body text.
+    ///
+    /// `/emoji/{id}/image` answers with whatever the uploader sent (the T34 fixture's is 40×40).
+    /// `Text(Image)` draws that at full size, which is how a custom emoji ended up breaking the line it
+    /// belongs to; the emoji is drawn at `height` points with its aspect ratio kept.
+    func emojiSized(height: CGFloat = 18) -> UIImage {
+        let aspect = size.height > 0 ? size.width / size.height : 1
+        let target = CGSize(width: (height * aspect).rounded(), height: height)
+        guard size.height > height || size.width > target.width else { return self }
+        let format = UIGraphicsImageRendererFormat.default()
+        format.opaque = false
+        return UIGraphicsImageRenderer(size: target, format: format).image { _ in
+            draw(in: CGRect(origin: .zero, size: target))
         }
     }
 }

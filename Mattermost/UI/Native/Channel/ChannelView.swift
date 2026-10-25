@@ -25,6 +25,10 @@ struct ChannelPostListView: View {
     /// Row top edges in the scroll view's coordinate space, keyed by post id. The topmost one is the
     /// reader's anchor; the same dictionary is re-read after a page lands to measure the correction.
     @State private var frames: [String: CGFloat] = [:]
+
+    /// True while a top visit must not page: the reader has not been away from the top since the last
+    /// auto-load, so this is the same visit. Cleared once the viewport is a screen away from the top.
+    @State private var mustLeaveTopBeforePaging = true
     @State private var readerIsAtBottom = true
     @StateObject private var scrollController = ChannelScrollController()
 
@@ -97,23 +101,47 @@ struct ChannelPostListView: View {
             .onPreferenceChange(RowGeometryPreferenceKey.self) { updated in
                 frames = updated
                 readerIsAtBottom = scrollController.distanceFromBottom <= 40
+                // A top visit only means "load more" if the reader had been away from the top: on the
+                // first layout of a fresh window the content estimate can be shorter than the viewport,
+                // which reads as "at the top" — a live run paged a second window before the initial
+                // scroll to the newest post had even landed (pane held 120 on open).
+                if scrollController.distanceFromTop > 320 { mustLeaveTopBeforePaging = false }
                 // A restore in flight owns the position: recording an anchor from the half-restored
                 // layout would hand the next `loadEarlier` a place the reader never was.
                 guard model.pendingScrollRestore == nil else { return }
-                // The topmost row still visible is the reader's post. Negative values are rows that
-                // have been scrolled past, so they are ignored — except when every row is above the
-                // viewport (an over-scroll), where the nearest one is still the honest answer.
-                let visible = updated.filter { $0.value >= 0 }
-                let candidate = (visible.isEmpty ? updated : visible).min { $0.value < $1.value }
-                if let candidate {
-                    model.setScrollAnchor(ChannelViewModel.ScrollAnchor(postID: candidate.key,
-                                                                        offsetFromTop: candidate.value))
+                // Preference values are positions inside the scroll *content*; the reader's place is a
+                // distance below the viewport's top edge, so the current offset is subtracted here
+                // (T34-R3: without this the anchor was the first row of the window, whatever the
+                // reader was actually looking at).
+                if let candidate = ScrollRestorePlan.topVisible(rows: updated,
+                                                                contentOffsetY: scrollController.offsetY) {
+                    model.setScrollAnchor(ChannelViewModel.ScrollAnchor(postID: candidate.id,
+                                                                        offsetFromTop: candidate.offsetFromTop))
+                }
+                // The latch and the top-visit check live in `pollReaderPosition()`: it reads UIKit's
+                // real offset, so it does not depend on a row's frame changing at the right moment.
+                if !mustLeaveTopBeforePaging, model.hasMore, !model.isLoadingMore,
+                   model.loadEarlierError == nil, scrollController.distanceFromTop <= 8,
+                   scrollController.isUserScrolling || scrollController.contentFitsViewport {
+                    mustLeaveTopBeforePaging = true
+                    Task { await model.loadEarlier() }
                 }
             }
             .onChange(of: model.pendingScrollRestore) { _, restore in
                 guard let restore else { return }
                 Task { @MainActor in
                     await restoreReader(restore, proxy: proxy)
+                }
+            }
+            .task(id: model.channelID) {
+                // The reader's position is owned by UIKit, so a timer on it is the only check that does
+                // not depend on SwiftUI deciding that some row's frame changed. Cheap (8 Hz, and only
+                // while this pane is on screen) and it is what makes "reaching the top pages older
+                // posts in" a property of the scroll view rather than of a callback's timing.
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .milliseconds(120))
+                    guard !Task.isCancelled else { return }
+                    pollReaderPosition()
                 }
             }
         }
@@ -132,29 +160,47 @@ struct ChannelPostListView: View {
     @MainActor
     private func restoreReader(_ restore: ChannelViewModel.ScrollAnchor,
                                proxy: ScrollViewProxy) async {
-        for attempt in 0..<20 {
-            if let current = frames[restore.postID], scrollController.isAttached {
-                let adjustment = ScrollRestorePlan.adjustment(
-                    recordedOffsetFromTop: restore.offsetFromTop,
-                    currentOffsetFromTop: current)
-                if !ScrollRestorePlan.isNoOp(adjustment) {
-                    if scrollController.scroll(by: adjustment) {
-                        model.consumeScrollRestore()
-                        return
+        // Converge rather than correct once — but at most once per *measured* position: the preference
+        // values lag the scroll, so re-applying a correction computed from a stale frame would move the
+        // reader twice as far (a live run showed the anchored post 585 pt off, the same distance twice).
+        var correctedFor: CGFloat?
+        for attempt in 0..<24 {
+            // `frame` is inside the content; the reader's reference is the distance below the
+            // viewport's top edge, exactly what was recorded.
+            if let frame = frames[restore.postID], scrollController.isAttached {
+                if frame != correctedFor {
+                    let current = frame - scrollController.offsetY
+                    let adjustment = ScrollRestorePlan.adjustment(
+                        recordedOffsetFromTop: restore.offsetFromTop,
+                        currentOffsetFromTop: current)
+                    correctedFor = frame
+                    if ScrollRestorePlan.isNoOp(adjustment) {
+                        if attempt >= 3 {
+                            model.consumeScrollRestore()
+                            return
+                        }
+                    } else {
+                        _ = scrollController.scroll(by: adjustment)
                     }
-                } else if attempt >= 6 {
-                    // The measurement still says "unmoved" after ~100 ms: either SwiftUI preserved the
-                    // reader's offset itself, or this list was re-rendered without a shift. Either way
-                    // there is nothing to correct, and holding the restore open would block anchoring.
+                } else if attempt >= 3 {
+                    // The row has not been re-measured since the correction: there is nothing left to
+                    // learn from waiting.
                     model.consumeScrollRestore()
                     return
                 }
             }
-            try? await Task.sleep(for: .milliseconds(16))
+            try? await Task.sleep(for: .milliseconds(32))
         }
-        // No scroll view (the bridge found none) or no measurement: align the post's top and accept a
-        // sub-row error rather than leaving the reader somewhere unrelated.
+        // No usable measurement: the anchored row is either not in `frames` (a page was inserted above
+        // it, so `LazyVStack` has not measured it) or its preference value never moved. Align its top to
+        // the viewport and put the recorded distance back above it — a point offset, so a reader
+        // half-way through a post is not moved to a row edge. This *enforces* the recorded distance,
+        // which is also the right answer when SwiftUI happened to preserve the position itself.
         proxy.scrollTo("post-\(restore.postID)", anchor: .top)
+        try? await Task.sleep(for: .milliseconds(60))
+        if !ScrollRestorePlan.isNoOp(restore.offsetFromTop) {
+            _ = scrollController.scroll(by: -restore.offsetFromTop)
+        }
         model.consumeScrollRestore()
     }
 
@@ -195,9 +241,12 @@ struct ChannelPostListView: View {
     /// The post being toggled is the reader's anchor here, and the same point-offset restore that
     /// serves `loadEarlier` puts it back.
     private func toggleExpanded(_ postID: String) {
-        if let current = frames[postID] {
-            model.requestScrollRestore(ChannelViewModel.ScrollAnchor(postID: postID,
-                                                                     offsetFromTop: current))
+        // Same reference as everywhere else: distance below the viewport's top edge, not a position
+        // inside the content (`frames` values are content positions).
+        if let current = frames[postID], scrollController.isAttached {
+            model.requestScrollRestore(ChannelViewModel.ScrollAnchor(
+                postID: postID,
+                offsetFromTop: current - scrollController.offsetY))
         }
         model.toggleExpanded(postID)
     }
@@ -224,6 +273,29 @@ struct ChannelPostListView: View {
             }
             try? await Task.sleep(for: .milliseconds(32))
         }
+    }
+
+    /// One look at where the reader is: keep the anchor honest and page when they reach the top.
+    ///
+    /// Run from a timer rather than from a preference callback. `onPreferenceChange` only fires when a
+    /// *row's* frame changes, and a fast swipe can take the viewport to the top between two such
+    /// updates; a live UI run sat at the top for 40 s with the sentinel visible and nothing paging.
+    private func pollReaderPosition() {
+        guard scrollController.isAttached else { return }
+        let distance = scrollController.distanceFromTop
+        let userScrolling = scrollController.isUserScrolling
+        // The latch is re-armed only by the reader travelling away from the top *by hand*. A merge
+        // lengthens the content above them, which also makes `distance` large — treating that as "they
+        // left the top" is what let one visit page in three windows' worth of posts.
+        if userScrolling, distance > 320 { mustLeaveTopBeforePaging = false }
+        // Nothing to scroll at all: a window shorter than a screen is both ends at once and should
+        // fill itself.
+        if scrollController.contentFitsViewport { mustLeaveTopBeforePaging = false }
+        guard !mustLeaveTopBeforePaging, distance <= 8,
+              model.hasMore, !model.isLoadingMore, model.loadEarlierError == nil,
+              model.pendingScrollRestore == nil else { return }
+        mustLeaveTopBeforePaging = true
+        Task { await model.loadEarlier() }
     }
 
     /// The top of the loaded window. Tappable *and* auto-firing: reaching the top is how the reader
@@ -254,11 +326,23 @@ struct ChannelPostListView: View {
         }
         .buttonStyle(.plain)
         .disabled(!model.hasMore || model.isLoadingMore)
-        .onAppear {
-            guard model.hasMore, !model.isLoadingMore, model.loadEarlierError == nil else { return }
-            Task { await model.loadEarlier() }
-        }
+        .onAppear { requestEarlierIfTheReaderIsActuallyAtTheTop() }
         .accessibilityIdentifier("channelPostList.loadEarlier")
+    }
+
+    /// Auto-load older posts when the sentinel reaches the reader.
+    ///
+    /// `onAppear` in a `LazyVStack` fires whenever the row is *realized*, and every merge re-realizes it,
+    /// so an unguarded `onAppear` turned "one page per visit to the top" into a cascade: a live run
+    /// paged three windows in while the reader sat still (the pane's oldest post was the third page's,
+    /// not the second's). The scroll position decides, not the callback: the sentinel is the first row
+    /// of the content, so it is only on screen when the reader is within a screen of the top.
+    private func requestEarlierIfTheReaderIsActuallyAtTheTop() {
+        guard !mustLeaveTopBeforePaging, model.hasMore, !model.isLoadingMore,
+              model.loadEarlierError == nil else { return }
+        guard scrollController.distanceFromTop <= 320 else { return }
+        mustLeaveTopBeforePaging = true
+        Task { await model.loadEarlier() }
     }
 
     // MARK: States
@@ -378,16 +462,8 @@ struct ChannelPaneContent: View {
                 .lineLimit(2)
                 .accessibilityIdentifier("nativeChannelTitle")
             Spacer(minLength: 8)
-            if ChannelUITestHook.exposesLoadEarlier {
-                // UI-test seam (`-uiTestExposeLoadEarlier`): paging without a scroll gesture, so a
-                // test can measure the anchored post's frame across exactly one page insert instead
-                // of racing the scroll-driven sentinel. A launch argument, never a user-facing
-                // setting — a normal launch does not render this button.
-                Button("Load earlier") {
-                    Task { await model?.loadEarlier() }
-                }
-                .accessibilityLabel("Load earlier")
-                .accessibilityIdentifier("channelPostList.forceLoadEarlier")
+            if ChannelUITestHook.exposesLoadEarlier, let model {
+                LoadEarlierSeamButton(model: model)
             }
             Button {
                 navigation.openThreads(navigation.location.request)
@@ -459,5 +535,28 @@ enum ChannelUITestHook {
     /// exists so the *anchor* measurement can be taken across exactly one page insert.
     static var exposesLoadEarlier: Bool {
         ProcessInfo.processInfo.arguments.contains("-uiTestExposeLoadEarlier")
+    }
+}
+
+/// The `-uiTestExposeLoadEarlier` button, as a view that **observes** the model.
+///
+/// It is its own view for one reason: the pane's header does not observe `ChannelViewModel`, so an
+/// accessibility value rendered there would keep whatever `loadedCount` was at first draw. Observing
+/// here publishes "<n> posts loaded" — a page insert changes it, and a UI test can therefore assert
+/// that a load really merged instead of inferring it from where the lazy list happens to have
+/// scrolled. Mounted only under the launch argument; a normal launch renders nothing.
+private struct LoadEarlierSeamButton: View {
+    @ObservedObject var model: ChannelViewModel
+
+    var body: some View {
+        Button("Load earlier") {
+            Task { await model.loadEarlier() }
+        }
+        .accessibilityLabel("Load earlier")
+        // The pane's own answer to "what do you hold", so a UI test can prove a merge happened and
+        // which end of the window it grew — without inferring it from wherever the lazy list happens
+        // to have scrolled.
+        .accessibilityValue("\(model.loadedCount) posts loaded, oldest \(model.oldestLoadedPostID ?? "none")")
+        .accessibilityIdentifier("channelPostList.forceLoadEarlier")
     }
 }

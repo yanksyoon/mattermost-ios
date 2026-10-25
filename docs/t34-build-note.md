@@ -8,17 +8,20 @@ New surface, all under `Mattermost/UI/Native/Channel/`:
 
 | File | Lines | Role (upstream counterpart) |
 |---|---|---|
-| `ChannelAPI.swift` | 40 | REST: channel posts page, `/users/ids`, file bytes, `/channels/{id}/members/me` (`remote/posts`, `files`, `users`) |
-| `ChannelService.swift` | 74 | Page-then-profiles load order; `ChannelServing` protocol with `pageSize`, `membership`, `fileData` |
-| `ChannelViewModel.swift` | ~460 | `@MainActor` state machine: load/paginate/socket-patch/scroll anchor/expanded set/generation guard (`post_list/index.tsx` + `actions/views/post_list`) |
-| `ChannelPaneCoordinator.swift` | 134 | Per-server LRU (6 channels) of view models + image caches; auth teardown |
-| `ChannelView.swift` | ~320 | List, top sentinel, empty/error/loading states, sticky composer stand-in |
-| `PostRowView.swift` | 389 | Row: avatar/gutter, header, body, attachments, reactions, system/deleted rows |
-| `PostListModels.swift` | 424 | `PostListDerivation` — pure derivation of rows, separators, grouping, folds, labels |
-| `Markdown/MarkdownModel.swift` | 136 | Inline/block tree, `plainText`, `allInlines`, `linkURL` |
-| `Markdown/MarkdownParser.swift` | 776 | Block + inline parser (see §3) |
-| `Markdown/MarkdownView.swift` | 286 | SwiftUI renderer (`AttributedString` for inlines, `Grid` for tables) |
-| `Markdown/CodeHighlighter.swift` | 265 | Prism-style tokeniser used by fenced blocks |
+| `ChannelAPI.swift` | 66 | REST: channel posts page, `/users/ids`, file bytes, `/channels/{id}/members/me`, `/emoji` (`remote/posts`, `files`, `users`, `custom_emoji`) |
+| `ChannelService.swift` | 104 | Page-then-profiles load order; `ChannelServing` protocol with `pageSize`, `membership`, `fileData`, `customEmoji`, `emojiImage` |
+| `ChannelViewModel.swift` | 500 | `@MainActor` state machine: load/paginate/socket-patch/scroll anchor/expanded set/generation guard (`post_list/index.tsx` + `actions/views/post_list`) |
+| `ChannelPaneCoordinator.swift` | 159 | Per-server LRU (6 channels) of view models + image caches + one emoji catalogue per server; auth teardown |
+| `ChannelScrollPosition.swift` | 124 | Finds the `UIScrollView` under a SwiftUI `ScrollView` and scrolls by a point offset — the "put the anchored post back where the reader left it" half of paging |
+| `ChannelView.swift` | 475 | List, top sentinel, states, scroll restore, sticky composer stand-in |
+| `PostRowView.swift` | 462 | Row: avatar/gutter, header, body, attachments, reactions, system/deleted rows, inline emoji glyphs |
+| `PostListModels.swift` | 471 | `PostListDerivation` — pure derivation of rows, separators, grouping, folds, labels |
+| `EmojiCatalogue.swift` | 205 | `GET /emoji` name list (published) + one-at-a-time image cache, shared per server |
+| `Markdown/MarkdownModel.swift` | 152 | Inline/block tree, `plainText`, `allInlines`, `linkURL` |
+| `Markdown/MarkdownParser.swift` | 794 | Block + inline parser (see §3) |
+| `Markdown/MarkdownView.swift` | 479 | SwiftUI renderer (`AttributedString` for inlines, custom emoji inline with the text, `Grid` for tables) |
+| `Markdown/MarkdownFold.swift` | 213 | The in-block fold caps (lines / characters / table rows / list items) |
+| `Markdown/CodeHighlighter.swift` | 261 | Prism-style tokeniser used by fenced blocks |
 
 Wiring changes: `NativePanePlaceholders.swift` (`NativeChannelPaneView` now hosts `ChannelPaneContent`),
 `NativeShellView.swift` + `RootView.swift` (pass the resolved `ServerConfig` into the destination pane),
@@ -29,8 +32,11 @@ the T33 rail, deactivate on sign-out/expiry/removal).
 
 * `GET /channels/{id}/posts?per_page=60` — **no ETag**, deliberately: a conditional request would hand
   back `304` and the pane would have nothing to draw on a cold start.
-* Paging is `before=<oldest loaded post id>`; `has_next` from the server wins, otherwise a short page
-  means the end. `ChannelViewModel.hasMore` is derived, never assumed.
+* Paging is `before=<oldest loaded post id>`. **`has_next` is ignored on this endpoint**: the pinned
+  server (9.11.19) answers `has_next: false` on *every* channel page, the first of six included, so
+  trusting it stopped paging after one page (T34-R3 — the live suite caught it; see §8.1). The page
+  length is the signal instead: a full page asks again, a short or empty page ends the window.
+  `ChannelViewModel.hasMore` is derived, never assumed.
 * Author profiles come from `POST /users/ids` **after** the page. A profile failure does not fail the
   page: rows fall back to the username in `props`.
 * `last_viewed_at` comes from `GET /channels/{id}/members/me`; the channel page does not carry read
@@ -48,8 +54,14 @@ the T33 rail, deactivate on sign-out/expiry/removal).
 * Grouping: same author, same day, within 5 minutes of the **previous** post, and neither post is a
   system message. Grouped rows draw no header (gutter time only).
 * Day separators: `Today` / `Yesterday` / weekday within the last week / `Month D, YYYY`.
-* Long posts fold after 12 blocks with a `Show more` / `Show less` affordance; expansion state lives in
-  the view model so it survives row recycling.
+* Long posts fold after 12 blocks with a `Show more` / `Show less` affordance, and **inside** a block
+  too: a single 600-line fence is cut at 20 lines (`… 580 more lines`) and a single 15 K-character
+  paragraph at 1,200 characters, so one pasted log cannot blow up the layout (T34 review F6). The
+  expansion state lives in the view model so it survives row recycling.
+* Custom emoji (`:name:` the server owns) are drawn from `GET /emoji/{id}/image` at text size, inline
+  with the words around them; the catalogue **publishes** its name list and image table, so a
+  paragraph painted before `/emoji` answered repaints instead of keeping the literal `:name:`
+  (T34-R3 — the first live render showed exactly that, see §8.1).
 * Deleted posts render as `(message deleted)` only when the server still lists them, and system posts
   render as system rows with no markdown processing.
 * Reactions are grouped per emoji, sorted by count then name, and the count comes from the server.
@@ -62,6 +74,13 @@ the T33 rail, deactivate on sign-out/expiry/removal).
 2. **The list opens at the newest post.** `defaultScrollAnchor(.bottom)` plus a scroll to the last row
    once the first page lands. Upstream's `inverted` FlatList achieves the same thing by other means.
 3. **No composer in T34.** The pane shows a read-only bar that names the channel; typing is T35.
+4. **`Load earlier` is a tap, and auto-fires only when the window is shorter than a screen.** Upstream
+   pages automatically on reaching the top. In this list every merge lengthens the content above the
+   reader, so "is the reader at the top" and "did a page just land" cannot be told apart from the scroll
+   offset alone: the auto-fire version paged in three windows from a single visit (measured: the pane's
+   oldest post was page 4's). The button keeps the behaviour explicit and one page per request; a
+   window that fits on screen still fills itself. Making this automatic again needs the list to own its
+   scroll position (`.scrollPosition(id:)` on iOS 17+), which is a larger change than T34.
 
 ## 3. Markdown
 
@@ -87,12 +106,19 @@ Unit (`MattermostTests/`):
 
 * `T34MarkdownTests` (27) — headings/lists/quotes/tables/code, emphasis nesting, delimiter runs,
   hostile links, emoticons vs `<3`, entities, HTML stripping, random-input determinism.
-* `T34PostListTests` + `T34FixtureTests` (27) — ordering, grouping boundaries, day titles (pinned to
+* `T34PostListTests` + `T34FixtureTests` (34) — ordering, grouping boundaries, day titles (pinned to
   2026-10-26 so the suite does not rot), unread divider, reactions, attachments, fold rule, and the
   captured 502-post fixture paged exactly like the live server pages it.
-* `T34ChannelViewModelTests` + coordinator tests (28) — first page, paging, short page = last page,
+* `T34ChannelViewModelTests` + coordinator tests (29) — first page, paging, short page = last page,
+  a full page whose `has_next` is `false` still pages (the pinned server's actual answer),
   out-of-order loads, socket patching, error copy, LRU eviction, auth teardown.
 * `T34CodeHighlightTests` (11) — every profile tokenises losslessly.
+* `T34EmojiTests` (17) — shortcode segmentation, unknown shortcodes stay literal, the accessibility
+  text names resolved emoji, and an inline emoji is drawn at text height rather than the file's pixels.
+* `T34ScrollRestoreTests` (11) — the adjustment arithmetic, the tolerance, and which row counts as the
+  reader's anchor (viewport-relative, not a position inside the content).
+
+**129 T34 unit tests.**
 
 UI (`MattermostUITests/T34-ChannelPostListUITests.swift`, 6 tests, **live server** only — no stub):
 

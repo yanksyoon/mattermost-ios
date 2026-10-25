@@ -219,3 +219,40 @@ Reimplementation notes that matter for the licence boundary: the Swift types
 and this repo's existing `APIClient`/`SocketClient`/`NativeNavigation` types, not translated from RN
 reducers or selectors. **SF Symbols replace every `compass-icons` glyph**, so no icon font or extra
 dependency is added.
+
+## 11. T34 native channel view and post list — upstream read set (Apache-2.0, mobile @ `162f2560…`; webapp observed only, AGPL-3.0)
+
+T34 (`Mattermost/UI/Native/Channel/Markdown/*.swift`, `EmojiCatalogue.swift`, `PostListModels.swift`,
+`ChannelViewModel.swift`, `ChannelService.swift`, `ChannelAPI.swift`, `ChannelView.swift`,
+`PostRowView.swift`, `docs/t34-build-note.md`) reimplements the **post list and its rendering** —
+grouping, day separators, markdown/GFM, code blocks, custom emoji, reactions, attachments, edited /
+deleted / system markers, the "new messages" divider and long-history pagination. The upstream read set
+is the one `docs/component-map.md` §4 + S11 already names for this surface; no upstream file is copied
+or transpiled. The mobile pin is TypeScript (read for rules only); the webapp is AGPL-3.0 and was
+**observed in the running client**, never copied or ported.
+
+| Upstream path (mobile @ `162f2560…` unless marked `W`) | Used for |
+|---|---|
+| `app/components/markdown/transform.ts`, `app/components/markdown/markdown.tsx` | the parse order and the inline-node vocabulary this client's `MarkdownParser`/`MarkdownModel` follows (mention, channel link, emoji shortcode, link, code span, text) |
+| `app/utils/emoji/helpers.ts`, `app/utils/emoji/index.ts`, `W webapp/channels/src/utils/emoji.ts` | shortcode handling: lower-cased lookup, an unknown `:name:` stays literal, and the rule that a server emoji outside the Unicode set is drawn from the server's own image |
+| `app/utils/post_list/index.ts`, `W …/packages/mattermost-redux/src/utils/post_list.ts` | the ordering/merge rules the list derivation reproduces (newest-first window, no duplicate id across a page boundary) |
+| `app/utils/datetime.ts`, `app/utils/date_utils.ts` | the day-boundary buckets a separator sits on (Today / Yesterday / weekday / date) |
+| `app/utils/message_attachment.ts` | attachment display structs from `metadata.files` (file name, size, image vs. file) |
+| `app/screens/channel/channel_post_list/channel_post_list.tsx`, `app/screens/channel/channel_post_list/intro/*` | the post list host: opening at the newest message, the "load older" position, and the empty-channel intro's role |
+| `app/components/post_list/` — `config.ts`, `date_separator/`, `new_message_line/`, `more_messages/`, `post/body/body.tsx`, `post/body/content/*`, `combined_user_activity/` | row anatomy and the states this card draws: the 5-minute same-author grouping, the edited marker, the unread line's position, the "load more" affordance, and the one-row-per-activity rule for system messages |
+| `app/actions/remote/post.ts`, `app/client/rest/posts.ts` | `GET /channels/{id}/posts` (`per_page`, `before`, `since`) and the page's `order`/`posts` shape |
+| `app/client/websocket/index.ts` (event shapes) | `posted` / `post_edited` / `post_deleted` → patch the list in place; a replayed `posted` replaces rather than appends |
+| `W …/components/channel_view.tsx`, `W …/components/post_view/`, `W …/components/markdown/index.ts`, `W …/components/date_separator*`, `W …/components/combined_system_message/` | **behaviour cross-check only** — what the Path A webview actually renders, observed to confirm the native rows say the same thing. No webapp code, markup, class name or string is reproduced. |
+
+Not ported by this card (component-map S11 names them, another card owns them): `embedded_bindings/`,
+`interactive_messages/` (Apps plumbing), `opengraph.ts` (no URL previews), the `intro/*` content beyond
+the empty-state sentence, and `pooling`/`windowing` of a `FlatList` (SwiftUI's `LazyVStack` is used
+instead).
+
+Reimplementation notes that matter for the licence boundary: the Swift types are written against
+`https://api.mattermost.com` (`/channels/{id}/posts`, `/users/ids`, `/channels/{id}/members/me`,
+`/emoji`, `/emoji/{id}/image`) and this repo's existing `APIClient`/`SocketClient` types, not
+translated from RN components, reducers or selectors. The code highlighter is a hand-written tokeniser
+per language — no `highlight.js`/Prism code, table or theme is bundled; the built-in emoji are Unicode
+characters and **SF Symbols** replace every `compass-icons` glyph, so no icon font, emoji sprite or
+extra dependency is added.

@@ -278,27 +278,51 @@ struct PostRowView: View {
 
 /// One emoji as the reaction bar draws it: the server's image for a custom name, the Unicode
 /// character for a built-in one, and the literal `:name:` when neither is known.
+///
+/// The catalogue is observed, for the same reason as `MarkdownInlineText`: `/emoji` and the image
+/// bytes arrive after the reaction bar's first draw, and an unobserved `image(for:)` that answered
+/// `nil` once would leave the reaction literal forever.
 struct EmojiGlyph: View {
     let name: String
     var emoji: EmojiCatalogue?
     var size: CGFloat = 15
 
-    @State private var image: UIImage?
+    var body: some View {
+        if let emoji {
+            CatalogueEmojiGlyph(name: name, catalogue: emoji, size: size)
+        } else {
+            EmojiGlyphContent(image: nil, name: name, size: size)
+        }
+    }
+}
+
+private struct CatalogueEmojiGlyph: View {
+    let name: String
+    @ObservedObject var catalogue: EmojiCatalogue
+    var size: CGFloat
+
+    private var key: String { name.lowercased() }
 
     var body: some View {
-        Group {
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: size, height: size)
-            } else {
-                Text(EmojiShortcodes.character(for: name) ?? ":\(name):")
-                    .font(.system(size: size))
-            }
-        }
-        .task(id: name) {
-            image = await emoji?.image(for: name)
+        EmojiGlyphContent(image: catalogue.images[key], name: name, size: size)
+            .task(id: key) { _ = await catalogue.image(for: name) }
+    }
+}
+
+private struct EmojiGlyphContent: View {
+    let image: UIImage?
+    let name: String
+    let size: CGFloat
+
+    var body: some View {
+        if let image {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size, height: size)
+        } else {
+            Text(EmojiShortcodes.character(for: name) ?? ":\(name):")
+                .font(.system(size: size))
         }
     }
 }

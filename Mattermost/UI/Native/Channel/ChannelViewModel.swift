@@ -40,6 +40,8 @@ final class ChannelViewModel: ObservableObject {
     /// same id and the view scrolls back to it (see `pendingScrollRestore`).
     struct ScrollAnchor: Equatable {
         var postID: String
+        /// Points between the viewport's top edge and the post's top edge — **not** a position inside
+        /// the scroll content, which grows as pages are prepended.
         var offsetFromTop: CGFloat
     }
 
@@ -77,6 +79,8 @@ final class ChannelViewModel: ObservableObject {
     /// How many posts the window holds (diagnostics/tests).
     var loadedCount: Int { posts.count }
     var loadedPostIDs: [String] { posts.map(\.id) }
+    /// The oldest post the pane holds — the end that grows when an older page merges.
+    var oldestLoadedPostID: String? { posts.last?.id }
     func post(id: String) -> MMPost? { postsByID[id] }
 
     // MARK: Collaborators
@@ -204,8 +208,8 @@ final class ChannelViewModel: ObservableObject {
             for post in fresh { postsByID[post.id] = post }
             await loadProfiles(for: Array(Set(fresh.map(\.userId))))
             guard requested == generation else { return false }
-            // A short page is the last page; `has_next: false` is authoritative when the server sent
-            // it (some endpoints send the flag, a channel page usually does not).
+            // A short page is the last page. `has_next` is *not* consulted: the pinned server answers
+            // `false` on every channel page, including the first of six (see `morePages`).
             hasMore = Self.morePages(after: page, pageSize: service.pageSize)
             rebuild()
             // The reader was looking at `anchor`; the view scrolls back to it after this publish.
@@ -409,17 +413,16 @@ final class ChannelViewModel: ObservableObject {
 
     /// Ask the view to put `anchor` back where it is now.
     ///
-    /// An older page is not the only thing that moves content under the reader: expanding a folded
-    /// post grows every row below it, and with the list bottom-anchored that scrolls the reader away
-    /// from the post they just tapped. The same restore serves both cases.
+    /// Two things move content under the reader: an older page is prepended above, and a fold toggle
+    /// changes the height of the row that was tapped. Both record a *viewport-relative* distance
+    /// (`ScrollAnchor.offsetFromTop`), so the same restore serves both.
     func requestScrollRestore(_ anchor: ScrollAnchor?) {
         guard let anchor else { return }
         scrollAnchor = anchor
         pendingScrollRestore = anchor
     }
 
-    /// The view calls this once it has scrolled back (`ScrollViewReader.scrollTo`), so the anchor is
-    /// not applied twice.
+    /// The view calls this once it has scrolled back, so the anchor is not applied twice.
     func consumeScrollRestore() {
         pendingScrollRestore = nil
     }
@@ -461,12 +464,18 @@ final class ChannelViewModel: ObservableObject {
 
     /// Whether an older page exists after `page`.
     ///
-    /// `has_next == false` is authoritative when the server sends it; otherwise a page shorter than
-    /// the request is the last page. A full page may still be the last one, so this can cost one
-    /// empty request — cheaper than a phantom "load more" that never resolves.
+    /// **`has_next` is not trustworthy on this endpoint.** Measured on the pinned server (Mattermost
+    /// 9.11.19, `perf-feed`, 503 posts): `GET /channels/{id}/posts?per_page=60` answers
+    /// `has_next: false` on *every* page — the first one included — while `before=<oldest>` keeps
+    /// answering the next 60 with no overlap. Trusting it stopped paging after one page and left the
+    /// sentinel saying "This is the beginning of the channel" with 440 posts still unread (T34-R3:
+    /// found by the live suite, `has_next` was false on the first of six pages).
+    ///
+    /// So the page length is the only signal: a full page means "ask again", and a short or empty page
+    /// ends the window. A full page that happens to be the last one costs exactly one more request,
+    /// which `loadEarlier` turns into `hasMore = false` when nothing fresh comes back.
     static func morePages(after page: MMPostList, pageSize: Int) -> Bool {
-        if let hasNext = page.hasNext { return hasNext }
-        return page.order.count >= pageSize
+        page.order.count >= pageSize
     }
 
     static func message(for error: Error) -> String {
