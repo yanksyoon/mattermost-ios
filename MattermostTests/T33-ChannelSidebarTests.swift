@@ -265,10 +265,11 @@ final class T33ChannelSidebarTests: XCTestCase {
         XCTAssertEqual(ChannelSidebarDerivation.markUnread(forMuted: false), "all")
     }
 
-    /// Criterion 3, second half: totals drop a muted channel's **message** count but keep its
-    /// **mentions** — the mute is `mark_unread: mention`, and the team rail badges the server's
-    /// `teams/unread`, which counts those mentions. Two read-outs on one screen must agree.
-    func testTotalsDropMutedMessageCountsButKeepTheirMentions() {
+    /// Criterion 3, second half: the totals exclude a muted channel **entirely** — messages *and*
+    /// mentions — exactly as desktop's `getTeamsUnreadStatuses` does ("if channel is muted, we skip its
+    /// count"). T33-AV F2 measured the previous "keep the mentions" rule against that criterion; the
+    /// row still badges an explicit mention, the footer does not count it.
+    func testTotalsExcludeAMutedChannelsMessagesAndMentionsLikeDesktop() {
         var data = ChannelSidebarData(
             channels: [channel("a", totalMsgCount: 4), channel("b", totalMsgCount: 9), channel("c")],
             members: [member("a", msgCount: 1, mentions: 2),
@@ -276,11 +277,16 @@ final class T33ChannelSidebarTests: XCTestCase {
                       member("c", msgCount: 0)])
         data.categories = [category("chan", type: "channels", sorting: "alpha", channelIDs: ["a", "b", "c"])]
         data.categoryOrder = ["chan"]
-        let totals = ChannelSidebarDerivation.totals(groups(data))
+        let result = groups(data)
+        let totals = ChannelSidebarDerivation.totals(result)
         XCTAssertEqual(totals.messages, 3, "only the non-muted channel's 3 unread messages count")
-        XCTAssertEqual(totals.mentions, 7, "a muted channel's mentions still count (2 + 5)")
+        XCTAssertEqual(totals.mentions, 2, "a muted channel's mentions leave the total (desktop rule)")
         XCTAssertEqual(totals.unreadChannels, 1, "the muted channel is not an unread channel")
-        XCTAssertEqual(totals.accessibilityLabel, "7 mentions, 3 unread messages")
+        XCTAssertEqual(totals.accessibilityLabel, "2 mentions, 3 unread messages")
+        // The *row* is unchanged by the totals rule: a mention through the mute still badges.
+        let mutedRow = result.flatMap(\.entries).first { $0.id == "b" }
+        XCTAssertEqual(mutedRow?.badge, .count(5))
+        XCTAssertEqual(mutedRow?.showsUnreadEmphasis, true)
     }
 
     func testAnEmptySidebarHasNoTotalsSentence() {
@@ -805,6 +811,331 @@ final class T33ChannelSidebarTests: XCTestCase {
         XCTAssertNil(unknown?.channelID, "an unknown name is not guessed into an id")
     }
 
+    // MARK: - 12. T33-R repairs (the T33-AV findings)
+
+    /// F1's unit half: the write's answer is a **bare array**, and the GET's keyed `{order,
+    /// categories}` shape does not decode it. This is the exact payload the pinned 9.11.19 server
+    /// answered with (T33-R §2).
+    func testTheCategoriesWriteAnswerIsTheBareArrayTheServerSends() throws {
+        let json = """
+        [{"id":"channels_uid_team","user_id":"uid","team_id":"team","sort_order":10,
+          "sorting":"manual","type":"channels","display_name":"Channels","muted":false,
+          "collapsed":true,"channel_ids":["c2","c1"]},
+         {"id":"direct_messages_uid_team","user_id":"uid","team_id":"team","sort_order":20,
+          "sorting":"recent","type":"direct_messages","display_name":"Direct Messages","muted":false,
+          "collapsed":false,"channel_ids":[]}]
+        """
+        let decoded = try JSONDecoder().decode([MMSidebarCategory].self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.map(\.id), ["channels_uid_team", "direct_messages_uid_team"])
+        XCTAssertEqual(decoded.first?.channelIds, ["c2", "c1"])
+        XCTAssertEqual(decoded.first?.collapsed, true)
+        // The old code decoded this body with the GET shape; that is the throw that rolled a
+        // successful write back (T33-AV F1). Pinned so the two shapes cannot be confused again.
+        XCTAssertThrowsError(try JSONDecoder().decode(MMSidebarCategories.self, from: Data(json.utf8)))
+    }
+
+    /// The drawn order after a write: kept from what the sidebar already had, extended only by a
+    /// category the answer introduced.
+    func testTheCategoryOrderSurvivesAnArrayAnswerAndTakesANewCategory() {
+        let saved = [category("chan", type: "channels", sorting: "manual", channelIDs: ["c2", "c1"]),
+                     category("fav", type: "favorites", sortOrder: 0),
+                     category("new", type: "custom", displayName: "Projects", sortOrder: 5)]
+        XCTAssertEqual(ChannelSidebarDerivation.order(afterSaved: saved, previous: ["fav", "chan"]),
+                       ["fav", "chan", "new"],
+                       "the existing drawn order is kept; the new category is appended in the server's order")
+        XCTAssertEqual(ChannelSidebarDerivation.order(afterSaved: [category("chan", type: "channels")],
+                                                      previous: ["fav", "chan"]),
+                       ["chan"],
+                       "a category the answer dropped leaves the order")
+    }
+
+    /// A move is applied on the server and the server's own array is what the list rebases on — never
+    /// a rollback of a write the server accepted.
+    func testAMoveRebasesOnTheServersAnswerInsteadOfRollingBack() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        // The server normalises: it keeps a hidden channel at the end and says so in its answer.
+        fake.saveAnswer = { categories in
+            var answered = categories
+            if let index = answered.firstIndex(where: { $0.id == "chan" }) {
+                answered[index].channelIds = ["c2", "c1", "hidden"]
+            }
+            return answered
+        }
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+
+        let moved = await model.move(channelID: "c2", inCategory: "chan", by: -1)
+        XCTAssertTrue(moved)
+        XCTAssertNil(model.actionError, "the server accepted the write, so nothing may be reported as failed")
+        XCTAssertEqual(model.groups[0].entries.map(\.id), ["c2", "c1"])
+        XCTAssertEqual(fake.savedCategories.count, 1)
+    }
+
+    func testACollapseReachesTheServerAndSurvivesItsAnswer() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+
+        await model.setCollapsed(true, categoryID: "chan")
+        XCTAssertTrue(model.isCollapsed(categoryID: "chan"))
+        XCTAssertEqual(fake.savedCategories.last?.first { $0.id == "chan" }?.collapsed, true,
+                       "the collapse must be written, not only drawn")
+        XCTAssertNil(model.actionError)
+    }
+
+    func testAFailedCollapsePutsTheCategoryBackAndSaysWhy() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+
+        fake.saveError = URLError(.timedOut)
+        await model.setCollapsed(true, categoryID: "chan")
+        XCTAssertFalse(model.isCollapsed(categoryID: "chan"), "the local state must not outlive a failed write")
+        XCTAssertNotNil(model.actionError)
+    }
+
+    /// F3: the layout another client wrote arrives as `sidebar_category_updated` and is applied from
+    /// the payload — no request, no relaunch.
+    func testACategoryUpdateFromAnotherClientReachesTheOpenList() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+        XCTAssertEqual(model.groups[0].entries.map(\.id), ["c1", "c2"])
+
+        var categories = standardData().categories
+        let index = try! XCTUnwrap(categories.firstIndex { $0.id == "chan" })
+        categories[index].channelIds = ["c2", "c1"]
+        categories[index].collapsed = true
+
+        let outcome = model.handle(.sidebarCategoryUpdated(
+            SocketSidebarCategoryUpdate(teamID: "team1", categories: categories)), myUserID: "me")
+        XCTAssertEqual(outcome, .layoutChanged)
+        XCTAssertEqual(model.groups[0].entries.map(\.id), ["c2", "c1"],
+                       "an external reorder must reach the open list without a relaunch")
+        XCTAssertTrue(model.isCollapsed(categoryID: "chan"))
+        XCTAssertEqual(fake.loadTeamIDs.count, 1, "the event carried the layout; nothing to fetch")
+
+        // A layout for another team is not this list's business.
+        let other = model.handle(.sidebarCategoryUpdated(
+            SocketSidebarCategoryUpdate(teamID: "team2", categories: categories)), myUserID: "me")
+        XCTAssertEqual(other, .ignored)
+    }
+
+    func testPostUnreadAppliesTheServersOwnCounters() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+        XCTAssertEqual(model.entry(id: "c1")?.unreadCount, 3)
+
+        let outcome = model.handle(.postUnread(SocketPostUnread(channelID: "c1",
+                                                                teamID: "team1",
+                                                                msgCount: 5,
+                                                                mentionCount: 2,
+                                                                lastViewedAt: 9)),
+                                   myUserID: "me")
+        XCTAssertEqual(outcome, .applied)
+        XCTAssertEqual(model.entry(id: "c1")?.unreadCount, 0, "msg_count is the server's cursor")
+        XCTAssertEqual(model.entry(id: "c1")?.badge, .count(2))
+        XCTAssertEqual(fake.refreshCount, 0, "the event's numbers are the server's; no request")
+    }
+
+    func testAnotherClientsMuteArrivesInMyMembershipRow() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+        XCTAssertEqual(model.totals.messages, 3)
+
+        let mine = model.handle(.channelMemberUpdated(
+            SocketChannelMemberUpdate(member: member("c1", msgCount: 2, muted: true))),
+                                myUserID: "me")
+        XCTAssertEqual(mine, .applied)
+        XCTAssertTrue(model.entry(id: "c1")?.isMuted == true)
+        XCTAssertEqual(model.totals.messages, 0, "the muted channel leaves the totals")
+
+        let theirs = model.handle(.channelMemberUpdated(
+            SocketChannelMemberUpdate(member: MMChannelMember(
+                channelId: "c2", userId: "them",
+                notifyProps: .object(["mark_unread": .string("mention")])))),
+                                  myUserID: "me")
+        XCTAssertEqual(theirs, .ignored, "somebody else's mute says nothing about my badges")
+        XCTAssertFalse(model.entry(id: "c2")?.isMuted ?? true)
+    }
+
+    func testChannelCreatedAsksForAFullReloadAndDeletedForACounterRefresh() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+
+        XCTAssertEqual(model.handle(.channelCreated(SocketChannelEvent(channelID: "c9", teamID: "team1")),
+                                    myUserID: "me"), .reloadNeeded,
+                       "a new channel cannot appear from a counter refresh alone")
+        XCTAssertEqual(model.handle(.channelDeleted(SocketChannelEvent(channelID: "c1", teamID: "team1")),
+                                    myUserID: "me"), .refreshNeeded,
+                       "the channel list read drops an archived channel")
+    }
+
+    /// The coordinator's half of `channel_created`: one **full** reload behind the debounce.
+    func testAChannelCreatedEventReloadsTheListOncePerDebounce() async throws {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let coordinator = ChannelSidebarCoordinator(refreshDelay: 0.05, makeService: { _ in fake })
+        let config = server()
+        let store = ServerStore(preferences: preferences())
+        _ = store.add(config)
+        retainedStores.append(store)
+        let navigation = NativeNavigation(resolver: SurfaceModeResolver(preferences: preferences(),
+                                                                       arguments: ["-surfaceMode", "sidebar=native"]))
+        navigation.serverStore = store
+        #if DEBUG
+        navigation.authGate = AssumedSignedInAuthGate()
+        #endif
+        _ = navigation.openChannel(NativeChannelRequest(serverID: config.id,
+                                                        teamID: "team1",
+                                                        channelName: "alpha"))
+        coordinator.bind(auth: AuthCoordinator(), navigation: navigation, serverStore: store, teams: nil)
+        await coordinator.activate(config)
+        XCTAssertEqual(fake.loadTeamIDs, ["team1"])
+
+        for _ in 0..<2 {
+            await coordinator.handle(.channelCreated(SocketChannelEvent(channelID: "c9", teamID: "team1")),
+                                     serverID: config.id)
+        }
+        try await Task.sleep(nanoseconds: 400_000_000)
+        XCTAssertEqual(fake.loadTeamIDs, ["team1", "team1"], "two events are one reload")
+        XCTAssertEqual(coordinator.reloadCount, 1)
+        XCTAssertEqual(coordinator.counterRefreshCount, 0)
+    }
+
+    // MARK: - 13. The new socket events decode (measured on the pinned server)
+
+    func testSidebarCategoryUpdatedDecodesTheStringPayload() throws {
+        let frame = try socketFrame("""
+        {"event":"sidebar_category_updated","seq":1,
+         "data":{"updatedCategories":"[{\\"id\\":\\"channels_u_t\\",\\"user_id\\":\\"u\\",\\"team_id\\":\\"t\\",\\"sort_order\\":10,\\"sorting\\":\\"manual\\",\\"type\\":\\"channels\\",\\"display_name\\":\\"Channels\\",\\"muted\\":false,\\"collapsed\\":false,\\"channel_ids\\":[\\"c2\\",\\"c1\\"]}]"},
+         "broadcast":{"user_id":"u","channel_id":"","team_id":"t"}}
+        """)
+        guard case .sidebarCategoryUpdated(let update)? = SocketEvent(frame: frame) else {
+            return XCTFail("expected a typed sidebar_category_updated event")
+        }
+        XCTAssertEqual(update.teamID, "t")
+        XCTAssertEqual(update.categories.first?.channelIds, ["c2", "c1"])
+    }
+
+    func testPostUnreadDecodesItsChannelFromTheEnvelope() throws {
+        let frame = try socketFrame("""
+        {"event":"post_unread","seq":2,
+         "data":{"msg_count":12,"mention_count":2,"mention_count_root":0,
+                 "urgent_mention_count":0,"last_viewed_at":99,"post_id":"p1"},
+         "broadcast":{"user_id":"me","channel_id":"c1","team_id":"team1"}}
+        """)
+        guard case .postUnread(let unread)? = SocketEvent(frame: frame) else {
+            return XCTFail("expected a typed post_unread event — its channel is only in `broadcast`")
+        }
+        XCTAssertEqual(unread.channelID, "c1")
+        XCTAssertEqual(unread.msgCount, 12)
+        XCTAssertEqual(unread.mentionCount, 2)
+        XCTAssertEqual(unread.lastViewedAt, 99)
+        XCTAssertEqual(SocketEvent(frame: frame)?.name, "post_unread")
+    }
+
+    func testChannelMemberUpdatedDecodesTheRow() throws {
+        let frame = try socketFrame("""
+        {"event":"channel_member_updated","seq":3,
+         "data":{"channelMember":"{\\"channel_id\\":\\"c1\\",\\"user_id\\":\\"me\\",\\"msg_count\\":2,\\"mention_count\\":1,\\"last_viewed_at\\":5,\\"notify_props\\":{\\"mark_unread\\":\\"mention\\"}}"},
+         "broadcast":{"user_id":"me","channel_id":"","team_id":""}}
+        """)
+        guard case .channelMemberUpdated(let update)? = SocketEvent(frame: frame) else {
+            return XCTFail("expected a typed channel_member_updated event")
+        }
+        XCTAssertEqual(update.channelID, "c1")
+        XCTAssertEqual(update.userID, "me")
+        XCTAssertEqual(update.member.notifyProps?["mark_unread"]?.stringValue, "mention")
+        XCTAssertTrue(ChannelSidebarDerivation.isMuted(update.member))
+    }
+
+    func testChannelCreatedAndDeletedDecodeTheirIds() throws {
+        let created = try socketFrame("""
+        {"event":"channel_created","seq":4,"data":{"channel_id":"c9","team_id":"t"},
+         "broadcast":{"user_id":"me","channel_id":"","team_id":""}}
+        """)
+        guard case .channelCreated(let new)? = SocketEvent(frame: created) else {
+            return XCTFail("expected a typed channel_created event")
+        }
+        XCTAssertEqual(new.channelID, "c9")
+        XCTAssertEqual(new.teamID, "t")
+
+        let deleted = try socketFrame("""
+        {"event":"channel_deleted","seq":5,"data":{"channel_id":"c9","delete_at":123},
+         "broadcast":{"user_id":"","channel_id":"","team_id":"t"}}
+        """)
+        guard case .channelDeleted(let gone)? = SocketEvent(frame: deleted) else {
+            return XCTFail("expected a typed channel_deleted event")
+        }
+        XCTAssertEqual(gone.channelID, "c9")
+        XCTAssertEqual(gone.teamID, "t", "the team is only in the envelope")
+        XCTAssertEqual(gone.deleteAt, 123)
+    }
+
+    /// The scope must let the new events through for the team on screen and refuse another team's.
+    func testTheScopeAttributesTheNewEventsToTheActiveTeam() {
+        let scope = TeamSocketScope(teamID: "team1", activeChannelID: "c1",
+                                    channelTeams: ["c2": "team1", "x1": "team2"])
+        XCTAssertTrue(scope.accepts(.postUnread(SocketPostUnread(channelID: "c2", teamID: "team1",
+                                                                msgCount: 1, mentionCount: 0,
+                                                                lastViewedAt: 0))))
+        XCTAssertFalse(scope.accepts(.postUnread(SocketPostUnread(channelID: "x1", teamID: "team2",
+                                                                 msgCount: 1, mentionCount: 0,
+                                                                 lastViewedAt: 0))))
+        XCTAssertTrue(scope.accepts(.channelMemberUpdated(
+            SocketChannelMemberUpdate(member: memberForScope(channelID: "c2")))))
+        XCTAssertFalse(scope.accepts(.channelMemberUpdated(
+            SocketChannelMemberUpdate(member: memberForScope(channelID: "x1")))))
+        XCTAssertTrue(scope.accepts(.channelCreated(SocketChannelEvent(channelID: "c9", teamID: "team1"))))
+        XCTAssertFalse(scope.accepts(.channelCreated(SocketChannelEvent(channelID: "c9", teamID: "team2"))))
+        XCTAssertTrue(scope.accepts(.channelDeleted(SocketChannelEvent(channelID: "c2", teamID: "team1"))))
+        XCTAssertTrue(scope.accepts(.sidebarCategoryUpdated(
+            SocketSidebarCategoryUpdate(teamID: "team1", categories: []))))
+        XCTAssertFalse(scope.accepts(.sidebarCategoryUpdated(
+            SocketSidebarCategoryUpdate(teamID: "team2", categories: []))))
+    }
+
+    /// F5: a counter refresh whose membership call failed keeps the last numbers and says they are
+    /// stale — the shape production actually produces (`membersFailed` + an empty list).
+    func testAPartialCounterRefreshKeepsTheNumbersAndMarksThemStale() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+
+        fake.refreshResult = ChannelSidebarRefresh(channels: standardData().channels,
+                                                   members: [],
+                                                   membersFailed: true)
+        await model.refreshCounters()
+        XCTAssertTrue(model.countsAreStale)
+        XCTAssertEqual(model.entry(id: "c1")?.unreadCount, 3, "the numbers are kept, not zeroed")
+        XCTAssertEqual(model.totals.messages, 3)
+    }
+
+    /// The same defect one layer down: even without the flag, an empty membership answer for a team
+    /// that has channels is not "everything is read".
+    func testAnEmptyMembersAnswerIsNotTreatedAsEverythingRead() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+
+        fake.refreshResult = ChannelSidebarRefresh(channels: standardData().channels, members: [])
+        await model.refreshCounters()
+        XCTAssertTrue(model.countsAreStale)
+        XCTAssertEqual(model.entry(id: "c1")?.unreadCount, 3)
+    }
+
     func testSignOutForgetsTheModelAndTheChannelTeamMap() async {
         let fake = FakeChannelSidebarService(data: standardData())
         let coordinator = ChannelSidebarCoordinator(makeService: { _ in fake })
@@ -848,6 +1179,15 @@ extension MMPost {
     }
 }
 
+/// Decode a WebSocket v4 frame from its JSON text — the shape the server actually sends.
+private func socketFrame(_ json: String) throws -> MMSocketFrame {
+    try JSONDecoder().decode(MMSocketFrame.self, from: Data(json.utf8))
+}
+
+private func memberForScope(channelID: String) -> MMChannelMember {
+    MMChannelMember(channelId: channelID, userId: "me")
+}
+
 @MainActor
 final class FakeChannelSidebarService: ChannelSidebarServing {
     var data: ChannelSidebarData
@@ -856,6 +1196,8 @@ final class FakeChannelSidebarService: ChannelSidebarServing {
     var refreshError: Error?
     var saveError: Error?
     var muteError: Error?
+    /// A hook that lets a test pretend the server normalises a categories write before answering.
+    var saveAnswer: (([MMSidebarCategory]) -> [MMSidebarCategory])?
 
     private(set) var loadTeamIDs: [String] = []
     private(set) var savedCategories: [[MMSidebarCategory]] = []
@@ -884,11 +1226,13 @@ final class FakeChannelSidebarService: ChannelSidebarServing {
         return ChannelSidebarRefresh(channels: data.channels, members: data.members)
     }
 
-    func save(categories: [MMSidebarCategory], teamID: String) async throws -> MMSidebarCategories {
+    func save(categories: [MMSidebarCategory], teamID: String) async throws -> [MMSidebarCategory] {
         if let saveError { throw saveError }
         savedCategories.append(categories)
-        storedCategories = categories
-        return MMSidebarCategories(categories: categories, order: categories.map(\.id))
+        let answered = saveAnswer?(categories) ?? categories
+        storedCategories = answered
+        // The production answer: a bare array, exactly the shape the server sends back (T33-AV F1).
+        return answered
     }
 
     func setMuted(_ muted: Bool, channelID: String) async throws {

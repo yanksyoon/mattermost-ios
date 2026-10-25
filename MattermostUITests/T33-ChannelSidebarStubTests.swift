@@ -73,10 +73,12 @@ final class T33ChannelSidebarStubTests: XCTestCase {
         // Stub Beta: read (msg_count == total) → nothing to say.
         XCTAssertEqual(betaRow.value as? String ?? "", "")
 
-        // The aggregate: alpha 3 unread + 2 mentions, muted 4 unread dropped, its 1 mention kept.
+        // The aggregate is desktop-exact (T33-AV F2): alpha 3 unread + 2 mentions, the muted channel's
+        // 4 unread **and** its 1 mention dropped — the row still badges the mention, the footer does not
+        // count it (`getTeamsUnreadStatuses`: "if channel is muted, we skip its count").
         let totals = element(app, "channelSidebar.totals")
         XCTAssertTrue(totals.waitForExistence(timeout: 10))
-        XCTAssertEqual(totals.label, "3 mentions, 3 unread messages")
+        XCTAssertEqual(totals.label, "2 mentions, 3 unread messages")
         attachShot(app, named: "t33-stub-01-categories-and-rows")
     }
 

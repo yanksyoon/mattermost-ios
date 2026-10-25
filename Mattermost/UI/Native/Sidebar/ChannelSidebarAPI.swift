@@ -59,10 +59,17 @@ extension APIClient {
     /// Upstream sends the **whole** ordered array (`updateChannelCategories`), not a single moved
     /// row: the server's handler reconciles ids, `sort_order` and `channel_ids` together, and that
     /// full-array shape is what makes a reorder a single atomic write.
+    ///
+    /// **The request and the answer are the same shape: a bare JSON array** (T33-AV F1). Measured on
+    /// the pinned 9.11.19 server: `PUT [categories]` → 200 and the array of stored categories;
+    /// `PUT {"order":…,"categories":…}` → 400 `api.context.invalid_body_param.app_error`. The GET's
+    /// keyed `{order, categories}` shape is a *read* shape only — decoding the write with it throws
+    /// `MMError.malformedResponse` after the server has already kept the change, which is exactly the
+    /// rollback the validator saw.
     func updateSidebarCategories(userID: String,
                                  teamID: String,
-                                 categories: [MMSidebarCategory]) async throws -> MMSidebarCategories {
-        try await put(MMSidebarCategories.self,
+                                 categories: [MMSidebarCategory]) async throws -> [MMSidebarCategory] {
+        try await put([MMSidebarCategory].self,
                       path: "/users/\(userID)/teams/\(teamID)/channels/categories",
                       body: categories)
     }

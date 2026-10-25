@@ -101,8 +101,16 @@ final class T33ChannelSidebarUITests: XCTestCase {
             XCTAssertTrue(row.waitForExistence(timeout: 20),
                           "channel \(channel.name) is in the server's answer but not on screen:\n"
                           + "\(app.debugDescription)")
-            XCTAssertEqual(row.label, channel.displayName,
-                           "the row's label must be the server's display name")
+            if channel.type == "G" {
+                // A group message's label is every resolved member joined; the test only insists the
+                // raw `id__a__b__c` form is not what is drawn.
+                XCTAssertFalse(row.label.contains("__"),
+                               "a group message must not be drawn as its raw id, got '\(row.label)'")
+            } else {
+                XCTAssertEqual(row.label, try expectedLabel(for: channel),
+                               "the row's label must be the name the server gives it — for a DM that "
+                               + "is the other person, resolved, not `id__a__b`")
+            }
         }
         attachShot(app, named: "t33-01-channel-list-real-server")
     }
@@ -257,11 +265,13 @@ final class T33ChannelSidebarUITests: XCTestCase {
         }, "an @-mention must reach a muted channel's badge, got '\(row.value ?? "nil")'")
         XCTAssertTrue((row.value as? String ?? "").contains("Muted"),
                       "the mention must not un-mute the row, got '\(row.value ?? "nil")'")
-        // The aggregate keeps a muted channel's *mentions* (and drops only its message counts), so it
-        // agrees with the team rail's server badge for the same moment.
-        XCTAssertTrue(waitUntil(timeout: 20) {
-            element(app, "channelSidebar.totals").label.contains("mention")
-        }, "a muted channel's mention must reach the aggregate, got '\(totals.label)'")
+        // The footer is **desktop-exact**: a muted channel contributes nothing to the badge totals,
+        // mentions included (`getTeamsUnreadStatuses`: "if channel is muted, we skip its count").
+        // Give the socket round trip time to land before asserting silence (T33-AV F2).
+        RunLoop.current.run(until: Date().addingTimeInterval(3))
+        XCTAssertEqual(element(app, "channelSidebar.totals").label, "All caught up",
+                       "a muted channel's mention must not reach the footer aggregate, got "
+                       + "'\(element(app, "channelSidebar.totals").label)'")
         attachShot(app, named: "t33-07-muted-mention")
 
         // Control: the same traffic in a non-muted channel *does* move the totals, so the assertions
@@ -304,6 +314,18 @@ final class T33ChannelSidebarUITests: XCTestCase {
         XCTAssertTrue(waitUntil(timeout: 30) {
             (try? channelsCategoryOrder()) == expected
         }, "the reorder must reach the server, expected \(expected), got \((try? channelsCategoryOrder()) ?? before)")
+
+        // (b) **the row on screen moves too.** The defect T33-AV F1 measured was that the server kept
+        // the write while the app rolled the row back behind an error banner; asserting only the
+        // server (as this test used to) cannot see that.
+        XCTAssertTrue(waitUntil(timeout: 20) {
+            drawnAbove(app, expected[0], expected[1])
+        }, "the row must stay where the server put it (the T33-AV F1 rollback would draw \(before[0]) "
+           + "above \(before[1]) again)")
+        // (c) …and nothing is reported as a failed write.
+        XCTAssertFalse(element(app, "channelSidebar.actionError").exists,
+                       "a write the server accepted must not be reported as an error:\n\(app.debugDescription)")
+        attachShot(app, named: "t33-10-reorder-on-screen")
         let serverOrderAfterMove = try channelsCategoryOrder()
 
         // Relaunch: a fresh process, a fresh load, no in-memory order to fall back on.
@@ -321,6 +343,75 @@ final class T33ChannelSidebarUITests: XCTestCase {
         // Leave the fixture tidy. Best effort by design: the assertions above are the test, and a
         // cleanup write is not worth failing the card over (the fixture order is arbitrary either way).
         try? restoreChannelsOrder(before)
+    }
+
+    // MARK: - 6. A layout change made by another client reaches the open list (T33-AV F3)
+
+    /// The inverted T33-AV probe: an external `PUT` while the app is open must move the rows on
+    /// screen over the socket (`sidebar_category_updated`), with no relaunch and no team switch.
+    func testALayoutChangeFromAnotherClientReachesTheOpenListWithoutARelaunch() throws {
+        let channels = try teamChannels()
+        try markAllRead(channels)
+        let before = try channelsCategoryOrder()
+        guard before.count >= 2 else {
+            return XCTFail("the channels category needs at least two channels to reorder")
+        }
+        try setChannelsCategoryCollapsed(false)
+        defer { try? restoreChannelsOrder(before) }
+
+        let app = launchAndSignIn()
+        let first = element(app, "channelSidebar.channel.\(before[0])")
+        let second = element(app, "channelSidebar.channel.\(before[1])")
+        XCTAssertTrue(first.waitForExistence(timeout: 40) && second.waitForExistence(timeout: 40),
+                      "both rows must be on screen:\n\(app.debugDescription)")
+        XCTAssertTrue(drawnAbove(app, before[0], before[1]),
+                      "the list must start in the server's order (\(before))")
+
+        // Another client — this test, as the same user — writes the layout while the app is running.
+        try reorderChannelsFromAnotherClient(swapping: before[0], before[1])
+        let after = try channelsCategoryOrder()
+        XCTAssertEqual(Array(after.prefix(2)), [before[1], before[0]],
+                       "the external write must land on the server, got \(after)")
+
+        XCTAssertTrue(waitUntil(timeout: 30) { drawnAbove(app, before[1], before[0]) },
+                      "a layout written by another client must reach the open list over the socket — "
+                      + "the T33-AV F3 defect left it unchanged until a relaunch")
+        XCTAssertEqual(app.state, .runningForeground, "the change must arrive without relaunching")
+        XCTAssertFalse(element(app, "channelSidebar.actionError").exists)
+        attachShot(app, named: "t33-11-external-layout")
+    }
+
+    // MARK: - 7. A collapse is a server write (the other half of T33-AV F1)
+
+    func testCollapsingACategoryReachesTheServerAndSurvivesRelaunch() throws {
+        let channels = try teamChannels()
+        guard let target = channels.first(where: { $0.name == "town-square" }) ?? channels.first else {
+            return XCTFail("the fixture team has no channels")
+        }
+        try markAllRead(channels)
+        try setChannelsCategoryCollapsed(false)
+        defer { try? setChannelsCategoryCollapsed(false) }
+
+        let app = launchAndSignIn()
+        XCTAssertTrue(element(app, "channelSidebar.channel.\(target.id)").waitForExistence(timeout: 40),
+                      "the row must be on screen before collapsing:\n\(app.debugDescription)")
+        let header = element(app, "channelSidebar.category.channels")
+        XCTAssertTrue(header.waitForExistence(timeout: 20))
+        header.tap()
+
+        XCTAssertTrue(waitUntil(timeout: 20) { (try? channelsCategoryCollapsed()) == true },
+                      "a collapse must reach the server — the defect this card repairs discarded the "
+                      + "write with `try?`, so the local header and the server disagreed forever")
+
+        // Relaunch: the server's value is what draws.
+        app.terminate()
+        let relaunched = launchAndSignIn()
+        XCTAssertTrue(element(relaunched, "channelSidebar.category.channels").waitForExistence(timeout: 40),
+                      "the category header must mount:\n\(relaunched.debugDescription)")
+        RunLoop.current.run(until: Date().addingTimeInterval(3))
+        XCTAssertFalse(element(relaunched, "channelSidebar.channel.\(target.id)").exists,
+                       "a collapsed category draws no rows after a relaunch")
+        attachShot(relaunched, named: "t33-12-collapsed-after-relaunch")
     }
 
     // MARK: - Launch + sign-in
@@ -364,6 +455,7 @@ final class T33ChannelSidebarUITests: XCTestCase {
         let id: String
         let name: String
         let displayName: String
+        let type: String
     }
 
     private struct Member {
@@ -408,8 +500,26 @@ final class T33ChannelSidebarUITests: XCTestCase {
         return rows.compactMap { row in
             guard let id = row["id"] as? String, let name = row["name"] as? String else { return nil }
             let display = (row["display_name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? name
-            return Channel(id: id, name: name, displayName: display)
+            return Channel(id: id, name: name, displayName: display,
+                           type: row["type"] as? String ?? "")
         }
+    }
+
+    /// What a row is supposed to say. The server's `display_name` answers for every channel except a
+    /// DM/GM, where it is empty and `name` is `id__a__b` — the shell resolves those to the other people
+    /// (`ChannelSidebarService.resolveDirectLabels`, the same thing desktop shows), so the expectation
+    /// is resolved here the same way rather than comparing against the raw id form.
+    private func expectedLabel(for channel: Channel) throws -> String {
+        guard channel.type == "D" else { return channel.displayName }
+        let others = channel.name.components(separatedBy: "__").filter { !$0.isEmpty && $0 != userID }
+        guard let other = others.first else { return channel.displayName }
+        let user = try getJSON("/api/v4/users/\(other)") as? [String: Any] ?? [:]
+        let nickname = user["nickname"] as? String ?? ""
+        if !nickname.isEmpty { return nickname }
+        let full = [user["first_name"], user["last_name"]].compactMap { $0 as? String }
+            .filter { !$0.isEmpty }.joined(separator: " ")
+        if !full.isEmpty { return full }
+        return (user["username"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? channel.displayName
     }
 
     /// The membership row the app reads (`/users/me/channel_members`), so a badge expectation is the
@@ -477,20 +587,69 @@ final class T33ChannelSidebarUITests: XCTestCase {
     }
 
     private func restoreChannelsOrder(_ ids: [String]) throws {
-        var payload = try categoriesPayload()
+        let payload = try categoriesPayload()
         var categories = (payload["categories"] as? [[String: Any]]) ?? []
         guard let index = categories.firstIndex(where: { ($0["type"] as? String) == "channels" }) else {
             return
         }
         categories[index]["channel_ids"] = ids
-        payload["categories"] = categories
+        try writeCategories(categories, because: "restoring the fixture order")
+    }
+
+    /// Write the whole category array the way the app does. **The body is the bare array**: the
+    /// endpoint rejects the GET's `{order, categories}` envelope with 400 (T33-AV F1/F6), which is what
+    /// made this suite's cleanup a silent no-op.
+    private func writeCategories(_ categories: [[String: Any]], because reason: String) throws {
         var request = URLRequest(url: serverURL.appendingPathComponent(
             "api/v4/users/\(userID!)/teams/\(teamID!)/channels/categories"))
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-        _ = try? synchronous(request)
+        request.httpBody = try JSONSerialization.data(withJSONObject: categories)
+        let (_, response) = try synchronous(request)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200,
+                       "\(reason) must be a successful categories write")
+    }
+
+    /// The `channels` category's `collapsed` flag, straight from the server.
+    private func channelsCategoryCollapsed() throws -> Bool {
+        let categories = (try categoriesPayload()["categories"] as? [[String: Any]]) ?? []
+        return (categories.first { ($0["type"] as? String) == "channels" }?["collapsed"] as? Bool) ?? false
+    }
+
+    private func setChannelsCategoryCollapsed(_ collapsed: Bool) throws {
+        let payload = try categoriesPayload()
+        var categories = (payload["categories"] as? [[String: Any]]) ?? []
+        guard let index = categories.firstIndex(where: { ($0["type"] as? String) == "channels" }) else {
+            return
+        }
+        categories[index]["collapsed"] = collapsed
+        try writeCategories(categories, because: "setting the category's collapsed state")
+    }
+
+    /// Another client's write, as the app's own user: exactly the shape the defect was found with
+    /// (`testAV33ALayoutChangeFromAnotherClientWhileTheAppIsOpen`).
+    private func reorderChannelsFromAnotherClient(swapping first: String, _ second: String) throws {
+        var ids = try channelsCategoryOrder()
+        guard let a = ids.firstIndex(of: first), let b = ids.firstIndex(of: second) else {
+            return XCTFail("both channels must be in the `channels` category, got \(ids)")
+        }
+        ids.swapAt(a, b)
+        let payload = try categoriesPayload()
+        var categories = (payload["categories"] as? [[String: Any]]) ?? []
+        guard let index = categories.firstIndex(where: { ($0["type"] as? String) == "channels" }) else {
+            return XCTFail("the fixture has no `channels` category")
+        }
+        categories[index]["channel_ids"] = ids
+        try writeCategories(categories, because: "an external layout write")
+    }
+
+    /// True when `first` is drawn above `second` — the only honest way to read "the order on screen".
+    private func drawnAbove(_ app: XCUIApplication, _ first: String, _ second: String) -> Bool {
+        let top = element(app, "channelSidebar.channel.\(first)")
+        let bottom = element(app, "channelSidebar.channel.\(second)")
+        guard top.exists, bottom.exists else { return false }
+        return top.frame.minY < bottom.frame.minY
     }
 
     private func setMuted(_ muted: Bool, channelID: String) throws {

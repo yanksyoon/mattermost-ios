@@ -59,9 +59,14 @@ struct MMSocketFrame: Decodable, Equatable, Sendable {
     var status: String?
     var errorMessage: String?
     var data: MMRawJSON?
+    /// The frame's routing envelope (T33-R). Most sidebar-relevant events carry the facts the client
+    /// needs *only* here: `post_unread` names its channel in `broadcast.channel_id` and nothing in
+    /// `data`, and `channel_deleted` only names its team in `broadcast.team_id`. Measured against the
+    /// pinned 9.11.19 server (see docs/t33r-build-note.md §2).
+    var broadcast: MMSocketBroadcast?
 
     private enum Keys: String, CodingKey {
-        case event, seq, status, data, error
+        case event, seq, status, data, error, broadcast
     }
 
     private enum ExtraKeys: String, CodingKey {
@@ -78,11 +83,41 @@ struct MMSocketFrame: Decodable, Equatable, Sendable {
         seq = try values.decodeIfPresent(Int.self, forKey: .seq)
         status = try values.decodeIfPresent(String.self, forKey: .status)
         data = try values.decodeIfPresent(MMRawJSON.self, forKey: .data)
+        broadcast = try values.decodeIfPresent(MMSocketBroadcast.self, forKey: .broadcast)
         let extra = try decoder.container(keyedBy: ExtraKeys.self)
         seqReply = try extra.decodeIfPresent(Int.self, forKey: .seqReply)
         if let payload = try? values.decodeIfPresent(ErrorPayload.self, forKey: .error) {
             errorMessage = payload.message
         }
+    }
+}
+
+/// Who a frame was routed to (`broadcast` in the v4 envelope).
+///
+/// Only the three routing ids are typed: the envelope's `omit_users` / `connection_id` are the
+/// server's business, and nothing in this client acts on them.
+struct MMSocketBroadcast: Decodable, Equatable, Sendable {
+    var userID: String
+    var channelID: String
+    var teamID: String
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case channelID = "channel_id"
+        case teamID = "team_id"
+    }
+
+    init(userID: String = "", channelID: String = "", teamID: String = "") {
+        self.userID = userID
+        self.channelID = channelID
+        self.teamID = teamID
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        userID = try values.decodeIfPresent(String.self, forKey: .userID) ?? ""
+        channelID = try values.decodeIfPresent(String.self, forKey: .channelID) ?? ""
+        teamID = try values.decodeIfPresent(String.self, forKey: .teamID) ?? ""
     }
 }
 
@@ -109,6 +144,50 @@ struct SocketChannelViewed: Equatable, Sendable {
     var userID: String
 }
 
+/// `sidebar_category_updated` — the server stored somebody's categories write (mine, or my own from
+/// another client) and hands back the layout it kept.
+///
+/// The payload is a **JSON string** under `data.updatedCategories` (measured on the pinned 9.11.19
+/// server, T33-R §2), the same escaping `posted` uses for its post. The event is team-scoped: the
+/// categories themselves carry `team_id`, so an empty `broadcast` still attributes correctly.
+struct SocketSidebarCategoryUpdate: Equatable, Sendable {
+    var teamID: String
+    var categories: [MMSidebarCategory]
+}
+
+/// `channel_created` / `channel_deleted` — a channel of a team appearing or leaving the sidebar.
+struct SocketChannelEvent: Equatable, Sendable {
+    var channelID: String
+    var teamID: String
+    /// `0` for `channel_created`; the server's archive timestamp for `channel_deleted`.
+    var deleteAt: Int64 = 0
+}
+
+/// `channel_member_updated` — one membership row changed (a mute, a notify prop, "keep as unread").
+///
+/// The server sends the whole row as a JSON string under `data.channelMember`, addressed to the
+/// member's own user id; there is no channel or team in the envelope. My own mute set from another
+/// client arrives exactly here, which is what makes two clients agree on "muted".
+struct SocketChannelMemberUpdate: Equatable, Sendable {
+    var member: MMChannelMember
+    var channelID: String { member.channelId }
+    var userID: String { member.userId }
+}
+
+/// `post_unread` — the server's own unread arithmetic for one channel, sent to **me** when my
+/// read state moved (I viewed the channel, or marked it unread).
+///
+/// The channel and team are only in the envelope (`broadcast.channel_id` / `.team_id`); `data` carries
+/// the counters. Applying these is exact — no follow-up request is needed, and the number cannot
+/// drift the way a local increment would.
+struct SocketPostUnread: Equatable, Sendable {
+    var channelID: String
+    var teamID: String
+    var msgCount: Int64
+    var mentionCount: Int64
+    var lastViewedAt: Int64
+}
+
 /// The events the native client consumes, typed. `unhandled` keeps forward compatibility: a
 /// newer server introducing an event must not break the stream.
 enum SocketEvent: Equatable, Sendable {
@@ -123,6 +202,16 @@ enum SocketEvent: Equatable, Sendable {
     case userUpdated(MMUser)
     case reactionAdded(MMReaction)
     case reactionRemoved(MMReaction)
+    /// The sidebar layout somebody wrote (`sidebar_category_updated`).
+    case sidebarCategoryUpdated(SocketSidebarCategoryUpdate)
+    /// A channel of a team appeared (`channel_created`).
+    case channelCreated(SocketChannelEvent)
+    /// A channel of a team was archived (`channel_deleted`).
+    case channelDeleted(SocketChannelEvent)
+    /// A membership row changed — mine, when another client mutes or marks a channel.
+    case channelMemberUpdated(SocketChannelMemberUpdate)
+    /// The server's unread counters for one channel of mine moved (`post_unread`).
+    case postUnread(SocketPostUnread)
     /// An event this build does not model (still delivered, still counted).
     case unhandled(name: String)
 
@@ -172,9 +261,58 @@ enum SocketEvent: Equatable, Sendable {
         case "reaction_removed":
             guard let reaction = Self.reaction(from: frame.data) else { return nil }
             self = .reactionRemoved(reaction)
+        case "sidebar_category_updated":
+            guard let categories = Self.categories(from: frame.data?["updatedCategories"]),
+                  !categories.isEmpty else { return nil }
+            self = .sidebarCategoryUpdated(SocketSidebarCategoryUpdate(
+                teamID: frame.broadcast?.teamID ?? categories.first?.teamId ?? "",
+                categories: categories))
+        case "channel_created":
+            guard let channelID = frame.data?["channel_id"]?.stringValue
+                    ?? frame.broadcast?.channelID, !channelID.isEmpty else { return nil }
+            self = .channelCreated(SocketChannelEvent(
+                channelID: channelID,
+                teamID: frame.data?["team_id"]?.stringValue ?? frame.broadcast?.teamID ?? ""))
+        case "channel_deleted":
+            guard let channelID = frame.data?["channel_id"]?.stringValue
+                    ?? frame.broadcast?.channelID, !channelID.isEmpty else { return nil }
+            self = .channelDeleted(SocketChannelEvent(
+                channelID: channelID,
+                teamID: frame.data?["team_id"]?.stringValue ?? frame.broadcast?.teamID ?? "",
+                deleteAt: frame.data?["delete_at"]?.int64Value ?? 0))
+        case "channel_member_updated":
+            guard let raw = frame.data?["channelMember"],
+                  let member = try? Self.jsonStringOrObject(raw).decode(MMChannelMember.self),
+                  !member.channelId.isEmpty else { return nil }
+            self = .channelMemberUpdated(SocketChannelMemberUpdate(member: member))
+        case "post_unread":
+            // The channel and team live only in the envelope (`broadcast`), never in `data`.
+            guard let channelID = frame.broadcast?.channelID, !channelID.isEmpty else { return nil }
+            self = .postUnread(SocketPostUnread(
+                channelID: channelID,
+                teamID: frame.broadcast?.teamID ?? "",
+                msgCount: frame.data?["msg_count"]?.int64Value ?? 0,
+                mentionCount: frame.data?["mention_count"]?.int64Value ?? 0,
+                lastViewedAt: frame.data?["last_viewed_at"]?.int64Value ?? 0))
         default:
             self = .unhandled(name: name)
         }
+    }
+
+    /// A payload that may be a JSON **string** (the escaping `posted`/`reaction_added`/`category`
+    /// events use) or the object/array itself (some proxies and newer builds).
+    private static func jsonStringOrObject(_ raw: JSONValue) -> MMRawJSON {
+        if let text = raw.stringValue, let data = text.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode(JSONValue.self, from: data) {
+            return MMRawJSON(decoded)
+        }
+        return MMRawJSON(raw)
+    }
+
+    /// `data.updatedCategories` → the categories the server keeps.
+    private static func categories(from raw: JSONValue?) -> [MMSidebarCategory]? {
+        guard let raw else { return nil }
+        return try? jsonStringOrObject(raw).decode([MMSidebarCategory].self)
     }
 
     /// Mattermost sends `data.post` / `data.reaction` as a **JSON string**; newer server builds
@@ -213,6 +351,11 @@ enum SocketEvent: Equatable, Sendable {
         case .userUpdated: return "user_updated"
         case .reactionAdded: return "reaction_added"
         case .reactionRemoved: return "reaction_removed"
+        case .sidebarCategoryUpdated: return "sidebar_category_updated"
+        case .channelCreated: return "channel_created"
+        case .channelDeleted: return "channel_deleted"
+        case .channelMemberUpdated: return "channel_member_updated"
+        case .postUnread: return "post_unread"
         case .unhandled(let name): return name
         }
     }
@@ -236,7 +379,9 @@ enum SocketEvent: Equatable, Sendable {
         case .userUpdated(let user):
             return "user_updated|\(user.id)|\(user.updateAt)"
         case .typing, .channelViewed, .statusChange, .preferencesChanged,
-             .reactionAdded, .reactionRemoved, .unhandled:
+             .reactionAdded, .reactionRemoved, .sidebarCategoryUpdated,
+             .channelCreated, .channelDeleted, .channelMemberUpdated, .postUnread,
+             .unhandled:
             return nil
         }
     }

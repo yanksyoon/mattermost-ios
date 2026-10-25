@@ -346,10 +346,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self):
         """T33: the sidebar's two writes, answered the way a real server answers them.
 
-        `PUT /users/{uid}/teams/{tid}/channels/categories` echoes the category array it was given (a
-        real server normalises and returns the new state), and `PUT /channels/{cid}/members/{uid}/notify_props`
-        echoes the membership. Echoing is what makes a stub-backed reorder observable: the client
-        rebases on this answer.
+        `PUT /users/{uid}/teams/{tid}/channels/categories` takes the **bare category array** and answers
+        with the array it stored — that is the real endpoint's request *and* answer shape (measured on
+        9.11.19; the GET's keyed `{order, categories}` body is a 400 there, T33-R F1). A real server
+        normalises; the stub echoes, which is enough to make a stub-backed reorder observable: the client
+        rebases on this answer. `PUT /channels/{cid}/members/{uid}/notify_props` echoes the membership.
         """
         path = self.path.split("?")[0]
         length = int(self.headers.get("Content-Length") or 0)
@@ -359,11 +360,12 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             body = {}
         if path.endswith("/channels/categories"):
-            categories = body.get("categories") if isinstance(body, dict) else None
-            order = body.get("order") if isinstance(body, dict) else None
-            if categories is None:
-                return self._send(400, json.dumps({"message": "categories are required"}))
-            return self._send(200, json.dumps({"order": order or [], "categories": categories}))
+            if not isinstance(body, list) or not body:
+                return self._send(400, json.dumps({
+                    "id": "api.context.invalid_body_param.app_error",
+                    "message": "Invalid or missing category in request body.",
+                }))
+            return self._send(200, json.dumps(body))
         if "/notify_props" in path:
             props = body if isinstance(body, dict) else {}
             return self._send(200, json.dumps({

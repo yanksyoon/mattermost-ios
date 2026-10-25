@@ -22,9 +22,10 @@ protocol ChannelSidebarServing: AnyObject {
     /// The cheap socket-driven refresh: the two counter-bearing endpoints only.
     func refresh(teamID: String) async throws -> ChannelSidebarRefresh
 
-    /// Persist a category layout (a reorder, a favourite, a collapse). Returns the server's answer,
-    /// which is authoritative — the server normalises ids and `sort_order`.
-    func save(categories: [MMSidebarCategory], teamID: String) async throws -> MMSidebarCategories
+    /// Persist a category layout (a reorder, a favourite, a collapse). Returns the categories the
+    /// server stored — **a bare array**, which is the write's answer shape, not the GET's keyed
+    /// `{order, categories}` shape (T33-AV F1). The caller rebases its groups on it.
+    func save(categories: [MMSidebarCategory], teamID: String) async throws -> [MMSidebarCategory]
 
     /// Mute (`mark_unread = "mention"`) or unmute (`"all"`) one channel.
     func setMuted(_ muted: Bool, channelID: String) async throws
@@ -94,16 +95,21 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
     func refresh(teamID: String) async throws -> ChannelSidebarRefresh {
         let (client, _) = try resolved()
         let channels = try await client.teamChannels(teamID: teamID)
-        var members: [MMChannelMember] = []
         do {
-            members = try await client.myChannelMembers()
+            let members = try await client.myChannelMembers()
+            return ChannelSidebarRefresh(channels: channels, members: members)
         } catch {
+            // A 401 is the session, not a hiccup: it has to reach re-auth.
             if case MMError.unauthorized = error { throw error }
+            // Anything else is **reported**, not swallowed (T33-AV F5): returning `members: []`
+            // as if it were an answer says "every badge is zero" and claims the numbers are fresh.
+            // The channels we did get are still useful (a new channel appears), so they travel with
+            // the failure instead of being thrown away.
+            return ChannelSidebarRefresh(channels: channels, members: [], membersFailed: true)
         }
-        return ChannelSidebarRefresh(channels: channels, members: members)
     }
 
-    func save(categories: [MMSidebarCategory], teamID: String) async throws -> MMSidebarCategories {
+    func save(categories: [MMSidebarCategory], teamID: String) async throws -> [MMSidebarCategory] {
         let (client, userID) = try resolved()
         guard let userID else { throw MMError.notSignedIn }
         return try await client.updateSidebarCategories(userID: userID,
@@ -317,8 +323,12 @@ final class ChannelListViewModel: ObservableObject {
         do {
             let refresh = try await service.refresh(teamID: teamID)
             guard requested == generation else { return }
-            data.replaceCounters(channels: refresh.channels, members: refresh.members)
-            countsAreStale = false
+            let trusted = data.replaceCounters(channels: refresh.channels,
+                                               members: refresh.members,
+                                               membersFailed: refresh.membersFailed)
+            // A partial answer is not fresh: the numbers it could not fetch keep their old values and
+            // are drawn as stale (T33-AV F5).
+            countsAreStale = !trusted
             rebuild()
         } catch {
             guard requested == generation else { return }
@@ -331,9 +341,16 @@ final class ChannelListViewModel: ObservableObject {
     /// One event from the server's socket, already scoped to the team on screen.
     ///
     /// - `channel_viewed` by this user: the channel is read, so its badge goes now (the server's
-    ///   `post_unread` follow-up confirms it).
-    /// - `posted` / `post_deleted` / `preferences_changed`: the counters or the layout may have moved;
-    ///   the caller's debounce turns a burst into one refresh.
+    ///   `post_unread` follow-up confirms it, and carries the exact numbers).
+    /// - `posted` / `post_deleted` / `post_edited` / `preferences_changed`: the counters or the layout
+    ///   may have moved; the caller's debounce turns a burst into one refresh.
+    /// - `post_unread`: the server's own arithmetic for one channel — applied directly, no request.
+    /// - `channel_member_updated` for **me**: my membership row changed (a mute set in another
+    ///   client), so the row is replaced from the payload.
+    /// - `sidebar_category_updated`: the layout the server stored, applied directly — this is what
+    ///   makes a reorder/collapse/favourite made elsewhere visible without a relaunch (T33-AV F3).
+    /// - `channel_created`: the list gained a channel; the caller reloads. `channel_deleted`: the
+    ///   channel list read drops it, so the ordinary counter refresh is enough.
     func handle(_ event: SocketEvent, myUserID: String?) -> ChannelEventOutcome {
         switch event {
         case .channelViewed(let viewed):
@@ -341,6 +358,22 @@ final class ChannelListViewModel: ObservableObject {
             clearCounters(channelID: viewed.channelID)
             return .counters
         case .posted, .postDeleted, .postEdited, .preferencesChanged:
+            return .refreshNeeded
+        case .postUnread(let unread):
+            guard unread.teamID.isEmpty || unread.teamID == teamID else { return .ignored }
+            guard applyUnread(unread, myUserID: myUserID) else { return .ignored }
+            return .applied
+        case .channelMemberUpdated(let update):
+            guard update.userID == myUserID else { return .ignored }
+            guard applyMember(update.member) else { return .ignored }
+            return .applied
+        case .sidebarCategoryUpdated(let update):
+            guard update.teamID.isEmpty || update.teamID == teamID else { return .ignored }
+            guard applyLayout(update.categories) else { return .ignored }
+            return .layoutChanged
+        case .channelCreated:
+            return .reloadNeeded
+        case .channelDeleted:
             return .refreshNeeded
         default:
             return .ignored
@@ -355,6 +388,53 @@ final class ChannelListViewModel: ObservableObject {
             ?? data.members[index].msgCount
         data.members[index].manuallyUnread = false
         rebuild()
+    }
+
+    /// Apply the server's `post_unread` counters for one channel.
+    ///
+    /// These are the numbers the sidebar's whole arithmetic is built on (`total_msg_count −
+    /// msg_count`, `mention_count`), measured by the server, so they are used as they arrive instead
+    /// of being incremented locally (which would drift after a reconnect). A row that is not loaded
+    /// yet is inserted rather than ignored: a `post_unread` can arrive for a channel the last load
+    /// did not have.
+    private func applyUnread(_ unread: SocketPostUnread, myUserID: String?) -> Bool {
+        guard !unread.channelID.isEmpty, data.channels.contains(where: { $0.id == unread.channelID })
+                || data.members.contains(where: { $0.channelId == unread.channelID }) else {
+            return false
+        }
+        if let index = data.members.firstIndex(where: { $0.channelId == unread.channelID }) {
+            data.members[index].msgCount = unread.msgCount
+            data.members[index].mentionCount = unread.mentionCount
+            data.members[index].lastViewedAt = unread.lastViewedAt
+            // The server clears "keep as unread" when it moves the cursor to the end.
+            if unread.msgCount >= (data.channels.first(where: { $0.id == unread.channelID })?.totalMsgCount ?? 0) {
+                data.members[index].manuallyUnread = false
+            }
+        } else {
+            data.members.append(MMChannelMember(channelId: unread.channelID,
+                                                userId: myUserID ?? "",
+                                                lastViewedAt: unread.lastViewedAt,
+                                                msgCount: unread.msgCount,
+                                                mentionCount: unread.mentionCount))
+        }
+        rebuild()
+        return true
+    }
+
+    /// Replace one membership row from a `channel_member_updated` payload (my own row only: another
+    /// person's mute says nothing about my badges).
+    private func applyMember(_ member: MMChannelMember) -> Bool {
+        guard data.channels.contains(where: { $0.id == member.channelId })
+                || data.members.contains(where: { $0.channelId == member.channelId }) else {
+            return false
+        }
+        if let index = data.members.firstIndex(where: { $0.channelId == member.channelId }) {
+            data.members[index] = member
+        } else {
+            data.members.append(member)
+        }
+        rebuild()
+        return true
     }
 
     // MARK: Writes
@@ -390,7 +470,9 @@ final class ChannelListViewModel: ObservableObject {
 
         do {
             let saved = try await service.save(categories: data.categories, teamID: teamID)
-            apply(saved: saved)
+            // The write landed; rebase on the array the server stored. An empty answer changes
+            // nothing (the optimistic order is already on screen and the server accepted it).
+            applyLayout(saved)
             actionError = nil
             return true
         } catch {
@@ -425,7 +507,7 @@ final class ChannelListViewModel: ObservableObject {
         rebuild()
         do {
             let saved = try await service.save(categories: categories, teamID: teamID)
-            apply(saved: saved)
+            applyLayout(saved)
             actionError = nil
             return true
         } catch {
@@ -458,15 +540,31 @@ final class ChannelListViewModel: ObservableObject {
         }
     }
 
-    /// Collapse or expand a category. Local-first, then persisted (the server stores `collapsed`);
-    /// a failure is not worth an alert — the next launch shows the server's value.
+    /// Collapse or expand a category. Local-first (a header that waits for a round trip feels
+    /// broken), then persisted — the server stores `collapsed`.
+    ///
+    /// The write is the same full-array `PUT` a move uses, and its answer is now decoded (T33-AV F1),
+    /// so a collapse actually reaches the server. For that reason a **failed** write is no longer
+    /// swallowed: the category goes back to its previous state and the reason is shown, exactly like
+    /// a failed move — a header that stays collapsed locally while the server still says expanded would
+    /// flip back on the next launch for no stated reason.
     func setCollapsed(_ collapsed: Bool, categoryID: String) async {
         guard let index = data.categories.firstIndex(where: { $0.id == categoryID }) else { return }
         guard data.categories[index].collapsed != collapsed else { return }
+        let previous = data.categories
         data.categories[index].collapsed = collapsed
         rebuild()
         guard canWriteLayout, let teamID else { return }
-        _ = try? await service.save(categories: data.categories, teamID: teamID)
+        do {
+            let saved = try await service.save(categories: data.categories, teamID: teamID)
+            applyLayout(saved)
+            actionError = nil
+        } catch {
+            data.categories = previous
+            actionError = Self.message(for: error, action: collapsed ? "collapse that category"
+                                                                     : "expand that category")
+            rebuild()
+        }
     }
 
     func isCollapsed(categoryID: String) -> Bool {
@@ -504,12 +602,22 @@ final class ChannelListViewModel: ObservableObject {
         }
     }
 
-    /// The server answered a write: its ordering wins (it normalises `sort_order` and ids).
-    private func apply(saved: MMSidebarCategories) {
-        data.categories = saved.categories
-        data.categoryOrder = saved.order
-        groupingIsApproximate = saved.categories.isEmpty
+    /// Rebase the groups on a categories array that came from the server — either the answer to a
+    /// write (`PUT …/channels/categories`, a bare array) or a `sidebar_category_updated` event.
+    ///
+    /// The drawn order is kept from `categoryOrder` (a channel move does not reorder categories); only
+    /// a category the answer introduced is appended, in the server's position — see
+    /// `ChannelSidebarDerivation.order(afterSaved:previous:)`. Returns `false` when there is nothing to
+    /// apply (an empty array), so an empty event payload can never blank the grouping.
+    @discardableResult
+    private func applyLayout(_ categories: [MMSidebarCategory]) -> Bool {
+        guard !categories.isEmpty else { return false }
+        data.categories = categories
+        data.categoryOrder = ChannelSidebarDerivation.order(afterSaved: categories,
+                                                            previous: data.categoryOrder)
+        groupingIsApproximate = false
         rebuild()
+        return true
     }
 
     private func rebuild() {
@@ -538,10 +646,13 @@ final class ChannelListViewModel: ObservableObject {
 /// What the model wants the coordinator to do after one socket event.
 enum ChannelEventOutcome: Equatable, Sendable {
     case ignored
-    /// Local state changed; no request needed.
+    /// Local state changed from the event payload; no request needed.
     case applied
-    /// The counters (or the layout) may have moved — refresh, debounced by the coordinator.
+    /// The counters may have moved — refresh them, debounced by the coordinator.
     case counters
     case refreshNeeded
+    /// The layout was applied from the event payload (`sidebar_category_updated`); nothing to fetch.
     case layoutChanged
+    /// The channel list itself gained or lost a channel: a **full** reload, debounced.
+    case reloadNeeded
 }

@@ -363,7 +363,7 @@ final class TeamSidebarCoordinator: ObservableObject {
 
     private func handle(_ event: SocketEvent, serverID: UUID) async {
         switch event {
-        case .posted, .postEdited, .postDeleted, .channelViewed:
+        case .posted, .postEdited, .postDeleted, .channelViewed, .postUnread:
             // Any of these can change a team's counters — for *any* team, since the socket is
             // server-scoped. The counters are refetched rather than incremented locally because the
             // server owns the arithmetic (and a local increment would drift after a reconnect).

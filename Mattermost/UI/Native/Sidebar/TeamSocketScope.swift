@@ -52,6 +52,25 @@ struct TeamSocketScope: Equatable, Sendable {
             return isInActiveTeam(channelID: typing.channelID)
         case .channelViewed(let viewed):
             return isInActiveTeam(channelID: viewed.channelID)
+        case .postUnread(let unread):
+            // `post_unread` is the server's unread arithmetic for *my* membership of one channel;
+            // it belongs to the team that channel is on.
+            return isInActiveTeam(channelID: unread.channelID)
+        case .channelMemberUpdated(let update):
+            // My mute/notify row for a channel: the row names a channel, not a team.
+            return isInActiveTeam(channelID: update.channelID)
+        case .channelCreated(let created):
+            return created.teamID.isEmpty
+                ? isInActiveTeam(channelID: created.channelID)
+                : created.teamID == teamID
+        case .channelDeleted(let deleted):
+            return isInActiveTeam(channelID: deleted.channelID)
+                || (!deleted.teamID.isEmpty && deleted.teamID == teamID)
+        case .sidebarCategoryUpdated(let update):
+            // A layout write is team-scoped: it can only change the list of the team it names.
+            // An envelope without a team (a stripped proxy frame) is accepted rather than dropped —
+            // the payload itself carries `team_id`, and drawing the same layout twice is harmless.
+            return update.teamID.isEmpty || update.teamID == teamID
         case .reactionAdded, .reactionRemoved:
             // A reaction names a post, not a channel: without a post → channel map this scope cannot
             // attribute it to a team, so it is refused rather than delivered into whichever team's

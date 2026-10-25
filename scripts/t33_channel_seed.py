@@ -21,6 +21,7 @@ What it guarantees (re-running is a no-op):
 
     team      perf         perfprobe = system admin, opsbot = member
     channels  town-square, off-topic, perf-feed   opsbot is a member of every one
+    dm        one 1:1 channel between perfprobe and opsbot (T33-R: the DM search case needs it)
     reads     perfprobe has viewed every channel of `perf` (no unread, no mentions)
     mute      every channel of `perf` is unmuted for perfprobe (`mark_unread: all`)
     prefs     a `channel_order`-free baseline: the server's category list is left untouched
@@ -109,6 +110,20 @@ def mark_read(c: Client, user_id: str, channel_id: str) -> None:
     c.must("POST", f"/channels/members/{user_id}/view", {"channel_id": channel_id})
 
 
+def ensure_direct_message(c: Client, user_id: str, other_user_id: str) -> str:
+    """Create (or re-find) the 1:1 DM between the probe and the bot and return its id.
+
+    Added by T33-R: the quick-switcher's "find a DM by the other person's name" assertion needs a
+    real DM row on the server, and the T33-AV probe created one by hand (Mattermost has no API to
+    delete a DM channel). Making the seed create it means the fixture no longer depends on whichever
+    probe ran last. `POST /channels/direct` is idempotent for an existing pair.
+    """
+    status, channel, _ = c.call("POST", "/channels/direct", [user_id, other_user_id])
+    if status not in (200, 201) or not isinstance(channel, dict):
+        raise APIError(f"create the DM between {user_id} and {other_user_id} -> {status}")
+    return channel["id"]
+
+
 def unmute(c: Client, channel_id: str, user_id: str) -> None:
     c.must("PUT", f"/channels/{channel_id}/members/{user_id}/notify_props",
            {"mark_unread": "all"})
@@ -138,6 +153,12 @@ def main() -> int:
         if channel.get("type") != "O":
             continue        # a DM/private channel needs an explicit invite; the fixture is public
         ensure_channel_member(probe, channel["id"], bot_me["id"])
+
+    # T33-R: one real DM between the probe and the bot, for the quick switcher's "find a person's
+    # DM by name" case. Its `team_id` is empty, so it never appears in the team's channel list above.
+    direct_id = ensure_direct_message(probe, me_id, bot_me["id"])
+    unmute(probe, direct_id, me_id)
+    mark_read(probe, me_id, direct_id)
 
     for channel in channels:
         unmute(probe, channel["id"], me_id)

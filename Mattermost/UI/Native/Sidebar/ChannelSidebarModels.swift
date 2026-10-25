@@ -262,10 +262,24 @@ struct ChannelSidebarData: Equatable, Sendable {
 
     /// Replace the two endpoints that change on socket activity, keeping the category layout and the
     /// resolved DM/GM labels (which do not).
-    mutating func replaceCounters(channels: [MMChannel], members: [MMChannelMember]) {
+    ///
+    /// Returns whether the membership rows could be trusted. A **non-empty** channels answer with an
+    /// **empty** membership answer is not "everything is read": it is the shape a swallowed
+    /// `/users/me/channel_members` failure takes (T33-AV F5), and treating it as authoritative zeroes
+    /// every badge while claiming freshness. In that case the previous rows stay and `membersFailed`
+    /// is set, so the caller draws the stale marker instead of a wrong number.
+    @discardableResult
+    mutating func replaceCounters(channels: [MMChannel],
+                                  members: [MMChannelMember],
+                                  membersFailed: Bool = false) -> Bool {
         self.channels = channels
+        if membersFailed || (members.isEmpty && !channels.isEmpty && !self.members.isEmpty) {
+            self.membersFailed = true
+            return false
+        }
         self.members = members
-        membersFailed = false
+        self.membersFailed = false
+        return true
     }
 }
 
@@ -273,6 +287,8 @@ struct ChannelSidebarData: Equatable, Sendable {
 struct ChannelSidebarRefresh: Equatable, Sendable {
     var channels: [MMChannel]
     var members: [MMChannelMember]
+    /// The membership call failed (a non-401 error): `members` is empty and **not** authoritative.
+    var membersFailed = false
 }
 
 // MARK: - The rules
@@ -516,6 +532,26 @@ enum ChannelSidebarDerivation {
         return groups
     }
 
+    /// The drawn order to use after the server answered a categories **write**.
+    ///
+    /// The write's answer is a bare array (the GET's `order` array is not in it), and its order is
+    /// the request's — which is `data.categories`, and a category the order array omitted is drawn by
+    /// `sort_order` instead, so the two are not necessarily the same. So: keep the order the sidebar
+    /// already had for every category that still exists, then append a category the answer introduced
+    /// (a `favorites` category created by a first favourite) in the server's own position. Drawn
+    /// categories therefore never jump because of a channel move — only a category the server newly
+    /// created is new to the order.
+    static func order(afterSaved saved: [MMSidebarCategory], previous: [String]) -> [String] {
+        let ids = Set(saved.map(\.id))
+        var order = previous.filter { ids.contains($0) }
+        var seen = Set(order)
+        for category in saved where !seen.contains(category.id) {
+            order.append(category.id)
+            seen.insert(category.id)
+        }
+        return order
+    }
+
     /// `order` first, then anything it omitted by `sort_order`, then id.
     static func ordered(_ categories: [MMSidebarCategory], order: [String]) -> [MMSidebarCategory] {
         var positions: [String: Int] = [:]
@@ -605,24 +641,27 @@ enum ChannelSidebarDerivation {
 
     // MARK: Totals
 
-    /// The sidebar's aggregate: muted channels contribute **no message count**, but their **mentions
-    /// still count**.
+    /// The sidebar's aggregate, **desktop-exact**: a muted channel contributes nothing at all —
+    /// neither its messages nor its mentions.
     ///
-    /// A mute is `notify_props.mark_unread == mention`, so a mention is exactly the traffic the user
-    /// asked to keep hearing; upstream shows `unreadMentions` on a muted row for the same reason. The
-    /// team rail (T32) badges the server's `teams/unread`, which counts those mentions, and two numbers
-    /// on one screen must not disagree — so the aggregate keeps them and drops only the message counts.
+    /// Web/desktop skip a muted channel before either count is added
+    /// (`selectors/entities/channels.ts` `getTeamsUnreadStatuses`: "if channel is muted, we skip its
+    /// count"). The row still shows an explicit mention (that is exactly what `mark_unread: mention`
+    /// keeps), but the footer's badge total does not — criterion 3 says the totals exclude muted
+    /// channels "the same way desktop does", and T33-AV F2 measured the previous rule against that
+    /// criterion and lost.
+    ///
+    /// The consequence is recorded in `docs/parity.md`: the T32 rail above this footer badges the
+    /// server's `teams/unread`, which is **not** mute-aware, so a muted mention can make the rail and
+    /// the footer disagree for one moment. They are two different read-outs (the server's team total
+    /// vs. this client's badge total, computed like desktop's) and this footer deliberately follows
+    /// desktop rather than the rail.
     static func totals(_ groups: [ChannelSidebarGroup]) -> ChannelSidebarTotals {
         var totals = ChannelSidebarTotals()
         for entry in groups.flatMap(\.entries) {
-            // A muted channel contributes no *message* count and no unread emphasis — that is what
-            // the mute asked for, and the row obeys the same rule. Its **mentions** still count: a
-            // mute is `mark_unread: mention`, so a mention is precisely the traffic the user asked to
-            // keep hearing; the team rail's badge (the server's `teams/unread`, T32) counts them too,
-            // and two read-outs on one screen must agree.
-            totals.mentions += entry.mentionCount
             guard !entry.isMuted else { continue }
             totals.messages += entry.unreadCount
+            totals.mentions += entry.mentionCount
             if entry.showsUnreadEmphasis { totals.unreadChannels += 1 }
         }
         return totals

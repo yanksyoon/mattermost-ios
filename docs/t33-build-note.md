@@ -31,14 +31,14 @@ SF Symbols stand in for every `compass-icons` glyph.
 
 | File | Lines | Role |
 |---|---|---|
-| `Mattermost/UI/Native/Sidebar/ChannelSidebarModels.swift` | 699 | the **derivation** — everything that can be decided without I/O: category/channel tree, sort rules (manual / recent / alpha, muted last in alpha), unread = `max(total_msg_count − msg_count, 0)`, the mute rule, favourites, archived filtering, search terms + fuzzy ranking, the two content states, the aggregate |
-| `Mattermost/UI/Native/Sidebar/ChannelSidebarService.swift` | 547 | I/O: load, counter refresh, category reads/writes with **optimistic mutate → write → rebase on the server's answer → roll back on failure**, mute write; a **generation** guard so a stale load can never overwrite a newer team |
-| `Mattermost/UI/Native/Sidebar/ChannelSidebarCoordinator.swift` | 299 | one `ChannelListViewModel` per **server**; subscribes to `NativeNavigation.location` and to the auth phase; **reuses T32's single socket** (`TeamSocketScope`) instead of opening a second one; publishes the channel→team map the scope needs; coalesces socket-driven refreshes (300 ms) |
-| `Mattermost/UI/Native/Sidebar/ChannelSidebarAPI.swift` | 86 | the endpoints, in one place |
-| `Mattermost/UI/Native/Sidebar/ChannelSidebarView.swift` | 377 | the UI: category sections with collapse, rows, aggregate footer, quick-switcher button, context menu |
-| `Mattermost/UI/Native/Sidebar/QuickSwitcherView.swift` | 148 | the ⌘K sheet: search field + result list |
-| `MattermostTests/T33-ChannelSidebarTests.swift` | 901 | 51 unit tests (pure derivation + view model against a fake service + coordinator) |
-| `MattermostUITests/T33-ChannelSidebarUITests.swift` | 555 | 5 **live** UI tests against a real server (see §6) |
+| `Mattermost/UI/Native/Sidebar/ChannelSidebarModels.swift` | 738 | the **derivation** — everything that can be decided without I/O: category/channel tree, sort rules (manual / recent / alpha, muted last in alpha), unread = `max(total_msg_count − msg_count, 0)`, the mute rule, favourites, archived filtering, search terms + fuzzy ranking, the two content states, the aggregate (desktop-exact: a muted channel counts for nothing), the order a write's array answer leaves behind |
+| `Mattermost/UI/Native/Sidebar/ChannelSidebarService.swift` | 658 | I/O: load, counter refresh (a failed members call is reported, never treated as "all read"), category reads/writes — `PUT` the **bare array** and rebase on the array it answers with (T33-R/F1); a **generation** guard so a stale load can never overwrite a newer team; the socket event → outcome mapping (`post_unread`, `channel_member_updated`, `sidebar_category_updated`, `channel_created`, `channel_deleted`) |
+| `Mattermost/UI/Native/Sidebar/ChannelSidebarCoordinator.swift` | 318 | one `ChannelListViewModel` per **server**; subscribes to `NativeNavigation.location` and to the auth phase; **reuses T32's single socket** (`TeamSocketScope`) instead of opening a second one; publishes the channel→team map the scope needs; coalesces socket-driven refreshes at **1500 ms** (the rail's own debounce) into one counter refresh — or one **full reload** after a `channel_created` |
+| `Mattermost/UI/Native/Sidebar/ChannelSidebarAPI.swift` | 93 | the endpoints, in one place (the categories write decodes `[MMSidebarCategory]`) |
+| `Mattermost/UI/Native/Sidebar/ChannelSidebarView.swift` | 388 | the UI: category sections with collapse, rows, aggregate footer, quick-switcher button, context menu |
+| `Mattermost/UI/Native/Sidebar/QuickSwitcherView.swift` | 153 | the ⌘K sheet: search field + result list |
+| `MattermostTests/T33-ChannelSidebarTests.swift` | 1245 | 68 unit tests (pure derivation + view model against a fake service + coordinator + the socket frame decodes) |
+| `MattermostUITests/T33-ChannelSidebarUITests.swift` | 687 | 7 **live** UI tests against a real server (see §6) |
 | `MattermostUITests/T33-ChannelSidebarStubTests.swift` | 214 | 4 stub-backed UI tests: the flag **both ways**, a fixed server order, a DM found by username, and the error state |
 | `scripts/t33_channel_seed.py` | 167 | idempotent fixture: the second user is a member of the team's channels, everything is read, nothing is muted, and it prints the server's own numbers + category list |
 
@@ -120,9 +120,12 @@ silence, so the second assertion cannot be vacuous. Mentions are incremented reg
 
 That also fixed an inconsistency the first screenshot exposed: the aggregate footer excluded muted
 channels *entirely*, while the T32 rail above it badges the server's `teams/unread`, which counts the
-muted channel's mention. Two read-outs on one screen disagreed. The aggregate now drops a muted
-channel's **message** count and keeps its **mentions** (the mute is a request for mentions), so footer
-and rail agree for the same moment.
+muted channel's mention. The first repair kept a muted channel's mentions in the footer so the two
+read-outs agreed — **T33-AV F2 measured that against criterion 3 and it lost**: desktop's
+`getTeamsUnreadStatuses` skips a muted channel before *either* count, and the criterion says "the same
+way desktop does". The footer is therefore desktop-exact (no messages **and** no mentions from a muted
+channel), and the rail/footer difference is recorded as what it is in `docs/parity.md`: the rail badges
+the server's team total, the footer is this client's badge total. See §12.
 
 ### 4.3 Quick switcher
 
@@ -137,9 +140,16 @@ T32 owns **one socket per server**. T33 plugs into it:
 
 - `ChannelSidebarCoordinator` hands `TeamSocketScope` the channel→team map after every load, so an event
   is accepted only if it belongs to the team on screen.
-- Events that matter: `posted`, `post_edited`, `post_deleted` → `.refreshNeeded` (coalesced 300 ms
-  counter refresh); `channel_viewed` for **me** → zero that row; `preferences_changed`,
-  `channel_created`, `channel_deleted`, `channel_member_updated`, `post_unread` → refresh.
+- Events that matter, all now **modelled** (`SocketEvent`, decoded from the frame the pinned server
+  actually sends — measured, see `docs/t33r-build-note.md` §2): `posted`, `post_edited`,
+  `post_deleted`, `preferences_changed` → `.refreshNeeded` (one coalesced counter refresh per
+  **1500 ms**, the rail's own debounce); `channel_viewed` for **me** → zero that row, then the
+  server's follow-up `post_unread` carries the exact `msg_count`/`mention_count` and is applied
+  without a request; `post_unread` for me → counters applied; `channel_member_updated` for me → the
+  membership row (mute set in another client) applied; `sidebar_category_updated` → the layout the
+  server stored is applied to the open list (that is what makes an external reorder/collapse visible
+  without a relaunch); `channel_created` → one debounced **full** reload; `channel_deleted` → the
+  ordinary counter refresh (the channel read drops it).
 - Team switch: the location subscription compares the model's team with `NativeNavigation.location`; a
   different team **always** reloads (a SwiftUI re-mount of the same team does not — `load(ifNeeded:)`
   answers from `loadedTeamID`).
@@ -153,9 +163,9 @@ T32 owns **one socket per server**. T33 plugs into it:
 
 | Criterion | Where it is decided | Test | Live evidence |
 |---|---|---|---|
-| Ordering/grouping match the server's sidebar layout; **a reorder persists across relaunch** | `ChannelSidebarDerivation.groups/sorted`; `ChannelSidebarService.move` → `PUT categories` | `testGroupsFollowTheServersOrderAndOwnTheirChannels`, `testTheOrderArrayDecidesTheDrawnOrderAndUnknownCategoriesAreAppended`, `testManualSortingUsesTheCategoryChannelIds`, `testRecentSortingUsesTheNewerOfLastPostAndCreation`, `testAlphaSortingPutsMutedChannelsLastThenAlphabetically`, `testMovingAChannelPersistsManualOrderToTheServer`, `testAReorderSurvivesARelaunch` (a second model loads from the array the fake server was given) | `testAReorderThroughTheContextMenuWritesTheServerAndSurvivesRelaunch` — long-presses a row, taps **Move up**, reads the server's `channel_ids` back, kills the app, relaunches, compares row positions; then restores the order through the same UI path (`docs/t33-shots/t33-09-reorder-after-relaunch.png`); stub-backed `testTheListDrawsTheStubsCategoriesInTheServersOrder` pins "server order, not alphabetical" |
+| Ordering/grouping match the server's sidebar layout; **a reorder persists across relaunch** | `ChannelSidebarDerivation.groups/sorted`; `ChannelSidebarService.move` → `PUT categories` | `testGroupsFollowTheServersOrderAndOwnTheirChannels`, `testTheOrderArrayDecidesTheDrawnOrderAndUnknownCategoriesAreAppended`, `testManualSortingUsesTheCategoryChannelIds`, `testRecentSortingUsesTheNewerOfLastPostAndCreation`, `testAlphaSortingPutsMutedChannelsLastThenAlphabetically`, `testMovingAChannelPersistsManualOrderToTheServer`, `testAReorderSurvivesARelaunch` (a second model loads from the array the fake server was given) | `testAReorderThroughTheContextMenuWritesTheServerAndSurvivesRelaunch` — long-presses a row, taps **Move up**, reads the server's `channel_ids` back, **asserts the row on screen is in the new order and that no `channelSidebar.actionError` exists** (the two things the T33-AV F1 defect needed), kills the app, relaunches, compares row positions; then restores the order through the same write (t33-09, t33-10); stub-backed `testTheListDrawsTheStubsCategoriesInTheServersOrder` pins "server order, not alphabetical" |
 | Unread/mention bold state updates live from socket events | `ChannelSidebarView`'s badge rules via `entry.showsUnreadEmphasis`; `handle(_:)` + coalesced `refreshCounters` | `testPostedAsksForARefreshAndTheRefreshMovesTheBadge`, `testChannelViewedByThisUserClearsTheCounterLocally`, `testAnotherUsersViewDoesNotClearMyCounter`, `testAFailedCounterRefreshKeepsTheLastNumbersAndLabelsThemStale` | `testUnreadAndMentionBoldStateMovesLiveAfterAnotherUsersPost` — a second account posts over the real socket; the row goes bold, then a mention badge appears, and the badge equals the server's `mention_count` (`t33-04`, `t33-05`) |
-| Muted channels show no bold/count; totals exclude them | `ChannelSidebarEntry` badge rules + `totals` | `testAMutedChannelShowsNoBoldAndNoBadgeForUnreadMessages`, `testAMutedChannelStillSurfacesAnExplicitMention`, `testTotalsDropMutedMessageCountsButKeepTheirMentions` | `testAMutedChannelShowsNoUnreadStateAndLeavesTheTotals` — mutes through the API, another user posts, the server reports 1 unread, the row says "Muted" and no "Unread", the footer stays silent; then a mention badges through the mute and reaches the footer (`t33-06`, `t33-07`, `t33-08`); stub-backed `testTheListDrawsTheStubsCategoriesInTheServersOrder` pins the same rule from a fixed fixture |
+| Muted channels show no bold/count; totals exclude them | `ChannelSidebarEntry` badge rules + `totals` | `testAMutedChannelShowsNoBoldAndNoBadgeForUnreadMessages`, `testAMutedChannelStillSurfacesAnExplicitMention`, `testTotalsExcludeAMutedChannelsMessagesAndMentionsLikeDesktop` | `testAMutedChannelShowsNoUnreadStateAndLeavesTheTotals` — mutes through the API, another user posts, the server reports 1 unread, the row says "Muted" and no "Unread", the footer stays silent; then a mention **badges the row** but still leaves the footer silent (desktop rule, T33-AV F2), while the same traffic in an unmuted channel does move it (`t33-06`, `t33-07`, `t33-08`); stub-backed `testTheListDrawsTheStubsCategoriesInTheServersOrder` pins the same rule from a fixed fixture |
 | Quick switcher fuzzy-matches channels and DMs, navigates | `ChannelListViewModel.searchResults` | `testSearchRanksExactThenPrefixThenWordStartThenSubstringThenSubsequence`, `testSearchAcceptsAChannelHashAndADirectMessageHandle` | `testTheQuickSwitcherFuzzyFindsAChannelAndOpensIt` — types `pffd`, taps the only result, asserts the pane title is the server's channel name **and that the sheet is gone** (`t33-02`, `t33-03`); stub-backed `testTheQuickSwitcherFindsADirectMessageByTheOtherPersonsName` — a DM found by the other person's username, then tapped: the switcher closes and the DM's own pane opens (see §11) |
 | Reachable behind the dual-render flag, rendering **real** server data | `NativePanePlaceholders` / `SurfaceModeResolver` | `ChannelListViewModel` construction is gated in the pane (the stub suite asserts both ways) | `testTheSidebarRendersTheServersChannelsAndCategories` — every channel the API returns is on screen, labelled with the server's `display_name` (`t33-01`); stub-backed `testTheFlagDecidesWhetherTheNativeListIsMounted` asserts flag **off** exposes no `channelSidebar.*` identifier at all, and `testAFailedChannelReadShowsTheErrorAndARetry` asserts the error state |
 
@@ -226,7 +236,8 @@ supported destination; the unit suite runs on Catalyst as the DoD asks.
   refreshed from the socket; it does not read a stale list from SQLite while the network is down (it
   shows its error state with a retry).
 - The **aggregate footer** is this shell's own read-out (the desktop/web sidebar has no footer); its
-  rule is documented in §4.2 and asserted in `testTotalsDropMutedMessageCountsButKeepTheirMentions`.
+  rule is documented in §4.2 and asserted in
+  `testTotalsExcludeAMutedChannelsMessagesAndMentionsLikeDesktop`.
 
 ## 11. The dead touch zone found while making the stub suite green (fixed here)
 
@@ -264,3 +275,19 @@ Two facts for T33-AV, recorded rather than papered over:
 - The rail's rows (T32) use the same `Button` + `.plain` + `Spacer` pattern; they were **not** touched
   by this card. Their taps are only exercised at the row's leading edge by T32's tests, so the same
   dead zone may exist there and is worth a look under T32's card.
+
+## 12. T33-R — the repairs from T33-AV
+
+Validator: T33-AV (card `t_21b7e8d6`, report `T33-AV-verdict.md`). Repair card `t_eb428329`; the
+detailed record (measured payloads, every finding, the runs) is `docs/t33r-build-note.md`. In one line
+each:
+
+| Finding | Repair |
+|---|---|
+| **F1** (HIGH) the categories write's answer did not decode, so a reorder/favourite was applied on the server and rolled back in the UI | the write now decodes **`[MMSidebarCategory]`** (the endpoint's real answer shape — measured: the array body is what it accepts and what it returns) and rebases the groups on it; `order` is kept from the drawn layout and only extended by a category the answer introduced. `setCollapsed` no longer `try?`-discards the write: it applies the server's answer and reports a failure. Regression: on-screen row + "no `channelSidebar.actionError`" added to the live reorder test, plus unit tests on the decode, the rebase and the collapse |
+| **F2** (MEDIUM) a muted channel's mentions reached the footer aggregate | `totals` skips a muted channel entirely (desktop's `getTeamsUnreadStatuses`); `docs/parity.md` records that the T32 rail badges the server's `teams/unread` — a separate read-out, not the footer's source |
+| **F3** (MEDIUM) an external layout change never reached the open list | `sidebar_category_updated` is now a modelled event, and its payload rebases the open list (no request, no relaunch). Live test: an external `PUT` while the app runs, asserting the rows move and the app did not relaunch |
+| **F4** (LOW) four socket events the docs claimed were not modelled | `channel_created`, `channel_deleted`, `channel_member_updated` and `post_unread` are typed, scoped and acted on (reload / counter refresh / membership row / exact counters) — measured payloads in `docs/t33r-build-note.md` §2 |
+| **F5** (LOW) a partial counter refresh zeroed every badge and claimed freshness | a failed `/users/me/channel_members` is reported (`ChannelSidebarRefresh.membersFailed`), the last numbers stay, and `countsAreStale` is set; an empty members answer for a channel-bearing team is treated the same way |
+| **F6** (LOW) the shipped reorder test's cleanup was a no-op | `restoreChannelsOrder` sends the **bare array** and asserts 200 |
+| **F7** (LOW) the debounce was documented as 300 ms | the docs now say **1500 ms** (the code and the rail's own `unreadRefreshDelay`); the default is deliberate |

@@ -41,7 +41,9 @@ final class ChannelSidebarCoordinator: ObservableObject {
 
     private let events: TeamEventSourcing
     /// How long socket activity is coalesced before the counters are refetched. A burst of ten posts
-    /// is one request, not ten.
+    /// is one request, not ten. 1.5 s matches the rail's own `unreadRefreshDelay` (T32): one screen,
+    /// one debounce. (The build note said 300 ms until T33-AV F7 measured it; the docs are corrected,
+    /// the default is deliberate.)
     private let refreshDelay: TimeInterval
     /// The service seam: production uses the server's own `AuthSession.client`; a test supplies a
     /// fake server so the coordinator's own rules (one model per server, scope refresh, debounce)
@@ -51,6 +53,9 @@ final class ChannelSidebarCoordinator: ObservableObject {
     private var models: [UUID: ChannelListViewModel] = [:]
     private var pendingRefresh: [UUID: Task<Void, Never>] = [:]
     private var refreshTokens: [UUID: UUID] = [:]
+    /// Servers whose pending debounce must be a **full reload** instead of a counter refresh (a
+    /// `channel_created` arrived: the channel list itself changed).
+    private var pendingReload: Set<UUID> = []
     private var locationSink: AnyCancellable?
     /// The team each server's list was last asked for, so a location change that only moved the
     /// selected channel does not reload anything.
@@ -58,6 +63,7 @@ final class ChannelSidebarCoordinator: ObservableObject {
 
     // Observable evidence for tests and diagnostics.
     private(set) var counterRefreshCount = 0
+    private(set) var reloadCount = 0
     private(set) var eventCount = 0
 
     init(events: TeamEventSourcing? = nil,
@@ -147,6 +153,7 @@ final class ChannelSidebarCoordinator: ObservableObject {
     func deactivate(_ serverID: UUID) async {
         pendingRefresh[serverID]?.cancel()
         pendingRefresh[serverID] = nil
+        pendingReload.remove(serverID)
         refreshTokens[serverID] = nil
         models[serverID] = nil
         loadedTeams[serverID] = nil
@@ -163,12 +170,14 @@ final class ChannelSidebarCoordinator: ObservableObject {
         switch model.handle(event, myUserID: auth?.userID(for: serverID)) {
         case .ignored:
             return
-        case .applied, .counters:
-            // The local state moved; the server's numbers are fetched on the debounce anyway, so a
-            // burst still costs one request.
+        case .applied, .layoutChanged:
+            // The event carried the new state (the server's exact counters, or the layout it stored),
+            // so it is already on screen. Fetching it again would be a request with nothing to learn.
+            return
+        case .counters, .refreshNeeded:
             scheduleRefresh(serverID: serverID)
-        case .refreshNeeded, .layoutChanged:
-            scheduleRefresh(serverID: serverID)
+        case .reloadNeeded:
+            scheduleRefresh(serverID: serverID, reload: true)
         }
     }
 
@@ -229,7 +238,10 @@ final class ChannelSidebarCoordinator: ObservableObject {
         teams?.setChannelTeams(map, for: server.id)
     }
 
-    private func scheduleRefresh(serverID: UUID) {
+    private func scheduleRefresh(serverID: UUID, reload: Bool = false) {
+        // A pending debounce absorbs this event. A reload is the stronger request: if it is watering
+        // down into a counter refresh, upgrade the pending one rather than queueing a second task.
+        if reload { pendingReload.insert(serverID) }
         guard pendingRefresh[serverID] == nil else { return }
         let token = UUID()
         refreshTokens[serverID] = token
@@ -239,8 +251,15 @@ final class ChannelSidebarCoordinator: ObservableObject {
             guard !Task.isCancelled, self.refreshTokens[serverID] == token else { return }
             self.pendingRefresh[serverID] = nil
             guard let model = self.models[serverID] else { return }
-            self.counterRefreshCount += 1
-            await model.refreshCounters()
+            if self.pendingReload.remove(serverID) != nil {
+                // The channel list changed (a channel was created): counters alone cannot show a new
+                // row, and a new channel may carry a DM label the load resolves.
+                self.reloadCount += 1
+                await model.reload()
+            } else {
+                self.counterRefreshCount += 1
+                await model.refreshCounters()
+            }
             if let server = self.serverStore?.servers.first(where: { $0.id == serverID }) {
                 self.publishChannelTeams(for: server, model: model)
             }
