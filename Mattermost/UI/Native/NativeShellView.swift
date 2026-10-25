@@ -105,7 +105,8 @@ struct NativeShellView: View {
                 // "Off-…"; 320 gives the list the ~256 pt upstream's sidebar has.
                 .navigationSplitViewColumnWidth(min: 260, ideal: 320, max: 420)
         } detail: {
-            NativeDestinationPaneView(location: navigation.location, navigation: navigation)
+            NativeDestinationPaneView(location: navigation.location, navigation: navigation,
+                                      server: server)
         }
         .navigationSplitViewStyle(.balanced)
     }
@@ -139,6 +140,13 @@ struct NativeDestinationPaneView: View {
     let location: NativeLocation
     @ObservedObject var navigation: NativeNavigation
 
+    /// The configured server this route belongs to, when the caller can resolve it.
+    ///
+    /// T34's channel pane needs it to build its request: a `NativeLocation` carries the server's
+    /// *id*, and only the shell's server list can turn that into a base URL. Callers that cannot
+    /// resolve it (a hover/preview) may pass `nil`; the channel pane then says so instead of spinning.
+    var server: ServerConfig? = nil
+
     /// Whether the location's server is still in the shell's server list. A route outlives the server
     /// it names — the user can remove that server from the switcher (or Settings) while its channel
     /// is open — so the pane has to say what happened instead of rendering a conversation for a
@@ -153,7 +161,7 @@ struct NativeDestinationPaneView: View {
             } else if location.pane == .threads {
                 NativeThreadsPaneView(location: location, navigation: navigation)
             } else if location.hasChannel || location.postID != nil {
-                NativeChannelPaneView(location: location, navigation: navigation)
+                NativeChannelPaneView(location: location, navigation: navigation, server: server)
             } else {
                 NativeEmptyDestinationView(serverName: location.serverName)
             }

@@ -1,0 +1,438 @@
+// Behaviour reference: mattermost/mattermost-mobile @ v2.45.0 (162f2560d0e1df073220f7701d5a67cc17c8abeb)
+// Files: app/components/post/index.tsx (a row = avatar + header + body + attachments + reactions, the
+//        `isPostAddChannelMember`/system branch, and the "no header" `isGrouped` variant),
+//        post/header/post_header.tsx (author, time, edited marker, pinned marker),
+//        post/avatar (44 pt initials avatar), post_body/post_body.tsx (fold/expand, deleted tombstone),
+//        post_body/system_message.tsx (one line, info glyph), reactions/reaction_bar.tsx (the summary
+//        capsules), files/file_upload_item/* and files/image_file (thumbnail vs file row),
+//        post_list/date_separator/date_separator.tsx, post_list/new_message_line/new_message_line.tsx.
+// Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §10; no
+// upstream source copied. SwiftUI decomposition is this repo's own (component-map.md §1).
+//
+// Identifiers an XCUITest can rely on (also listed in docs/t34-build-note.md §7):
+//   post.<id>                  the row (a container)
+//   post.<id>.body             the body text of a message post
+//   post.<id>.author           the author name (absent on a grouped row — that is the point)
+//   post.<id>.edited           "(edited)"
+//   post.<id>.deleted          the tombstone
+//   post.<id>.system           a system message line
+//   post.<id>.showMore         the fold affordance
+//   post.<id>.foldSummary      what the fold is hiding ("… 4,980 more lines")
+//   post.<id>.reaction.<emoji> one reaction summary
+//   post.<id>.attachment.<fileID> one attachment row
+//   channelDateSeparator.<dayKey>  a day boundary
+//   channelNewMessages         the unread divider
+
+import SwiftUI
+
+// MARK: - Date separator
+
+struct PostDateSeparatorView: View {
+    let separator: PostDateSeparator
+
+    var body: some View {
+        HStack(spacing: 8) {
+            line
+            Text(separator.title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color(.secondarySystemBackground), in: Capsule())
+            line
+        }
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Messages from \(separator.title)")
+        .accessibilityIdentifier("channelDateSeparator.\(separator.dayKey)")
+    }
+
+    private var line: some View {
+        Rectangle().fill(Color.secondary.opacity(0.18)).frame(height: 1)
+    }
+}
+
+// MARK: - New messages
+
+struct NewMessagesDividerView: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            Rectangle().fill(Color.accentColor).frame(height: 1)
+            Text("New messages")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(Color.accentColor)
+            Rectangle().fill(Color.accentColor).frame(height: 1)
+        }
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("channelNewMessages")
+    }
+}
+
+// MARK: - Avatar
+
+struct PostAvatarView: View {
+    let author: PostAuthor
+    var size: CGFloat = 36
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color(hue: author.avatarHue, saturation: 0.45, brightness: 0.82))
+            Text(author.initials)
+                .font(.system(size: size * 0.36, weight: .semibold))
+                .foregroundStyle(.white)
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
+// MARK: - One post
+
+struct PostRowView: View {
+    let row: PostRowModel
+    let isExpanded: Bool
+    let imageStore: ChannelImageStore?
+    var emoji: EmojiCatalogue?
+    let onToggleExpanded: () -> Void
+    let onRetryAttachment: (String) -> Void
+
+    private var showsHeader: Bool { !row.isGrouped && !row.isSystem }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            gutter
+            VStack(alignment: .leading, spacing: 4) {
+                if showsHeader { header }
+                if row.isSystem {
+                    systemMessage
+                } else if row.isDeleted {
+                    deletedTombstone
+                } else {
+                    body(for: row)
+                    attachments
+                    reactions
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, row.isGrouped ? 2 : 6)
+        // One row is one accessibility container: VoiceOver reads author + body in order and the
+        // tests can still resolve the leaves inside it.
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("post.\(row.id)")
+    }
+
+    /// The 36 pt avatar column. A grouped row has no avatar, so it shows its time in that column
+    /// instead — that is what keeps a run of messages from the same author aligned.
+    @ViewBuilder
+    private var gutter: some View {
+        if showsHeader {
+            PostAvatarView(author: row.author)
+        } else if row.isSystem {
+            Image(systemName: "info.circle")
+                .font(.system(size: 15))
+                .foregroundStyle(.secondary)
+                .frame(width: 36, alignment: .center)
+                .padding(.top, 2)
+                .accessibilityHidden(true)
+        } else {
+            Text(timeTitle)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: 36, alignment: .trailing)
+                .padding(.top, 3)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(row.author.displayName)
+                .font(.system(size: 15, weight: .semibold))
+                .lineLimit(1)
+                .accessibilityIdentifier("post.\(row.id).author")
+            Text(timeTitle)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            if row.isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Pinned")
+            }
+            if row.isEdited {
+                Text("(edited)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("post.\(row.id).edited")
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var timeTitle: String {
+        PostListDerivation.timeTitle(for: row.post.createAt,
+                                     calendar: .current,
+                                     locale: .current,
+                                     timeZone: .current)
+    }
+
+    @ViewBuilder
+    private func body(for row: PostRowModel) -> some View {
+        let blocks = row.showsAllBlocks(expanded: isExpanded) ? row.blocks : row.blocksToShow
+        VStack(alignment: .leading, spacing: 6) {
+            // No identifier on this container: SwiftUI merges sibling `Text`s into one accessibility
+            // element, so an identifier here would swallow the "(edited)" marker and the fold button
+            // below it (that is exactly what made the first UI run unable to find them).
+            MarkdownView(blocks: blocks, identifierPrefix: "post.\(row.id).body", emoji: emoji)
+            if row.isEdited && row.isGrouped {
+                // A grouped row has no header, so the "(edited)" that lives there would be lost.
+                // Upstream simply omits it on a grouped row; hiding the fact that a message changed is
+                // worse than one extra muted word (docs/t34-build-note.md §10).
+                Text("(edited)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("post.\(row.id).edited")
+            }
+            if row.fold != nil {
+                if !isExpanded && !row.foldSummary.isEmpty {
+                    // What the fold is hiding. Upstream says nothing and simply clips the height, so
+                    // a reader cannot tell a 5-line trim from a 5,000-line one.
+                    Text(row.foldSummary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("post.\(row.id).foldSummary")
+                }
+                Button(isExpanded ? "Show less" : "Show more") { onToggleExpanded() }
+                    .font(.system(size: 13, weight: .semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityIdentifier("post.\(row.id).showMore")
+            }
+        }
+    }
+
+    private var systemMessage: some View {
+        Text(row.post.message)
+            .font(.system(size: 13))
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("post.\(row.id).system")
+    }
+
+    private var deletedTombstone: some View {
+        Text("This message was deleted.")
+            .font(.system(size: 15))
+            .italic()
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("post.\(row.id).deleted")
+    }
+
+    @ViewBuilder
+    private var attachments: some View {
+        if !row.attachments.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(row.attachments) { attachment in
+                    PostAttachmentView(attachment: attachment,
+                                       postID: row.id,
+                                       imageStore: imageStore,
+                                       onRetry: { onRetryAttachment(attachment.id) })
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var reactions: some View {
+        if !row.reactions.isEmpty {
+            HStack(spacing: 6) {
+                ForEach(row.reactions) { reaction in
+                    HStack(spacing: 3) {
+                        EmojiGlyph(name: reaction.emojiName, emoji: emoji)
+                        Text("\(reaction.count)")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(reaction.includesMe
+                                ? Color.accentColor.opacity(0.16)
+                                : Color(.secondarySystemBackground),
+                                in: Capsule())
+                    .overlay(Capsule().strokeBorder(
+                        reaction.includesMe ? Color.accentColor.opacity(0.6) : .clear))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(reaction.emojiName) \(reaction.count)")
+                    .accessibilityIdentifier("post.\(row.id).reaction.\(reaction.emojiName)")
+                }
+            }
+            .padding(.top, 2)
+        }
+    }
+}
+
+// MARK: - Emoji glyph
+
+/// One emoji as the reaction bar draws it: the server's image for a custom name, the Unicode
+/// character for a built-in one, and the literal `:name:` when neither is known.
+struct EmojiGlyph: View {
+    let name: String
+    var emoji: EmojiCatalogue?
+    var size: CGFloat = 15
+
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size, height: size)
+            } else {
+                Text(EmojiShortcodes.character(for: name) ?? ":\(name):")
+                    .font(.system(size: size))
+            }
+        }
+        .task(id: name) {
+            image = await emoji?.image(for: name)
+        }
+    }
+}
+
+// MARK: - Attachments
+
+/// One attachment. An image draws its thumbnail when the bytes arrive; anything else (or a failed
+/// image) draws the file row, which is still tappable and names the file.
+struct PostAttachmentView: View {
+    let attachment: PostAttachment
+    let postID: String
+    let imageStore: ChannelImageStore?
+    let onRetry: () -> Void
+
+    @State private var image: UIImage?
+    @State private var didFail = false
+
+    var body: some View {
+        Group {
+            if attachment.isBlocked {
+                fileRow(icon: "exclamationmark.triangle", note: "Blocked file")
+            } else if attachment.kind == .image, let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 280, maxHeight: 220)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityLabel(attachment.name)
+                    .accessibilityIdentifier("post.\(postID).attachment.\(attachment.id)")
+            } else if attachment.kind == .image, !didFail {
+                fileRow(icon: "photo", note: attachment.sizeLabel)
+                    .task { await loadImage() }
+            } else {
+                fileRow(icon: "doc", note: attachment.sizeLabel)
+            }
+        }
+    }
+
+    private func fileRow(icon: String, note: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(attachment.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                if !note.isEmpty {
+                    Text(note)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: 280, alignment: .leading)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("post.\(postID).attachment.\(attachment.id)")
+    }
+
+    private func loadImage() async {
+        guard let imageStore else {
+            didFail = true
+            return
+        }
+        if let cached = await imageStore.image(for: attachment) {
+            image = cached
+        } else {
+            didFail = true
+        }
+    }
+}
+
+// MARK: - Image bytes
+
+/// Attachment bytes, cached per file id.
+///
+/// The list asks the same store for every image on screen; the store collapses concurrent requests
+/// for one file (a thumbnail and a full image of the same id must not race) and keeps a small cache
+/// so a scroll back up does not refetch.
+@MainActor
+final class ChannelImageStore: ObservableObject {
+    private let load: (String) async throws -> Data
+    private var cache: [String: UIImage] = [:]
+    private var inFlight: [String: Task<UIImage?, Never>] = [:]
+
+    /// The cache is bounded: attachments are decorative, and a long session should not hold every
+    /// screenshot the user ever scrolled past.
+    static let cacheLimit = 40
+
+    init(load: @escaping (String) async throws -> Data) {
+        self.load = load
+    }
+
+    convenience init(service: ChannelServing) {
+        self.init { fileID in
+            try await service.fileData(fileID: fileID, preferThumbnail: true)
+        }
+    }
+
+    func image(for attachment: PostAttachment) async -> UIImage? {
+        if let cached = cache[attachment.id] { return cached }
+        if let running = inFlight[attachment.id] { return await running.value }
+        let task = Task<UIImage?, Never> { [load] in
+            guard let data = try? await load(attachment.id) else { return nil }
+            return UIImage(data: data)
+        }
+        inFlight[attachment.id] = task
+        let image = await task.value
+        inFlight[attachment.id] = nil
+        if let image {
+            cache[attachment.id] = image
+            trim()
+        }
+        return image
+    }
+
+    func clear() {
+        cache.removeAll()
+        for (_, task) in inFlight { task.cancel() }
+        inFlight.removeAll()
+    }
+
+    private func trim() {
+        guard cache.count > Self.cacheLimit else { return }
+        // Dictionary order is not insertion order, so drop an arbitrary excess; the bytes are
+        // re-fetchable and the visible rows re-ask on the next layout pass.
+        for key in cache.keys.prefix(cache.count - Self.cacheLimit) {
+            cache[key] = nil
+        }
+    }
+}

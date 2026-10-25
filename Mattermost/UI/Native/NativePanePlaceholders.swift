@@ -208,54 +208,72 @@ struct NativeSidebarAnchorRow: View {
 
 // MARK: - Channel pane
 
-/// The channel view placeholder: the region S11 (T34) renders the post list into, with the header a
-/// real channel header will keep (`#channel` + the Threads affordance).
+/// The channel pane: the region S11 (T34) renders the post list into.
+///
+/// T34 replaced the middle (the "Post list — S11" note) with `ChannelPaneContent`, which owns the
+/// header, the post list, the load-earlier sentinel and the composer stand-in. The permalink branch
+/// is unchanged: a URL that names a post but not its channel still cannot open a conversation
+/// (resolving a post to its channel is S12/T36).
+///
+/// `server` is optional because the pane is reachable from two places: the regular layout's detail
+/// column (which has the shell's server) and `RootView`'s push (which resolves it from the server
+/// list). A pane whose server was removed mid-route gets the stale-route view instead.
 struct NativeChannelPaneView: View {
     let location: NativeLocation
     @ObservedObject var navigation: NativeNavigation
-
-    private var title: String {
-        location.channelDisplayName ?? "Channel"
-    }
+    var server: ServerConfig? = nil
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if location.hasChannel {
-                        NativePaneNote(
-                            systemImage: "text.bubble",
-                            title: "Post list — S11 (T34)",
-                            body: "The post list, date separators, new-message line and message "
-                                + "markdown all land in S11 (T34). The shell renders the channel "
-                                + "header and the navigation around it so that card has somewhere "
-                                + "to plug in."
-                        )
-                    } else {
-                        NativePaneNote(
-                            systemImage: "clock.arrow.circlepath",
-                            title: "Resolving this permalink…",
-                            body: "This URL names a post (#\(location.postID ?? "?")) but not its "
-                                + "channel, so the pane cannot open a conversation yet. Resolving a "
-                                + "post to its channel is S12 (T36); until then the shell shows this "
-                                + "state instead of guessing a channel."
-                        )
-                        ProgressView()
-                            .progressViewStyle(.linear)
-                            .accessibilityIdentifier("nativePermalinkProgress")
+        Group {
+            if location.hasChannel, let channelID = location.channelID, let server {
+                ChannelPaneContent(server: server,
+                                   channelID: channelID,
+                                   channelName: location.channelDisplayName,
+                                   navigation: navigation)
+            } else if location.hasChannel, let channelID = location.channelID {
+                // A channel without a resolvable server cannot make a request; say so rather than
+                // render a list that would spin forever.
+                VStack(spacing: 0) {
+                    header(title: location.channelDisplayName ?? "Channel", isEnabled: false)
+                    Divider()
+                    NativePaneNote(systemImage: "server.rack",
+                                   title: "This server is not configured",
+                                   body: "The channel #\(channelID) belongs to a server this app no "
+                                       + "longer has. Add it again to read this conversation.")
+                        .padding()
+                    Spacer(minLength: 0)
+                }
+            } else if location.postID != nil {
+                VStack(spacing: 0) {
+                    header(title: "Channel", isEnabled: false)
+                    Divider()
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            NativePaneNote(
+                                systemImage: "clock.arrow.circlepath",
+                                title: "Resolving this permalink…",
+                                body: "This URL names a post (#\(location.postID ?? "?")) but not its "
+                                    + "channel, so the pane cannot open a conversation yet. Resolving "
+                                    + "a post to its channel is S12 (T36); until then the shell shows "
+                                    + "this state instead of guessing a channel."
+                            )
+                            ProgressView()
+                                .progressViewStyle(.linear)
+                                .accessibilityIdentifier("nativePermalinkProgress")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
+            } else {
+                NativeEmptyDestinationView(serverName: location.serverName)
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("nativeChannelPane")
     }
 
-    private var header: some View {
+    private func header(title: String, isEnabled: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: "number")
                 .font(.headline)
@@ -273,7 +291,7 @@ struct NativeChannelPaneView: View {
             }
             .accessibilityLabel("Threads")
             .accessibilityIdentifier("nativeChannelThreadsButton")
-            .disabled(!location.hasChannel)
+            .disabled(!isEnabled)
         }
         .padding(.horizontal)
         .padding(.vertical, 10)

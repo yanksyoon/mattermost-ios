@@ -35,6 +35,9 @@ struct MattermostApp: App {
     /// T33: the app-level owner of the channel sidebar — one model per server, fed by the team rail's
     /// single socket (no second connection). Owned here for the same reason the rail is.
     @StateObject private var channelSidebarCoordinator: ChannelSidebarCoordinator
+    /// T34: the app-level owner of the channel panes — one post-list model per open channel (bounded
+    /// LRU) and one attachment cache per server, fed by the same rail socket as the sidebar.
+    @StateObject private var channelPaneCoordinator: ChannelPaneCoordinator
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
@@ -110,6 +113,9 @@ struct MattermostApp: App {
         // T33: the channel list's owner. Created before any view exists; its seams are bound in
         // `bindShellStores()` for the same `@StateObject` reason as the three above.
         _channelSidebarCoordinator = StateObject(wrappedValue: ChannelSidebarCoordinator())
+        // T34: the channel panes' owner. Its `auth`/`navigation` seams are bound in
+        // `bindShellStores()` for the same `@StateObject` reason as the four above.
+        _channelPaneCoordinator = StateObject(wrappedValue: ChannelPaneCoordinator())
         #if DEBUG
         // UI-test seam: `-uiTestAssumeSignedIn` makes the native shell render as if the seeded
         // server had a session, so its panes can be exercised against a stub server that has no
@@ -231,6 +237,9 @@ struct MattermostApp: App {
                 .environmentObject(teamSidebarCoordinator)
                 // T33: the channel list owner is app-wide for the same reason.
                 .environmentObject(channelSidebarCoordinator)
+                // T34: the channel panes' owner is app-wide for the same reason (a pane must outlive
+                // the view that shows it, and it is fed by the rail's socket).
+                .environmentObject(channelPaneCoordinator)
                 // T31: the SSO hand-off mounts the server's existing webview inside a sheet, so the
                 // store owner has to be reachable from the environment too (the pane's web branch
                 // still receives it as a parameter).
@@ -394,7 +403,15 @@ struct MattermostApp: App {
                                        navigation: nativeNavigation,
                                        serverStore: serverStore,
                                        teams: teamSidebarCoordinator)
-        teamSidebarCoordinator.onTeamEvent = { [weak channelSidebarCoordinator] serverID, event in
+        // T34: the channel panes read the same location and resolve their service from the same
+        // session; nothing here opens a socket of its own.
+        channelPaneCoordinator.bind(auth: authCoordinator,
+                                    navigation: nativeNavigation,
+                                    serverStore: serverStore)
+        teamSidebarCoordinator.onTeamEvent = { [weak channelSidebarCoordinator, weak channelPaneCoordinator] serverID, event in
+            // T33's list debounces its own refresh; T34's open channels apply the event directly (a
+            // posted message must appear without a refetch — that is what a socket is for).
+            Task { await channelPaneCoordinator?.handle(event, serverID: serverID) }
             guard let channelSidebarCoordinator else { return }
             Task { await channelSidebarCoordinator.handle(event, serverID: serverID) }
         }
@@ -402,13 +419,15 @@ struct MattermostApp: App {
         // and a tapped mention's channel *id* resolve to the same `NativeLocation`.
         nativeNavigation.directory = channelSidebarCoordinator
         authCoordinator.onChange = { [weak nativeNavigation, weak teamSidebarCoordinator,
-                                      weak channelSidebarCoordinator] serverID in
+                                      weak channelSidebarCoordinator, weak channelPaneCoordinator] serverID in
             nativeNavigation?.refreshAuthState()
             // A sign-out/expiry must take the rail's socket down with the credential it was built
             // with; a finished sign-in is what lets it come up.
             teamSidebarCoordinator?.authPhaseChanged(serverID)
             // …and the channel list (and its channel→team map) must not outlive that credential.
             channelSidebarCoordinator?.authPhaseChanged(serverID)
+            // …and neither must an open channel's window: its posts were fetched with that session.
+            channelPaneCoordinator?.authPhaseChanged(serverID)
         }
     }
 

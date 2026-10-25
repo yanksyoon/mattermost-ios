@@ -1,0 +1,501 @@
+{
+ "captured_from": "local throwaway Mattermost, team perf, channel t34-showcase",
+ "channel": {
+  "displayName": "T34 Showcase",
+  "id": "1mfi77b1kjnf7poisx5m36bb4c",
+  "name": "t34-showcase",
+  "totalMsgCount": 54,
+  "type": "O"
+ },
+ "emoji": [
+  {
+   "delete_at": 0,
+   "id": "6e7i5y6w53ybjkdcucxu8aqk6r",
+   "name": "t34parrot"
+  }
+ ],
+ "order": [
+  "fy1wym5f5tr8dyut6u9na8rcoy",
+  "tjzwpwdbntrfbfhieai6eh14by",
+  "b44yd85ywprstkoz7bm8wrzihc",
+  "fkx97b7d3pg3x86kz9qbc1egoe",
+  "b4f6rfuua7g9pe53srum1zndno",
+  "kqaauaw4y3nmupm9bnxrf9isqe",
+  "nwe6icamrtyrbj6zkzhcteprao",
+  "z44ebaqdtbg9dfdhtskgcfmota",
+  "ombh7thbbtnzbqn88em9o5qxhy",
+  "a3tg6x8usfrmmfh854n9ah68dr",
+  "d74cazg747fyik445un4ktk5ac",
+  "fimwd3iqnfniix4osgsm9dpb7o"
+ ],
+ "pageSizes": [
+  12
+ ],
+ "perPage": 100,
+ "posts": {
+  "a3tg6x8usfrmmfh854n9ah68dr": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792955216500,
+   "delete_at": 0,
+   "edit_at": 0,
+   "hashtags": "",
+   "id": "a3tg6x8usfrmmfh854n9ah68dr",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "opsbot here: `t34` fixture note.",
+   "metadata": {},
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "t34_key": "bot-note",
+    "t34_seed": "t34_post_seed.py"
+   },
+   "remote_id": "",
+   "reply_count": 0,
+   "root_id": "",
+   "type": "",
+   "update_at": 1792955216500,
+   "user_id": "9apc1tb413nupgssgyhzjpmezr"
+  },
+  "b44yd85ywprstkoz7bm8wrzihc": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792962963444,
+   "delete_at": 0,
+   "edit_at": 0,
+   "hashtags": "",
+   "id": "b44yd85ywprstkoz7bm8wrzihc",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "long post\n\nparagraph 01: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 02: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 03: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 04: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 05: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 06: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 07: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 08: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 09: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 10: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 11: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 12: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 13: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 14: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 15: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 16: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 17: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 18: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 19: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 20: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 21: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 22: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 23: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 24: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 25: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 26: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 27: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 28: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 29: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 30: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 31: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 32: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 33: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 34: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 35: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 36: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 37: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 38: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 39: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. \n\nparagraph 40: the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. the quick brown fox jumps over the lazy dog. ",
+   "metadata": {},
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "t34_key": "long",
+    "t34_seed": "t34_post_seed.py"
+   },
+   "remote_id": "",
+   "reply_count": 0,
+   "root_id": "",
+   "type": "",
+   "update_at": 1792962963444,
+   "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+  },
+  "b4f6rfuua7g9pe53srum1zndno": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792962963353,
+   "delete_at": 0,
+   "edit_at": 0,
+   "hashtags": "",
+   "id": "b4f6rfuua7g9pe53srum1zndno",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "> Quoted text\n> second line\n\n- first item\n- second item\n\n1. one\n2. two",
+   "metadata": {},
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "t34_key": "quote",
+    "t34_seed": "t34_post_seed.py"
+   },
+   "remote_id": "",
+   "reply_count": 0,
+   "root_id": "",
+   "type": "",
+   "update_at": 1792962963353,
+   "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+  },
+  "d74cazg747fyik445un4ktk5ac": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792955210904,
+   "delete_at": 0,
+   "edit_at": 0,
+   "hashtags": "",
+   "id": "d74cazg747fyik445un4ktk5ac",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "opsbot added to the channel by perfprobe.",
+   "metadata": {},
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "addedUserId": "9apc1tb413nupgssgyhzjpmezr",
+    "addedUsername": "opsbot",
+    "userId": "jruqqzxtobg7tn4wehwmwjjo5c",
+    "username": "perfprobe"
+   },
+   "reply_count": 0,
+   "root_id": "",
+   "type": "system_add_to_channel",
+   "update_at": 1792955210904,
+   "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+  },
+  "fimwd3iqnfniix4osgsm9dpb7o": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792955210840,
+   "delete_at": 0,
+   "edit_at": 0,
+   "hashtags": "",
+   "id": "fimwd3iqnfniix4osgsm9dpb7o",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "perfprobe joined the channel.",
+   "metadata": {},
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "username": "perfprobe"
+   },
+   "reply_count": 0,
+   "root_id": "",
+   "type": "system_join_channel",
+   "update_at": 1792955210840,
+   "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+  },
+  "fkx97b7d3pg3x86kz9qbc1egoe": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792962963366,
+   "delete_at": 0,
+   "edit_at": 1792962963617,
+   "hashtags": "",
+   "id": "fkx97b7d3pg3x86kz9qbc1egoe",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "this line was edited by the seed \u2014 edited at 1792962963366",
+   "metadata": {},
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "t34_key": "edited",
+    "t34_seed": "t34_post_seed.py"
+   },
+   "reply_count": 0,
+   "root_id": "",
+   "type": "",
+   "update_at": 1792962963621,
+   "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+  },
+  "fy1wym5f5tr8dyut6u9na8rcoy": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792962963882,
+   "delete_at": 0,
+   "edit_at": 0,
+   "file_ids": [
+    "s3mofzzrgbnefb9zwdhew6bhto"
+   ],
+   "hashtags": "",
+   "id": "fy1wym5f5tr8dyut6u9na8rcoy",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "an image attachment:",
+   "metadata": {
+    "files": [
+     {
+      "archived": false,
+      "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+      "create_at": 1792962963677,
+      "delete_at": 0,
+      "extension": "png",
+      "has_preview_image": true,
+      "height": 160,
+      "id": "s3mofzzrgbnefb9zwdhew6bhto",
+      "mime_type": "image/png",
+      "mini_preview": "/9j/2wCEAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRQBAwQEBQQFCQUFCRQNCw0UFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFP/AABEIABAAEAMBIgACEQEDEQH/xAGiAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgsQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+gEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoLEQACAQIEBAMEBwUEBAABAncAAQIDEQQFITEGEkFRB2FxEyIygQgUQpGhscEJIzNS8BVictEKFiQ04SXxFxgZGiYnKCkqNTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2dri4+Tl5ufo6ery8/T19vf4+fr/2gAMAwEAAhEDEQA/APm/wn8Kfufuf0r2bwn8Kfufuf0r2Lwp8Kfufuf0r2fwn8Kfufuf0r6zOeMN/eMfDbj34PfP/9k=",
+      "name": "t34-thumbnail.png",
+      "post_id": "fy1wym5f5tr8dyut6u9na8rcoy",
+      "remote_id": "",
+      "size": 81379,
+      "update_at": 1792962963677,
+      "user_id": "jruqqzxtobg7tn4wehwmwjjo5c",
+      "width": 240
+     }
+    ]
+   },
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "t34_key": "attachment",
+    "t34_seed": "t34_post_seed.py"
+   },
+   "remote_id": "",
+   "reply_count": 0,
+   "root_id": "",
+   "type": "",
+   "update_at": 1792962963882,
+   "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+  },
+  "kqaauaw4y3nmupm9bnxrf9isqe": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792962963338,
+   "delete_at": 0,
+   "edit_at": 0,
+   "hashtags": "",
+   "id": "kqaauaw4y3nmupm9bnxrf9isqe",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "A table:\n\n| Column | Value |\n|---|---|\n| alpha | 1 |\n| beta | 2 |",
+   "metadata": {},
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "t34_key": "table",
+    "t34_seed": "t34_post_seed.py"
+   },
+   "remote_id": "",
+   "reply_count": 0,
+   "root_id": "",
+   "type": "",
+   "update_at": 1792962963338,
+   "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+  },
+  "nwe6icamrtyrbj6zkzhcteprao": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792962963324,
+   "delete_at": 0,
+   "edit_at": 0,
+   "hashtags": "",
+   "id": "nwe6icamrtyrbj6zkzhcteprao",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "A JSON block:\n\n```json\n{\"order\": [\"p1\", \"p2\"], \"has_next\": true}\n```",
+   "metadata": {},
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "t34_key": "code-json",
+    "t34_seed": "t34_post_seed.py"
+   },
+   "remote_id": "",
+   "reply_count": 0,
+   "root_id": "",
+   "type": "",
+   "update_at": 1792962963324,
+   "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+  },
+  "ombh7thbbtnzbqn88em9o5qxhy": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792962963292,
+   "delete_at": 0,
+   "edit_at": 0,
+   "has_reactions": true,
+   "hashtags": "",
+   "id": "ombh7thbbtnzbqn88em9o5qxhy",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "**bold** and *italic* and `inline code` and [a link](https://docs.mattermost.com) and ~town-square and :tada: and @opsbot and <b>not html</b> and [not a link](javascript:alert(1))",
+   "metadata": {
+    "reactions": [
+     {
+      "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+      "create_at": 1792962963912,
+      "delete_at": 0,
+      "emoji_name": "tada",
+      "post_id": "ombh7thbbtnzbqn88em9o5qxhy",
+      "remote_id": "",
+      "update_at": 1792962971828,
+      "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+     },
+     {
+      "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+      "create_at": 1792962963933,
+      "delete_at": 0,
+      "emoji_name": "tada",
+      "post_id": "ombh7thbbtnzbqn88em9o5qxhy",
+      "remote_id": "",
+      "update_at": 1792962971843,
+      "user_id": "9apc1tb413nupgssgyhzjpmezr"
+     },
+     {
+      "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+      "create_at": 1792962963947,
+      "delete_at": 0,
+      "emoji_name": "thumbsup",
+      "post_id": "ombh7thbbtnzbqn88em9o5qxhy",
+      "remote_id": "",
+      "update_at": 1792962971856,
+      "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+     }
+    ]
+   },
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "channel_mentions": {
+     "town-square": {
+      "display_name": "Town Square",
+      "team_name": "perf"
+     }
+    },
+    "t34_key": "inline",
+    "t34_seed": "t34_post_seed.py"
+   },
+   "remote_id": "",
+   "reply_count": 0,
+   "root_id": "",
+   "type": "",
+   "update_at": 1792962971857,
+   "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+  },
+  "tjzwpwdbntrfbfhieai6eh14by": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792962963476,
+   "delete_at": 0,
+   "edit_at": 0,
+   "hashtags": "",
+   "id": "tjzwpwdbntrfbfhieai6eh14by",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "a custom emoji :t34parrot: and a built-in :tada: beside it",
+   "metadata": {
+    "emojis": [
+     {
+      "create_at": 1792960084669,
+      "creator_id": "jruqqzxtobg7tn4wehwmwjjo5c",
+      "delete_at": 0,
+      "id": "6e7i5y6w53ybjkdcucxu8aqk6r",
+      "name": "t34parrot",
+      "update_at": 1792960084669
+     }
+    ]
+   },
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "t34_key": "custom-emoji",
+    "t34_seed": "t34_post_seed.py"
+   },
+   "remote_id": "",
+   "reply_count": 0,
+   "root_id": "",
+   "type": "",
+   "update_at": 1792962963476,
+   "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+  },
+  "z44ebaqdtbg9dfdhtskgcfmota": {
+   "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+   "create_at": 1792962963311,
+   "delete_at": 0,
+   "edit_at": 0,
+   "has_reactions": true,
+   "hashtags": "",
+   "id": "z44ebaqdtbg9dfdhtskgcfmota",
+   "is_pinned": false,
+   "last_reply_at": 0,
+   "message": "A Swift block:\n\n```swift\nstruct Post: Codable {\n    let id: String\n}\n```",
+   "metadata": {
+    "reactions": [
+     {
+      "channel_id": "1mfi77b1kjnf7poisx5m36bb4c",
+      "create_at": 1792962963961,
+      "delete_at": 0,
+      "emoji_name": "eyes",
+      "post_id": "z44ebaqdtbg9dfdhtskgcfmota",
+      "remote_id": "",
+      "update_at": 1792962971867,
+      "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+     }
+    ]
+   },
+   "original_id": "",
+   "participants": null,
+   "pending_post_id": "",
+   "props": {
+    "t34_key": "code-swift",
+    "t34_seed": "t34_post_seed.py"
+   },
+   "remote_id": "",
+   "reply_count": 0,
+   "root_id": "",
+   "type": "",
+   "update_at": 1792962971868,
+   "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"
+  }
+ },
+ "users": {
+  "9apc1tb413nupgssgyhzjpmezr": {
+   "auth_data": "",
+   "auth_service": "",
+   "create_at": 1792869870067,
+   "delete_at": 0,
+   "disable_welcome_email": false,
+   "email": "opsbot@example.invalid",
+   "first_name": "",
+   "id": "9apc1tb413nupgssgyhzjpmezr",
+   "last_name": "",
+   "locale": "en",
+   "nickname": "",
+   "notify_props": {
+    "channel": "true",
+    "comments": "never",
+    "desktop": "mention",
+    "desktop_sound": "true",
+    "desktop_threads": "all",
+    "email": "true",
+    "email_threads": "all",
+    "first_name": "false",
+    "mention_keys": "",
+    "push": "mention",
+    "push_status": "away",
+    "push_threads": "all"
+   },
+   "position": "",
+   "remote_id": "",
+   "roles": "system_user",
+   "timezone": {
+    "automaticTimezone": "",
+    "manualTimezone": "",
+    "useAutomaticTimezone": "true"
+   },
+   "update_at": 1792962962786,
+   "username": "opsbot"
+  },
+  "jruqqzxtobg7tn4wehwmwjjo5c": {
+   "auth_data": "",
+   "auth_service": "",
+   "create_at": 1792821730384,
+   "delete_at": 0,
+   "disable_welcome_email": false,
+   "email": "perfprobe@example.invalid",
+   "first_name": "Perf",
+   "id": "jruqqzxtobg7tn4wehwmwjjo5c",
+   "last_name": "Probe",
+   "locale": "en",
+   "nickname": "",
+   "notify_props": {
+    "channel": "true",
+    "comments": "never",
+    "desktop": "mention",
+    "desktop_sound": "true",
+    "desktop_threads": "all",
+    "email": "true",
+    "email_threads": "all",
+    "first_name": "false",
+    "mention_keys": "",
+    "push": "mention",
+    "push_status": "away",
+    "push_threads": "all"
+   },
+   "position": "",
+   "remote_id": "",
+   "roles": "system_admin system_user",
+   "timezone": {
+    "automaticTimezone": "Asia/Hong_Kong",
+    "manualTimezone": "",
+    "useAutomaticTimezone": "true"
+   },
+   "update_at": 1792962971351,
+   "username": "perfprobe"
+  }
+ }
+}

@@ -108,6 +108,7 @@ struct RootView: View {
             // chrome is a property of the *shell*, not of whichever pane is on top.
             .navigationDestination(for: NativeLocation.self) { location in
                 NativeDestinationPaneView(location: location, navigation: navigation,
+                                          server: serverStore.servers.first { $0.id == location.serverID },
                                           serverIsConfigured: serverStore.servers.contains { $0.id == location.serverID })
                     .toolbar {
                         if !serverStore.servers.isEmpty {
