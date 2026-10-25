@@ -200,6 +200,19 @@ index out of range in T34's own untracked test in the other worker's checkout. N
 diff is on that stack, and the app process did not crash; recorded here so a later reader does not
 mistake it for this repair.
 
+### The licence surface
+
+`SurfaceDefaults.nativeApprovedSurfaces` is still `[.auth]` (`Mattermost/Core/RenderMode.swift:92`), i.e.
+the sidebar did **not** flip itself on the strength of this repair. The gate script agrees:
+
+```
+$ bash scripts/verify-dual-render-gates.sh --allow-approved-registry
+RESULT: PASS — dual-render debug affordances cannot reach a Release build.
+```
+
+(`--allow-approved-registry` is required because the one `.auth` entry's evidence is T31-AV's, not this
+run's: without the flag, gate 5 correctly refuses to accept an approval registry from an arbitrary run.)
+
 ### Where these runs happened, and why
 
 `Mattermost/UI/Native/Channel/` is **untracked work in progress from another card (T34)** in the main
