@@ -165,29 +165,32 @@ TEST_RUNNER_MM_AUTH_PASSWORD=<seeded probe account> \
 xcodebuild ... test -only-testing:MattermostUITests/T34ChannelPostListUITests
 ```
 
-## 7. UI suite — what was observed, and what is still red
+## 7. UI suite — what was observed
 
 Run on the iPad Pro 11-inch (M5) simulator (`DC3E9FB7`) against the live stack
-(`mm-perf` / `mm-perf-db`, `127.0.0.1:8065`). Logs: `/tmp/t34r-ui10.log`, `/tmp/t34r-ui11.log`.
+(`mm-perf` / `mm-perf-db`, `127.0.0.1:8065`). Latest full run: `/tmp/t34r-ui26.log`
+(`Executed 6 tests, with 2 failures`).
 
 | # | test | verdict |
 |---|------|---------|
-| 2 | `testALongPostFoldsAndExpands` | **pass** (18.2 s) |
-| 4 | `testASingleBlockPostIsBoundedAndOffersMore` | **pass** (19.8 s) |
-| 6 | `testANewPostAppearsWithoutReloadAndTheUnreadLineFollowsLastViewedAt` | **pass** (18.4 s) |
-| 3 | `testReachingTheTopLoadsOlderPostsWithoutDuplicates` | **fail** — the `channelPostList.loadEarlier` sentinel appears, then nothing merges within 30 s |
-| 5 | `testLoadingOlderPostsDoesNotMoveTheAnchoredPost` | **fail** — the anchor check passes (top post's `minY` unchanged, ±2 pt), but no page is inserted, so the follow-up "the page really loaded" check fails |
-| 1 | `testThePostListRendersTheServersShowcase` | not run in the last two runs (blocked behind 5) |
+| 1 | `testThePostListRendersTheServersShowcase` | **pass** — includes the custom emoji as an image (the finding that started this round) |
+| 2 | `testALongPostFoldsAndExpands` | **pass** (18 s) |
+| 4 | `testASingleBlockPostIsBoundedAndOffersMore` | **pass** (20 s) |
+| 6 | `testANewPostAppearsWithoutReloadAndTheUnreadLineFollowsLastViewedAt` | **pass** (socket insert + `last_viewed_at` line) |
+| 5 | `testLoadingOlderPostsDoesNotMoveTheAnchoredPost` | **fail** in that run — the post moved 585 pt, exactly the distance it moved before the anchor fix, i.e. the correction was applied twice from a stale measurement. The commit that fixes it (`restoreReader` now corrects at most once per measured frame value) is **not yet re-verified from a live run**. |
+| 3 | `testReachingTheTopLoadsOlderPostsWithoutDuplicates` | **fail** in that run — the sentinel-based loop broke out after 3 swipes and the sentinel was then absent; the merge itself asserted green in the run before (`/tmp/t34r-ui23.log`, where the pane's oldest moved to the older page and no duplicate was drawn). The test's scroll-to-top loop is the suspect, not the pane. |
 
-Two things to know before treating 3 and 5 as product bugs:
+What is *not* in doubt, because it was measured:
 
-* **The fold tests assert state, not affordance position.** `post.<id>.showMore` sits at the *bottom*
-  of a post that is several screens tall once expanded, and SwiftUI publishes only elements near the
-  viewport to accessibility, so "Show less" is legitimately absent from the tree. The tests assert the
-  fold summary disappears and the row grows; collapse is covered by `T34PostListTests`.
-* **Paging works at the model level** (unit tests drive `loadEarlier()` against a fake service and
-  merge pages). The UI failures are the *live* call: the sentinel renders, so `loadEarlier()` is
-  entered, and no post arrives — that is the service/cursor path, not the list derivation.
+* Paging merges against the live server now (`/tmp/t34r-ui23.log`: `loadedPosts` grew, the pane's
+  oldest post changed, no duplicate ids in the tree). Before this round nothing merged at all.
+* `has_next` cannot be used on this endpoint — the server says `false` on all nine pages of the
+  503-post channel.
+* Custom emoji paints as an image, at text height, without a shortcode left behind.
 
-A run that dies mid-suite (`SimRenderServer` SIGTRAP, "signal kill") is an environment failure: the
-host was at ~60 MB free with two workers sharing the simulator. Re-run with the device to yourself.
+Next step for the two reds, in order: re-run 5 alone against the fixed `restoreReader`; for 3, replace
+the swipe-until-on-screen loop with a `scrollTo` driven by the seam (the pane exposes what it holds),
+so the test does not depend on how a fast synthetic gesture transfers momentum.
+
+A run that dies mid-suite (`SimRenderServer` SIGTRAP, "signal kill") is an environment failure; re-run
+with the simulator to yourself.
