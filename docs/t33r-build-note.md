@@ -25,7 +25,8 @@ is not `hello`/`typing`/`status_change`). What that returned, verbatim in shape:
 | `DELETE /channels/{cid}` | `posted` (system message), `channel_deleted` | `data.channel_id`, `data.delete_at`; **team only in `broadcast.team_id`** |
 | `POST /channels/{cid}/members` (somebody else joins) | `user_added`, `posted` | — |
 | `PUT /channels/{cid}/members/{uid}/notify_props` (my mute) | `channel_member_updated` (server source: `app/channel.go` `sendUpdateChannelMemberEvent`) | `data.channelMember` = **JSON string** of the whole membership row (channel_id, user_id, msg_count, mention_count, notify_props, …) |
-| `POST /channels/members/{uid}/view` / mark-unread | `post_unread` (server source: `app/channel.go` `sendWebSocketPostUnreadEvent`) | `data.msg_count`, `mention_count`, `mention_count_root`, `urgent_mention_count`, `last_viewed_at`, `post_id`; **channel and team only in `broadcast`** |
+| `POST /channels/members/{uid}/view` (**read**) | `multiple_channels_viewed`, `thread_read_changed` | `data.channel_times` = `{channel_id: last_viewed_at_ms}`; `broadcast.user_id` = me, **no channel, no team**. Published only when the view moved the read cursor. **Not** `post_unread` — see the next row (corrected in T33-R2/AV2-F1, re-measured: `docs/t33r2-build-note.md` §2) |
+| mark-unread: `POST /users/{uid}/posts/{pid}/set_unread` | `post_unread` (server source: `app/channel.go` `sendWebSocketPostUnreadEvent`) | `data.msg_count`, `mention_count`, `mention_count_root`, `urgent_mention_count`, `last_viewed_at`, `post_id`; **channel and team only in `broadcast`** |
 
 Two facts follow, and they are why the repairs look the way they do:
 
@@ -35,6 +36,10 @@ Two facts follow, and they are why the repairs look the way they do:
    re-reading `GET …/categories` on a timer.
 2. `post_unread`'s channel id exists **only** in the envelope, so the frame decoder needed `broadcast`
    (`MMSocketBroadcast`, `user_id`/`channel_id`/`team_id`) to type it at all.
+3. **Corrected after T33-AV2 (F1):** this table originally attributed `post_unread` to the view call.
+   The view call is answered by `multiple_channels_viewed`, and this repair's decoder did not model
+   it — a channel read in another client of the same user left the row badged (measured). T33-R2
+   re-measured both paths and modelled the event; `docs/t33r2-build-note.md` §2 has the frames.
 
 ## 3. What changed, finding by finding
 
@@ -57,7 +62,18 @@ Two facts follow, and they are why the repairs look the way they do:
   `testAMoveRebasesOnTheServersAnswerInsteadOfRollingBack`, `testACollapseReachesTheServerAndSurvivesItsAnswer`,
   `testAFailedCollapsePutsTheCategoryBackAndSaysWhy`. Live: the shipped reorder test now asserts (a) the
   server order changed, (b) **the row on screen is in the new order**, (c) **no `channelSidebar.actionError`**;
-  and `testCollapsingACategoryReachesTheServerAndSurvivesRelaunch` proves a collapse is a server write.
+  and `testCollapsingACategoryReachesTheServerAndSurvivesRelaunch` drives a real collapse and relaunch and
+  asserts the server's stored value is what draws.
+
+  **What that live collapse test does *not* prove** (T33-AV2 F3): it passes on base `111718a` too. The
+  old `setCollapsed` already sent the **bare array**, so the server stored the collapse and the relaunch
+  drew it; only the *answer's* decode threw and `_ = try?` swallowed it. The defect this repair removes
+  is therefore **silent failure** — a write that fails is neither rolled back nor reported — and that is
+  pinned at the unit level by `testAFailedCollapsePutsTheCategoryBackAndSaysWhy` and, since T33-R2, by a
+  stub-backed UI test with a categories write that 500s
+  (`testAFailedCollapsePutsTheCategoryBackAndSaysWhy` in the stub suite, `--categories-fail`). The
+  earlier reading "the server never learns it" was wrong: it learned it, and then the client could not
+  read the answer.
 
 ### F2 (MEDIUM) — the footer aggregate is desktop-exact
 
