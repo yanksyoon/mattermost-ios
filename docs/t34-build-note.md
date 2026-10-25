@@ -138,3 +138,30 @@ TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
 TEST_RUNNER_MM_AUTH_PASSWORD=<seeded probe account> \
 xcodebuild ... test -only-testing:MattermostUITests/T34ChannelPostListUITests
 ```
+
+## 7. UI suite — what was observed, and what is still red
+
+Run on the iPad Pro 11-inch (M5) simulator (`DC3E9FB7`) against the live stack
+(`mm-perf` / `mm-perf-db`, `127.0.0.1:8065`). Logs: `/tmp/t34r-ui10.log`, `/tmp/t34r-ui11.log`.
+
+| # | test | verdict |
+|---|------|---------|
+| 2 | `testALongPostFoldsAndExpands` | **pass** (18.2 s) |
+| 4 | `testASingleBlockPostIsBoundedAndOffersMore` | **pass** (19.8 s) |
+| 6 | `testANewPostAppearsWithoutReloadAndTheUnreadLineFollowsLastViewedAt` | **pass** (18.4 s) |
+| 3 | `testReachingTheTopLoadsOlderPostsWithoutDuplicates` | **fail** — the `channelPostList.loadEarlier` sentinel appears, then nothing merges within 30 s |
+| 5 | `testLoadingOlderPostsDoesNotMoveTheAnchoredPost` | **fail** — the anchor check passes (top post's `minY` unchanged, ±2 pt), but no page is inserted, so the follow-up "the page really loaded" check fails |
+| 1 | `testThePostListRendersTheServersShowcase` | not run in the last two runs (blocked behind 5) |
+
+Two things to know before treating 3 and 5 as product bugs:
+
+* **The fold tests assert state, not affordance position.** `post.<id>.showMore` sits at the *bottom*
+  of a post that is several screens tall once expanded, and SwiftUI publishes only elements near the
+  viewport to accessibility, so "Show less" is legitimately absent from the tree. The tests assert the
+  fold summary disappears and the row grows; collapse is covered by `T34PostListTests`.
+* **Paging works at the model level** (unit tests drive `loadEarlier()` against a fake service and
+  merge pages). The UI failures are the *live* call: the sentinel renders, so `loadEarlier()` is
+  entered, and no post arrives — that is the service/cursor path, not the list derivation.
+
+A run that dies mid-suite (`SimRenderServer` SIGTRAP, "signal kill") is an environment failure: the
+host was at ~60 MB free with two workers sharing the simulator. Re-run with the device to yourself.
