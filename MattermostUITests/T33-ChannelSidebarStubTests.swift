@@ -10,19 +10,24 @@ import XCTest
 /// * a deterministic **manual order that is neither alphabetical nor by creation** (`Stub Beta`
 ///   above `Stub Alpha`), so "follows the server's `channel_ids`" is observable without mutating a
 ///   fixture before every run;
-/// * the **error state** (`--channels-fail`) with its retry.
+/// * the **error state** (`--channels-fail`) with its retry;
+/// * the **failure path of a write** (`--categories-fail`): a collapse whose `PUT` 500s must be rolled
+///   back and reported (`channelSidebar.actionError`), not swallowed — the *silent* half of the T33-AV
+///   F1 defect, which only a failing server can show (T33-AV2 F3).
 ///
 /// The stubs this file needs (started separately, like every stub-backed test in this suite):
 ///
 ///     cd build/uitest-server
 ///     python3 mm_stub.py --port 8120                     # one team + the T33 channel fixtures
 ///     python3 mm_stub.py --port 8121 --channels-fail     # the list's failure state
+///     python3 mm_stub.py --port 8122 --categories-fail   # a categories write that 500s
 ///
 /// A test skips (rather than fails) when its stub is not listening.
 final class T33ChannelSidebarStubTests: XCTestCase {
 
     private static let stubSidebar = "http://127.0.0.1:8120"
     private static let stubFailingChannels = "http://127.0.0.1:8121"
+    private static let stubFailingCategories = "http://127.0.0.1:8122"
 
     private static let login = "stub-user"
     private static let password = "stub-password"
@@ -156,6 +161,37 @@ final class T33ChannelSidebarStubTests: XCTestCase {
         XCTAssertFalse(element(app, "channelSidebar.empty").exists,
                        "a failure is not an empty list")
         attachShot(app, named: "t33-stub-04-error-state")
+    }
+
+    /// A collapse whose write **fails** must go back and say why (T33-AV2 F3).
+    ///
+    /// This is the discriminating UI test the `try?`-swallowed-write defect needed: on the old code the
+    /// local header stayed collapsed (and no banner appeared) whether or not the server stored it. The
+    /// live suite cannot pose this question — a real server cannot be made to fail one write on demand —
+    /// so the stub answers the categories `PUT` with 500 (`--categories-fail`).
+    func testAFailedCollapsePutsTheCategoryBackAndSaysWhy() throws {
+        try start(Self.stubFailingCategories, needs: "the failing-categories fixture")
+        let app = launch(Self.stubFailingCategories, sidebarNative: true)
+        signIn(app, on: Self.stubFailingCategories)
+
+        let header = element(app, "channelSidebar.category.channels")
+        XCTAssertTrue(header.waitForExistence(timeout: 40),
+                      "the categories fixture must mount:\n\(app.debugDescription)")
+        let row = element(app, "channelSidebar.channel.\(Self.alpha)")
+        XCTAssertTrue(row.waitForExistence(timeout: 20),
+                      "the category must start expanded, so \"back where it was\" is observable:\n"
+                      + "\(app.debugDescription)")
+
+        header.tap()
+
+        XCTAssertTrue(element(app, "channelSidebar.actionError").waitForExistence(timeout: 20),
+                      "a categories write that 500s must be reported — the old code discarded it with "
+                      + "`try?` and said nothing:\n\(app.debugDescription)")
+        XCTAssertTrue(row.exists,
+                      "the failed collapse must be rolled back: the rows are on screen again")
+        XCTAssertFalse(element(app, "channelSidebar.loading").exists,
+                       "a failed write is not a reload")
+        attachShot(app, named: "t33-stub-05-failed-collapse")
     }
 
     // MARK: - Launch, sign-in, element lookup (the same seams as T32's identifier tests)

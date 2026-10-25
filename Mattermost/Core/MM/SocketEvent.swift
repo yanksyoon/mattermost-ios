@@ -174,8 +174,35 @@ struct SocketChannelMemberUpdate: Equatable, Sendable {
     var userID: String { member.userId }
 }
 
-/// `post_unread` — the server's own unread arithmetic for one channel, sent to **me** when my
-/// read state moved (I viewed the channel, or marked it unread).
+/// `multiple_channels_viewed` — "this user read these channels", the event the **view** call answers
+/// with.
+///
+/// `POST /channels/members/{uid}/view` publishes this frame (plus `thread_read_changed`), **not**
+/// `post_unread`: `data.channel_times` is a `{channel_id: last_viewed_at_ms}` map and the envelope
+/// names neither a channel nor a team (`broadcast.user_id` = me, `channel_id`/`team_id` empty).
+/// Measured on the pinned 9.11.19 server (docs/t33r2-build-note.md §2). The server publishes it only
+/// when the view actually moved the read cursor, so a second view of a read channel emits nothing.
+///
+/// This is the reason a channel read in *another* client of mine clears its row here without a
+/// relaunch (T33-AV2 F1): before this event was typed, the row kept its `Unread` badge until some
+/// unrelated refresh recomputed the counters.
+struct SocketMultipleChannelsViewed: Equatable, Sendable {
+    /// The user whose read state moved (`broadcast.user_id`). Empty only on a stripped frame.
+    var userID: String
+    /// channel id → the server's `last_viewed_at` (ms). Never empty: a frame without the map is dropped.
+    var channelTimes: [String: Int64]
+
+    /// The channels this frame says are read, in a stable order (for tests and diagnostics).
+    var channelIDs: [String] { channelTimes.keys.sorted() }
+}
+
+/// `post_unread` — the server's own unread arithmetic for one channel, sent to **me** when a post is
+/// **marked unread**.
+///
+/// The trigger is `POST /users/{uid}/posts/{pid}/set_unread` (mattermost's `Client4.SetPostUnread`,
+/// MM-17754) — *not* a view: reading a channel answers with `multiple_channels_viewed` instead
+/// (measured on the pinned 9.11.19 server, docs/t33r2-build-note.md §2; the earlier "I viewed the
+/// channel, or marked it unread" claim here was wrong).
 ///
 /// The channel and team are only in the envelope (`broadcast.channel_id` / `.team_id`); `data` carries
 /// the counters. Applying these is exact — no follow-up request is needed, and the number cannot
@@ -196,6 +223,9 @@ enum SocketEvent: Equatable, Sendable {
     case postEdited(MMPost)
     case postDeleted(MMPost)
     case channelViewed(SocketChannelViewed)
+    /// My read state for one or more channels moved, as the **view** call reports it
+    /// (`multiple_channels_viewed`).
+    case multipleChannelsViewed(SocketMultipleChannelsViewed)
     case typing(SocketTyping)
     case statusChange(SocketStatusChange)
     case preferencesChanged([MMPreference])
@@ -238,6 +268,18 @@ enum SocketEvent: Equatable, Sendable {
             self = .channelViewed(SocketChannelViewed(
                 channelID: frame.data?["channel_id"]?.stringValue ?? "",
                 userID: frame.data?["user_id"]?.stringValue ?? ""))
+        case "multiple_channels_viewed":
+            // The view call's event: `data.channel_times` is the map, and the envelope names no
+            // channel and no team — only the user whose read state moved.
+            var channelTimes: [String: Int64] = [:]
+            for (channelID, raw) in frame.data?["channel_times"]?.objectValue ?? [:] {
+                guard !channelID.isEmpty, let viewedAt = raw.int64Value else { continue }
+                channelTimes[channelID] = viewedAt
+            }
+            guard !channelTimes.isEmpty else { return nil }
+            self = .multipleChannelsViewed(SocketMultipleChannelsViewed(
+                userID: frame.broadcast?.userID ?? "",
+                channelTimes: channelTimes))
         case "typing":
             self = .typing(SocketTyping(
                 channelID: frame.data?["channel_id"]?.stringValue ?? "",
@@ -345,6 +387,7 @@ enum SocketEvent: Equatable, Sendable {
         case .postEdited: return "post_edited"
         case .postDeleted: return "post_deleted"
         case .channelViewed: return "channel_viewed"
+        case .multipleChannelsViewed: return "multiple_channels_viewed"
         case .typing: return "typing"
         case .statusChange: return "status_change"
         case .preferencesChanged: return "preferences_changed"
@@ -365,7 +408,8 @@ enum SocketEvent: Equatable, Sendable {
     /// revision (`id` + `update_at`), and a `hello` (once per connection id).
     ///
     /// Everything whose *occurrence* is the signal is deliberately un-keyed: `typing` (transient),
-    /// `channel_viewed` (the same user can view the same channel twice), `status_change`
+    /// `channel_viewed` (the same user can view the same channel twice), `multiple_channels_viewed`
+    /// (the same view can legitimately repeat for the same channel), `status_change`
     /// (away → away is a real event), `preferences_changed`, and reactions (add → remove → add is
     /// three real events). Content-hashing those over a global window silently swallowed genuine
     /// events (T28-AV finding F3). The residual risk — a server replaying one of them after a
@@ -378,7 +422,7 @@ enum SocketEvent: Equatable, Sendable {
             return "\(name)|\(post.id)|\(post.updateAt)|\(post.deleteAt)"
         case .userUpdated(let user):
             return "user_updated|\(user.id)|\(user.updateAt)"
-        case .typing, .channelViewed, .statusChange, .preferencesChanged,
+        case .typing, .channelViewed, .multipleChannelsViewed, .statusChange, .preferencesChanged,
              .reactionAdded, .reactionRemoved, .sidebarCategoryUpdated,
              .channelCreated, .channelDeleted, .channelMemberUpdated, .postUnread,
              .unhandled:

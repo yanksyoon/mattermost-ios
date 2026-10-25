@@ -52,6 +52,11 @@ struct TeamSocketScope: Equatable, Sendable {
             return isInActiveTeam(channelID: typing.channelID)
         case .channelViewed(let viewed):
             return isInActiveTeam(channelID: viewed.channelID)
+        case .multipleChannelsViewed(let viewed):
+            // The view call's event: no channel and no team in the envelope, but the map names every
+            // channel whose read cursor moved. It may be delivered when *any* of them is in the team
+            // on screen; the model applies it per row and skips the rest.
+            return viewed.channelTimes.keys.contains(where: isInActiveTeam)
         case .postUnread(let unread):
             // `post_unread` is the server's unread arithmetic for *my* membership of one channel;
             // it belongs to the team that channel is on.

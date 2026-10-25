@@ -688,6 +688,57 @@ final class T33ChannelSidebarTests: XCTestCase {
         XCTAssertEqual(model.entry(id: "c1")?.unreadCount, 3)
     }
 
+    /// The **view** call's event (T33-AV2 F1): a read by another client of *this* user names every
+    /// channel whose cursor moved, and each row this list holds is read. A channel the list does not
+    /// hold is skipped, not inserted — "read" is no reason to add a row.
+    func testAReadFromAnotherClientClearsEveryRowItNames() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+        XCTAssertEqual(model.entry(id: "c1")?.unreadCount, 3)
+        XCTAssertFalse(model.totals.messages == 0, "the fixture must start unread, or this proves nothing")
+
+        let outcome = model.handle(.multipleChannelsViewed(SocketMultipleChannelsViewed(
+            userID: "me",
+            channelTimes: ["c1": 1_700_000_000_000, "not-loaded": 1_700_000_000_000])),
+            myUserID: "me")
+
+        XCTAssertEqual(outcome, .counters)
+        XCTAssertEqual(model.entry(id: "c1")?.unreadCount, 0)
+        XCTAssertEqual(model.entry(id: "c1")?.badge, ChannelSidebarBadge.none)
+        XCTAssertEqual(model.totals.messages, 0, "the view also moves the footer, like `channel_viewed`")
+    }
+
+    /// The frame is addressed to one user; another user's read must not clear mine.
+    func testAnotherUsersMultipleViewDoesNotClearMyRows() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+
+        let outcome = model.handle(.multipleChannelsViewed(SocketMultipleChannelsViewed(
+            userID: "them", channelTimes: ["c1": 1_700_000_000_000])), myUserID: "me")
+
+        XCTAssertEqual(outcome, .ignored)
+        XCTAssertEqual(model.entry(id: "c1")?.unreadCount, 3)
+    }
+
+    /// A frame that names only channels this list does not hold changes nothing (and is not a refresh —
+    /// there is nothing to fetch: the frame *is* the new state).
+    func testAMultipleViewOfUnknownChannelsIsIgnored() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+
+        let outcome = model.handle(.multipleChannelsViewed(SocketMultipleChannelsViewed(
+            userID: "me", channelTimes: ["not-loaded": 1])), myUserID: "me")
+
+        XCTAssertEqual(outcome, .ignored)
+        XCTAssertEqual(model.entry(id: "c1")?.unreadCount, 3)
+    }
+
     func testPostedAsksForARefreshAndTheRefreshMovesTheBadge() async {
         let fake = FakeChannelSidebarService(data: standardData())
         fake.refreshResult = ChannelSidebarRefresh(
@@ -1044,6 +1095,36 @@ final class T33ChannelSidebarTests: XCTestCase {
         XCTAssertEqual(SocketEvent(frame: frame)?.name, "post_unread")
     }
 
+    /// The **view** call's frame, verbatim from the pinned 9.11.19 server (`docs/t33r2-build-note.md`
+    /// §2): `data.channel_times` is a `{channel_id: last_viewed_at}` map, and the envelope names
+    /// **no** channel and **no** team — only the user whose read cursor moved (T33-AV2 F1).
+    func testMultipleChannelsViewedDecodesTheChannelTimesMap() throws {
+        let frame = try socketFrame("""
+        {"event":"multiple_channels_viewed","seq":2,
+         "data":{"channel_times":{"re4jed6wti8e8g9jt8aza9ewye":1792961099716}},
+         "broadcast":{"user_id":"me","channel_id":"","team_id":""}}
+        """)
+        guard case .multipleChannelsViewed(let viewed)? = SocketEvent(frame: frame) else {
+            return XCTFail("expected a typed multiple_channels_viewed event")
+        }
+        XCTAssertEqual(viewed.userID, "me", "the envelope's user_id is the only routing fact")
+        XCTAssertEqual(viewed.channelIDs, ["re4jed6wti8e8g9jt8aza9ewye"])
+        XCTAssertEqual(viewed.channelTimes["re4jed6wti8e8g9jt8aza9ewye"], 1_792_961_099_716)
+        XCTAssertEqual(SocketEvent(frame: frame)?.name, "multiple_channels_viewed")
+        XCTAssertNil(SocketEvent(frame: frame)?.dedupeKey,
+                     "the same user can view the same channel twice — the occurrence is the signal")
+    }
+
+    /// A frame without `channel_times` says nothing to apply, so it is dropped rather than typed with
+    /// an empty map (which would look like "somebody read nothing").
+    func testAMultipleChannelsViewedFrameWithoutTimesIsDropped() throws {
+        let frame = try socketFrame("""
+        {"event":"multiple_channels_viewed","seq":2,"data":{},
+         "broadcast":{"user_id":"me","channel_id":"","team_id":""}}
+        """)
+        XCTAssertNil(SocketEvent(frame: frame), "no `channel_times` → nothing to apply")
+    }
+
     func testChannelMemberUpdatedDecodesTheRow() throws {
         let frame = try socketFrame("""
         {"event":"channel_member_updated","seq":3,
@@ -1103,6 +1184,15 @@ final class T33ChannelSidebarTests: XCTestCase {
             SocketSidebarCategoryUpdate(teamID: "team1", categories: []))))
         XCTAssertFalse(scope.accepts(.sidebarCategoryUpdated(
             SocketSidebarCategoryUpdate(teamID: "team2", categories: []))))
+        // The view call's event: no channel/team in the envelope, so it is accepted when **any** of the
+        // channels it names is in the team on screen (a view never spans the teams of one user in
+        // practice, but the rule must not depend on that).
+        XCTAssertTrue(scope.accepts(.multipleChannelsViewed(
+            SocketMultipleChannelsViewed(userID: "me", channelTimes: ["c2": 1]))))
+        XCTAssertTrue(scope.accepts(.multipleChannelsViewed(
+            SocketMultipleChannelsViewed(userID: "me", channelTimes: ["x1": 1, "c2": 1]))))
+        XCTAssertFalse(scope.accepts(.multipleChannelsViewed(
+            SocketMultipleChannelsViewed(userID: "me", channelTimes: ["x1": 1]))))
     }
 
     /// F5: a counter refresh whose membership call failed keeps the last numbers and says they are

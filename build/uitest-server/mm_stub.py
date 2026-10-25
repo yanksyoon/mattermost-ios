@@ -351,6 +351,10 @@ class Handler(BaseHTTPRequestHandler):
         9.11.19; the GET's keyed `{order, categories}` body is a 400 there, T33-R F1). A real server
         normalises; the stub echoes, which is enough to make a stub-backed reorder observable: the client
         rebases on this answer. `PUT /channels/{cid}/members/{uid}/notify_props` echoes the membership.
+
+        `--categories-fail` answers the categories write with 500 instead (T33-R2 / T33-AV2 F3): the
+        failure path of a collapse — rolled back, `channelSidebar.actionError` — is otherwise only
+        pinned by a unit test, because a real server cannot be made to fail one write on demand.
         """
         path = self.path.split("?")[0]
         length = int(self.headers.get("Content-Length") or 0)
@@ -360,6 +364,12 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             body = {}
         if path.endswith("/channels/categories"):
+            if getattr(self.server, "categories_fail", False):
+                return self._send(500, json.dumps({
+                    "id": "api.context.internal_error",
+                    "message": "Categories are unavailable in this fixture",
+                    "status_code": 500,
+                }))
             if not isinstance(body, list) or not body:
                 return self._send(400, json.dumps({
                     "id": "api.context.invalid_body_param.app_error",
@@ -427,8 +437,9 @@ class StubStallServer(ThreadingHTTPServer):
     teams = 1
     teams_fail = False
     teams_delay = 0.0
-    # T33 channel-sidebar fixture (`--channels-fail`).
+    # T33 channel-sidebar fixtures (`--channels-fail`, `--categories-fail`).
     channels_fail = False
+    categories_fail = False
 
 
 class StubServer(HTTPServer):
@@ -438,6 +449,7 @@ class StubServer(HTTPServer):
     teams_fail = False
     teams_delay = 0.0
     channels_fail = False
+    categories_fail = False
 
 
 def main():
@@ -467,6 +479,10 @@ def main():
     # T33: the channel sidebar fixtures (channels, membership, categories).
     ap.add_argument("--channels-fail", action="store_true",
                     help="answer the channel-list endpoint with 500 (the list's failure state)")
+    ap.add_argument("--categories-fail", action="store_true",
+                    help="answer the categories write (PUT …/channels/categories) with 500 — the "
+                         "collapse/move failure path: the client must roll back and report it "
+                         "(T33-R2 / T33-AV2 F3)")
     args = ap.parse_args()
     global SITE_NAME
     SITE_NAME = args.name
@@ -487,6 +503,7 @@ def main():
     srv.teams_fail = bool(args.teams_fail)
     srv.teams_delay = args.teams_delay
     srv.channels_fail = bool(args.channels_fail)
+    srv.categories_fail = bool(args.categories_fail)
     if args.tls:
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         certfile, keyfile = args.tls.split(",")

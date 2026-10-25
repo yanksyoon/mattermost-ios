@@ -340,8 +340,11 @@ final class ChannelListViewModel: ObservableObject {
 
     /// One event from the server's socket, already scoped to the team on screen.
     ///
-    /// - `channel_viewed` by this user: the channel is read, so its badge goes now (the server's
-    ///   `post_unread` follow-up confirms it, and carries the exact numbers).
+    /// - `channel_viewed` by this user: the channel is read, so its badge goes now.
+    /// - `multiple_channels_viewed` for me: the **view call's** event (T33-AV2 F1) — every channel in
+    ///   its `channel_times` map is read, so each row clears. This is what makes a channel read in
+    ///   another client of mine clear here without a relaunch. (`post_unread` is the *mark-unread*
+    ///   event, `POST /users/{uid}/posts/{pid}/set_unread`; it is not the answer to a view.)
     /// - `posted` / `post_deleted` / `post_edited` / `preferences_changed`: the counters or the layout
     ///   may have moved; the caller's debounce turns a burst into one refresh.
     /// - `post_unread`: the server's own arithmetic for one channel — applied directly, no request.
@@ -356,6 +359,17 @@ final class ChannelListViewModel: ObservableObject {
         case .channelViewed(let viewed):
             guard viewed.userID == myUserID else { return .ignored }
             clearCounters(channelID: viewed.channelID)
+            return .counters
+        case .multipleChannelsViewed(let viewed):
+            // The view call's event (T33-AV2 F1). No channel and no team in the envelope — only my
+            // own user id — so the channels it names that this list has loaded are the ones cleared.
+            // A channel the list does not know about is skipped rather than inserted: the frame says
+            // "read", which cannot justify adding a row.
+            guard viewed.userID.isEmpty || viewed.userID == myUserID else { return .ignored }
+            let loadedChannels = Set(data.members.map(\.channelId))
+            let readChannels = viewed.channelTimes.keys.filter { loadedChannels.contains($0) }
+            guard !readChannels.isEmpty else { return .ignored }
+            for channelID in readChannels { clearCounters(channelID: channelID) }
             return .counters
         case .posted, .postDeleted, .postEdited, .preferencesChanged:
             return .refreshNeeded

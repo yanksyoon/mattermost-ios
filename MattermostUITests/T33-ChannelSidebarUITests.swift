@@ -54,6 +54,15 @@ final class T33ChannelSidebarUITests: XCTestCase {
         teamID = try firstTeamID()
         botLogin = env["MM_AUTH_BOT_LOGIN"] ?? "opsbot"
         botPassword = env["MM_AUTH_BOT_PASSWORD"] ?? "OpsBot-Not-A-Real-Secret-1"
+
+        // Order independence (T33-AV2 F3, second half): these tests mutate the fixture and undo it in
+        // `defer`, which never runs when the **test host** dies mid-test. A collapse left behind hides
+        // every row of the category and the next test then fails with "channel … not on screen" — a
+        // false product failure, observed by the validator. Resetting the two states that hide rows
+        // (collapsed, muted) and the unread counters makes each test start from the same visible, read
+        // fixture whatever the previous one did. The channels *order* is not reset on purpose: the
+        // reorder test records the order it found and restores exactly that.
+        try resetFixtureToVisibleAndRead()
     }
 
     /// The second account, signed in once per test, and *made a member* of the team's channels: on a
@@ -382,6 +391,15 @@ final class T33ChannelSidebarUITests: XCTestCase {
     }
 
     // MARK: - 7. A collapse is a server write (the other half of T33-AV F1)
+    //
+    // What this test pins, and what it does not (T33-AV2 F3): it proves a collapse is *stored and drawn
+    // from the server* across a relaunch. It does **not** discriminate against the old defect — base
+    // `111718a` already sent the bare array, so it stored the collapse too; only the answer's decode
+    // threw and `_ = try?` swallowed it. The failure this card's repair removes is *silent* failure
+    // (no rollback, no banner), which is pinned by the unit test
+    // `testAFailedCollapsePutsTheCategoryBackAndSaysWhy` and by the stub-backed
+    // `T33ChannelSidebarStubTests/testAFailedCollapsePutsTheCategoryBackAndSaysWhy` (a 500 on the
+    // categories write), not by this test.
 
     func testCollapsingACategoryReachesTheServerAndSurvivesRelaunch() throws {
         let channels = try teamChannels()
@@ -400,8 +418,8 @@ final class T33ChannelSidebarUITests: XCTestCase {
         header.tap()
 
         XCTAssertTrue(waitUntil(timeout: 20) { (try? channelsCategoryCollapsed()) == true },
-                      "a collapse must reach the server — the defect this card repairs discarded the "
-                      + "write with `try?`, so the local header and the server disagreed forever")
+                      "a collapse must be a server write — the server's own value is the assertion, "
+                      + "so a purely local toggle fails here")
 
         // Relaunch: the server's value is what draws.
         app.terminate()
@@ -412,6 +430,54 @@ final class T33ChannelSidebarUITests: XCTestCase {
         XCTAssertFalse(element(relaunched, "channelSidebar.channel.\(target.id)").exists,
                        "a collapsed category draws no rows after a relaunch")
         attachShot(relaunched, named: "t33-12-collapsed-after-relaunch")
+    }
+
+    // MARK: - 8. A read in another client of the same user clears the row (T33-AV2 F1)
+
+    /// The user-visible consequence of AV2-F1, end to end: with the list open, a **second client of
+    /// this same user** reads a channel. The server's unread goes to 0, and its socket answer is
+    /// `multiple_channels_viewed` — so the row must stop reading "Unread" without a relaunch and
+    /// without waiting for some unrelated refresh.
+    ///
+    /// This is the discriminating test for the event the repair modelled: on `d9d55c5` the same
+    /// sequence left the row "Unread" for at least 15 s (the validator measured it).
+    func testAReadFromAnotherClientOfTheSameUserClearsTheRow() throws {
+        let channels = try teamChannels()
+        guard let target = channels.first(where: { $0.name == "off-topic" }) ?? channels.first else {
+            return XCTFail("the fixture team has no channels")
+        }
+        try markAllRead(channels)
+        let bot = try botSession()
+        var postedID: String?
+        defer {
+            if let postedID { try? delete(postedID, token: bot.token) }
+            try? markAllRead(channels)
+        }
+
+        // Unread first, from another *user* over the real socket — otherwise "it cleared" proves nothing.
+        postedID = try post("live probe: read this in my other client", channelID: target.id,
+                            token: bot.token)
+
+        let app = launchAndSignIn()
+        let row = element(app, "channelSidebar.channel.\(target.id)")
+        XCTAssertTrue(row.waitForExistence(timeout: 40),
+                      "the channel row must be on screen:\n\(app.debugDescription)")
+        XCTAssertTrue(waitUntil(timeout: 45) { (row.value as? String ?? "").contains("Unread") },
+                      "the post must badge the row before the view, got '\(row.value ?? "nil")'")
+
+        // My other client reads it: the view call, as this same user.
+        try viewChannel(target.id)
+        let member = try memberRow(channelID: target.id)
+        let total = try totalMsgCount(channelID: target.id)
+        XCTAssertEqual(member.msgCount, total,
+                       "the server must consider the channel read first (msg_count \(member.msgCount) "
+                       + "of total \(total)); without that, the assertion below would prove nothing")
+
+        XCTAssertTrue(waitUntil(timeout: 15) {
+            !(row.value as? String ?? "").contains("Unread")
+        }, "a read by another client of the same user must clear the row through "
+           + "`multiple_channels_viewed` (T33-AV2 F1), got '\(row.value ?? "nil")' 15 s later")
+        attachShot(app, named: "t33-13-external-view")
     }
 
     // MARK: - Launch + sign-in
@@ -664,6 +730,37 @@ final class T33ChannelSidebarUITests: XCTestCase {
         let (_, response) = try synchronous(request)
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200,
                        "muting must be a server write, not a local flag")
+    }
+
+    /// The **view** call: what a client posts when a person reads a channel. Its socket answer is
+    /// `multiple_channels_viewed` (measured; `docs/t33r2-build-note.md` §2) — not `post_unread`.
+    private func viewChannel(_ channelID: String) throws {
+        var request = URLRequest(url: serverURL.appendingPathComponent(
+            "api/v4/channels/members/\(userID!)/view"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["channel_id": channelID])
+        let (_, response) = try synchronous(request)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200,
+                       "the view call must succeed before anything is asserted about it")
+    }
+
+    /// The state every test assumes: no category collapsed, nothing muted, everything read.
+    ///
+    /// Called from `setUp` so a test host that dies mid-test (its `defer` cleanup never runs) cannot
+    /// leave a collapsed or muted fixture behind and fail the *next* test for the wrong reason
+    /// (T33-AV2 F3). Only channels that are actually muted are written.
+    private func resetFixtureToVisibleAndRead() throws {
+        let members = try getJSON("/api/v4/users/me/channel_members") as? [[String: Any]] ?? []
+        for member in members {
+            guard let channelID = member["channel_id"] as? String,
+                  let notify = member["notify_props"] as? [String: Any],
+                  (notify["mark_unread"] as? String) == "mention" else { continue }
+            try setMuted(false, channelID: channelID)
+        }
+        try setChannelsCategoryCollapsed(false)
+        try markAllRead(try teamChannels())
     }
 
     private func getJSON(_ path: String) throws -> Any {
