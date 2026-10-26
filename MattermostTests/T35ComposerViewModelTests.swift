@@ -150,7 +150,7 @@ final class T35ComposerViewModelTests: XCTestCase {
         drafts = InMemoryComposerDraftStore()
         model = ComposerViewModel(channelID: channelID, service: service, drafts: drafts,
                                   sink: sink, teamID: "team-1", myUserID: "u1",
-                                  autocompleteDebounce: .zero, draftDebounce: .zero)
+                                  autocompleteDebounce: .zero)
     }
 
     private func serverPost(id: String, message: String, rootID: String = "",
@@ -285,11 +285,35 @@ final class T35ComposerViewModelTests: XCTestCase {
 
         // A relaunch: a brand-new model over the same store.
         let reopened = ComposerViewModel(channelID: channelID, service: service, drafts: drafts,
-                                         sink: RecordingSink(), autocompleteDebounce: .zero,
-                                         draftDebounce: .zero)
+                                         sink: RecordingSink(), autocompleteDebounce: .zero)
         await reopened.restoreDraftIfNeeded()
         XCTAssertEqual(reopened.text, "half a thought")
         XCTAssertEqual(reopened.caret, 14)
+    }
+
+    /// T35 run 124: a process killed inside the old debounce window lost the draft — the app's
+    /// SQLite file had an empty `draft` table after typing and killing it, and a follow-up run
+    /// restored the first *character* only, because that was the single write that had landed. The
+    /// write is now write-through with coalescing, so this asserts the property that matters: the
+    /// text is on disk as soon as the keystroke has been handled, with no timer in between.
+    func testEveryKeystrokeIsOnDiskWithoutWaitingForATimer() async {
+        model.textChanged("k", caret: 1)
+        await waitUntil("the first keystroke's write") {
+            await self.drafts.load(channelID: self.channelID, rootID: "")?.message == "k"
+        }
+        // A burst: each change is in the store as soon as its write lands, the last one included.
+        for length in 2...12 {
+            let text = String("keep me and".prefix(length))
+            model.textChanged(text, caret: length)
+        }
+        await waitUntil("the last keystroke's write") {
+            await self.drafts.load(channelID: self.channelID, rootID: "")?.message == "keep me and"
+        }
+        // A relaunch reads exactly what was typed, from a brand-new model over the same store.
+        let reopened = ComposerViewModel(channelID: channelID, service: service, drafts: drafts,
+                                         sink: RecordingSink(), autocompleteDebounce: .zero)
+        await reopened.restoreDraftIfNeeded()
+        XCTAssertEqual(reopened.text, "keep me and")
     }
 
     func testClearingTheTextDeletesTheDraftRow() async {

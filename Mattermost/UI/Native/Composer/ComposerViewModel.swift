@@ -135,9 +135,6 @@ final class ComposerViewModel: ObservableObject {
 
     /// How long the composer waits after a keystroke before it asks the server.
     private let autocompleteDebounce: Duration
-    /// How long a draft write waits after a keystroke. Short enough that a backgrounding app has
-    /// almost certainly written it, long enough that typing does not thrash the database.
-    private let draftDebounce: Duration
 
     // MARK: Private state
 
@@ -145,7 +142,10 @@ final class ComposerViewModel: ObservableObject {
     private var autocompleteTask: Task<Void, Never>?
     private var membershipTask: Task<ComposerMembership.MemberList, Never>?
     private var membership: ComposerMembership.MemberList?
-    private var draftTask: Task<Void, Never>?
+    private var draftLeadTask: Task<Void, Never>?
+    /// A draft write is running; changes that arrive meanwhile collapse into one follow-up.
+    private var draftWriteInFlight = false
+    private var draftWriteQueued = false
     private var uploadTasks: [UUID: Task<Void, Never>] = [:]
     /// The bytes of an attachment that has not been uploaded yet, so Retry can re-send the same file
     /// without going back to the picker. Dropped as soon as the server has the file.
@@ -164,8 +164,7 @@ final class ComposerViewModel: ObservableObject {
          myUserID: String? = nil,
          emojiCatalogue: EmojiCatalogue? = nil,
          now: @escaping () -> Date = { Date() },
-         autocompleteDebounce: Duration = .milliseconds(200),
-         draftDebounce: Duration = .milliseconds(400)) {
+         autocompleteDebounce: Duration = .milliseconds(200)) {
         self.channelID = channelID
         self.service = service
         self.drafts = drafts
@@ -175,7 +174,6 @@ final class ComposerViewModel: ObservableObject {
         self.emojiCatalogue = emojiCatalogue
         self.now = now
         self.autocompleteDebounce = autocompleteDebounce
-        self.draftDebounce = draftDebounce
     }
 
     /// The pane attaches its model after construction (the coordinator's model is created before the
@@ -701,8 +699,44 @@ final class ComposerViewModel: ObservableObject {
 
     /// Write the draft now (backgrounding, mode switch, a failed send).
     func saveDraftNow() async {
-        draftTask?.cancel()
-        draftTask = nil
+        draftLeadTask?.cancel()
+        draftLeadTask = nil
+        draftWriteInFlight = false
+        draftWriteQueued = false
+        await writeDraftSnapshot()
+    }
+
+    /// The one write: whatever the text is *at the moment it runs*.
+    ///
+    /// T35 run 124: the draft used to be written only after `draftDebounce` of quiet, so a process
+    /// death inside that window lost the text — measured against a real relaunch (the app's SQLite
+    /// file had an empty `draft` table after typing and killing it, and a later run restored the
+    /// first *character* only, because that was the sole write that had landed).
+    ///
+    /// The card's rule is "the text is never lost", so the write is now **write-through with
+    /// coalescing**, not timer-based: every change writes immediately, and a change that arrives
+    /// while a write is still running folds into exactly one follow-up write that carries the
+    /// *latest* text. There is no window in which a keystroke exists only in memory for longer than
+    /// one store round-trip, and a fast typist still cannot queue one write per keystroke.
+    private func scheduleDraftSave() {
+        if draftWriteInFlight {
+            draftWriteQueued = true
+            return
+        }
+        draftWriteInFlight = true
+        draftLeadTask = Task { [weak self] in
+            guard let self else { return }
+            await self.writeDraftSnapshot()
+            self.draftWriteInFlight = false
+            self.draftLeadTask = nil
+            if self.draftWriteQueued {
+                self.draftWriteQueued = false
+                self.scheduleDraftSave()
+            }
+        }
+    }
+
+    private func writeDraftSnapshot() async {
         let draft = ComposerDraft(channelID: channelID,
                                   rootID: draftRootID,
                                   message: text,
@@ -712,20 +746,6 @@ final class ComposerViewModel: ObservableObject {
             await drafts.delete(channelID: channelID, rootID: draftRootID)
         } else {
             await drafts.save(draft)
-        }
-    }
-
-    private func scheduleDraftSave() {
-        draftTask?.cancel()
-        draftTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await Task.sleep(for: self.draftDebounce)
-            } catch {
-                return
-            }
-            guard !Task.isCancelled else { return }
-            await self.saveDraftNow()
         }
     }
 

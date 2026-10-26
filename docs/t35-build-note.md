@@ -61,50 +61,57 @@ Attribution: `docs/THIRD_PARTY_NOTICES.md` §11 (endpoints + component structure
 
 ## 3. Tests
 
-### Unit (Catalyst) — 102 new tests in `MattermostTests/T35*.swift`
+### Unit (Catalyst) — 105 new tests in `MattermostTests/T35*.swift`
 
-- `T35ComposerModelsTests` (25): trigger parsing (including "an email address is not a mention" and a
+- `T35ComposerModelsTests` (36): trigger parsing (including "an email address is not a mention" and a
   caret at the end of the string), markdown edits on a selection, the multipart body layout,
-  membership filtering, ranking, error copy.
-- `T35ComposerViewModelTests` (30): optimistic insert + replacement, a failed send keeps the text,
+  membership filtering, ranking, error copy, and the row-permission rule (`ComposerRowPermissions`:
+  edit/delete only on my own post, never when the author is unknown, no menu on a system line, a
+  tombstone or an optimistic row).
+- `T35ComposerViewModelTests` (34): optimistic insert + replacement, a failed send keeps the text,
   a stale autocomplete answer is dropped, upload progress and cancel, send with no words but an
-  uploaded file, draft clearing, retry reusing the client id.
-- `T35ChannelPendingRowTests` (9): reconciliation by `pending_post_id`, a reply's echo is not added to
-  the channel, edit/delete tombstones, and "did my post land anyway?" (a *pending* row must not count
-  as landed, or a retry would double-post).
-- `T35ComposerDraftStoreTests` (12): per-`(channel, thread root)` rows, channel vs thread, empty
+  uploaded file, draft clearing, retry reusing the client id, and §7's write-through draft policy.
+- `T35ChannelPendingRowTests` (11): reconciliation by `pending_post_id`, a reply's echo is not added
+  to the channel, edit/delete tombstones, and "did my post land anyway?" (a *pending* row must not
+  count as landed, or a retry would double-post).
+- `T35ComposerDraftStoreTests` (10): per-`(channel, thread root)` rows, channel vs thread, empty
   deletes, in-memory parity, real persistence through a temp GRDB file.
-- `T35UploadTests` (9): multipart `Content-Type`, both parts, progress from the transport, no retry.
-- `T35ComposerAPITests` (7): the two endpoint shapes in §4, pinned.
+- `T35UploadTests` (7): multipart `Content-Type`, both parts, progress from the transport, no retry.
+- `T35ComposerAPITests` (7): the endpoints whose shapes the server disagreed with (§4), pinned.
 
-Full Catalyst suite: **1007 run / 4 skipped / 0 failures** — `build/logs/t35-units-catalyst.log`
-(`** TEST SUCCEEDED **`). Before T35 the same suite was 905, so T35 adds 102.
+Full Catalyst suite: **1010 run / 4 skipped / 0 failures** — `build/logs/t35r2-units3-catalyst.log`
+(`** TEST SUCCEEDED **`). Before T35 the same suite was 905, so T35 adds 105.
 
 ### Live UI (`MattermostUITests/T35ComposerUITests`, real server `127.0.0.1:8065`)
 
 Fixture: `python3 scripts/t35_composer_seed.py --url http://127.0.0.1:8065` (channel `t35-composer`
 in team `perf`, plus `t35-second-chat` in a second team `t35-second`).
 
-Run: `TEST_RUNNER_MM_AUTH_SERVER=… TEST_RUNNER_MM_AUTH_LOGIN=… TEST_RUNNER_MM_AUTH_PASSWORD=…
-python3 scripts/qa-test.py --platform ios --sim id=81A7F251-… --only-testing
-MattermostUITests/T35ComposerUITests --label t35-live5`
+Run (the destination is a device **id**: two "iPhone 16 Pro" simulators exist here and a name-based
+destination cannot be resolved):
 
-Results are recorded from the runner's own verdict (`build/logs/t35-live*.log`). Last full run
-(`t35-live5`): **5 of 7 green** —
+    TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
+    TEST_RUNNER_MM_AUTH_PASSWORD=… xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
+      -destination "platform=iOS Simulator,id=81A7F251-8B31-4945-8783-5A264C14B8D5" \
+      -derivedDataPath ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa \
+      -only-testing:MattermostUITests/T35ComposerUITests
+
+Verdict from the runner (`build/logs/t35r2-live3.log`, `** TEST SUCCEEDED **`): **7 of 7 green**,
+283 s total, 0 skipped —
 
 | test | verdict |
 | --- | --- |
-| `testSendingAMessageAppearsOnceAndCarriesTheServersID` | passed (22.8 s) |
-| `testAMentionCompletesFromTheChannelsMembersAndInsertsTheUsername` | passed (18.8 s) |
-| `testAChannelMentionUsesTheTildeForm` | passed (20.2 s) |
-| `testAnAttachmentUploadsWithProgressAndIsSentWithThePost` | passed (23.1 s) |
-| `testADraftSurvivesATeamSwitch` | passed (46.7 s) |
-| `testADraftIsRestoredAfterARelaunch` | **red** — the relaunch lands on the sidebar and the channel row is not in the tree (collapsed category), so the test cannot get back to the composer |
-| `testMyOwnPostCanBeEditedAndDeletedFromTheRow` | **red** — the `contextMenu` long press is unreliable under XCUITest here: run 4 reached the Edit banner and saved the edit (screenshots `t35-08`/`t35-09` are that run) and then failed to find Delete; runs 5–7 could not raise the menu again |
+| `testSendingAMessageAppearsOnceAndCarriesTheServersID` | passed (27.1 s) |
+| `testAMentionCompletesFromTheChannelsMembersAndInsertsTheUsername` | passed (18.9 s) |
+| `testAChannelMentionUsesTheTildeForm` | passed (22.0 s) |
+| `testAnAttachmentUploadsWithProgressAndIsSentWithThePost` | passed (22.0 s) |
+| `testADraftSurvivesATeamSwitch` | passed (48.0 s) |
+| `testADraftIsRestoredAfterARelaunch` | passed (97.9 s) — restored from the real SQLite draft row |
+| `testMyOwnPostCanBeEditedAndDeletedFromTheRow` | passed (47.3 s) — edit saved, delete confirmed by the server, tombstone drawn |
 
-Both reds are **test-driver/navigation** failures, not composer failures: the send, upload, autocomplete
-and team-switch paths (which exercise the same composer, the same REST calls and the same draft store)
-are green against the real server.
+The screenshots in `docs/t35-shots/` are exported from **this** run's attachments (15 images,
+including `t35-10-deleted` and `t35-15-draft-restored-after-relaunch`, which the earlier partial runs
+never produced). An earlier full run (`t35-live5`) was 5/7; §7 is what changed.
 
 ## 4. Four real bugs the live suite found (all fixed, all now unit-pinned)
 
@@ -157,10 +164,14 @@ Unit-test pressure found three more, before any device ran:
 
 ## 6. Test-environment notes (honest, for T35-AV)
 
-- **The draft-relaunch test has to navigate after relaunch.** The shell restores the *server*, not the
-  push stack, so a relaunch lands on the sidebar; the test taps the channel row exactly as
-  `launchAndOpen` does on a fresh start. That is app behaviour, not a test workaround — but it means
-  "come back to the channel you were reading" is not a property this build has.
+- **The draft-relaunch test has to navigate after relaunch.** The shell restores the *server* and the
+  sidebar, not the push stack — and the restored **team** is whatever the shell last selected, which
+  is not necessarily the fixture's team (measured: after relaunch the app was on team "Operations"
+  while the channel lives in team "perf"). The test therefore walks the path a person walks: back to
+  the sidebar, pick the team, then find the channel through the **quick switcher** — the sidebar's
+  own list is a `List`, so a row outside the viewport is not in the accessibility tree at all and
+  tapping by identifier would depend on scroll position. This is app behaviour (no navigation-stack
+  restore), not a workaround in the product.
 - **A channel inside a collapsed category has no sidebar row**, so a switch driven by the sidebar is
   not possible for every channel. The team-switch draft test therefore uses the second team's only
   channel, which is visible.
@@ -168,6 +179,78 @@ Unit-test pressure found three more, before any device ran:
   (`EXC_BAD_ACCESS` in `-[XCElementSnapshot identifier]`, `XCTAutomationSupport`, on the app's main
   thread; report `Mattermost-2026-10-25-194739.ips`). The app was not at fault and the same test
   passes on re-run; it is recorded here because a crash report exists and the validator will find it.
+  The long press is gone from the suite anyway (§7.1).
 - The T34-R5 note's intermittent socket failure (`posted` never reaching `ChannelPaneCoordinator`)
   affects this suite too: the *row* still appears because the REST answer reconciles the optimistic
   row by id, which is exactly why that path does not depend on the socket.
+
+## 7. Round 2 — the two last reds, and the three bugs behind them
+
+Run 123 closed at 5/7 live. The two reds turned out to be two product bugs and one wrong oracle.
+All three are fixed in the tree; the whole suite is 7/7 (§3) and the units are 1010/0.
+
+### 7.1 `.contextMenu` is unreachable on iOS 26 → the row's actions are a visible button + sheet
+
+`PostRowView` put Reply/Edit/Delete in a `.contextMenu` (long press). Evidence from run 124
+(`build/logs/t35r2-live1.log`, failure tree): the press opened **`Copy`** and **`Share…`** — the
+*text* menu — with none of the app's items. The long press lands in the body's `Text`, so the system
+wins the gesture. Two earlier runs also crashed the automation framework while snapshotting that
+menu (see §6).
+
+The row now draws an overflow button (`post.<id>.menu`, label "Message actions") that presents one
+`PostOptionsSheet` per list (`postOptions.edit` / `.delete` / `.reply` / `.cancel`). That is also the
+upstream idiom: mattermost-mobile opens a post-options sheet rather than using a long-press menu.
+Who may edit or delete is one pure rule, `ComposerRowPermissions` (it was duplicated, and the copies
+disagreed), unit-pinned including the two "unknown" cases — an empty post author and an unresolved
+session user are **not** treated as "mine".
+
+Since the sheet is a plain `List` of `Button`s, the identifiers are stable: the edit path (banner,
+prefilled text, save, `(edited)`) and the delete path (server + tombstone) both pass.
+
+### 7.2 The delete oracle was wrong: this server answers **404**, not `delete_at`
+
+The test proved "the server marked it deleted" by reading `GET /posts/{id}` and expecting
+`delete_at > 0`. Against a real Mattermost 9.11.19 that is false. Measured with no app involved
+(`scripts/t35_softdelete_oracle.py`): create → `DELETE` (200) → `GET /posts/{id}` = **404**, the post is
+gone from the channel window, and `PUT` after delete = **403 "You do not have the appropriate
+permissions."**. The app was deleting correctly all along; the assertion was reading the wrong
+answer.
+
+The test now accepts either answer (a 404 **or** `delete_at > 0`) *and* requires the channel window
+to stop listing the post. The tombstone is then revealed with the same `revealPost` helper the rest
+of the suite uses — an off-screen row of a `LazyVStack` is not in the tree at all, which is why the
+"row must keep its slot" assertion failed on a tree that did contain the tombstone.
+
+### 7.3 A draft written only on a debounce is a draft the process can outlive
+
+Acceptance criterion: *the text is never lost (including after app backgrounding)*. The draft was
+written by a 400 ms debounce task. Measured two ways:
+
+- run 124, first attempt: type, kill, relaunch → the app's **SQLite file had an empty `draft`
+  table** (checked directly with `sqlite3` in the simulator container), i.e. the write never ran;
+- a later attempt after adding a leading write: the relaunch restored **`t`** — the first character
+  only, because that was the single write that had landed before the kill. A partial draft is worse
+  than an obvious loss, because it looks like the reader's own text.
+
+The write is now **write-through with coalescing**, no timer: every change writes immediately, and a
+change that arrives while a write is in flight folds into exactly one follow-up write carrying the
+latest text. A fast typist still cannot queue one write per keystroke, and there is no window in
+which a keystroke lives only in memory. `draftDebounce` is gone from `ComposerViewModel`; the
+property is pinned by `testEveryKeystrokeIsOnDiskWithoutWaitingForATimer` (asserts the first
+keystroke, the last keystroke of a burst, and that a fresh model over the same store restores
+exactly what was typed). The live relaunch test now passes in 97.9 s.
+
+Backgrounding is still handled separately (`ChannelView.onChange(of: scenePhase)` →
+`saveDraftNow()`), which is the case the card names explicitly.
+
+### 7.4 What is still not done here
+
+- The screenshots are the app against the seeded local server; they are real data (the channel's
+  own posts, a real upload id) but they are **not** a real workspace: this host has no Mattermost
+  server with production traffic.
+- A relaunch does not restore the navigation stack (§6), so "back where you were" is not a property
+  of this build; T30's routing owns that.
+- The live suite's `-uiTestSeedServer` seam registers a fresh server row per launch, and each row
+  gets its own SQLite file under `Application Support/MattermostStores/`; a long session of UI runs
+  leaves one file per launch (~260 KB each, measured 50+ after a day of runs). That is test-seam
+  hygiene (idempotent seeding by URL), not a composer bug — recorded so it is not mistaken for one.

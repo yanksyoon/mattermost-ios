@@ -256,9 +256,13 @@ final class T35ComposerUITests: XCTestCase {
                       "my own post must offer Delete:\n\(app.debugDescription)")
         delete.tap()
         XCTAssertTrue(waitUntil(timeout: 30) {
-            let deleteAt = (try? self.post(id: postID))?["delete_at"] as? Int ?? 0
-            return deleteAt > 0
-        }, "the server must mark the post deleted")
+            (try? self.postIsGone(postID, channelID: channel.id)) ?? false
+        }, "the server must no longer serve the post")
+        // The row keeps its slot as a tombstone. The list is a `LazyVStack`, so a row outside the
+        // viewport is not in the tree at all — reveal it before asking (the send/edit steps above
+        // scrolled the window).
+        XCTAssertTrue(revealPost(app, postID).exists,
+                      "the row must keep its slot:\n\(app.debugDescription)")
         XCTAssertTrue(element(app, "post.\(postID).deleted").waitForExistence(timeout: 20),
                       "the row must keep its slot as a tombstone:\n\(app.debugDescription)")
         attach(app, "t35-10-deleted")
@@ -514,6 +518,21 @@ final class T35ComposerUITests: XCTestCase {
 
     private func post(id: String) throws -> [String: Any]? {
         try getJSON("/api/v4/posts/\(id)") as? [String: Any]
+    }
+
+    /// Deleted, as *this* server reports it.
+    ///
+    /// The documented answer is a post whose `delete_at` is set, and that is what this asserted
+    /// first — but a real Matermost 9.11.19 answers `GET /posts/{id}` with **404** once the post is
+    /// soft-deleted by its author (measured with `probe_softdelete_oracle.py`: create → DELETE (200)
+    /// → read = 404, and the post is gone from the channel's window; `PUT` after delete = 403). Both
+    /// answers mean the same thing, so accept either, and require the window to agree.
+    private func postIsGone(_ postID: String, channelID: String) throws -> Bool {
+        if let row = try? post(id: postID) {
+            if (row["status_code"] as? Int) == 404 { return true }
+            if let deleteAt = row["delete_at"] as? Int, deleteAt > 0 { return true }
+        }
+        return try !channelPosts(channelID).contains { ($0["id"] as? String) == postID }
     }
 
     /// Poll the server until the post with this exact message exists. Returns the server's own object,
