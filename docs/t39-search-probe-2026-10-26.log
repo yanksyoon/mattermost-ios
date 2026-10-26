@@ -1,3 +1,14 @@
+# T39 server probe — transcript, re-run on 2026-10-26 for the T39-R repair (card t_37a4545b).
+# Server: Mattermost 9.11.19, BuildNumber 16643067630, ActiveSearchBackend: database, at 127.0.0.1:8065.
+# Command: MM_PROBE_PASSWORD=<fixture password, from the operator> MM_PROBE_TZ_OFFSET_SECONDS=-25200 \
+#            python3 scripts/t39_search_probe.py
+# The password is supplied by the environment; the repository carries none (T39-AV F8).
+#
+# What changed for T39-R: section 4 checks each modifier's PREDICATE over the posts it returned
+# (AV F9) instead of only its status code, and its last two checks measure the unit of
+# `time_zone_offset` (AV F1) — the seconds offset keeps every `on:` post inside the reader's local
+# day, the minutes offset does not.
+
 
 == server: Version=9.11.19 BuildNumber=16643067630 (status 200)
 
@@ -10,16 +21,26 @@
     per_page=200  status=200 ids=100
     per_page=500  status=200 ids=100
 [PASS] search per_page is not honoured by this backend (window cap 100): per_page=3 -> 100 ids, per_page=500 -> 100 ids
-    modifier baseline 'the'           status=200 ids=0
-    modifier from:perfprobe           status=200 ids=100
+    date anchor: newest baseline post is 2026-10-26 at offset -25200s
+    modifier from:<my username>       status=200 ids=100
+[PASS] modifier from:<my username> holds its predicate: 100 posts checked, 0 outside the predicate
+[PASS] modifier from:<my username> answers a non-empty set: 100 ids — an empty answer is a broken modifier, not a pass
     modifier in:<channel name>        status=200 ids=13
-    modifier after:<date>             status=200 ids=100
-    modifier before:<date>            status=200 ids=100
-    modifier on:<date>                status=200 ids=0
+[PASS] modifier in:<channel name> holds its predicate: 13 posts checked, 0 outside the predicate
+[PASS] modifier in:<channel name> answers a non-empty set: 13 ids — an empty answer is a broken modifier, not a pass
+    modifier after:2026-10-26         status=200 ids=0
+[PASS] modifier after:2026-10-26 holds its predicate: 0 posts checked, 0 outside the predicate
+    modifier before:2026-10-26        status=200 ids=100
+[PASS] modifier before:2026-10-26 holds its predicate: 100 posts checked, 0 outside the predicate
+    modifier on:2026-10-26            status=200 ids=75
+[PASS] modifier on:2026-10-26 holds its predicate: 75 posts checked, 0 outside the predicate
+[PASS] modifier on:2026-10-26 answers a non-empty set: 75 ids — an empty answer is a broken modifier, not a pass
     modifier quoted phrase            status=200 ids=2
+[PASS] modifier quoted phrase holds its predicate: 2 posts checked, 0 outside the predicate
     modifier wildcard                 status=200 ids=0
     modifier OR search                status=200 ids=2
-[PASS] every documented modifier is accepted (200): 9/9 answered 200
+[PASS] on:2026-10-26 with the seconds offset stays inside the local day: 75/75 inside the -25200s day
+[PASS] the minutes offset would answer a different day for on:2026-10-26: 75/100 inside the local day at -420 — supplying seconds is the difference
     invalid bad date             status=200 message=None ids=0
     invalid unterminated quote   status=200 message=None ids=2
     invalid unknown modifier     status=200 message=None ids=0
@@ -47,3 +68,5 @@
     absent unflag               POST /posts/hb3jkj3h17bcbgc6979r56ihfc/unflag           status=404 (not used by the client)
 
 RESULT: PASS — measured on Mattermost 9.11.19 (BuildNumber 16643067630)
+
+# exit=0

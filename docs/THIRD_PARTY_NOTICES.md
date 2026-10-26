@@ -572,16 +572,25 @@ BuildNumber 16643067630, pinned by `MattermostTests/T39SearchTests.swift`):
   window per query instead of offering a Load more that cannot work.
 - Every documented modifier answers 200 (`from:`, `in:`, `before:`, `after:`, `on:`, quoted phrase,
   trailing wildcard, `OR` search) — the server parses the string, so the client sends it verbatim
-  (only curly quotes are straightened). Invalid queries are **not** rejected: `before:notadate`,
-  `on:today`, `"unterminated`, `the(` and `x:whatever` all answer **200** with an empty or unrelated
-  result set, which is why this card's validation lives on the client. Only empty `terms` answers
-  **400** (`Invalid or missing terms in request body.`), and that sentence is shown verbatim.
-  Stop words are dropped server-side (`terms=the` answers 0), so "nothing matched" copy names the
-  query rather than claiming the word does not exist.
+  (only curly quotes are straightened). The probe now checks each modifier's **predicate over the
+  posts it returned** (`from:` → `user_id`, `in:` → `channel_id`, `before:`/`after:`/`on:` →
+  `create_at` inside the window computed for the stated offset), not just its status code, and it
+  measures the unit of `time_zone_offset`: the field is **seconds** east of UTC (Go's
+  `time.FixedZone(name, offset)`, and both reference clients send `utcOffset() * 60`), so
+  `on:2026-10-26` at `-25200` stays inside the PDT day while `-420` answers 100 posts with 25 of them
+  on the previous local day. Sending minutes was T39-AV F1; the probe now fails on it. Invalid
+  queries are **not** rejected: `before:notadate`, `on:today`, `"unterminated`, `the(` and
+  `x:whatever` all answer **200** with an empty or unrelated result set, which is why this card's
+  validation lives on the client. Only empty `terms` answers **400**
+  (`Invalid or missing terms in request body.`), and that sentence is shown verbatim. Stop words are
+  dropped server-side (`terms=the` answers 0), so "nothing matched" copy names the query rather than
+  claiming the word does not exist.
 - The saved list is **`GET /users/me/posts/flagged`** (with `team_id`); the older
   `/users/me/teams/{team}/posts/saved` and `/teams/{team}/posts/flagged` answer **404**
   (`Sorry, we could not find the page.`) on 9.11.19. The client asks the working path and keeps the
-  documented one as a fallback.
+  documented one as a fallback (order pinned by `MattermostTests/T39SearchAPITests`). The `team_id`
+  filter makes the Saved tab team-scoped, which is narrower than the web client's cross-team screen —
+  stated in `docs/t39-search-build-note.md` §6, and every Saved row names its channel.
 - Pinned posts are **`GET /channels/{id}/pinned`** (200, same envelope as a post list), and
   `POST /posts/{id}/pin` / `/unpin` answer 200.
 - Saving is **not** a post write: `POST /posts/{id}/flag` and `/unflag` answer **404** on 9.11.19.
