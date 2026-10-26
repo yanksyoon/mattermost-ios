@@ -325,3 +325,71 @@ Reimplementation notes that matter for the licence boundary: the Swift types are
 string the reader sees is either the **server's own message** or a Mattermost sentence re-worded in
 our own file; **SF Symbols** replace every `compass-icons` glyph (the toolbar draws no icon-font
 asset), so no icon font, emoji sprite or extra dependency is added by this card.
+
+## 13. T36 native threads and replies — upstream read set (Apache-2.0, mobile @ `162f2560…`; webapp observed only, AGPL-3.0)
+
+T36 (`Mattermost/Core/MM/MMThreadTypes.swift`, `Mattermost/UI/Native/Thread/*.swift` —
+`ThreadModels.swift`, `ThreadAPI.swift`, `ThreadService.swift`, `ThreadViewModel.swift`,
+`ThreadCoordinator.swift`, `ThreadView.swift`, `GlobalThreadsModels.swift`,
+`GlobalThreadsViewModel.swift`, `GlobalThreadsView.swift` — `Core/MM/SocketEvent.swift`'s three thread
+events, `Core/MM/MMErrorCopy.swift`, and the channel side: `PostRowView`'s reply line,
+`PostRowModel.participants`, `ChannelViewModel.recordReply`/`applyThread`/`applyReplyActivity`,
+`ChannelAPI`'s `collapsedThreadsExtended`, `NativeThreadsPaneView`, `TeamSocketScope`) reimplements the
+**thread read/write surface**: the thread RHS (root + reply chain, load earlier, follow bell, reply
+composer), the followed-threads list with its All/Unreads tabs and paging, the unread counters, and
+the participant avatars + reply count drawn under a root in the channel timeline. The upstream read
+set is the one `docs/component-map.md` §S13 names for this surface; no upstream file is copied or
+transpiled. The mobile pin is TypeScript (read for rules only); the webapp is AGPL-3.0 and was
+**observed in the running client**, never copied or ported. Every new file pins the upstream it
+derives from in its own header (mobile `@ v2.45.0`,
+`162f2560d0e1df073220f7701d5a67cc17c8abeb`), so this section is the repo-level entry those headers
+point at.
+
+| Upstream path (mobile @ `162f2560…` unless marked `W`) | Used for |
+|---|---|
+| `app/screens/thread/index.tsx`, `app/screens/thread/thread.tsx`, `thread_content.tsx` | the screen's data pass: one root per pane, the read-marking on mount, and the header/post-list/composer composition |
+| `app/screens/thread/thread_post_list/thread_post_list.tsx` | root drawn once and first, then replies oldest-first, "load earlier" above the chain, and the `fromPost`/`fromCreateAt` paging pair |
+| `app/screens/thread/thread_follow_button/thread_follow.tsx` | the bell as the only follow control, and the rule that the control follows the state it just wrote |
+| `app/components/post_list/thread_overview/thread_overview.tsx` | the reply line under a root: participant avatars then "N replies", and that tapping it opens the thread |
+| `app/screens/global_threads/global_threads.tsx`, `threads_list/index.tsx`, `threads_list/threads_list.tsx` | the followed list, its two tabs, `onEndReached` paging by the last thread id, and the end-of-list state |
+| `app/screens/global_threads/threads_list/thread/thread.tsx`, `threads_list/header/index.tsx`, `threads_list/empty_state.tsx` | the row's copy (root author, stripped one-line preview, reply count) and the All/Unreads header |
+| `app/actions/remote/thread.ts` | `fetchThread`, `fetchThreads` (page by page id; following implied by list membership; `totalsOnly` for counters), `markThreadAsRead`/`Unread`, `updateThreadFollowing` |
+| `app/actions/websocket/threads.ts` | what `thread_updated` / `thread_follow_changed` / `thread_read_changed` must do to an open pane and to a list that is on screen |
+| `app/utils/thread/index.ts` | the activity key a followed list is ordered by (`max(last_reply_at, post.create_at)`), i.e. reading a thread does not reorder it |
+| `app/client/rest/threads.ts`, `app/client/rest/posts.ts` | the endpoints and their request shapes: `GET /posts/{id}/thread`, `GET /users/me/teams/{team}/threads`, `GET …/threads/{id}`, `PUT`/`DELETE …/threads/{id}/following`, `PUT …/threads/{id}/read/{ts}`, `POST …/threads/{id}/set_unread/{post_id}` |
+| `app/client/rest/posts.ts` (`getPostThread`'s `collapsedThreads`/`collapsedThreadsExtended`) | why the channel page asks for the **extended** participant form: it is what turns the root's id-only participant stubs into profiles the avatar stack can draw (~500 bytes per page, measured) |
+| `W …/components/threading/global_threads/` | **behaviour cross-check only** — what the Path A webview's thread RHS shows, watched in the running client to confirm the native pane says the same thing |
+| `W …/components/threading/thread_view/` | **behaviour cross-check only** — the webapp's thread panel; not ported |
+
+**The endpoints whose shapes the server disagreed with** (measured against a real Mattermost 9.11.19
+with no app involved — `scripts/t36_thread_probe.py`, output in `docs/t36-build-note.md` §2, pinned by
+`MattermostTests/T36*Tests.swift` and by the live suite):
+
+- `GET /users/me/teams/{team}/threads/mention_counts` — the path the card names — is **404**
+  `api.context.404.app_error` in every form tried. The same facts come from
+  `GET /users/me/teams/{team}/threads?totalsOnly=true` (`total_unread_threads`,
+  `total_unread_mentions`), which is what the list uses; the dead path is pinned by a test.
+- The thread list carries its totals **inline** on a normal page, so no extra round trip is needed.
+- A thread object has **no `is_following` field**: list membership *is* following, and
+  `GET …/threads/{id}` answers **404** once unfollowed. That 404 is how this client models "not
+  followed" instead of inventing a field.
+- `GET /posts/{id}/thread` returns the root **inside** `order`/`posts` (drawn once, first), and a
+  **deleted reply is omitted** — even with `includeDeleted=true`, which the server ignores. A client
+  keeps the tombstone it already had; it can never re-fetch one.
+- A thread's own `reply_count` and its root post's `reply_count` can **disagree** (measured 2 vs 0),
+  so the reply line takes `max(server thread count, root.reply_count, replies loaded)`.
+- `?channel_id=` on the thread list is accepted and **ignored**, and `GET /channels/{id}/threads`
+  is 404, so there is no channel-scoped followed list to draw (upstream's `threads_button` opens the
+  global one too).
+
+Not ported by this card (other cards own them, or the surface is out of scope): the thread options
+menu's "open in channel" entry (the model has mark-unread; the UI draws the bell only), a jump-to-unread
+anchor **inside** a long chain (the pane opens at the newest reply), the T29 store (no threads
+offline), and scheduled/permalink navigation from a thread row.
+
+Reimplementation notes that matter for the licence boundary: the Swift types are written against
+`https://api.mattermost.com` (the thread paths above) and this repo's existing `APIClient`/`MMPost`
+transport, not translated from RN components, reducers or selectors. Every string the reader sees is
+either the **server's own message** or a Mattermost sentence re-worded in our own file; **SF Symbols**
+replace every `compass-icons` glyph (the bell, the reply paperclip, the tab glyphs), so no icon font,
+emoji sprite or extra dependency is added by this card.

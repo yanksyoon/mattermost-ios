@@ -38,6 +38,12 @@ struct MattermostApp: App {
     /// T34: the app-level owner of the channel panes — one post-list model per open channel (bounded
     /// LRU) and one attachment cache per server, fed by the same rail socket as the sidebar.
     @StateObject private var channelPaneCoordinator: ChannelPaneCoordinator
+    /// T36: the app-level owner of the thread panes and the Threads list — one thread model per open
+    /// root (bounded LRU), one global list per team, and the reply composer of each open thread. Owned
+    /// here for the same two reasons as the channel panes: SwiftUI re-creates views, and the thread
+    /// events arrive on the rail's single socket. It also carries a reply's new count back to the
+    /// channel model that draws the root row, which is why it holds a reference to the channel panes.
+    @StateObject private var threadCoordinator: ThreadCoordinator
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
@@ -116,6 +122,8 @@ struct MattermostApp: App {
         // T34: the channel panes' owner. Its `auth`/`navigation` seams are bound in
         // `bindShellStores()` for the same `@StateObject` reason as the four above.
         _channelPaneCoordinator = StateObject(wrappedValue: ChannelPaneCoordinator())
+        // T36: the thread panes' and Threads list's owner, bound in `bindShellStores()` like the rest.
+        _threadCoordinator = StateObject(wrappedValue: ThreadCoordinator())
         #if DEBUG
         // UI-test seam: `-uiTestAssumeSignedIn` makes the native shell render as if the seeded
         // server had a session, so its panes can be exercised against a stub server that has no
@@ -240,6 +248,9 @@ struct MattermostApp: App {
                 // T34: the channel panes' owner is app-wide for the same reason (a pane must outlive
                 // the view that shows it, and it is fed by the rail's socket).
                 .environmentObject(channelPaneCoordinator)
+                // T36: the thread panes' and Threads list's owner — same reason, and it has to be the
+                // object that sees the rail's socket so a thread updates while it is open.
+                .environmentObject(threadCoordinator)
                 // T31: the SSO hand-off mounts the server's existing webview inside a sheet, so the
                 // store owner has to be reachable from the environment too (the pane's web branch
                 // still receives it as a parameter).
@@ -408,10 +419,19 @@ struct MattermostApp: App {
         channelPaneCoordinator.bind(auth: authCoordinator,
                                     navigation: nativeNavigation,
                                     serverStore: serverStore)
-        teamSidebarCoordinator.onTeamEvent = { [weak channelSidebarCoordinator, weak channelPaneCoordinator] serverID, event in
+        // T36: the thread panes resolve their service from the same session, and hold the channel
+        // panes so a reply's count reaches the row it belongs to. No socket of its own.
+        threadCoordinator.bind(auth: authCoordinator,
+                               navigation: nativeNavigation,
+                               serverStore: serverStore,
+                               channelPanes: channelPaneCoordinator)
+        teamSidebarCoordinator.onTeamEvent = { [weak channelSidebarCoordinator, weak channelPaneCoordinator,
+                                                weak threadCoordinator] serverID, event in
             // T33's list debounces its own refresh; T34's open channels apply the event directly (a
             // posted message must appear without a refetch — that is what a socket is for).
             Task { await channelPaneCoordinator?.handle(event, serverID: serverID) }
+            // T36: an open thread and the Threads list apply the thread_* events on the same pass.
+            Task { await threadCoordinator?.handle(event, serverID: serverID) }
             guard let channelSidebarCoordinator else { return }
             Task { await channelSidebarCoordinator.handle(event, serverID: serverID) }
         }
@@ -419,7 +439,8 @@ struct MattermostApp: App {
         // and a tapped mention's channel *id* resolve to the same `NativeLocation`.
         nativeNavigation.directory = channelSidebarCoordinator
         authCoordinator.onChange = { [weak nativeNavigation, weak teamSidebarCoordinator,
-                                      weak channelSidebarCoordinator, weak channelPaneCoordinator] serverID in
+                                      weak channelSidebarCoordinator, weak channelPaneCoordinator,
+                                      weak threadCoordinator] serverID in
             nativeNavigation?.refreshAuthState()
             // A sign-out/expiry must take the rail's socket down with the credential it was built
             // with; a finished sign-in is what lets it come up.
@@ -428,6 +449,8 @@ struct MattermostApp: App {
             channelSidebarCoordinator?.authPhaseChanged(serverID)
             // …and neither must an open channel's window: its posts were fetched with that session.
             channelPaneCoordinator?.authPhaseChanged(serverID)
+            // …and a thread's window and its drafts were fetched with that credential too.
+            threadCoordinator?.authPhaseChanged(serverID)
         }
     }
 

@@ -300,12 +300,38 @@ struct NativeChannelPaneView: View {
 
 // MARK: - Threads
 
-/// Per-channel thread pane placeholder (RHS in the web app; a pushed screen upstream).
+/// Per-channel thread pane (RHS in the web app; a pushed screen upstream).
+///
+/// Two shapes, exactly as upstream's routes are:
+///  - a **thread** (`/{team}/threads` reached with a post — a reply line, a permalink, a notification)
+///    renders `ThreadPaneContent`;
+///  - the **thread list** (`/{team}/threads`, the channel header's Threads button) renders the global
+///    list — upstream's `threads_button` navigates to `GLOBAL_THREADS`, not to a channel-filtered
+///    list, and the server has no channel-scoped threads endpoint (measured: `?channel_id=` is
+///    ignored, `GET /channels/{id}/threads` is 404).
+///
+/// With no resolved server (a preview, a route whose server was removed) the pane keeps saying what
+/// it cannot do instead of rendering a spinner for a request it will never send.
 struct NativeThreadsPaneView: View {
     let location: NativeLocation
     @ObservedObject var navigation: NativeNavigation
+    /// The configured server this route belongs to. Nil for callers that cannot resolve it.
+    var server: ServerConfig? = nil
 
     var body: some View {
+        if let server, let postID = location.postID {
+            ThreadPaneContent(server: server,
+                              rootID: postID,
+                              channelID: location.channelID ?? "",
+                              navigation: navigation)
+        } else if let server {
+            GlobalThreadsPaneContent(server: server, navigation: navigation)
+        } else {
+            unresolvedPane
+        }
+    }
+
+    private var unresolvedPane: some View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: "text.bubble")
@@ -321,10 +347,10 @@ struct NativeThreadsPaneView: View {
             ScrollView {
                 NativePaneNote(
                     systemImage: "text.bubble",
-                    title: "Thread replies — S13 (T36)",
-                    body: "Follow/unfollow state, reply pagination and the thread options menu land "
-                        + "in S13 (T36)."
-                        + (location.channelDisplayName.map { " This pane is already scoped to #\($0)." } ?? "")
+                    title: "This server isn't configured",
+                    body: "Threads belong to a server, and the route names one this device doesn't "
+                        + "have configured (yet)."
+                        + (location.channelDisplayName.map { " The route was scoped to #\($0)." } ?? "")
                 )
                 .padding()
             }
@@ -341,19 +367,7 @@ struct NativeThreadsPlaceholderView: View {
     @ObservedObject var navigation: NativeNavigation
 
     var body: some View {
-        ScrollView {
-            NativePaneNote(
-                systemImage: "text.bubble",
-                title: "Global threads — S13 (T36)",
-                body: "All followed threads across \(server.name)'s teams land in S13 (T36). "
-                    + "A thread opened from a channel pushes the per-channel pane instead, so Back "
-                    + "returns to that channel."
-            )
-            .padding()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("nativeThreadsList")
+        GlobalThreadsPaneContent(server: server, navigation: navigation)
     }
 }
 

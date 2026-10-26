@@ -58,6 +58,8 @@
 		F30000000000000000000063 /* MMBaseURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000063 /* MMBaseURL.swift */; };
 		F30000000000000000000064 /* MMPagination.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000064 /* MMPagination.swift */; };
 		F30000000000000000000065 /* MMError.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000065 /* MMError.swift */; };
+		F300000000000000000000A6 /* MMErrorCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A6 /* MMErrorCopy.swift */; };
+		F300000000000000000000A7 /* MMThreadTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000A7 /* MMThreadTypes.swift */; };
 		F30000000000000000000066 /* APITransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000066 /* APITransport.swift */; };
 		F30000000000000000000067 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000067 /* APIClient.swift */; };
 		F30000000000000000000068 /* MMEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000068 /* MMEndpoints.swift */; };
@@ -160,6 +162,8 @@
 		F20000000000000000000063 /* MMBaseURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMBaseURL.swift; sourceTree = "<group>"; };
 		F20000000000000000000064 /* MMPagination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMPagination.swift; sourceTree = "<group>"; };
 		F20000000000000000000065 /* MMError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMError.swift; sourceTree = "<group>"; };
+		F200000000000000000000A6 /* MMErrorCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMErrorCopy.swift; sourceTree = "<group>"; };
+		F200000000000000000000A7 /* MMThreadTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMThreadTypes.swift; sourceTree = "<group>"; };
 		F20000000000000000000066 /* APITransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APITransport.swift; sourceTree = "<group>"; };
 		F20000000000000000000067 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		F20000000000000000000068 /* MMEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMEndpoints.swift; sourceTree = "<group>"; };
@@ -307,6 +311,8 @@
 			children = (
 				F20000000000000000000060 /* MMLog.swift */,
 				F20000000000000000000065 /* MMError.swift */,
+				F200000000000000000000A6 /* MMErrorCopy.swift */,
+				F200000000000000000000A7 /* MMThreadTypes.swift */,
 				F20000000000000000000061 /* MMJSON.swift */,
 				F20000000000000000000062 /* MMTypes.swift */,
 				F20000000000000000000063 /* MMBaseURL.swift */,
@@ -575,6 +581,8 @@
 				F30000000000000000000063 /* MMBaseURL.swift in Sources */,
 				F30000000000000000000064 /* MMPagination.swift in Sources */,
 				F30000000000000000000065 /* MMError.swift in Sources */,
+				F300000000000000000000A6 /* MMErrorCopy.swift in Sources */,
+				F300000000000000000000A7 /* MMThreadTypes.swift in Sources */,
 				F30000000000000000000066 /* APITransport.swift in Sources */,
 				F30000000000000000000067 /* APIClient.swift in Sources */,
 				F30000000000000000000068 /* MMEndpoints.swift in Sources */,

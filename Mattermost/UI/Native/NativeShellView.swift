@@ -159,7 +159,7 @@ struct NativeDestinationPaneView: View {
             if !serverIsConfigured {
                 NativeStaleRouteView(location: location) { navigation.popToRoot() }
             } else if location.pane == .threads {
-                NativeThreadsPaneView(location: location, navigation: navigation)
+                NativeThreadsPaneView(location: location, navigation: navigation, server: server)
             } else if location.hasChannel || location.postID != nil {
                 NativeChannelPaneView(location: location, navigation: navigation, server: server)
             } else {

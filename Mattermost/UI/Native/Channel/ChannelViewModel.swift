@@ -367,6 +367,14 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
                 rebuild()
                 return record(.patched)
             }
+            guard post.rootId.isEmpty == true else {
+                // A reply is not a row of this timeline (`isTimelineRow`), but its root's reply count
+                // and participant stack are drawn here — the gap T34 named ("a reply arriving over the
+                // socket does not refresh its root's reply_count until the pane is reopened") closes
+                // here (T36).
+                outcome = recordReply(post, delta: 1)
+                break
+            }
             guard accepts(post: post) else { return record(.ignored) }
             if postsByID[post.id] != nil {
                 replace(post)
@@ -384,9 +392,15 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             replace(post)
             outcome = .patched
         case .postDeleted(let post):
-            guard postsByID[post.id] != nil else { return record(.ignored) }
-            applyTombstone(post)
-            outcome = .deleted
+            if postsByID[post.id] != nil {
+                applyTombstone(post)
+                outcome = .deleted
+            } else if !post.rootId.isEmpty, postsByID[post.rootId] != nil {
+                // A reply's removal moves its root's count down; the row for the reply was never here.
+                outcome = recordReply(post, delta: -1)
+            } else {
+                return record(.ignored)
+            }
         case .reactionAdded(let reaction):
             guard postsByID[reaction.postId] != nil, appendReaction(reaction) else {
                 return record(.ignored)
@@ -412,6 +426,17 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             }
             lastViewedAt = max(lastViewedAt ?? 0, viewedAt)
             outcome = .viewed
+        case .threadUpdated(let update):
+            outcome = applyThread(update.thread)
+        case .threadFollowChanged(let change):
+            guard var root = postsByID[change.threadID] else { return record(.ignored) }
+            root.replyCount = max(change.replyCount, 0)
+            replace(root)
+            outcome = .patched
+        case .threadReadChanged:
+            // A thread's read position is the thread pane's business (and the global list's); the
+            // channel timeline draws no per-thread read state.
+            return record(.ignored)
         case .hello, .typing, .statusChange, .preferencesChanged, .userUpdated,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelMemberUpdated,
              .postUnread, .unhandled:
@@ -459,6 +484,67 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             await self.loadProfiles(for: [userID])
             self.rebuild()
         }
+    }
+
+    // MARK: - A reply moves its root (T36, S13)
+
+    /// A reply landed or left for a root this window holds: move the root's reply count and its
+    /// participant stack **without** adding a row for the reply.
+    ///
+    /// The count is incremented only for a reply strictly newer than the root's `last_reply_at`: a
+    /// replayed `posted` (a reconnect, a REST/socket race) carries the reply's original `create_at`,
+    /// which the root has already counted, so the same event twice cannot inflate the number. A
+    /// delete always decrements (its arrival was counted once and the socket dedupes a replay by
+    /// `id|update_at|delete_at`), and never below zero.
+    private func recordReply(_ post: MMPost, delta: Int) -> EventOutcome {
+        guard var root = postsByID[post.rootId] else { return .ignored }
+        if delta > 0, post.createAt <= root.lastReplyAt { return .ignored }
+        root.replyCount = max(0, root.replyCount + delta)
+        if post.createAt > root.lastReplyAt { root.lastReplyAt = post.createAt }
+        if post.deleteAt == 0, !post.userId.isEmpty {
+            var participants = root.participants ?? []
+            participants.removeAll { $0.id == post.userId }
+            participants.insert(MMUser(id: post.userId), at: 0)
+            root.participants = participants
+            scheduleProfileLoad(for: post.userId)
+        }
+        replace(root)
+        return .patched
+    }
+
+    /// `thread_updated`: the server's own recomputation of a thread, which is exact — the count it
+    /// carries is what the reply line must show, and its participant list is ordered by activity.
+    private func applyThread(_ thread: MMThread) -> EventOutcome {
+        guard var root = postsByID[thread.id] else { return .ignored }
+        root.replyCount = max(0, thread.replyCount)
+        root.lastReplyAt = max(root.lastReplyAt, thread.lastReplyAt)
+        if !thread.participants.isEmpty {
+            root.participants = thread.participants
+            let missing = thread.participants.map(\.id).filter { users[$0] == nil }
+            if !missing.isEmpty {
+                Task { [weak self] in
+                    guard let self else { return }
+                    await self.loadProfiles(for: missing)
+                    self.rebuild()
+                }
+            }
+        }
+        replace(root)
+        return .patched
+    }
+
+    /// Patch a root's reply activity from outside the socket path — the thread pane's own count after
+    /// a reply it sent or observed (so the two panes cannot disagree about the same thread).
+    func applyReplyActivity(rootID: String,
+                            count: Int,
+                            lastReplyAt: Int64,
+                            participants: [MMUser]? = nil) {
+        guard var root = postsByID[rootID] else { return }
+        root.replyCount = max(0, count)
+        root.lastReplyAt = max(root.lastReplyAt, lastReplyAt)
+        if let participants, !participants.isEmpty { root.participants = participants }
+        replace(root)
+        rebuild()
     }
 
     /// Mark a post deleted the one way this client does it: keep the row, empty it, and let the row
@@ -510,7 +596,14 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
         pendingPostIDs.remove(rowID)
         let showsInChannel = post.rootId.isEmpty && post.channelId == channelID && !post.id.isEmpty
         if rowID != post.id { removeRow(rowID) }
-        guard showsInChannel else { rebuild(); return }
+        guard showsInChannel else {
+            // A reply sent from this pane's composer: not a row here, but the root it answers is.
+            if !post.rootId.isEmpty, postsByID[post.rootId] != nil {
+                _ = recordReply(post, delta: 1)
+            }
+            rebuild()
+            return
+        }
         if postsByID[post.id] != nil {
             replace(post)
         } else {
@@ -583,7 +676,12 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             return
         }
         removeRow(rowID)
-        guard showsInChannel else { return }
+        guard showsInChannel else {
+            if !post.rootId.isEmpty, postsByID[post.rootId] != nil {
+                _ = recordReply(post, delta: 1)
+            }
+            return
+        }
         if postsByID[post.id] != nil {
             replace(post)
         } else {
@@ -719,25 +817,13 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     }
 
     static func message(for error: Error) -> String {
-        if let mm = error as? MMError {
-            switch mm {
-            case .offline:
-                return "You are offline. This channel will load when the connection is back."
-            case .timeout:
-                return "The server did not answer in time."
-            case .unauthorized:
-                return "Your session has expired. Sign in again to read this channel."
-            case .forbidden:
-                return "You do not have permission to read this channel."
-            case .notFound:
-                return "This channel no longer exists."
-            case .rateLimited:
-                return "The server is rate limiting this app. Try again shortly."
-            default:
-                break
-            }
-            return mm.errorDescription ?? "The channel could not be loaded."
-        }
-        return error.localizedDescription
+        MMErrorCopy.message(for: error,
+                            offline: "You are offline. This channel will load when the connection is back.",
+                            timeout: "The server did not answer in time.",
+                            unauthorized: "Your session has expired. Sign in again to read this channel.",
+                            forbidden: "You do not have permission to read this channel.",
+                            notFound: "This channel no longer exists.",
+                            rateLimited: "The server is rate limiting this app. Try again shortly.",
+                            fallback: "The channel could not be loaded.")
     }
 }

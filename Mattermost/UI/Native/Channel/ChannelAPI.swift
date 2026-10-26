@@ -38,6 +38,11 @@ extension APIClient {
         var query = page.queryItems
         if collapsedThreads {
             query.append(URLQueryItem(name: "collapsedThreads", value: "true"))
+            // T36: the same page also carries each root's thread participants. Without the extended
+            // form the server answers id-only stubs (measured: `username` empty), which is enough for
+            // an avatar but not for a name; with it, the row's participant stack is drawable from
+            // this one page instead of a follow-up request per root (~500 bytes on a 31-root page).
+            query.append(URLQueryItem(name: "collapsedThreadsExtended", value: "true"))
         }
         return try await get(MMPostList.self,
                              path: "/channels/\(channelID)/posts",

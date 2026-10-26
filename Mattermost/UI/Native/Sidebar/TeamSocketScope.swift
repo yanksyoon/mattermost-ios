@@ -71,6 +71,18 @@ struct TeamSocketScope: Equatable, Sendable {
         case .channelDeleted(let deleted):
             return isInActiveTeam(channelID: deleted.channelID)
                 || (!deleted.teamID.isEmpty && deleted.teamID == teamID)
+        case .threadUpdated(let update):
+            // A thread update names its root post, which names its channel — the same attribution a
+            // `posted` gets (T36).
+            return isInActiveTeam(channelID: update.thread.post.channelId)
+        case .threadFollowChanged, .threadReadChanged:
+            // These carry a thread id and no channel (measured), so this scope cannot attribute them
+            // to a team. They are still accepted: a thread id is globally unique and every consumer
+            // matches it exactly (`change.threadID == rootID` / a row's own id), so a delivery into
+            // the wrong team's surface reaches no model at all — refusing it would only make an open
+            // thread miss its own follow/read change. Same reasoning as `preferencesChanged`, but for
+            // identity rather than scope.
+            return true
         case .sidebarCategoryUpdated(let update):
             // A layout write is team-scoped: it can only change the list of the team it names.
             // An envelope without a team (a stripped proxy frame) is accepted rather than dropped —

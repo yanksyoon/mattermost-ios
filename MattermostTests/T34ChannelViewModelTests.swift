@@ -207,13 +207,16 @@ final class T34ChannelViewModelTests: XCTestCase {
         XCTAssertNil(model.post(id: "r1"), "a dropped reply is not in the window at all")
         XCTAssertEqual(ids(model), ["a"])
 
-        // The same post over the socket: the same answer, for the same reason.
-        XCTAssertEqual(model.handle(.posted(drawn)), .ignored)
+        // The same post over the socket: still no row — T36 made the event patch its root's reply
+        // count instead of being dropped, which is why the outcome is `patched` and the rows are
+        // unchanged.
+        XCTAssertEqual(model.handle(.posted(drawn)), .patched)
         XCTAssertEqual(model.loadedPostIDs, ["a"])
 
         // And a second reply that was never in a page either.
-        XCTAssertEqual(model.handle(.posted(reply("r2", at: 2_000, root: "a"))), .ignored)
+        XCTAssertEqual(model.handle(.posted(reply("r2", at: 2_000, root: "a"))), .patched)
         XCTAssertEqual(model.loadedPostIDs, ["a"])
+        XCTAssertEqual(model.post(id: "a")?.replyCount, 2, "two replies, counted on the root")
     }
 
     /// The older cursor is the **page's** oldest id, not the oldest row the window kept: `before` is
@@ -330,9 +333,13 @@ final class T34ChannelViewModelTests: XCTestCase {
 
         var reply = post("r", at: 2_000)
         reply.rootId = "a"
-        XCTAssertEqual(model.handle(.posted(reply)), .ignored, "a reply belongs to the thread pane, not the channel list")
+        // T36: the reply is still not a row, but its root is on screen — the event now patches that
+        // root's reply count (and its participant stack) instead of being dropped.
+        XCTAssertEqual(model.handle(.posted(reply)), .patched,
+                       "a reply belongs to the thread pane, but its root's reply line is this list's")
 
         XCTAssertEqual(model.loadedPostIDs, ["a"])
+        XCTAssertEqual(model.post(id: "a")?.replyCount, 1)
     }
 
     func testEditKeepsThePosition() async {
@@ -642,8 +649,10 @@ final class T34ChannelPageRequestTests: XCTestCase {
         XCTAssertTrue(newest.contains("per_page=60"), newest)
         XCTAssertTrue(newest.contains("collapsedThreads=true"),
                       "the channel timeline asks for top-level posts only, got \(newest)")
-        XCTAssertFalse(newest.contains("collapsedThreadsExtended"),
-                       "only the filter is requested, not the heavier thread metadata: \(newest)")
+        // T36: the same page also asks for the extended participant form, so a root's reply line can
+        // draw its avatar stack from this one request (without it the server answers id-only stubs).
+        XCTAssertTrue(newest.contains("collapsedThreadsExtended=true"),
+                      "the reply line's participants come with the page, got \(newest)")
 
         // An older page carries the same filter: the cursor moves, the rule does not.
         _ = try await service.posts(channelID: "c1", before: "p9", perPage: 40)

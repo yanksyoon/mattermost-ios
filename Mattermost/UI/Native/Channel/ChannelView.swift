@@ -23,6 +23,9 @@ struct ChannelPostListView: View {
     var emoji: EmojiCatalogue?
     /// What a reader can do with a row (T35). Nil keeps the pre-T35 read-only rendering.
     var rowActions: ((PostRowModel) -> PostRowActions?)? = nil
+    /// T36: what a tap on a root's reply line does — opens that thread. Nil leaves the line inert
+    /// (a preview, or the web render of the pane).
+    var onOpenThread: ((PostRowModel) -> Void)? = nil
 
     /// True while a top visit must not page: the reader has not been away from the top since the last
     /// auto-load, so this is the same visit. Cleared once the viewport is a screen away from the top.
@@ -218,7 +221,8 @@ struct ChannelPostListView: View {
                         emoji: emoji,
                         onToggleExpanded: { toggleExpanded(row.id) },
                         onRetryAttachment: { _ in },
-                        actions: actions(for: row))
+                        actions: actions(for: row),
+                        onOpenThread: onOpenThread.map { open in { open(row) } })
                 // The row's own UIView, so the restore can measure where the reader is without
                 // going through a SwiftUI preference (see ChannelScrollPosition.swift).
                 .background(RowAnchorProbe(postID: row.id, controller: scrollController))
@@ -435,7 +439,10 @@ struct ChannelPaneContent: View {
                 ChannelPostListView(model: model,
                                     imageStore: imageStore,
                                     emoji: emoji,
-                                    rowActions: rowActions)
+                                    rowActions: rowActions,
+                                    onOpenThread: { row in
+                                        openThread(rootID: row.id, row: row)
+                                    })
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -484,6 +491,17 @@ struct ChannelPaneContent: View {
     /// this too, but a menu item that always fails is not an affordance. Reply is offered only when
     /// the composer is native: the menu item opens *this* composer in reply mode, so it must not
     /// appear when the write surface is the webview's.
+    /// T36: open a root's thread. The request carries both the post **and** the channel, so the thread
+    /// pane knows the composer's channel without a second lookup, and Back returns to this
+    /// conversation (`NativeNavigation` opens a thread on top of its channel for exactly that reason).
+    private func openThread(rootID: String, row: PostRowModel) {
+        var request = navigation.location.request
+        request.postID = rootID
+        if request.channelID == nil { request.channelID = row.post.channelId }
+        if request.channelName == nil { request.channelName = channelName }
+        navigation.openThreads(request)
+    }
+
     private var rowActions: (PostRowModel) -> PostRowActions? {
         { row in
             guard composerIsNative, let composer else { return nil }

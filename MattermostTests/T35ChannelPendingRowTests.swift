@@ -148,16 +148,18 @@ final class T35ChannelPendingRowTests: XCTestCase {
         await loadWindow([serverPost("p1", at: 1_000)])
 
         // A reply the app itself sent: the socket echoes it with this device's client id. The
-        // channel list keeps top-level posts only (T34-AV-F1), so the echo is ignored here — the
-        // thread pane (S13/T36) is where a reply is drawn.
+        // channel list keeps top-level posts only (T34-AV-F1), so the echo adds no row here — the
+        // thread pane (S13/T36) is where a reply is drawn. T36 made the echo patch its root's reply
+        // count, so the outcome is `patched` while the row set is unchanged.
         var reply = MMPost(id: "reply-1", createAt: 2_200, userId: "u1", channelId: channelID,
                            rootId: "p1", message: "in the thread")
         reply.pendingPostId = "pending:1"
         let outcome = model.handle(.posted(reply))
 
-        XCTAssertEqual(outcome, .ignored)
+        XCTAssertEqual(outcome, .patched)
         XCTAssertFalse(model.loadedPostIDs.contains("reply-1"))
         XCTAssertEqual(rows().count, 1)
+        XCTAssertEqual(row(id: "p1")?.replyCount, 1, "the root's reply line moved instead")
     }
 
     func testInsertingAPendingRowForAReplyIsRefused() async {

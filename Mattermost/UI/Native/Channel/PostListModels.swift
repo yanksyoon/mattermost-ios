@@ -132,6 +132,11 @@ struct PostRowModel: Equatable, Identifiable, Sendable {
     var reactions: [PostReactionSummary]
     var attachments: [PostAttachment]
     var replyCount: Int
+    /// T36: the people in the thread under this root, newest activity first — the avatar stack beside
+    /// the reply count. Empty for a post with no replies. Derived from the server's `participants`
+    /// (which the channel page asks for with `collapsedThreadsExtended=true`) and, in the thread pane,
+    /// from the replies actually loaded (`ThreadDerivation.participants`).
+    var participants: [PostAuthor] = []
     /// T35: an optimistic row the composer inserted, whose `id` is a local `pending:<uuid>`. The row
     /// draws a muted "Sending…" status and is not yet a fact about the conversation.
     var isPending: Bool = false
@@ -307,8 +312,44 @@ enum PostListDerivation {
                             reactions: reactions(for: post, myUserID: myUserID),
                             attachments: attachments(for: post),
                             replyCount: post.replyCount,
+                            participants: participantAuthors(participants: post.participants ?? [],
+                                                            users: users),
                             isPending: pending,
                             fold: fold)
+    }
+
+    /// The avatars a root row draws for the people in its thread.
+    ///
+    /// The source is the server's own `participants` array (in server order, which is most-recent
+    /// activity first). A participant the server sent as an **id-only stub** — the non-extended
+    /// thread-collapsed form — gets an avatar drawn from its id and no invented name: a row that says
+    /// "Unknown user" beside a hash-coloured circle is worse than a circle and a person glyph.
+    static func participantAuthors(participants: [MMUser],
+                                   users: [String: MMUser],
+                                   limit: Int = 4) -> [PostAuthor] {
+        var seen = Set<String>()
+        var authors: [PostAuthor] = []
+        for participant in participants where !participant.id.isEmpty && !seen.contains(participant.id) {
+            seen.insert(participant.id)
+            if authors.count >= limit { break }
+            let profile = users[participant.id] ?? participant
+            let isStub = profile.username.isEmpty
+                && profile.firstName.isEmpty
+                && profile.lastName.isEmpty
+                && profile.nickname.isEmpty
+            authors.append(isStub
+                ? PostAuthor(id: participant.id, username: "", displayName: "")
+                : author(for: profile))
+        }
+        return authors
+    }
+
+    /// A participant profile as the avatar stack draws it (T36). One rule, so the channel row and the
+    /// thread pane's own stack cannot name the same person differently.
+    static func author(for user: MMUser) -> PostAuthor {
+        PostAuthor(id: user.id,
+                   username: user.username,
+                   displayName: displayName(for: user))
     }
 
     /// Decide what a folded post shows.

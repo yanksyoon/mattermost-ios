@@ -215,6 +215,46 @@ struct SocketPostUnread: Equatable, Sendable {
     var lastViewedAt: Int64
 }
 
+/// `thread_follow_changed` — a follow write landed, mine or (on another of my clients) my own.
+///
+/// Measured on the pinned 9.11.19 server (`scripts/t36_thread_probe.py`): `data` is
+/// `{thread_id, state, reply_count}` and the envelope carries `broadcast.user_id` (me) and
+/// `broadcast.team_id`. The event is what makes a follow pressed on one device appear on the other
+/// without a refetch.
+struct SocketThreadFollowChanged: Equatable, Sendable {
+    var threadID: String
+    var state: Bool
+    var replyCount: Int
+}
+
+/// `thread_read_changed` — my read position in a thread moved (a `read` or `set_unread` write).
+///
+/// Measured: `data` is `{channel_id, thread_id, timestamp, unread_replies, unread_mentions,
+/// previous_unread_replies, previous_unread_mentions}`. An **empty** `thread_id` means the whole
+/// team's threads were marked read (`PUT …/threads/read`), which is why the id is not required.
+struct SocketThreadReadChanged: Equatable, Sendable {
+    var threadID: String
+    var channelID: String
+    /// The thread's new `last_viewed_at` (ms).
+    var timestamp: Int64
+    var unreadReplies: Int
+    var unreadMentions: Int
+    var previousUnreadReplies: Int
+    var previousUnreadMentions: Int
+}
+
+/// `thread_updated` — the server recomputed a thread I follow (a new reply, an edit, a delete).
+///
+/// Measured: `data` is `{thread, previous_unread_replies, previous_unread_mentions}` where `thread`
+/// is a **JSON string** (the same escaping `posted` uses for its post), and the envelope carries
+/// `broadcast.team_id`. It is delivered only to followers, which is why applying it also means
+/// "I follow this thread" (upstream `handleThreadUpdatedEvent` sets `is_following = true`).
+struct SocketThreadUpdated: Equatable, Sendable {
+    var thread: MMThread
+    var previousUnreadReplies: Int
+    var previousUnreadMentions: Int
+}
+
 /// The events the native client consumes, typed. `unhandled` keeps forward compatibility: a
 /// newer server introducing an event must not break the stream.
 enum SocketEvent: Equatable, Sendable {
@@ -242,6 +282,12 @@ enum SocketEvent: Equatable, Sendable {
     case channelMemberUpdated(SocketChannelMemberUpdate)
     /// The server's unread counters for one channel of mine moved (`post_unread`).
     case postUnread(SocketPostUnread)
+    /// A thread I follow was recomputed (`thread_updated`).
+    case threadUpdated(SocketThreadUpdated)
+    /// A thread follow write landed, from this device or another of mine (`thread_follow_changed`).
+    case threadFollowChanged(SocketThreadFollowChanged)
+    /// My read position in a thread (or in the whole team's threads) moved (`thread_read_changed`).
+    case threadReadChanged(SocketThreadReadChanged)
     /// An event this build does not model (still delivered, still counted).
     case unhandled(name: String)
 
@@ -336,6 +382,35 @@ enum SocketEvent: Equatable, Sendable {
                 msgCount: frame.data?["msg_count"]?.int64Value ?? 0,
                 mentionCount: frame.data?["mention_count"]?.int64Value ?? 0,
                 lastViewedAt: frame.data?["last_viewed_at"]?.int64Value ?? 0))
+        case "thread_updated":
+            // `data.thread` is a JSON **string** (measured); some proxies relay the object itself.
+            guard let raw = frame.data?["thread"],
+                  let thread = try? Self.jsonStringOrObject(raw).decode(MMThread.self),
+                  !thread.id.isEmpty else { return nil }
+            self = .threadUpdated(SocketThreadUpdated(
+                thread: thread,
+                previousUnreadReplies: frame.data?["previous_unread_replies"]?.intValue ?? 0,
+                previousUnreadMentions: frame.data?["previous_unread_mentions"]?.intValue ?? 0))
+        case "thread_follow_changed":
+            guard let threadID = frame.data?["thread_id"]?.stringValue, !threadID.isEmpty else {
+                return nil
+            }
+            self = .threadFollowChanged(SocketThreadFollowChanged(
+                threadID: threadID,
+                state: frame.data?["state"]?.boolValue ?? false,
+                replyCount: frame.data?["reply_count"]?.intValue ?? 0))
+        case "thread_read_changed":
+            // An empty `thread_id` is the "whole team marked read" form, so only the frame's own
+            // presence is required — never the id.
+            guard let data = frame.data, data["timestamp"] != nil else { return nil }
+            self = .threadReadChanged(SocketThreadReadChanged(
+                threadID: data["thread_id"]?.stringValue ?? "",
+                channelID: data["channel_id"]?.stringValue ?? "",
+                timestamp: data["timestamp"]?.int64Value ?? 0,
+                unreadReplies: data["unread_replies"]?.intValue ?? 0,
+                unreadMentions: data["unread_mentions"]?.intValue ?? 0,
+                previousUnreadReplies: data["previous_unread_replies"]?.intValue ?? 0,
+                previousUnreadMentions: data["previous_unread_mentions"]?.intValue ?? 0))
         default:
             self = .unhandled(name: name)
         }
@@ -399,6 +474,9 @@ enum SocketEvent: Equatable, Sendable {
         case .channelDeleted: return "channel_deleted"
         case .channelMemberUpdated: return "channel_member_updated"
         case .postUnread: return "post_unread"
+        case .threadUpdated: return "thread_updated"
+        case .threadFollowChanged: return "thread_follow_changed"
+        case .threadReadChanged: return "thread_read_changed"
         case .unhandled(let name): return name
         }
     }
@@ -425,6 +503,7 @@ enum SocketEvent: Equatable, Sendable {
         case .typing, .channelViewed, .multipleChannelsViewed, .statusChange, .preferencesChanged,
              .reactionAdded, .reactionRemoved, .sidebarCategoryUpdated,
              .channelCreated, .channelDeleted, .channelMemberUpdated, .postUnread,
+             .threadUpdated, .threadFollowChanged, .threadReadChanged,
              .unhandled:
             return nil
         }

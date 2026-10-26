@@ -79,12 +79,32 @@ struct PostAvatarView: View {
         ZStack {
             Circle()
                 .fill(Color(hue: author.avatarHue, saturation: 0.45, brightness: 0.82))
-            Text(author.initials)
-                .font(.system(size: size * 0.36, weight: .semibold))
-                .foregroundStyle(.white)
+            if author.initials.isEmpty {
+                // A participant the server sent as an id-only stub: an avatar is honest, an invented
+                // name is not (T36).
+                Image(systemName: "person.fill")
+                    .font(.system(size: size * 0.45, weight: .semibold))
+                    .foregroundStyle(.white)
+            } else {
+                Text(author.initials)
+                    .font(.system(size: size * 0.36, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
+    }
+}
+
+/// One face in a root row's participant stack (T36): the same avatar, small, with a background ring
+/// so overlapping circles stay distinguishable.
+struct PostParticipantAvatarView: View {
+    let author: PostAuthor
+    var size: CGFloat = 20
+
+    var body: some View {
+        PostAvatarView(author: author, size: size)
+            .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 1.5))
     }
 }
 
@@ -116,6 +136,8 @@ struct PostRowView: View {
     let onRetryAttachment: (String) -> Void
     /// Nil = no menu (the pre-T35 rendering, used by previews and by any read-only host).
     var actions: PostRowActions? = nil
+    /// T36: open this post's thread (the reply line's tap). Nil keeps the line non-interactive.
+    var onOpenThread: (() -> Void)? = nil
 
     private var showsHeader: Bool { !row.isGrouped && !row.isSystem }
 
@@ -132,6 +154,7 @@ struct PostRowView: View {
                     body(for: row)
                     attachments
                     reactions
+                    replyLine
                 }
                 if row.isPending { sendingStatus }
             }
@@ -288,6 +311,60 @@ struct PostRowView: View {
             .italic()
             .foregroundStyle(.secondary)
             .accessibilityIdentifier("post.\(row.id).deleted")
+    }
+
+    // MARK: Reply line (T36, S13)
+
+    /// The thread affordance every collapsed-thread client draws under a root: the people in the
+    /// thread, then "N replies". Upstream puts this on the root's body (`post/body/reply_count`),
+    /// tapping it opens the thread — which is the only way into a reply from the centre timeline,
+    /// since a reply is deliberately not a row there (`ChannelViewModel.isTimelineRow`).
+    ///
+    /// Nothing is drawn for a post with no replies, and the line is not a button when the host has no
+    /// thread surface to open (a preview, or the web render of the pane).
+    @ViewBuilder
+    private var replyLine: some View {
+        if row.replyCount > 0, let label = ThreadDerivation.replyLabel(row.replyCount) {
+            if let onOpenThread {
+                Button(action: onOpenThread) {
+                    replyLineContent(label: label)
+                }
+                .buttonStyle(.plain)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(label). Open thread")
+                .accessibilityValue("\(row.replyCount)")
+                .accessibilityIdentifier("post.\(row.id).replyCount")
+            } else {
+                replyLineContent(label: label)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("post.\(row.id).replyCount")
+            }
+        }
+    }
+
+    private func replyLineContent(label: String) -> some View {
+        HStack(spacing: 6) {
+            if !row.participants.isEmpty {
+                HStack(spacing: -7) {
+                    ForEach(Array(row.participants.prefix(ThreadDerivation.participantLimit).enumerated()),
+                            id: \.offset) { _, author in
+                        PostParticipantAvatarView(author: author, size: 20)
+                    }
+                }
+                .accessibilityHidden(true)
+            }
+            Text(label)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+            if onOpenThread != nil {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 2)
+        .contentShape(Rectangle())
     }
 
     @ViewBuilder
