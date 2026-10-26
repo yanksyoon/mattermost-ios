@@ -89,6 +89,13 @@ final class T34ChannelViewModelTests: XCTestCase {
                    hasNext: hasNext)
     }
 
+    /// A reply: a post whose `root_id` names the post it answers.
+    private func reply(_ id: String, at millis: Int64, root: String, user: String = "u1") -> MMPost {
+        var post = post(id, at: millis, user: user)
+        post.rootId = root
+        return post
+    }
+
     private func model(_ service: FakeService,
                        myUserID: String? = "me",
                        lastViewedAt: Int64? = nil) -> ChannelViewModel {
@@ -178,6 +185,83 @@ final class T34ChannelViewModelTests: XCTestCase {
         await model.load()
         await model.loadEarlier()
         XCTAssertFalse(model.hasMore)
+    }
+
+    // MARK: Replies are not rows (T34-AV-F1) — one rule, both paths
+
+    /// The defect the T34-AV validator measured: a reply arriving in a page was drawn as a top-level
+    /// row (288 of perf-feed's 503 rows), while the *same* reply arriving over the socket was dropped.
+    /// Both halves now answer with `ChannelViewModel.isTimelineRow`, so the answer cannot depend on
+    /// how the post arrived.
+    func testARepliesPageDrawsNoRowsAndTheSameReplyIsDroppedOverTheSocket() async {
+        let root = post("a", at: 1_000)
+        let drawn = reply("r1", at: 1_500, root: "a")
+        let service = FakeService(pageSize: 3, firstPages: [list([drawn, root])])
+
+        let model = model(service)
+        await model.load()
+
+        XCTAssertEqual(model.loadedPostIDs, ["a"],
+                       "the page's reply must not be a channel row, got \(model.loadedPostIDs)")
+        XCTAssertEqual(model.loadedCount, 1)
+        XCTAssertNil(model.post(id: "r1"), "a dropped reply is not in the window at all")
+        XCTAssertEqual(ids(model), ["a"])
+
+        // The same post over the socket: the same answer, for the same reason.
+        XCTAssertEqual(model.handle(.posted(drawn)), .ignored)
+        XCTAssertEqual(model.loadedPostIDs, ["a"])
+
+        // And a second reply that was never in a page either.
+        XCTAssertEqual(model.handle(.posted(reply("r2", at: 2_000, root: "a"))), .ignored)
+        XCTAssertEqual(model.loadedPostIDs, ["a"])
+    }
+
+    /// The older cursor is the **page's** oldest id, not the oldest row the window kept: `before` is
+    /// exclusive, so a cursor taken from the kept rows would step back inside the page just read.
+    func testTheOlderCursorIsThePagesOldestIDEvenWhenThatPostIsAReply() async {
+        // Newest first, as the server orders a channel page: `c`, then `a`, then the reply — so the
+        // page's oldest post is one this window drops, and the last row kept is `a`.
+        let page = list([post("c", at: 3_000), post("a", at: 2_500), reply("r", at: 2_000, root: "c")])
+        let service = FakeService(pageSize: 3, firstPages: [page])
+        service.olderPages["r"] = list([post("older", at: 500)], hasNext: false)
+
+        let model = model(service)
+        await model.load()
+        XCTAssertEqual(model.loadedPostIDs, ["c", "a"])
+        XCTAssertEqual(model.oldestLoadedPostID, "a", "the last row kept is not the page's oldest post")
+
+        let grew = await model.loadEarlier()
+        XCTAssertTrue(grew)
+        XCTAssertEqual(service.requestedCursors, [nil, "r"],
+                       "the page asked for what is older than the reply, which is the page's oldest id")
+        XCTAssertEqual(model.loadedPostIDs, ["c", "a", "older"])
+    }
+
+    /// A page can hold nothing this window keeps (a run of replies under one root). Ending the window
+    /// there would leave the sentinel saying "This is the beginning of the channel" with posts still
+    /// unread, so the walk advances the server cursor and asks again inside the same `loadEarlier`.
+    func testARepliesOnlyPageIsWalkedThroughInsteadOfEndingTheWindow() async {
+        let first = list([post("c", at: 3_000), post("b", at: 2_000)], hasNext: true)
+        let service = FakeService(pageSize: 2, firstPages: [first])
+        // Two full pages of replies, then a page with a row.
+        service.olderPages["b"] = list([reply("r1", at: 1_900, root: "b"),
+                                        reply("r2", at: 1_800, root: "b")], hasNext: true)
+        service.olderPages["r2"] = list([reply("r3", at: 1_700, root: "b"),
+                                         reply("r4", at: 1_600, root: "b")], hasNext: true)
+        service.olderPages["r4"] = list([post("a", at: 1_000)], hasNext: false)
+
+        let model = model(service)
+        await model.load()
+        XCTAssertEqual(model.loadedPostIDs, ["c", "b"])
+        XCTAssertTrue(model.hasMore)
+
+        let grew = await model.loadEarlier()
+        XCTAssertTrue(grew, "the walk must reach the row behind the replies, not stop at the first empty page")
+        XCTAssertEqual(service.requestedCursors, [nil, "b", "r2", "r4"])
+        XCTAssertEqual(model.loadedPostIDs, ["c", "b", "a"])
+        XCTAssertFalse(model.hasMore, "the short page that carried the row ended the window")
+        XCTAssertFalse(model.loadedPostIDs.contains("r1"))
+        XCTAssertFalse(model.loadedPostIDs.contains("r3"))
     }
 
     func testARepeatedPageStopsInsteadOfLooping() async {
@@ -522,5 +606,50 @@ final class T34ChannelPaneCoordinatorTests: XCTestCase {
         let elsewhere = MMPost(id: "p2", createAt: 2_000, userId: "u1", channelId: "b", message: "no")
         await coordinator.handle(.posted(elsewhere), serverID: server.id)
         XCTAssertEqual(model.loadedPostIDs, ["p1"])
+    }
+}
+
+// MARK: - The production page request (T34-AV-F1)
+
+/// What the app actually asks the server for.
+///
+/// The tests above fake `ChannelServing`, so they pin the *rule*; this one pins the *request* the
+/// rule leans on — `collapsedThreads=true`, the server's own "top-level posts only" view of a
+/// channel. Measured on the pinned 9.11.19 server (perf-feed, 503 posts = 215 roots + 288 replies):
+/// without it a 60-post page came back 25 roots + 35 replies, with it 60 roots and 0 replies, and
+/// `before`-paging over the roots walked the same 215 ids an unfiltered walk's roots do
+/// (docs/t34r5-build-note.md §2).
+@MainActor
+final class T34ChannelPageRequestTests: XCTestCase {
+
+    private func apiClient(_ transport: FakeAPITransport) throws -> APIClient {
+        try APIClient(serverURL: URL(string: "https://mm.example.com")!,
+                      transport: transport,
+                      retryPolicy: APIClient.RetryPolicy(maxAttempts: 1, baseDelay: 0, maxDelay: 0,
+                                                         jitterRatio: 0),
+                      tokenProvider: { "test-token" },
+                      sleep: { _ in },
+                      random: { 0 })
+    }
+
+    func testTheProductionServiceAsksTheServerForTheThreadCollapsedPage() async throws {
+        let transport = FakeAPITransport(repeating: .json(["order": [], "posts": [:] as [String: Any]]))
+        let api = try apiClient(transport)
+        let service = SessionChannelService(pageSize: 60, resolve: { api })
+
+        _ = try await service.posts(channelID: "c1", before: nil, perPage: 60)
+        let newest = try XCTUnwrap(transport.lastRequest?.url.absoluteString)
+        XCTAssertTrue(newest.contains("per_page=60"), newest)
+        XCTAssertTrue(newest.contains("collapsedThreads=true"),
+                      "the channel timeline asks for top-level posts only, got \(newest)")
+        XCTAssertFalse(newest.contains("collapsedThreadsExtended"),
+                       "only the filter is requested, not the heavier thread metadata: \(newest)")
+
+        // An older page carries the same filter: the cursor moves, the rule does not.
+        _ = try await service.posts(channelID: "c1", before: "p9", perPage: 40)
+        let older = try XCTUnwrap(transport.lastRequest?.url.absoluteString)
+        XCTAssertTrue(older.contains("before=p9"), older)
+        XCTAssertTrue(older.contains("per_page=40"), older)
+        XCTAssertTrue(older.contains("collapsedThreads=true"), older)
     }
 }

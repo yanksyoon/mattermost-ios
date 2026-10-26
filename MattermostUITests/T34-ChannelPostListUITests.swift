@@ -408,6 +408,7 @@ final class T34ChannelPostListUITests: XCTestCase {
         let app = launchAndOpen(channelName: channel.name)
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 60))
 
+
         let message = "t34 ui live post \(UUID().uuidString.prefix(8))"
         let postID = try XCTAssertNotNilAndUnwrap(post(message, channelID: channel.id))
 
@@ -416,8 +417,15 @@ final class T34ChannelPostListUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 45),
                       "a posted message must appear over the socket without a reload:\n"
                       + "\(app.debugDescription)")
-        XCTAssertTrue(row.label.contains(String(message.prefix(20))) || app.staticTexts[message].exists,
-                      "the new row does not carry the message text, got '\(row.label)'")
+        // T34-AV-F2: the row element itself carries **no** accessibility label — the text is published
+        // by the markdown blocks inside it (`post.<id>.body.block<n>`). So `row.label.contains(...)`
+        // was always false here and the assertion only ever passed on its `staticTexts` fallback.
+        // Read the blocks the renderer actually draws.
+        let body = bodyText(app, postID: postID)
+        XCTAssertFalse(body.isEmpty,
+                       "the new row publishes no body block:\n\(row.debugDescription)")
+        XCTAssertTrue(body.contains(String(message.prefix(20))),
+                      "the new row's body does not carry the message text, got '\(body)'")
         attach(app, "t34-socket-post-arrived")
 
         // `last_viewed_at` (read back from the server) is what places the unread line — but opening a
@@ -443,6 +451,63 @@ final class T34ChannelPostListUITests: XCTestCase {
             element(app, "post.\(postID).deleted").exists
                 || !element(app, "post.\(postID)").exists
         }, "a deleted post must turn into a tombstone (or disappear) on the socket")
+    }
+
+    // MARK: - 7. A thread reply is never a channel row (T34-AV-F1)
+
+    /// The validator's finding, re-measured against the running app: the same reply used to be drawn
+    /// when it arrived in a page and dropped when it arrived over the socket. Both paths now obey one
+    /// rule — the channel timeline holds top-level posts only — so this test asserts the rule on both
+    /// sides and, crucially, that the socket is **alive** while the reply is missing (a dead socket
+    /// would make the negative assertion pass for the wrong reason).
+    func testAThreadReplyIsNeverAChannelRowHoweverItArrives() throws {
+        let channel = try channel(named: showcaseChannelName)
+        let stamp = String(UUID().uuidString.prefix(8))
+        let rootID = try XCTUnwrap(post("t34 av root \(stamp)", channelID: channel.id))
+        let replyID = try XCTUnwrap(post("t34 av reply \(stamp)", channelID: channel.id, rootID: rootID))
+        defer {
+            // Leave the shared seeded channel as it was (a delete, not a stray message).
+            try? delete(replyID, token: token)
+            try? delete(rootID, token: token)
+        }
+
+        // 1. The page the app asks for does not even carry the reply: the server's thread-collapsed
+        //    answer holds roots only. This is what makes the row set and the socket rule agree.
+        let page = try channelPosts(channel.id, perPage: 200)
+        XCTAssertTrue(page.contains { ($0["id"] as? String) == rootID },
+                      "the root must be on the newest page")
+        XCTAssertFalse(page.contains { ($0["id"] as? String) == replyID },
+                       "a thread-collapsed page must not carry the reply \(replyID)")
+        let mixedPage = try channelPosts(channel.id, perPage: 200, collapsedThreads: false)
+        XCTAssertTrue(mixedPage.contains { ($0["id"] as? String) == replyID },
+                      "without the filter the server does return the reply — so the check above is "
+                      + "about the request, not about the server having lost the post")
+
+        let app = launchAndOpen(channelName: channel.name)
+        XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 60))
+
+        // 2. The root is a row; the reply is not — not as a row, not as text anywhere in the pane.
+        XCTAssertTrue(revealRow(app, "post.\(rootID)", maxSwipes: 14).waitForExistence(timeout: 30),
+                      "the top-level post \(rootID) must be drawn:\n\(app.debugDescription)")
+        XCTAssertFalse(element(app, "post.\(replyID)").exists,
+                       "reply \(replyID) arrived in the pane's page and must not be a channel row")
+        XCTAssertEqual(bodyText(app, postID: replyID), "",
+                       "no row for \(replyID) means no body block for it either")
+
+        // 3. A reply that arrives **while the pane is open**: same answer, over the socket.
+        let liveReplyID = try XCTUnwrap(post("t34 av live reply \(stamp)", channelID: channel.id,
+                                            rootID: rootID))
+        defer { try? delete(liveReplyID, token: token) }
+        XCTAssertFalse(waitUntil(timeout: 45) { element(app, "post.\(liveReplyID)").exists },
+                       "a reply posted while the pane is open must not become a channel row")
+
+        // 4. …and the socket really is delivering: a top-level post shows up without a reload. Without
+        //    this step the negative assertion above would also pass on a broken socket.
+        let liveRootID = try XCTUnwrap(post("t34 av live root \(stamp)", channelID: channel.id))
+        defer { try? delete(liveRootID, token: token) }
+        XCTAssertTrue(element(app, "post.\(liveRootID)").waitForExistence(timeout: 45),
+                      "a top-level post must still arrive over the socket:\n\(app.debugDescription)")
+        attach(app, "t34r5-reply-not-a-row")
     }
 
     // MARK: - Launch
@@ -535,14 +600,22 @@ final class T34ChannelPostListUITests: XCTestCase {
         return Channel(id: id, name: row["name"] as? String ?? name)
     }
 
+    /// One page of a channel, read the way the **app** reads it.
+    ///
+    /// `collapsedThreads=true` is not a test-side convenience: it is the query the pane sends
+    /// (`ChannelAPI.channelPosts`), so the test's oracle and the app's list answer the same question.
+    /// Without it the server mixes replies into the page, and an earlier version of this suite
+    /// compared a roots-only list against a mixed page (T34-AV-F1).
     private func channelPosts(_ channelID: String, perPage: Int = 200,
-                              before: String? = nil) throws -> [[String: Any]] {
+                              before: String? = nil,
+                              collapsedThreads: Bool = true) throws -> [[String: Any]] {
         // A query string must go through `URLComponents`: `appendingPathComponent` would escape the
         // `?` into the path and the request would 404 (which is how this test first read "0 posts").
         var components = URLComponents(url: serverURL.appendingPathComponent(
             "api/v4/channels/\(channelID)/posts"), resolvingAgainstBaseURL: false)
         var items = [URLQueryItem(name: "per_page", value: String(perPage))]
         if let before { items.append(URLQueryItem(name: "before", value: before)) }
+        if collapsedThreads { items.append(URLQueryItem(name: "collapsedThreads", value: "true")) }
         components?.queryItems = items
         let url = try XCTUnwrap(components?.url)
         let page = try getJSON(url: url) as? [String: Any] ?? [:]
@@ -583,13 +656,14 @@ final class T34ChannelPostListUITests: XCTestCase {
         _ = try? synchronous(request)
     }
 
-    private func post(_ message: String, channelID: String) throws -> String? {
+    private func post(_ message: String, channelID: String, rootID: String? = nil) throws -> String? {
         var request = URLRequest(url: serverURL.appendingPathComponent("api/v4/posts"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["channel_id": channelID,
-                                                                      "message": message])
+        var body: [String: Any] = ["channel_id": channelID, "message": message]
+        if let rootID { body["root_id"] = rootID }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try synchronous(request)
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 201,
                        "posting as the fixture user must succeed")
@@ -695,11 +769,18 @@ final class T34ChannelPostListUITests: XCTestCase {
 
     /// The text of a post's markdown blocks, joined — what the reader would see (including any
     /// shortcode the renderer failed to resolve, which is exactly what the emoji test looks for).
-    private func blockLabel(_ app: XCUIApplication, postID: String) -> String {
+    ///
+    /// The row element is `post.<id>` and carries no accessibility label of its own (T34-AV-F2): the
+    /// text is published by `MarkdownView` on `post.<id>.body.block<n>` — and a quoted block nests its
+    /// own children under `.quote.block<n>`, which is why this matches the prefix rather than one name.
+    private func bodyText(_ app: XCUIApplication, postID: String) -> String {
         let query = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "post.\(postID).block"))
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "post.\(postID).body.block"))
         guard query.count > 0 else { return "" }
-        return (0..<query.count).map { query.element(boundBy: $0).label }.joined(separator: " ")
+        return (0..<query.count)
+            .map { query.element(boundBy: $0).label }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 
     /// Swipe towards the **older** end until `identifier` is in the tree.

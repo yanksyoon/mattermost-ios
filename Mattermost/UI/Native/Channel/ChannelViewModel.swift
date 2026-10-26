@@ -18,6 +18,13 @@
 //    (T29 delivered the store module; wiring it per server is not this card), so the window is
 //    in-memory. The seam is `ChannelServing`, so a store-backed implementation can replace the
 //    network one without touching the view or these rules (docs/t34-build-note.md §10).
+//
+// The window's membership rule (T34-R5, finding T34-AV-F1) is stated once — `isTimelineRow` — and
+// used by **both** halves: the page merge (`load`/`loadEarlier`) and the socket handler
+// (`accepts(post:)`). Before that repair the page kept every post the server returned (replies
+// included, drawn as top-level messages with no thread affordance) while the socket dropped them,
+// so the same reply was a row or not depending only on how it arrived. A thread-collapsed Mattermost
+// centre timeline shows top-level posts only, which is what both halves now do.
 
 import Foundation
 import Combine
@@ -93,9 +100,17 @@ final class ChannelViewModel: ObservableObject {
     // MARK: The window
 
     /// Newest first — the server's own order, kept as the single source for pagination order.
+    /// Holds **rows only** (see `isTimelineRow`), never a reply.
     private var posts: [MMPost] = []
     private var postsByID: [String: MMPost] = [:]
     private var users: [String: MMUser] = [:]
+    /// The newest page's oldest post id as the **server** answered it — the next `before` cursor.
+    ///
+    /// Kept apart from `oldestLoadedPostID` on purpose: a page can carry posts this window drops (a
+    /// reply), and the server's `before` is exclusive, so a cursor taken from the last row *kept*
+    /// would ask for a window that starts after the page's real end — or, on a page that is entirely
+    /// replies, would not advance at all and stall paging (T34-R5).
+    private var pageCursor: String?
     /// `channel_member.last_viewed_at`, used to place the unread divider. `nil` = unknown.
     private var lastViewedAt: Int64?
     /// True once `lastViewedAt` came from a caller or the server, so the load does not overwrite it
@@ -167,7 +182,10 @@ final class ChannelViewModel: ObservableObject {
                                               perPage: service.pageSize)
             guard requested == generation else { return }
 
-            posts = Self.sortedNewestFirst(page.orderedPosts)
+            // The window keeps the page's top-level posts; the cursor keeps the page's oldest id,
+            // whatever the page held (T34-R5: the two must not be the same expression).
+            pageCursor = page.orderedPosts.last?.id
+            posts = Self.sortedNewestFirst(Self.timelineRows(page.orderedPosts, channelID: channelID))
             postsByID = Dictionary(uniqueKeysWithValues: posts.map { ($0.id, $0) })
             hasMore = Self.morePages(after: page, pageSize: service.pageSize)
             // Where the reader stopped last time: the membership row's `last_viewed_at` is what places
@@ -189,10 +207,21 @@ final class ChannelViewModel: ObservableObject {
         }
     }
 
+    /// How many pages one "load earlier" will consume while they yield no new row.
+    ///
+    /// A page can legitimately hold nothing this window keeps — a run of 60 replies under one root is
+    /// exactly that — and ending the window there would leave the sentinel saying "This is the
+    /// beginning of the channel" with posts still unread. The walk therefore advances the server
+    /// cursor and asks again, up to this many pages per call; past it, `hasMore` stays true and the
+    /// reader's next reach at the top continues from the advanced cursor. The production request asks
+    /// the server for top-level posts only, so a page normally yields rows and one hop is the norm.
+    static let maximumPageHops = 10
+
     /// Load one older page. Returns whether the window grew.
     @discardableResult
     func loadEarlier() async -> Bool {
-        guard phase == .loaded, hasMore, !isLoadingMore, let oldest = posts.last?.id else {
+        guard phase == .loaded, hasMore, !isLoadingMore,
+              let cursor = pageCursor ?? posts.last?.id else {
             return false
         }
         // Take the reader's place *now*, from the view, before anything is inserted: after the merge
@@ -204,26 +233,48 @@ final class ChannelViewModel: ObservableObject {
         loadEarlierError = nil
         defer { isLoadingMore = false }
         let requested = generation
+        var rows: [MMPost] = []
+        var nextCursor = cursor
+        var more = hasMore
+        var hops = 0
         do {
-            let page = try await service.posts(channelID: channelID, before: oldest,
-                                               perPage: service.pageSize)
-            guard requested == generation else { return false }
-            let known = Set(posts.map(\.id))
-            let fresh = page.orderedPosts.filter { !known.contains($0.id) }
-            guard !fresh.isEmpty else {
-                // The server answered with a page we already hold (a stale cursor, or the very
-                // oldest page repeated). Nothing to merge, and stopping here is what prevents an
-                // infinite "load more" loop.
-                hasMore = false
+            while true {
+                hops += 1
+                let page = try await service.posts(channelID: channelID, before: nextCursor,
+                                                   perPage: service.pageSize)
+                guard requested == generation else { return false }
+                let raw = page.orderedPosts
+                let known = Set(posts.map(\.id)).union(rows.map(\.id))
+                let fresh = Self.timelineRows(raw, channelID: channelID)
+                    .filter { !known.contains($0.id) }
+                rows.append(contentsOf: fresh)
+                // A short page is the last page. `has_next` is *not* consulted: the pinned server
+                // answers `false` on every channel page, including the first of six (see `morePages`).
+                more = Self.morePages(after: page, pageSize: service.pageSize)
+                // The cursor advances to the page's oldest id. `before` is exclusive, so a page that
+                // ends on the cursor itself means the server ignored `before` (a stale cursor, or the
+                // very oldest page repeated): the only honest advance left is the oldest *new* id on
+                // the page, and a page with nothing new at all is no progress — stop, never spin.
+                let pageOldest = raw.last?.id
+                let advanced = pageOldest != nextCursor ? pageOldest : fresh.last?.id
+                guard let advanced, advanced != nextCursor else {
+                    more = false
+                    break
+                }
+                nextCursor = advanced
+                if !fresh.isEmpty || !more || hops >= Self.maximumPageHops { break }
+            }
+            pageCursor = nextCursor
+            hasMore = more
+            guard !rows.isEmpty else {
+                // Every page read was made of posts this window does not keep. The window is unchanged
+                // (so the reader is not moved), and the cursor has advanced for the next reach.
                 return false
             }
-            posts = Self.sortedNewestFirst(posts + fresh)
-            for post in fresh { postsByID[post.id] = post }
-            await loadProfiles(for: Array(Set(fresh.map(\.userId))))
+            posts = Self.sortedNewestFirst(posts + rows)
+            for post in rows { postsByID[post.id] = post }
+            await loadProfiles(for: Array(Set(rows.map(\.userId))))
             guard requested == generation else { return false }
-            // A short page is the last page. `has_next` is *not* consulted: the pinned server answers
-            // `false` on every channel page, including the first of six (see `morePages`).
-            hasMore = Self.morePages(after: page, pageSize: service.pageSize)
             rebuild()
             // The reader was looking at `anchor`; the view scrolls back to it after this publish.
             pendingScrollRestore = scrollAnchor
@@ -275,8 +326,10 @@ final class ChannelViewModel: ObservableObject {
     /// Apply one event from the server's socket (already scoped to the team by `TeamSocketScope`).
     ///
     /// The rules, each of which a test pins:
-    ///  - only posts of **this** channel, and only top-level posts (a reply belongs to the thread
-    ///    pane, S13/T36 — the channel list must not show it);
+    ///  - only posts of **this** channel, and only top-level posts: a reply belongs to the thread pane
+    ///    (S13/T36), so the channel list must not show it — and the page merge applies the *same*
+    ///    rule (`isTimelineRow`), so a reply is a row or not for exactly the same reason however it
+    ///    arrived (T34-AV-F1);
     ///  - a `posted` for an id already in the window **replaces** it (a reconnect replay or a race with
     ///    the page load must not duplicate the row);
     ///  - an edit keeps the row's position (a post does not move because it was edited);
@@ -354,8 +407,24 @@ final class ChannelViewModel: ObservableObject {
         return outcome
     }
 
+    /// The window's membership rule, stated **once** and used by both halves (T34-AV-F1).
+    ///
+    /// A row of a channel's centre timeline is a top-level post of that channel. A reply
+    /// (`root_id != ""`) is drawn by the thread pane (S11/T36), exactly as a thread-collapsed
+    /// Mattermost client draws its centre channel — never as a top-level row with no way to see what
+    /// it is answering. `load`/`loadEarlier` filter a page through `timelineRows`, and
+    /// `handle(.posted)` refuses a post that fails `isTimelineRow`, so the same post is a row or not
+    /// for the same reason on both paths.
+    static func timelineRows(_ posts: [MMPost], channelID: String) -> [MMPost] {
+        posts.filter { isTimelineRow($0, channelID: channelID) }
+    }
+
+    static func isTimelineRow(_ post: MMPost, channelID: String) -> Bool {
+        !post.id.isEmpty && post.rootId.isEmpty && post.channelId == channelID
+    }
+
     private func accepts(post: MMPost) -> Bool {
-        post.channelId == channelID && post.rootId.isEmpty && !post.id.isEmpty
+        Self.isTimelineRow(post, channelID: channelID)
     }
 
     private func replace(_ post: MMPost) {

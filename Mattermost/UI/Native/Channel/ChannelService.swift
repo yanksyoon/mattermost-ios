@@ -16,6 +16,11 @@ protocol ChannelServing: AnyObject {
     /// The channel itself (header title/type).
     func channel(id: String) async throws -> MMChannel
     /// One page. `before == nil` asks for the newest page.
+    ///
+    /// The production implementation asks the server for a **thread-collapsed** page
+    /// (`collapsedThreads=true`), i.e. top-level posts only — the channel timeline's membership rule
+    /// (T34-AV-F1). A service that answers with replies mixed in is still handled: the view model
+    /// filters every page through `ChannelViewModel.isTimelineRow`.
     func posts(channelID: String, before: String?, perPage: Int) async throws -> MMPostList
     /// Author profiles for the ids on screen, in one batched request.
     func users(ids: [String]) async throws -> [MMUser]
@@ -70,7 +75,10 @@ final class SessionChannelService: ChannelServing {
 
     func posts(channelID: String, before: String?, perPage: Int) async throws -> MMPostList {
         let page = MMPostPage(cursor: before.map { .before($0) } ?? .page(0), perPage: perPage)
-        return try await client().channelPosts(channelID: channelID, page: page)
+        // `collapsedThreads: true` is explicit, not left to the API default: this is the rule that
+        // keeps replies out of the channel timeline (T34-AV-F1, measured in `ChannelAPI`).
+        return try await client().channelPosts(channelID: channelID, page: page,
+                                               collapsedThreads: true)
     }
 
     func users(ids: [String]) async throws -> [MMUser] {

@@ -483,6 +483,9 @@ final class T34FixtureTests: XCTestCase {
         let posts: [String: MMPost]
         let perPage: Int
         let pageSizes: [Int]
+        /// The query parameter the capture was taken with (`collapsedThreads=true` since T34-R5, the
+        /// same request the app makes). Optional so an older capture still decodes.
+        let collapsedThreads: Bool?
         /// Present on the showcase capture; `nil` when the server had no custom emoji.
         let emoji: [CapturedEmoji]?
 
@@ -626,18 +629,27 @@ final class T34FixtureTests: XCTestCase {
         XCTAssertFalse(rows.contains { $0.author.displayName == "Unknown user" })
     }
 
-    /// The long channel, paged by the **real pager**: `ChannelViewModel.loadEarlier()` six times over
-    /// the fixture's own `before` boundaries (100/100/100/100/100/2), asserting the exact id sequence,
-    /// the absence of duplicates at every boundary and the `hasMore` transitions.
+    /// The long channel, paged by the **real pager**: `ChannelViewModel.loadEarlier()` three times over
+    /// the fixture's own `before` boundaries (100/100/15), asserting the exact id sequence, the absence
+    /// of duplicates at every boundary and the `hasMore` transitions.
     ///
     /// This is deliberately not a merge re-implemented in the test body (T34 review F8): the rule
     /// under test is the view model's cursor + dedupe + ordering, so the test has to drive it.
+    ///
+    /// The fixture is the page the **app** asks for: captured with `collapsedThreads=true`, so it holds
+    /// top-level posts only (215 of them, T34-AV-F1). Before T34-R5 it was the same request with the
+    /// filter dropped (503 entries, 288 of them replies) and this test proved the window equalled that
+    /// sequence — i.e. it entrenched replies-as-rows instead of catching them.
     @MainActor
     func testPagingTheLongChannelThroughTheRealPagerReproducesTheCapturedSequence() async throws {
         let fixture = try fixture("t34-perf-feed-posts")
-        XCTAssertEqual(fixture.pageSizes.count, 6, "the capture crossed five real boundaries")
+        XCTAssertEqual(fixture.collapsedThreads, true,
+                       "the capture must be the request the app makes (thread-collapsed page)")
+        XCTAssertTrue(fixture.orderedPosts.allSatisfy { $0.rootId.isEmpty },
+                      "a thread-collapsed page holds no reply")
+        XCTAssertEqual(fixture.pageSizes.count, 3, "the capture crossed two real boundaries")
         XCTAssertEqual(fixture.perPage, 100)
-        XCTAssertEqual(Array(fixture.pageSizes.dropLast()), Array(repeating: 100, count: 5))
+        XCTAssertEqual(Array(fixture.pageSizes.dropLast()), Array(repeating: 100, count: 2))
         XCTAssertLessThan(fixture.pageSizes.last ?? 0, 100, "the last page is short, so hasMore stops")
 
         let service = FixturePageService(fixture: fixture)

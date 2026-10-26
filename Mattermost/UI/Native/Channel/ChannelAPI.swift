@@ -18,15 +18,31 @@ import Foundation
 
 extension APIClient {
 
-    /// `GET /channels/{channel_id}/posts?per_page=&before=` — one page of a channel, newest first.
+    /// `GET /channels/{channel_id}/posts?per_page=&before=&collapsedThreads=` — one page of a channel,
+    /// newest first, **top-level posts only**.
     ///
     /// `page.cursor == .page(0)` asks for the newest page; `.before(oldestLoadedID)` asks for the page
     /// older than what the reader already holds (the cursor the server's own `next_post_id` implies).
-    func channelPosts(channelID: String, page: MMPostPage) async throws -> MMPostList {
-        try await get(MMPostList.self,
-                      path: "/channels/\(channelID)/posts",
-                      query: page.queryItems,
-                      useETag: false)
+    ///
+    /// `collapsedThreads=true` is the server's own thread-collapsed view of the channel: it answers
+    /// with the channel's root posts and leaves the replies to `GET /posts/{id}/thread`, which is what
+    /// a thread-collapsed Mattermost centre timeline shows. Measured on the pinned 9.11.19 server
+    /// (perf-feed: 503 posts = 215 roots + 288 replies, T34-R5): without the parameter a 60-post page
+    /// came back 25 roots + 35 replies, and the client drew all 60 as top-level rows; with it, 60
+    /// roots, 0 replies, and `before`-paging over the roots walked the same 215 ids as an unfiltered
+    /// walk's roots with no gap and no duplicate. The view model still applies the same rule to what
+    /// arrives (`ChannelViewModel.isTimelineRow`), because a proxy that strips an unknown query
+    /// parameter must not turn replies into rows.
+    func channelPosts(channelID: String, page: MMPostPage,
+                      collapsedThreads: Bool = true) async throws -> MMPostList {
+        var query = page.queryItems
+        if collapsedThreads {
+            query.append(URLQueryItem(name: "collapsedThreads", value: "true"))
+        }
+        return try await get(MMPostList.self,
+                             path: "/channels/\(channelID)/posts",
+                             query: query,
+                             useETag: false)
     }
 
     /// `GET /files/{file_id}/thumbnail` (a JPEG the server generates) or the file's own bytes.
