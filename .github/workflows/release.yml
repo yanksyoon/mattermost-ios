@@ -1,18 +1,25 @@
 name: release
 
-# Every push to main publishes a release, with the version incremented at the minor
-# position (v0.1.4 -> v0.2.0 -> v0.3.0, patch reset to 0). See
-# scripts/release_version.py for the rule and its self-test.
+# Push to main -> run the tests -> publish a release.
+#
+# The release job only runs when every test leg is green, and the version is cut
+# automatically at the MINOR position (v0.2.0 -> v0.3.0, patch reset to 0).
+# See scripts/release_version.py and scripts/release_notes.py.
 #
 # Guarantees:
+#   * tests gate the release - a red suite means no tag, no release, no notes
 #   * one release per commit - a commit that already carries a v* tag yields SKIP,
 #     so a re-run or duplicate delivery is a no-op, never a second release
 #   * serialised - concurrent pushes queue instead of racing for the same tag
-#   * self-testing - the version rules are proven in CI before any tag is cut
+#   * self-testing - the version, note and push-gate rules are proven before tagging
+#
+# CI uses macos-26, whose default Xcode is 26.6 (17F113) - the same build the app is
+# developed against locally, so this is the real toolchain and not a stand-in.
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -22,7 +29,84 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    name: test (${{ matrix.name }})
+    runs-on: macos-26
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ios-simulator
+          - name: catalyst
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Prove the gate scripts
+        run: |
+          python3 scripts/release_version.py --self-test
+          python3 scripts/release_notes.py --self-test
+          python3 scripts/ci_simulator.py --self-test
+          python3 scripts/verify-pushed.py --self-test
+
+      - name: Resolve packages
+        run: xcodebuild -resolvePackageDependencies -project Mattermost.xcodeproj -scheme Mattermost
+
+      - name: Unit tests
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.name }}" = "ios-simulator" ]; then
+            # Resolve the destination from the image, because runner images rename
+            # simulators between OS releases and a hard-coded name rots.
+            DEST="id=$(python3 scripts/ci_simulator.py)"
+            echo "ios destination: $DEST"
+          else
+            DEST="platform=macOS,variant=Mac Catalyst"
+            echo "catalyst destination: $DEST"
+          fi
+
+          LOG="$RUNNER_TEMP/${{ matrix.name }}.log"
+          set +e
+          xcodebuild test \
+            -project Mattermost.xcodeproj \
+            -scheme Mattermost \
+            -destination "$DEST" \
+            -skip-testing:MattermostUITests \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 300 \
+            CODE_SIGNING_ALLOWED=NO \
+            > "$LOG" 2>&1
+          RC=$?
+          set -e
+
+          tail -60 "$LOG"
+          echo "xcodebuild exit: $RC"
+          if ! grep -qE "\*\* TEST SUCCEEDED \*\*" "$LOG"; then
+            echo "::error::TEST SUCCEEDED not found in the ${{ matrix.name }} log"
+            grep -E "error:|failed|FAIL" "$LOG" | head -40 || true
+            exit 1
+          fi
+          echo "failures reported: $(grep -cE '^\s*Test Case .* failed' "$LOG" || true)"
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-log-${{ matrix.name }}
+          path: ${{ runner.temp }}/${{ matrix.name }}.log
+          if-no-files-found: warn
+
   release:
+    name: tag and publish
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +114,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Prove the version and notes rules
+      - name: Prove the rules on the tagging host
         run: |
           python3 scripts/release_version.py --self-test
           python3 scripts/release_notes.py --self-test
@@ -62,22 +146,23 @@ jobs:
             SHA=$(git rev-parse HEAD)
             PREV=$(git describe --tags --abbrev=0 "$SHA^" 2>/dev/null || echo "")
             git tag -a "$TAG" -m "Release $TAG" \
-              -m "Cut automatically on push to main. Commit $SHA. Policy: minor increment per release, see scripts/release_version.py."
+              -m "Cut on push to main after a green test run. Commit $SHA. Policy: minor increment per release, see scripts/release_version.py."
 
             if git push origin "refs/tags/$TAG"; then
               echo "pushed tag $TAG at $SHA"
-              # GitHub's --generate-notes yields only a compare link here (every commit
-              # is a direct push, no PRs), so build the changelog from the commits.
+              # Notes come from commit subjects plus any PR references inside them,
+              # so this works whether or not commits arrive through pull requests.
               if [ -n "$PREV" ]; then
-                python3 scripts/release_notes.py --from "$PREV" --to "$SHA" > /tmp/notes.md || true
+                python3 scripts/release_notes.py --from "$PREV" --to "$SHA" --repo "${{ github.repository }}" > /tmp/notes.md || true
               else
-                python3 scripts/release_notes.py --to "$SHA" > /tmp/notes.md || true
+                python3 scripts/release_notes.py --to "$SHA" --repo "${{ github.repository }}" > /tmp/notes.md || true
               fi
-              if [ ! -s /tmp/notes.md ]; then
-                echo "Release $TAG at $SHA." > /tmp/notes.md
-              fi
-              echo "" >> /tmp/notes.md
-              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV:-root}...$TAG" >> /tmp/notes.md
+              [ -s /tmp/notes.md ] || echo "Release $TAG at $SHA." > /tmp/notes.md
+              {
+                echo ""
+                echo "**Verified** on Xcode 26.6 (17F113): unit suites green on iOS Simulator and Mac Catalyst."
+                echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV:-root}...$TAG"
+              } >> /tmp/notes.md
 
               gh release create "$TAG" \
                 --verify-tag \

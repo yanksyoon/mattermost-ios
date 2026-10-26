@@ -57,13 +57,17 @@ def classify(subject: str) -> tuple[str, str]:
     return heading, line
 
 
-def render(subjects: list[str], prev: str | None, to: str) -> str:
+def render(subjects: list[str], prev: str | None, to: str, repo: str | None = None) -> str:
     if not subjects:
         return (f"No commits between {prev or 'the start'} and {to}.\n")
     buckets: dict[str, list[str]] = {}
+    prs: list[tuple[str, str]] = []
     for s in subjects:
         heading, line = classify(s)
         buckets.setdefault(heading, []).append(line)
+        for num in dict.fromkeys(re.findall(r"#(\d+)", s)):
+            title = re.sub(r"\s*\(#\d+\)\s*$", "", s).strip()
+            prs.append((num, title))
 
     order = {name: rank for name, rank in GROUPS.values()}
     headings = sorted(buckets, key=lambda h: (order.get(h, OTHER[1]), h))
@@ -73,6 +77,14 @@ def render(subjects: list[str], prev: str | None, to: str) -> str:
     for h in headings:
         out.append(f"### {h}\n")
         out.extend(f"- {line}" for line in buckets[h])
+        out.append("")
+    if prs:
+        out.append("### Pull requests\n")
+        for num, title in prs:
+            if repo:
+                out.append(f"- [#{num}](https://github.com/{repo}/pull/{num}) — {title}")
+            else:
+                out.append(f"- #{num} — {title}")
         out.append("")
     if prev:
         out.append(f"**{total} commit{'s' if total != 1 else ''}** since `{prev}`.")
@@ -112,15 +124,23 @@ def self_test() -> int:
          ["### Features", "### Documentation"],
          "Features sorts above Documentation"),
         ([], ["No commits"], "empty range says so, does not print nothing"),
+        (["feat(search): saved posts (#42)"],
+         ["### Pull requests", "[#42](https://github.com/o/r/pull/42)", "**search:** saved posts"],
+         "PR reference becomes a linked entry"),
+        (["fix: no pr here"],
+         ["### Fixes"], "no Pull requests section without a PR reference",
+         ["### Pull requests"]),
     ]
     fails = 0
-    for subs, expect, why in cases:
-        got = render(subs, "v0.1.0", "HEAD")
+    for case in cases:
+        subs, expect, why = case[0], case[1], case[2]
+        absent = case[3] if len(case) > 3 else []
+        got = render(subs, "v0.1.0", "HEAD", repo="o/r")
         missing = [e for e in expect if e not in got]
-        if missing:
-            # order check: "Features above Documentation" must be positional
+        found = [a for a in absent if a in got]
+        if missing or found:
             fails += 1
-            print(f"  [FAIL] {why}: missing {missing}")
+            print(f"  [FAIL] {why}: missing={missing} unexpected={found}")
         else:
             if why.startswith("Features sorts") and got.index("### Features") > got.index("### Documentation"):
                 fails += 1
@@ -135,6 +155,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--from", dest="prev", default=None)
     ap.add_argument("--to", dest="to", default="HEAD")
+    ap.add_argument("--repo", default=None,
+                    help="owner/name, so a PR reference (#123) becomes a link")
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args()
 
@@ -158,7 +180,7 @@ def main() -> int:
             return 1
 
     subs = subjects_between(prev, args.to)
-    sys.stdout.write(render(subs, prev, args.to))
+    sys.stdout.write(render(subs, prev, args.to, repo=args.repo))
     return 0 if subs else 1
 
 
