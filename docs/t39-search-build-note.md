@@ -156,7 +156,11 @@ Measured with `scripts/t39_search_probe.py` against the local throwaway server o
   and unpinning removes the row with `is_pinned: false` on the server (`t39-6-pinned-sheet`,
   `t39-7-pinned-after-unpin`). The test's oracle is the server itself, read back through the same
   account the app signs in as; every test skips rather than fails when the server or the fixture is
-  missing.
+  missing. The seven captures from that run are `docs/t39-shots/t39-1` … `t39-7` (exported from the
+  run's own `xcresult` with `scripts/t37_export_shots.py`) — `t39-1-search-results.png` shows the
+  server's post, its real author and timestamp, the `#t34-showcase` subtitle, the “1 result for
+  “alphaword”” summary and the term marked inside the body, i.e. real data and real highlighting, not
+  a fixture.
 - **Catalyst note:** the UI-test bundle's Catalyst deployment target is macOS 26.5 while this host is
   macOS 26.3.1, so XCUITest cannot run on Catalyst here (`Cannot test target "MattermostUITests" on
   "My Mac"`). The app itself builds and the unit suite runs on Catalyst; the live UI suite runs on the
