@@ -158,19 +158,38 @@ final class T39SearchTests: XCTestCase {
     }
 
     /// The request body the endpoint actually receives, key by key (snake_case names included).
+    ///
+    /// `time_zone_offset` is **seconds east of UTC**, which is what the server reads: Go's
+    /// `time.FixedZone(name, offset)` takes seconds (`server/public/model/utils.go`,
+    /// `GetStartOfDayMillis`), and both reference clients send `utcOffset() * 60`. The assertion is a
+    /// real UTC-7 offset (-25200), not the -420 a minutes-encoding would produce: the two are
+    /// different numbers *and* different days for a PDT reader (T39 shipped minutes; measured —
+    /// `in:t34-showcase on:2026-10-26` answered 3 posts at -420 and 1 at -25200 on 9.11.19).
     func testTheRequestBodyCarriesEveryDocumentedField() throws {
         let query = SearchQuery.compose(from: "deploy from:alice in:town-square before:2026-01-31",
-                                        timeZoneOffsetMinutes: -420)
+                                        timeZoneOffsetSeconds: -7 * 60 * 60)
         let body = query.body(page: 2, perPage: 30)
         let data = try JSONEncoder().encode(body)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(json["terms"] as? String,
                        "deploy from:alice in:town-square before:2026-01-31")
         XCTAssertEqual(json["is_or_search"] as? Bool, false)
-        XCTAssertEqual(json["time_zone_offset"] as? Int, -420)
+        XCTAssertEqual(json["time_zone_offset"] as? Int, -25200,
+                       "seconds east of UTC — -420 would be the minutes encoding the server reads as "
+                       + "7 minutes west, i.e. a UTC day for every `on:`")
         XCTAssertEqual(json["page"] as? Int, 2)
         XCTAssertEqual(json["per_page"] as? Int, 30)
         XCTAssertEqual(json["include_deleted_channels"] as? Bool, true)
+    }
+
+    /// The default is the device's own offset **in seconds**, so a screen that forgets to pass one
+    /// still sends the unit the server reads.
+    func testTheComposedQueryDefaultsToTheDevicesOffsetInSeconds() {
+        let zone = TimeZone.current
+        XCTAssertEqual(SearchQuery.compose(from: "deploy").timeZoneOffsetSeconds,
+                       zone.secondsFromGMT())
+        XCTAssertEqual(SearchQuery.compose(from: "deploy").body().timeZoneOffset,
+                       zone.secondsFromGMT())
     }
 
     /// Quotes: a phrase stays one phrase, and the curly quotes a phone keyboard types become the
@@ -705,5 +724,234 @@ final class T39SearchTests: XCTestCase {
         XCTAssertTrue(model.handle(.postEdited(edited)))
         XCTAssertEqual(model.rows.first?.post.message, "edited")
         XCTAssertEqual(service.pinnedFetchCount, 1)
+    }
+
+    // MARK: - 9. The jump's fetch-by-id path and its failure sentences (T39-AV F5)
+
+    /// A `ChannelServing` whose window and single-post answer are set per test.
+    @MainActor
+    final class FakeChannelService: ChannelServing {
+        var pageSize = 60
+        /// The newest page the pane loads.
+        var page = MMPostList()
+        var singlePost: MMPost?
+        var singlePostFailure: Error?
+        private(set) var singlePostFetches: [String] = []
+
+        func channel(id: String) async throws -> MMChannel {
+            MMChannel(id: id, name: "t34-showcase", displayName: "t34-showcase", type: "O")
+        }
+
+        func posts(channelID: String, before: String?, perPage: Int) async throws -> MMPostList {
+            page
+        }
+
+        func users(ids: [String]) async throws -> [MMUser] { [] }
+
+        func post(id: String) async throws -> MMPost {
+            singlePostFetches.append(id)
+            if let singlePostFailure { throw singlePostFailure }
+            guard let singlePost else { throw MMError.notFound }
+            return singlePost
+        }
+
+        func fileData(fileID: String, preferThumbnail: Bool) async throws -> Data {
+            throw MMError.notFound
+        }
+    }
+
+    /// A channel whose newest page is a three-post window; `postID` is 100 messages older and only
+    /// reachable by `GET /posts/{id}`.
+    private func loadedChannel(_ service: FakeChannelService) async -> ChannelViewModel {
+        let model = ChannelViewModel(channelID: channelID, channelName: "t34-showcase",
+                                     service: service, myUserID: "me")
+        await model.load()
+        return model
+    }
+
+    private func windowPost(_ id: String, at millis: Int64) -> MMPost {
+        MMPost(id: id, createAt: millis, userId: "u1", channelId: channelID, message: "newest page")
+    }
+
+    /// The path the shipped live test cannot reach: the post is **not** in the window, so `focus` has
+    /// to fetch it by id, merge it, and mark it. Without this the handoff's "jump fetches by id" claim
+    /// had no unit witness (T39-AV F5).
+    func testFocusFetchesAPostTheWindowDoesNotHoldAndMarksIt() async {
+        let service = FakeChannelService()
+        let newest: Int64 = 1_790_000_000_000
+        service.page = MMPostList(order: ["n3", "n2", "n1"],
+                                  posts: ["n3": windowPost("n3", at: newest - 1000),
+                                          "n2": windowPost("n2", at: newest - 2000),
+                                          "n1": windowPost("n1", at: newest - 3000)],
+                                  hasNext: false)
+        let old = MMPost(id: "old", createAt: newest - 100_000_000, userId: "u1",
+                         channelId: channelID, message: "the post the reader searched for")
+        service.singlePost = old
+        let model = await loadedChannel(service)
+
+        await model.focus(postID: "old")
+
+        XCTAssertEqual(service.singlePostFetches, ["old"], "the id path must be exercised")
+        XCTAssertEqual(model.focusedPostID, "old")
+        XCTAssertEqual(model.jumpTarget, "old")
+        XCTAssertNil(model.focusError)
+        XCTAssertNotNil(model.post(id: "old"), "the fetched post is merged into the window")
+    }
+
+    /// The merged post is not contiguous with the newest page: the list must say so with a `.gap`
+    /// separator instead of drawing ~140 unknown messages as if they were the neighbours (T39-AV F2).
+    func testAFetchedOldPostIsSeparatedFromTheNewestPageByAGap() async {
+        let service = FakeChannelService()
+        let newest: Int64 = 1_790_000_000_000
+        service.page = MMPostList(order: ["n2", "n1"],
+                                  posts: ["n2": windowPost("n2", at: newest - 1000),
+                                          "n1": windowPost("n1", at: newest - 2000)],
+                                  hasNext: false)
+        service.singlePost = MMPost(id: "old", createAt: newest - 100_000_000, userId: "u1",
+                                    channelId: channelID, message: "old")
+        let model = await loadedChannel(service)
+        XCTAssertFalse(model.items.contains { if case .gap = $0 { return true }; return false },
+                       "a whole window needs no gap marker")
+
+        await model.focus(postID: "old")
+
+        let order = model.items.map { item -> String in
+            switch item {
+            case .gap: return "GAP"
+            case .post(let row): return row.id
+            case .dateSeparator: return "day"
+            case .newMessages: return "new"
+            }
+        }
+        let gapIndex = try? XCTUnwrap(order.firstIndex(of: "GAP"))
+        let oldIndex = try? XCTUnwrap(order.firstIndex(of: "old"))
+        let newestIndex = try? XCTUnwrap(order.firstIndex(of: "n2"))
+        XCTAssertNotNil(gapIndex, "the jump must draw a gap separator: \(order)")
+        XCTAssertNotNil(oldIndex)
+        XCTAssertNotNil(newestIndex)
+        if let gapIndex, let oldIndex, let newestIndex {
+            // Display order is oldest first: jumped post, gap, then the contiguous newest block.
+            XCTAssertLessThan(oldIndex, gapIndex)
+            XCTAssertLessThan(gapIndex, newestIndex)
+        }
+    }
+
+    /// Failure path 1: the post belongs to another channel. The pane must refuse it in a sentence and
+    /// must not merge a row into the wrong channel's timeline.
+    func testFocusRefusesAPostFromAnotherChannel() async {
+        let service = FakeChannelService()
+        let newest: Int64 = 1_790_000_000_000
+        service.page = MMPostList(order: ["n1"],
+                                  posts: ["n1": windowPost("n1", at: newest)], hasNext: false)
+        service.singlePost = MMPost(id: "other", createAt: newest - 1000, userId: "u1",
+                                    channelId: "chan_other", message: "elsewhere")
+        let model = await loadedChannel(service)
+
+        await model.focus(postID: "other")
+
+        XCTAssertEqual(model.focusError, "That message belongs to a different channel.")
+        XCTAssertNil(model.focusedPostID, "a foreign post must not be marked in this channel")
+        XCTAssertNil(model.jumpTarget, "and must not scroll the list")
+        XCTAssertNil(model.post(id: "other"), "nor be merged into this channel's window")
+    }
+
+    /// Failure path 2: the post is gone (deleted between the search and the tap). A 404 is its own
+    /// sentence, not the generic "could not be opened".
+    func testFocusExplainsADeletedPost() async {
+        let service = FakeChannelService()
+        let newest: Int64 = 1_790_000_000_000
+        service.page = MMPostList(order: ["n1"],
+                                  posts: ["n1": windowPost("n1", at: newest)], hasNext: false)
+        service.singlePostFailure = MMError.notFound
+        let model = await loadedChannel(service)
+
+        await model.focus(postID: "gone")
+
+        XCTAssertEqual(model.focusError, "That message no longer exists on the server.")
+        XCTAssertNil(model.focusedPostID)
+        XCTAssertNil(model.jumpTarget)
+    }
+
+    /// A reply cannot be a row of a thread-collapsed timeline, so its jump is its thread — decided from
+    /// the **fetched** post, which is the branch the window path cannot cover.
+    func testFocusOnAFetchedReplyOpensItsThread() async {
+        let service = FakeChannelService()
+        let newest: Int64 = 1_790_000_000_000
+        service.page = MMPostList(order: ["n1"],
+                                  posts: ["n1": windowPost("n1", at: newest)], hasNext: false)
+        var reply = MMPost(id: "reply", createAt: newest - 1000, userId: "u1",
+                           channelId: channelID, message: "a reply")
+        reply.rootId = "root"
+        service.singlePost = reply
+        let model = await loadedChannel(service)
+
+        await model.focus(postID: "reply")
+
+        XCTAssertEqual(model.threadJumpRootID, "root")
+        XCTAssertNil(model.jumpTarget, "a reply is not a timeline row: nothing to scroll to")
+        XCTAssertNil(model.focusedPostID)
+    }
+
+    /// A post the window already holds takes the `postsByID` branch: no request, and no gap either —
+    /// the list is contiguous there.
+    func testFocusOnAPostInTheWindowDoesNotFetch() async {
+        let service = FakeChannelService()
+        let newest: Int64 = 1_790_000_000_000
+        service.page = MMPostList(order: ["n1"],
+                                  posts: ["n1": windowPost("n1", at: newest)], hasNext: false)
+        let model = await loadedChannel(service)
+
+        await model.focus(postID: "n1")
+
+        XCTAssertTrue(service.singlePostFetches.isEmpty)
+        XCTAssertEqual(model.focusedPostID, "n1")
+        XCTAssertEqual(model.jumpTarget, "n1")
+    }
+
+    // MARK: - 10. Saved rows name their channel (T39-AV F6)
+
+    func testTheSavedRowNamesTheChannelItCameFrom() async {
+        let service = FakeSearchService()
+        service.savedList = MMPostList(order: ["p1"], posts: ["p1": post("p1")], hasNext: false)
+        service.channelsByID[channelID] = MMChannel(id: channelID, name: "t34-showcase",
+                                                   displayName: "t34-showcase", type: "O")
+        let model = collectionModel(service, kind: .saved)
+
+        await model.load()
+
+        XCTAssertEqual(model.channelLabel(for: "p1"), "#t34-showcase")
+    }
+
+    /// The pinned sheet already names its channel in its own title, so its rows carry no label.
+    func testAPinnedRowCarriesNoChannelLabelButALoadedSavedRowDoes() async {
+        let service = FakeSearchService()
+        service.pinnedList = MMPostList(order: ["p1"], posts: ["p1": post("p1")], hasNext: false)
+        service.channelsByID[channelID] = MMChannel(id: channelID, name: "t34-showcase", type: "O")
+        let pinned = collectionModel(service, kind: .pinned)
+
+        await pinned.load()
+
+        XCTAssertNil(pinned.channelLabel(for: "p1"))
+    }
+
+    // MARK: - 11. Recent searches can be forgotten (T39-AV F7)
+
+    /// The row's delete and the clear-all both reach the store, so the list a reader sees is the list
+    /// that persists — not an in-memory edit that comes back on the next launch.
+    func testARecentSearchCanBeRemovedAndTheListClearedThroughTheStore() {
+        let store = FakeRecentStore()
+        let recents = RecentSearchesStore(store: store, key: "s.\(teamID)")
+        recents.record("deploy")
+        recents.record("payload")
+        XCTAssertEqual(recents.entries, ["payload", "deploy"])
+
+        recents.remove("deploy")
+        XCTAssertEqual(recents.entries, ["payload"])
+        XCTAssertEqual(store.storage["s.\(teamID)"], ["payload"],
+                       "the removal is persisted, not just published")
+
+        recents.removeAll()
+        XCTAssertTrue(recents.entries.isEmpty)
+        XCTAssertEqual(store.storage["s.\(teamID)"], [])
     }
 }

@@ -22,21 +22,28 @@ What it measures:
      status code, so the client pins the one this server actually answers.
   6. The pinned-posts path (`GET /channels/{id}/pinned`) and the pin/unpin/flag/unflag writes.
 
-Usage (throwaway local server; the credentials are the fixture account from `scripts/perf_seed.py`):
+Usage (throwaway local server; the fixture account's password comes from the environment, and the
+offset is the reader's in **seconds** east of UTC — the unit the API reads):
 
-    python3 scripts/t39_search_probe.py
-    python3 scripts/t39_search_probe.py --url http://127.0.0.1:8065 --login perfprobe --password ...
+    MM_PROBE_PASSWORD=... python3 scripts/t39_search_probe.py
+    MM_PROBE_PASSWORD=... python3 scripts/t39_search_probe.py \
+        --url http://127.0.0.1:8065 --login perfprobe --tz-offset-seconds -25200
 
-Exit code 0 = every fact the client depends on still holds.
+Exit code 0 = every fact the client depends on still holds. Section 4 checks each modifier's
+**predicate over the posts it returned**, not just its status code, and section 4's last check
+measures the unit of `time_zone_offset` — the defect T39 shipped (minutes where the server reads
+seconds).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 OK = "PASS"
 FAIL = "FAIL"
@@ -102,14 +109,36 @@ def post_ids(payload) -> list[str]:
     return [pid for pid in (payload.get("order") or []) if isinstance(pid, str)]
 
 
+def post_rows(payload) -> list[dict]:
+    """The posts a search answer carries, in the answer's own order (ids without a body skipped)."""
+    if not isinstance(payload, dict):
+        return []
+    posts = payload.get("posts") or {}
+    if not isinstance(posts, dict):
+        return []
+    return [posts[pid] for pid in post_ids(payload) if isinstance(posts.get(pid), dict)]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="http://127.0.0.1:8065")
     parser.add_argument("--login", default="perfprobe@example.invalid")
-    parser.add_argument("--password", default="PerfProbe-Not-A-Real-Secret-1")
+    # No credential in the repository (T39-AV F8): the fixture account's password is supplied by the
+    # environment, or typed on the command line, and the script refuses to run without one.
+    parser.add_argument("--password", default=os.environ.get("MM_PROBE_PASSWORD", ""),
+                        help="fixture account password (or set MM_PROBE_PASSWORD)")
     parser.add_argument("--team", default="perf")
     parser.add_argument("--channel", default="t34-showcase")
+    # The reader's offset, in the unit the API reads: **seconds** east of UTC. The date-modifier
+    # checks below compute their day windows in this offset, so a client that sent minutes would be
+    # caught here rather than by a person noticing a wrong result count (T39-AV F1/F9).
+    parser.add_argument("--tz-offset-seconds", type=int,
+                        default=int(os.environ.get("MM_PROBE_TZ_OFFSET_SECONDS", "0")),
+                        help="reader's offset in seconds east of UTC, e.g. -25200 for PDT")
     args = parser.parse_args()
+    if not args.password:
+        print(f"[{FAIL}] no password: pass --password or set MM_PROBE_PASSWORD for the fixture account")
+        return 2
 
     token, user_id = login(args.url, args.login, args.password)
     probe = Probe(args.url, token)
@@ -146,7 +175,7 @@ def main() -> int:
             "page": 0,
             "per_page": 30,
             "include_deleted_channels": False,
-            "time_zone_offset": 0}
+            "time_zone_offset": args.tz_offset_seconds}
     status, page0 = probe.call("POST", f"/teams/{team_id}/posts/search", body)
     probe.expect("POST /teams/{team}/posts/search", status == 200 and isinstance(page0, dict),
                  f"status={status} keys={sorted(page0) if isinstance(page0, dict) else page0}")
@@ -186,26 +215,101 @@ def main() -> int:
                  f"per_page=3 -> {sizes[3][1]} ids, per_page=500 -> {sizes[500][1]} ids")
 
     # -- 4. the modifier grammar (server-side) ----------------------------
-    probes = [
-        ("baseline 'the'", {"terms": "the"}),
-        ("from:perfprobe", {"terms": "from:perfprobe"}),
-        ("in:<channel name>", {"terms": f"in:{args.channel}"}),
-        ("after:<date>", {"terms": "after:2000-01-01"}),
-        ("before:<date>", {"terms": "before:2999-01-01"}),
-        ("on:<date>", {"terms": "on:2000-01-01"}),
-        ("quoted phrase", {"terms": '"the quick"'}),
-        ("wildcard", {"terms": "the*"}),
-        ("OR search", {"terms": "the OR quick", "is_or_search": True}),
+    #
+    # Every modifier is checked against the **predicate** over the posts it returned, not just its
+    # status code (T39-AV F9: `on:<date>` answering 0 ids and `the*` answering 0 ids both passed a
+    # status-only check, which is how F1 — `time_zone_offset` sent in minutes — survived AV's first
+    # pass). The date windows are computed in the offset the request states, and that offset is
+    # **seconds** east of UTC: the unit `SearchQuery.timeZoneOffsetSeconds` sends and the unit the
+    # server reads (`GetStartOfDayMillis` -> Go's `time.FixedZone(name, offset)`).
+    tz_seconds = args.tz_offset_seconds
+
+    def local_window(day: str) -> tuple[float, float]:
+        """[start, end) of `day` in the stated offset, as UTC epoch seconds."""
+        start = datetime.strptime(day, "%Y-%m-%d").replace(
+            tzinfo=timezone(timedelta(seconds=tz_seconds)))
+        return start.timestamp(), (start + timedelta(days=1)).timestamp()
+
+    # The day to check `on:`/`before:`/`after:` against: the newest post the baseline answered,
+    # expressed in the stated offset. A fixed literal date would rot as the fixture grows.
+    baseline_posts = post_rows(page0)
+    if not baseline_posts:
+        print(f"[{FAIL}] the baseline answered no posts — cannot check the date modifiers")
+        return 1
+    newest = max(baseline_posts, key=lambda p: p.get("create_at") or 0)
+    anchor_day = datetime.fromtimestamp((newest.get("create_at") or 0) / 1000,
+                                        timezone(timedelta(seconds=tz_seconds))).strftime("%Y-%m-%d")
+    day_start, day_end = local_window(anchor_day)
+    print(f"    date anchor: newest baseline post is {anchor_day} at offset {tz_seconds}s")
+
+    def create_at(post) -> float:
+        return (post.get("create_at") or 0) / 1000
+
+    modifiers = [
+        # label, terms, predicate over one post, must the set be non-empty?
+        ("from:<my username>",
+         f"from:{args.login.split('@')[0]}",
+         lambda p: p.get("user_id") == user_id, True),
+        ("in:<channel name>", f"in:{args.channel}",
+         lambda p: p.get("channel_id") == channel_id, True),
+        (f"after:{anchor_day}", f"after:{anchor_day}",
+         lambda p: create_at(p) >= day_end, False),
+        (f"before:{anchor_day}", f"before:{anchor_day}",
+         lambda p: create_at(p) < day_start, False),
+        (f"on:{anchor_day}", f"on:{anchor_day}",
+         lambda p: day_start <= create_at(p) < day_end, True),
+        ("quoted phrase", '"the quick"',
+         lambda p: "the quick" in (p.get("message") or "").lower(), False),
+        ("wildcard", "the*", None, False),
+        ("OR search", "the OR quick", None, False),
     ]
-    results = {}
-    for label, override in probes:
+    for label, terms, predicate, must_be_non_empty in modifiers:
+        override = {"terms": terms}
+        if label == "OR search":
+            override["is_or_search"] = True
         status, payload = probe.call("POST", f"/teams/{team_id}/posts/search",
                                      {**body, **override})
-        results[label] = (status, len(post_ids(payload)) if status == 200 else None)
-        print(f"    modifier {label:<24} status={status} ids={results[label][1]}")
-    probe.expect("every documented modifier is accepted (200)",
-                 all(status == 200 for status, _ in results.values()),
-                 f"{sum(1 for s, _ in results.values() if s == 200)}/{len(results)} answered 200")
+        ids = post_ids(payload) if status == 200 else []
+        rows = post_rows(payload)
+        print(f"    modifier {label:<24} status={status} ids={len(ids)}")
+        if predicate is not None:
+            offenders = [p for p in rows if not predicate(p)]
+            probe.expect(f"modifier {label} holds its predicate",
+                         status == 200 and not offenders,
+                         f"{len(rows)} posts checked, {len(offenders)} outside the predicate"
+                         + (f" (first: {offenders[0].get('id', '?')[:8]}"
+                            f" create_at={offenders[0].get('create_at')})" if offenders else ""))
+        if must_be_non_empty:
+            probe.expect(f"modifier {label} answers a non-empty set",
+                         status == 200 and len(ids) > 0,
+                         f"{len(ids)} ids — an empty answer is a broken modifier, not a pass")
+
+    # The unit of `time_zone_offset`, measured: the same `on:` query with the **minutes** encoding
+    # the client used to send answers the wrong set whenever the local day is not the UTC day.
+    _, seconds_payload = probe.call("POST", f"/teams/{team_id}/posts/search",
+                                    {**body, "terms": f"on:{anchor_day}",
+                                     "time_zone_offset": tz_seconds})
+    seconds_rows = post_rows(seconds_payload)
+    minutes_offset = tz_seconds // 60
+    _, minutes_payload = probe.call("POST", f"/teams/{team_id}/posts/search",
+                                    {**body, "terms": f"on:{anchor_day}",
+                                     "time_zone_offset": minutes_offset})
+    minutes_rows = post_rows(minutes_payload)
+    seconds_inside = sum(1 for p in seconds_rows if day_start <= create_at(p) < day_end)
+    minutes_inside = sum(1 for p in minutes_rows if day_start <= create_at(p) < day_end)
+    probe.expect(f"on:{anchor_day} with the seconds offset stays inside the local day",
+                 bool(seconds_rows) and seconds_inside == len(seconds_rows),
+                 f"{seconds_inside}/{len(seconds_rows)} inside the {tz_seconds}s day")
+    if {p.get("id") for p in seconds_rows} != {p.get("id") for p in minutes_rows}:
+        probe.expect(f"the minutes offset would answer a different day for on:{anchor_day}",
+                     minutes_inside < len(minutes_rows),
+                     f"{minutes_inside}/{len(minutes_rows)} inside the local day at "
+                     f"{minutes_offset} — supplying seconds is the difference")
+    else:
+        print(f"    note: {minutes_offset} and {tz_seconds} answer the same set for "
+              f"on:{anchor_day} (no post near the local day boundary); see tz_units in the AV card")
+
+    # The rows a result names: one batched lookup, the same request the search screen sends.
 
     # -- 5. invalid queries: what the *server* does with them ---------------
     invalid = [
