@@ -44,8 +44,32 @@ hard-coded `name=iPhone 16` rots.
 
 1. Re-runs the version and notes self-tests on the tagging host.
 2. Computes the next tag from the existing tags (never from a file).
-3. Creates an annotated tag at the pushed commit and pushes it.
-4. Builds the changelog and publishes with `gh release create --notes-file --latest`.
+3. Creates the tag **through the Releases API** (`gh release create --target <sha>`)
+   and publishes with generated notes.
+4. Verifies the release exists afterwards with `gh release view` rather than trusting
+   the command's exit code.
+
+**Tags are created by API, not by `git push`.** This is not a style choice. A
+workflow's own token is a GitHub App, and GitHub refuses to let an App push any ref
+whose history contains a change to a workflow file:
+
+```
+! [remote rejected] v0.5.0 -> v0.5.0 (refusing to allow a GitHub App to create or
+  update workflow `.github/workflows/release.yml` without `workflows` permission)
+```
+
+The App cannot be granted that permission — it is not in the `permissions:` block and
+never can be — so the `git tag` + `git push` route can never be reliable in a repo
+whose CI files change. The Releases API is not subject to that check. Consequence: the
+tags are lightweight rather than annotated, which does not affect anything that reads
+them.
+
+That failure also exposed a worse bug worth remembering: the first version retried the
+push, saw its own locally created tag on `HEAD`, answered `SKIP`, and **reported
+success** with no tag on the remote and no release. A retry loop that can convert a hard
+failure into a green run is worse than no retry. The current logic has three distinct
+outcomes — already published (exit 0), tag without release (finish it), no tag (create
+both) — and never treats "I cannot tell" as success.
 
 **Notes come from commits and PRs.** `release_notes.py` groups commit subjects by
 Conventional Commit type, and any `(#123)` reference in a subject becomes a linked

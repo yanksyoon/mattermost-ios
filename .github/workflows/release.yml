@@ -139,62 +139,79 @@ jobs:
           python3 scripts/release_version.py --self-test
           python3 scripts/release_notes.py --self-test
 
-      - name: Tag and publish
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --tags --force --quiet
+          SHA=$(git rev-parse HEAD)
+          SHORT=$(git rev-parse --short=8 HEAD)
 
-          for attempt in 1 2 3 4 5; do
-            git fetch --tags --force --quiet
-            TAG=$(python3 scripts/release_version.py --format tag --dry-run)
+          # Tags are created through the Releases API (gh release create --target),
+          # NOT with `git tag` + `git push`. Reason, learned the hard way on run
+          # 40332873749: a workflow's own token is a GitHub App, and GitHub refuses to
+          # let an App push any ref whose history contains a change to a workflow file:
+          #   ! [remote rejected] v0.5.0 (refusing to allow a GitHub App to create or
+          #     update workflow `.github/workflows/release.yml` without `workflows` permission)
+          # The App cannot be granted that permission, so the git-push route can never be
+          # reliable here. The Releases API is not subject to that check.
 
-            if [ "$TAG" = "SKIP" ]; then
-              echo "HEAD $(git rev-parse --short HEAD) already carries a release tag; nothing to do."
-              git tag --points-at HEAD | sed 's/^/  existing: /'
+          TAG=$(python3 scripts/release_version.py --format tag --dry-run)
+
+          if [ "$TAG" = "SKIP" ]; then
+            # SKIP now means the REMOTE already carries a release tag on this commit,
+            # because the runner is fresh and never invents a local tag.
+            EXISTING=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+            if [ -z "$EXISTING" ]; then
+              echo "::error::SKIP with no release tag on HEAD $SHORT"
+              exit 1
+            fi
+            if gh release view "$EXISTING" --repo "$REPO" >/dev/null 2>&1; then
+              echo "already published: $EXISTING at $SHORT - nothing to do"
               exit 0
             fi
-
-            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-              echo "attempt $attempt: $TAG already exists, re-reading tags"
-              sleep $((attempt * 3))
-              continue
-            fi
-
-            SHA=$(git rev-parse HEAD)
+            # A tag without a release is an incomplete earlier attempt: finish it.
+            echo "tag $EXISTING exists but has no release; completing it"
+            TAG="$EXISTING"
+            TARGET_ARGS="--verify-tag"
             PREV=$(git describe --tags --abbrev=0 "$SHA^" 2>/dev/null || echo "")
-            git tag -a "$TAG" -m "Release $TAG" \
-              -m "Cut on push to main after a green test run. Commit $SHA. Policy: minor increment per release, see scripts/release_version.py."
+          else
+            TARGET_ARGS="--target $SHA"
+            PREV=$(git describe --tags --abbrev=0 "$SHA^" 2>/dev/null || echo "")
+          fi
 
-            if git push origin "refs/tags/$TAG"; then
-              echo "pushed tag $TAG at $SHA"
-              # Notes come from commit subjects plus any PR references inside them,
-              # so this works whether or not commits arrive through pull requests.
-              if [ -n "$PREV" ]; then
-                python3 scripts/release_notes.py --from "$PREV" --to "$SHA" --repo "${{ github.repository }}" > /tmp/notes.md || true
-              else
-                python3 scripts/release_notes.py --to "$SHA" --repo "${{ github.repository }}" > /tmp/notes.md || true
+          # Notes come from commit subjects plus any PR references inside them, so this
+          # works whether commits arrive directly or through pull requests.
+          if [ -n "$PREV" ]; then
+            python3 scripts/release_notes.py --from "$PREV" --to "$SHA" --repo "$REPO" > /tmp/notes.md || true
+          else
+            python3 scripts/release_notes.py --to "$SHA" --repo "$REPO" > /tmp/notes.md || true
+          fi
+          [ -s /tmp/notes.md ] || echo "Release $TAG at $SHA." > /tmp/notes.md
+          {
+            echo ""
+            echo "**Verified** on Xcode 26.6 (17F113): unit suites green on iOS Simulator and Mac Catalyst."
+            echo "**Full Changelog**: https://github.com/${REPO}/compare/${PREV:-root}...$TAG"
+          } >> /tmp/notes.md
+
+          # shellcheck disable=SC2086  # TARGET_ARGS is a deliberate word-split flag list
+          gh release create "$TAG" $TARGET_ARGS \
+            --title "$TAG" \
+            --notes-file /tmp/notes.md \
+            --latest \
+            --repo "$REPO" || {
+              # A concurrent run may have won the race; that is success, not failure.
+              if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+                echo "release $TAG already exists (concurrent run won); treating as success"
+                exit 0
               fi
-              [ -s /tmp/notes.md ] || echo "Release $TAG at $SHA." > /tmp/notes.md
-              {
-                echo ""
-                echo "**Verified** on Xcode 26.6 (17F113): unit suites green on iOS Simulator and Mac Catalyst."
-                echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV:-root}...$TAG"
-              } >> /tmp/notes.md
+              echo "::error::could not create release $TAG"
+              exit 1
+            }
 
-              gh release create "$TAG" \
-                --verify-tag \
-                --title "$TAG" \
-                --notes-file /tmp/notes.md \
-                --latest
-              echo "RELEASE CREATED: $TAG"
-              exit 0
-            fi
-            echo "attempt $attempt: tag push for $TAG lost a race, retrying"
-            sleep $((attempt * 3))
-          done
-
-          echo "::error::could not publish a release after 5 attempts"
-          exit 1
+          # Verify the side effect instead of trusting the command's exit code.
+          gh release view "$TAG" --repo "$REPO" --json tagName,isDraft,url \
+            --jq '"published \(.tagName) -> \(.url)"'
+          echo "RELEASE CREATED: $TAG at $SHORT"
