@@ -1,5 +1,9 @@
 # T39 — native search, saved messages and pinned posts
 
+Card: **`t_39fbc203`** (T39). Landed on `main` as `b4ca551` (feature, tests, probe), `75503bd`
+(docs: parity row, NOTICE §16, this build note) and `0983162` (the live run's screenshots); this
+commit only names the card id in the record so history can be traced back from the board.
+
 Behaviour reference: `mattermost/mattermost-mobile` **v2.45.0**, commit
 `162f2560d0e1df073220f7701d5a67cc17c8abeb` (`app/screens/home/search/`, `app/screens/saved_posts/`,
 `app/screens/pinned_messages/`, `app/utils/markdown/index.ts`, `app/actions/remote/search.ts`,
