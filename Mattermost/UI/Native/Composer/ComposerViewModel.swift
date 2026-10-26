@@ -15,9 +15,11 @@
 //      `posted` event, so the row is replaced by id — never by message text, never appended twice.
 //   2. **Failure keeps the words.** Nothing is cleared until the server has answered. A failed send
 //      leaves the text, the attachments and the draft on disk, and offers Retry.
-//   3. **The draft is the durable record.** Written on a debounce while typing and flushed on demand
-//      (backgrounding), one row per (channel, thread root), in T29's store — so it survives relaunch
-//      and a team switch.
+//   3. **The draft is the durable record.** Written through on every change — no timer, so no window
+//      a killed process can outlive; a change that lands while a write is running folds into one
+//      follow-up — and flushed on demand (backgrounding), one row per (channel, thread root), in
+//      T29's store — so it survives relaunch and a team switch. (The 400 ms debounce this replaced
+//      was removed in T35's round 2: docs/t35-build-note.md §7.3.)
 //   4. **Autocomplete cannot race itself.** Every keystroke bumps a generation; an answer for a
 //      superseded term is dropped. The `@` list is restricted to the channel's members (server-side
 //      `in_channel_id`, plus a client check when the member list is complete).

@@ -2,9 +2,12 @@
 // Files: app/components/post_draft/post_draft.tsx (the bar: input, quick actions, send), post_input/
 //        (the growing text input), send_button/send_button.tsx, quick_actions/quick_actions.tsx
 //        (attach / camera / emoji), uploads/uploads.tsx (the attachment tray with progress + cancel),
-//        autocomplete/autocomplete.tsx (the suggestion list above the input), archived/ + read_only/
-//        (the banners that replace the input when posting is not possible), typing/typing.tsx,
+//        autocomplete/autocomplete.tsx (the suggestion list above the input), typing/typing.tsx,
 //        app/screens/edit_post/edit_post.tsx (the "Editing" header), thread/reply banner.
+//        Read and **not** drawn: archived/ + read_only/ (the banners that replace the input when
+//        posting is not possible) — this build has no archived-channel or read-only-membership state,
+//        so the input stays and the server's refusal reaches the failure banner instead
+//        (docs/t35-build-note.md §5).
 // Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §12; no
 // upstream source copied. The SwiftUI decomposition is this repo's own (component-map.md §3).
 //

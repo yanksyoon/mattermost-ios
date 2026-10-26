@@ -162,6 +162,9 @@ Unit-test pressure found three more, before any device ran:
 - The input has no rich text and no inline markdown styling while typing; preview is block-level.
 - No emoji **picker** (S17/T37); `:` completes built-in names + T34's server catalogue.
 - No slash commands; `@channel/@here/@all` are inserted as text without a confirmation step.
+- **No archived-channel or read-only-membership state**: upstream replaces the input with a banner
+  (`archived/`, `read_only/` — read, not ported); here the input stays enabled and the server's
+  refusal reaches the failure banner instead.
 - `#` searches channels only (no user search), and only the loaded team's channels.
 - **A reply is sent but not inserted optimistically**: a reply is not a row of the centre timeline
   (`ChannelViewModel.isTimelineRow`, T34-R5). The thread pane is S13/T36; until then a reply's send
@@ -298,7 +301,7 @@ re-derived in this tree, not copied from the AV's worktree.
 
 | finding | disposition |
 | --- | --- |
-| **F1** no repo-level NOTICE entry | `docs/THIRD_PARTY_NOTICES.md` **§12** added in the shape of §7–§11: the upstream read set, the endpoints whose shapes the server disagreed with, `app/screens/global_drafts/` as read-and-not-ported, and the webapp as **observed only** (nothing copied). §1 above and the six `Composer*.swift` headers now point at §12 — they had pointed at §11, which is T34's section. |
+| **F1** no repo-level NOTICE entry | `docs/THIRD_PARTY_NOTICES.md` **§12** added in the shape of §7–§11: the upstream read set, the endpoints whose shapes the server disagreed with, `app/screens/global_drafts/` as read-and-not-ported, and the webapp as **observed only** (nothing copied). §1 above, the six `Composer*.swift` headers and `Core/MM/MMMultipart.swift` now point at §12 — they had all pointed at §11, which is T34's section. |
 | **F2** global drafts undocumented | `docs/parity.md`'s T35 row now says it in "limits that stay": **no global drafts list** — drafts are per `(channel, thread root)`, there is no S14 `GlobalDraftsView`, and the screen is unowned on the board. |
 | **F3** stale build-note lines | Both corrected to the shipped behaviour: §2 step 1 describes the write-through draft store (the 400 ms debounce is gone, §7.3), and §1's parity table maps row actions to `post.<id>.menu` + `PostOptionsSheet`, not `PostRowView.contextMenu`. |
 | **F4** the live `@` test could not fail | Repaired and **proved to fail**. See §8.1. |
@@ -354,3 +357,16 @@ death, then a Send under a new id. Proving that needs a host that can forward a 
 answer and stop the server (T35-AV §3 could not do it here either: the relay mis-framed HTTP/1.1
 keep-alive and `docker stop` is refused by this runner). A card that fixes it must ship that probe
 with it.
+
+### 8.3 Two stale source comments, found while fixing the pointers
+
+F3 was about the build note; the same class of sentence was also living in the code's own headers, so
+both were corrected on the way past (comments only, no behaviour):
+
+- `ComposerViewModel.swift`'s five-rule header still said a draft is "written on a debounce while
+  typing". It is written through on every change (§7.3); the header now says that, with the round it
+  changed in.
+- `ComposerView.swift`'s provenance header counted `archived/` + `read_only/` among the files whose
+  **banners** it draws. There is no archived-channel or read-only-membership state in this build — the
+  input stays and the server's refusal reaches the failure banner — so the header now says the files
+  were read and not drawn, and §5's limits say the same thing to a reader who never opens the file.
