@@ -139,17 +139,21 @@ final class T37ReactionsUITests: XCTestCase {
                       "React must open the picker:\n\(app.debugDescription)")
         // The first category's first cell: a deterministic, on-screen emoji. (Search and its ranking
         // are pinned by T37ReactionTests; a live run here is about the write path, not the ranking.)
-        let cell = element(app, "emojiPicker.emoji.grinning")
+        // One name for the cell, the oracle and the pill. (The first version of this test tapped
+        // `grinning` and asserted the server held `tada`, which is red no matter how the app behaves —
+        // the reason `docs/t37-build-note.md` first recorded this path as "still red".)
+        let picked = "grinning"
+        let cell = element(app, "emojiPicker.emoji.\(picked)")
         XCTAssertTrue(cell.waitForExistence(timeout: 20),
                       "the picker must draw the system categories:\n\(app.debugDescription)")
         attach(app, "t37-03-picker-search")
         cell.tap()
 
-        XCTAssertTrue(waitUntil(timeout: 25) { self.reactionUserIDs(postID, emoji: "tada").contains(self.userID) },
+        XCTAssertTrue(waitUntil(timeout: 25) { self.reactionUserIDs(postID, emoji: picked).contains(self.userID) },
                       "picking must write POST /reactions; the server holds "
-                      + "\(reactionUserIDs(postID, emoji: "tada"))")
+                      + "\(reactionUserIDs(postID, emoji: picked))")
         XCTAssertTrue(waitUntil(timeout: 20) {
-            self.element(app, "post.\(postID).reaction.tada").exists
+            self.element(app, "post.\(postID).reaction.\(picked)").exists
         }, "the new pill must appear on the row:\n\(app.debugDescription)")
         attach(app, "t37-04-picker-pill")
     }
@@ -157,15 +161,20 @@ final class T37ReactionsUITests: XCTestCase {
     // MARK: - 3. The alias rule, on the wire
 
     /// `thumbsup` and `+1` are two rows on the server (measured on 9.11.19) and must be one pill to the
-    /// reader. This test leaves *both* spellings on the post as the second reader, and checks that the
-    /// row draws a single pill with the full count — then that removing it from this account clears
-    /// only this account's rows.
+    /// reader. This test leaves *both* spellings on the post — one as the second reader and one as
+    /// **me** — and checks that the row draws a single pill with the full count, then that **one** tap
+    /// removes every row I hold (both spellings), not just the canonical one, and leaves the other
+    /// reader's row alone. That is the coordinator's `heldAliases` rule; without it a client sends one
+    /// DELETE and the pill comes back on the next page load.
     func testAliasSpellingsAreOnePillAndOneRemoveClearsEveryRowIHold() throws {
         let stamp = Int(Date().timeIntervalSince1970)
         let post = try post(message: "t37 alias target \(stamp)", rootID: nil, as: secondToken)
         let postID = try XCTUnwrap(post["id"] as? String)
         try addReaction(postID: postID, emoji: "+1", as: secondToken)
-        try addReaction(postID: postID, emoji: "thumbsup", as: secondToken)
+        // My own rows, written through the API: a reader who reacted from the web app (or from a
+        // second device) can hold two spellings of the same picture, and the client has to clear both.
+        try addReaction(postID: postID, emoji: "+1", as: token)
+        try addReaction(postID: postID, emoji: "thumbsup", as: token)
 
         let app = launchAndOpenChannel()
         XCTAssertTrue(revealPost(app, postID, maxSwipes: 10).exists,
@@ -175,11 +184,27 @@ final class T37ReactionsUITests: XCTestCase {
         let canonicalPill = element(app, "post.\(postID).reaction.+1")
         XCTAssertTrue(canonicalPill.waitForExistence(timeout: 30),
                       "the alias group must be drawn under its canonical name:\n\(app.debugDescription)")
-        XCTAssertEqual(canonicalPill.label, "+1 2",
-                       "both spellings are one pill with both reactors")
+        XCTAssertEqual(canonicalPill.label, "+1 3",
+                       "all three rows are one pill (two of them mine, under two spellings)")
         XCTAssertFalse(element(app, "post.\(postID).reaction.thumbsup").exists,
                        "the second spelling must not get its own pill")
         attach(app, "t37-05-alias-pill")
+
+        // ONE tap removes both of my rows and only mine.
+        canonicalPill.tap()
+        XCTAssertTrue(waitUntil(timeout: 25) {
+            !self.reactionUserIDs(postID, emoji: "+1").contains(self.userID)
+                && !self.reactionUserIDs(postID, emoji: "thumbsup").contains(self.userID)
+        }, "one tap must delete every alias I hold; the server holds "
+           + "+1=\(reactionUserIDs(postID, emoji: "+1")) "
+           + "thumbsup=\(reactionUserIDs(postID, emoji: "thumbsup"))")
+        XCTAssertEqual(reactionUserIDs(postID, emoji: "+1"), [secondUserID],
+                       "the other reader's row must survive my remove")
+        XCTAssertTrue(waitUntil(timeout: 15) {
+            self.element(app, "post.\(postID).reaction.+1").label == "+1 1"
+        }, "the pill must follow the server's count; it reads "
+           + "\"\(element(app, "post.\(postID).reaction.+1").label)\"")
+        attach(app, "t37-06-alias-cleared")
     }
 
     // MARK: - Server helpers
