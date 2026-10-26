@@ -1,0 +1,49 @@
+
+== server: Version=9.11.19 BuildNumber=16643067630 (status 200)
+
+[PASS] config/client: Version=9.11.19
+[PASS] POST /teams/{team}/posts/search: status=200 keys=['first_inaccessible_post_time', 'has_next', 'matches', 'next_post_id', 'order', 'posts', 'prev_post_id']
+[PASS] search answer carries order/posts: 100 ids, 100 posts, matches=0, has_next=False, next_post_id=''
+[PASS] paging shape matches the client's rule (single capped window): page1=0 ids, overlap=0, has_next=False — a single window means an empty page 1 with has_next false
+    per_page=3    status=200 ids=100
+    per_page=10   status=200 ids=100
+    per_page=200  status=200 ids=100
+    per_page=500  status=200 ids=100
+[PASS] search per_page is not honoured by this backend (window cap 100): per_page=3 -> 100 ids, per_page=500 -> 100 ids
+    modifier baseline 'the'           status=200 ids=0
+    modifier from:perfprobe           status=200 ids=100
+    modifier in:<channel name>        status=200 ids=13
+    modifier after:<date>             status=200 ids=100
+    modifier before:<date>            status=200 ids=100
+    modifier on:<date>                status=200 ids=0
+    modifier quoted phrase            status=200 ids=2
+    modifier wildcard                 status=200 ids=0
+    modifier OR search                status=200 ids=2
+[PASS] every documented modifier is accepted (200): 9/9 answered 200
+    invalid bad date             status=200 message=None ids=0
+    invalid unterminated quote   status=200 message=None ids=2
+    invalid unknown modifier     status=200 message=None ids=0
+    invalid empty terms          status=400 message='Invalid or missing terms in request body.' ids=-
+    invalid bad regex char       status=200 message=None ids=0
+    ^ a 200 with 0 ids means the *client* owns the error copy for that case
+    saved GET /users/me/teams/ocz148uck3r88dcjikj497bosh/posts/saved?page=0&per_page=30 status=404 ids=-  msg='Sorry, we could not find the page.'
+    saved GET /users/me/posts/flagged?team_id=ocz148uck3r88dcjikj497bosh&page=0&per_page=30 status=200 ids=0
+    saved GET /users/me/posts/flagged?page=0&per_page=30                     status=200 ids=0
+    saved GET /teams/ocz148uck3r88dcjikj497bosh/posts/flagged?page=0&per_page=30 status=404 ids=-  msg='Sorry, we could not find the page.'
+    saved GET /users/jruqqzxtobg7tn4wehwmwjjo5c/posts/flagged?team_id=ocz148uck3r88dcjikj497bosh&page=0&per_page=30 status=200 ids=0
+[PASS] one saved-posts path answers: working: ['/users/me/posts/flagged?team_id=ocz148uck3r88dcjikj497bosh&page=0&per_page=30', '/users/me/posts/flagged?page=0&per_page=30', '/users/jruqqzxtobg7tn4wehwmwjjo5c/posts/flagged?team_id=ocz148uck3r88dcjikj497bosh&page=0&per_page=30']
+[PASS] GET /channels/{id}/pinned: status=200 keys=['first_inaccessible_post_time', 'has_next', 'next_post_id', 'order', 'posts', 'prev_post_id']
+    write pin                    POST /posts/hb3jkj3h17bcbgc6979r56ihfc/pin              status=200
+[PASS] write pin: status=200
+    write pinned-list sees it    GET /channels/1mfi77b1kjnf7poisx5m36bb4c/pinned        status=200 contains target=True
+    write unpin                  POST /posts/hb3jkj3h17bcbgc6979r56ihfc/unpin            status=200
+[PASS] write unpin: status=200
+[PASS] POST /teams/{team}/channels/ids (result subtitles): status=200 channels=1
+[PASS] save a post: PUT /users/{id}/preferences: status=200
+[PASS] the saved list sees the preference: status=200 contains target=True
+[PASS] unsave: POST /users/{id}/preferences/delete: status=200
+[PASS] the saved list drops the unsaved post: status=200 still contains target=False
+    absent flag                 POST /posts/hb3jkj3h17bcbgc6979r56ihfc/flag             status=404 (not used by the client)
+    absent unflag               POST /posts/hb3jkj3h17bcbgc6979r56ihfc/unflag           status=404 (not used by the client)
+
+RESULT: PASS — measured on Mattermost 9.11.19 (BuildNumber 16643067630)

@@ -522,3 +522,80 @@ playback (`audio_file.tsx`/`video_file.tsx` — refused with the "no reader" scr
 signed-link (`/files/{id}/link`) flow for public links (this client always downloads through its
 authenticated `APIClient`), and file upload from the attachment surface (T35's composer owns
 uploads).
+
+## 16. T39 native search, saved and pinned — upstream read set (Apache-2.0, mobile @ `162f2560…`; webapp observed only, AGPL-3.0)
+
+`Mattermost/UI/Native/Search/` (`SearchGrammar.swift`, `SearchHighlighter.swift`,
+`SearchResults.swift`, `RecentSearches.swift`, `SearchAPI.swift`, `SearchService.swift`,
+`SearchViewModel.swift`, `PostCollectionViewModel.swift`, `SearchCoordinator.swift`,
+`SearchView.swift`, `SavedPinnedViews.swift`) reimplements the **lookup surfaces** named by
+`docs/component-map.md` §S19–S21: the search field with the documented modifier grammar and its
+reader-facing error copy, the result list with the searched terms marked in each body, the recent
+search list, the Saved tab and the channel's pinned-messages sheet. Its hosting sides are
+`NativeNavigation` (the two new tabs), `NativeShellView` (the regular layout's lookup sheet),
+`ChannelViewModel` (`focus(postID:)`, the jump-to-post a result and a permalink both use),
+`ChannelView` (the pinned sheet and the focused-row marker) and `MarkdownView`/`MarkdownInlineText`
+(the scoped highlight). The upstream read set is the one that map names; no upstream file is copied
+or transpiled. The mobile pin is TypeScript (read for rules only); the webapp is AGPL-3.0 and was
+**observed in the running client** for the same screens, never copied or ported. Every new file pins
+the upstream it derives from in its own header (mobile `@ v2.45.0`,
+`162f2560d0e1df073220f7701d5a67cc17c8abeb`), so this section is the repo-level entry those headers
+point at.
+
+| Upstream path (mobile @ `162f2560…` unless marked `W`) | Used for |
+|---|---|
+| `app/screens/home/search/search.tsx` | the screen: the field, submit, the recent-search list and the modifier chips; `getSearchParams` is the request body this client sends (`terms`, `is_or_search`, `time_zone_offset`, `page`, `per_page`, `include_deleted_channels`) |
+| `app/screens/home/search/results/post_results.tsx`, `…/results/index.tsx` | the result row: the channel subtitle above the post body drawn exactly as the timeline draws it |
+| `app/utils/markdown/index.ts` | `parseSearchTerms` and `convertSearchTermToRegex` — which characters are marked, word boundaries, the CJK branch, the trailing-`*` prefix, and longest-term-first ordering |
+| `app/components/markdown/markdown.tsx` | the `highlight` prop the body renderer takes |
+| `app/actions/remote/search.ts` | search orchestration: run the query, then resolve the row context (authors, channel names) in batches |
+| `app/actions/local/team.ts` | `addSearchToTeamSearchHistory`, `removeSearchFromTeamSearchHistory` and `MAX_TEAM_SEARCHES = 15` |
+| `app/client/rest/posts.ts` | `searchPosts`, `getFlaggedPosts`, `getPinnedPosts`, `pinPost`/`unpinPost` |
+| `app/client/rest/users.ts`, `app/constants/preferences.ts` | saving a post as a **preference** (`category: flagged_post`, name = post id), not a post write |
+| `app/screens/saved_posts/` | the Saved tab: one row per saved post, its empty state and its unsave action |
+| `app/screens/pinned_messages/` | the channel's pinned sheet: one row per pinned post, its unpin action and its close affordance |
+| `app/screens/home/tab_bar/` | the four sections the native shell's tab bar mirrors (Channels, Threads, Search, Saved) |
+| `W …/components/search/`, `W …/components/saved_posts/`, `W …/components/post/` | **behaviour cross-check only** — what Path A's webview shows for the same screens, watched in the running client; not ported |
+
+**Measured against the real server** (`scripts/t39_search_probe.py`, output in
+`docs/t39-search-probe-2026-10-26.log`, re-run on 2026-10-26 against Mattermost **9.11.19**,
+BuildNumber 16643067630, pinned by `MattermostTests/T39SearchTests.swift`):
+
+- `POST /teams/{team_id}/posts/search` answers 200 with `order`, `posts`, `matches`, `has_next`,
+  `next_post_id`, `prev_post_id`, `first_inaccessible_post_time`. **`matches` is empty on every
+  query on this backend**, so a result list that waited for server-side highlighting would never
+  highlight anything — the client derives the terms itself (upstream's rule, same order: server
+  `matches` when present *and* the query has no quoted phrase, otherwise the query's own terms).
+- The database backend answers **one capped window**: `page=1` returns no ids and `has_next` is
+  false, `per_page` is ignored (3, 10, 200 and 500 all answer 100 ids). The client therefore pages
+  until a short/empty page and, at the measured 100 cap, says on screen that this server returns one
+  window per query instead of offering a Load more that cannot work.
+- Every documented modifier answers 200 (`from:`, `in:`, `before:`, `after:`, `on:`, quoted phrase,
+  trailing wildcard, `OR` search) — the server parses the string, so the client sends it verbatim
+  (only curly quotes are straightened). Invalid queries are **not** rejected: `before:notadate`,
+  `on:today`, `"unterminated`, `the(` and `x:whatever` all answer **200** with an empty or unrelated
+  result set, which is why this card's validation lives on the client. Only empty `terms` answers
+  **400** (`Invalid or missing terms in request body.`), and that sentence is shown verbatim.
+  Stop words are dropped server-side (`terms=the` answers 0), so "nothing matched" copy names the
+  query rather than claiming the word does not exist.
+- The saved list is **`GET /users/me/posts/flagged`** (with `team_id`); the older
+  `/users/me/teams/{team}/posts/saved` and `/teams/{team}/posts/flagged` answer **404**
+  (`Sorry, we could not find the page.`) on 9.11.19. The client asks the working path and keeps the
+  documented one as a fallback.
+- Pinned posts are **`GET /channels/{id}/pinned`** (200, same envelope as a post list), and
+  `POST /posts/{id}/pin` / `/unpin` answer 200.
+- Saving is **not** a post write: `POST /posts/{id}/flag` and `/unflag` answer **404** on 9.11.19.
+  The measured path is `PUT /users/{id}/preferences` (`category: flagged_post`, `name: post id`,
+  `value: "true"`), then `GET /users/me/posts/flagged` sees it, then
+  `POST /users/{id}/preferences/delete` removes it — all 200.
+- `POST /teams/{team_id}/channels/ids` answers 200 for the batched channel lookup the result rows'
+  subtitles need.
+
+Not ported by this card: an Elasticsearch-only sort/paging experience (the request carries `page`
+and `per_page`; the UI states honestly when this server cannot page), the `is_or_search` toggle as a
+control (the client always sends `false`, as upstream's screen does), channel and file result tabs
+(S19's post results only — S20's rows), searching across several teams at once, a server-side
+`matches`-driven highlight mode (this backend sends none), and deep-link entry into a prefilled
+search (the shell's routing names a channel, a post or threads; T39's screens are reached from the
+tab bar or the detail column's toolbar).
+
