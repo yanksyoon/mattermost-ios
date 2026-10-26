@@ -93,24 +93,35 @@ decomposition T34/T35 shipped, so the pane's rules are unit-testable without a s
 
 ## 4. Tests
 
-### Unit (Catalyst) — see §4.1 for the numbers
+### 4.1 Unit (Catalyst) — green
 
-`MattermostTests/T36ThreadModelsTests.swift`, `T36ThreadViewModelTests.swift`,
-`T36GlobalThreadsViewModelTests.swift`, `T36ChannelReplyLineTests.swift`: decode/derive/format plus
-the model's page/socket/follow/read rules against a fake service and a fake socket — no server, no
-view. The T34/T35 tests that asserted "a reply's socket echo is *ignored*" were updated to the new
-truth (`patched`, no new row, root count 1) rather than deleted, and
-`T34ChannelPageRequestTests` now asserts the channel page asks for
-`collapsedThreadsExtended=true` (the reply line's avatar stack needs the extended form).
+```
+$ python3 scripts/qa-test.py --platform mac --only-testing MattermostTests
+run        : mac-20261025-222455
+outcome    : finished (xcodebuild rc=0, 61s)
+tests      : 1085 run, 4 skipped, 0 failed
+RESULT: PASS
+```
 
-### Live UI (`MattermostUITests/T36-ThreadsUITests`, real server)
+`** TEST SUCCEEDED **` in `build/logs/mac-20261025-222455.log` (the runner's own verdict;
+`build/logs/t36-units-full2.log` is the wrapper log). The 4 skips are the pre-existing ones
+(CertTrust, the opt-in MentionPoller, 2× self-signed) — none is T36. T36 adds **75** tests:
+
+- `MattermostTests/T36ThreadModelsTests.swift`, `T36ThreadViewModelTests.swift`,
+  `T36GlobalThreadsViewModelTests.swift`, `T36ChannelReplyLineTests.swift`: decode/derive/format plus
+  the model's page/socket/follow/read rules against a fake service and a fake socket — no server, no
+  view.
+- The T34/T35 tests that asserted "a reply's socket echo is *ignored*" were updated to the new truth
+  (`patched`, no new row, root count 1) rather than deleted, and `T34ChannelPageRequestTests` now
+  asserts the channel page asks for `collapsedThreadsExtended=true` (the reply line's avatar stack
+  needs the extended form).
+
+### 4.2 Live UI (`MattermostUITests/T36-ThreadsUITests`, real server) — see §6 for the state of this
 
 Fixture: `scripts/t36_thread_seed.py` — channel `t36-threads` in team `perf`, a second author
 `t36reply` (so a participant stack has two people and an unread reply can exist), the main chain and
-65 paged threads. The unread fixture is created by the test run itself, so a re-run does not inherit
-a read state.
-
-(run results appended in §4.2)
+65 paged threads. The main chain is created **last** on purpose, so it sits at the top of the
+channel's newest-first page instead of behind 65 roots.
 
 ## 5. Limits (also in `docs/parity.md`)
 
@@ -126,3 +137,112 @@ a read state.
 - A reply sent from the **channel** composer only moves the root's count (it is not a channel row);
   only the thread's own composer shows an optimistic reply.
 - The pane and the list do not use the T29 store: no threads offline.
+
+## 6. FINDINGS FOR T36-AV — the live suite's first full run
+
+Command (real Mattermost 9.11.19 at `127.0.0.1:8065`, throwaway credentials):
+
+```
+TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 \
+TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
+TEST_RUNNER_MM_AUTH_PASSWORD=<fixture password> \
+python3 scripts/qa-test.py --platform ios --sim 81A7F251-8B31-4945-8783-5A264C14B8D5 \
+  --only-testing MattermostUITests/T36ThreadsUITests
+```
+
+Result (`build/logs/ios-20261025-223746.log`, wrapper `build/logs/t36-live3.log`):
+
+```
+Executed 4 tests, with 7 failures (0 unexpected) in 194.747 seconds
+RESULT: FAIL
+```
+
+Per test:
+
+| Test | Verdict |
+|---|---|
+| `testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies` | **PASS (27.5 s)** — reply sent, server minted it under the root, the open thread drew it, a reply from a *second client* arrived over the socket, Back returned to the channel and the root's reply line carried the server's count. The card's second acceptance criterion is measured. |
+| `testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply` | FAIL — 2 assertions, see F1 and F2 |
+| `testFollowPersistsAndTheFollowedThreadsListPages` | FAIL — the expected row was not drawn, see F3 |
+| `testTheUnreadThreadStateIsTheServers` | FAIL — the server's counter was 0, see F4 |
+
+No screenshot artifact was exported from this run for `docs/`: the screen *is* reachable and renders
+real server data (the run's own failure dumps show the pane, the reply line and the Threads list with
+the server's rows and counts), but a run that is red must not be the one whose screenshots are
+presented as proof. T36-AV should export `docs/t36-shots/` from the first green run.
+
+### F1 — (test defect, fixed here, still unverified live) the tombstone is drawn under a different identifier
+
+The test asserted `thread.post.<id>.deleted`; `PostRowView`'s tombstone marker is
+`post.<id>.deleted` (the thread row wraps the same view and only re-identifies the row itself,
+`ThreadView.swift` §"A reply in a thread … `.accessibilityIdentifier("thread.post.\(row.id)")`").
+Fixed in this commit; the pane's tombstone path has still **not** been observed live — T36-AV should
+re-run that test. The product code does keep the row (`ThreadViewModel` `.postDeleted` →
+`applyTombstone`, `replyCount - 1`), so the expectation is that the fixed assertion passes.
+
+### F2 — (product, medium) replies with equal `create_at` are drawn in id order, not the server's order
+
+```
+T36-ThreadsUITests.swift:136: XCTAssertGreaterThan failed: ("334.66") is not greater than ("407.66")
+ — reply 4sdwnodax… must be drawn below e3us5q7c…
+ frames were [root 256.7, f1 407.7, f2 334.7, f3 501.7]
+```
+
+The three seeded replies are created by three back-to-back HTTP calls, so two of them can share a
+millisecond. `ThreadDerivation.chain` sorts by `create_at` **then id** (deterministic tiebreak), but
+the server's `order` array already carries the authoritative sequence, and with a tie the id tiebreak
+reverses two adjacent replies. The fix belongs in the derivation: keep the server's `order` when it
+sends one and use create_at/id only for posts that arrive without it. Not yet changed, because the
+same derivation is what the 75 unit tests pin — a change needs a test that reproduces the tie first.
+
+### F3 — (unexplained, medium) the followed list did not draw a thread created seconds earlier
+
+The app's list (from the run's own accessibility dump) drew rows down from `10:36 PM` — including
+`globalThreads.row.wos7tcw3z3rgjptkkndcmu1wpo` ("T36 main thread — the root of the chain.", 3
+replies) — but not the thread the test had just created (root as `t36reply`, reply as me), whose
+`GET …/threads/{id}` answered **200** in `setUp` immediately before the app launched. The header
+subtitle also read `"No threads yet"` while rows were drawn, i.e. `ThreadTotals` was empty for a page
+that was not. Two candidate causes, both worth a probe:
+
+- the list request was served from a cached page (the row set looks like the state *before* the
+  fixture was created) — `ThreadAPI.userThreads` and `thread(postID:)` both pass `useETag: false`, so
+  this would have to be `URLCache`, not the ETag path; and
+- `GlobalThreadsViewModel.totals` is filled by a separate `totalsOnly` call whose answer is not
+  applied to the same snapshot as the page.
+
+T36-AV should reproduce with a thread whose id it prints, then read the list from the app and from
+`curl` in the same second.
+
+### F4 — (product/test, medium) a thread cannot be observed unread while its channel is open
+
+Measured on this server, no app involved (`POST /channels/members/{uid}/view`):
+
+```
+before view: 1
+view call: 200
+after view: 0
+```
+
+The app opens the channel under test (it must, to reach the Threads button), and that view call — or
+a view the channel pane repeats on new posts — clears the collapsed-thread counter for every thread
+in the channel. The test's own oracle therefore read `unreadReplies: 0` even with a 350 ms gap
+between my reply and the other author's:
+
+```
+T36-ThreadsUITests.swift:312: the fixture leaves one unread reply for me; the server says
+ Optional(ThreadEntry(id: "3qzp3tb433yipe49b57uc7abwc", unreadReplies: 0, unreadMentions: 0,
+ replyCount: 2, authorLabel: "")) (unread_mentions 0)
+```
+
+This is a real client question, not only a test question: if the channel pane re-views on every
+`posted`, the thread badge can never be shown for a channel the reader has open. T36-AV should
+measure whether the pane sends `view` on a socket `posted`, and whether upstream does the same; the
+unread badge itself is otherwise unverified live (unit-tested only).
+
+### What this round did not do
+
+- No `docs/t36-shots/` export (see above), so the card's "screenshot artifact proving real server
+  data" is **not** satisfied by this commit. The screenshot names are already attached by the suite
+  (`t36-01`…`t36-13`); exporting them needs one green run.
+- `docs/parity.md`'s T36 row says `native ✅ (T36) behind -surfaceMode shell=native` with the limits;
+  it now also points here for the live-suite state.

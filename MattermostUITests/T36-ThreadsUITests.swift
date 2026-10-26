@@ -151,8 +151,10 @@ final class T36ThreadsUITests: XCTestCase {
         XCTAssertFalse(afterDelete.contains(victim),
                        "the server omits a deleted reply from the thread; it answered \(afterDelete)")
         XCTAssertTrue(waitUntil(timeout: 20) {
+            // The tombstone marker belongs to `PostRowView` and keeps the channel's identifier — the
+            // thread row only re-identifies the row itself (`thread.post.<id>`).
             let row = self.element(app, "thread.post.\(victim)")
-            return row.exists && self.element(app, "thread.post.\(victim).deleted").exists
+            return row.exists && self.element(app, "post.\(victim).deleted").exists
         }, "a deleted reply must stay as a tombstone, not disappear:\n\(app.debugDescription)")
         attach(app, "t36-03-deleted-reply")
     }
