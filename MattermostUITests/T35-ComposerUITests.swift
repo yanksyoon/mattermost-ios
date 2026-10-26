@@ -118,11 +118,31 @@ final class T35ComposerUITests: XCTestCase {
 
     // MARK: - 2. Autocomplete: users, then channels
 
+    /// The membership filter is the thing worth asserting, so the term has to be one the **server**
+    /// answers with non-members. Measured on this 9.11.19: `/users/autocomplete?name=p` returns
+    /// `opsbot`, `perfprobe`, `playbooks`, `probeone832551`, `probezero959035`, and `perfprobe` is the
+    /// only one of them in `#t35-composer`. Typing `@per` would not do: every name that term matches
+    /// (`perfprobe`) is a member, so the old form of this test passed with the filter deleted —
+    /// T35-AV F4. The raw answer is asserted too, below, so the two negative assertions can fail.
     func testAMentionCompletesFromTheChannelsMembersAndInsertsTheUsername() throws {
+        let channel = try channel(named: channelName, in: teamID)
+
+        // The oracle first: without this, a client that queried nothing at all would also "pass" the
+        // negatives. These two names are in the server's own answer for "p" and are not members.
+        let raw = try getJSON("/api/v4/users/autocomplete?name=p&in_channel_id=\(channel.id)"
+                              + "&in_team_id=\(teamID)")
+        let rawNames = ((raw as? [String: Any])?["users"] as? [[String: Any]] ?? [])
+            .compactMap { $0["username"] as? String }
+        XCTAssertTrue(rawNames.contains(loginID!),
+                      "the server must offer the channel member \(loginID!) for \"p\"; it answered \(rawNames)")
+        XCTAssertTrue(rawNames.contains("opsbot") && rawNames.contains("probeone832551"),
+                      "the server must offer non-members for \"p\", or the negative half of this test is "
+                      + "vacuous; it answered \(rawNames)")
+
         let app = launchAndOpen(channelName: channelName, teamID: teamID)
         let input = composerInput(app)
         input.tap()
-        input.typeText("@per")
+        input.typeText("@p")
 
         let list = element(app, "composerSuggestions")
         XCTAssertTrue(list.waitForExistence(timeout: 20),
@@ -131,6 +151,13 @@ final class T35ComposerUITests: XCTestCase {
         let suggestion = element(app, "composerSuggestion.user-\(loginID!)")
         XCTAssertTrue(suggestion.waitForExistence(timeout: 10),
                       "the signed-in user is a member of this channel and must be offered:\n\(app.debugDescription)")
+
+        // The negative half, on the same list: both names are in the server's answer for "p" (asserted
+        // above) and neither is in this channel, so drawing either one means the filter is gone.
+        XCTAssertFalse(element(app, "composerSuggestion.user-opsbot").exists,
+                       "a team member who is not in this channel must not be offered")
+        XCTAssertFalse(element(app, "composerSuggestion.user-probeone832551").exists,
+                       "a team member who is not in this channel must not be offered")
         suggestion.tap()
 
         XCTAssertTrue(waitUntil(timeout: 10) { ((input.value as? String) ?? "").contains("@\(loginID!)") },
