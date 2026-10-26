@@ -61,14 +61,9 @@ struct ChannelInfoSheet: View {
             model = resolved
             await resolved.load()
         }
-        // A leave (or being removed by an administrator) ends the screen: the channel is no longer mine
-        // to inspect, and leaving the sheet open would show a channel I cannot open.
-        .onChange(of: model?.didLeave ?? false) { _, didLeave in
-            if didLeave {
-                coordinator.forget(serverID: server.id, channelID: channelID)
-                dismiss()
-            }
-        }
+        // The leave hand-off lives in `ChannelInfoView`, which observes the model: this sheet holds it as
+        // a plain `@State`, so a published change does not re-run this body (measured — the sheet stayed
+        // open after a successful leave when the `.onChange` was here).
         .accessibilityIdentifier("channelInfo.sheet")
     }
 }
@@ -79,6 +74,7 @@ struct ChannelInfoView: View {
     let server: ServerConfig
     let onClose: () -> Void
 
+    @EnvironmentObject private var coordinator: ChannelInfoCoordinator
     @State private var confirmLeave = false
     @State private var confirmArchive = false
     @State private var confirmUnarchive = false
@@ -172,6 +168,15 @@ struct ChannelInfoView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(unarchivePrompt.message)
+        }
+        // A leave (or being removed by an administrator) ends the screen: the channel is no longer mine to
+        // inspect, and leaving the sheet open would show a channel I cannot open. This handler belongs to
+        // the view that *observes* the model — `ChannelInfoSheet` holds it as a plain `@State`, so an
+        // `.onChange` there never fires (measured by the live suite: the sheet stayed open).
+        .onChange(of: model.didLeave) { _, didLeave in
+            guard didLeave else { return }
+            coordinator.forget(serverID: server.id, channelID: model.channelID)
+            onClose()
         }
     }
 

@@ -1,0 +1,52 @@
+signed in as perfprobe (jruqqzxtobg7tn4wehwmwjjo5c) on http://127.0.0.1:8065
+
+1. permissions
+  POST /roles/names                            -> 200 [{"id": "o9okx7sakjd4db3yi8rg3oo13h", "name": "system_admin", "display_name": "authentication.roles.global_admin.name", "description": "authentication.roles.global_admin.description", "create_at": 1792821720981, "update_
+    union: 271 permission ids across 4 roles
+      manage_public_channel_members      yes
+      manage_public_channel_properties   yes
+      delete_public_channel              yes
+      manage_team                        yes
+      list_team_channels                 yes
+      join_public_channels               yes
+
+2. a scratch channel for the write experiments
+  POST /channels (scratch)                     -> 201 {"id": "6ru496oc53dkufrrrrhxbhha7c", "create_at": 1793024992387, "update_at": 1793024992387, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T40 probe", "name": "t40probe-1793024992
+    channel 6ru496oc53dkufrrrrhxbhha7c
+  GET /channels/{id}/stats                     -> 200 {"channel_id": "6ru496oc53dkufrrrrhxbhha7c", "member_count": 1, "guest_count": 0, "pinnedpost_count": 0, "files_count": 0}
+
+3. settings limits (the server's own)
+  patch purpose=250                            -> 200 {"id": "6ru496oc53dkufrrrrhxbhha7c", "create_at": 1793024992387, "update_at": 1793024992505, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T40 probe", "name": "t40probe-1793024992
+  patch purpose=251                            -> 400 {"id": "model.channel.is_valid.purpose.app_error", "message": "Invalid purpose.", "detailed_error": "", "request_id": "onsdjd1x8frrmfgxgjxypfuu7o", "status_code": 400}
+  patch header=1024                            -> 200 {"id": "6ru496oc53dkufrrrrhxbhha7c", "create_at": 1793024992387, "update_at": 1793024992542, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T40 probe", "name": "t40probe-1793024992
+  patch header=1025                            -> 400 {"id": "model.channel.is_valid.header.app_error", "message": "Invalid header.", "detailed_error": "", "request_id": "3xkacp3zmfgdddumuoaugjisdy", "status_code": 400}
+  patch display_name=64                        -> 200 {"id": "6ru496oc53dkufrrrrhxbhha7c", "create_at": 1793024992387, "update_at": 1793024992587, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "dddddddddddddddddddddddddddddddddddddddd
+  patch display_name=65                        -> 400 {"id": "model.channel.is_valid.display_name.app_error", "message": "Invalid display name.", "detailed_error": "", "request_id": "tzqjk6sy9786bfgkumi5eg4f1o", "status_code": 400}
+    re-read: purpose='probe purpose' header='probe header'
+
+4. membership writes
+  POST /channels/{id}/members (add)            -> 201 {"channel_id": "6ru496oc53dkufrrrrhxbhha7c", "user_id": "4uceu7iojbb87qo6r6mtbyojae", "roles": "channel_user", "last_viewed_at": 0, "msg_count": 0, "mention_count": 0, "mention_count_root": 0, "urgent_mention_count": 0, 
+  GET /channels/{id}/members/{uid}             -> 200 {"channel_id": "6ru496oc53dkufrrrrhxbhha7c", "user_id": "4uceu7iojbb87qo6r6mtbyojae", "roles": "channel_user", "last_viewed_at": 0, "msg_count": 0, "mention_count": 0, "mention_count_root": 0, "urgent_mention_count": 0, 
+  DELETE /channels/{id}/members/{uid}          -> 200 {"status": "OK"}
+
+5. the add picker's two sources
+  GET /users?in_team&not_in_channel            -> 200 [{"id": "9apc1tb413nupgssgyhzjpmezr", "create_at": 1792869870067, "update_at": 1792967021800, "delete_at": 0, "username": "opsbot", "auth_data": "", "auth_service": "", "email": "opsbot@example.invalid", "nickname": "", 
+  POST /users/search (empty term)              -> 400 {"id": "api.context.invalid_body_param.app_error", "message": "Invalid or missing term in request body.", "detailed_error": "", "request_id": "wgc114poztdedbnj1mj4fbw6io", "status_code": 400}
+  POST /users/search (typed)                   -> 200 []
+
+6. archive and restore
+  DELETE /channels/{id}                        -> 200 {"status": "OK"}
+    delete_at after archive: 1793024993226
+  POST /channels/{id}/restore                  -> 200 {"id": "6ru496oc53dkufrrrrhxbhha7c", "create_at": 1793024992387, "update_at": 1793024993226, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T40 probe", "name": "t40probe-1793024992
+
+7. a DM is closed, not left
+    DM channel s84ootgsytbyipd1kdtpaftt8h
+  preference direct_channel_show=false         -> 200 {"status": "OK"}
+    memberships after the close: 2  (a close leaves both rows)
+
+8. the gate reads ids, not role names
+    channel_user grants 27 ids; administrator ids present: ['delete_public_channel', 'manage_public_channel_members', 'manage_public_channel_properties']
+
+cleanup
+  DELETE scratch channel (archive)             -> 200 {"status": "OK"}
+done at 2026-10-26 07:29:53

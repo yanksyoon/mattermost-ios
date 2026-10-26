@@ -608,3 +608,77 @@ control (the client always sends `false`, as upstream's screen does), channel an
 search (the shell's routing names a channel, a post or threads; T39's screens are reached from the
 tab bar or the detail column's toolbar).
 
+## 17. T40 native channel info, membership and channel management — upstream read set (Apache-2.0, mobile @ `162f2560…`; webapp observed only, AGPL-3.0)
+
+`Mattermost/UI/Native/ChannelInfo/` (`ChannelInfoModels.swift`, `MMChannelAdminTypes.swift`,
+`ChannelInfoAPI.swift`, `ChannelInfoService.swift`, `ChannelInfoViewModel.swift`,
+`ChannelInfoCoordinator.swift`, `ChannelInfoView.swift`, `ChannelMembersView.swift`,
+`AddMembersViewModel.swift`, `AddMembersView.swift`, `ChannelSettingsViewModel.swift`,
+`ChannelSettingsView.swift`, `BrowseChannelsViewModel.swift`, `BrowseChannelsView.swift`)
+reimplements the **channel-management surfaces** named by `docs/component-map.md` §S22–S24: the
+channel-info header (name, purpose, member count), the member list with roles and presence,
+add/remove member, leave (a DM/GM is *closed*), channel settings (rename, purpose, header), archive
+and unarchive, and the join-channel browser. Its hosting sides are `ChannelView` (the pane header's
+info button and the sheet), `ChannelSidebarView` (the browser's entry point), `SocketEvent` +
+`TeamSocketScope` (the four new event families and their team attribution) and
+`MattermostApp`/`ChannelInfoCoordinator` (one model per channel, one socket per server).
+
+The upstream read set is the one `docs/component-map.md` §S22–S24 names; no upstream file is copied
+or transpiled. The mobile pin is TypeScript (read for rules only); the webapp is AGPL-3.0 and was
+**observed in the running client** for the same screens, never copied or ported. Every new file pins
+the upstream it derives from in its own header (mobile `@ v2.45.0`,
+`162f2560d0e1df073220f7701d5a67cc17c8abeb`), so this section is the repo-level entry those headers
+point at.
+
+| Upstream path (mobile @ `162f2560…` unless marked `W`) | Used for |
+|---|---|
+| `app/screens/channel_info/index.ts`, `…/channel_info/` (the per-tab tree) | the info screen's structure: the header block, the action list, and the member count it shows |
+| `app/screens/channel_info/options/` (`add_members`, `manage_members`, `channel_settings`, `leave_channel`, `archive`, `unarchive`) | which action rows exist and the order they are drawn in |
+| `app/queries/servers/role.ts` | `observeCanManageChannelMembers`, `observeCanManageChannelSettings`, `canLeave`, `canArchive`, `canUnarchive` — the five gates this client derives from permission **ids** |
+| `app/utils/role/index.ts` | `hasPermission`: the union of the roles' `permissions` arrays is the answer, never the role name |
+| `app/utils/channel/index.ts` | `isDefaultChannel` (by URL name `town-square`), `isDMorGM`, `validateDisplayName` |
+| `app/screens/channel_settings/`, `…/channel_settings/archive/`, `…/channel_settings/convert_private.tsx` | the settings form (name/purpose/header), the archive/unarchive copy and confirmation |
+| `app/components/channel_actions/leave_channel_label/leave_channel_label.tsx` | the DM/GM wording and the `direct_channel_show` preference write that *closes* a DM instead of leaving it |
+| `app/screens/manage_channel_members/` | the member list: `sortUsers` (online first, then by display name), the row's role line and the remove action |
+| `app/screens/channel_add_members/` | the picker: the untitled list of team members who are not in the channel, the typed search, and the submit that adds the selection |
+| `app/screens/browse_channels/` | the browser: joined first, then every other public channel, the term filter, the join action and where a join lands |
+| `app/actions/websocket/channel.ts`, `…/websocket/users.ts` | the `channel_updated`, `channel_restored`, `user_added` and `user_removed` handlers this client reconciles with |
+| `app/client/rest/channels.ts`, `app/client/rest/users.ts` | the requests: `getChannel`, `getChannelStats`, `getChannelMembers`, `addChannelMember`, `removeChannelMember`, `patchChannel`, `deleteChannel`, `restoreChannel`, `getTeamChannels`, `searchUsers` |
+| `W …/components/channel_info_rhs/`, `W …/components/channel_header/`, `W …/components/more_direct_channels/`, `W …/components/channel_invite_modal/`, `W …/components/channel_settings_modal/`, `W …/components/browse_channels/` | **behaviour cross-check only** — what Path A's webview shows for the same screens, watched in the running client; not ported |
+
+**Measured against the real server** (`scripts/t40_channel_probe.py`, re-run on 2026-10-26 against
+Mattermost **9.11.19**, pinned by `MattermostTests/T40ChannelInfoTests.swift`):
+
+- The permission union comes from `POST /roles/names` with the user's system roles plus the team
+  membership's roles plus the channel membership's roles; on this server the administrator's union is
+  **271 ids across 4 roles**.
+- This server's stock `channel_user` role **carries the administrator ids** (`delete_public_channel`,
+  `manage_public_channel_members`, `manage_public_channel_properties` — 27 ids in total), so a client
+  that gates on the role *name* would be wrong in both directions. The live security test narrows the
+  role's `permissions` array for the duration of one test (the name stays `channel_user`) and asserts
+  that no administrator row is drawn — which is the distinction the card draws.
+- `GET /channels/{id}/stats` answers `member_count` (the channel object carries no count).
+- The field limits are the server's own: purpose 250 accepted / 251 → `model.channel.is_valid.purpose.app_error`;
+  header 1024 / 1025 → `…header.app_error`; display name 64 / 65 → `…display_name.app_error`.
+- Membership writes: `POST /channels/{id}/members` → 201 with the membership row,
+  `DELETE /channels/{id}/members/{user}` → 200 `{"status":"OK"}`,
+  `DELETE /channels/{id}/members/me` → 200 for a public channel.
+- Archive/restore: `DELETE /channels/{id}` → 200 with `delete_at` set on the re-read;
+  `POST /channels/{id}/restore` → 200 with `delete_at: 0`.
+- A DM is **closed, not left**: `PUT /users/{id}/preferences` with `direct_channel_show = false`
+  → 200, and both membership rows survive (2 before, 2 after).
+- The add-member picker's untitled list is `GET /users?in_team={team}&not_in_channel={channel}`
+  (200); `POST /users/search` answers **400** for an empty term, so the empty picker cannot be built
+  from it — the client uses the two sources in that order.
+- An **archived** channel keeps its name: `POST /channels` with a name an archived channel holds fails,
+  and `GET /teams/{team}/channels/name/{name}` answers 404 for it — which is why the probe's scratch
+  channel is per-run.
+
+Not ported by this card: the channel-info **tabs** (`channel_info/` has per-tab trees for files,
+pinned, members, etc. on mobile; this client draws the header, the member list and the action rows
+only, and pinned posts are T39's sheet), channel conversion (public↔private), bookmark management,
+channel-notification and mute settings (S22's rows for them belong to the preferences cards), the
+archived-channel browser (`GET /teams/{team}/channels/deleted` is read, but an archived channel is
+shown as not-joinable rather than in its own screen), and inviting by email (the picker adds existing
+team members only — `POST /teams/{team}/invite/email` is not called).
+

@@ -142,6 +142,13 @@ def ensure_member_account(admin: Client, team_id: str) -> dict:
         print(f"  created user {MEMBER_LOGIN} ({user.get('id')})")
     else:
         print(f"  user {MEMBER_LOGIN} already exists ({user.get('id')})")
+        # Make the fixture deterministic: an account that was created earlier by another run (or another
+        # card) may hold a different password, and then the live suite cannot sign in as it — the test
+        # would skip with a 401 that looks like a code bug. An administrator may reset it without the
+        # current password (`PUT /users/{id}/password`).
+        status, _ = admin.call("PUT", f"/users/{user['id']}/password",
+                               {"new_password": MEMBER_PASSWORD}, allow=(200, 400, 403))
+        print(f"  reset {MEMBER_LOGIN}'s password -> {status}")
     # A team membership, so the account can open the workspace at all.
     admin.call("POST", f"/teams/{team_id}/members", {"team_id": team_id, "user_id": user["id"]},
                allow=(201, 400, 403))

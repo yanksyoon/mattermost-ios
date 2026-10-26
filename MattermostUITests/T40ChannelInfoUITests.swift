@@ -30,12 +30,18 @@ import XCTest
 
 final class T40ChannelInfoUITests: XCTestCase {
 
+    /// One admin session per test process; the server rate-limits logins by IP (see `setUpWithError`).
+    private static var cachedAdminSession: (server: String, token: String, userID: String)?
+
     private var serverURL: URL!
     private var loginID: String!
     private var password: String!
     private var token: String!
     private var userID: String!
     private var teamID: String!
+
+    /// The last reason a server-side read failed, so an assertion can say why the oracle is empty.
+    private var lastOracleFailure: String?
 
     /// The channel the "render the server's data" and "add/remove/settings" tests use.
     private let standupName = "t40-standup"
@@ -64,9 +70,18 @@ final class T40ChannelInfoUITests: XCTestCase {
         }
         serverURL = url
         try ping()
-        let session = try authenticate(login: loginID, password: password)
-        token = session.token
-        userID = session.userID
+        // One admin login per process, not one per test: the server rate-limits `/users/login` per IP
+        // (measured: after a script and this suite shared the address, every test skipped with HTTP 429),
+        // and six tests each signing in again is six chances to be throttled mid-suite.
+        if let cached = Self.cachedAdminSession, cached.server == raw {
+            token = cached.token
+            userID = cached.userID
+        } else {
+            let session = try authenticate(login: loginID, password: password)
+            token = session.token
+            userID = session.userID
+            Self.cachedAdminSession = (server: raw, token: session.token, userID: session.userID)
+        }
         teamID = try firstTeamID()
     }
 
@@ -107,7 +122,8 @@ final class T40ChannelInfoUITests: XCTestCase {
         let count = element(app, "channelInfo.memberCount")
         XCTAssertTrue(count.waitForExistence(timeout: 20))
         XCTAssertTrue(count.label.contains("\(serverMembers.count) member"),
-                      "count \(count.label) must match the server's \(serverMembers.count) members")
+                      "count \(count.label) must match the server's \(serverMembers.count) members"
+                      + (lastOracleFailure.map { " (oracle: \($0))" } ?? ""))
         attach(app, "01-channel-info")
     }
 
@@ -128,7 +144,20 @@ final class T40ChannelInfoUITests: XCTestCase {
         XCTAssertTrue(pickerRow.waitForExistence(timeout: 20),
                       "the picker must list the account that is not a member:\n\(app.debugDescription)")
         pickerRow.tap()
-        element(app, "addMembers.submit").tap()
+        // The picker is a sheet presented from a sheet (channel info → add members), and a tap that lands
+        // on the presenting sheet's dimming layer is silently lost — the row stays unselected and the
+        // submit button keeps saying "Add 0 members". So the tap is repeated until the app's own state
+        // says the selection registered, and the failure message reports what the button said.
+        let submit = element(app, "addMembers.submit")
+        _ = waitUntil(timeout: 10) {
+            if submit.isEnabled { return true }
+            pickerRow.tap()
+            return submit.isEnabled
+        }
+        XCTAssertTrue(submit.isEnabled,
+                      "the row tap must select the person; the submit button says "
+                      + "\"\(submit.label)\"\\n\\(app.debugDescription)")
+        submit.tap()
 
         XCTAssertTrue(waitUntil(timeout: 20) { self.memberIDs(channel.id).contains(memberID) },
                       "the add must reach the server (the app is not the oracle)")
@@ -219,7 +248,7 @@ final class T40ChannelInfoUITests: XCTestCase {
         try ensureNotMember(channel.id, userID: userID)
 
         let app = launchApp()
-        let browseButton = element(app, "channelSidebar.browseChannels")
+        let browseButton = element(app, "nativeSidebarBrowseChannels")
         XCTAssertTrue(browseButton.waitForExistence(timeout: 40),
                       "the sidebar must offer the channel browser:\n\(app.debugDescription)")
         browseButton.tap()
@@ -354,10 +383,21 @@ final class T40ChannelInfoUITests: XCTestCase {
 
     // MARK: - Membership helpers (the oracle)
 
+    /// The channel's member ids straight from the server, or `nil` — with the reason kept in
+    /// `lastOracleFailure` instead of being flattened to "the server has nothing".
     private func memberIDs(_ channelID: String) -> Set<String> {
-        let rows = (try? getJSON("/api/v4/channels/\(channelID)/members?per_page=200"))
-            as? [[String: Any]] ?? []
-        return Set(rows.compactMap { $0["user_id"] as? String })
+        do {
+            let rows = try getJSON("/api/v4/channels/\(channelID)/members?per_page=200")
+                as? [[String: Any]] ?? []
+            lastOracleFailure = nil
+            return Set(rows.compactMap { $0["user_id"] as? String })
+        } catch {
+            lastOracleFailure = error.localizedDescription
+            XCTContext.runActivity(named: "oracle: members of \(channelID)") { _ in
+                print("T40 oracle failure: \(error.localizedDescription)")
+            }
+            return []
+        }
     }
 
     private func ensureMember(_ channelID: String, userID targetID: String) throws {
@@ -468,11 +508,16 @@ final class T40ChannelInfoUITests: XCTestCase {
         request.httpBody = try JSONSerialization.data(withJSONObject: ["login_id": login,
                                                                       "password": password])
         let (data, response) = try synchronous(request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard let http = response as? HTTPURLResponse, http.statusCode == 200,
               let token = http.value(forHTTPHeaderField: "Token"),
               let user = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let id = user["id"] as? String else {
-            throw XCTSkip("could not sign in as \(login) on the live server")
+            // The status travels with the skip: 429 is the server's login rate limiter (ten attempts a
+            // minute — measured while this suite and a probe script shared an IP), and 401 is a wrong
+            // password. "Could not sign in" alone made those two look alike.
+            let reason = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])??["id"] as? String
+            throw XCTSkip("could not sign in as \(login) (password length \(password.count)) on \(serverURL.absoluteString) (HTTP \(status), \(reason ?? "no error id"))")
         }
         return (token, id)
     }
@@ -485,10 +530,35 @@ final class T40ChannelInfoUITests: XCTestCase {
         return id
     }
 
+    /// A URL for an API path that may carry a query string.
+    ///
+    /// `appendingPathComponent` percent-encodes a `?`, so `/members?per_page=200` became
+    /// `/members%3Fper_page=200` and the server answered 404 "there doesn't appear to be an api call for
+    /// the url" — which the oracle then read as "no members". The query is split off and set as a query
+    /// component instead.
+    private func url(for path: String) -> URL {
+        let halves = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+        let base = serverURL.appendingPathComponent(String(halves[0]))
+        guard halves.count == 2, !halves[1].isEmpty,
+              var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            return base
+        }
+        components.percentEncodedQuery = String(halves[1])
+        return components.url ?? base
+    }
+
     private func getJSON(_ path: String) throws -> Any {
-        var request = URLRequest(url: serverURL.appendingPathComponent(path))
+        var request = URLRequest(url: url(for: path))
         request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
-        let (data, _) = try synchronous(request)
+        let (data, response) = try synchronous(request)
+        // An oracle that reads a 401 as "the server has nothing" is worse than no oracle: every
+        // "the screen must match the server" assertion would then compare against an empty answer.
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else {
+            throw NSError(domain: "T40Oracle", code: status, userInfo: [
+                NSLocalizedDescriptionKey:
+                    "GET \(path) -> HTTP \(status) \(String(decoding: data.prefix(200), as: UTF8.self))"])
+        }
         return try JSONSerialization.jsonObject(with: data)
     }
 
@@ -502,7 +572,7 @@ final class T40ChannelInfoUITests: XCTestCase {
 
     private func sendJSON(_ method: String, _ path: String, body: Any?,
                           allowFailure: Bool = false) throws -> Any {
-        var request = URLRequest(url: serverURL.appendingPathComponent(path))
+        var request = URLRequest(url: url(for: path))
         request.httpMethod = method
         request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
         if let body {
@@ -524,7 +594,7 @@ final class T40ChannelInfoUITests: XCTestCase {
     /// The status code only — used for the "the server agrees this write is refused" assertion.
     private func sendJSONExpectingFailure(_ method: String, _ path: String, body: Any?,
                                           token: String) throws -> Int {
-        var request = URLRequest(url: serverURL.appendingPathComponent(path))
+        var request = URLRequest(url: url(for: path))
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         if let body {
@@ -535,11 +605,25 @@ final class T40ChannelInfoUITests: XCTestCase {
         return (response as? HTTPURLResponse)?.statusCode ?? 0
     }
 
+    /// The REST oracle's own session — **no cookie store**.
+    ///
+    /// `URLSession.shared` keeps an `MMAUTHTOKEN` cookie from any earlier login of this process, and the
+    /// server answers `api.context.session_expired.app_error` (401) for a request that carries a stale
+    /// one — before it ever looks at the body, so a correct password reads as "wrong password". The
+    /// app itself authenticates with the `Authorization` header and no cookies, and so must the oracle.
+    private static let restSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieAcceptPolicy = .never
+        return URLSession(configuration: configuration)
+    }()
+
     private func synchronous(_ request: URLRequest) throws -> (Data, URLResponse) {
         let semaphore = DispatchSemaphore(value: 0)
         var result: (Data, URLResponse)?
         var failure: Error?
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        Self.restSession.dataTask(with: request) { data, response, error in
             if let error { failure = error }
             if let data, let response { result = (data, response) }
             semaphore.signal()

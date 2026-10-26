@@ -44,7 +44,10 @@ ADMIN_PASSWORD = "PerfProbe-Not-A-Real-Secret-1"
 MEMBER_LOGIN = "t40member"
 MEMBER_PASSWORD = "T40-Member-Not-A-Real-Secret-1"
 TEAM_NAME = "perf"
-PROBE_CHANNEL = "t40probe-scratch"
+# Per-run, because an archived channel keeps its name: `POST /channels` then answers "name exists",
+# while `GET /teams/{tid}/channels/name/{name}` answers 404 for an archived channel (measured) — so a
+# fixed name would leave every later write in this script hitting a channel id that does not exist.
+PROBE_CHANNEL = f"t40probe-{int(time.time())}"
 
 
 class Client:
@@ -136,11 +139,10 @@ def main() -> int:
     status, channel = admin.call("POST", "/channels",
                                  {"team_id": team_id, "name": PROBE_CHANNEL,
                                   "display_name": "T40 probe", "type": "O"})
-    if status not in (200, 201):
-        status, channel = admin.call("GET", f"/teams/{team_id}/channels/name/{PROBE_CHANNEL}")
-        if (channel.get("delete_at") or 0) != 0:
-            admin.call("POST", f"/channels/{channel['id']}/restore")
-            status, channel = admin.call("GET", f"/channels/{channel['id']}")
+    show("POST /channels (scratch)", status, channel)
+    if status not in (200, 201) or not channel.get("id"):
+        print("    could not create the scratch channel — nothing below would be measured; stopping")
+        return 1
     channel_id = channel["id"]
     print(f"    channel {channel_id}")
     show("GET /channels/{id}/stats", *admin.call("GET", f"/channels/{channel_id}/stats"))

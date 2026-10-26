@@ -86,6 +86,18 @@ struct NativeChannelSidebarContent: View {
             .accessibilityIdentifier("channelSidebar.quickSwitcher")
             // The desktop shortcut (cmd/ctrl-K) on a hardware keyboard; harmless where there is none.
             .keyboardShortcut("k", modifiers: .command)
+            // T40: the channel browser (S24). It sits here, beside the switcher, because a `List` renders
+            // its sections lazily — the same row at the bottom of a long channel list is not on screen and
+            // therefore not reachable without scrolling, and "find a channel I am not in" belongs with
+            // "find a channel I am in".
+            if resolver.resolvedMode(for: .channelInfo) == .native {
+                Button {
+                    browseChannelsPresented = true
+                } label: {
+                    Label("Browse channels", systemImage: "magnifyingglass.circle")
+                }
+                .accessibilityIdentifier("nativeSidebarBrowseChannels")
+            }
         } header: {
             Text("Workspace")
         }
@@ -139,17 +151,6 @@ struct NativeChannelSidebarContent: View {
                 Label("All threads", systemImage: "text.bubble")
             }
             .accessibilityIdentifier("nativeSidebarAllThreads")
-            // T40: the channel browser — "Browse channels" in the web client's channel switcher. It lives
-            // beside All threads rather than in a category, because it belongs to no category and is where
-            // a channel that is *not* in the list comes from.
-            if resolver.resolvedMode(for: .channelInfo) == .native {
-                Button {
-                    browseChannelsPresented = true
-                } label: {
-                    Label("Browse channels", systemImage: "magnifyingglass.circle")
-                }
-                .accessibilityIdentifier("nativeSidebarBrowseChannels")
-            }
         } header: {
             Text("Threads")
         }
