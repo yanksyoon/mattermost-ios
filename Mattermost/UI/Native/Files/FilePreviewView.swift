@@ -18,6 +18,11 @@
 //                this path that could interpret an HTML, SVG or binary payload. That refusal is what
 //                "opens a safe preview, never executes" means here, and it is asserted by a live test
 //                (`MattermostUITests/T38AttachmentsUITests`).
+//
+// Before any reader is handed bytes, `PreviewFetchDecision` bounds the **allocation**: a text or PDF
+// file whose own declared size is past `FileTypeMap.previewFetchByteLimit` is refused in place and
+// offered for download instead. The 256 KB text cap was previously applied *after* the whole payload
+// was in memory, which made a 100 MB log a 100 MB `Data` (T38-AV F5).
 
 import SwiftUI
 import PDFKit
@@ -54,6 +59,32 @@ enum TextPreview {
     }
 }
 
+/// What the in-place readers do with a file of a given declared size — decided **before** any bytes are
+/// fetched, so a size the client will not hold never becomes an allocation.
+///
+/// The text and PDF readers need the whole payload (`PDFDocument(data:)`, `TextPreview.decode`), and
+/// `metadata.files` already states the size, so the decision is free. Images are not gated here: the
+/// gallery downloads the file and downsamples it during decode, which is the path the inline grid and
+/// the gallery already bound by pixel count.
+enum PreviewFetchDecision: Equatable {
+    case fetch
+    case tooLarge(limit: Int64)
+
+    static func decide(kind: FilePreviewKind, byteCount: Int64) -> PreviewFetchDecision {
+        switch kind {
+        case .image, .unsupported:
+            return .fetch
+        case .pdf, .text:
+            // An unknown size (0 from a payload that carried none) is not a refusal: the server's own
+            // limit is the only bound left, and refusing would lose a readable file.
+            guard byteCount > 0 else { return .fetch }
+            return FileTypeMap.mayFetchWholeFile(byteCount: byteCount)
+                ? .fetch
+                : .tooLarge(limit: Int64(FileTypeMap.previewFetchByteLimit))
+        }
+    }
+}
+
 struct AttachmentPreviewView: View {
     let target: AttachmentPreviewTarget
     let imageStore: ChannelImageStore?
@@ -62,10 +93,14 @@ struct AttachmentPreviewView: View {
 
     @State private var payload: AttachmentPreviewPayload?
     @State private var failure: String?
+    @State private var sizeRefusal: Int64?
     @State private var shareItem: SharePayload?
 
     private var attachment: PostAttachment { target.attachment }
     private var kind: FilePreviewKind { attachment.previewKind }
+    private var fetchDecision: PreviewFetchDecision {
+        PreviewFetchDecision.decide(kind: kind, byteCount: attachment.sizeBytes)
+    }
     private var downloadState: AttachmentDownloadState {
         downloads?.state(for: attachment.id) ?? .idle
     }
@@ -111,12 +146,14 @@ struct AttachmentPreviewView: View {
             Spacer(minLength: 0)
 
             if !attachment.isBlocked {
-                Button { share() } label: {
-                    Image(systemName: "square.and.arrow.up").font(.system(size: 16))
+                if fetchDecision == .fetch {
+                    Button { share() } label: {
+                        Image(systemName: "square.and.arrow.up").font(.system(size: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Share file")
+                    .accessibilityIdentifier("attachmentPreview.share")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Share file")
-                .accessibilityIdentifier("attachmentPreview.share")
 
                 Button { downloads?.download(attachment) } label: {
                     Image(systemName: downloadState == .done
@@ -139,6 +176,8 @@ struct AttachmentPreviewView: View {
     private var content: some View {
         if case .unsupported(let reason) = kind {
             unsupported(reason)
+        } else if let sizeRefusal {
+            tooLarge(limit: sizeRefusal)
         } else if let failure {
             failureState(failure)
         } else if let payload {
@@ -199,6 +238,49 @@ struct AttachmentPreviewView: View {
         .accessibilityIdentifier("attachmentPreview.unsupported")
     }
 
+    /// A file whose declared size is past `FileTypeMap.previewFetchByteLimit`. Stated plainly, with the
+    /// one action that is both safe and bounded: the download path streams to disk and never holds the
+    /// payload in memory, so a 300 MB log is still obtainable — it is just not *previewed* in place.
+    private func tooLarge(limit: Int64) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.circle")
+                .font(.system(size: 30))
+                .foregroundStyle(.secondary)
+            Text(attachment.name)
+                .font(.system(size: 15, weight: .semibold))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+            Text([attachment.typeLabel, attachment.sizeLabel].filter { !$0.isEmpty }
+                    .joined(separator: " · "))
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+            Text("This file is larger than the "
+                 + "\(AttachmentPreviewView.byteLabel(Int(limit))) this client will load into memory "
+                 + "for a preview. Download it to open it in another app.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 24)
+            if downloads != nil {
+                Button {
+                    downloads?.download(attachment)
+                } label: {
+                    Label(downloadState == .done ? "Saved to Downloads" : "Download",
+                          systemImage: downloadState == .done
+                          ? "checkmark.circle.fill" : "arrow.down.circle")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(downloadState.isActive || downloadState == .done)
+                .accessibilityIdentifier("attachmentPreview.tooLarge.download")
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("attachmentPreview.tooLarge")
+    }
+
     private func textView(_ text: String, truncated: Bool) -> some View {
         ScrollView([.vertical, .horizontal]) {
             VStack(alignment: .leading, spacing: 6) {
@@ -250,7 +332,7 @@ struct AttachmentPreviewView: View {
     // MARK: Loading
 
     private func load() async {
-        guard payload == nil, failure == nil else { return }
+        guard payload == nil, failure == nil, sizeRefusal == nil else { return }
         switch kind {
         case .unsupported:
             return
@@ -262,6 +344,14 @@ struct AttachmentPreviewView: View {
                 failure = "The image could not be loaded."
             }
         case .pdf, .text:
+            // The size comes from the post's own `metadata.files`, so this refusal costs no bytes:
+            // before this guard the readers fetched the whole payload and truncated *after* it was in
+            // memory (a 100 MB log was a 100 MB `Data`).
+            if case .tooLarge(let limit) = PreviewFetchDecision.decide(kind: kind,
+                                                                      byteCount: attachment.sizeBytes) {
+                sizeRefusal = limit
+                return
+            }
             guard let imageStore else { failure = "The file could not be loaded."; return }
             guard let data = await imageStore.originalData(for: attachment) else {
                 failure = "The file could not be downloaded from the server."

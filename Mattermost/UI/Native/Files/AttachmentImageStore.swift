@@ -5,7 +5,7 @@
 // upstream source copied. The bounds below are this client's own and are stated where chosen.
 //
 // **Why the original bytes and not `/files/{id}/thumbnail`** — measured on the pinned 9.11.19 server
-// (`scripts/t38_file_probe.py`, `docs/t38-build-note.md` §3): a 240×160 PNG's thumbnail comes back
+// (`scripts/t38_file_probe.py`, `docs/t38-build-note.md` §2): a 240×160 PNG's thumbnail comes back
 // 120×80 / 282 bytes. Drawn at the 300 pt bubble width that is a blurred preview, and the card's
 // criterion is that the image "renders correctly". So an inline preview fetches the file and
 // **downsamples it here** (`inlineMaxPixel`, exactly 2× the largest cell) — bounded on the client, at
@@ -26,7 +26,9 @@
 //    SwiftUI when the row leaves the tree, the store drops the waiter, and when the last waiter goes
 //    the underlying request is cancelled and nothing is cached. This is the difference between "scroll
 //    fast and move on" and "leave 300 requests and 300 images behind" — the property the T27 probe
-//    measures (`docs/t38-build-note.md` §6).
+//    measures, and which `docs/t38-build-note.md` §3.1 records for this card (4 posts × 10 images of
+//    ~2 MB each in #t38-heavy, six scroll passes: RSS first third 449.5 → last third 375.4 MB, physical
+//    footprint 144.0 → 151.7 MB, per-pass peaks 459.9 → 379.1 MB).
 //
 // Concurrency: `@MainActor`, like every other view model in this tree. The network call is a single
 // `await` on an injected closure, so tests drive the whole state machine against a fake and never a

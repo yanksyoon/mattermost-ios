@@ -83,8 +83,9 @@ struct AttachmentGallery: Identifiable, Equatable, Sendable {
 ///  * 2–3 images: equal squares of `rowCell` (104 pt), so a row of three fits a 375 pt bubble;
 ///  * 4+: 3 columns of `gridCell` (96 pt), rows of three.
 ///
-/// The numbers exist to bound memory as much as to look right: a cell is decoded from the server's
-/// thumbnail, and the viewer asks for the original only when the reader opens one.
+/// The numbers exist to bound memory as much as to look right: a cell is decoded from a ≤600 px
+/// downsample of the file's **own** bytes (the server's `/thumbnail` is 120 px wide and is not used —
+/// build note §2), and the gallery decodes its own ≤2048 px copy only when the reader opens one.
 enum AttachmentImageGrid {
     static let singleMaxWidth: CGFloat = 300
     static let singleMaxHeight: CGFloat = 240

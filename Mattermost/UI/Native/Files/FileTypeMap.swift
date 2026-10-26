@@ -91,9 +91,17 @@ enum FileTypeMap {
     /// it whole is the difference between a bounded screen and an unbounded allocation.
     static let textPreviewByteLimit = 256 * 1024
 
-    /// The largest image the gallery will decode at full size. Anything bigger is drawn from the
-    /// server's thumbnail instead, and the viewer says so — never silently downsampled to nothing.
-    static let imageDecodeByteLimit = 24 * 1024 * 1024
+    /// The largest file this client will fetch **whole** in order to preview it in place (the text and
+    /// PDF readers). The size checked is the one the post's own `metadata.files` declares, so the
+    /// decision costs no bytes: a 100 MB log is refused *before* a 100 MB `Data` exists, instead of
+    /// being truncated to 256 KB after the whole payload is in memory. Text is drawn under
+    /// `textPreviewByteLimit` on top of this — one bounds the allocation, the other the rendering.
+    static let previewFetchByteLimit = 32 * 1024 * 1024
+
+    /// Whether a file of `byteCount` bytes may be fetched whole for the in-place readers.
+    static func mayFetchWholeFile(byteCount: Int64) -> Bool {
+        byteCount >= 0 && byteCount <= Int64(previewFetchByteLimit)
+    }
 
     // MARK: Extensions
 

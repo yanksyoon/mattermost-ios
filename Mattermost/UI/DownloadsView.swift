@@ -123,6 +123,16 @@ struct DownloadRowView: View {
                         // "did this land?" needs this line to be addressable.
                         .accessibilityIdentifier("downloadStatus-\(record.filename)")
                 }
+                if let note = DownloadFormatting.savedAsNote(record) {
+                    // The name on disk can differ from the one the reader was shown (de-duplication);
+                    // say so instead of naming a file that is not there under that name.
+                    Text(note)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .accessibilityIdentifier("downloadLandedName-\(record.filename)")
+                }
                 if record.state == .downloading {
                     ProgressView(value: DownloadFormatting.progress(record), total: 1)
                         .progressViewStyle(.linear)
@@ -256,6 +266,27 @@ enum DownloadFormatting {
     static func progress(_ record: DownloadRecord) -> Double {
         guard record.totalBytes > 0 else { return 0 }
         return min(max(Double(record.receivedBytes) / Double(record.totalBytes), 0), 1)
+    }
+
+    /// The name the bytes actually landed under, when it differs from the row's name.
+    ///
+    /// De-duplication happens on disk (`report (2).pdf` when `report.pdf` is already in Downloads), and
+    /// the journal keeps the name the reader was shown (`record.filename`) while `record.destination`
+    /// holds the path the file really has. A row that drew only the first therefore named a file that
+    /// did not exist under that name — measured by T38-AV: `Downloads/t38-shot-01 (2).png` on disk
+    /// while the row read `t38-shot-01.png`. `DownloadWorker.install` returns the destination, and the
+    /// delegate stores it, so this is the landed name and nothing else.
+    static func landedName(_ record: DownloadRecord) -> String? {
+        guard record.state == .done,
+              let landed = record.targetURL?.lastPathComponent,
+              !landed.isEmpty,
+              landed != record.filename else { return nil }
+        return landed
+    }
+
+    /// "Saved as report (2).pdf" — nil when the row's own name is the landed name.
+    static func savedAsNote(_ record: DownloadRecord) -> String? {
+        landedName(record).map { "Saved as \($0)" }
     }
 }
 

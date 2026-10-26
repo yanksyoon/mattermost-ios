@@ -489,6 +489,106 @@ final class T38DownloadLandingTests: XCTestCase {
     }
 }
 
+// MARK: - 5b. What the bytes are really named, and what is too large to fetch whole (T38-AV F5/F6)
+
+@MainActor
+final class T38LandedNameTests: XCTestCase {
+    private var directory: URL!
+
+    override func setUpWithError() throws {
+        directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("t38-landed-name-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    /// The case T38-AV measured: a byte-identical `t38-shot-01.png` is already in Downloads, so the new
+    /// save lands as `t38-shot-01 (2).png` while the journal (and therefore the row) still says
+    /// `t38-shot-01.png`. The row must say where the bytes actually are.
+    func testTheRowNamesTheFileTheBytesActuallyLandedUnder() throws {
+        let stale = directory.appendingPathComponent("t38-shot-01.png")
+        try Data("stale".utf8).write(to: stale)
+        let staged = directory.appendingPathComponent("staged-\(UUID().uuidString)")
+        try Data("stale".utf8).write(to: staged)
+
+        let destination = try DownloadWorker.install(downloadedFileAt: staged,
+                                                     filename: "t38-shot-01.png",
+                                                     in: directory,
+                                                     existingNames: ["t38-shot-01.png"])
+        XCTAssertEqual(destination.lastPathComponent, "t38-shot-01 (2).png",
+                       "install returns the landed destination, de-duplicated")
+
+        // Exactly the shape the download delegate journals.
+        var record = DownloadRecord(filename: "t38-shot-01.png", source: "https://mm.example.com/api/v4/files/a")
+        record.destination = destination.absoluteString
+        record.state = .done
+        XCTAssertEqual(DownloadFormatting.landedName(record), "t38-shot-01 (2).png")
+        XCTAssertEqual(DownloadFormatting.savedAsNote(record), "Saved as t38-shot-01 (2).png")
+    }
+
+    /// No note when the landed name *is* the row's name — the common case must stay quiet.
+    func testARowWhoseNameIsTheLandedNameSaysNothingExtra() {
+        var record = DownloadRecord(filename: "t38-notes.txt", source: "https://mm.example.com/api/v4/files/b")
+        record.destination = "file:///Downloads/t38-notes.txt"
+        record.state = .done
+        XCTAssertNil(DownloadFormatting.landedName(record))
+        XCTAssertNil(DownloadFormatting.savedAsNote(record))
+    }
+
+    /// A file that has not landed names nothing at all, even if a destination string is present.
+    func testAnUnfinishedRowNamesNoLandedFile() {
+        var record = DownloadRecord(filename: "t38-report.pdf", source: "https://mm.example.com/api/v4/files/c")
+        record.destination = "file:///Downloads/t38-report (2).pdf"
+        record.state = .downloading
+        XCTAssertNil(DownloadFormatting.savedAsNote(record))
+        record.destination = ""
+        record.state = .done
+        XCTAssertNil(DownloadFormatting.savedAsNote(record))
+    }
+}
+
+/// T38-AV F5: the text/PDF readers fetch the whole payload, so the card's bound has to be a **fetch**
+/// bound decided from `metadata.files` — not the 256 KB text cap applied after the allocation.
+final class T38PreviewFetchLimitTests: XCTestCase {
+
+    func testATextFilePastTheFetchLimitIsRefusedBeforeAnyBytesAreFetched() {
+        let decision = PreviewFetchDecision.decide(kind: .text,
+                                                   byteCount: Int64(FileTypeMap.previewFetchByteLimit) + 1)
+        XCTAssertEqual(decision, .tooLarge(limit: Int64(FileTypeMap.previewFetchByteLimit)))
+    }
+
+    func testAPDFPastTheFetchLimitIsRefusedToo() {
+        XCTAssertEqual(PreviewFetchDecision.decide(kind: .pdf, byteCount: 120 * 1024 * 1024),
+                       .tooLarge(limit: Int64(FileTypeMap.previewFetchByteLimit)))
+    }
+
+    func testAFileAtOrUnderTheLimitIsFetched() {
+        XCTAssertEqual(PreviewFetchDecision.decide(kind: .text, byteCount: 421 * 1024), .fetch,
+                       "the live suite's 421 KB log is a preview, not a refusal")
+        XCTAssertEqual(PreviewFetchDecision.decide(kind: .text,
+                                                   byteCount: Int64(FileTypeMap.previewFetchByteLimit)),
+                       .fetch, "the limit itself is allowed")
+    }
+
+    /// An image is not gated by this rule: the gallery fetches it and downsamples during decode, and
+    /// the store bounds the bitmap by pixel count. Refusing here would hide a large photo instead of
+    /// bounding it.
+    func testAnImageIsNeverRefusedByTheFetchLimit() {
+        XCTAssertEqual(PreviewFetchDecision.decide(kind: .image, byteCount: 200 * 1024 * 1024), .fetch)
+        XCTAssertEqual(PreviewFetchDecision.decide(kind: .unsupported(.noReader),
+                                                   byteCount: 200 * 1024 * 1024), .fetch)
+    }
+
+    /// A payload with no declared size (`0`) must not be refused: the server's own limit is the only
+    /// bound left, and refusing would lose a readable file.
+    func testAnUnknownSizeIsNotARefusal() {
+        XCTAssertEqual(PreviewFetchDecision.decide(kind: .text, byteCount: 0), .fetch)
+    }
+}
+
 // MARK: - 6. What a row says about a download
 
 final class T38AttachmentDownloadStateTests: XCTestCase {
