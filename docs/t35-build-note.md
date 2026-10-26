@@ -48,7 +48,7 @@ Attribution: `docs/THIRD_PARTY_NOTICES.md` §11 (endpoints + component structure
    possible from either direction; the live test asserts zero `post.pending:` rows after the send and
    exactly one row for the server's id.
 5. **Fail.** The optimistic row is withdrawn, the text **stays**, the failure banner shows the
-   server's meaning, and the draft is written immediately (the debounce may not have fired). Retry
+   server's meaning, and the draft is written immediately (a failed send never waits on a timer). Retry
    re-sends **the same** `pending_post_id`, so a request whose answer was lost cannot become two
    messages.
 6. **Edit / delete.** `beginEditing` loads the post into the same composer; `PUT /posts/{id}` saves the
@@ -56,8 +56,9 @@ Attribution: `docs/THIRD_PARTY_NOTICES.md` §11 (endpoints + component structure
    `applyTombstone` the socket uses, so a delete from this device and one from another device
    converge instead of fighting.
 7. **Drafts.** One row per `(channel, thread root)` in T29's `draft` table, in a **per-server** SQLite
-   file. Empty text **deletes** the row (the composer's rule). Backgrounding writes the draft
-   synchronously (`scenePhase != .active`), so a kill cannot lose the last words.
+   file. Empty text **deletes** the row (the composer's rule). Writing is *write-through*: every
+   change is written at once, coalesced only while a write is already running, and backgrounding
+   flushes explicitly — a debounce window is a window a killed process can fall into (§7.3).
 
 ## 3. Tests
 
@@ -254,3 +255,24 @@ Backgrounding is still handled separately (`ChannelView.onChange(of: scenePhase)
   gets its own SQLite file under `Application Support/MattermostStores/`; a long session of UI runs
   leaves one file per launch (~260 KB each, measured 50+ after a day of runs). That is test-seam
   hygiene (idempotent seeding by URL), not a composer bug — recorded so it is not mistaken for one.
+
+### 7.5 The T34 suite is red on this host, and it is not this card's change
+
+The row-actions change adds one element per row, so T34's live suite was re-run against it rather
+than assumed. It is **not** green, and a base-commit A/B shows the failures were already there:
+
+| test | with T35's rows | at `d1d80c5` (T35's two row files swapped out) |
+| --- | --- | --- |
+| `testLoadingOlderPostsDoesNotMoveTheAnchoredPost` | fails, 52.7 s: "the anchored post `post.m6mep5dut3y6feem8fzejj4jpr` left the screen" | **fails, 51.9 s, same post, same message** (`build/logs/t34-anchor-base.log`) |
+| `testANewPostAppearsWithoutReloadAndTheUnreadLineFollowsLastViewedAt` | fails: no socket row | fails the same way (the flake T34-R5 documented) |
+| `testReachingTheTop…`, `testThePostListRendersTheServersShowcase` | fail | fail — they run after the app has been killed (below) |
+
+Both full-suite runs also lost the app process, with the automation-session signature of §7.4/§6
+(`~/Library/Logs/DiagnosticReports/Mattermost-2026-10-25-210015.ips`, `-210758.ips`). So: the anchor
+failure and the flake are pre-existing on this host, the crash is the harness's, and the two tests
+after the crash are cascade. Nothing in this table is evidence against the composer work, and
+nothing in it was "fixed" here — the T34 lane owns it.
+
+One consequence worth writing down: the T35 live suite passes 7/7 *because* it is short — the app is
+not kept alive long enough for the automation session to die on it. A suite that snapshots 120 rows
+does, on this host, most runs.
