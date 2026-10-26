@@ -34,6 +34,10 @@ struct MMPost: Codable, Equatable, Identifiable, Sendable {
     var replyCount: Int
     var lastReplyAt: Int64
     var isFollowing: Bool
+    /// The client id a *sender* supplied on `POST /posts`, echoed by the server on the socket
+    /// `posted` event. T35 (the composer) uses it to replace its optimistic row with the real post
+    /// instead of guessing by message text. Empty for every post this app did not create.
+    var pendingPostId: String
     /// CRT participants, when the server sends them (collapsed-thread mode).
     var participants: [MMUser]?
 
@@ -53,6 +57,7 @@ struct MMPost: Codable, Equatable, Identifiable, Sendable {
         case replyCount = "reply_count"
         case lastReplyAt = "last_reply_at"
         case isFollowing = "is_following"
+        case pendingPostId = "pending_post_id"
     }
 
     init(id: String,
@@ -74,6 +79,7 @@ struct MMPost: Codable, Equatable, Identifiable, Sendable {
          replyCount: Int = 0,
          lastReplyAt: Int64 = 0,
          isFollowing: Bool = false,
+         pendingPostId: String = "",
          participants: [MMUser]? = nil) {
         self.id = id
         self.createAt = createAt
@@ -94,6 +100,7 @@ struct MMPost: Codable, Equatable, Identifiable, Sendable {
         self.replyCount = replyCount
         self.lastReplyAt = lastReplyAt
         self.isFollowing = isFollowing
+        self.pendingPostId = pendingPostId
         self.participants = participants
     }
 
@@ -118,6 +125,7 @@ struct MMPost: Codable, Equatable, Identifiable, Sendable {
         replyCount = try values.decodeIfPresent(Int.self, forKey: .replyCount) ?? 0
         lastReplyAt = try values.decodeIfPresent(Int64.self, forKey: .lastReplyAt) ?? 0
         isFollowing = try values.decodeIfPresent(Bool.self, forKey: .isFollowing) ?? false
+        pendingPostId = try values.decodeIfPresent(String.self, forKey: .pendingPostId) ?? ""
         participants = try? values.decodeIfPresent([MMUser].self, forKey: .participants)
         props = try? values.decodeIfPresent(JSONValue.self, forKey: .props)
         metadata = try? values.decodeIfPresent(JSONValue.self, forKey: .metadata)

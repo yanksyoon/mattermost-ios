@@ -21,12 +21,17 @@ struct ChannelPostListView: View {
     @ObservedObject var model: ChannelViewModel
     let imageStore: ChannelImageStore?
     var emoji: EmojiCatalogue?
+    /// What a reader can do with a row (T35). Nil keeps the pre-T35 read-only rendering.
+    var rowActions: ((PostRowModel) -> PostRowActions?)? = nil
 
     /// True while a top visit must not page: the reader has not been away from the top since the last
     /// auto-load, so this is the same visit. Cleared once the viewport is a screen away from the top.
     @State private var mustLeaveTopBeforePaging = true
     @State private var readerIsAtBottom = true
     @StateObject private var scrollController = ChannelScrollController()
+    /// The row whose options sheet is up. One sheet for the window (T35): a row's overflow button
+    /// hands its row here rather than each row owning a presentation.
+    @State private var optionsRow: PostRowModel?
 
     var body: some View {
         Group {
@@ -44,6 +49,14 @@ struct ChannelPostListView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sheet(item: $optionsRow) { row in
+            if let actions = actions(for: row) {
+                PostOptionsSheet(rowID: row.id,
+                                 authorName: row.author.displayName,
+                                 actions: actions,
+                                 onDismiss: { optionsRow = nil })
+            }
+        }
     }
 
     // MARK: List
@@ -204,11 +217,19 @@ struct ChannelPostListView: View {
                         imageStore: imageStore,
                         emoji: emoji,
                         onToggleExpanded: { toggleExpanded(row.id) },
-                        onRetryAttachment: { _ in })
+                        onRetryAttachment: { _ in },
+                        actions: actions(for: row))
                 // The row's own UIView, so the restore can measure where the reader is without
                 // going through a SwiftUI preference (see ChannelScrollPosition.swift).
                 .background(RowAnchorProbe(postID: row.id, controller: scrollController))
         }
+    }
+
+    /// The row's actions, with the options presentation wired to this window.
+    private func actions(for row: PostRowModel) -> PostRowActions? {
+        guard var supplied = rowActions?(row) else { return nil }
+        supplied.onShowOptions = { optionsRow = row }
+        return supplied
     }
 
     /// Expand or collapse a post without moving the post's own position on screen.
@@ -388,24 +409,44 @@ struct ChannelPaneContent: View {
     @ObservedObject var navigation: NativeNavigation
 
     @EnvironmentObject private var panes: ChannelPaneCoordinator
+    @EnvironmentObject private var resolver: SurfaceModeResolver
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var model: ChannelViewModel?
     @State private var imageStore: ChannelImageStore?
     @State private var emoji: EmojiCatalogue?
+    @State private var composer: ComposerViewModel?
+
+    /// Whether the write surface renders natively (T35's `.composer` surface).
+    ///
+    /// The composer is a surface of its own in the dual-render switch, not part of `.channelView`:
+    /// a reader can have the native post list with the webview's composer right below it, which is
+    /// exactly the state a partial migration is in. `-surfaceMode composer=native` turns it on; the
+    /// default stays `.web` until T35-AV approves the flip (`SurfaceDefaults.nativeApprovedSurfaces`).
+    private var composerIsNative: Bool {
+        resolver.resolvedMode(for: .composer) == .native
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
             if let model {
-                ChannelPostListView(model: model, imageStore: imageStore, emoji: emoji)
+                ChannelPostListView(model: model,
+                                    imageStore: imageStore,
+                                    emoji: emoji,
+                                    rowActions: rowActions)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityIdentifier("channelPostList.loading")
             }
             Divider()
-            composerPlaceholder
+            if composerIsNative, let composer {
+                ComposerView(model: composer, emoji: emoji)
+            } else {
+                composerPlaceholder
+            }
         }
         // The model is created on first appearance and re-used from the coordinator afterwards, so a
         // rotation, a push and a return all keep the same window and scroll position.
@@ -415,10 +456,59 @@ struct ChannelPaneContent: View {
             imageStore = panes.imageStore(for: server)
             let catalogue = panes.emojiCatalogue(for: server)
             emoji = catalogue
+            // T35: the composer is created beside the list and wired to it, so an optimistic row and
+            // its reconciliation land in the same window the reader is looking at. Only when the
+            // write surface is native: a webview composer must not open a draft database or a send
+            // path it will never use.
+            if composerIsNative {
+                composer = panes.composer(for: server,
+                                          channelID: channelID,
+                                          channelName: channelName,
+                                          teamID: navigation.location.request.teamID,
+                                          emojiCatalogue: catalogue)
+            }
             await panes.activate(server: server, channelID: channelID, channelName: channelName)
             // The server's custom emoji are drawn as images inside post bodies; the list is fetched
             // once per server and the catalogue is shared by every channel of it.
             await catalogue.loadNamesIfNeeded()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Backgrounding is the moment the debounce may not have fired yet: a message typed and
+            // then interrupted must still be on disk when the app is killed.
+            guard phase != .active, let composer else { return }
+            Task { await composer.saveDraftNow() }
+        }
+    }
+
+    /// The row menu's callbacks. Edit and delete are only offered on my own post; the server enforces
+    /// this too, but a menu item that always fails is not an affordance. Reply is offered only when
+    /// the composer is native: the menu item opens *this* composer in reply mode, so it must not
+    /// appear when the write surface is the webview's.
+    private var rowActions: (PostRowModel) -> PostRowActions? {
+        { row in
+            guard composerIsNative, let composer else { return nil }
+            // Who may edit/delete is one pure rule (ComposerModels), not a comparison repeated here
+            // — the live suite found the two copies disagreeing.
+            let menu = ComposerRowPermissions.menu(postUserID: row.post.userId,
+                                                  authorID: composer.authorID,
+                                                  isSystem: row.isSystem,
+                                                  isDeleted: row.isDeleted,
+                                                  isPending: row.isPending)
+            guard let menu else { return nil }
+            return PostRowActions(canReply: menu.reply,
+                                  canEdit: menu.edit,
+                                  canDelete: menu.delete,
+                                  onReply: {
+                                      composer.beginReply(to: row.post,
+                                                          authorLabel: row.author.displayName)
+                                  },
+                                  onEdit: { composer.beginEditing(row.post) },
+                                  onDelete: {
+                                      Task { await composer.delete(postID: row.post.id) }
+                                  },
+                                  // Replaced by the list, which owns the sheet (see
+                                  // ChannelPostListView.actions(for:)).
+                                  onShowOptions: {})
         }
     }
 
@@ -463,13 +553,14 @@ struct ChannelPaneContent: View {
         }
     }
 
-    /// S14 (T35) owns the composer. A stand-in keeps the pane's bottom edge where the real input bar
-    /// will be, so the list is not laid out against a moving target.
+    /// S14 (T35) owns the composer. This stand-in is drawn when the `.composer` surface is rendering
+    /// the webview (the default until T35-AV approves the flip), and for the frame between the pane
+    /// appearing and the coordinator handing over the composer model.
     private var composerPlaceholder: some View {
         HStack(spacing: 8) {
             Image(systemName: "text.bubble")
                 .foregroundStyle(.tertiary)
-            Text("Message input — S14 (T35)")
+            Text(composerIsNative ? "Message input" : "Message input — web (S14/T35)")
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
             Spacer(minLength: 0)

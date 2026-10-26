@@ -172,6 +172,34 @@ final class APIClient: @unchecked Sendable {
                           requiresAuth: requiresAuth, useETag: false)
     }
 
+    /// `POST /files` — one file, `multipart/form-data`, with the transport's own byte count.
+    ///
+    /// Why this is not `post(_:path:body:)`: the body is not JSON, so the `Content-Type` has to be the
+    /// multipart one the encoder produced (a JSON header on a multipart body is a 400 the app would
+    /// then retry), and the caller wants progress. Both are threaded through `perform` so the upload
+    /// keeps the same auth, 401 → re-auth, `/api/v4` prefix and TLS decision as every other call —
+    /// a second bespoke client here would be the security regression the auth notes forbid
+    /// (`AuthSession.client` is the only authenticated client a screen may use).
+    ///
+    /// Uploads are **not** retried on 429/5xx: a retried upload would re-post the bytes and, if the
+    /// first attempt actually landed, leave an orphaned file. The composer offers Retry to the person
+    /// instead, which is the same choice upstream's upload queue makes.
+    func uploadMultipart<T: Decodable>(_ type: T.Type,
+                                       path: String,
+                                       fields: [MMMultipart.Field],
+                                       file: MMMultipart.File,
+                                       onProgress: @escaping @Sendable (Int64, Int64) -> Void = { _, _ in }) async throws -> T {
+        let encoded = MMMultipart.encode(fields: fields, files: [file],
+                                         boundary: MMMultipart.makeBoundary())
+        let response = try await perform(method: .post, path: path, query: [],
+                                         body: encoded.body, requiresAuth: true,
+                                         useETag: false,
+                                         contentType: encoded.contentType,
+                                         timeout: 120,
+                                         onProgress: onProgress)
+        return try decode(type, from: response)
+    }
+
     /// `POST /users/logout` with an **explicitly supplied** bearer token.
     ///
     /// The one caller is `AuthSession.revokeSession(discardedToken:)`, and it exists because of the
@@ -233,12 +261,17 @@ final class APIClient: @unchecked Sendable {
                          body: Data?,
                          requiresAuth: Bool,
                          useETag: Bool,
-                         explicitToken: String? = nil) async throws -> APIResponse {
+                         explicitToken: String? = nil,
+                         contentType: String? = nil,
+                         timeout: TimeInterval? = nil,
+                         onProgress: (@Sendable (Int64, Int64) -> Void)? = nil) async throws -> APIResponse {
         guard let url = baseURL.apiV4(path, query: query) else {
             throw MMError.invalidURL(path)
         }
         var headers: [String: String] = ["Accept": "application/json"]
-        if body != nil { headers["Content-Type"] = "application/json; charset=utf-8" }
+        if body != nil {
+            headers["Content-Type"] = contentType ?? "application/json; charset=utf-8"
+        }
         if requiresAuth {
             guard let token = explicitToken ?? tokenProvider(), !token.isEmpty else {
                 throw MMError.notSignedIn
@@ -255,13 +288,16 @@ final class APIClient: @unchecked Sendable {
         var attempt = 0
         while true {
             attempt += 1
-            let request = APIRequest(method: method, url: url, headers: headers, body: body)
-            let outcome = try await makeAttempt(request, useETag: useETag)
+            var request = APIRequest(method: method, url: url, headers: headers, body: body)
+            if let timeout { request.timeout = timeout }
+            let outcome = try await makeAttempt(request, useETag: useETag, onProgress: onProgress)
             switch outcome {
             case .success(let response):
                 return response
             case .retry(let failure):
-                let idempotent = method == .get
+                // Only an idempotent request may be replayed: a GET, and never an upload (a retried
+                // upload can duplicate the bytes server-side; see `uploadMultipart`).
+                let idempotent = method == .get && onProgress == nil
                 guard idempotent, attempt < retryPolicy.maxAttempts else {
                     throw Self.error(for: failure)
                 }
@@ -283,10 +319,16 @@ final class APIClient: @unchecked Sendable {
         }
     }
 
-    private func makeAttempt(_ request: APIRequest, useETag: Bool) async throws -> AttemptOutcome {
+    private func makeAttempt(_ request: APIRequest,
+                             useETag: Bool,
+                             onProgress: (@Sendable (Int64, Int64) -> Void)? = nil) async throws -> AttemptOutcome {
         let response: APIResponse
         do {
-            response = try await transport.send(request)
+            if let onProgress, let uploads = transport as? UploadTransport {
+                response = try await uploads.send(request, onSendProgress: onProgress)
+            } else {
+                response = try await transport.send(request)
+            }
         } catch let error as APITransportError {
             switch error {
             case .timeout:

@@ -25,13 +25,19 @@
 // included, drawn as top-level messages with no thread affordance) while the socket dropped them,
 // so the same reply was a row or not depending only on how it arrived. A thread-collapsed Mattermost
 // centre timeline shows top-level posts only, which is what both halves now do.
+//
+// T35 added the composer's write path (`ComposerPostSink`): the optimistic row, its replacement by
+// the server's post **by `pending_post_id`**, the tombstone an edit/delete produces, and the
+// "did it land anyway?" question a retry asks. The rules are here rather than in the composer
+// because the composer cannot see the window: only the list knows whether the row is already on
+// screen, whether the socket beat the REST answer, and where the row belongs in the order.
 
 import Foundation
 import Combine
 
 /// One channel's post list: load, paginate, patch from the socket, keep the reader where they were.
 @MainActor
-final class ChannelViewModel: ObservableObject {
+final class ChannelViewModel: ObservableObject, ComposerPostSink {
 
     enum Phase: Equatable {
         case idle
@@ -123,6 +129,17 @@ final class ChannelViewModel: ObservableObject {
     /// merged (a fast channel switch otherwise mixes two channels' posts).
     private var generation = 0
     private var scrollAnchor: ScrollAnchor?
+    /// T35: rows the composer inserted optimistically, drawn with a "Sending…" status until the
+    /// server's answer (over REST or the socket) replaces them.
+    private var pendingPostIDs: Set<String> = []
+    /// The client id the sender supplied → the row id that currently represents it. A row keeps its
+    /// pending id until the server's post lands, then the **real** post id is remembered here, so a
+    /// retry can ask "did this already arrive?" instead of posting the same message twice.
+    private var pendingRowIDs: [String: String] = [:]
+    /// Client id → the server's post, once it is known. Kept even for a post that is not a row of this
+    /// channel (a reply, or a post in another channel), so the composer's retry check can answer for
+    /// every send it made.
+    private var pendingResolvedPosts: [String: MMPost] = [:]
 
     /// How the view answers "where is the reader right now", measured from its scroll view.
     ///
@@ -342,6 +359,14 @@ final class ChannelViewModel: ObservableObject {
         let outcome: EventOutcome
         switch event {
         case .posted(let post):
+            // A send this app started (T35): the server echoes the client's `pending_post_id`. The
+            // optimistic row must be replaced **by that id** before `accepts` runs, because a reply is
+            // not a row of this channel but its pending row still has to be withdrawn.
+            if !post.pendingPostId.isEmpty, pendingRowIDs[post.pendingPostId] != nil {
+                reconcile(pendingID: post.pendingPostId, with: post)
+                rebuild()
+                return record(.patched)
+            }
             guard accepts(post: post) else { return record(.ignored) }
             if postsByID[post.id] != nil {
                 replace(post)
@@ -360,13 +385,7 @@ final class ChannelViewModel: ObservableObject {
             outcome = .patched
         case .postDeleted(let post):
             guard postsByID[post.id] != nil else { return record(.ignored) }
-            var tombstone = postsByID[post.id] ?? post
-            tombstone.deleteAt = post.deleteAt > 0 ? post.deleteAt : Int64(now().timeIntervalSince1970 * 1000)
-            tombstone.message = ""
-            tombstone.fileIds = []
-            tombstone.props = nil
-            tombstone.metadata = nil
-            replace(tombstone)
+            applyTombstone(post)
             outcome = .deleted
         case .reactionAdded(let reaction):
             guard postsByID[reaction.postId] != nil, appendReaction(reaction) else {
@@ -440,6 +459,144 @@ final class ChannelViewModel: ObservableObject {
             await self.loadProfiles(for: [userID])
             self.rebuild()
         }
+    }
+
+    /// Mark a post deleted the one way this client does it: keep the row, empty it, and let the row
+    /// draw "This message was deleted". The socket's `post_deleted` and the composer's own delete use
+    /// **the same** function, so a message deleted from this device and one deleted from another
+    /// device land in the same state and the second event becomes a no-op (`replace` keeps the slot).
+    private func applyTombstone(_ post: MMPost) {
+        var tombstone = postsByID[post.id] ?? post
+        tombstone.deleteAt = post.deleteAt > 0 ? post.deleteAt : Int64(now().timeIntervalSince1970 * 1000)
+        tombstone.message = ""
+        tombstone.fileIds = []
+        tombstone.props = nil
+        tombstone.metadata = nil
+        replace(tombstone)
+    }
+
+    // MARK: - The composer's writes (T35, S14)
+
+    /// Show the composer's optimistic row. Its id is the client's `pending:<uuid>` and its
+    /// `pendingPostId` is that same string, which is the key the server echoes back.
+    ///
+    /// A reply is deliberately not inserted (the composer does not call this for one): a reply is not
+    /// a row of this channel (`isTimelineRow`), so an optimistic row for it could never be reconciled
+    /// here and would be a permanent phantom. The thread pane (S13/T36) draws its own.
+    func insertPendingPost(_ post: MMPost) {
+        guard !post.id.isEmpty, post.channelId == channelID, post.rootId.isEmpty else { return }
+        if let index = posts.firstIndex(where: { $0.id == post.id }) {
+            posts[index] = post
+        } else {
+            posts.append(post)
+        }
+        postsByID[post.id] = post
+        posts = Self.sortedNewestFirst(posts)
+        pendingPostIDs.insert(post.id)
+        if !post.pendingPostId.isEmpty { pendingRowIDs[post.pendingPostId] = post.id }
+        // The author of an optimistic row is the signed-in user, whose profile the pane may never have
+        // fetched (it only loads the authors of posts the server sent).
+        scheduleProfileLoad(for: post.userId)
+        rebuild()
+    }
+
+    /// The REST answer landed: replace the optimistic row with the server's post.
+    func confirmPendingPost(id pendingID: String, with post: MMPost) {
+        let rowID = pendingRowIDs[pendingID] ?? pendingID
+        if !post.id.isEmpty {
+            pendingRowIDs[pendingID] = post.id
+            pendingResolvedPosts[pendingID] = post
+        }
+        pendingPostIDs.remove(rowID)
+        let showsInChannel = post.rootId.isEmpty && post.channelId == channelID && !post.id.isEmpty
+        if rowID != post.id { removeRow(rowID) }
+        guard showsInChannel else { rebuild(); return }
+        if postsByID[post.id] != nil {
+            replace(post)
+        } else {
+            posts.append(post)
+            postsByID[post.id] = post
+            posts = Self.sortedNewestFirst(posts)
+            scheduleProfileLoad(for: post.userId)
+        }
+        rebuild()
+    }
+
+    /// The send failed: take the optimistic row away. The text stays in the composer (T35).
+    func removePendingPost(id pendingID: String) {
+        let rowID = pendingRowIDs[pendingID] ?? pendingID
+        pendingRowIDs[pendingID] = nil
+        pendingPostIDs.remove(rowID)
+        removeRow(rowID)
+        rebuild()
+    }
+
+    /// An edit the composer saved. A post outside the loaded window is simply not here to patch — the
+    /// server has it, and the next page load draws it correctly.
+    func replacePost(_ post: MMPost) {
+        guard postsByID[post.id] != nil else { return }
+        replace(post)
+        rebuild()
+    }
+
+    /// A delete the composer made: the same tombstone the socket's `post_deleted` produces, so the row
+    /// keeps its slot and the socket echo (if any) becomes a no-op.
+    func tombstonePost(id: String) {
+        guard let post = postsByID[id] else { return }
+        applyTombstone(post)
+        rebuild()
+    }
+
+    /// Did a post with this client id arrive anyway? A failed request whose message did land is the one
+    /// case where a blind retry would post twice; the composer asks this before it re-sends.
+    ///
+    /// A row that is **still pending** is not a landed post: it is this device's own optimistic row,
+    /// and answering "yes" for it would make every retry a no-op that silently drops the message.
+    func post(withPendingID pendingID: String) -> MMPost? {
+        if let resolved = pendingResolvedPosts[pendingID] { return resolved }
+        guard let rowID = pendingRowIDs[pendingID], !pendingPostIDs.contains(rowID) else {
+            return nil
+        }
+        return postsByID[rowID]
+    }
+
+    /// Diagnostics/tests: the ids currently drawn as "Sending…".
+    var pendingRowIDsForTests: Set<String> { pendingPostIDs }
+
+    /// The socket echo of a send this app started: one row, in the server's own order.
+    ///
+    /// Two orders are possible and both must end with exactly one row:
+    ///  - REST first (`confirmPendingPost` already replaced the row and remembered `post.id`), then the
+    ///    echo arrives with the same id → replace, never append;
+    ///  - socket first (the echo beats the REST answer) → the pending row is withdrawn and the server's
+    ///    post takes its place; the REST answer then finds the id already present.
+    private func reconcile(pendingID: String, with post: MMPost) {
+        let rowID = pendingRowIDs[pendingID] ?? pendingID
+        pendingPostIDs.remove(rowID)
+        if !post.id.isEmpty {
+            pendingRowIDs[pendingID] = post.id
+            pendingResolvedPosts[pendingID] = post
+        }
+        let showsInChannel = post.rootId.isEmpty && post.channelId == channelID && !post.id.isEmpty
+        if rowID == post.id {
+            if showsInChannel { replace(post) } else { removeRow(rowID) }
+            return
+        }
+        removeRow(rowID)
+        guard showsInChannel else { return }
+        if postsByID[post.id] != nil {
+            replace(post)
+        } else {
+            posts.append(post)
+            postsByID[post.id] = post
+            posts = Self.sortedNewestFirst(posts)
+            scheduleProfileLoad(for: post.userId)
+        }
+    }
+
+    private func removeRow(_ id: String) {
+        postsByID[id] = nil
+        posts.removeAll { $0.id == id }
     }
 
     // MARK: - Reactions (rendered here, added/removed by S16/T37)
@@ -531,6 +688,7 @@ final class ChannelViewModel: ObservableObject {
                                          myUserID: myUserID,
                                          lastViewedAt: lastViewedAt,
                                          expandedPostIDs: expandedPostIDs,
+                                         pendingPostIDs: pendingPostIDs,
                                          now: now(),
                                          calendar: calendar,
                                          locale: locale)

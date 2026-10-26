@@ -36,9 +36,18 @@ final class ChannelPaneCoordinator: ObservableObject {
     private var recent: [UUID: [String]] = [:]
     private var imageStores: [UUID: ChannelImageStore] = [:]
     private var emojiCatalogues: [UUID: EmojiCatalogue] = [:]
+    /// T35: one composer per channel, kept beside its list so a channel switch restores both the
+    /// window and the half-typed message.
+    private var composers: [UUID: [String: ComposerViewModel]] = [:]
+    /// T35: the per-server draft databases (one SQLite file each, opened on first use).
+    private let draftStores = ComposerDraftStoreProvider()
 
     /// Test seam: replaces the production session-backed service (T33's `serviceFactory`).
     var serviceFactory: ((ServerConfig) -> ChannelServing)?
+    /// Test seam: replaces the production composer service.
+    var composerServiceFactory: ((ServerConfig) -> ComposerServing)?
+    /// Test seam: replaces the production draft store.
+    var draftStoreFactory: ((ServerConfig) -> ComposerDraftStoring)?
 
     /// Diagnostics: how many models are alive (one test asserts the cache is bounded).
     var modelCount: Int { models.values.reduce(0) { $0 + $1.count } }
@@ -102,6 +111,51 @@ final class ChannelPaneCoordinator: ObservableObject {
         }
     }
 
+    private func composerService(for server: ServerConfig) -> ComposerServing {
+        if let composerServiceFactory { return composerServiceFactory(server) }
+        let auth = self.auth
+        return SessionComposerService {
+            guard let auth, let session = try? auth.session(for: server) else { return nil }
+            return session.client
+        }
+    }
+
+    private func draftStore(for server: ServerConfig) -> ComposerDraftStoring {
+        if let draftStoreFactory { return draftStoreFactory(server) }
+        return draftStores.store(for: server)
+    }
+
+    /// The composer for one channel, created on first use and wired to that channel's list.
+    ///
+    /// The sink is attached here rather than in the view because the composer must be able to write
+    /// into the list even when the view has gone away (a send that completes while the reader is in
+    /// another pane still has to reconcile its optimistic row).
+    func composer(for server: ServerConfig,
+                  channelID: String,
+                  channelName: String?,
+                  teamID: String?,
+                  emojiCatalogue: EmojiCatalogue?) -> ComposerViewModel {
+        let list = model(for: server, channelID: channelID, channelName: channelName)
+        if let existing = composers[server.id]?[channelID] {
+            existing.attach(sink: list)
+            return existing
+        }
+        let composer = ComposerViewModel(channelID: channelID,
+                                         service: composerService(for: server),
+                                         drafts: draftStore(for: server),
+                                         sink: list,
+                                         teamID: teamID,
+                                         myUserID: auth?.userID(for: server.id),
+                                         emojiCatalogue: emojiCatalogue)
+        composers[server.id, default: [:]][channelID] = composer
+        return composer
+    }
+
+    /// Drop one channel's composer (its draft is already on disk).
+    func forgetComposer(serverID: UUID, channelID: String) {
+        composers[serverID]?[channelID] = nil
+    }
+
     /// The appearance pass: point the model at the channel on screen and load it once.
     @discardableResult
     func activate(server: ServerConfig,
@@ -127,6 +181,10 @@ final class ChannelPaneCoordinator: ObservableObject {
     func deactivate(_ serverID: UUID) {
         models[serverID] = nil
         recent[serverID] = nil
+        // The composer goes with the list: a draft is already in the store, and the store is cleared
+        // below (a signed-out device keeps no half-typed messages from the previous session).
+        composers[serverID] = nil
+        draftStores.clear(serverID)
         imageStores[serverID]?.clear()
         imageStores[serverID] = nil
         // A new session may be a different team with a different emoji list, so the catalogue is

@@ -83,13 +83,27 @@ protocol APITransport: AnyObject {
     func send(_ request: APIRequest) async throws -> APIResponse
 }
 
+/// A transport that can report how much of a request body it has written.
+///
+/// Separate from `APITransport` so every existing fake keeps compiling and behaving: `APIClient`
+/// falls back to a plain `send` when the transport does not implement this, so an upload still goes
+/// out — only the progress bar has nothing to draw. (T35, the composer's attachment upload: the
+/// download side already reports progress through `URLSessionDownloadDelegate`, this is the same
+/// signal in the other direction.)
+protocol UploadTransport: APITransport {
+    /// Send `request`, calling `onSendProgress(bytesSent, bytesExpected)` as the body is written.
+    /// `bytesExpected` is 0 when the stack cannot know the total.
+    func send(_ request: APIRequest,
+              onSendProgress: @escaping @Sendable (Int64, Int64) -> Void) async throws -> APIResponse
+}
+
 /// `URLSession`-backed transport for one server.
 ///
 /// The session carries `TransportSessionDelegate`, which consults the same per-origin `CertTrust`
 /// bag the webview uses on every server-trust challenge (T28 acceptance criterion 4). A
 /// self-signed server is therefore trusted (or refused) once, for both the webview and the native
 /// client.
-final class URLSessionTransport: NSObject, APITransport {
+final class URLSessionTransport: NSObject, UploadTransport {
 
     let delegate: TransportSessionDelegate
     private let session: URLSession
@@ -135,6 +149,38 @@ final class URLSessionTransport: NSObject, APITransport {
         } catch {
             throw APITransportError.other(error.localizedDescription)
         }
+        return try Self.convert(data: data, response: response)
+    }
+
+    /// The upload direction: same request, same TLS decision, plus `didSendBodyData`.
+    ///
+    /// `URLSession.upload(for:from:delegate:)` hands task-level callbacks (which include the byte
+    /// counter) to `delegate`, while server-trust challenges still go to the session's own delegate —
+    /// so a self-signed server that the user trusted for the webview is trusted here too, and the
+    /// progress numbers come from the stack rather than from a timer that assumes a throughput.
+    func send(_ request: APIRequest,
+              onSendProgress: @escaping @Sendable (Int64, Int64) -> Void) async throws -> APIResponse {
+        let progressDelegate = UploadProgressDelegate(onProgress: onSendProgress)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.upload(for: request.urlRequest(),
+                                                       from: request.body ?? Data(),
+                                                       delegate: progressDelegate)
+        } catch let error as APITransportError {
+            throw error
+        } catch let error as URLError {
+            throw Self.map(error, origin: origin)
+        } catch {
+            throw APITransportError.other(error.localizedDescription)
+        }
+        // The delegate is only referenced by the running task; keep it alive until the response is in.
+        withExtendedLifetime(progressDelegate) {}
+        return try Self.convert(data: data, response: response)
+    }
+
+    /// Shared response handling for both directions.
+    private static func convert(data: Data, response: URLResponse) throws -> APIResponse {
         guard let http = response as? HTTPURLResponse else {
             throw APITransportError.other("non-HTTP response")
         }
@@ -258,5 +304,27 @@ final class TransportSessionDelegate: NSObject, URLSessionDelegate, URLSessionWe
                     didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
                     reason: Data?) {
         onWebSocketClose?(webSocketTask, closeCode, reason)
+    }
+}
+
+/// The per-upload task delegate that turns `didSendBodyData` into one callback.
+///
+/// It exists as its own object because `URLSessionTaskDelegate` callbacks for a single task must not
+/// be routed through the session's shared `TransportSessionDelegate` — that object is the *TLS*
+/// decision point and lives for the whole app; upload callbacks are per request and must be thrown
+/// away with it (otherwise two concurrent uploads would share one progress closure).
+final class UploadProgressDelegate: NSObject, URLSessionTaskDelegate {
+    private let onProgress: @Sendable (Int64, Int64) -> Void
+
+    init(onProgress: @escaping @Sendable (Int64, Int64) -> Void) {
+        self.onProgress = onProgress
+    }
+
+    func urlSession(_ session: URLSession,
+                    task: URLSessionTask,
+                    didSendBodyData bytesSent: Int64,
+                    totalBytesSent: Int64,
+                    totalBytesExpectedToSend: Int64) {
+        onProgress(totalBytesSent, totalBytesExpectedToSend)
     }
 }

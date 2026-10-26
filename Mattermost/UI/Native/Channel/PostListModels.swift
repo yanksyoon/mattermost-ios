@@ -92,7 +92,9 @@ struct PostAttachment: Equatable, Identifiable, Sendable {
     var hasThumbnail: Bool
 
     /// "812 B", "1.2 KB", "3.4 MB" — base 1024, one decimal from KB up (upstream's `sizeDisplay`).
-    var sizeLabel: String {
+    var sizeLabel: String { Self.sizeLabel(forBytes: sizeBytes) }
+
+    static func sizeLabel(forBytes sizeBytes: Int64) -> String {
         guard sizeBytes > 0 else { return "" }
         let units = ["B", "KB", "MB", "GB"]
         var value = Double(sizeBytes)
@@ -130,6 +132,9 @@ struct PostRowModel: Equatable, Identifiable, Sendable {
     var reactions: [PostReactionSummary]
     var attachments: [PostAttachment]
     var replyCount: Int
+    /// T35: an optimistic row the composer inserted, whose `id` is a local `pending:<uuid>`. The row
+    /// draws a muted "Sending…" status and is not yet a fact about the conversation.
+    var isPending: Bool = false
     /// How this post is shortened until the reader asks for more; `nil` = draw it in full.
     var fold: PostFold?
 
@@ -227,6 +232,7 @@ enum PostListDerivation {
                       myUserID: String?,
                       lastViewedAt: Int64?,
                       expandedPostIDs: Set<String> = [],
+                      pendingPostIDs: Set<String> = [],
                       now: Date = Date(),
                       calendar: Calendar = .current,
                       locale: Locale = .current) -> [PostListItem] {
@@ -272,7 +278,8 @@ enum PostListDerivation {
                                    users: users,
                                    myUserID: myUserID,
                                    grouped: grouped,
-                                   expanded: expandedPostIDs.contains(post.id))))
+                                   expanded: expandedPostIDs.contains(post.id),
+                                   pending: pendingPostIDs.contains(post.id))))
             previous = post
         }
         return items
@@ -283,7 +290,8 @@ enum PostListDerivation {
                     users: [String: MMUser],
                     myUserID: String?,
                     grouped: Bool,
-                    expanded: Bool = false) -> PostRowModel {
+                    expanded: Bool = false,
+                    pending: Bool = false) -> PostRowModel {
         let isSystem = !post.type.isEmpty
         let isDeleted = post.deleteAt > 0
         let blocks = (isSystem || isDeleted) ? [] : MarkdownParser().parse(post.message)
@@ -299,6 +307,7 @@ enum PostListDerivation {
                             reactions: reactions(for: post, myUserID: myUserID),
                             attachments: attachments(for: post),
                             replyCount: post.replyCount,
+                            isPending: pending,
                             fold: fold)
     }
 

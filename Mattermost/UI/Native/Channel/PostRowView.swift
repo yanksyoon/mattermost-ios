@@ -90,6 +90,23 @@ struct PostAvatarView: View {
 
 // MARK: - One post
 
+/// What a reader can do with a row (T35). The list owns the model, so the actions are closures the
+/// pane passes in; the row itself never decides who may edit what.
+struct PostRowActions {
+    var canReply: Bool
+    var canEdit: Bool
+    var canDelete: Bool
+    var onReply: () -> Void
+    var onEdit: () -> Void
+    var onDelete: () -> Void
+    /// Ask the host to present this row's options. The *list* owns the sheet: one sheet for the
+    /// whole window, not one per row.
+    var onShowOptions: () -> Void
+
+    /// Whether there is anything to offer at all — an empty sheet is a worse affordance than none.
+    var hasAnyAction: Bool { canReply || canEdit || canDelete }
+}
+
 struct PostRowView: View {
     let row: PostRowModel
     let isExpanded: Bool
@@ -97,6 +114,8 @@ struct PostRowView: View {
     var emoji: EmojiCatalogue?
     let onToggleExpanded: () -> Void
     let onRetryAttachment: (String) -> Void
+    /// Nil = no menu (the pre-T35 rendering, used by previews and by any read-only host).
+    var actions: PostRowActions? = nil
 
     private var showsHeader: Bool { !row.isGrouped && !row.isSystem }
 
@@ -114,6 +133,10 @@ struct PostRowView: View {
                     attachments
                     reactions
                 }
+                if row.isPending { sendingStatus }
+            }
+            if let actions, actions.hasAnyAction, !row.isSystem, !row.isDeleted, !row.isPending {
+                optionsButton(actions)
             }
             Spacer(minLength: 0)
         }
@@ -123,6 +146,41 @@ struct PostRowView: View {
         // tests can still resolve the leaves inside it.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("post.\(row.id)")
+    }
+
+    /// The row's actions, behind a visible button.
+    ///
+    /// T35 originally put them in a `.contextMenu` (long press). The live suite proved that
+    /// unreachable: on iOS 26 a long press on a row lands in the body's `Text` and opens the
+    /// **system** Copy/Share menu, so the app's own items never appeared (`docs/t35-build-note.md`
+    /// §11). A visible overflow button is also the upstream idiom — mattermost-mobile opens a post
+    /// options sheet when the reader taps a post (`app/components/post/index.tsx` → `PostOptions`).
+    private func optionsButton(_ actions: PostRowActions) -> some View {
+        Button {
+            actions.onShowOptions()
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Message actions")
+        .accessibilityIdentifier("post.\(row.id).menu")
+    }
+
+    /// The status of an optimistic row. It is drawn *under* the body rather than as a badge so the
+    /// message stays readable at the moment it is least settled.
+    private var sendingStatus: some View {
+        HStack(spacing: 4) {
+            ProgressView().controlSize(.mini)
+            Text("Sending…")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("post.\(row.id).pending")
     }
 
     /// The 36 pt avatar column. A grouped row has no avatar, so it shows its time in that column
@@ -270,6 +328,81 @@ struct PostRowView: View {
                 }
             }
             .padding(.top, 2)
+        }
+    }
+}
+
+// MARK: - Post options
+
+/// The sheet a row's overflow button opens: what the reader can do with *this* message.
+///
+/// One sheet per window (`ChannelPostListView` owns it), so a list of 200 rows does not build 200
+/// sheets. Buttons carry stable identifiers (`postOptions.<action>`) because a UI test cannot press
+/// a menu item it cannot name; the label is the same word, so VoiceOver reads what the test taps.
+struct PostOptionsSheet: View {
+    let rowID: String
+    let authorName: String
+    let actions: PostRowActions
+    var onDismiss: () -> Void = {}
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    HeaderRow(authorName: authorName)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                }
+                Section {
+                    if actions.canReply {
+                        option("reply", "Reply", "arrowshape.turn.up.left", role: nil) {
+                            actions.onReply()
+                        }
+                    }
+                    if actions.canEdit {
+                        option("edit", "Edit", "pencil", role: nil) {
+                            actions.onEdit()
+                        }
+                    }
+                    if actions.canDelete {
+                        option("delete", "Delete", "trash", role: .destructive) {
+                            actions.onDelete()
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Message actions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { onDismiss() }
+                        .accessibilityIdentifier("postOptions.cancel")
+                }
+            }
+        }
+        .presentationDetents([.height(320), .medium])
+        .accessibilityIdentifier("postOptions.\(rowID)")
+    }
+
+    private func option(_ key: String, _ title: String, _ glyph: String,
+                        role: ButtonRole?, perform: @escaping () -> Void) -> some View {
+        Button(role: role) {
+            onDismiss()
+            perform()
+        } label: {
+            Label(title, systemImage: glyph)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .accessibilityIdentifier("postOptions.\(key)")
+    }
+
+    private struct HeaderRow: View {
+        let authorName: String
+        var body: some View {
+            Text(authorName)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("postOptions.author")
         }
     }
 }
