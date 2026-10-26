@@ -609,6 +609,8 @@ struct ChannelPaneContent: View {
     @State private var attachmentDownloads: AttachmentDownloads?
     /// T39: the pinned-messages sheet for this channel (S21).
     @State private var showsPinned = false
+    /// T40: the channel-info sheet (S22/S23 + the member/settings screens behind it).
+    @State private var showsChannelInfo = false
 
     /// Whether the write surface renders natively (T35's `.composer` surface).
     ///
@@ -715,6 +717,13 @@ struct ChannelPaneContent: View {
                             },
                             onClose: { showsPinned = false })
         }
+        // T40: the channel-info sheet. Its own `.sheet` (not the row list's item-bound one) because it
+        // is presented from the pane's header, which exists whether or not a row list has mounted.
+        .sheet(isPresented: $showsChannelInfo) {
+            ChannelInfoSheet(server: server,
+                             channelID: channelID,
+                             fallbackTitle: title)
+        }
         .onChange(of: scenePhase) { _, phase in
             // Backgrounding is the moment the debounce may not have fired yet: a message typed and
             // then interrupted must still be on disk when the app is killed.
@@ -789,6 +798,19 @@ struct ChannelPaneContent: View {
             Spacer(minLength: 8)
             if ChannelUITestHook.exposesLoadEarlier, let model {
                 LoadEarlierSeamButton(model: model)
+            }
+            // T40 (S22/S23): the channel's own header opens its info screen. The web client makes the
+            // channel *title* the affordance; a pane header that shows a title is the same place, so the
+            // button sits first among the trailing controls rather than in a menu.
+            if resolver.resolvedMode(for: .channelInfo) == .native {
+                Button {
+                    showsChannelInfo = true
+                } label: {
+                    Label("Channel info", systemImage: "info.circle")
+                        .labelStyle(.iconOnly)
+                }
+                .accessibilityLabel("Channel info")
+                .accessibilityIdentifier("nativeChannelInfoButton")
             }
             // T39 (S21): the channel's pinned messages, behind the same `search` surface as the
             // search/saved screens (pinned is part of that card's lookup group).

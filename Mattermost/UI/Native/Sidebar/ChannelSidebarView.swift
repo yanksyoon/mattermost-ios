@@ -30,6 +30,9 @@ struct NativeChannelSidebarContent: View {
     @EnvironmentObject private var channels: ChannelSidebarCoordinator
 
     @State private var quickSwitcherPresented = false
+    /// T40: the channel browser (S24). Presented from this list because the list is where a missing
+    /// channel would be looked for.
+    @State private var browseChannelsPresented = false
 
     var body: some View {
         List {
@@ -47,6 +50,11 @@ struct NativeChannelSidebarContent: View {
                 open(entry)
                 quickSwitcherPresented = false
             }
+        }
+        // T40: the channel browser. The team id is the model's current one, which `activate` has already
+        // pinned to the shell's selected team (a browse list is always team-scoped).
+        .sheet(isPresented: $browseChannelsPresented) {
+            BrowseChannelsView(server: server, teamID: model.teamID ?? "")
         }
     }
 
@@ -131,6 +139,17 @@ struct NativeChannelSidebarContent: View {
                 Label("All threads", systemImage: "text.bubble")
             }
             .accessibilityIdentifier("nativeSidebarAllThreads")
+            // T40: the channel browser — "Browse channels" in the web client's channel switcher. It lives
+            // beside All threads rather than in a category, because it belongs to no category and is where
+            // a channel that is *not* in the list comes from.
+            if resolver.resolvedMode(for: .channelInfo) == .native {
+                Button {
+                    browseChannelsPresented = true
+                } label: {
+                    Label("Browse channels", systemImage: "magnifyingglass.circle")
+                }
+                .accessibilityIdentifier("nativeSidebarBrowseChannels")
+            }
         } header: {
             Text("Threads")
         }

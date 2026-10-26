@@ -272,6 +272,7 @@ final class GlobalThreadsViewModel: ObservableObject {
         case .hello, .typing, .statusChange, .preferencesChanged, .userUpdated, .posted,
              .postEdited, .reactionAdded, .reactionRemoved, .channelViewed,
              .multipleChannelsViewed, .sidebarCategoryUpdated, .channelCreated, .channelDeleted,
+             .channelUpdated, .channelRestored, .userAdded, .userRemoved,
              .channelMemberUpdated, .postUnread, .unhandled:
             return record(.ignored)
         }

@@ -478,6 +478,7 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             return record(.ignored)
         case .hello, .typing, .statusChange, .preferencesChanged, .userUpdated,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelMemberUpdated,
+             .channelUpdated, .channelRestored, .userAdded, .userRemoved,
              .postUnread, .unhandled:
             return record(.ignored)
         }

@@ -71,6 +71,19 @@ struct TeamSocketScope: Equatable, Sendable {
         case .channelDeleted(let deleted):
             return isInActiveTeam(channelID: deleted.channelID)
                 || (!deleted.teamID.isEmpty && deleted.teamID == teamID)
+        case .channelUpdated(let channel):
+            // A rename/purpose/header edit names its channel (and its team, in the payload as well as
+            // the envelope). T40's info screen is the consumer.
+            return isInActiveTeam(channelID: channel.id)
+                || (!channel.teamId.isEmpty && channel.teamId == teamID)
+        case .channelRestored(let restored):
+            return isInActiveTeam(channelID: restored.channelID)
+                || (!restored.teamID.isEmpty && restored.teamID == teamID)
+        case .userAdded(let change), .userRemoved(let change):
+            // A membership change names its channel in the envelope; the team is in the payload on an
+            // add and absent on many removals, so the channel→team map is what usually attributes it.
+            return isInActiveTeam(channelID: change.channelID)
+                || (!change.teamID.isEmpty && change.teamID == teamID)
         case .threadUpdated(let update):
             // A thread update names its root post, which names its channel — the same attribution a
             // `posted` gets (T36).

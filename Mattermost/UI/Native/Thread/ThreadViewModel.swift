@@ -446,6 +446,7 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
             }
         case .hello, .typing, .statusChange, .preferencesChanged, .userUpdated,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelMemberUpdated,
+             .channelUpdated, .channelRestored, .userAdded, .userRemoved,
              .channelViewed, .multipleChannelsViewed, .postUnread, .unhandled:
             return record(.ignored)
         }

@@ -174,6 +174,29 @@ struct SocketChannelMemberUpdate: Equatable, Sendable {
     var userID: String { member.userId }
 }
 
+/// `user_added` / `user_removed` — somebody joined or was removed from a channel (T40).
+///
+/// Measured on the pinned 9.11.19 server (`docs/t40-build-note.md` §2): `data` is
+/// `{team_id, user_id}` for an add and `{remover_id, user_id}` for a removal, and the **channel** is in
+/// the envelope (`broadcast.channel_id`) rather than in `data`. The add carries
+/// `broadcast.omit_users = {<added user>: true}`, i.e. the person added does not receive their own
+/// event — which is why the app must not rely on the event alone to learn about its own membership.
+struct SocketMembershipChange: Equatable, Sendable {
+    var channelID: String
+    var teamID: String
+    /// The person who joined or was removed.
+    var userID: String
+    /// `user_removed` names who performed the removal; empty for an add (and for a stripped frame).
+    var removerID: String
+
+    init(channelID: String = "", teamID: String = "", userID: String = "", removerID: String = "") {
+        self.channelID = channelID
+        self.teamID = teamID
+        self.userID = userID
+        self.removerID = removerID
+    }
+}
+
 /// `multiple_channels_viewed` — "this user read these channels", the event the **view** call answers
 /// with.
 ///
@@ -278,6 +301,17 @@ enum SocketEvent: Equatable, Sendable {
     case channelCreated(SocketChannelEvent)
     /// A channel of a team was archived (`channel_deleted`).
     case channelDeleted(SocketChannelEvent)
+    /// A channel's own fields changed — a rename, a purpose or a header edit, an archive
+    /// (`channel_updated`). The payload is the whole channel as a **JSON string** under `data.channel`
+    /// (measured, T40 §2), the same escaping `posted` uses for its post.
+    case channelUpdated(MMChannel)
+    /// An archived channel was restored (`channel_restored`). The payload names only the channel id, so
+    /// the channel itself has to be re-read rather than guessed from the frame.
+    case channelRestored(SocketChannelEvent)
+    /// Somebody joined a channel (`user_added`) — T40's member list and its count.
+    case userAdded(SocketMembershipChange)
+    /// Somebody left or was removed from a channel (`user_removed`).
+    case userRemoved(SocketMembershipChange)
     /// A membership row changed — mine, when another client mutes or marks a channel.
     case channelMemberUpdated(SocketChannelMemberUpdate)
     /// The server's unread counters for one channel of mine moved (`post_unread`).
@@ -373,6 +407,36 @@ enum SocketEvent: Equatable, Sendable {
                   let member = try? Self.jsonStringOrObject(raw).decode(MMChannelMember.self),
                   !member.channelId.isEmpty else { return nil }
             self = .channelMemberUpdated(SocketChannelMemberUpdate(member: member))
+        case "channel_updated":
+            // `data.channel` is a JSON **string** (measured on 9.11.19, T40 §2).
+            guard let raw = frame.data?["channel"],
+                  let channel = try? Self.jsonStringOrObject(raw).decode(MMChannel.self),
+                  !channel.id.isEmpty else { return nil }
+            self = .channelUpdated(channel)
+        case "channel_restored":
+            // Only the id is in the payload; the team is in the envelope.
+            guard let channelID = frame.data?["channel_id"]?.stringValue
+                    ?? frame.broadcast?.channelID, !channelID.isEmpty else { return nil }
+            self = .channelRestored(SocketChannelEvent(channelID: channelID,
+                                                       teamID: frame.broadcast?.teamID ?? ""))
+        case "user_added":
+            // The channel lives only in the envelope; `data` carries `team_id` and `user_id`.
+            guard let channelID = frame.broadcast?.channelID,
+                  let userID = frame.data?["user_id"]?.stringValue,
+                  !channelID.isEmpty, !userID.isEmpty else { return nil }
+            self = .userAdded(SocketMembershipChange(channelID: channelID,
+                                                     teamID: frame.data?["team_id"]?.stringValue
+                                                        ?? frame.broadcast?.teamID ?? "",
+                                                     userID: userID))
+        case "user_removed":
+            guard let channelID = frame.broadcast?.channelID,
+                  let userID = frame.data?["user_id"]?.stringValue,
+                  !channelID.isEmpty, !userID.isEmpty else { return nil }
+            self = .userRemoved(SocketMembershipChange(channelID: channelID,
+                                                       teamID: frame.broadcast?.teamID ?? "",
+                                                       userID: userID,
+                                                       removerID: frame.data?["remover_id"]?.stringValue
+                                                        ?? ""))
         case "post_unread":
             // The channel and team live only in the envelope (`broadcast`), never in `data`.
             guard let channelID = frame.broadcast?.channelID, !channelID.isEmpty else { return nil }
@@ -482,6 +546,10 @@ enum SocketEvent: Equatable, Sendable {
         case .sidebarCategoryUpdated: return "sidebar_category_updated"
         case .channelCreated: return "channel_created"
         case .channelDeleted: return "channel_deleted"
+        case .channelUpdated: return "channel_updated"
+        case .channelRestored: return "channel_restored"
+        case .userAdded: return "user_added"
+        case .userRemoved: return "user_removed"
         case .channelMemberUpdated: return "channel_member_updated"
         case .postUnread: return "post_unread"
         case .threadUpdated: return "thread_updated"
@@ -512,7 +580,8 @@ enum SocketEvent: Equatable, Sendable {
             return "user_updated|\(user.id)|\(user.updateAt)"
         case .typing, .channelViewed, .multipleChannelsViewed, .statusChange, .preferencesChanged,
              .reactionAdded, .reactionRemoved, .sidebarCategoryUpdated,
-             .channelCreated, .channelDeleted, .channelMemberUpdated, .postUnread,
+             .channelCreated, .channelDeleted, .channelUpdated, .channelRestored,
+             .userAdded, .userRemoved, .channelMemberUpdated, .postUnread,
              .threadUpdated, .threadFollowChanged, .threadReadChanged,
              .unhandled:
             return nil

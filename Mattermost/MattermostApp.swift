@@ -46,6 +46,11 @@ struct MattermostApp: App {
     @StateObject private var threadCoordinator: ThreadCoordinator
     /// T39: the search / saved / pinned owner (one model per server+team, fed by the rail's socket).
     @StateObject private var searchCoordinator: SearchCoordinator
+    /// T40: the channel-info owner — one info model per open channel (bounded LRU) and one channel
+    /// browser per team, fed by the same rail socket. Owned here for the same two reasons as the channel
+    /// panes: SwiftUI re-creates views on every sheet presentation, and `user_added` / `user_removed` /
+    /// `channel_updated` arrive on the rail's single socket, which a view cannot subscribe to.
+    @StateObject private var channelInfoCoordinator: ChannelInfoCoordinator
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
@@ -129,6 +134,8 @@ struct MattermostApp: App {
         // T39: the search / saved / pinned owner. Its seams are bound in `bindShellStores()` for the
         // same `@StateObject` reason as the five above, and it is fed by the rail's one socket.
         _searchCoordinator = StateObject(wrappedValue: SearchCoordinator())
+        // T40: the channel-info and channel-browser owner, bound in `bindShellStores()` like the rest.
+        _channelInfoCoordinator = StateObject(wrappedValue: ChannelInfoCoordinator())
         #if DEBUG
         // UI-test seam: `-uiTestAssumeSignedIn` makes the native shell render as if the seeded
         // server had a session, so its panes can be exercised against a stub server that has no
@@ -259,6 +266,10 @@ struct MattermostApp: App {
                 // T39: the search / saved / pinned owner — app-wide for the same reasons (a tab switch
                 // must not lose a result set, and the saved list is patched by the rail's socket).
                 .environmentObject(searchCoordinator)
+                // T40: the channel-info and channel-browser owner — app-wide for the same reasons (a
+                // sheet re-presentation must not lose a member list, and membership changes are patched
+                // by the rail's socket).
+                .environmentObject(channelInfoCoordinator)
                 // T31: the SSO hand-off mounts the server's existing webview inside a sheet, so the
                 // store owner has to be reachable from the environment too (the pane's web branch
                 // still receives it as a parameter).
@@ -436,8 +447,14 @@ struct MattermostApp: App {
         // T39: the search / saved / pinned models resolve their service from the same session and are
         // fed by the rail's socket; nothing here opens a socket of its own.
         searchCoordinator.bind(auth: authCoordinator, serverStore: serverStore)
+        // T40: the channel-info models and the channel browser resolve their service from the same
+        // session and are fed by the rail's socket (a member added from another device must appear).
+        channelInfoCoordinator.bind(auth: authCoordinator,
+                                    navigation: nativeNavigation,
+                                    serverStore: serverStore)
         teamSidebarCoordinator.onTeamEvent = { [weak channelSidebarCoordinator, weak channelPaneCoordinator,
-                                                weak threadCoordinator, weak searchCoordinator] serverID, event in
+                                                weak threadCoordinator, weak searchCoordinator,
+                                                weak channelInfoCoordinator] serverID, event in
             // T33's list debounces its own refresh; T34's open channels apply the event directly (a
             // posted message must appear without a refetch — that is what a socket is for).
             Task { await channelPaneCoordinator?.handle(event, serverID: serverID) }
@@ -445,6 +462,9 @@ struct MattermostApp: App {
             Task { await threadCoordinator?.handle(event, serverID: serverID) }
             // T39: the saved/pinned lists are live (a preference change or a pin from another client).
             Task { @MainActor in searchCoordinator?.handle(event, serverID: serverID) }
+            // T40: an open channel-info screen is live (a member added or removed elsewhere, a rename,
+            // an archive).
+            Task { @MainActor in channelInfoCoordinator?.handle(event, serverID: serverID) }
             guard let channelSidebarCoordinator else { return }
             Task { await channelSidebarCoordinator.handle(event, serverID: serverID) }
         }
@@ -453,7 +473,8 @@ struct MattermostApp: App {
         nativeNavigation.directory = channelSidebarCoordinator
         authCoordinator.onChange = { [weak nativeNavigation, weak teamSidebarCoordinator,
                                       weak channelSidebarCoordinator, weak channelPaneCoordinator,
-                                      weak threadCoordinator, weak searchCoordinator] serverID in
+                                      weak threadCoordinator, weak searchCoordinator,
+                                      weak channelInfoCoordinator] serverID in
             nativeNavigation?.refreshAuthState()
             // A sign-out/expiry must take the rail's socket down with the credential it was built
             // with; a finished sign-in is what lets it come up.
@@ -466,6 +487,8 @@ struct MattermostApp: App {
             threadCoordinator?.authPhaseChanged(serverID)
             // …and so were a team's search results and its saved/pinned lists (T39).
             searchCoordinator?.authPhaseChanged(serverID)
+            // …and a channel's info screen and its member list (T40): those rows were fetched with it.
+            channelInfoCoordinator?.authPhaseChanged(serverID)
         }
     }
 
