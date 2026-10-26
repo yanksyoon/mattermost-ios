@@ -5,7 +5,7 @@
 //        autocomplete/autocomplete.tsx (the suggestion list above the input), archived/ + read_only/
 //        (the banners that replace the input when posting is not possible), typing/typing.tsx,
 //        app/screens/edit_post/edit_post.tsx (the "Editing" header), thread/reply banner.
-// Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §11; no
+// Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §12; no
 // upstream source copied. The SwiftUI decomposition is this repo's own (component-map.md §3).
 //
 // Why `UITextView` and not `TextField(axis: .vertical)`:

@@ -7,7 +7,7 @@
 //        bold/italic/strike/code/link/quote/list over the current selection),
 //        app/screens/edit_post/edit_post.tsx (edit mode keeps the post id, not the draft),
 //        app/utils/post_list/index.ts (a pending post is shown optimistically, then replaced).
-// Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §11; no
+// Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §12; no
 // upstream source copied. Everything in this file is pure (no I/O, no main actor, no SwiftUI), so the
 // rules are unit-testable exactly as written (docs/component-map.md §4 "logic-first").
 //

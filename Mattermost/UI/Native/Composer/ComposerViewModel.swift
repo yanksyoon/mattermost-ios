@@ -5,7 +5,7 @@
 //        (the attachment tray: one upload at a time per file, progress, cancel), app/components/
 //        autocomplete/autocomplete.tsx (debounce, the per-source fetch, the stale-response guard),
 //        app/screens/edit_post/edit_post.tsx (edit mode keeps the post id).
-// Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §11; no
+// Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §12; no
 // upstream source copied. The decomposition (one observable model, a service seam, a post sink) is
 // this repo's own, matching `ChannelViewModel`/`ChannelListViewModel`.
 //

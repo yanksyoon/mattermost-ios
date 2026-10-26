@@ -3,7 +3,7 @@
 //        app/actions/remote/file.ts (the upload queue: one file per request, progress, cancel),
 //        app/actions/remote/user.ts + channel.ts (the autocomplete fan-in: users, channels),
 //        app/client/rest/files.ts, users.ts, channels.ts.
-// Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §11; no
+// Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §12; no
 // upstream source copied. The protocol/implementation split is this repo's own convention
 // (`ChannelServing`, `ChannelSidebarServing`): the rules live in the view model against a fake, and
 // the production implementation is the only thing that knows about `AuthSession`/`APIClient`.

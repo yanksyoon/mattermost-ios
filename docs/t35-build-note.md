@@ -16,16 +16,17 @@ the documented REST v4 contract — no upstream source was copied:
 | `app/components/post_draft/uploads/` | `ComposerViewModel.add/cancelUpload/retryUpload/removeAttachment` + `MMMultipart` |
 | `app/components/autocomplete/*`, `app/components/autocomplete/at_mention/` | `ComposerTriggerParser` + `ComposerMembership` + `ComposerSuggestionRanking` |
 | `app/screens/edit_post/` | `ComposerViewModel.beginEditing`/`performEdit` (same composer, edit mode) |
-| `app/components/common_post_options/` (edit/delete entries) | `PostRowView.contextMenu` → `ChannelView` row actions |
+| `app/components/common_post_options/` (edit/delete entries) | `PostRowView`'s overflow button (`post.<id>.menu`) → one `PostOptionsSheet` per list, entries decided by `ComposerRowPermissions` (the `.contextMenu` long press this replaced is unreachable on iOS 26 — §7.1) |
 | `app/client/rest/posts.ts`, `files.ts`, `users.ts`, `channels.ts` | `ComposerAPI` on top of the existing `APIClient` |
 
-Attribution: `docs/THIRD_PARTY_NOTICES.md` §11 (endpoints + component structure).
+Attribution: `docs/THIRD_PARTY_NOTICES.md` §12 (upstream read set, the endpoints the server disagreed
+with, and the webapp as observed-only).
 
 ## 2. The write path, in order
 
 1. **Type.** Every keystroke goes `ComposerTextView` (a `UITextView` bridge, because SwiftUI's
-   `TextEditor` cannot report a caret) → `ComposerViewModel.textChanged` → the draft debounce (400 ms)
-   and the trigger parser.
+   `TextEditor` cannot report a caret) → `ComposerViewModel.textChanged` → the draft store (written
+   through on every change, no timer — §7.3) and the trigger parser.
 2. **Autocomplete.** `@`, `#` and `:` start a *generation-guarded* task. A late answer from an older
    generation is dropped, so typing `kim` then `kimberly` cannot leave the first list on screen.
    `@` → `GET /users/autocomplete?name=&in_channel_id=&in_team_id=` answered as
@@ -50,7 +51,18 @@ Attribution: `docs/THIRD_PARTY_NOTICES.md` §11 (endpoints + component structure
 5. **Fail.** The optimistic row is withdrawn, the text **stays**, the failure banner shows the
    server's meaning, and the draft is written immediately (a failed send never waits on a timer). Retry
    re-sends **the same** `pending_post_id`, so a request whose answer was lost cannot become two
-   messages.
+   messages **within one process lifetime**. That qualification is the whole of F6 and it is a real
+   limit, not a footnote: `ComposerViewModel` keeps the client id and the failed phase in memory
+   (`pendingCommand`, `phase`) and the draft store holds only the *text*, so after a process death the
+   text comes back as a plain draft and the next Send mints a **new** `pending:<uuid>`. A request that
+   *landed* while its answer was lost, followed by a kill, can therefore still become two posts —
+   the server's idempotency is keyed on the id it was given, and the relaunched client no longer
+   has it. The idempotency half is measured (the server replays a repeated `pending_post_id` as the
+   same post: 201, same id, one row); the *duplicate* is not measured end-to-end, because proving it
+   needs a host that can forward a `POST`, drop the answer and stop the server, which this host cannot
+   do (T35-AV §3, `t35-av-findings.md`). Fixing it is product work — persist the pending id next to
+   the draft and restore the retry affordance on relaunch — and is not part of this repair card; a
+   card that claims it must also ship the probe.
 6. **Edit / delete.** `beginEditing` loads the post into the same composer; `PUT /posts/{id}` saves the
    message only. Delete is `DELETE /posts/{id}`, and the row keeps its slot as a tombstone — the same
    `applyTombstone` the socket uses, so a delete from this device and one from another device
@@ -276,3 +288,69 @@ nothing in it was "fixed" here — the T34 lane owns it.
 One consequence worth writing down: the T35 live suite passes 7/7 *because* it is short — the app is
 not kept alive long enough for the automation session to die on it. A suite that snapshots 120 rows
 does, on this host, most runs.
+
+## 8. Round 3 (T35-R) — the T35-AV findings, closed
+
+Card `t_e7eeaa46` closes the six findings of T35-AV (`t_3042a50f`, `t35-av-findings.md`). No part of
+the write surface changed in this round: it is documentation, one attribution section, one coverage
+assertion, and one product limit that is now stated instead of overstated. Everything below was
+re-derived in this tree, not copied from the AV's worktree.
+
+| finding | disposition |
+| --- | --- |
+| **F1** no repo-level NOTICE entry | `docs/THIRD_PARTY_NOTICES.md` **§12** added in the shape of §7–§11: the upstream read set, the endpoints whose shapes the server disagreed with, `app/screens/global_drafts/` as read-and-not-ported, and the webapp as **observed only** (nothing copied). §1 above and the six `Composer*.swift` headers now point at §12 — they had pointed at §11, which is T34's section. |
+| **F2** global drafts undocumented | `docs/parity.md`'s T35 row now says it in "limits that stay": **no global drafts list** — drafts are per `(channel, thread root)`, there is no S14 `GlobalDraftsView`, and the screen is unowned on the board. |
+| **F3** stale build-note lines | Both corrected to the shipped behaviour: §2 step 1 describes the write-through draft store (the 400 ms debounce is gone, §7.3), and §1's parity table maps row actions to `post.<id>.menu` + `PostOptionsSheet`, not `PostRowView.contextMenu`. |
+| **F4** the live `@` test could not fail | Repaired and **proved to fail**. See §8.1. |
+| **F5** no card id in `d7f3036`'s body | History is not rewritten. Recorded here, with the convention for this lane from now on: every commit body names `T35` **and** the card it serves. The commits of this card carry `t_e7eeaa46`, and the last commit of a card is the one whose body most needs it, because that is the commit a validator reads. |
+| **F6** the "one message, not two" guarantee is process-local | **Documented, not fixed** — option (a) of the finding, chosen because option (b) is product work (persist the pending id next to the draft, restore the retry affordance on relaunch) that would need its own unit test and the AV-08 probe shape, and this card's brief is "do not re-open the surface". §2.5 and the parity row now say the guarantee holds **within one process lifetime** and why: the client id and the failed phase are in `ComposerViewModel`'s memory, the draft store keeps only the text. See §8.2 for the half that *is* measured. |
+
+### 8.1 F4 — the `@` test now fails if the membership filter is deleted
+
+The old test typed `@per` and offered the signed-in account (`perfprobe`), who **is** a member of
+`#t35-composer`, so a client with no filter at all passed it. Measured on this server: the
+autocomplete answer for `per` is `[perfprobe]` — one member, nothing to filter — while the answer for
+**`p`** is `[opsbot, perfprobe, playbooks, probeone832551, probezero959035]`, and `perfprobe` is the
+only member among them. So the test:
+
+1. types **`@p`**;
+2. asks the server itself for the same answer (`GET /users/autocomplete?name=p&in_channel_id=…`) and
+   asserts it contains `perfprobe` **and** the non-members `opsbot` / `probeone832551` — the oracle
+   that makes the negative half non-vacuous (a client that queried nothing would also "pass"
+   `XCTAssertFalse`);
+3. asserts the member is offered and taps it, then that `@perfprobe` is inserted;
+4. asserts `composerSuggestion.user-opsbot` and `composerSuggestion.user-probeone832551` do **not**
+   exist.
+
+Both directions, run here:
+
+| run | command | result |
+| --- | --- | --- |
+| suite, real code | `scripts/qa-test.py --platform ios --sim id=81A7F251… --only-testing MattermostUITests/T35ComposerUITests --label t35r-f4` | **7 run / 0 skipped / 0 failed, 322 s**, `RESULT: PASS` (`build/logs/t35r-f4.log`); the mention test 19.2 s |
+| the same one test, with the filter **deleted** (`ComposerMembership.filter` returns every candidate) | `… --only-testing …/testAMentionCompletesFromTheChannelsMembersAndInsertsTheUsername --label t35r-f4-mutation` | **failed (22.1 s)** on both negatives — `T35-ComposerUITests.swift:157` and `:159`, `XCTAssertFalse failed - a team member who is not in this channel must not be offered` (`build/logs/t35r-f4-mutation.log`, `RESULT: FAIL`) |
+
+The mutation was reverted before anything was committed (`git diff` for `ComposerModels.swift` is the
+NOTICE-reference line and nothing else), and the passing suite above is the unmutated tree — the two
+runs are in that order, so the file that ships is the file that passed.
+
+Scope note: this round changes **one** test and no product code. `#` completion stays covered by
+`testAChannelMentionUsesTheTildeForm`; `:` completion and the markdown preview are covered only by the
+AV's AV-03 probe, and the reply path only by AV-07 — both are AV evidence, not suite coverage, and
+T36 owns the reply surface (§5).
+
+### 8.2 F6 — what is measured, and what is not
+
+`scripts/av_t35_pending_id_replay.py` (added here from the AV's probe, so the claim is reproducible
+without the AV's worktree) re-measured the server's idempotency on this instance with no app involved:
+
+    first create  : 201, id nynbequyiprkpyd5d3go63zsjc, pending_post_id pending:av-replay-1792989954284
+    replay        : 201, **same id**
+    posts in the channel carrying that message: 1   → `deduped_by_server: true`
+
+So *replaying the same `pending_post_id` is safe*, and the retry path inside one process really cannot
+duplicate a send. What is **not** measured — and is now written down as a limit rather than a
+guarantee — is the cross-process case: a request that landed while its answer was lost, then a process
+death, then a Send under a new id. Proving that needs a host that can forward a `POST`, drop the
+answer and stop the server (T35-AV §3 could not do it here either: the relay mis-framed HTTP/1.1
+keep-alive and `docker stop` is refused by this runner). A card that fixes it must ship that probe
+with it.

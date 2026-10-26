@@ -3,7 +3,7 @@
 //        keystroke burst and read back when the composer mounts), app/database/schema/server/
 //        table_schemas/draft.ts + ios/Gekidou/Sources/Gekidou/Storage/Database+Posts.swift (the
 //        drafts table), app/screens/global_drafts (the list the same table feeds).
-// Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §11.
+// Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §12.
 //
 // This file is the bridge between the composer and T29's store, and it deliberately adds **no new
 // storage format**: a draft is written to `DraftRepository` as the `draft` row T29 already defined

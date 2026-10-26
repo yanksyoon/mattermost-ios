@@ -267,3 +267,61 @@ page is prepended" — is what was read from
 `app/screens/channel/channel_post_list/channel_post_list.tsx` (`onViewableItemsChanged` +
 `scrollToIndex`); no upstream scrolling or virtualisation code is reproduced.
 
+## 12. T35 native composer + autocomplete — upstream read set (Apache-2.0, mobile @ `162f2560…`)
+
+T35 (`Mattermost/UI/Native/Composer/*.swift` — `ComposerModels.swift`, `ComposerAPI.swift`,
+`ComposerService.swift`, `ComposerDraftStore.swift`, `ComposerViewModel.swift`, `ComposerView.swift` —
+`ChannelViewModel`'s pending-row methods, `ChannelView`/`PostRowView`'s row actions, and
+`docs/t35-build-note.md`) reimplements the **write surface**: the composer, the markdown toolbar and
+preview, `@`/`#`/`:` completion, uploads with progress and cancel, send/edit/delete, and per-channel
+drafts. The upstream read set is the one `docs/component-map.md` §S14 names for this surface; no
+upstream file is copied or transpiled. The mobile pin is TypeScript (read for rules only); the webapp
+is AGPL-3.0 and was **observed in the running client**, never copied or ported. Every new file pins
+the upstream it derives from in its own header (mobile `@ v2.45.0`,
+`162f2560d0e1df073220f7701d5a67cc17c8abeb`), so this section is the repo-level entry those headers
+point at.
+
+| Upstream path (mobile @ `162f2560…` unless marked `W`) | Used for |
+|---|---|
+| `app/components/post_draft/post_draft.tsx`, `post_draft/draft_input/draft_input.tsx`, `post_draft/post_input/`, `post_draft/send_button/`, `post_draft/send_handler/` | composer anatomy: the input, the send affordance and the rule that send is a separate action from typing; the edit and reply banners reuse the same input rather than a second screen |
+| `app/components/post_draft/quick_actions/` | the markdown toolbar's action set (bold, italic, strike, code, code block, link, quote, list) applied to a selection with the caret preserved |
+| `app/components/post_draft/uploads/` | the attachment tray: one upload per file, a per-file state the reader can see, cancel, and **no automatic retry** (a replayed multipart body can duplicate an attachment) |
+| `app/components/post_draft/draft_handler/`, `app/actions/local/draft.ts` | what a draft *is*: keyed by channel and thread root, empty text removes the row, and it is written before the reader can lose it |
+| `app/components/post_draft/archived/`, `read_only/`, `typing/` | read only — the archived/read-only banners and the typing indicator are **not** part of this card (no banner is drawn; typing is a socket feature T34 does not ship either) |
+| `app/components/autocomplete/autocomplete.tsx` | one suggestion surface that switches source on the trigger character, and the "the list is a generation, a late answer loses" rule |
+| `app/components/autocomplete/at_mention/`, `at_mention_item/`, `at_mention_group/` | the `@` list: `GET /users/autocomplete` with `in_channel_id`/`in_team_id`, an id-keyed membership check, and `@username` inserted with a trailing space |
+| `app/components/autocomplete/channel_mention/` | the `#` list: channel search over the loaded team, inserted as Mattermost's own `~name` link syntax even though the trigger is `#` |
+| `app/components/autocomplete/emoji_suggestion/` | the `:` list: shortcode prefix match, and an unknown `:name:` stays literal |
+| `app/screens/edit_post/` | edit is the same composer in edit mode, not a separate editor; `PUT /posts/{id}` changes the message only |
+| `app/actions/remote/post.ts`, `app/client/rest/posts.ts`, `files.ts`, `users.ts`, `channels.ts` (and `teams.ts` for channel search) | the write endpoints and their request shapes: `POST /posts` with `pending_post_id`, `PUT`/`DELETE /posts/{id}`, `POST /files` multipart, `GET /users/autocomplete`, `POST /teams/{id}/channels/search`, `GET /channels/{id}/members` |
+| `app/screens/global_drafts/` (`GlobalDraftsView`) | read and **not ported**: the board's T35 scope is per-channel drafts. `docs/parity.md`'s T35 row records the gap ("no global drafts list … the screen is unowned on the board") |
+| `app/components/common_post_options/` (edit/delete entries) | which entries a row offers and who may see them (`ComposerRowPermissions`); drawn as an overflow button + `PostOptionsSheet` because a `.contextMenu` long press is unreachable on iOS 26 (`docs/t35-build-note.md` §7.1) |
+| `W …/components/advanced_create_comment.tsx`, `W …/components/advanced_create_post.tsx` | **behaviour cross-check only** — what the Path A webview's composer does, watched in the running client to confirm the native one says the same thing |
+| `W …/components/draft_actions/`, `W …/components/draft_row.tsx`, `W …/components/drafts_list/` | **behaviour cross-check only** — the drafts *list* the webapp renders; not ported (same gap as `global_drafts/` above) |
+
+**The endpoints whose shapes the server disagreed with** (measured against a real Mattermost 9.11.19,
+no app involved; each is pinned by `MattermostTests/T35ComposerAPITests.swift` and by the live suite):
+
+- `GET /users/autocomplete?name=&in_channel_id=&in_team_id=` answers an **object** `{"users":[…]}`, not
+  a bare array. A bare-array decode throws, and a `try?` around it turns every `@` term into an empty
+  list — the failure mode that looks like "the server has no users".
+- Channel search is **POST** `/teams/{id}/channels/search` with `{"term","limit"}`. The `GET` form of
+  that path is a 404 `api.context.404.app_error` on 9.11.19, which is why `#` produced nothing.
+- `GET /posts/{id}` after a `DELETE` answers **404**, not a post whose `delete_at` is set; the post is
+  also gone from the channel window and a `PUT` afterwards is 403. (`scripts/t35_softdelete_oracle.py`
+  is the no-app probe.)
+- `GET /channels/{id}/members` answers `user_id`s while a suggestion's `value` is a **username**: the
+  membership filter has to compare ids, or a correct member list filters every person out.
+
+Not ported by this card (other cards own them): slash commands and their parser
+(`app/components/autocomplete/slash_suggestion/app_command_parser/`), scheduled posts, the emoji
+**picker** (S17/T37 — `:` completes built-in names plus T34's server catalogue only), burn-on-read
+editing, and the webapp's drafts list above.
+
+Reimplementation notes that matter for the licence boundary: the Swift types are written against
+`https://api.mattermost.com` (`/posts`, `/posts/{id}`, `/files`, `/users/autocomplete`,
+`/teams/{id}/channels/search`, `/channels/{id}/members`) and this repo's existing
+`APIClient`/`GRDB`/T29 draft table, not translated from RN components, reducers or selectors. Every
+string the reader sees is either the **server's own message** or a Mattermost sentence re-worded in
+our own file; **SF Symbols** replace every `compass-icons` glyph (the toolbar draws no icon-font
+asset), so no icon font, emoji sprite or extra dependency is added by this card.

@@ -6,7 +6,7 @@
 //        `GET /teams/{team_id}/channels/search`, `getChannelMembers` `GET /channels/{id}/members`),
 //        app/client/rest/emojis.ts (`GET /emoji`, which T34's `ChannelAPI` already owns).
 // Licence: Apache-2.0 — endpoints reimplemented against https://api.mattermost.com with attribution
-// per docs/THIRD_PARTY_NOTICES.md §11; no upstream source copied.
+// per docs/THIRD_PARTY_NOTICES.md §12; no upstream source copied.
 //
 // Every call here goes through `APIClient`, so it inherits: the `/api/v4` prefix, the bearer token
 // from the vault, `X-Requested-With`, the typed 401 → re-auth callback, the TLS trust decision shared
