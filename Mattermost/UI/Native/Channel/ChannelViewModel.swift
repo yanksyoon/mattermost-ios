@@ -129,6 +129,15 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     private var pageCursor: String?
     /// `channel_member.last_viewed_at`, used to place the unread divider. `nil` = unknown.
     private var lastViewedAt: Int64?
+    /// The oldest `create_at` the window loaded **contiguously** (T39).
+    ///
+    /// The newest page and every older page `loadEarlier` appends are continuous with each other, so
+    /// this is simply the oldest row's `create_at` after each of those merges. A post a jump fetched
+    /// by id and merged (`mergeJumpedPost`) is deliberately *not* included: it is older, isolated and
+    /// unknown-gap distance from the window, and `PostListDerivation.items` draws a `.gap` separator
+    /// at that boundary. Loading earlier pages far enough to reach it drops the floor below it and
+    /// the separator disappears on its own — the list is then honestly continuous again.
+    private var contiguousFloorCreateAt: Int64?
     /// True once `lastViewedAt` came from a caller or the server, so the load does not overwrite it
     /// with a second (slower) answer.
     private var lastViewedAtIsAuthoritative: Bool
@@ -219,6 +228,7 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             pageCursor = page.orderedPosts.last?.id
             posts = Self.sortedNewestFirst(Self.timelineRows(page.orderedPosts, channelID: channelID))
             postsByID = Dictionary(uniqueKeysWithValues: posts.map { ($0.id, $0) })
+            contiguousFloorCreateAt = posts.last?.createAt
             hasMore = Self.morePages(after: page, pageSize: service.pageSize)
             // Where the reader stopped last time: the membership row's `last_viewed_at` is what places
             // the "New messages" line. A caller-supplied value wins (the sidebar already holds it).
@@ -306,6 +316,13 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             }
             posts = Self.sortedNewestFirst(posts + rows)
             for post in rows { postsByID[post.id] = post }
+            // The page is continuous with the window it was appended to (`before` is exclusive but
+            // adjacent), so the contiguous floor follows the page's oldest new row. It is taken from
+            // `rows`, never from `posts`: a jumped-to post merged by `mergeJumpedPost` may be older
+            // still, and it is *not* contiguous with anything.
+            if let oldestOfPage = rows.map(\.createAt).min() {
+                contiguousFloorCreateAt = min(contiguousFloorCreateAt ?? oldestOfPage, oldestOfPage)
+            }
             await loadProfiles(for: Array(Set(rows.map(\.userId))))
             guard requested == generation else { return false }
             adoptReactionState(for: rows)
@@ -880,8 +897,9 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     ///
     /// That fetch is what makes "jump to a search result in a channel that was never opened" work: the
     /// pane's first page is the newest 60 posts, and a result can be far older. The merged post is one
-    /// row at the older end of the window — honest about the gap (the list draws no separator it did
-    /// not earn) and enough to read the message the reader asked for.
+    /// row at the older end of the window, and the list is **not** contiguous there: the messages
+    /// between it and the newest page were never fetched, so `PostListDerivation` draws a `.gap`
+    /// separator at that boundary instead of pretending the two blocks touch (T39-AV F2).
     ///
     /// A **reply** cannot be a row here at all (`isTimelineRow` keeps replies out of a thread-collapsed
     /// timeline), so its jump is its thread: `threadJumpRootID` tells the view to open the thread pane,
@@ -947,6 +965,8 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
         posts.append(post)
         postsByID[post.id] = post
         posts = Self.sortedNewestFirst(posts)
+        // The floor is intentionally untouched: this post joins the window from outside it, so the
+        // derivation keeps a `.gap` between it and the contiguous block (`contiguousFloorCreateAt`).
         rebuild()
         // The jumped-to author may never have been on screen; without a profile the row would read
         // "Unknown user" even though the post is the one the reader asked for.
@@ -978,6 +998,7 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
                                          lastViewedAt: lastViewedAt,
                                          expandedPostIDs: expandedPostIDs,
                                          pendingPostIDs: pendingPostIDs,
+                                         contiguousFloorCreateAt: contiguousFloorCreateAt,
                                          now: now(),
                                          calendar: calendar,
                                          locale: locale)

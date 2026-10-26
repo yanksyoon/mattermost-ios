@@ -186,16 +186,34 @@ struct PostDateSeparator: Equatable, Identifiable, Sendable {
     var id: String { "date-\(dayKey)" }
 }
 
+/// A boundary in the list where messages exist but are **not loaded** (T39).
+///
+/// A jumped-to post is fetched by id and merged into the newest page, so an old post can be drawn
+/// directly above the newest page with the messages between them missing. Before this item the list
+/// drew that as if it were contiguous — `jump2-focused.png` in the T39-AV evidence shows a 11:10 PM
+/// post followed immediately by "Today" with ~140 messages unloaded and nothing saying so.
+struct PostListGap: Equatable, Identifiable, Sendable {
+    /// What the separator says in one line.
+    var title: String
+    /// One sentence of context under it.
+    var detail: String
+
+    var id: String { "post-gap" }
+}
+
 /// One element of the rendered list, in **display order (oldest first, top to bottom)**.
 enum PostListItem: Equatable, Identifiable, Sendable {
     case dateSeparator(PostDateSeparator)
     case newMessages
+    /// Messages between the older end and the newer end were never loaded.
+    case gap(PostListGap)
     case post(PostRowModel)
 
     var id: String {
         switch self {
         case .dateSeparator(let separator): return separator.id
         case .newMessages: return "new-messages"
+        case .gap(let gap): return gap.id
         case .post(let row): return "post-\(row.id)"
         }
     }
@@ -232,12 +250,18 @@ enum PostListDerivation {
     ///   - users: author lookup by id (the batch `/users/ids` answer).
     ///   - myUserID: whose posts do not get a "new messages" divider before them.
     ///   - lastViewedAt: `channel_member.last_viewed_at`; `nil` = unknown, so no divider is invented.
+    ///   - contiguousFloorCreateAt: the oldest `create_at` the window loaded **contiguously** — see
+    ///     `ChannelViewModel.contiguousFloorCreateAt`. Anything older than it in `posts` is a
+    ///     jumped-to post fetched on its own, and the messages between the two are not in the
+    ///     window, so a `.gap` separator is drawn at that boundary. `nil` = the window is whole (the
+    ///     default, which is what every other caller and every pre-T39 test wants).
     static func items(posts: [MMPost],
                       users: [String: MMUser],
                       myUserID: String?,
                       lastViewedAt: Int64?,
                       expandedPostIDs: Set<String> = [],
                       pendingPostIDs: Set<String> = [],
+                      contiguousFloorCreateAt: Int64? = nil,
                       now: Date = Date(),
                       calendar: Calendar = .current,
                       locale: Locale = .current) -> [PostListItem] {
@@ -252,8 +276,20 @@ enum PostListDerivation {
         var lastDayKey: String?
         var previous: MMPost?
         var insertedNewMessages = false
+        var insertedGap = false
 
         for post in ordered {
+            // The hole sits between the last post below the contiguous floor and the first one at or
+            // above it: everything in between was never fetched. Drawn before this post's day
+            // separator, because the separator belongs to the newer block the gap introduces.
+            if !insertedGap, let floor = contiguousFloorCreateAt,
+               post.createAt >= floor, let previous, previous.createAt < floor {
+                items.append(.gap(PostListGap(
+                    title: "Jumped to an older message",
+                    detail: "The messages between this one and the newer page are not loaded.")))
+                insertedGap = true
+            }
+
             let dayKey = Self.dayKey(for: post.createAt, calendar: calendar)
             let isNewDay = dayKey != lastDayKey
             if isNewDay {

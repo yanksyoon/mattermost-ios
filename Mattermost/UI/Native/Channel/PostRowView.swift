@@ -69,6 +69,45 @@ struct NewMessagesDividerView: View {
     }
 }
 
+/// The separator a list draws where messages are missing (T39).
+///
+/// Deliberately not a "New messages" style accent line: this is not a milestone the server told us
+/// about, it is an absence. Dashed rules and secondary text so it reads as "there is nothing here",
+/// with its own identifier so a test can assert the jump did not draw a continuous list.
+struct PostListGapView: View {
+    let gap: PostListGap
+
+    var body: some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 8) {
+                dash
+                Image(systemName: "arrow.up.arrow.down")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                Text(gap.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                dash
+            }
+            Text(gap.detail)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("channelListGap")
+    }
+
+    private var dash: some View {
+        Rectangle()
+            .fill(Color.secondary.opacity(0.35))
+            .frame(height: 1)
+    }
+}
+
 // MARK: - Avatar
 
 struct PostAvatarView: View {

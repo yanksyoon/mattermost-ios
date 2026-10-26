@@ -379,6 +379,10 @@ struct ThreadPostListView: View {
             PostDateSeparatorView(separator: separator)
         case .newMessages:
             NewMessagesDividerView()
+        case .gap(let gap):
+            // A thread's window is loaded whole (root + every reply), so it never produces one; the
+            // case is drawn anyway rather than swallowing it, so the two lists cannot drift.
+            PostListGapView(gap: gap)
         case .post(let row):
             PostRowView(row: row,
                         isExpanded: model.isExpanded(row.id),

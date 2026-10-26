@@ -57,7 +57,10 @@ final class PostCollectionViewModel: ObservableObject {
     // MARK: Collaborators
 
     private let service: SearchServing
-    /// Saved posts are team-scoped on the flag list; pinned posts are always one channel's.
+    /// Saved posts are **team-scoped** on this client: the tab lives inside a team and the request
+    /// carries `?team_id=`. That is narrower than the web/desktop Saved screen, which lists every
+    /// team's saved posts — `docs/t39-search-build-note.md` §6 states it, and the row names the
+    /// channel it came from so a row never arrives without a place.
     var teamID: String?
     var channelID: String?
     var myUserID: String?
@@ -66,6 +69,8 @@ final class PostCollectionViewModel: ObservableObject {
 
     private var posts: [MMPost] = []
     private var users: [String: MMUser] = [:]
+    /// The channels the saved rows live in, for the row's own "#channel" line.
+    private(set) var channels: [String: MMChannel] = [:]
     private var page = 0
     private var generation = 0
 
@@ -99,6 +104,8 @@ final class PostCollectionViewModel: ObservableObject {
             hasMore = list.order.count >= service.pageSize
             await loadProfiles(requested: requested)
             guard requested == generation else { return }
+            await loadChannels(requested: requested)
+            guard requested == generation else { return }
             rebuild()
             phase = .loaded
         } catch {
@@ -131,6 +138,8 @@ final class PostCollectionViewModel: ObservableObject {
             posts.append(contentsOf: fresh)
             await loadProfiles(requested: requested)
             guard requested == generation else { return false }
+            await loadChannels(requested: requested)
+            guard requested == generation else { return false }
             rebuild()
             return !fresh.isEmpty
         } catch {
@@ -159,6 +168,28 @@ final class PostCollectionViewModel: ObservableObject {
         guard !ids.isEmpty, let fetched = try? await service.users(ids: ids) else { return }
         guard requested == generation else { return }
         for user in fetched { users[user.id] = user }
+    }
+
+    /// The channels the saved rows came from, in one batched lookup.
+    ///
+    /// Only the Saved list needs this: the pinned sheet is one channel and says so in its title. A
+    /// failure leaves the rows without their `#channel` line rather than failing the list — the same
+    /// degradation rule as the author batch.
+    private func loadChannels(requested: Int) async {
+        guard kind == .saved, let teamID, !teamID.isEmpty else { return }
+        let missing = SearchResultRows.channelIDs(posts).filter { channels[$0] == nil }
+        guard !missing.isEmpty,
+              let fetched = try? await service.channels(ids: missing, teamID: teamID) else { return }
+        guard requested == generation else { return }
+        for channel in fetched { channels[channel.id] = channel }
+    }
+
+    /// `#channel` (or a DM's name) for a row, when the list knows it. `nil` for the pinned sheet.
+    func channelLabel(for postID: String) -> String? {
+        guard kind == .saved,
+              let post = posts.first(where: { $0.id == postID }),
+              let channel = channels[post.channelId] else { return nil }
+        return SearchResultCopy.channelLabel(channel)
     }
 
     private func rebuild() {

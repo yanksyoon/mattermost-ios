@@ -13,8 +13,12 @@
 //  - **Saved posts**: `/users/me/teams/{team}/posts/saved` **404s** on 9.11.19 (the path the card
 //    warned "has moved"); `/users/me/posts/flagged?team_id=…` answers 200 with the same shape. The
 //    primary path here is the one that answers, and the newer team-scoped path is kept as a fallback
-//    so a server that only has that one still works. Both are tried in a fixed order and the order is
-//    unit-tested (`T39SearchAPITests`).
+//    so a server that only has that one still works. Both are tried in a fixed order, and the order
+//    (plus "only a 404 falls back") is pinned by `T39SearchAPITests` —
+//    `testTheSavedListUsesTheFlaggedPathFirstAndStopsThere`,
+//    `testTheSavedListFallsBackToTheTeamScopedPathOn404`,
+//    `testTheSavedListWithoutATeamReportsThe404InsteadOfFallingBack` and
+//    `testTheSavedListDoesNotFallBackOnANon404Failure`.
 //  - **Saving a post**: `POST /posts/{id}/flag` and `/unflag` **404** on 9.11.19 — there is no flag
 //    route. Saving is the `flagged_post` **preference** (measured: writing it makes the post appear in
 //    `/users/me/posts/flagged`, deleting it removes it).

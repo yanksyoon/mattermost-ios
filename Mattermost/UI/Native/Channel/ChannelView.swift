@@ -331,6 +331,8 @@ struct ChannelPostListView: View {
             PostDateSeparatorView(separator: separator)
         case .newMessages:
             NewMessagesDividerView()
+        case .gap(let gap):
+            PostListGapView(gap: gap)
         case .post(let row):
             PostRowView(row: row,
                         isExpanded: model.isExpanded(row.id),

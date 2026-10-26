@@ -183,11 +183,27 @@ struct PostCollectionView: View {
                     Button {
                         open(row)
                     } label: {
-                        PostRowView(row: row,
-                                    isExpanded: false,
-                                    imageStore: nil,
-                                    emoji: nil,
-                                    onToggleExpanded: {})
+                        VStack(alignment: .leading, spacing: 2) {
+                            // A saved row says which channel it came from: the tab is team-scoped and
+                            // the same message text can exist in several channels (T39-AV F6).
+                            if let channel = model.channelLabel(for: row.id) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "number")
+                                        .font(.caption2)
+                                        .accessibilityHidden(true)
+                                    Text(channel)
+                                        .font(.caption.weight(.semibold))
+                                }
+                                .foregroundStyle(.secondary)
+                                .accessibilityElement(children: .combine)
+                                .accessibilityIdentifier("\(listIdentifier).channel.\(row.id)")
+                            }
+                            PostRowView(row: row,
+                                        isExpanded: false,
+                                        imageStore: nil,
+                                        emoji: nil,
+                                        onToggleExpanded: {})
+                        }
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("\(listIdentifier).row.\(row.id)")

@@ -215,26 +215,50 @@ struct SearchView: View {
 
                 if !model.recents.entries.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Recent searches")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        ForEach(Array(model.recents.entries.enumerated()), id: \.offset) { index, text in
-                            Button {
-                                Task { await model.repeatSearch(text, teamID: teamID) }
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "clock.arrow.circlepath")
-                                        .foregroundStyle(.secondary)
-                                        .accessibilityHidden(true)
-                                    Text(text)
-                                        .lineLimit(2)
-                                    Spacer(minLength: 0)
-                                }
-                                .contentShape(Rectangle())
+                        HStack {
+                            Text("Recent searches")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Spacer(minLength: 0)
+                            // Upstream's per-team history can be cleared; without this the list grew
+                            // forever with no way to forget what the reader typed (T39-AV F7).
+                            Button("Clear") {
+                                model.recents.removeAll()
                             }
+                            .font(.caption.weight(.semibold))
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("searchRecentsClear")
+                        }
+                        ForEach(Array(model.recents.entries.enumerated()), id: \.offset) { index, text in
+                            HStack(spacing: 8) {
+                                Button {
+                                    Task { await model.repeatSearch(text, teamID: teamID) }
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "clock.arrow.circlepath")
+                                            .foregroundStyle(.secondary)
+                                            .accessibilityHidden(true)
+                                        Text(text)
+                                            .lineLimit(2)
+                                        Spacer(minLength: 0)
+                                    }
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("searchRecent.\(index)")
+
+                                // Forgetting one entry, upstream's `removeSearchFromTeamSearchHistory`.
+                                Button {
+                                    model.recents.remove(text)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Remove \(text) from recent searches")
+                                .accessibilityIdentifier("searchRecentRemove.\(index)")
+                            }
                             .padding(.vertical, 6)
-                            .accessibilityIdentifier("searchRecent.\(index)")
                         }
                     }
                     .accessibilityElement(children: .contain)
