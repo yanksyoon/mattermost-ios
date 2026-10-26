@@ -55,6 +55,10 @@ jobs:
           python3 scripts/release_notes.py --self-test
           python3 scripts/ci_simulator.py --self-test
           python3 scripts/verify-pushed.py --self-test
+          # Replays the shipped "Publish the release" step body against a throwaway
+          # bare origin + stub gh: 8 scenarios plus the negative control (a4b6467's
+          # body must reproduce the silent green). bash + git + python3 only.
+          bash scripts/release_publish_selftest.sh
 
       - name: Resolve packages
         run: xcodebuild -resolvePackageDependencies -project Mattermost.xcodeproj -scheme Mattermost
@@ -138,6 +142,8 @@ jobs:
         run: |
           python3 scripts/release_version.py --self-test
           python3 scripts/release_notes.py --self-test
+          # The step body below is replayed verbatim by the self-test, on this runner.
+          bash scripts/release_publish_selftest.sh
 
       - name: Publish the release
         env:
@@ -171,11 +177,26 @@ jobs:
           TAG=$(python3 scripts/release_version.py --format tag --dry-run)
 
           if [ "$TAG" = "SKIP" ]; then
-            # SKIP now means the REMOTE already carries a release tag on this commit,
-            # because the runner is fresh and never invents a local tag.
-            EXISTING=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+            # SKIP means this commit already carries a v* tag. The runner is fresh, so it
+            # cannot be a tag this step made itself (the retry loop removed in 1e64fbf
+            # could read its own): either the release exists - a re-run, exit 0 - or a
+            # tag landed without its release, which the step finishes.
+            #
+            # `|| true` is load-bearing. Under `set -e` + `pipefail` an assignment dies
+            # when its pipeline fails, so a bare-tag scan that matched nothing used to
+            # kill the step BEFORE the ::error:: below could print: a red job with no
+            # reason in the log. A pre-release tag is exactly that case - v0.5.0-rc1 is
+            # accepted by release_version.py's parse_tag (suffix dropped, so SKIP) but is
+            # not a release tag. Policy, also stated in docs/releasing.md: a pre-release
+            # tag is not a release; the step refuses loudly and cuts nothing.
+            #
+            # `--sort=-v:refname` is git's own version sort (0.10 > 0.9) so the same body
+            # runs on a runner without GNU coreutils; scripts/release_publish_selftest.sh
+            # replays this text on the macOS leg.
+            EXISTING=$(git tag --points-at HEAD --sort=-v:refname \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
             if [ -z "$EXISTING" ]; then
-              echo "::error::SKIP with no release tag on HEAD $SHORT"
+              echo "::error::SKIP with no release tag on HEAD $SHORT (a non-release tag, such as a pre-release suffix, is on HEAD; nothing cut - delete the tag or push a new commit)"
               exit 1
             fi
             if gh release view "$EXISTING" --repo "$REPO" >/dev/null 2>&1; then

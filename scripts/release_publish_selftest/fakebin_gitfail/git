@@ -1,0 +1,11 @@
+#!/bin/bash
+# A `git` that fails only for `ls-remote`, to model the publish step losing the network
+# at its tip check (scenario S8). Everything else is real git, resolved from REAL_GIT so
+# this shim cannot recurse into itself.
+for a in "$@"; do
+  if [ "$a" = "ls-remote" ]; then
+    echo "fatal: unable to access 'https://github.com/fake/repo/': Could not resolve host" >&2
+    exit 128
+  fi
+done
+exec "${REAL_GIT:-/usr/bin/git}" "$@"

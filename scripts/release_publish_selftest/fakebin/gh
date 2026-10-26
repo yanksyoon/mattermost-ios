@@ -1,0 +1,90 @@
+#!/bin/bash
+# Stub `gh` for scripts/release_publish_selftest.sh. It models exactly the two remote
+# facts the "Publish the release" step depends on, so the step can be replayed with no
+# network and no gh auth:
+#
+#   * a tag ref in $ORIGIN      (a bare repo standing in for github.com)
+#   * a release record in $GH_STATE/releases/<tag>
+#
+# GitHub semantics modelled:
+#   - `gh release create TAG --target SHA`   creates the tag ref itself (Releases API;
+#     this is why the workflow needs no `workflows` permission)
+#   - `gh release create TAG --verify-tag`   requires the tag ref to already exist
+#   - `gh release create TAG` when a release already exists -> HTTP 422
+#   - `gh release view TAG`                  exits 1 when there is no release
+# Env switch: FAKE_GH_FAIL_CREATE=1 makes every create fail with a 403, like a token
+# that cannot write releases.
+set -uo pipefail
+STATE=${GH_STATE:?}
+ORIGIN=${ORIGIN:?}
+mkdir -p "$STATE/releases" "$STATE/log"
+echo "gh $*" >> "$STATE/log/calls.log"
+
+area=${1:-}
+sub=${2:-}
+shift 2 2>/dev/null || true
+
+if [ "$area" = "release" ] && [ "$sub" = "view" ]; then
+  tag=${1:-}
+  if [ -f "$STATE/releases/$tag" ]; then
+    want_json=0
+    for a in "$@"; do [ "$a" = "--json" ] && want_json=1; done
+    if [ "$want_json" = "1" ]; then
+      printf '{"isDraft":false,"tagName":"%s","url":"https://example.invalid/%s"}\n' "$tag" "$tag"
+    else
+      echo "title: $tag"
+    fi
+    exit 0
+  fi
+  echo "release not found: $tag" >&2
+  exit 1
+fi
+
+if [ "$area" = "release" ] && [ "$sub" = "create" ]; then
+  tag=${1:-}
+  shift || true
+  target=""
+  verify=0
+  latest=0
+  notes=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --target) target=$2; shift 2 ;;
+      --verify-tag) verify=1; shift ;;
+      --latest) latest=1; shift ;;
+      --notes-file) notes=$2; shift 2 ;;
+      --title|--repo) shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  if [ "${FAKE_GH_FAIL_CREATE:-0}" = "1" ]; then
+    echo "HTTP 403: Resource not accessible by integration (simulated)" >&2
+    exit 1
+  fi
+  if [ -f "$STATE/releases/$tag" ]; then
+    echo "HTTP 422: Validation Failed (release already exists)" >&2
+    exit 1
+  fi
+  if [ "$verify" = "1" ]; then
+    if ! git -C "$ORIGIN" rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+      echo "HTTP 422: tag $tag does not exist on the remote (--verify-tag)" >&2
+      exit 1
+    fi
+  else
+    if git -C "$ORIGIN" rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+      echo "HTTP 422: tag $tag already exists" >&2
+      exit 1
+    fi
+    [ -n "$target" ] || { echo "HTTP 422: --target is required" >&2; exit 1; }
+    git -C "$ORIGIN" update-ref "refs/tags/$tag" "$target" || exit 1
+  fi
+  printf 'tag=%s target=%s latest=%s notes=%s\n' "$tag" \
+    "${target:-verify-tag}" "$latest" "$(basename "${notes:-none}")" \
+    > "$STATE/releases/$tag"
+  [ -n "$notes" ] && cp "$notes" "$STATE/log/notes-$tag.md" 2>/dev/null
+  echo "https://example.invalid/releases/$tag"
+  exit 0
+fi
+
+echo "fake gh: unsupported invocation: $area $sub $*" >&2
+exit 9
