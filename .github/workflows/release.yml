@@ -30,8 +30,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Prove the version rules
-        run: python3 scripts/release_version.py --self-test
+      - name: Prove the version and notes rules
+        run: |
+          python3 scripts/release_version.py --self-test
+          python3 scripts/release_notes.py --self-test
 
       - name: Tag and publish
         env:
@@ -58,15 +60,29 @@ jobs:
             fi
 
             SHA=$(git rev-parse HEAD)
+            PREV=$(git describe --tags --abbrev=0 "$SHA^" 2>/dev/null || echo "")
             git tag -a "$TAG" -m "Release $TAG" \
               -m "Cut automatically on push to main. Commit $SHA. Policy: minor increment per release, see scripts/release_version.py."
 
             if git push origin "refs/tags/$TAG"; then
               echo "pushed tag $TAG at $SHA"
+              # GitHub's --generate-notes yields only a compare link here (every commit
+              # is a direct push, no PRs), so build the changelog from the commits.
+              if [ -n "$PREV" ]; then
+                python3 scripts/release_notes.py --from "$PREV" --to "$SHA" > /tmp/notes.md || true
+              else
+                python3 scripts/release_notes.py --to "$SHA" > /tmp/notes.md || true
+              fi
+              if [ ! -s /tmp/notes.md ]; then
+                echo "Release $TAG at $SHA." > /tmp/notes.md
+              fi
+              echo "" >> /tmp/notes.md
+              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV:-root}...$TAG" >> /tmp/notes.md
+
               gh release create "$TAG" \
                 --verify-tag \
                 --title "$TAG" \
-                --generate-notes \
+                --notes-file /tmp/notes.md \
                 --latest
               echo "RELEASE CREATED: $TAG"
               exit 0

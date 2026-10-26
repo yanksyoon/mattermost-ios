@@ -15,11 +15,18 @@ from git, never a version file, so the number cannot drift from what was release
 
 `.github/workflows/release.yml` runs on every push to `main`:
 
-1. `scripts/release_version.py --self-test` — proves the bump rules before tagging.
+1. `scripts/release_version.py --self-test` and `scripts/release_notes.py --self-test` —
+   prove the bump and grouping rules before anything is tagged.
 2. Computes the next tag from the existing tags (never from a file).
 3. Creates an annotated tag at the pushed commit and pushes it.
-4. `gh release create --generate-notes --latest` — GitHub assembles the notes from
-   the commits since the previous tag.
+4. `scripts/release_notes.py --from <previous tag>` builds the changelog from the real
+   commit subjects, grouped by Conventional Commit type, and
+   `gh release create --notes-file` publishes it.
+
+GitHub's own `--generate-notes` is deliberately **not** used: in this repo every commit
+is a direct push with no pull request attached, so it emitted only a compare link —
+a release note that tells nobody anything. The first release cut this way (`v0.2.0`)
+did exactly that and had its notes backfilled from the commits.
 
 Three properties worth knowing, because each one was a deliberate choice:
 
