@@ -1,0 +1,1177 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=iOS Simulator,id=DC3E9FB7-E4A0-4B24-8DBB-7960A059EC7A" -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t34r4-paging-0dedc4.xcresult -only-testing MattermostUITests/T34ChannelPostListUITests/testReachingTheTopLoadsOlderPostsWithoutDuplicates
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift @ 7.11.1
+
+Writing result bundle at path:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t34r4-paging-0dedc4.xcresult
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (7 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDBSQLite' in project 'GRDB'
+    Target 'GRDBSQLite' in project 'GRDB' (no dependencies)
+    Target 'GRDB_GRDB' in project 'GRDB' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
+
+Build description signature: bb1b0439abcc54f8de8c428cdb656522
+Build description path: /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/XCBuildData/bb1b0439abcc54f8de8c428cdb656522.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist (in target 'GRDB_GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist -producttype com.apple.product-type.framework -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -format binary -platform iphonesimulator -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib: replacing existing signature
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib: replacing existing signature
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --entitlements /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app.xcent --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app: replacing existing signature
+
+Validate /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-validationUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app -shallow-bundle -infoplist-subpath Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+
+2026-10-25 17:34:45.431842-0700 MattermostUITests-Runner[73347:5069808] [Default] Running tests...
+2026-10-25 17:34:45.553706-0700 MattermostUITests-Runner[73347:5069808] [UIKit App Config] Update the Info.plist: Launch screens will soon be required.
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-10-25 17:34:46.069.
+Test Suite 'MattermostUITests.xctest' started at 2026-10-25 17:34:46.069.
+Test Suite 'T34ChannelPostListUITests' started at 2026-10-25 17:34:46.069.
+Test Case '-[MattermostUITests.T34ChannelPostListUITests testReachingTheTopLoadsOlderPostsWithoutDuplicates]' started.
+    t =     0.00s Start Test at 2026-10-25 17:34:46.070
+    t =     0.02s Set Up
+    t =     0.32s Open com.mattermost.ios
+    t =     0.32s     Launch com.mattermost.ios
+2026-10-25 17:34:46.444 xcodebuild[73325:5069476] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 17:34:46.444 xcodebuild[73325:5069476] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.21s         Setting up automation session
+    t =     2.32s         Wait for com.mattermost.ios to idle
+    t =     4.50s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.51s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.51s         Checking existence of `"loginIDField" TextField`
+    t =     5.59s Tap "loginIDField" TextField
+    t =     5.59s     Wait for com.mattermost.ios to idle
+    t =     5.59s     Find the "loginIDField" TextField
+    t =     5.61s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.63s         Wait for com.apple.springboard to idle
+    t =     5.66s     Synthesize event
+    t =     5.95s     Wait for com.mattermost.ios to idle
+    t =     6.15s Type 'perfprobe' into "loginIDField" TextField
+    t =     6.15s     Wait for com.mattermost.ios to idle
+    t =     6.48s     Find the "loginIDField" TextField
+    t =     6.53s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.56s         Wait for com.apple.springboard to idle
+    t =     6.58s     Synthesize event
+    t =     6.93s     Wait for com.mattermost.ios to idle
+    t =     6.93s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.97s Tap "loginPasswordField" SecureTextField
+    t =     6.97s     Wait for com.mattermost.ios to idle
+    t =     6.97s     Find the "loginPasswordField" SecureTextField
+    t =     7.00s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.03s         Wait for com.apple.springboard to idle
+    t =     7.06s     Synthesize event
+    t =     7.35s     Wait for com.mattermost.ios to idle
+    t =     7.35s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.35s     Wait for com.mattermost.ios to idle
+    t =     7.35s     Find the "loginPasswordField" SecureTextField
+    t =     7.39s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.42s         Wait for com.apple.springboard to idle
+    t =     7.45s     Synthesize event
+    t =     8.13s     Wait for com.mattermost.ios to idle
+    t =     8.14s Tap "loginSubmitButton" Button
+    t =     8.14s     Wait for com.mattermost.ios to idle
+    t =     8.14s     Find the "loginSubmitButton" Button
+    t =     8.17s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.21s         Wait for com.apple.springboard to idle
+    t =     8.24s     Synthesize event
+    t =     8.53s     Wait for com.mattermost.ios to idle
+    t =     8.89s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.93s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.94s         Checking existence of `"nativeShell" Any`
+    t =    10.03s Waiting 40.0s for "channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any to exist
+    t =    11.05s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any`
+    t =    11.05s         Checking existence of `"channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any`
+    t =    11.34s Tap "channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any
+    t =    11.34s     Wait for com.mattermost.ios to idle
+    t =    11.34s     Find the "channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Any
+    t =    11.61s     Check for interrupting elements affecting "channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa" Button
+    t =    11.72s         Wait for com.apple.springboard to idle
+    t =    11.79s     Synthesize event
+    t =    12.08s     Wait for com.mattermost.ios to idle
+    t =    12.83s Waiting 60.0s for "channelPostList" Any to exist
+    t =    13.86s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    13.86s         Checking existence of `"channelPostList" Any`
+    t =    13.99s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =    14.11s Find the "channelPostList.forceLoadEarlier" Any
+    t =    14.23s Waiting 30.0s for "post.46w3x6xdxjnz8pm8jz4kp34eqe" Any to exist
+    t =    15.27s     Checking `Expect predicate `existsNoRetry == 1` for object "post.46w3x6xdxjnz8pm8jz4kp34eqe" Any`
+    t =    15.27s         Checking existence of `"post.46w3x6xdxjnz8pm8jz4kp34eqe" Any`
+    t =    15.55s Checking existence of `"channelPostList.loadEarlier" Any`
+    t =    16.08s Swipe down "channelPostList" Any
+    t =    16.08s     Wait for com.mattermost.ios to idle
+    t =    16.08s     Find the "channelPostList" Any
+    t =    16.21s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    16.34s         Wait for com.apple.springboard to idle
+    t =    16.39s     Synthesize event
+    t =    16.83s     Wait for com.mattermost.ios to idle
+    t =    19.49s Checking existence of `"channelPostList.loadEarlier" Any`
+    t =    20.06s Swipe down "channelPostList" ScrollView
+    t =    20.06s     Wait for com.mattermost.ios to idle
+    t =    20.06s     Find the "channelPostList" ScrollView
+    t =    20.18s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    20.32s         Wait for com.apple.springboard to idle
+    t =    20.37s     Synthesize event
+    t =    20.81s     Wait for com.mattermost.ios to idle
+    t =    23.44s Checking existence of `"channelPostList.loadEarlier" Any`
+    t =    23.66s Find the "channelPostList.loadEarlier" Any
+    t =    23.87s Swipe down "channelPostList" ScrollView
+    t =    23.88s     Wait for com.mattermost.ios to idle
+    t =    23.88s     Find the "channelPostList" ScrollView
+    t =    24.00s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    24.14s         Wait for com.apple.springboard to idle
+    t =    24.19s     Synthesize event
+    t =    24.64s     Wait for com.mattermost.ios to idle
+    t =    25.79s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    26.43s Swipe down "channelPostList" ScrollView
+    t =    26.43s     Wait for com.mattermost.ios to idle
+    t =    26.68s     Find the "channelPostList" ScrollView
+    t =    26.80s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    26.96s         Wait for com.apple.springboard to idle
+    t =    27.00s     Synthesize event
+    t =    27.44s     Wait for com.mattermost.ios to idle
+    t =    30.09s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    30.75s Swipe down "channelPostList" ScrollView
+    t =    30.75s     Wait for com.mattermost.ios to idle
+    t =    30.76s     Find the "channelPostList" ScrollView
+    t =    30.88s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    31.04s         Wait for com.apple.springboard to idle
+    t =    31.09s     Synthesize event
+    t =    31.52s     Wait for com.mattermost.ios to idle
+    t =    34.15s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    34.83s Swipe down "channelPostList" ScrollView
+    t =    34.83s     Wait for com.mattermost.ios to idle
+    t =    35.08s     Find the "channelPostList" ScrollView
+    t =    35.21s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    35.36s         Wait for com.apple.springboard to idle
+    t =    35.41s     Synthesize event
+    t =    35.85s     Wait for com.mattermost.ios to idle
+    t =    38.48s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    38.70s Find the "channelPostList.loadEarlier" Button
+    t =    38.92s Swipe down "channelPostList" ScrollView
+    t =    38.92s     Wait for com.mattermost.ios to idle
+    t =    38.92s     Find the "channelPostList" ScrollView
+    t =    39.04s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    39.19s         Wait for com.apple.springboard to idle
+    t =    39.24s     Synthesize event
+    t =    39.67s     Wait for com.mattermost.ios to idle
+    t =    40.49s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    41.18s Swipe down "channelPostList" ScrollView
+    t =    41.18s     Wait for com.mattermost.ios to idle
+    t =    41.43s     Find the "channelPostList" ScrollView
+    t =    41.55s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    41.71s         Wait for com.apple.springboard to idle
+    t =    41.76s     Synthesize event
+    t =    42.20s     Wait for com.mattermost.ios to idle
+    t =    44.84s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    45.53s Swipe down "channelPostList" ScrollView
+    t =    45.53s     Wait for com.mattermost.ios to idle
+    t =    45.78s     Find the "channelPostList" ScrollView
+    t =    45.91s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    46.06s         Wait for com.apple.springboard to idle
+    t =    46.11s     Synthesize event
+    t =    46.56s     Wait for com.mattermost.ios to idle
+    t =    49.19s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    49.87s Swipe down "channelPostList" ScrollView
+    t =    49.87s     Wait for com.mattermost.ios to idle
+    t =    50.11s     Find the "channelPostList" ScrollView
+    t =    50.24s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    50.39s         Wait for com.apple.springboard to idle
+    t =    50.44s     Synthesize event
+    t =    50.87s     Wait for com.mattermost.ios to idle
+    t =    53.52s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    53.74s Find the "channelPostList.loadEarlier" Button
+    t =    53.96s Swipe down "channelPostList" ScrollView
+    t =    53.96s     Wait for com.mattermost.ios to idle
+    t =    53.96s     Find the "channelPostList" ScrollView
+    t =    54.09s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    54.23s         Wait for com.apple.springboard to idle
+    t =    54.28s     Synthesize event
+    t =    54.72s     Wait for com.mattermost.ios to idle
+    t =    55.43s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    56.12s Swipe down "channelPostList" ScrollView
+    t =    56.12s     Wait for com.mattermost.ios to idle
+    t =    56.12s     Find the "channelPostList" ScrollView
+    t =    56.25s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    56.40s         Wait for com.apple.springboard to idle
+    t =    56.45s     Synthesize event
+    t =    56.89s     Wait for com.mattermost.ios to idle
+    t =    59.52s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    60.21s Swipe down "channelPostList" ScrollView
+    t =    60.21s     Wait for com.mattermost.ios to idle
+    t =    60.46s     Find the "channelPostList" ScrollView
+    t =    60.59s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    60.74s         Wait for com.apple.springboard to idle
+    t =    60.79s     Synthesize event
+    t =    61.22s     Wait for com.mattermost.ios to idle
+    t =    63.87s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    64.54s Swipe down "channelPostList" ScrollView
+    t =    64.54s     Wait for com.mattermost.ios to idle
+    t =    64.80s     Find the "channelPostList" ScrollView
+    t =    64.92s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    65.08s         Wait for com.apple.springboard to idle
+    t =    65.13s     Synthesize event
+    t =    65.57s     Wait for com.mattermost.ios to idle
+    t =    68.20s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    68.42s Find the "channelPostList.loadEarlier" Button
+    t =    68.64s Swipe down "channelPostList" ScrollView
+    t =    68.64s     Wait for com.mattermost.ios to idle
+    t =    68.64s     Find the "channelPostList" ScrollView
+    t =    68.77s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    68.91s         Wait for com.apple.springboard to idle
+    t =    68.96s     Synthesize event
+    t =    69.40s     Wait for com.mattermost.ios to idle
+    t =    70.26s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    70.93s Swipe down "channelPostList" ScrollView
+    t =    70.93s     Wait for com.mattermost.ios to idle
+    t =    71.18s     Find the "channelPostList" ScrollView
+    t =    71.30s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    71.46s         Wait for com.apple.springboard to idle
+    t =    71.51s     Synthesize event
+    t =    71.96s     Wait for com.mattermost.ios to idle
+    t =    74.59s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    75.27s Swipe down "channelPostList" ScrollView
+    t =    75.27s     Wait for com.mattermost.ios to idle
+    t =    75.52s     Find the "channelPostList" ScrollView
+    t =    75.64s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    75.79s         Wait for com.apple.springboard to idle
+    t =    75.84s     Synthesize event
+    t =    76.28s     Wait for com.mattermost.ios to idle
+    t =    78.92s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    79.60s Swipe down "channelPostList" ScrollView
+    t =    79.60s     Wait for com.mattermost.ios to idle
+    t =    79.85s     Find the "channelPostList" ScrollView
+    t =    79.98s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    80.13s         Wait for com.apple.springboard to idle
+    t =    80.18s     Synthesize event
+    t =    80.62s     Wait for com.mattermost.ios to idle
+    t =    83.25s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    83.46s Find the "channelPostList.loadEarlier" Button
+    t =    83.68s Swipe down "channelPostList" ScrollView
+    t =    83.68s     Wait for com.mattermost.ios to idle
+    t =    83.68s     Find the "channelPostList" ScrollView
+    t =    83.81s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    83.95s         Wait for com.apple.springboard to idle
+    t =    84.00s     Synthesize event
+    t =    84.43s     Wait for com.mattermost.ios to idle
+    t =    85.18s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    85.86s Swipe down "channelPostList" ScrollView
+    t =    85.86s     Wait for com.mattermost.ios to idle
+    t =    86.12s     Find the "channelPostList" ScrollView
+    t =    86.24s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    86.39s         Wait for com.apple.springboard to idle
+    t =    86.44s     Synthesize event
+    t =    86.88s     Wait for com.mattermost.ios to idle
+    t =    89.52s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    90.20s Swipe down "channelPostList" ScrollView
+    t =    90.20s     Wait for com.mattermost.ios to idle
+    t =    90.45s     Find the "channelPostList" ScrollView
+    t =    90.57s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    90.73s         Wait for com.apple.springboard to idle
+    t =    90.78s     Synthesize event
+    t =    91.22s     Wait for com.mattermost.ios to idle
+    t =    93.88s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    94.55s Swipe down "channelPostList" ScrollView
+    t =    94.55s     Wait for com.mattermost.ios to idle
+    t =    94.80s     Find the "channelPostList" ScrollView
+    t =    94.92s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    95.09s         Wait for com.apple.springboard to idle
+    t =    95.13s     Synthesize event
+    t =    95.58s     Wait for com.mattermost.ios to idle
+    t =    98.21s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =    98.42s Find the "channelPostList.loadEarlier" Button
+    t =    98.87s Swipe down "channelPostList" ScrollView
+    t =    98.87s     Wait for com.mattermost.ios to idle
+    t =    99.12s     Find the "channelPostList" ScrollView
+    t =    99.24s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    99.38s         Wait for com.apple.springboard to idle
+    t =    99.43s     Synthesize event
+    t =    99.87s     Wait for com.mattermost.ios to idle
+    t =   100.49s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   101.18s Swipe down "channelPostList" ScrollView
+    t =   101.18s     Wait for com.mattermost.ios to idle
+    t =   101.43s     Find the "channelPostList" ScrollView
+    t =   101.56s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =   101.72s         Wait for com.apple.springboard to idle
+    t =   101.77s     Synthesize event
+    t =   102.21s     Wait for com.mattermost.ios to idle
+    t =   104.84s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   105.54s Swipe down "channelPostList" ScrollView
+    t =   105.54s     Wait for com.mattermost.ios to idle
+    t =   105.80s     Find the "channelPostList" ScrollView
+    t =   105.92s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =   106.08s         Wait for com.apple.springboard to idle
+    t =   106.13s     Synthesize event
+    t =   106.57s     Wait for com.mattermost.ios to idle
+    t =   109.20s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   109.42s Find the "channelPostList.loadEarlier" Button
+    t =   109.64s Swipe down "channelPostList" ScrollView
+    t =   109.64s     Wait for com.mattermost.ios to idle
+    t =   109.64s     Find the "channelPostList" ScrollView
+    t =   109.77s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =   109.93s         Wait for com.apple.springboard to idle
+    t =   109.98s     Synthesize event
+    t =   110.42s     Wait for com.mattermost.ios to idle
+    t =   113.05s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   113.27s Find the "channelPostList.loadEarlier" Button
+    t =   113.53s Swipe down "channelPostList" ScrollView
+    t =   113.53s     Wait for com.mattermost.ios to idle
+    t =   113.53s     Find the "channelPostList" ScrollView
+    t =   113.66s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =   113.80s         Wait for com.apple.springboard to idle
+    t =   113.85s     Synthesize event
+    t =   114.28s     Wait for com.mattermost.ios to idle
+    t =   114.77s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   115.49s Swipe down "channelPostList" ScrollView
+    t =   115.49s     Wait for com.mattermost.ios to idle
+    t =   115.75s     Find the "channelPostList" ScrollView
+    t =   115.87s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =   116.04s         Wait for com.apple.springboard to idle
+    t =   116.08s     Synthesize event
+    t =   116.52s     Wait for com.mattermost.ios to idle
+    t =   119.15s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   119.84s Swipe down "channelPostList" ScrollView
+    t =   119.84s     Wait for com.mattermost.ios to idle
+    t =   120.09s     Find the "channelPostList" ScrollView
+    t =   120.22s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =   120.38s         Wait for com.apple.springboard to idle
+    t =   120.43s     Synthesize event
+    t =   120.87s     Wait for com.mattermost.ios to idle
+    t =   123.50s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   123.72s Find the "channelPostList.loadEarlier" Button
+    t =   123.96s Swipe down "channelPostList" ScrollView
+    t =   123.96s     Wait for com.mattermost.ios to idle
+    t =   123.96s     Find the "channelPostList" ScrollView
+    t =   124.09s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =   124.25s         Wait for com.apple.springboard to idle
+    t =   124.30s     Synthesize event
+    t =   124.74s     Wait for com.mattermost.ios to idle
+    t =   126.55s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   127.27s Swipe down "channelPostList" ScrollView
+    t =   127.27s     Wait for com.mattermost.ios to idle
+    t =   127.53s     Find the "channelPostList" ScrollView
+    t =   127.66s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =   127.82s         Wait for com.apple.springboard to idle
+    t =   127.87s     Synthesize event
+    t =   128.31s     Wait for com.mattermost.ios to idle
+    t =   130.94s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   131.15s Find the "channelPostList.loadEarlier" Button
+    t =   131.60s Swipe down "channelPostList" ScrollView
+    t =   131.60s     Wait for com.mattermost.ios to idle
+    t =   131.85s     Find the "channelPostList" ScrollView
+    t =   131.98s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =   132.12s         Wait for com.apple.springboard to idle
+    t =   132.17s     Synthesize event
+    t =   132.61s     Wait for com.mattermost.ios to idle
+    t =   133.54s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   133.76s Find the "channelPostList.loadEarlier" Button
+    t =   133.99s Find the "channelPostList.loadEarlier" Button
+    t =   134.21s Find the "channelPostList" ScrollView
+    t =   134.34s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   134.55s Find the "channelPostList.loadEarlier" Button
+    t =   134.77s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   134.89s Find the "channelPostList.forceLoadEarlier" Any
+    t =   135.02s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   135.14s Find the "channelPostList.forceLoadEarlier" Any
+    t =   135.26s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   135.38s Find the "channelPostList.forceLoadEarlier" Any
+    t =   135.51s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   135.63s Find the "channelPostList.forceLoadEarlier" Any
+    t =   136.00s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   136.12s Find the "channelPostList.forceLoadEarlier" Any
+    t =   136.49s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   136.61s Find the "channelPostList.forceLoadEarlier" Any
+    t =   136.99s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   137.11s Find the "channelPostList.forceLoadEarlier" Any
+    t =   137.49s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   137.61s Find the "channelPostList.forceLoadEarlier" Any
+    t =   137.99s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   138.11s Find the "channelPostList.forceLoadEarlier" Any
+    t =   138.50s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   138.66s Find the "channelPostList.forceLoadEarlier" Any
+    t =   139.04s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   139.16s Find the "channelPostList.forceLoadEarlier" Any
+    t =   139.53s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   139.66s Find the "channelPostList.forceLoadEarlier" Any
+    t =   140.04s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   140.16s Find the "channelPostList.forceLoadEarlier" Any
+    t =   140.54s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   140.66s Find the "channelPostList.forceLoadEarlier" Any
+    t =   141.03s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   141.15s Find the "channelPostList.forceLoadEarlier" Any
+    t =   141.53s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   141.65s Find the "channelPostList.forceLoadEarlier" Any
+    t =   142.02s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   142.15s Find the "channelPostList.forceLoadEarlier" Any
+    t =   142.52s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   142.64s Find the "channelPostList.forceLoadEarlier" Any
+    t =   143.02s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   143.15s Find the "channelPostList.forceLoadEarlier" Any
+    t =   143.52s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   143.65s Find the "channelPostList.forceLoadEarlier" Any
+    t =   144.02s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   144.15s Find the "channelPostList.forceLoadEarlier" Any
+    t =   144.52s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   144.65s Find the "channelPostList.forceLoadEarlier" Any
+    t =   145.03s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   145.15s Find the "channelPostList.forceLoadEarlier" Any
+    t =   145.53s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   145.65s Find the "channelPostList.forceLoadEarlier" Any
+    t =   146.03s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   146.15s Find the "channelPostList.forceLoadEarlier" Any
+    t =   146.52s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   146.65s Find the "channelPostList.forceLoadEarlier" Any
+    t =   147.02s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   147.15s Find the "channelPostList.forceLoadEarlier" Any
+    t =   147.52s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   147.65s Find the "channelPostList.forceLoadEarlier" Any
+    t =   148.03s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   148.15s Find the "channelPostList.forceLoadEarlier" Any
+    t =   148.52s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   148.64s Find the "channelPostList.forceLoadEarlier" Any
+    t =   149.01s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   149.14s Find the "channelPostList.forceLoadEarlier" Any
+    t =   149.52s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   149.64s Find the "channelPostList.forceLoadEarlier" Any
+    t =   150.02s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   150.14s Find the "channelPostList.forceLoadEarlier" Any
+    t =   150.51s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   150.64s Find the "channelPostList.forceLoadEarlier" Any
+    t =   151.01s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   151.13s Find the "channelPostList.forceLoadEarlier" Any
+    t =   151.51s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   151.63s Find the "channelPostList.forceLoadEarlier" Any
+    t =   152.00s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   152.13s Find the "channelPostList.forceLoadEarlier" Any
+    t =   152.51s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   152.63s Find the "channelPostList.forceLoadEarlier" Any
+    t =   153.01s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   153.14s Find the "channelPostList.forceLoadEarlier" Any
+    t =   153.53s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   153.65s Find the "channelPostList.forceLoadEarlier" Any
+    t =   154.03s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   154.15s Find the "channelPostList.forceLoadEarlier" Any
+    t =   154.52s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   154.65s Find the "channelPostList.forceLoadEarlier" Any
+    t =   155.02s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   155.15s Find the "channelPostList.forceLoadEarlier" Any
+    t =   155.52s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   155.64s Find the "channelPostList.forceLoadEarlier" Any
+    t =   155.77s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   155.89s Find the "channelPostList.forceLoadEarlier" Any
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostUITests/T34-ChannelPostListUITests.swift:277: error: -[MattermostUITests.T34ChannelPostListUITests testReachingTheTopLoadsOlderPostsWithoutDuplicates] : XCTAssertTrue failed - the pane's oldest post should be the older page's oldest (bbs4fkuwiffomfd9hyfqoz1tur), not Optional("k53mjbj3wpnktmfx9rxgzgugqe")
+    t =   156.32s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   156.45s Find the "channelPostList.forceLoadEarlier" Any
+    t =   156.58s Checking existence of `"post.twuja97cytywibe6du413yp7co" Any`
+    t =   157.14s Swipe down "channelPostList" Any
+    t =   157.14s     Wait for com.mattermost.ios to idle
+    t =   157.14s     Find the "channelPostList" Any
+    t =   157.27s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =   157.41s         Wait for com.apple.springboard to idle
+    t =   157.46s     Synthesize event
+    t =   157.90s     Wait for com.mattermost.ios to idle
+    t =   159.02s Checking existence of `"post.twuja97cytywibe6du413yp7co" Any`
+    t =   159.60s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   159.72s Find the "channelPostList.forceLoadEarlier" Any
+    t =   159.84s Checking existence of `"channelPostList.loadEarlier" Any`
+    t =   160.06s Find the "channelPostList.loadEarlier" Any
+    t =   160.27s Checking existence of `"post.twuja97cytywibe6du413yp7co" Any`
+    t =   160.90s Swipe down "channelPostList" ScrollView
+    t =   160.90s     Wait for com.mattermost.ios to idle
+    t =   160.91s     Find the "channelPostList" ScrollView
+    t =   161.03s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =   161.17s         Wait for com.apple.springboard to idle
+    t =   161.22s     Synthesize event
+    t =   161.66s     Wait for com.mattermost.ios to idle
+    t =   162.79s Checking existence of `"post.twuja97cytywibe6du413yp7co" Any`
+    t =   163.35s Checking existence of `"channelPostList.forceLoadEarlier" Any`
+    t =   163.47s Find the "channelPostList.forceLoadEarlier" Any
+    t =   163.60s Checking existence of `"channelPostList.loadEarlier" Button`
+    t =   163.81s Find the "channelPostList.loadEarlier" Button
+    t =   164.02s Checking existence of `"post.twuja97cytywibe6du413yp7co" Any`
+    t =   164.57s Requesting snapshot of accessibility hierarchy for app with pid 73357
+    t =   165.43s Requesting snapshot of accessibility hierarchy for app with pid 73357
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostUITests/T34-ChannelPostListUITests.swift:284: error: -[MattermostUITests.T34ChannelPostListUITests testReachingTheTopLoadsOlderPostsWithoutDuplicates] : XCTAssertTrue failed - the page that just merged is not drawn above the reader:
+Attributes: Application, 0x105e57770, pid: 73357, label: 'Mattermost'
+Element subtree:
+ →Application, 0x105e57770, pid: 73357, label: 'Mattermost'
+    Window (Main), 0x105e53b90, {{0.0, 0.0}, {834.0, 1210.0}}
+      Other, 0x105e5a560, {{0.0, 0.0}, {834.0, 1210.0}}
+        Other, 0x105e54110, {{0.0, 0.0}, {834.0, 1210.0}}
+          Other, 0x105e56ab0, {{0.0, 0.0}, {834.0, 1210.0}}
+            Other, 0x105e54db0, {{0.0, 0.0}, {834.0, 1210.0}}
+              Other, 0x105e57350, {{0.0, 0.0}, {834.0, 1210.0}}
+                Other, 0x105e2bc40, {{0.0, 0.0}, {834.0, 1210.0}}
+                  NavigationBar, 0x105e5ba80, {{0.0, 32.0}, {834.0, 106.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+                    Other, 0x105e5bba0, {{14.0, 36.0}, {36.0, 36.0}}, identifier: 'backToolbarButton', label: 'Back'
+                      Other, 0x105e5bcc0, {{14.0, 36.0}, {36.0, 36.0}}
+                        Button, 0x105e5bde0, {{17.0, 36.0}, {30.5, 36.0}}, identifier: 'backToolbarButton', label: 'Back'
+                    Other, 0x105e5bf00, {{66.0, 36.0}, {37.0, 36.0}}, identifier: 'reloadToolbarButton', label: 'Reload'
+                      Other, 0x105e5c020, {{66.0, 36.0}, {37.0, 36.0}}
+                        Button, 0x105e5c140, {{66.0, 36.0}, {37.0, 36.0}}, identifier: 'reloadToolbarButton', label: 'Reload'
+                    Other, 0x105e5c260, {{347.2, 43.8}, {139.5, 20.5}}
+                      Other, 0x105e5c380, {{347.2, 43.8}, {139.5, 20.5}}
+                        Button, 0x105e5c4a0, {{347.2, 43.8}, {139.5, 20.5}}, identifier: 'serverSwitcher', label: 'Local Mattermost'
+                          Button, 0x105e5c5c0, {{347.2, 43.8}, {139.5, 20.5}}
+                            StaticText, 0x105e5c6e0, {{347.2, 43.8}, {139.5, 20.5}}, label: 'Local Mattermost'
+                    Other, 0x105e5c800, {{669.5, 36.0}, {40.0, 36.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                      Other, 0x105e5c920, {{669.5, 36.0}, {40.0, 36.0}}
+                        Button, 0x105e5ca40, {{669.5, 36.0}, {40.0, 36.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                    Other, 0x105e5cb60, {{725.5, 36.0}, {41.5, 36.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                      Other, 0x105e5cc80, {{725.5, 36.0}, {41.5, 36.0}}
+                        Button, 0x105e5cda0, {{725.5, 36.0}, {41.5, 36.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                    Other, 0x105e5cec0, {{783.0, 36.0}, {37.0, 36.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                      Other, 0x105e5cfe0, {{783.0, 36.0}, {37.0, 36.0}}
+                        Button, 0x105e5d100, {{783.0, 36.0}, {37.0, 36.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                    StaticText, 0x105e5d220, {{20.0, 89.5}, {7.5, 41.0}}, label: ' '
+                  Other, 0x105e5d340, {{0.0, 0.0}, {834.0, 1210.0}}
+                    Other, 0x105e5d460, {{0.0, 0.0}, {834.0, 1210.0}}
+                      Other, 0x105e5d580, {{0.0, 0.0}, {834.0, 1210.0}}
+                        Other, 0x105e5d6a0, {{0.0, 0.0}, {834.0, 1210.0}}
+                          Other, 0x105e5d7c0, {{0.0, 0.0}, {834.0, 1210.0}}, identifier: 'nativeShell'
+                            Other, 0x105e5d8e0, {{0.0, 0.0}, {834.0, 1210.0}}
+                              Other, 0x105e5db50, {{0.0, 0.0}, {834.0, 1210.0}}
+                                Other, 0x105e5dc70, {{10.0, 138.0}, {320.0, 1062.0}}
+                                  Other, 0x105e5dd90, {{10.0, 138.0}, {320.0, 1062.0}}
+                                    Other, 0x105e5deb0, {{10.0, 138.0}, {320.0, 1062.0}}
+                                      NavigationBar, 0x105e5dfd0, {{10.0, 138.0}, {320.0, 54.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+                                        Button, 0x105e5e0f0, {{271.5, 142.0}, {54.5, 36.0}}, label: 'Sidebar'
+                                      Other, 0x105e5e210, {{10.0, 138.0}, {320.0, 1062.0}}
+                                        Other, 0x105e5e330, {{10.0, 138.0}, {320.0, 1062.0}}
+                                          Other, 0x105e5e450, {{10.0, 138.0}, {320.0, 1062.0}}
+                                            Other, 0x105e5e570, {{10.0, 138.0}, {320.0, 1062.0}}
+                                              Other, 0x105e5e690, {{10.0, 138.0}, {320.0, 1062.0}}, identifier: 'nativeTeamSidebar'
+                                                ScrollView, 0x105e5e7b0, {{10.0, 138.0}, {64.0, 1062.0}}, identifier: 'teamSidebar.rail'
+                                                  Other, 0x105e5e8d0, {{10.0, 138.0}, {64.0, 108.8}}
+                                                  Other, 0x105e5e9f0, {{10.0, 192.0}, {64.0, 126.0}}
+                                                    Button, 0x105e5eb10, {{16.0, 200.0}, {52.0, 52.0}}, identifier: 'teamSidebar.team.ocz148uck3r88dcjikj497bosh', label: 'Perf', value: Current team, Selected
+                                                      StaticText, 0x105e5ec30, {{31.5, 215.8}, {21.0, 20.5}}, label: 'PE'
+                                                    Button, 0x105e5ed50, {{16.0, 254.0}, {58.0, 56.0}}, identifier: 'teamSidebar.team.xs9sxp6s8pysmnrakx31godyye', label: 'Operations', value: 5 mentions
+                                                      Image, 0x105e5ee70, {{20.0, 262.0}, {44.0, 44.0}}
+                                                      StaticText, 0x105e5ef90, {{58.5, 254.0}, {15.5, 15.5}}, label: '5'
+                                                CollectionView, 0x105e5f0b0, {{74.0, 138.0}, {256.0, 1062.0}}, label: 'Sidebar'
+                                                  Other, 0x105e5f1d0, {{58.0, -1932.0}, {288.0, 2334.0}}
+                                                  Other, 0x105e5f2f0, {{74.0, 138.0}, {256.0, 108.8}}
+                                                  Cell, 0x105e5f410, {{90.0, 192.0}, {224.0, 44.0}}
+                                                    Other, 0x105e5f530, {{90.0, 192.0}, {224.0, 44.0}}
+                                                    Other, 0x105e5f650, {{90.0, 192.0}, {224.0, 44.0}}
+                                                      Other, 0x105e5f770, {{90.0, 192.0}, {224.0, 44.0}}
+                                                        Other, 0x105e5f890, {{90.0, 192.0}, {224.0, 44.0}}
+                                                          StaticText, 0x105e5f9b0, {{90.0, 192.0}, {224.0, 44.0}}, label: 'Workspace'
+                                                  Cell, 0x105e5fad0, {{90.0, 236.0}, {224.0, 52.0}}
+                                                    Other, 0x105e5fbf0, {{90.0, 236.0}, {224.0, 52.0}}
+                                                    Other, 0x105e5fd10, {{90.0, 236.0}, {224.0, 52.0}}
+                                                      Other, 0x105e5fe30, {{90.0, 236.0}, {224.0, 52.0}}
+                                                        Other, 0x105e5ff50, {{90.0, 236.0}, {224.0, 52.0}}
+                                                          StaticText, 0x105e60070, {{90.0, 236.0}, {224.0, 52.0}}, identifier: 'nativeSidebar', label: 'Local Mattermost'
+                                                            Image, 0x105e60190, {{108.0, 254.5}, {20.0, 15.5}}, identifier: 'server.rack', label: 'server.rack'
+                                                            StaticText, 0x105e602b0, {{138.0, 251.8}, {133.0, 20.5}}, label: 'Local Mattermost'
+                                                  Cell, 0x105e603d0, {{90.0, 288.0}, {224.0, 52.0}}
+                                                    Other, 0x105e604f0, {{90.0, 288.0}, {224.0, 52.0}}
+                                                    Other, 0x105e60610, {{90.0, 288.0}, {224.0, 52.0}}
+                                                      Other, 0x105e60730, {{90.0, 288.0}, {224.0, 52.0}}
+                                                        Other, 0x105e60850, {{90.0, 288.0}, {224.0, 52.0}}
+                                                          StaticText, 0x105e60970, {{90.0, 288.0}, {224.0, 52.0}}, identifier: 'sidebarCurrentTeam', label: 'Perf'
+                                                            Image, 0x105e60a90, {{108.0, 305.5}, {32.0, 17.0}}, identifier: 'person.3', label: 'person.3'
+                                                            StaticText, 0x105e60bb0, {{150.0, 303.8}, {32.0, 20.5}}, label: 'Perf'
+                                                  Cell, 0x105e60cd0, {{90.0, 340.0}, {224.0, 52.0}}
+                                                    Other, 0x105e60df0, {{90.0, 340.0}, {224.0, 52.0}}
+                                                    Other, 0x105e60f10, {{90.0, 340.0}, {224.0, 52.0}}
+                                                      Other, 0x105e61030, {{90.0, 340.0}, {224.0, 52.0}}
+                                                        Other, 0x105e61150, {{90.0, 340.0}, {224.0, 52.0}}
+                                                          Button, 0x105e61270, {{90.0, 340.0}, {224.0, 52.0}}, identifier: 'channelSidebar.quickSwitcher', label: 'Jump to a channel…'
+                                                            Image, 0x105e61390, {{107.5, 355.5}, {21.0, 21.0}}, identifier: 'magnifyingglass', label: 'Search'
+                                                            StaticText, 0x105e614b0, {{107.5, 355.5}, {185.5, 21.0}}, label: 'Jump to a channel…'
+                                                  Other, 0x105e615d0, {{58.0, 402.0}, {288.0, 314.0}}
+                                                  Cell, 0x105e616f0, {{90.0, 402.0}, {224.0, 44.0}}
+                                                    Other, 0x105e61810, {{90.0, 402.0}, {224.0, 44.0}}
+                                                    Other, 0x105e61930, {{90.0, 402.0}, {224.0, 44.0}}
+                                                      Other, 0x105e61a50, {{90.0, 402.0}, {224.0, 44.0}}
+                                                        Other, 0x105e61b70, {{90.0, 402.0}, {224.0, 44.0}}
+                                                          Button, 0x105e61c90, {{90.0, 402.0}, {224.0, 44.0}}, identifier: 'channelSidebar.category.channels', label: 'Channels'
+                                                            Image, 0x105e61db0, {{107.5, 421.0}, {10.0, 6.0}}, identifier: 'chevron.down', label: 'Go Down'
+                                                            StaticText, 0x105e61ed0, {{125.0, 413.8}, {73.0, 20.5}}, label: 'Channels'
+                                                  Cell, 0x105e61ff0, {{90.0, 446.0}, {224.0, 52.0}}
+                                                    Other, 0x105e62110, {{90.0, 446.0}, {224.0, 52.0}}
+                                                    Other, 0x105e62230, {{90.0, 446.0}, {224.0, 52.0}}
+                                                      Other, 0x105e62350, {{90.0, 446.0}, {224.0, 52.0}}
+                                                        Other, 0x105e62470, {{90.0, 446.0}, {224.0, 52.0}}
+                                                          Button, 0x105e62590, {{90.0, 446.0}, {224.0, 52.0}}, identifier: 'channelSidebar.channel.46rf536iki8pfqqyc7i11ff8er', label: 'T34 Fold'
+                                                            Image, 0x105e626b0, {{108.5, 466.0}, {11.5, 12.5}}, identifier: 'number', label: 'number'
+                                                            StaticText, 0x105e627d0, {{106.0, 462.0}, {192.0, 20.5}}, label: 'T34 Fold'
+                                                  Cell, 0x105e628f0, {{90.0, 498.0}, {224.0, 52.0}}
+                                                    Other, 0x105e62a10, {{90.0, 498.0}, {224.0, 52.0}}
+                                                    Other, 0x105e62b30, {{90.0, 498.0}, {224.0, 52.0}}
+                                                      Other, 0x105e62c50, {{90.0, 498.0}, {224.0, 52.0}}
+                                                        Other, 0x105e62d70, {{90.0, 498.0}, {224.0, 52.0}}
+                                                          Button, 0x105e62e90, {{90.0, 498.0}, {224.0, 52.0}}, identifier: 'channelSidebar.channel.fs7dckkc6pfj3dnfpktrt34wow', label: 'Town Square'
+                                                            Image, 0x105e62fb0, {{108.5, 518.0}, {11.5, 12.5}}, identifier: 'number', label: 'number'
+                                                            StaticText, 0x105e630d0, {{106.0, 514.0}, {192.0, 20.5}}, label: 'Town Square'
+                                                  Cell, 0x105e631f0, {{90.0, 550.0}, {224.0, 52.0}}
+                                                    Other, 0x105e63310, {{90.0, 550.0}, {224.0, 52.0}}
+                                                    Other, 0x105e63430, {{90.0, 550.0}, {224.0, 52.0}}
+                                                      Other, 0x105e63550, {{90.0, 550.0}, {224.0, 52.0}}
+                                                        Other, 0x105e63670, {{90.0, 550.0}, {224.0, 52.0}}
+                                                          Button, 0x105e63790, {{90.0, 550.0}, {224.0, 52.0}}, identifier: 'channelSidebar.channel.1mfi77b1kjnf7poisx5m36bb4c', label: 'T34 Showcase'
+                                                            Image, 0x105e638b0, {{108.5, 570.0}, {11.5, 12.5}}, identifier: 'number', label: 'number'
+                                                            StaticText, 0x105e639d0, {{106.0, 566.0}, {192.0, 20.5}}, label: 'T34 Showcase'
+                                                  Cell, 0x105e63af0, {{90.0, 602.0}, {224.0, 52.0}}
+                                                    Other, 0x105e63c10, {{90.0, 602.0}, {224.0, 52.0}}
+                                                    Other, 0x105e63d30, {{90.0, 602.0}, {224.0, 52.0}}
+                                                      Other, 0x105e63e50, {{90.0, 602.0}, {224.0, 52.0}}
+                                                        Other, 0x105e63f70, {{90.0, 602.0}, {224.0, 52.0}}
+                                                          Button, 0x105e64090, {{90.0, 602.0}, {224.0, 52.0}}, identifier: 'channelSidebar.channel.71jj7bz8rbrjbq7szjw9amzoqa', label: 'Perf Feed', value: Selected, Selected
+                                                            Image, 0x105e641b0, {{108.5, 622.0}, {11.5, 12.5}}, identifier: 'number', label: 'number'
+                                                            StaticText, 0x105e642d0, {{106.0, 618.0}, {192.0, 20.5}}, label: 'Perf Feed'
+                                                  Cell, 0x105e643f0, {{90.0, 654.0}, {224.0, 52.0}}
+                                                    Other, 0x105e64510, {{90.0, 654.0}, {224.0, 52.0}}
+                                                    Other, 0x105e64630, {{90.0, 654.0}, {224.0, 52.0}}
+                                                      Other, 0x105e64750, {{90.0, 654.0}, {224.0, 52.0}}
+                                                        Other, 0x105e64870, {{90.0, 654.0}, {224.0, 52.0}}
+                                                          Button, 0x105e64990, {{90.0, 654.0}, {224.0, 52.0}}, identifier: 'channelSidebar.channel.re4jed6wti8e8g9jt8aza9ewye', label: 'Off-Topic'
+                                                            Image, 0x105e64ab0, {{108.5, 674.0}, {11.5, 12.5}}, identifier: 'number', label: 'number'
+                                                            StaticText, 0x105e64bd0, {{106.0, 670.0}, {192.0, 20.5}}, label: 'Off-Topic'
+                                                  Other, 0x105e64cf0, {{58.0, 716.0}, {288.0, 106.0}}
+                                                  Cell, 0x105e64e10, {{90.0, 716.0}, {224.0, 44.0}}
+                                                    Other, 0x105e64f30, {{90.0, 716.0}, {224.0, 44.0}}
+                                                    Other, 0x105e65050, {{90.0, 716.0}, {224.0, 44.0}}
+                                                      Other, 0x105e65170, {{90.0, 716.0}, {224.0, 44.0}}
+                                                        Other, 0x105e65290, {{90.0, 716.0}, {224.0, 44.0}}
+                                                          Button, 0x105e653b0, {{90.0, 716.0}, {224.0, 44.0}}, identifier: 'channelSidebar.category.direct_messages', label: 'Direct Messages'
+                                                            Image, 0x105e654d0, {{107.5, 735.0}, {10.0, 6.0}}, identifier: 'chevron.down', label: 'Go Down'
+                                                            StaticText, 0x105e655f0, {{125.0, 727.8}, {130.5, 20.5}}, label: 'Direct Messages'
+                                                  Cell, 0x105e65710, {{90.0, 760.0}, {224.0, 52.0}}
+                                                    Other, 0x105e65830, {{90.0, 760.0}, {224.0, 52.0}}
+                                                    Other, 0x105e65950, {{90.0, 760.0}, {224.0, 52.0}}
+                                                      Other, 0x105e65a70, {{90.0, 760.0}, {224.0, 52.0}}
+                                                        Other, 0x105e65b90, {{90.0, 760.0}, {224.0, 52.0}}
+                                                          Button, 0x105e65cb0, {{90.0, 760.0}, {224.0, 52.0}}, identifier: 'channelSidebar.channel.kahpoaziefgr7xekdqsdyeddor', label: 'opsbot'
+                                                            Image, 0x105e65dd0, {{107.5, 779.5}, {13.0, 13.0}}, identifier: 'person.crop.circle', label: 'Account'
+                                                            StaticText, 0x105e65ef0, {{106.0, 776.0}, {192.0, 20.5}}, label: 'opsbot'
+                                                  Other, 0x105e66010, {{58.0, 822.0}, {288.0, 106.0}}
+                                                  Cell, 0x105e66130, {{90.0, 822.0}, {224.0, 44.0}}
+                                                    Other, 0x105e66250, {{90.0, 822.0}, {224.0, 44.0}}
+                                                    Other, 0x105e66370, {{90.0, 822.0}, {224.0, 44.0}}
+                                                      Other, 0x105e66490, {{90.0, 822.0}, {224.0, 44.0}}
+                                                        Other, 0x105e665b0, {{90.0, 822.0}, {224.0, 44.0}}
+                                                          StaticText, 0x105e666d0, {{90.0, 822.0}, {224.0, 44.0}}, label: 'Threads'
+                                                  Cell, 0x105e667f0, {{90.0, 866.0}, {224.0, 52.0}}
+                                                    Other, 0x105e66910, {{90.0, 866.0}, {224.0, 52.0}}
+                                                    Other, 0x105e66a30, {{90.0, 866.0}, {224.0, 52.0}}
+                                                      Other, 0x105e66b50, {{90.0, 866.0}, {224.0, 52.0}}
+                                                        Other, 0x105e66c70, {{90.0, 866.0}, {224.0, 52.0}}
+                                                          Button, 0x105e66d90, {{90.0, 866.0}, {224.0, 52.0}}, identifier: 'nativeSidebarAllThreads', label: 'All threads'
+                                                            Image, 0x105e66eb0, {{106.5, 881.0}, {23.5, 22.0}}, identifier: 'text.bubble', label: 'Comment Lines'
+                                                            StaticText, 0x105e66fd0, {{106.5, 881.0}, {114.5, 22.0}}, label: 'All threads'
+                                                  Other, 0x105e670f0, {{58.0, 928.0}, {288.0, 2238.0}}
+                                                  Cell, 0x105e67210, {{90.0, 928.0}, {224.0, 52.0}}
+                                                    Other, 0x105e67330, {{90.0, 928.0}, {224.0, 52.0}}
+                                                    Other, 0x105e67450, {{90.0, 928.0}, {224.0, 52.0}}
+                                                      Other, 0x105e67570, {{90.0, 928.0}, {224.0, 52.0}}
+                                                        Other, 0x105e67690, {{90.0, 928.0}, {224.0, 52.0}}
+                                                          StaticText, 0x105e677b0, {{90.0, 928.0}, {224.0, 52.0}}, identifier: 'channelSidebar.totals', label: 'All caught up'
+                                                            Image, 0x105e678d0, {{108.0, 945.0}, {16.0, 18.5}}, identifier: 'bell.badge', label: 'bell.badge'
+                                                            StaticText, 0x105e679f0, {{133.5, 946.0}, {80.0, 16.0}}, label: 'All caught up'
+                                                  Cell, 0x105e67b10, {{90.0, 980.0}, {224.0, 52.0}}
+                                                    Other, 0x105e67c30, {{90.0, 980.0}, {224.0, 52.0}}
+                                                    Other, 0x105e67d50, {{90.0, 980.0}, {224.0, 52.0}}
+                                                      Other, 0x105e67e70, {{90.0, 980.0}, {224.0, 52.0}}
+                                                        Other, 0x105e67f90, {{90.0, 980.0}, {224.0, 52.0}}
+                                                          Button, 0x105e680b0, {{90.0, 980.0}, {224.0, 52.0}}, identifier: 'revertToWebchannelView', label: 'Use web view'
+                                                            Image, 0x105e681d0, {{107.0, 995.0}, {22.0, 22.0}}, identifier: 'safari', label: 'Safari'
+                                                            StaticText, 0x105e682f0, {{107.0, 995.0}, {138.0, 22.0}}, label: 'Use web view'
+                                                  Other, 0x105e68410, {{297.0, 192.0}, {30.0, 986.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                                    Other, 0x105e68530, {{324.0, 343.0}, {3.0, 832.0}}
+                                                  Other, 0x105e68650, {{297.0, 192.0}, {30.0, 986.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                                    Other, 0x105e68770, {{324.0, 343.0}, {3.0, 832.0}}
+                                      Other, 0x105e68890, {{10.0, 138.0}, {320.0, 1062.0}}
+                                        Other, 0x105e689b0, {{10.0, 138.0}, {320.0, 1062.0}}
+                                  Other, 0x105e68ad0, {{10.0, 138.0}, {320.0, 1062.0}}
+                                    Other, 0x105e68bf0, {{10.0, 138.0}, {320.0, 1062.0}}
+                                      Other, 0x105e68d10, {{10.0, 138.0}, {320.0, 1062.0}}
+                                        Other, 0x105e68e30, {{10.0, 138.0}, {320.0, 1062.0}}
+                                          Other, 0x105e68f50, {{10.0, 138.0}, {320.0, 1062.0}}
+                                            Other, 0x105e69070, {{10.0, 138.0}, {320.0, 1062.0}}
+                                        Other, 0x105e69190, {{10.0, 138.0}, {320.0, 1062.0}}
+                                          Other, 0x105e692b0, {{10.0, 138.0}, {320.0, 1062.0}}
+                                Other, 0x105e693d0, {{0.0, 0.0}, {834.0, 1210.0}}
+                                  Other, 0x105e694f0, {{0.0, 0.0}, {834.0, 1210.0}}
+                                    NavigationBar, 0x105e69610, {{0.0, 138.0}, {834.0, 54.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+                                    Other, 0x105e69730, {{0.0, 0.0}, {834.0, 1210.0}}
+                                      Other, 0x105e69850, {{0.0, 0.0}, {834.0, 1210.0}}
+                                        Other, 0x105e69970, {{0.0, 0.0}, {834.0, 1210.0}}
+                                          Other, 0x105e69a90, {{0.0, 0.0}, {834.0, 1210.0}}
+                                            Other, 0x105e69bb0, {{330.0, 202.0}, {504.0, 977.0}}, identifier: 'nativeChannelPane'
+                                              Image, 0x105e69cd0, {{348.0, 203.5}, {15.5, 16.5}}, identifier: 'number', label: 'number'
+                                              StaticText, 0x105e69df0, {{373.5, 202.0}, {76.0, 20.5}}, identifier: 'nativeChannelTitle', label: 'perf-feed'
+                                              Button, 0x105e69f10, {{698.5, 202.0}, {89.0, 20.5}}, identifier: 'channelPostList.forceLoadEarlier', label: 'Load earlier', value: 503 posts loaded, ...
+                                              Button, 0x105e6a030, {{795.5, 202.5}, {22.5, 19.5}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                                              ScrollView, 0x105e6a150, {{0.0, 233.0}, {834.0, 917.0}}, identifier: 'channelPostList'
+                                                Other, 0x105e6a270, {{0.0, 233.5}, {834.0, 22525.0}}
+                                                  Other, 0x105e6a390, {{330.0, 243.5}, {504.0, 1841.0}}
+                                                    Button, 0x105e6a4b0, {{463.5, 243.5}, {238.0, 16.0}}, identifier: 'channelPostList.loadEarlier', label: 'This is the beginning of the channel', Selected, Disabled
+                                                      Image, 0x105e6a5d0, {{463.5, 245.0}, {13.0, 13.0}}, identifier: 'checkmark.circle', label: 'Selected', Selected, Disabled
+                                                      StaticText, 0x105e6a6f0, {{485.5, 243.5}, {216.0, 16.0}}, label: 'This is the beginning of the channel', Disabled
+                                                    StaticText, 0x105e6a810, {{330.0, 279.5}, {504.0, 22.5}}, identifier: 'channelDateSeparator.2026-10-23', label: 'Messages from Friday'
+                                                    Other, 0x105e6a930, {{330.0, 312.0}, {504.0, 31.0}}
+                                                    Other, 0x105e6aa50, {{352.5, 318.0}, {214.5, 18.0}}, identifier: 'post.k53mjbj3wpnktmfx9rxgzgugqe'
+                                                      Image, 0x105e6ab70, {{352.5, 321.0}, {15.0, 15.0}}, identifier: 'info.circle', label: 'Info'
+                                                      StaticText, 0x105e6ac90, {{388.0, 318.0}, {179.0, 16.0}}, identifier: 'post.k53mjbj3wpnktmfx9rxgzgugqe.system', label: 'perfprobe joined the channel.'
+                                                    Other, 0x105e6adb0, {{330.0, 343.0}, {504.0, 52.0}}
+                                                    Other, 0x105e6aed0, {{342.0, 349.0}, {182.5, 40.0}}, identifier: 'post.qyq6oaxdzfbnup9nbpdkq4g3bo'
+                                                      StaticText, 0x105e6aff0, {{342.0, 349.0}, {36.0, 36.0}}, label: 'PP'
+                                                      StaticText, 0x105e6b110, {{388.0, 349.0}, {76.5, 18.0}}, identifier: 'post.qyq6oaxdzfbnup9nbpdkq4g3bo.author', label: 'Perf Probe'
+                                                      StaticText, 0x105e6b230, {{470.5, 353.0}, {46.0, 13.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6b350, {{388.0, 371.0}, {136.5, 18.0}}, identifier: 'post.qyq6oaxdzfbnup9nbpdkq4g3bo.body.block0', label: 'ack, on it  (seed #2)'
+                                                    Other, 0x105e6b470, {{330.0, 395.0}, {504.0, 43.0}}
+                                                    Other, 0x105e6b590, {{349.0, 397.0}, {410.0, 39.0}}, identifier: 'post.ns5byd5nxpnipnuoowuu5oepth'
+                                                      StaticText, 0x105e6b6b0, {{349.0, 400.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6b7d0, {{388.0, 397.0}, {371.0, 39.0}}, identifier: 'post.ns5byd5nxpnipnuoowuu5oepth.body.block0', label: 'the webview memory number is the whole reason this channel exists  (seed #3)'
+                                                    Other, 0x105e6b8f0, {{330.0, 438.0}, {504.0, 43.0}}
+                                                    Other, 0x105e6ba10, {{349.0, 440.0}, {427.0, 39.0}}, identifier: 'post.sitwtup6pfb15n1eegub5a8mfc'
+                                                      StaticText, 0x105e6bb30, {{349.0, 443.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6bc50, {{388.0, 440.0}, {388.0, 39.0}}, identifier: 'post.sitwtup6pfb15n1eegub5a8mfc.body.block0', label: 'noticed the sidebar re-renders on every keystroke in the composer, worth a look  (seed #4)'
+                                                    Other, 0x105e6bd70, {{330.0, 481.0}, {504.0, 33.5}}
+                                                    Other, 0x105e6be90, {{349.0, 483.0}, {387.5, 29.5}}, identifier: 'post.exusrsigdidyxykn5rros3bc4c'
+                                                      StaticText, 0x105e6bfb0, {{349.0, 486.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6c0d0, {{388.0, 483.0}, {348.5, 18.0}}, identifier: 'post.exusrsigdidyxykn5rros3bc4c.body.block0', label: 'reminder: design review moved to 15:30  (seed #5)'
+                                                    Other, 0x105e6c1f0, {{330.0, 514.5}, {504.0, 33.5}}
+                                                    Other, 0x105e6c310, {{349.0, 516.5}, {388.0, 29.5}}, identifier: 'post.h8n15rqn8tb1zrpfo8o76urfww'
+                                                      StaticText, 0x105e6c430, {{349.0, 519.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6c550, {{388.0, 516.5}, {349.0, 18.0}}, identifier: 'post.h8n15rqn8tb1zrpfo8o76urfww.body.block0', label: 'reminder: design review moved to 15:30  (seed #6)'
+                                                    Other, 0x105e6c670, {{330.0, 548.0}, {504.0, 43.0}}
+                                                    Other, 0x105e6c790, {{349.0, 550.0}, {458.5, 39.0}}, identifier: 'post.69feb5qsz7rpjpqru56aiwzw1e'
+                                                      StaticText, 0x105e6c8b0, {{349.0, 553.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6c9d0, {{388.0, 550.0}, {419.5, 39.0}}, identifier: 'post.69feb5qsz7rpjpqru56aiwzw1e.body.block0', label: 'pushed a fix for the reconnect backoff, it retried 12 times in a row before  (seed #7)'
+                                                    Other, 0x105e6caf0, {{330.0, 591.0}, {504.0, 33.5}}
+                                                    Other, 0x105e6cc10, {{349.0, 593.0}, {397.5, 29.5}}, identifier: 'post.bu4pinmjrbdc8yhr1oeqi8gu6h'
+                                                      StaticText, 0x105e6cd30, {{349.0, 596.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6ce50, {{388.0, 593.0}, {358.5, 18.0}}, identifier: 'post.bu4pinmjrbdc8yhr1oeqi8gu6h.body.block0', label: 'the release is cut, changelog is in the doc  (seed #8)'
+                                                    Other, 0x105e6cf70, {{330.0, 624.5}, {504.0, 33.5}}
+                                                    Other, 0x105e6d090, {{349.0, 626.5}, {397.5, 29.5}}, identifier: 'post.hb3aifogefgk3fnekspkj7nexa'
+                                                      StaticText, 0x105e6d1b0, {{349.0, 629.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6d2d0, {{388.0, 626.5}, {358.5, 18.0}}, identifier: 'post.hb3aifogefgk3fnekspkj7nexa.body.block0', label: 'the release is cut, changelog is in the doc  (seed #9)'
+                                                    Other, 0x105e6d3f0, {{330.0, 658.0}, {504.0, 33.5}}
+                                                    Other, 0x105e6d510, {{349.0, 660.0}, {394.5, 29.5}}, identifier: 'post.k9fznu9m33de9yhsi565dbu5kr'
+                                                      StaticText, 0x105e6d630, {{349.0, 663.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6d750, {{388.0, 660.0}, {355.5, 18.0}}, identifier: 'post.k9fznu9m33de9yhsi565dbu5kr.body.block0', label: 'reminder: design review moved to 15:30  (seed #10)'
+                                                    Other, 0x105e6d870, {{330.0, 691.5}, {504.0, 43.0}}
+                                                    Other, 0x105e6d990, {{349.0, 693.5}, {427.0, 39.0}}, identifier: 'post.gpoetp6xsjdbjq1a8wu7oxnyfe'
+                                                      StaticText, 0x105e6dab0, {{349.0, 696.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6dbd0, {{388.0, 693.5}, {388.0, 39.0}}, identifier: 'post.gpoetp6xsjdbjq1a8wu7oxnyfe.body.block0', label: 'thread reply traffic goes through /api/v4/posts with a root_id  (seed #11)'
+                                                    Other, 0x105e6dcf0, {{330.0, 734.5}, {504.0, 43.0}}
+                                                    Other, 0x105e6de10, {{349.0, 736.5}, {447.0, 39.0}}, identifier: 'post.wqecb88jujd1xdcdhti7qisyxo'
+                                                      StaticText, 0x105e6df30, {{349.0, 739.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6e050, {{388.0, 736.5}, {408.0, 39.0}}, identifier: 'post.wqecb88jujd1xdcdhti7qisyxo.body.block0', label: 'anyone else seeing the scroll jump when new posts arrive?  (seed #12)'
+                                                    Other, 0x105e6e170, {{330.0, 777.5}, {504.0, 56.5}}
+                                                    Other, 0x105e6e3e0, {{349.0, 779.5}, {463.0, 52.5}}, identifier: 'post.51im3rrmr3rejjimgge3o8dt3e'
+                                                      StaticText, 0x105e6e500, {{349.0, 782.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      Other, 0x105e6e620, {{388.0, 779.5}, {424.0, 52.5}}, identifier: 'post.51im3rrmr3rejjimgge3o8dt3e.body.block0', label: 'Code', value: func backoff(attem...
+                                                        ScrollView, 0x105e6e740, {{388.0, 779.5}, {424.0, 52.5}}
+                                                          Other, 0x105e6e860, {{388.0, 779.5}, {679.5, 52.5}}
+                                                          Other, 0x105e6e980, {{388.0, 802.8}, {424.0, 26.2}}, label: 'Horizontal scroll bar, 2 pages', value: 0%
+                                                            Other, 0x105e6eaa0, {{802.0, 826.0}, {7.0, 3.0}}
+                                                          Other, 0x105e6ebc0, {{388.0, 802.8}, {424.0, 26.2}}, label: 'Horizontal scroll bar, 2 pages', value: 0%
+                                                            Other, 0x105e6ece0, {{802.0, 826.0}, {7.0, 3.0}}
+                                                    Other, 0x105e6ee00, {{330.0, 834.0}, {504.0, 33.5}}
+                                                    Other, 0x105e6ef20, {{349.0, 836.0}, {394.5, 29.5}}, identifier: 'post.dfncu3kygbbw3j6s9pgkw47u4a'
+                                                      StaticText, 0x105e6f040, {{349.0, 839.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e6f160, {{388.0, 836.0}, {355.5, 18.0}}, identifier: 'post.dfncu3kygbbw3j6s9pgkw47u4a.body.block0', label: 'reminder: design review moved to 15:30  (seed #14)'
+                                                    Other, 0x105e6f280, {{330.0, 867.5}, {504.0, 56.5}}
+                                                    Other, 0x105e6f3a0, {{349.0, 869.5}, {463.0, 52.5}}, identifier: 'post.98medswe7tfjffy81gh9cyjujh'
+                                                      StaticText, 0x105e6f4c0, {{349.0, 872.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      Other, 0x105e6f5e0, {{388.0, 869.5}, {424.0, 52.5}}, identifier: 'post.98medswe7tfjffy81gh9cyjujh.body.block0', label: 'Code', value: func backoff(attem...
+                                                        ScrollView, 0x105e6f700, {{388.0, 869.5}, {424.0, 52.5}}
+                                                          Other, 0x105e6f820, {{388.0, 869.5}, {679.5, 52.5}}
+                                                          Other, 0x105e6f940, {{388.0, 892.8}, {424.0, 26.2}}, label: 'Horizontal scroll bar, 2 pages', value: 0%
+                                                            Other, 0x105e6fa60, {{802.0, 916.0}, {7.0, 3.0}}
+                                                          Other, 0x105e6fb80, {{388.0, 892.8}, {424.0, 26.2}}, label: 'Horizontal scroll bar, 2 pages', value: 0%
+                                                            Other, 0x105e6fca0, {{802.0, 916.0}, {7.0, 3.0}}
+                                                    Other, 0x105e6fdc0, {{330.0, 924.0}, {504.0, 43.0}}
+                                                    Other, 0x105e6fee0, {{349.0, 926.0}, {427.0, 39.0}}, identifier: 'post.scg3w8y193yopk4ho8jtys6saw'
+                                                      StaticText, 0x105e70000, {{349.0, 929.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e70120, {{388.0, 926.0}, {388.0, 39.0}}, identifier: 'post.scg3w8y193yopk4ho8jtys6saw.body.block0', label: 'thread reply traffic goes through /api/v4/posts with a root_id  (seed #16)'
+                                                    Other, 0x105e70240, {{330.0, 967.0}, {504.0, 43.0}}
+                                                    Other, 0x105e70360, {{349.0, 969.0}, {427.0, 39.0}}, identifier: 'post.iqp3w4z6etrx38w7fw7r1gdo8h'
+                                                      StaticText, 0x105e70480, {{349.0, 972.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e705a0, {{388.0, 969.0}, {388.0, 39.0}}, identifier: 'post.iqp3w4z6etrx38w7fw7r1gdo8h.body.block0', label: 'thread reply traffic goes through /api/v4/posts with a root_id  (seed #17)'
+                                                    Other, 0x105e706c0, {{330.0, 1010.0}, {504.0, 43.0}}
+                                                    Other, 0x105e707e0, {{349.0, 1012.0}, {386.5, 39.0}}, identifier: 'post.ptogt54f3p8nfpu6uwi8bbkg4c'
+                                                      StaticText, 0x105e70900, {{349.0, 1015.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e70a20, {{388.0, 1012.0}, {347.5, 39.0}}, identifier: 'post.ptogt54f3p8nfpu6uwi8bbkg4c.body.block0', label: 'text-only posts are deliberately seeded here — no attachments, no images  (seed #18)'
+                                                    Other, 0x105e70b40, {{330.0, 1053.0}, {504.0, 43.0}}
+                                                    Other, 0x105e70c60, {{349.0, 1055.0}, {455.0, 39.0}}, identifier: 'post.hu9fy7tooid33bc7rwqmw8xh5y'
+                                                      StaticText, 0x105e70d80, {{349.0, 1058.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e70ea0, {{388.0, 1055.0}, {416.0, 39.0}}, identifier: 'post.hu9fy7tooid33bc7rwqmw8xh5y.body.block0', label: 'can you take a look at the flaky test when you get a minute?  (seed #19)'
+                                                    Other, 0x105e70fc0, {{330.0, 1096.0}, {504.0, 43.0}}
+                                                    Other, 0x105e710e0, {{349.0, 1098.0}, {458.5, 39.0}}, identifier: 'post.h471e9zzjpfofdnhpjfknuor6a'
+                                                      StaticText, 0x105e71200, {{349.0, 1101.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e71320, {{388.0, 1098.0}, {419.5, 39.0}}, identifier: 'post.h471e9zzjpfofdnhpjfknuor6a.body.block0', label: 'pushed a fix for the reconnect backoff, it retried 12 times in a row before  (seed #20)'
+                                                    Other, 0x105e71440, {{330.0, 1139.0}, {504.0, 43.0}}
+                                                    Other, 0x105e6e290, {{349.0, 1141.0}, {459.0, 39.0}}, identifier: 'post.ku6xh89b4pb58n1dwzzyse9mxo'
+                                                      StaticText, 0x105e71780, {{349.0, 1144.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e718a0, {{388.0, 1141.0}, {420.0, 39.0}}, identifier: 'post.ku6xh89b4pb58n1dwzzyse9mxo.body.block0', label: 'who owns the certificate prompt path? need a second pair of eyes on the trust bag  (seed #21)'
+                                                    Other, 0x105e719c0, {{330.0, 1182.0}, {504.0, 43.0}}
+                                                    Other, 0x105e71ae0, {{349.0, 1184.0}, {458.5, 39.0}}, identifier: 'post.fh87h7nz8ids7x1qdzopw6fx1y'
+                                                      StaticText, 0x105e71c00, {{349.0, 1187.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e71d20, {{388.0, 1184.0}, {419.5, 39.0}}, identifier: 'post.fh87h7nz8ids7x1qdzopw6fx1y.body.block0', label: 'pushed a fix for the reconnect backoff, it retried 12 times in a row before  (seed #22)'
+                                                    Other, 0x105e71e40, {{330.0, 1225.0}, {504.0, 43.0}}
+                                                    Other, 0x105e71f60, {{349.0, 1227.0}, {410.0, 39.0}}, identifier: 'post.qpos4nn79irs8m9p67sfzmatnc'
+                                                      StaticText, 0x105e72080, {{349.0, 1230.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e721a0, {{388.0, 1227.0}, {371.0, 39.0}}, identifier: 'post.qpos4nn79irs8m9p67sfzmatnc.body.block0', label: 'the webview memory number is the whole reason this channel exists  (seed #23)'
+                                                    Other, 0x105e722c0, {{330.0, 1268.0}, {504.0, 43.0}}
+                                                    Other, 0x105e723e0, {{349.0, 1270.0}, {427.0, 39.0}}, identifier: 'post.8s6nzgpgify1xrqqkdisq18azo'
+                                                      StaticText, 0x105e72500, {{349.0, 1273.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e72620, {{388.0, 1270.0}, {388.0, 39.0}}, identifier: 'post.8s6nzgpgify1xrqqkdisq18azo.body.block0', label: 'thread reply traffic goes through /api/v4/posts with a root_id  (seed #24)'
+                                                    Other, 0x105e72740, {{330.0, 1311.0}, {504.0, 33.5}}
+                                                    Other, 0x105e72860, {{349.0, 1313.0}, {406.0, 29.5}}, identifier: 'post.wcczmym46i8giq7eabtbn5fjyy'
+                                                      StaticText, 0x105e72980, {{349.0, 1316.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e72aa0, {{388.0, 1313.0}, {367.0, 18.0}}, identifier: 'post.wcczmym46i8giq7eabtbn5fjyy.body.block0', label: 'the release is cut, changelog is in the doc  (seed #25)'
+                                                    Other, 0x105e72bc0, {{330.0, 1344.5}, {504.0, 43.0}}
+                                                    Other, 0x105e72ce0, {{349.0, 1346.5}, {427.0, 39.0}}, identifier: 'post.bhfq75sta3ycfdwjbi6gxccaiw'
+                                                      StaticText, 0x105e72e00, {{349.0, 1349.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e72f20, {{388.0, 1346.5}, {388.0, 39.0}}, identifier: 'post.bhfq75sta3ycfdwjbi6gxccaiw.body.block0', label: 'noticed the sidebar re-renders on every keystroke in the composer, worth a look  (seed #26)'
+                                                    Other, 0x105e73040, {{330.0, 1387.5}, {504.0, 43.0}}
+                                                    Other, 0x105e73160, {{349.0, 1389.5}, {459.0, 39.0}}, identifier: 'post.tx84y1yxt38w8enyj9kben1uge'
+                                                      StaticText, 0x105e73280, {{349.0, 1392.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e733a0, {{388.0, 1389.5}, {420.0, 39.0}}, identifier: 'post.tx84y1yxt38w8enyj9kben1uge.body.block0', label: 'who owns the certificate prompt path? need a second pair of eyes on the trust bag  (seed #27)'
+                                                    Other, 0x105e734c0, {{330.0, 1430.5}, {504.0, 33.5}}
+                                                    Other, 0x105e735e0, {{349.0, 1432.5}, {185.0, 29.5}}, identifier: 'post.fwwusu8esbfjbme5jfbgoetzqe'
+                                                      StaticText, 0x105e73700, {{349.0, 1435.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e73820, {{388.0, 1432.5}, {146.0, 18.0}}, identifier: 'post.fwwusu8esbfjbme5jfbgoetzqe.body.block0', label: 'ack, on it  (seed #28)'
+                                                    Other, 0x105e73940, {{330.0, 1464.0}, {504.0, 43.0}}
+                                                    Other, 0x105e73a60, {{349.0, 1466.0}, {456.0, 39.0}}, identifier: 'post.zdnjw6rjh7fo3r8bodqk9j3qwo'
+                                                      StaticText, 0x105e73b80, {{349.0, 1469.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e73ca0, {{388.0, 1466.0}, {417.0, 39.0}}, identifier: 'post.zdnjw6rjh7fo3r8bodqk9j3qwo.body.block0', label: 'quoting the API doc: page/per_page and before/after both need to round-trip  (seed #29)'
+                                                    Other, 0x105e73dc0, {{330.0, 1507.0}, {504.0, 33.5}}
+                                                    Other, 0x105e73ee0, {{349.0, 1509.0}, {185.0, 29.5}}, identifier: 'post.xem311wg4tdb7x3xqhgmtms4kr'
+                                                      StaticText, 0x105e74000, {{349.0, 1512.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e74120, {{388.0, 1509.0}, {146.0, 18.0}}, identifier: 'post.xem311wg4tdb7x3xqhgmtms4kr.body.block0', label: 'ack, on it  (seed #30)'
+                                                    Other, 0x105e74240, {{330.0, 1540.5}, {504.0, 33.5}}
+                                                    Other, 0x105e74360, {{349.0, 1542.5}, {404.0, 29.5}}, identifier: 'post.h3x6du6drjytfr3eqn55um8fwa'
+                                                      StaticText, 0x105e74480, {{349.0, 1545.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e745a0, {{388.0, 1542.5}, {365.0, 18.0}}, identifier: 'post.h3x6du6drjytfr3eqn55um8fwa.body.block0', label: 'the release is cut, changelog is in the doc  (seed #31)'
+                                                    Other, 0x105e746c0, {{330.0, 1574.0}, {504.0, 43.0}}
+                                                    Other, 0x105e747e0, {{349.0, 1576.0}, {456.0, 39.0}}, identifier: 'post.ody5pbor97bg5eqibggjfi6a1r'
+                                                      StaticText, 0x105e74900, {{349.0, 1579.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e74a20, {{388.0, 1576.0}, {417.0, 39.0}}, identifier: 'post.ody5pbor97bg5eqibggjfi6a1r.body.block0', label: 'quoting the API doc: page/per_page and before/after both need to round-trip  (seed #32)'
+                                                    Other, 0x105e74b40, {{330.0, 1617.0}, {504.0, 43.0}}
+                                                    Other, 0x105e74c60, {{349.0, 1619.0}, {427.0, 39.0}}, identifier: 'post.35uhaokns7fa3et3ksk589fxgw'
+                                                      StaticText, 0x105e74d80, {{349.0, 1622.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e74ea0, {{388.0, 1619.0}, {388.0, 39.0}}, identifier: 'post.35uhaokns7fa3et3ksk589fxgw.body.block0', label: 'thread reply traffic goes through /api/v4/posts with a root_id  (seed #33)'
+                                                    Other, 0x105e74fc0, {{330.0, 1660.0}, {504.0, 43.0}}
+                                                    Other, 0x105e71560, {{349.0, 1662.0}, {386.5, 39.0}}, identifier: 'post.a39wkytbf3f7xe8hpzw5ajibow'
+                                                      StaticText, 0x105e75450, {{349.0, 1665.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e75570, {{388.0, 1662.0}, {347.5, 39.0}}, identifier: 'post.a39wkytbf3f7xe8hpzw5ajibow.body.block0', label: 'text-only posts are deliberately seeded here — no attachments, no images  (seed #34)'
+                                                    Other, 0x105e75690, {{330.0, 1703.0}, {504.0, 33.5}}
+                                                    Other, 0x105e757b0, {{349.0, 1705.0}, {380.0, 29.5}}, identifier: 'post.szsksjr6rjfmmyaaz79a93m4bc'
+                                                      StaticText, 0x105e758d0, {{349.0, 1708.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e759f0, {{388.0, 1705.0}, {341.0, 18.0}}, identifier: 'post.szsksjr6rjfmmyaaz79a93m4bc.body.block0', label: 'deploy is green, health check passing  (seed #35)'
+                                                    Other, 0x105e75b10, {{330.0, 1736.5}, {504.0, 43.0}}
+                                                    Other, 0x105e75c30, {{349.0, 1738.5}, {386.5, 39.0}}, identifier: 'post.hs586wbcstbhmj57scsthx1cor'
+                                                      StaticText, 0x105e75d50, {{349.0, 1741.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e75e70, {{388.0, 1738.5}, {347.5, 39.0}}, identifier: 'post.hs586wbcstbhmj57scsthx1cor.body.block0', label: 'text-only posts are deliberately seeded here — no attachments, no images  (seed #36)'
+                                                    Other, 0x105e75f90, {{330.0, 1779.5}, {504.0, 43.0}}
+                                                    Other, 0x105e760b0, {{349.0, 1781.5}, {427.0, 39.0}}, identifier: 'post.366jizjrf3gctrmzg8fq56q73r'
+                                                      StaticText, 0x105e761d0, {{349.0, 1784.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e762f0, {{388.0, 1781.5}, {388.0, 39.0}}, identifier: 'post.366jizjrf3gctrmzg8fq56q73r.body.block0', label: 'noticed the sidebar re-renders on every keystroke in the composer, worth a look  (seed #37)'
+                                                    Other, 0x105e76410, {{330.0, 1822.5}, {504.0, 43.0}}
+                                                    Other, 0x105e76530, {{349.0, 1824.5}, {450.0, 39.0}}, identifier: 'post.t5ysi84bebbrbmygwwzgyte1kw'
+                                                      StaticText, 0x105e76650, {{349.0, 1827.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e76770, {{388.0, 1824.5}, {411.0, 39.0}}, identifier: 'post.t5ysi84bebbrbmygwwzgyte1kw.body.block0', label: 'standup notes: nothing blocking, still on the transport layer  (seed #38)'
+                                                    Other, 0x105e76890, {{330.0, 1865.5}, {504.0, 33.5}}
+                                                    Other, 0x105e769b0, {{349.0, 1867.5}, {185.5, 29.5}}, identifier: 'post.1bon9ehwej8xxkn6x8wwqxtjaa'
+                                                      StaticText, 0x105e76ad0, {{349.0, 1870.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e76bf0, {{388.0, 1867.5}, {146.5, 18.0}}, identifier: 'post.1bon9ehwej8xxkn6x8wwqxtjaa.body.block0', label: 'ack, on it  (seed #39)'
+                                                    Other, 0x105e76d10, {{330.0, 1899.0}, {504.0, 43.0}}
+                                                    Other, 0x105e76e30, {{349.0, 1901.0}, {410.0, 39.0}}, identifier: 'post.cbgfqmjuzf8f5n968iyc63uq1y'
+                                                      StaticText, 0x105e76f50, {{349.0, 1904.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e77070, {{388.0, 1901.0}, {371.0, 39.0}}, identifier: 'post.cbgfqmjuzf8f5n968iyc63uq1y.body.block0', label: 'the webview memory number is the whole reason this channel exists  (seed #40)'
+                                                    Other, 0x105e77190, {{330.0, 1942.0}, {504.0, 56.5}}
+                                                    Other, 0x105e772b0, {{349.0, 1944.0}, {463.0, 52.5}}, identifier: 'post.b4h6brm5x38edb8uf1x4re9qme'
+                                                      StaticText, 0x105e773d0, {{349.0, 1947.0}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      Other, 0x105e774f0, {{388.0, 1944.0}, {424.0, 52.5}}, identifier: 'post.b4h6brm5x38edb8uf1x4re9qme.body.block0', label: 'Code', value: func backoff(attem...
+                                                        ScrollView, 0x105e77610, {{388.0, 1944.0}, {424.0, 52.5}}
+                                                          Other, 0x105e77730, {{388.0, 1944.0}, {679.5, 52.5}}
+                                                          Other, 0x105e77850, {{388.0, 1967.2}, {424.0, 26.2}}, label: 'Horizontal scroll bar, 2 pages', value: 0%
+                                                            Other, 0x105e77970, {{802.0, 1990.5}, {7.0, 3.0}}
+                                                          Other, 0x105e77a90, {{388.0, 1967.2}, {424.0, 26.2}}, label: 'Horizontal scroll bar, 2 pages', value: 0%
+                                                            Other, 0x105e77bb0, {{802.0, 1990.5}, {7.0, 3.0}}
+                                                    Other, 0x105e77cd0, {{330.0, 1998.5}, {504.0, 43.0}}
+                                                    Other, 0x105e77df0, {{349.0, 2000.5}, {450.0, 39.0}}, identifier: 'post.pdmydktnt7rabfmw5q5i8opd6r'
+                                                      StaticText, 0x105e77f10, {{349.0, 2003.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e78030, {{388.0, 2000.5}, {411.0, 39.0}}, identifier: 'post.pdmydktnt7rabfmw5q5i8opd6r.body.block0', label: 'standup notes: nothing blocking, still on the transport layer  (seed #42)'
+                                                    Other, 0x105e78150, {{330.0, 2041.5}, {504.0, 43.0}}
+                                                    Other, 0x105e78270, {{349.0, 2043.5}, {427.0, 39.0}}, identifier: 'post.o9eyq5dssigaxjezqgz4ji7kzw'
+                                                      StaticText, 0x105e78390, {{349.0, 2046.5}, {29.0, 26.5}}, label: '11:02 PM'
+                                                      StaticText, 0x105e784b0, {{388.0, 2043.5}, {388.0, 39.0}}, identifier: 'post.o9eyq5dssigaxjezqgz4ji7kzw.body.block0', label: 'thread reply traffic goes through /api/v4/posts with a root_id  (seed #43)'
+                                                Other, 0x105e785d0, {{801.0, 233.0}, {30.0, 917.0}}, label: 'Vertical scroll bar, 25 pages', value: 0%
+                                                  Other, 0x105e786f0, {{828.0, 236.0}, {3.0, 36.5}}
+                                                Other, 0x105e78810, {{801.0, 233.0}, {30.0, 917.0}}, label: 'Vertical scroll bar, 25 pages', value: 0%
+                                                  Other, 0x105e78930, {{828.0, 236.0}, {3.0, 36.5}}
+                                              StaticText, 0x105e78a50, {{348.0, 1161.5}, {195.5, 17.5}}, identifier: 'channelComposerPlaceholder', label: 'Message input — S14 (T35)'
+                                                Image, 0x105e78b70, {{348.0, 1161.5}, {18.5, 17.5}}, identifier: 'text.bubble', label: 'Comment Lines'
+                                                StaticText, 0x105e78c90, {{376.5, 1162.2}, {167.0, 16.0}}, label: 'Message input — S14 (T35)'
+                                    Other, 0x105e78db0, {{0.0, 0.0}, {834.0, 1210.0}}
+                                      Other, 0x105e78ed0, {{0.0, 0.0}, {834.0, 1210.0}}
+                              Other, 0x105e78ff0, {{0.0, 0.0}, {834.0, 1210.0}}
+                                Other, 0x105e79110, {{0.0, 0.0}, {834.0, 1210.0}}
+                  Other, 0x105e79230, {{0.0, 0.0}, {834.0, 1210.0}}
+                    Other, 0x105e79350, {{0.0, 0.0}, {834.0, 1210.0}}
+    Window, 0x105e79470, {{0.0, 0.0}, {834.0, 1210.0}}
+      Other, 0x105e79590, {{0.0, 0.0}, {834.0, 1210.0}}
+        Other, 0x105e796b0, {{0.0, 0.0}, {834.0, 1210.0}}
+Path to element:
+ →Application, 0x105e57770, pid: 73357, label: 'Mattermost'
+Query chain:
+ →Find: Target Application 'com.mattermost.ios'
+  Output: {
+    Application, 0x105f35470, pid: 73357, label: 'Mattermost'
+  }
+
+    t =   165.71s Get number of matches for: Elements matching predicate 'identifier BEGINSWITH "post."'
+    t =   165.95s Find the Any (Element at index 0)
+    t =   166.09s Find the "post.k53mjbj3wpnktmfx9rxgzgugqe" Other
+    t =   166.24s Find the Any (Element at index 1)
+    t =   166.38s Find the "post.qyq6oaxdzfbnup9nbpdkq4g3bo" Other
+    t =   166.52s Find the Any (Element at index 2)
+    t =   166.67s Find the "post.ns5byd5nxpnipnuoowuu5oepth" Other
+    t =   166.81s Find the Any (Element at index 3)
+    t =   166.96s Find the "post.sitwtup6pfb15n1eegub5a8mfc" Other
+    t =   167.10s Find the Any (Element at index 4)
+    t =   167.25s Find the "post.exusrsigdidyxykn5rros3bc4c" Other
+    t =   167.39s Find the Any (Element at index 5)
+    t =   167.53s Find the "post.h8n15rqn8tb1zrpfo8o76urfww" Other
+    t =   167.68s Find the Any (Element at index 6)
+    t =   167.83s Find the "post.69feb5qsz7rpjpqru56aiwzw1e" Other
+    t =   167.98s Find the Any (Element at index 7)
+    t =   168.12s Find the "post.bu4pinmjrbdc8yhr1oeqi8gu6h" Other
+    t =   168.27s Find the Any (Element at index 8)
+    t =   168.42s Find the "post.hb3aifogefgk3fnekspkj7nexa" Other
+    t =   168.57s Find the Any (Element at index 9)
+    t =   168.72s Find the "post.k9fznu9m33de9yhsi565dbu5kr" Other
+    t =   168.87s Find the Any (Element at index 10)
+    t =   169.02s Find the "post.gpoetp6xsjdbjq1a8wu7oxnyfe" Other
+    t =   169.17s Find the Any (Element at index 11)
+    t =   169.32s Find the "post.wqecb88jujd1xdcdhti7qisyxo" Other
+    t =   169.46s Find the Any (Element at index 12)
+    t =   169.61s Find the "post.51im3rrmr3rejjimgge3o8dt3e" Other
+    t =   169.76s Find the Any (Element at index 13)
+    t =   169.92s Find the "post.dfncu3kygbbw3j6s9pgkw47u4a" Other
+    t =   170.07s Find the Any (Element at index 14)
+    t =   170.22s Find the "post.98medswe7tfjffy81gh9cyjujh" Other
+    t =   170.37s Find the Any (Element at index 15)
+    t =   170.52s Find the "post.scg3w8y193yopk4ho8jtys6saw" Other
+    t =   170.67s Find the Any (Element at index 16)
+    t =   170.82s Find the "post.iqp3w4z6etrx38w7fw7r1gdo8h" Other
+    t =   170.98s Find the Any (Element at index 17)
+    t =   171.13s Find the "post.ptogt54f3p8nfpu6uwi8bbkg4c" Other
+    t =   171.28s Find the Any (Element at index 18)
+    t =   171.43s Find the "post.hu9fy7tooid33bc7rwqmw8xh5y" Other
+    t =   171.59s Find the Any (Element at index 19)
+    t =   171.74s Find the "post.h471e9zzjpfofdnhpjfknuor6a" Other
+    t =   171.90s Find the Any (Element at index 20)
+    t =   172.05s Find the "post.ku6xh89b4pb58n1dwzzyse9mxo" Other
+    t =   172.21s Find the Any (Element at index 21)
+    t =   172.36s Find the "post.fh87h7nz8ids7x1qdzopw6fx1y" Other
+    t =   172.52s Find the Any (Element at index 22)
+    t =   172.68s Find the "post.qpos4nn79irs8m9p67sfzmatnc" Other
+    t =   172.84s Find the Any (Element at index 23)
+    t =   173.00s Find the "post.8s6nzgpgify1xrqqkdisq18azo" Other
+    t =   173.16s Find the Any (Element at index 24)
+    t =   173.31s Find the "post.wcczmym46i8giq7eabtbn5fjyy" Other
+    t =   173.47s Find the Any (Element at index 25)
+    t =   173.63s Find the "post.bhfq75sta3ycfdwjbi6gxccaiw" Other
+    t =   173.79s Find the Any (Element at index 26)
+    t =   173.95s Find the "post.tx84y1yxt38w8enyj9kben1uge" Other
+    t =   174.12s Find the Any (Element at index 27)
+    t =   174.29s Find the "post.fwwusu8esbfjbme5jfbgoetzqe" Other
+    t =   174.45s Find the Any (Element at index 28)
+    t =   174.61s Find the "post.zdnjw6rjh7fo3r8bodqk9j3qwo" Other
+    t =   174.77s Find the Any (Element at index 29)
+    t =   174.94s Find the "post.xem311wg4tdb7x3xqhgmtms4kr" Other
+    t =   175.10s Find the Any (Element at index 30)
+    t =   175.26s Find the "post.h3x6du6drjytfr3eqn55um8fwa" Other
+    t =   175.43s Find the Any (Element at index 31)
+    t =   175.59s Find the "post.ody5pbor97bg5eqibggjfi6a1r" Other
+    t =   175.76s Find the Any (Element at index 32)
+    t =   175.92s Find the "post.35uhaokns7fa3et3ksk589fxgw" Other
+    t =   176.09s Find the Any (Element at index 33)
+    t =   176.25s Find the "post.a39wkytbf3f7xe8hpzw5ajibow" Other
+    t =   176.42s Find the Any (Element at index 34)
+    t =   176.58s Find the "post.szsksjr6rjfmmyaaz79a93m4bc" Other
+    t =   176.75s Find the Any (Element at index 35)
+    t =   176.92s Find the "post.hs586wbcstbhmj57scsthx1cor" Other
+    t =   177.08s Find the Any (Element at index 36)
+    t =   177.25s Find the "post.366jizjrf3gctrmzg8fq56q73r" Other
+    t =   177.41s Find the Any (Element at index 37)
+    t =   177.58s Find the "post.t5ysi84bebbrbmygwwzgyte1kw" Other
+    t =   177.75s Find the Any (Element at index 38)
+    t =   177.92s Find the "post.1bon9ehwej8xxkn6x8wwqxtjaa" Other
+    t =   178.09s Find the Any (Element at index 39)
+    t =   178.25s Find the "post.cbgfqmjuzf8f5n968iyc63uq1y" Other
+    t =   178.42s Find the Any (Element at index 40)
+    t =   178.59s Find the "post.b4h6brm5x38edb8uf1x4re9qme" Other
+    t =   178.76s Find the Any (Element at index 41)
+    t =   178.93s Find the "post.pdmydktnt7rabfmw5q5i8opd6r" Other
+    t =   179.10s Find the Any (Element at index 42)
+    t =   179.28s Find the "post.o9eyq5dssigaxjezqgz4ji7kzw" Other
+    t =   179.45s Find the Any (Element at index 43)
+    t =   179.62s Find the Any (Element at index 44)
+    t =   179.79s Find the Any (Element at index 45)
+    t =   179.96s Find the Any (Element at index 46)
+    t =   180.14s Find the Any (Element at index 47)
+    t =   180.31s Find the Any (Element at index 48)
+    t =   180.48s Find the Any (Element at index 49)
+    t =   180.66s Find the Any (Element at index 50)
+    t =   180.84s Find the Any (Element at index 51)
+    t =   181.01s Find the Any (Element at index 52)
+    t =   181.19s Find the Any (Element at index 53)
+    t =   181.37s Find the Any (Element at index 54)
+    t =   181.55s Find the Any (Element at index 55)
+    t =   181.73s Find the Any (Element at index 56)
+    t =   181.92s Find the Any (Element at index 57)
+    t =   182.10s Find the Any (Element at index 58)
+    t =   182.28s Find the Any (Element at index 59)
+    t =   182.47s Find the Any (Element at index 60)
+    t =   182.65s Find the Any (Element at index 61)
+    t =   182.84s Find the Any (Element at index 62)
+    t =   183.02s Find the Any (Element at index 63)
+    t =   183.21s Find the Any (Element at index 64)
+    t =   183.39s Find the Any (Element at index 65)
+    t =   183.58s Find the Any (Element at index 66)
+    t =   183.77s Find the Any (Element at index 67)
+    t =   183.96s Find the Any (Element at index 68)
+    t =   184.16s Find the Any (Element at index 69)
+    t =   184.36s Find the Any (Element at index 70)
+    t =   184.56s Find the Any (Element at index 71)
+    t =   184.75s Find the Any (Element at index 72)
+    t =   184.94s Find the Any (Element at index 73)
+    t =   185.14s Find the Any (Element at index 74)
+    t =   185.34s Find the Any (Element at index 75)
+    t =   185.53s Find the Any (Element at index 76)
+    t =   185.74s Find the Any (Element at index 77)
+    t =   185.94s Find the Any (Element at index 78)
+    t =   186.14s Find the Any (Element at index 79)
+    t =   186.35s Find the Any (Element at index 80)
+    t =   186.56s Find the Any (Element at index 81)
+    t =   186.76s Find the Any (Element at index 82)
+    t =   186.97s Find the Any (Element at index 83)
+    t =   187.18s Find the Any (Element at index 84)
+    t =   187.39s Find the Any (Element at index 85)
+    t =   187.60s Find the Any (Element at index 86)
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostUITests/T34-ChannelPostListUITests.swift:291: error: -[MattermostUITests.T34ChannelPostListUITests testReachingTheTopLoadsOlderPostsWithoutDuplicates] : XCTAssertTrue failed - the older page's newest post is not on screen
+    t =   187.81s Tear Down
+Test Case '-[MattermostUITests.T34ChannelPostListUITests testReachingTheTopLoadsOlderPostsWithoutDuplicates]' failed (188.327 seconds).
+Test Suite 'T34ChannelPostListUITests' failed at 2026-10-25 17:37:54.398.
+	 Executed 1 test, with 3 failures (0 unexpected) in 188.327 (188.329) seconds
+Test Suite 'MattermostUITests.xctest' failed at 2026-10-25 17:37:54.399.
+	 Executed 1 test, with 3 failures (0 unexpected) in 188.327 (188.329) seconds
+Test Suite 'Selected tests' failed at 2026-10-25 17:37:54.400.
+	 Executed 1 test, with 3 failures (0 unexpected) in 188.327 (188.331) seconds
+2026-10-25 17:38:13.123 xcodebuild[73325:5069476] [MT] IDETestOperationsObserverDebug: 209.222 elapsed -- Testing started completed.
+2026-10-25 17:38:13.124 xcodebuild[73325:5069476] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-25 17:38:13.124 xcodebuild[73325:5069476] [MT] IDETestOperationsObserverDebug: 209.222 sec, +209.222 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t34r4-paging-0dedc4.xcresult
+
+Failing tests:
+	T34ChannelPostListUITests.testReachingTheTopLoadsOlderPostsWithoutDuplicates()
+	T34ChannelPostListUITests.testReachingTheTopLoadsOlderPostsWithoutDuplicates()
+	T34ChannelPostListUITests.testReachingTheTopLoadsOlderPostsWithoutDuplicates()
+
+** TEST FAILED **
+
+Testing started

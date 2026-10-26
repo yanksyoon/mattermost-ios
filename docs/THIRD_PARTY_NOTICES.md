@@ -224,8 +224,9 @@ dependency is added.
 
 T34 (`Mattermost/UI/Native/Channel/Markdown/*.swift`, `EmojiCatalogue.swift`, `PostListModels.swift`,
 `ChannelViewModel.swift`, `ChannelService.swift`, `ChannelAPI.swift`, `ChannelView.swift`,
-`PostRowView.swift`, `docs/t34-build-note.md`) reimplements the **post list and its rendering** —
-grouping, day separators, markdown/GFM, code blocks, custom emoji, reactions, attachments, edited /
+`ChannelScrollPosition.swift`, `PostRowView.swift`, `docs/t34-build-note.md`) reimplements the **post
+list and its rendering** — grouping, day separators, markdown/GFM, code blocks, custom emoji,
+reactions, attachments, edited /
 deleted / system markers, the "new messages" divider and long-history pagination. The upstream read set
 is the one `docs/component-map.md` §4 + S11 already names for this surface; no upstream file is copied
 or transpiled. The mobile pin is TypeScript (read for rules only); the webapp is AGPL-3.0 and was
@@ -256,3 +257,13 @@ translated from RN components, reducers or selectors. The code highlighter is a 
 per language — no `highlight.js`/Prism code, table or theme is bundled; the built-in emoji are Unicode
 characters and **SF Symbols** replace every `compass-icons` glyph, so no icon font, emoji sprite or
 extra dependency is added.
+
+`ChannelScrollPosition.swift` is this repo's own bridge, not a port: upstream keeps the reader's place
+with the `maintainVisibleContentPosition` behaviour of its inverted `FlatList`
+(`dynamic-virtualized-list`, MIT, named only as the mechanism that behaviour comes from), while this
+client measures a row's own `UIView` against the enclosing `UIScrollView`'s viewport and corrects by a
+point offset. The behaviour — "the post the reader was looking at stays where it was when an older
+page is prepended" — is what was read from
+`app/screens/channel/channel_post_list/channel_post_list.tsx` (`onViewableItemsChanged` +
+`scrollToIndex`); no upstream scrolling or virtualisation code is reproduced.
+
