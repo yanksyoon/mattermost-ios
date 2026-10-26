@@ -109,6 +109,14 @@ final class ChannelViewModel: ObservableObject {
     private var generation = 0
     private var scrollAnchor: ScrollAnchor?
 
+    /// How the view answers "where is the reader right now", measured from its scroll view.
+    ///
+    /// `loadEarlier()` asks before it sends the request, so the place the restore aims at is taken at
+    /// the instant the page is requested instead of from the last periodic sample. A model used
+    /// without a view (unit tests, a future non-SwiftUI host) leaves it nil and keeps whatever anchor
+    /// `setScrollAnchor` was given.
+    var readerAnchorProvider: (() -> ScrollAnchor?)?
+
     init(channelID: String,
          channelName: String? = nil,
          service: ChannelServing,
@@ -186,6 +194,11 @@ final class ChannelViewModel: ObservableObject {
     func loadEarlier() async -> Bool {
         guard phase == .loaded, hasMore, !isLoadingMore, let oldest = posts.last?.id else {
             return false
+        }
+        // Take the reader's place *now*, from the view, before anything is inserted: after the merge
+        // the same post sits further down, so a later reading would record the moved position.
+        if let provider = readerAnchorProvider, let place = provider() {
+            scrollAnchor = place
         }
         isLoadingMore = true
         loadEarlierError = nil

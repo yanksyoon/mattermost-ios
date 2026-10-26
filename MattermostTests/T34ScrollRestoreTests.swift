@@ -54,34 +54,34 @@ final class T34ScrollRestoreTests: XCTestCase {
 
     // MARK: - Which row the reader is on
 
-    /// Preference values are positions inside the scroll **content**, so the anchor has to be chosen
-    /// after subtracting the content offset. Taking the smallest raw value picked the first row of the
-    /// loaded window instead of the row under the reader's eye — the defect behind the 585 pt jump the
-    /// live anchor test measured (T34-R3).
+    /// The values handed to `topVisible` are **distances below the viewport's top edge**, measured from
+    /// each row's own view (`ChannelScrollController.offsetFromTop`). The anchor is the smallest
+    /// non-negative one — a row that straddles the edge belongs to the reader, the rows above it do not.
+    /// (T34-R3 fed this content-space positions and picked the first row of the window; T34-R4 reads
+    /// the distance from UIKit so there is no conversion left to get wrong.)
     func testTheAnchorIsTheTopmostRowBelowTheViewportEdgeNotTheFirstRowInTheContent() {
-        // The reader has scrolled 4 000 pt into a window whose first row is at content y = 0.
-        let rows: [String: CGFloat] = ["oldest": 0, "above": 3_800, "edge": 4_120, "next": 4_400]
-        let anchor = ScrollRestorePlan.topVisible(rows: rows, contentOffsetY: 4_000)
+        let rows: [String: CGFloat] = ["oldest": -4_000, "above": -200, "edge": 120, "next": 400]
+        let anchor = ScrollRestorePlan.topVisible(rows: rows)
         XCTAssertEqual(anchor?.id, "edge")
         XCTAssertEqual(anchor?.offsetFromTop ?? -1, 120, accuracy: 0.001)
     }
 
     func testRowsScrolledPastTheEdgeAreIgnored() {
-        let rows: [String: CGFloat] = ["gone": 3_000, "slightlyAbove": 3_998, "visible": 4_100]
-        let anchor = ScrollRestorePlan.topVisible(rows: rows, contentOffsetY: 4_000)
+        let rows: [String: CGFloat] = ["gone": -1_000, "slightlyAbove": -2, "visible": 100]
+        let anchor = ScrollRestorePlan.topVisible(rows: rows)
         XCTAssertEqual(anchor?.id, "visible",
                        "a row 2 pt above the edge is not the reader's place; the next one is")
     }
 
     func testAnOverscrollFallsBackToTheNearestRow() {
-        let rows: [String: CGFloat] = ["a": 3_900, "b": 5_000]
-        let anchor = ScrollRestorePlan.topVisible(rows: rows, contentOffsetY: 6_000)
+        let rows: [String: CGFloat] = ["a": -2_100, "b": -1_000]
+        let anchor = ScrollRestorePlan.topVisible(rows: rows)
         XCTAssertEqual(anchor?.id, "b", "every row is above the viewport: the nearest one is the answer")
         XCTAssertEqual(anchor?.offsetFromTop ?? 0, -1_000, accuracy: 0.001)
     }
 
     func testNoRowsMeansNoAnchor() {
-        XCTAssertNil(ScrollRestorePlan.topVisible(rows: [:], contentOffsetY: 100))
+        XCTAssertNil(ScrollRestorePlan.topVisible(rows: [:]))
     }
 
     // MARK: - The handoff
@@ -111,6 +111,45 @@ final class T34ScrollRestoreTests: XCTestCase {
         XCTAssertEqual(model.pendingScrollRestore?.offsetFromTop, 87.25)
         model.consumeScrollRestore()
         XCTAssertNil(model.pendingScrollRestore)
+    }
+
+    /// `loadEarlier()` asks the view for the reader's place *before* it sends the request, and that
+    /// reading wins over an older sample: an anchor sampled a moment too late is the position the post
+    /// has after the insert, which would make the restore a no-op and leave the reader displaced by a
+    /// whole page (the live defect behind T34-R4).
+    func testLoadEarlierTakesTheAnchorFromTheViewBeforeTheRequest() async {
+        let service = FakeChannelService(pageSize: 2)
+        service.firstPage = MMPostList(order: ["b", "a"],
+                                       posts: ["b": post("b", 2_000), "a": post("a", 1_000)])
+        service.olderPages["a"] = MMPostList(order: ["z"], posts: ["z": post("z", 500)])
+        let model = ChannelViewModel(channelID: "ch", channelName: "Town Square", service: service)
+        await model.load()
+
+        model.setScrollAnchor(.init(postID: "b", offsetFromTop: 10))     // stale sample
+        model.readerAnchorProvider = { .init(postID: "a", offsetFromTop: 250) }
+
+        _ = await model.loadEarlier()
+
+        XCTAssertEqual(model.pendingScrollRestore, .init(postID: "a", offsetFromTop: 250),
+                       "the anchor must come from the view's fresh reading, not the last poll")
+    }
+
+    /// A view-less host (unit tests, a future host without a scroll view) keeps working: no provider
+    /// means the previously set anchor is used unchanged.
+    func testWithoutAProviderTheAnchorIsUnchanged() async {
+        let service = FakeChannelService(pageSize: 2)
+        service.firstPage = MMPostList(order: ["b", "a"],
+                                       posts: ["b": post("b", 2_000), "a": post("a", 1_000)])
+        service.olderPages["a"] = MMPostList(order: ["z"], posts: ["z": post("z", 500)])
+        let model = ChannelViewModel(channelID: "ch", channelName: "Town Square", service: service)
+        await model.load()
+
+        let anchor = ChannelViewModel.ScrollAnchor(postID: "b", offsetFromTop: 44)
+        model.setScrollAnchor(anchor)
+        model.readerAnchorProvider = { nil }
+
+        _ = await model.loadEarlier()
+        XCTAssertEqual(model.pendingScrollRestore, anchor)
     }
 
     // MARK: - Helpers
