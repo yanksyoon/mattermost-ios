@@ -3,7 +3,7 @@
 //        under `files` and the channel under `channel_id`), app/actions/remote/file.ts (the upload
 //        queue: one request per file, progress from the transport, cancel by task id).
 // Licence: Apache-2.0 — behaviour reimplemented against RFC 7578 and https://api.mattermost.com with
-// attribution per docs/THIRD_PARTY_NOTICES.md §11; no upstream source copied.
+// attribution per docs/THIRD_PARTY_NOTICES.md §12; no upstream source copied.
 //
 // Why the body is built by hand rather than by `URLProtocol`/`URLSession` convenience:
 //  - the encoder has to be a pure function so the byte layout can be asserted (delimiter placement,
