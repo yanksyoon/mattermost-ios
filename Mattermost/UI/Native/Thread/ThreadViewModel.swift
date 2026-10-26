@@ -541,7 +541,11 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     @discardableResult
     func applyReaction(_ reaction: MMReaction, adding: Bool) -> Bool {
         guard let post = post(id: reaction.postId) else { return false }
-        return patch(reaction, on: post, adding: adding)
+        let changed = patch(reaction, on: post, adding: adding)
+        // The rows are derived from the stored posts: an optimistic tap has no socket handler to
+        // rebuild for it, so the pill would keep drawing the old count.
+        if changed { rebuild() }
+        return changed
     }
 
     var reactionUserProfiles: [String: MMUser] { users }

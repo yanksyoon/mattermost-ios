@@ -722,7 +722,12 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     /// present or not), which is why a socket echo of our own write cannot double the count.
     @discardableResult
     func applyReaction(_ reaction: MMReaction, adding: Bool) -> Bool {
-        adding ? appendReaction(reaction) : removeReaction(reaction)
+        let changed = adding ? appendReaction(reaction) : removeReaction(reaction)
+        // `items` is derived from the stored posts, so a write that only mutated the store would leave
+        // the pill drawing the old count until some unrelated rebuild (the socket path rebuilds for
+        // itself; an optimistic tap has no such caller).
+        if changed { rebuild() }
+        return changed
     }
 
     /// The profiles the reactor sheet draws — the same ones the rows already resolved.
