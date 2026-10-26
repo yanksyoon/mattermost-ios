@@ -225,3 +225,139 @@ jobs:
           gh release view "$TAG" --repo "$REPO" --json tagName,isDraft,url \
             --jq '"published \(.tagName) -> \(.url)"'
           echo "RELEASE CREATED: $TAG at $SHORT"
+
+  package:
+    name: package Mattermost.app
+    needs: [test, release]
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Toolchain
+        run: xcodebuild -version
+
+      - name: Resolve packages
+        run: xcodebuild -resolvePackageDependencies -project Mattermost.xcodeproj -scheme Mattermost
+
+      # A Mac Catalyst Release build: a real double-clickable .app for the Mac, which is
+      # the only artifact that is installable without an Apple Developer account.
+      # Ad-hoc signed (CODE_SIGN_IDENTITY=-) so entitlements survive without a
+      # certificate; not notarized, so the first launch needs a Gatekeeper override,
+      # which README.txt inside the zip spells out.
+      - name: Build Mattermost.app
+        run: |
+          set -euo pipefail
+          xcodebuild build \
+            -project Mattermost.xcodeproj \
+            -scheme Mattermost \
+            -configuration Release \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            ONLY_ACTIVE_ARCH=NO \
+            > "$RUNNER_TEMP/build.log" 2>&1 || {
+              echo "::error::Release build failed"
+              tail -80 "$RUNNER_TEMP/build.log"
+              exit 1
+            }
+          tail -5 "$RUNNER_TEMP/build.log"
+
+      - name: Verify and package
+        run: |
+          set -euo pipefail
+          APP=$(find "$RUNNER_TEMP/dd/Build/Products" -maxdepth 2 -name 'Mattermost.app' -type d | head -1)
+          [ -n "$APP" ] || { echo "::error::Mattermost.app not found in build products"; exit 1; }
+          echo "app: $APP"
+
+          BIN="$APP/Contents/MacOS/Mattermost"
+          echo "architectures: $(lipo -archs "$BIN")"
+          echo "min macOS: $(plutil -extract LSMinimumSystemVersion raw -o - "$APP/Contents/Info.plist" 2>/dev/null || echo unknown)"
+          echo "bundle id: $(plutil -extract CFBundleIdentifier raw -o - "$APP/Contents/Info.plist")"
+          echo "version: $(plutil -extract CFBundleShortVersionString raw -o - "$APP/Contents/Info.plist") ($(plutil -extract CFBundleVersion raw -o - "$APP/Contents/Info.plist"))"
+
+          # The signature must be valid even though it is ad-hoc: an invalid one means a
+          # broken bundle, which would fail on the user's Mac and never here.
+          codesign --verify --deep --strict --verbose=2 "$APP" || {
+            echo "::error::code signature is not valid"; exit 1; }
+          codesign -dv --entitlements - "$APP" 2>&1 | head -20
+
+          TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
+          [ -n "$TAG" ] || TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+          NAME="Mattermost-macOS-arm64-${TAG}"
+
+          # Stage app + README as one folder so a single zip has both. The README must
+          # live next to the bundle, never inside it: any file added under
+          # Mattermost.app after signing invalidates the signature.
+          STAGE="$RUNNER_TEMP/$NAME"
+          mkdir -p "$STAGE"
+          cp -R "$APP" "$STAGE/"
+          cat > "$STAGE/README.txt" <<'README'
+          Mattermost for Mac (Mac Catalyst build)
+          ======================================
+
+          The native Mac build of this repo's Mattermost client.
+
+          INSTALL
+            1. Unzip this archive.
+            2. Drag Mattermost.app into /Applications, or run it from here.
+
+          FIRST LAUNCH
+          macOS will say it cannot check the app for malicious software. That is expected:
+          this build is ad-hoc signed and not notarized, and notarization needs a paid
+          Apple Developer account.
+
+            Right-click Mattermost.app -> Open -> Open
+
+          Or, in Terminal:
+
+            xattr -dr com.apple.quarantine /Applications/Mattermost.app
+            open /Applications/Mattermost.app
+
+          NOTES
+            - Apple Silicon (arm64). It will not run on an Intel Mac.
+            - Enter your server URL on first run. Credentials go to the macOS Keychain.
+            - Xcode Debug builds are unaffected; all of this applies only to this download.
+
+          Source for this exact commit is in the same release's source archives.
+          README
+
+          # ditto, not zip: it preserves the code signature, extended attributes and
+          # symlinks a .app depends on. `zip -r` mangles all three.
+          ditto -c -k --sequesterRsrc --keepParent "$STAGE" "$RUNNER_TEMP/$NAME.zip"
+          ls -lh "$RUNNER_TEMP/$NAME.zip"
+          echo "contents:"
+          unzip -l "$RUNNER_TEMP/$NAME.zip" | head -12
+
+          {
+            echo "ZIP=$RUNNER_TEMP/$NAME.zip"
+            echo "NAME=$NAME"
+          } >> "$GITHUB_ENV"
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
+          if [ -z "$TAG" ]; then
+            echo "HEAD $(git rev-parse --short=8 HEAD) is not tagged (superseded run);"
+            echo "leaving the zip as a workflow artifact only."
+            exit 0
+          fi
+          gh release upload "$TAG" "$ZIP" --clobber --repo "$REPO"
+          echo "attached $NAME to $TAG"
+          gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[] | "\(.name)  \(.size) bytes"'
+
+      - name: Upload as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mattermost-macos-app
+          path: ${{ runner.temp }}/*.zip
+          if-no-files-found: error
