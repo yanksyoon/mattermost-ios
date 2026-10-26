@@ -73,7 +73,22 @@ jobs:
           fi
 
           LOG="$RUNNER_TEMP/${{ matrix.name }}.log"
+          # Signing flags differ by leg, and this is load-bearing:
+          #   Catalyst - the macOS Keychain does not demand an application-identifier,
+          #              so signing can be switched off entirely.
+          #   iOS Simulator - switching signing off strips the entitlements blob, the
+          #              app gets no application-identifier, and every Keychain call
+          #              fails with -34018 (errSecMissingEntitlement). Ad-hoc signing
+          #              keeps the entitlements and needs no certificate or team.
+          if [ "${{ matrix.name }}" = "catalyst" ]; then
+            SIGN="CODE_SIGNING_ALLOWED=NO"
+          else
+            SIGN="CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=-"
+          fi
+          echo "signing: $SIGN"
+
           set +e
+          # shellcheck disable=SC2086  # SIGN is a deliberate word-split flag list
           xcodebuild test \
             -project Mattermost.xcodeproj \
             -scheme Mattermost \
@@ -82,7 +97,7 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/dd" \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 300 \
-            CODE_SIGNING_ALLOWED=NO \
+            $SIGN \
             > "$LOG" 2>&1
           RC=$?
           set -e
