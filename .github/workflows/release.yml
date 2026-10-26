@@ -297,6 +297,18 @@ jobs:
           echo "app: $APP"
 
           BIN="$APP/Contents/MacOS/Mattermost"
+
+          # The bundle's version comes from a static Info.plist that nobody bumps, so a
+          # download would report "0.1.4" no matter which release it came from. Stamp
+          # the tag in, then re-sign: editing the plist breaks the existing seal.
+          TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
+          [ -n "$TAG" ] || TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+          SHORT_VERSION="${TAG#v}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SHORT_VERSION" "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER}" "$APP/Contents/Info.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${GITHUB_RUN_NUMBER}" "$APP/Contents/Info.plist"
+          codesign --force --deep --sign - --timestamp=none "$APP"
+
           echo "architectures: $(lipo -archs "$BIN")"
           echo "min macOS: $(plutil -extract LSMinimumSystemVersion raw -o - "$APP/Contents/Info.plist" 2>/dev/null || echo unknown)"
           echo "bundle id: $(plutil -extract CFBundleIdentifier raw -o - "$APP/Contents/Info.plist")"
@@ -308,9 +320,8 @@ jobs:
             echo "::error::code signature is not valid"; exit 1; }
           codesign -dv --entitlements - "$APP" 2>&1 | head -20
 
-          TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
-          [ -n "$TAG" ] || TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-          NAME="Mattermost-macOS-arm64-${TAG}"
+          # Universal binary as built, so no arch suffix in the name.
+          NAME="Mattermost-macOS-${TAG}"
 
           # Stage app + README as one folder so a single zip has both. The README must
           # live next to the bundle, never inside it: any file added under
@@ -341,7 +352,8 @@ jobs:
             open /Applications/Mattermost.app
 
           NOTES
-            - Apple Silicon (arm64). It will not run on an Intel Mac.
+            - Universal: Apple Silicon and Intel (arm64 + x86_64).
+            - Minimum macOS 14.0.
             - Enter your server URL on first run. Credentials go to the macOS Keychain.
             - Xcode Debug builds are unaffected; all of this applies only to this download.
 

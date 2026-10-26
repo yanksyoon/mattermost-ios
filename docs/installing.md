@@ -35,13 +35,15 @@ Once. After the first approval macOS remembers it for that copy.
 
 ## Details worth knowing
 
-- **Apple Silicon only.** The build is `arm64`; there is no Intel slice. The runner is
-  arm64 and so is the machine this is used on, so a universal build would double the
-  build time for a slice nothing runs.
-- **Minimum macOS** is whatever the Catalyst target declares (13.0 today); the build
-  log prints the resolved `LSMinimumSystemVersion`.
-- **Bundle metadata** (id, short version, build number) is printed in the `package` job
-  log on every release, so a stale or malformed bundle is visible without downloading.
+- **Universal (arm64 + x86_64).** `ONLY_ACTIVE_ARCH=NO` on the Catalyst destination
+  produced both slices; the `package` job prints `lipo -archs` every release so this is
+  verifiable rather than assumed. Runs on Intel Macs too.
+- **Minimum macOS 14.0** — the resolved `LSMinimumSystemVersion` is printed in the build
+  log, so the doc can't drift from the binary.
+- **The bundle version is stamped from the tag** before signing: `CFBundleShortVersionString`
+  becomes the release number (e.g. `0.6.0`) and `CFBundleVersion` the workflow run
+  number. Without that the app reported a hard-coded `0.1.4` from its static
+  `Info.plist` and every download looked identical in About.
 - **The signature is verified in CI** with `codesign --verify --deep --strict` before
   the zip is made. A broken bundle fails the job rather than failing on the way in.
 
