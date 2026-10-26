@@ -13,9 +13,9 @@ from git, never a version file, so the number cannot drift from what was release
 
 ## Mechanics
 
-`.github/workflows/release.yml` runs on every push to `main`, in two stages: **test**,
-then **release**. `needs: test` means a red suite produces no tag, no release and no
-notes.
+`.github/workflows/release.yml` runs on every push to `main`: **test**, then
+**release**, then **package** (which builds and attaches the app). `needs: test` means a
+red suite produces no tag, no release and no notes.
 
 ### Stage 1 — test (macos-26, matrix: `ios-simulator` + `catalyst`)
 
@@ -24,7 +24,9 @@ against, so CI runs the real toolchain rather than a stand-in.
 
 1. Prints the toolchain, so a future break is diagnosable from the log alone.
 2. Self-tests the gate scripts — `release_version.py`, `release_notes.py`,
-   `ci_simulator.py`, `verify-pushed.py`.
+   `ci_simulator.py`, `verify-pushed.py` — and then
+   `release_publish_selftest.sh`, which replays the shipped *Publish the release* step
+   itself (see **Self-testing** below).
 3. Resolves SPM dependencies (GRDB).
 4. `xcodebuild test -scheme Mattermost -skip-testing:MattermostUITests`, with
    `-test-timeouts-enabled YES` so a hung harness reports instead of eating the
@@ -42,11 +44,13 @@ hard-coded `name=iPhone 16` rots.
 
 ### Stage 2 — release (ubuntu-latest)
 
-1. Re-runs the version and notes self-tests on the tagging host.
-2. Computes the next tag from the existing tags (never from a file).
-3. Creates the tag **through the Releases API** (`gh release create --target <sha>`)
+1. Re-runs the version, notes and publish-step self-tests on the tagging host.
+2. Exits 0 without touching anything unless `HEAD` is the tip of `main` (see
+   **Tip only**).
+3. Computes the next tag from the existing tags (never from a file).
+4. Creates the tag **through the Releases API** (`gh release create --target <sha>`)
    and publishes with generated notes.
-4. Verifies the release exists afterwards with `gh release view` rather than trusting
+5. Verifies the release exists afterwards with `gh release view` rather than trusting
    the command's exit code.
 
 **Tags are created by API, not by `git push`.** This is not a style choice. A
@@ -67,9 +71,10 @@ them.
 That failure also exposed a worse bug worth remembering: the first version retried the
 push, saw its own locally created tag on `HEAD`, answered `SKIP`, and **reported
 success** with no tag on the remote and no release. A retry loop that can convert a hard
-failure into a green run is worse than no retry. The current logic has three distinct
+failure into a green run is worse than no retry. The current logic has four distinct
 outcomes — already published (exit 0), tag without release (finish it), no tag (create
-both) — and never treats "I cannot tell" as success.
+both), and `SKIP` with no release tag at all (refuse with `::error::`, exit 1) — and
+never treats "I cannot tell" as success.
 
 **Notes come from commits and PRs.** `release_notes.py` groups commit subjects by
 Conventional Commit type, and any `(#123)` reference in a subject becomes a linked
@@ -80,21 +85,48 @@ GitHub's own `--generate-notes` is still not used for the body: every commit so 
 a direct push, and when none carry PRs it emits only a compare link — which is exactly
 what `v0.2.0` shipped with before its notes were backfilled.
 
-Three properties worth knowing, because each one was a deliberate choice:
+Five properties worth knowing, because each one was a deliberate choice:
 
 - **Tests gate the release.** The tag job cannot start until both matrix legs pass.
   A red suite on `main` means the previous release stays latest — which is the point.
 - **One release per commit.** If the pushed commit already carries a `v*` tag the
   script answers `SKIP` and the release stage exits cleanly. Re-running a workflow, or
   a duplicate webhook delivery, can never cut a second release for the same commit.
+  `SKIP` also covers the ambiguous case: when `HEAD` carries only a *non*-release tag
+  (`v0.5.0-rc1`, whose suffix `release_version.py` drops), the step prints
+  `::error::SKIP with no release tag on HEAD <sha>` and exits 1 instead of guessing.
+  Policy: **a pre-release tag is not a release**, and no release is cut for that
+  commit until the tag is deleted or a new commit is pushed — cutting the next version
+  on a commit someone deliberately marked as a candidate would put the ladder ahead of
+  the code. (That case used to abort inside a `set -e` assignment and leave a red job
+  with no reason in the log at all.)
+- **Tip only.** The first thing the release job asks the remote is whether `HEAD` is
+  `git ls-remote origin refs/heads/main`; if it is not, the run prints
+  "… is not the tip of main (…); superseded, no release cut." and exits 0 without
+  touching anything. This is the only thing standing between a queued run and a
+  mis-ordered ladder: runs serialise (below), so a superseded run can start *after* a
+  newer one has released, and without the guard it would compute the *next* version
+  and attach it to an **older** commit (`v0.6.0` below `v0.5.0`). A failed
+  `ls-remote` is not a tip mismatch — `set -e`/`pipefail` surfaces git's exit status
+  and the job goes red, because "I cannot tell" is never success.
 - **Serialised.** `concurrency: release-${{ github.ref }}` with
-  `cancel-in-progress: false` queues runs instead of racing for the same tag, and the
-  tag step retries up to five times, re-reading tags each attempt.
+  `cancel-in-progress: false` queues runs instead of racing for the same tag. There is
+  no retry loop: `1e64fbf` removed the five-attempt one, because a loop that re-reads
+  tags can read the tag it just created *locally*, answer `SKIP`, and report success
+  with nothing on the remote and no release. A run now either publishes or fails.
 - **Self-testing.** A rule that has never been shown to fail is not a rule.
   `release_version.py` covers ten cases (no tags, minor bump, junk tags, pre-release
   suffixes, `HEAD` already tagged, `0.10 > 0.9`); `release_notes.py` covers eight
   (grouping, ordering, breaking markers, unprefixed subjects, PR links and their
-  absence); `ci_simulator.py` covers five (filtering, runtime ordering, hint, empty).
+  absence); `ci_simulator.py` covers five (filtering, runtime ordering, hint, empty);
+  and `release_publish_selftest.sh` replays the **shipped** body of *Publish the
+  release* — extracted from `.github/workflows/release.yml` at run time, never a copy
+  that can drift — against a throwaway bare origin and a stub `gh`. It asserts 46 checks
+  over 8 scenarios (publish, API rejection, re-run, tag without release, superseded,
+  local-only tag, pre-release tag, `ls-remote` down) and keeps the negative control:
+  `a4b6467`'s pre-fix body, replayed against an origin whose hook models GitHub's
+  workflow-file rejection, must still exit 0 with no tag and no release. It runs in
+  both CI legs and needs only bash, git and python3.
 
 ## Locally
 
@@ -104,23 +136,25 @@ python3 scripts/release_version.py --format json
 python3 scripts/release_version.py --dry-run    # explains the decision on stderr
 python3 scripts/release_notes.py --from v0.2.0  # what the notes will say
 python3 scripts/ci_simulator.py                 # which simulator CI would pick
+bash scripts/release_publish_selftest.sh        # replay the release step; 8 scenarios
 ```
 
 All of these are read-only and safe during a card run — they only read tags and
-simulator state.
+simulator state, and the self-test works entirely inside a `mktemp` directory.
 
 ## What a release contains
 
-A tag, a GitHub-generated changelog, and GitHub's automatic source archives
-(`zip` / `tar.gz`). **There is no built `.ipa` or `.app` attached**, on purpose:
+A tag, generated notes, GitHub's automatic source archives (`zip` / `tar.gz`), and the
+built app: `Mattermost-macOS-arm64-<tag>.zip`, a Mac Catalyst Release build, ad-hoc
+signed and not notarized (`f5b353c`). A `package` job — `needs: [test, release]` —
+builds it, verifies the bundle's signature, and attaches it to the release the tag job
+created; on a superseded run, whose `HEAD` carries no tag, it leaves the zip as a
+workflow artifact instead of guessing which release it belongs to. Unzipping, the
+Gatekeeper override and the arm64-only limitation are in `docs/installing.md`.
 
-- Signing needs the Apple Developer Program membership (board card H1), which is
-  not in place, so an unsigned artifact would be a download nobody can install.
-- The macOS runner on this public repo could produce an unsigned archive, but it
-  would add minutes and a misleading artifact for no benefit.
-
-When H1 clears, the natural extension is an `xcodebuild archive` job that attaches a
-signed `.ipa` to the same release, gated on the tag the workflow already creates.
+There is still no `.ipa`: shipping an iOS build needs the Apple Developer Program
+membership (board card H1). When H1 clears, the natural extension is an `xcodebuild
+archive` step that attaches a signed `.ipa` to the same release.
 
 ## Relationship to the board's closing gate
 
