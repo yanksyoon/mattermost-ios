@@ -420,24 +420,31 @@ enum PostListDerivation {
     /// Reactions from `post.metadata.reactions` (the channel-posts endpoint includes them; a server
     /// that omits the field simply has no reactions on that page — verified 2026-10-25, see the build
     /// note §4).
+    ///
+    /// **Aliases are one pill.** The server stores `thumbsup` and `+1` as two separate rows (measured
+    /// against 9.11.19 during T37), so the raw list is folded onto the canonical shortcode here; the
+    /// pill a reader sees is "👍 2", and toggling it acts on both spellings. A name the system table
+    /// does not know (a custom emoji, or a server-only one) is its own pill under its own name.
     static func reactions(for post: MMPost, myUserID: String?) -> [PostReactionSummary] {
         guard let raw = post.metadata?["reactions"]?.arrayValue, !raw.isEmpty else { return [] }
+        let system = SystemEmojiCatalogue.shared
         var order: [String] = []
         var grouped: [String: PostReactionSummary] = [:]
         for value in raw {
             guard let reaction = try? MMRawJSON(value).decode(MMReaction.self),
                   !reaction.emojiName.isEmpty else { continue }
-            if grouped[reaction.emojiName] == nil {
-                order.append(reaction.emojiName)
-                grouped[reaction.emojiName] = PostReactionSummary(emojiName: reaction.emojiName,
-                                                                  count: 0,
-                                                                  includesMe: false,
-                                                                  userIds: [])
+            let name = system.canonicalName(for: reaction.emojiName) ?? reaction.emojiName
+            if grouped[name] == nil {
+                order.append(name)
+                grouped[name] = PostReactionSummary(emojiName: name,
+                                                    count: 0,
+                                                    includesMe: false,
+                                                    userIds: [])
             }
-            grouped[reaction.emojiName]?.count += 1
-            grouped[reaction.emojiName]?.userIds.append(reaction.userId)
+            grouped[name]?.count += 1
+            grouped[name]?.userIds.append(reaction.userId)
             if reaction.userId == myUserID {
-                grouped[reaction.emojiName]?.includesMe = true
+                grouped[name]?.includesMe = true
             }
         }
         // Most-reacted first (the reaction bar's rule), then by name so the order is deterministic.

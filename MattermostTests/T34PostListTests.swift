@@ -252,7 +252,9 @@ final class T34PostListTests: XCTestCase {
         let post = MMPost(id: "p", createAt: minutesAgo(1), userId: "u1", channelId: "ch",
                           message: "react to me", metadata: metadata)
         let row = PostListDerivation.row(post: post, users: [:], myUserID: "me", grouped: false)
-        XCTAssertEqual(row.reactions.map(\.emojiName), ["tada", "thumbsup"], "most-reacted first")
+        // T37: `thumbsup` and `+1` are one alias group, and the pill carries the canonical spelling
+        // (upstream `getEmojiFirstAlias`), so the row shows "+1" — not the spelling the server stored.
+        XCTAssertEqual(row.reactions.map(\.emojiName), ["tada", "+1"], "most-reacted first")
         XCTAssertEqual(row.reactions[0].count, 2)
         XCTAssertFalse(row.reactions[0].includesMe)
         XCTAssertTrue(row.reactions[1].includesMe)
@@ -546,9 +548,10 @@ final class T34FixtureTests: XCTestCase {
         }
         XCTAssertEqual(Set(languages), ["json", "swift"])
 
-        // Reactions arrive on the channel-posts payload and are grouped per emoji.
+        // Reactions arrive on the channel-posts payload and are grouped per emoji (T37: per *alias
+        // group*, under the canonical spelling).
         let inlineRow = try XCTUnwrap(rows.first { $0.post.props?["t34_key"]?.stringValue == "inline" })
-        XCTAssertEqual(inlineRow.reactions.map(\.emojiName), ["tada", "thumbsup"])
+        XCTAssertEqual(inlineRow.reactions.map(\.emojiName), ["tada", "+1"])
         XCTAssertEqual(inlineRow.reactions[0].count, 2)
         XCTAssertEqual(inlineRow.reactions[0].userIds.count, 2)
 

@@ -87,6 +87,8 @@ struct ComposerView: View {
     @ObservedObject var model: ComposerViewModel
     /// The pane's custom-emoji catalogue, so `:` completes the names the server owns.
     var emoji: EmojiCatalogue?
+    /// T37: the picker's "recently used" row (one store per server and user, shared with the list).
+    var recents: EmojiRecentsStore? = nil
 
     /// True while the input has keyboard focus; the suggested list is only useful then.
     @State private var isFocused = false
@@ -94,6 +96,8 @@ struct ComposerView: View {
     @State private var isFileImporterPresented = false
     @State private var pickerItem: PhotosPickerItem?
     @State private var isAttachMenuPresented = false
+    /// T37: the emoji picker, opened from the toolbar.
+    @State private var isEmojiPickerPresented = false
     /// The last selection the input reported, used to place a toolbar edit.
     @State private var selection = NSRange(location: 0, length: 0)
 
@@ -148,6 +152,7 @@ struct ComposerView: View {
         VStack(spacing: 4) {
             HStack(alignment: .bottom, spacing: 6) {
                 attachButton
+                emojiButton
                 ZStack(alignment: .topLeading) {
                     if message.isEmpty {
                         Text(placeholder)
@@ -183,6 +188,36 @@ struct ComposerView: View {
         case .editing: return "Edit message"
         case .reply: return "Reply to the thread…"
         case .newPost: return "Message"
+        }
+    }
+
+    /// T37: the emoji picker entry point. A toolbar button rather than a long-press: the composer's
+    /// `:` trigger serves people who type shortcodes, the picker serves everyone else.
+    private var emojiButton: some View {
+        Button {
+            isEmojiPickerPresented = true
+        } label: {
+            Image(systemName: "face.smiling")
+                .font(.system(size: 21))
+                .foregroundStyle(model.mode.isEditing ? .tertiary : .secondary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add emoji")
+        .accessibilityIdentifier("channelComposer.emoji")
+        .sheet(isPresented: $isEmojiPickerPresented) {
+            EmojiPickerView(
+                model: EmojiPickerViewModel(mode: .composer,
+                                            catalogue: emoji,
+                                            recents: recents,
+                                            onPick: { item in
+                                                isEmojiPickerPresented = false
+                                                // A custom emoji has no character: the message carries
+                                                // its shortcode, which the server renders.
+                                                let insert = item.character ?? ":\(item.name):"
+                                                recents?.record(item.name)
+                                                _ = model.insertEmoji(insert)
+                                            }),
+                emoji: emoji)
         }
     }
 

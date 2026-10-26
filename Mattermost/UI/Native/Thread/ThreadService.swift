@@ -41,6 +41,15 @@ protocol ThreadServing: AnyObject {
     /// Author profiles for the ids on screen, in one batched request.
     func users(ids: [String]) async throws -> [MMUser]
 
+    /// `POST /reactions` — a reaction write from the thread pane (S16/T37).
+    ///
+    /// Defaults to a failure, so a service that has not implemented the write path still draws
+    /// reactions and reports an error on a tap instead of silently ignoring it.
+    func addReaction(postID: String, emojiName: String, userID: String) async throws -> MMReaction
+
+    /// `DELETE /users/{user_id}/posts/{post_id}/reactions/{emoji_name}`.
+    func removeReaction(postID: String, emojiName: String, userID: String) async throws
+
     /// Page size, injectable so a test can page a fixture without 60 real threads.
     var pageSize: Int { get }
 }
@@ -50,6 +59,12 @@ extension ThreadServing {
     /// A service that has not implemented the batched profile call simply renders id-only avatars;
     /// it must never fail a whole thread because a face is missing.
     func users(ids: [String]) async throws -> [MMUser] { [] }
+    func addReaction(postID: String, emojiName: String, userID: String) async throws -> MMReaction {
+        throw MMError.notFound
+    }
+    func removeReaction(postID: String, emojiName: String, userID: String) async throws {
+        throw MMError.notFound
+    }
 }
 
 /// The production implementation: the server's own `AuthSession.client`, resolved **per call** so a
@@ -106,5 +121,15 @@ final class SessionThreadService: ThreadServing {
         // A profile failure must not fail the thread: rows fall back to the id-derived avatar, which
         // is still ordered and still says which post belongs to whom.
         (try? await client().users(ids: ids)) ?? []
+    }
+
+    /// S16/T37: the thread pane's reaction writes go through the same `APIClient` endpoints as the
+    /// channel pane's; the alias is canonicalised by the caller (`thumbsup` → `+1`).
+    func addReaction(postID: String, emojiName: String, userID: String) async throws -> MMReaction {
+        try await client().addReaction(postID: postID, emojiName: emojiName, userID: userID)
+    }
+
+    func removeReaction(postID: String, emojiName: String, userID: String) async throws {
+        try await client().removeReaction(postID: postID, emojiName: emojiName, userID: userID)
     }
 }

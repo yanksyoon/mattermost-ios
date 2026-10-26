@@ -40,6 +40,16 @@ protocol ChannelServing: AnyObject {
     /// The image bytes for one custom emoji (`GET /emoji/{id}/image`).
     func emojiImage(emojiID: String) async throws -> Data
 
+    /// `POST /reactions` — add one reaction (S16/T37).
+    ///
+    /// Defaults to a failure: a service that has not implemented the write path still *draws*
+    /// reactions, and a tap on it then reports an error instead of silently doing nothing (the same
+    /// degradation rule as `customEmoji`).
+    func addReaction(postID: String, emojiName: String, userID: String) async throws -> MMReaction
+
+    /// `DELETE /users/{user_id}/posts/{post_id}/reactions/{emoji_name}`.
+    func removeReaction(postID: String, emojiName: String, userID: String) async throws
+
     /// Page size, injectable so a test can page a fixture without 60 real posts.
     var pageSize: Int { get }
 }
@@ -49,6 +59,12 @@ extension ChannelServing {
     func membership(channelID: String) async throws -> MMChannelMember? { nil }
     func customEmoji(page: Int, perPage: Int) async throws -> [MMEmoji] { [] }
     func emojiImage(emojiID: String) async throws -> Data { throw MMError.notFound }
+    func addReaction(postID: String, emojiName: String, userID: String) async throws -> MMReaction {
+        throw MMError.notFound
+    }
+    func removeReaction(postID: String, emojiName: String, userID: String) async throws {
+        throw MMError.notFound
+    }
 }
 
 /// The production implementation: the server's own `AuthSession.client`, resolved **per call** so a
@@ -108,5 +124,15 @@ final class SessionChannelService: ChannelServing {
 
     func emojiImage(emojiID: String) async throws -> Data {
         try await client().emojiImage(emojiID: emojiID)
+    }
+
+    /// S16/T37: the write half. The alias the caller passes is already canonical (`thumbsup` → `+1`),
+    /// so this sends exactly one spelling per pill.
+    func addReaction(postID: String, emojiName: String, userID: String) async throws -> MMReaction {
+        try await client().addReaction(postID: postID, emojiName: emojiName, userID: userID)
+    }
+
+    func removeReaction(postID: String, emojiName: String, userID: String) async throws {
+        try await client().removeReaction(postID: postID, emojiName: emojiName, userID: userID)
     }
 }

@@ -32,6 +32,8 @@ struct ThreadPaneContent: View {
     @State private var composer: ComposerViewModel?
     @State private var imageStore: ChannelImageStore?
     @State private var emoji: EmojiCatalogue?
+    /// T37: recently-used emoji, the same store the channel pane records into.
+    @State private var emojiRecents: EmojiRecentsStore?
 
     /// Whether the write surface renders natively (T35's `.composer` surface). The thread's reply box
     /// is that same surface: with it on `.web` the reader gets the webview's composer, so the native
@@ -48,7 +50,8 @@ struct ThreadPaneContent: View {
                 ThreadPostListView(model: model,
                                    imageStore: imageStore,
                                    emoji: emoji,
-                                   rowActions: rowActions)
+                                   rowActions: rowActions,
+                                   recents: emojiRecents)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -56,7 +59,7 @@ struct ThreadPaneContent: View {
             }
             Divider()
             if composerIsNative, let composer {
-                ComposerView(model: composer, emoji: emoji)
+                ComposerView(model: composer, emoji: emoji, recents: emojiRecents)
             } else {
                 composerPlaceholder
             }
@@ -68,10 +71,14 @@ struct ThreadPaneContent: View {
             imageStore = panes.imageStore(for: server)
             let catalogue = panes.emojiCatalogue(for: server)
             emoji = catalogue
+            let recents = panes.emojiRecents(for: server)
+            emojiRecents = recents
             let resolved = await threads.activate(server: server,
                                                   rootID: rootID,
                                                   channelID: channelID.isEmpty ? nil : channelID)
             model = resolved
+            // T37: a react recorded here is the same list the channel pane's picker shows.
+            resolved.onEmojiUsed = { name in recents.record(name) }
             // Opening a thread is reading it. Upstream marks the thread read on mount, and this
             // write is the only thing that can clear a badge: the server's `PUT …/read/{ts}`
             // answers the thread with its counters already applied (`ThreadViewModel.markRead`
@@ -205,8 +212,11 @@ struct ThreadPostListView: View {
     let imageStore: ChannelImageStore?
     var emoji: EmojiCatalogue?
     var rowActions: ((PostRowModel) -> PostRowActions?)? = nil
+    /// T37: the picker's recently-used row, shared with the channel pane's store.
+    var recents: EmojiRecentsStore? = nil
 
-    @State private var optionsRow: PostRowModel?
+    /// One item-bound sheet for this list (options, T37's picker and reactor list).
+    @State private var sheet: ChannelListSheet?
 
     var body: some View {
         Group {
@@ -224,13 +234,67 @@ struct ThreadPostListView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .sheet(item: $optionsRow) { row in
+        .overlay(alignment: .bottom) { failureBanner }
+        .sheet(item: $sheet) { sheet in
+            sheetContent(sheet)
+        }
+    }
+
+    @ViewBuilder
+    private func sheetContent(_ sheet: ChannelListSheet) -> some View {
+        switch sheet {
+        case .options(let row):
             if let actions = actions(for: row) {
                 PostOptionsSheet(rowID: row.id,
                                  authorName: row.author.displayName,
                                  actions: actions,
-                                 onDismiss: { optionsRow = nil })
+                                 onDismiss: { self.sheet = nil })
             }
+        case .picker(let postID):
+            EmojiPickerView(
+                model: EmojiPickerViewModel(mode: .reaction,
+                                            catalogue: emoji,
+                                            recents: recents,
+                                            onPick: { item in
+                                                self.sheet = nil
+                                                model.toggleReaction(postID: postID,
+                                                                     emojiName: item.name)
+                                            }),
+                emoji: emoji)
+        case .reactors(let postID, let emojiName):
+            ReactionSheetView(source: model,
+                              postID: postID,
+                              initialEmoji: emojiName,
+                              emojiCatalogue: emoji)
+        }
+    }
+
+    /// A failed react inside the thread, where the reader is looking (`ReactionCoordinator` keeps the
+    /// most recent one).
+    @ViewBuilder
+    private var failureBanner: some View {
+        if let failure = model.reactions.lastFailure {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .foregroundStyle(.orange)
+                Text(failure)
+                    .font(.footnote)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button {
+                    model.reactions.clearFailure()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.footnote.weight(.semibold))
+                }
+                .accessibilityLabel("Dismiss")
+                .accessibilityIdentifier("threadReactions.error.dismiss")
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
+            .accessibilityIdentifier("threadReactions.error")
         }
     }
 
@@ -304,7 +368,8 @@ struct ThreadPostListView: View {
                         emoji: emoji,
                         onToggleExpanded: { model.toggleExpanded(row.id) },
                         onRetryAttachment: { _ in },
-                        actions: actions(for: row))
+                        actions: actions(for: row),
+                        reactionActions: reactionActions(for: row))
                 // A reply in a thread can itself be a root for the channel's reply line but never
                 // opens a second thread: the reply line is withheld here.
                 .accessibilityIdentifier("thread.post.\(row.id)")
@@ -313,8 +378,21 @@ struct ThreadPostListView: View {
 
     private func actions(for row: PostRowModel) -> PostRowActions? {
         guard var supplied = rowActions?(row) else { return nil }
-        supplied.onShowOptions = { optionsRow = row }
+        supplied.onShowOptions = { sheet = .options(row) }
+        supplied.canReact = true
+        supplied.onReact = { sheet = .picker(postID: row.id) }
         return supplied
+    }
+
+    /// Pills are pressable when this host supplied a row menu (the write surface is native) and the
+    /// post has something in its bar. A thread replies live in the same coordinator as the channel
+    /// pane, so a react here reaches the same post there.
+    private func reactionActions(for row: PostRowModel) -> PostRowReactionActions? {
+        guard rowActions != nil, !row.reactions.isEmpty else { return nil }
+        return PostRowReactionActions(
+            onToggle: { name in model.toggleReaction(postID: row.id, emojiName: name) },
+            onShowReactors: { name in sheet = .reactors(postID: row.id, emojiName: name) },
+            onAdd: { sheet = .picker(postID: row.id) })
     }
 
     // MARK: States

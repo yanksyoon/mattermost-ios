@@ -36,6 +36,8 @@ final class ChannelPaneCoordinator: ObservableObject {
     private var recent: [UUID: [String]] = [:]
     private var imageStores: [UUID: ChannelImageStore] = [:]
     private var emojiCatalogues: [UUID: EmojiCatalogue] = [:]
+    /// T37: recently-used emoji, per server (the store itself is keyed by server **and** user).
+    private var emojiRecents: [UUID: EmojiRecentsStore] = [:]
     /// T35: one composer per channel, kept beside its list so a channel switch restores both the
     /// window and the half-typed message.
     private var composers: [UUID: [String: ComposerViewModel]] = [:]
@@ -96,6 +98,20 @@ final class ChannelPaneCoordinator: ObservableObject {
         let catalogue = EmojiCatalogue(service: service(for: server))
         emojiCatalogues[server.id] = catalogue
         return catalogue
+    }
+
+    /// T37: the recently-used emoji, one store per server **and** user.
+    ///
+    /// Per user as well as per server because the list is personal: two accounts on one server must
+    /// not see each other's latest reactions. Cached here (rather than built by each sheet) so the
+    /// picker and the reaction write record into the *same* in-memory list, and a sheet that opens
+    /// after a react already shows it.
+    func emojiRecents(for server: ServerConfig) -> EmojiRecentsStore {
+        if let existing = emojiRecents[server.id] { return existing }
+        let store = EmojiRecentsStore(serverID: server.id,
+                                      userID: auth?.userID(for: server.id) ?? "")
+        emojiRecents[server.id] = store
+        return store
     }
 
     /// The service for one server: the test factory when one is installed, otherwise the session's

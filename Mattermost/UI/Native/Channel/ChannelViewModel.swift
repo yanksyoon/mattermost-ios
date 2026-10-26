@@ -109,7 +109,8 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     /// Holds **rows only** (see `isTimelineRow`), never a reply.
     private var posts: [MMPost] = []
     private var postsByID: [String: MMPost] = [:]
-    private var users: [String: MMUser] = [:]
+    /// Author profiles for the rows on screen, and — for T37 — the names the reactor sheet draws.
+    private(set) var users: [String: MMUser] = [:]
     /// The newest page's oldest post id as the **server** answered it — the next `before` cursor.
     ///
     /// Kept apart from `oldestLoadedPostID` on purpose: a page can carry posts this window drops (a
@@ -122,7 +123,9 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     /// True once `lastViewedAt` came from a caller or the server, so the load does not overwrite it
     /// with a second (slower) answer.
     private var lastViewedAtIsAuthoritative: Bool
-    private var myUserID: String?
+    /// The session user, as the reactions write needs it: a react is always *my* reaction, and the
+    /// pill's highlight is "this is mine".
+    private(set) var myUserID: String?
     /// The channel this model is showing. Set by the coordinator; empty until then.
     private(set) var channelID: String
     /// Every load takes a number; a response that arrives after a newer load is dropped instead of
@@ -140,6 +143,9 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     /// channel (a reply, or a post in another channel), so the composer's retry check can answer for
     /// every send it made.
     private var pendingResolvedPosts: [String: MMPost] = [:]
+    /// Subscriptions that forward a collaborator's published state as this model's (T37: the reaction
+    /// coordinator's failure banner lives in the list's overlay).
+    private var cancellables = Set<AnyCancellable>()
 
     /// How the view answers "where is the reader right now", measured from its scroll view.
     ///
@@ -216,6 +222,7 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             guard requested == generation else { return }
             await loadChannelHeader()
             guard requested == generation else { return }
+            adoptReactionState(for: posts)
             rebuild()
             phase = .loaded
         } catch {
@@ -292,6 +299,7 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             for post in rows { postsByID[post.id] = post }
             await loadProfiles(for: Array(Set(rows.map(\.userId))))
             guard requested == generation else { return false }
+            adoptReactionState(for: rows)
             rebuild()
             // The reader was looking at `anchor`; the view scrolls back to it after this publish.
             pendingScrollRestore = scrollAnchor
@@ -402,14 +410,19 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
                 return record(.ignored)
             }
         case .reactionAdded(let reaction):
-            guard postsByID[reaction.postId] != nil, appendReaction(reaction) else {
-                return record(.ignored)
-            }
+            guard postsByID[reaction.postId] != nil else { return record(.ignored) }
+            // The post changes through the same function an optimistic tap uses. Whether it changed
+            // anything or not, the write machine is told: an event can be the echo of our own tap
+            // (nothing to apply) and still be the proof the server accepted it.
+            let added = appendReaction(reaction)
+            reactions.noteSocketEvent(reaction, adding: true)
+            guard added else { return record(.ignored) }
             outcome = .reactions
         case .reactionRemoved(let reaction):
-            guard postsByID[reaction.postId] != nil, removeReaction(reaction) else {
-                return record(.ignored)
-            }
+            guard postsByID[reaction.postId] != nil else { return record(.ignored) }
+            let removed = removeReaction(reaction)
+            reactions.noteSocketEvent(reaction, adding: false)
+            guard removed else { return record(.ignored) }
             outcome = .reactions
         case .channelViewed(let viewed):
             guard viewed.channelID == channelID, viewed.userID == myUserID else {
@@ -699,6 +712,75 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
 
     // MARK: - Reactions (rendered here, added/removed by S16/T37)
 
+    // MARK: Write path (T37)
+
+    /// T37: the host side of the reaction write.
+    ///
+    /// `ReactionCoordinator` calls this for its optimistic apply and its rollback, and the socket
+    /// handler above calls the same function for `reaction_*` — so a tap and a server event mutate the
+    /// post through **one** rule. That rule is set-shaped (this user's reaction on this emoji is
+    /// present or not), which is why a socket echo of our own write cannot double the count.
+    @discardableResult
+    func applyReaction(_ reaction: MMReaction, adding: Bool) -> Bool {
+        adding ? appendReaction(reaction) : removeReaction(reaction)
+    }
+
+    /// The profiles the reactor sheet draws — the same ones the rows already resolved.
+    var reactionUserProfiles: [String: MMUser] { users }
+
+    /// The reactor sheet asks for the names it does not hold yet: one batched `/users/ids`.
+    func loadReactionProfiles(for userIDs: [String]) async {
+        await loadProfiles(for: userIDs)
+    }
+
+    /// The pane's reaction writes. Created on first use: a channel where nobody reacts (and where no
+    /// socket event about a reaction ever arrives) never builds one.
+    private var reactionCoordinator: ReactionCoordinator?
+
+    var reactions: ReactionCoordinator {
+        if let reactionCoordinator { return reactionCoordinator }
+        // The closures keep the pane's own service seam (`ChannelServing`), so a test stub that
+        // implements the write half drives the real coordinator.
+        let coordinator = ReactionCoordinator(
+            add: { [weak self] postID, emoji, userID in
+                guard let self else { throw MMError.notSignedIn }
+                return try await self.service.addReaction(postID: postID, emojiName: emoji,
+                                                          userID: userID)
+            },
+            remove: { [weak self] postID, emoji, userID in
+                guard let self else { throw MMError.notSignedIn }
+                try await self.service.removeReaction(postID: postID, emojiName: emoji,
+                                                      userID: userID)
+            },
+            target: self,
+            onReactionAdded: { [weak self] name in self?.onEmojiUsed?(name) })
+        // The pill is a row of this list, so the coordinator's published state (a failure banner, a
+        // rollback) has to reach the list: forward its change notifications as ours.
+        coordinator.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+        reactionCoordinator = coordinator
+        return coordinator
+    }
+
+    /// Called after a react succeeded, so the picker's "recently used" row records what was used.
+    var onEmojiUsed: ((String) -> Void)?
+
+    /// Tap a reaction pill: optimistic toggle, then the write.
+    @discardableResult
+    func toggleReaction(postID: String, emojiName: String) -> Bool {
+        reactions.toggle(postID: postID, emojiName: emojiName)
+    }
+
+    /// After a page merge the server's copy of a post is the strongest truth: align the write machine
+    /// with it for the pairs it is tracking. A window with no reaction writes in flight is untouched.
+    private func adoptReactionState(for posts: [MMPost]) {
+        guard let reactionCoordinator, !reactionCoordinator.toggles.toggles.isEmpty else { return }
+        for post in posts { reactionCoordinator.adoptServerState(postID: post.id) }
+    }
+
+    // MARK: Applying one reaction to the window
+
     private func appendReaction(_ reaction: MMReaction) -> Bool {
         guard var post = postsByID[reaction.postId] else { return false }
         var list = post.metadata?["reactions"]?.arrayValue ?? []
@@ -827,3 +909,10 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
                             fallback: "The channel could not be loaded.")
     }
 }
+
+// MARK: - ReactionTarget (S16/T37)
+
+/// The channel pane is one of the two hosts a reaction write can target. Nothing is added here: the
+/// conformance is the statement that the *existing* window (its `post(id:)`, its socket patch and its
+/// profile cache) is what the coordinator drives, rather than a second copy of the message state.
+extension ChannelViewModel: ReactionTarget {}

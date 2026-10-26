@@ -216,6 +216,22 @@ final class ComposerViewModel: ObservableObject {
         startAutocomplete(for: trigger)
     }
 
+    /// T37: insert a picked emoji at the caret and report the caret the view must place.
+    ///
+    /// The caller passes what the *message* should carry: the glyph for a system emoji, and
+    /// `:shortcode:` for a custom one (the server renders that from the shortcode; there is no
+    /// character to type). Text entry stays a single entry point, so the draft write and the trigger
+    /// see the insert exactly as they would see a paste.
+    @discardableResult
+    func insertEmoji(_ insert: String) -> Int? {
+        guard !insert.isEmpty else { return nil }
+        let ns = text as NSString
+        let location = max(0, min(caret, ns.length))
+        let updated = ns.replacingCharacters(in: NSRange(location: location, length: 0), with: insert)
+        textChanged(updated, caret: location + (insert as NSString).length)
+        return caret
+    }
+
     /// Apply a chosen suggestion to the text and report the caret the view must place.
     @discardableResult
     func apply(_ suggestion: ComposerSuggestion) -> Int? {

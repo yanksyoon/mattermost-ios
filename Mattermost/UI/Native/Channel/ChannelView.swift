@@ -15,6 +15,26 @@
 
 import SwiftUI
 
+/// The sheets the channel window can present (T35 options, T37 picker and reactor list).
+///
+/// One item-bound sheet (`ChannelPostListView.sheet`) rather than one per feature, so a presentation
+/// cannot be silently swallowed by a second `.sheet` modifier in the same view.
+enum ChannelListSheet: Identifiable {
+    case options(PostRowModel)
+    /// The emoji picker, opened for one post's reaction.
+    case picker(postID: String)
+    /// Who reacted with one emoji.
+    case reactors(postID: String, emojiName: String)
+
+    var id: String {
+        switch self {
+        case .options(let row): return "options.\(row.id)"
+        case .picker(let postID): return "picker.\(postID)"
+        case .reactors(let postID, let emojiName): return "reactors.\(postID).\(emojiName)"
+        }
+    }
+}
+
 /// The post list for one channel: rows, day separators, the unread divider, and the "load earlier"
 /// sentinel that is also the pagination trigger.
 struct ChannelPostListView: View {
@@ -26,15 +46,20 @@ struct ChannelPostListView: View {
     /// T36: what a tap on a root's reply line does — opens that thread. Nil leaves the line inert
     /// (a preview, or the web render of the pane).
     var onOpenThread: ((PostRowModel) -> Void)? = nil
+    /// T37: the recently-used emoji the picker opens with. Nil is a picker with no recent row.
+    var recents: EmojiRecentsStore? = nil
 
     /// True while a top visit must not page: the reader has not been away from the top since the last
     /// auto-load, so this is the same visit. Cleared once the viewport is a screen away from the top.
     @State private var mustLeaveTopBeforePaging = true
     @State private var readerIsAtBottom = true
     @StateObject private var scrollController = ChannelScrollController()
-    /// The row whose options sheet is up. One sheet for the window (T35): a row's overflow button
-    /// hands its row here rather than each row owning a presentation.
-    @State private var optionsRow: PostRowModel?
+    /// The one sheet this window presents (T35's options, T37's picker and reactor list).
+    ///
+    /// A single item-bound sheet rather than three `.sheet` modifiers: on the same view SwiftUI keeps
+    /// only the last presentation in some states, and a row's overflow button, a pill's long press and
+    /// a `+` chip all have to be able to win.
+    @State private var sheet: ChannelListSheet?
 
     var body: some View {
         Group {
@@ -52,13 +77,69 @@ struct ChannelPostListView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .sheet(item: $optionsRow) { row in
+        .overlay(alignment: .bottom) { failureBanner }
+        .sheet(item: $sheet) { sheet in
+            sheetContent(sheet)
+        }
+    }
+
+    // MARK: Sheets (T35 options, T37 picker and reactors)
+
+    @ViewBuilder
+    private func sheetContent(_ sheet: ChannelListSheet) -> some View {
+        switch sheet {
+        case .options(let row):
             if let actions = actions(for: row) {
                 PostOptionsSheet(rowID: row.id,
                                  authorName: row.author.displayName,
                                  actions: actions,
-                                 onDismiss: { optionsRow = nil })
+                                 onDismiss: { self.sheet = nil })
             }
+        case .picker(let postID):
+            EmojiPickerView(
+                model: EmojiPickerViewModel(mode: .reaction,
+                                            catalogue: emoji,
+                                            recents: recents,
+                                            onPick: { item in
+                                                self.sheet = nil
+                                                model.toggleReaction(postID: postID,
+                                                                     emojiName: item.name)
+                                            }),
+                emoji: emoji)
+        case .reactors(let postID, let emojiName):
+            ReactionSheetView(source: model,
+                              postID: postID,
+                              initialEmoji: emojiName,
+                              emojiCatalogue: emoji)
+        }
+    }
+
+    /// The reaction write that failed, where the reader is looking. Dismissible, and only ever one at
+    /// a time: the coordinator keeps the most recent failure, which is the one worth naming.
+    @ViewBuilder
+    private var failureBanner: some View {
+        if let failure = model.reactions.lastFailure {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .foregroundStyle(.orange)
+                Text(failure)
+                    .font(.footnote)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button {
+                    model.reactions.clearFailure()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.footnote.weight(.semibold))
+                }
+                .accessibilityLabel("Dismiss")
+                .accessibilityIdentifier("channelReactions.error.dismiss")
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
+            .accessibilityIdentifier("channelReactions.error")
         }
     }
 
@@ -222,7 +303,8 @@ struct ChannelPostListView: View {
                         onToggleExpanded: { toggleExpanded(row.id) },
                         onRetryAttachment: { _ in },
                         actions: actions(for: row),
-                        onOpenThread: onOpenThread.map { open in { open(row) } })
+                        onOpenThread: onOpenThread.map { open in { open(row) } },
+                        reactionActions: reactionActions(for: row))
                 // The row's own UIView, so the restore can measure where the reader is without
                 // going through a SwiftUI preference (see ChannelScrollPosition.swift).
                 .background(RowAnchorProbe(postID: row.id, controller: scrollController))
@@ -232,8 +314,24 @@ struct ChannelPostListView: View {
     /// The row's actions, with the options presentation wired to this window.
     private func actions(for row: PostRowModel) -> PostRowActions? {
         guard var supplied = rowActions?(row) else { return nil }
-        supplied.onShowOptions = { optionsRow = row }
+        supplied.onShowOptions = { sheet = .options(row) }
+        // A host that supplied row actions can always reach the picker: the menu is the way to react
+        // to a message that has no pills yet (the bar only appears once there is something in it).
+        supplied.canReact = true
+        supplied.onReact = { sheet = .picker(postID: row.id) }
         return supplied
+    }
+
+    /// The row's reaction handlers, when this host is interactive at all.
+    ///
+    /// Gated on `rowActions` for the same reason the options sheet is: a preview or a read-only host
+    /// (the web render's fallback) draws the pills but must not send a write.
+    private func reactionActions(for row: PostRowModel) -> PostRowReactionActions? {
+        guard rowActions != nil, !row.reactions.isEmpty else { return nil }
+        return PostRowReactionActions(
+            onToggle: { name in model.toggleReaction(postID: row.id, emojiName: name) },
+            onShowReactors: { name in sheet = .reactors(postID: row.id, emojiName: name) },
+            onAdd: { sheet = .picker(postID: row.id) })
     }
 
     /// Expand or collapse a post without moving the post's own position on screen.
@@ -419,6 +517,8 @@ struct ChannelPaneContent: View {
     @State private var model: ChannelViewModel?
     @State private var imageStore: ChannelImageStore?
     @State private var emoji: EmojiCatalogue?
+    /// T37: the recently-used emoji, resolved once per server pane (see the coordinator's cache).
+    @State private var emojiRecents: EmojiRecentsStore?
     @State private var composer: ComposerViewModel?
 
     /// Whether the write surface renders natively (T35's `.composer` surface).
@@ -442,7 +542,8 @@ struct ChannelPaneContent: View {
                                     rowActions: rowActions,
                                     onOpenThread: { row in
                                         openThread(rootID: row.id, row: row)
-                                    })
+                                    },
+                                    recents: emojiRecents)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -450,7 +551,7 @@ struct ChannelPaneContent: View {
             }
             Divider()
             if composerIsNative, let composer {
-                ComposerView(model: composer, emoji: emoji)
+                ComposerView(model: composer, emoji: emoji, recents: emojiRecents)
             } else {
                 composerPlaceholder
             }
@@ -463,6 +564,11 @@ struct ChannelPaneContent: View {
             imageStore = panes.imageStore(for: server)
             let catalogue = panes.emojiCatalogue(for: server)
             emoji = catalogue
+            // T37: the picker's recent row and the reaction write record into one store, so a react
+            // from the list shows up in the picker that is opened next.
+            let recents = panes.emojiRecents(for: server)
+            emojiRecents = recents
+            resolved.onEmojiUsed = { name in recents.record(name) }
             // T35: the composer is created beside the list and wired to it, so an optimistic row and
             // its reconciliation land in the same window the reader is looking at. Only when the
             // write surface is native: a webview composer must not open a draft database or a send

@@ -41,6 +41,7 @@
 		F3000000000000000000001F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000002F /* SettingsView.swift */; };
 		F30000000000000000000020 /* DownloadsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000030 /* DownloadsView.swift */; };
 		F30000000000000000000021 /* CertPromptSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000035 /* CertPromptSheet.swift */; };
+		F300000000000000000000C1 /* emoji.json in Resources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000C1 /* emoji.json */; };
 		F30000000000000000000022 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000037 /* PrivacyInfo.xcprivacy */; };
 		F30000000000000000000023 /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000038 /* Diagnostics.swift */; };
 		F30000000000000000000024 /* SentryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000039 /* SentryService.swift */; };
@@ -142,6 +143,7 @@
 		F2000000000000000000002F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		F20000000000000000000030 /* DownloadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsView.swift; sourceTree = "<group>"; };
 		F20000000000000000000035 /* CertPromptSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CertPromptSheet.swift; sourceTree = "<group>"; };
+		F200000000000000000000C1 /* emoji.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/emoji.json; sourceTree = "<group>"; };
 		F20000000000000000000037 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		F20000000000000000000038 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		F20000000000000000000039 /* SentryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryService.swift; sourceTree = "<group>"; };
@@ -261,6 +263,7 @@
 				F2000000000000000000000C /* Mattermost.entitlements */,
 				F2000000000000000000001B /* Info.plist */,
 				F20000000000000000000037 /* PrivacyInfo.xcprivacy */,
+				F200000000000000000000C1 /* emoji.json */,
 			);
 			path = Mattermost;
 			sourceTree = "<group>";
@@ -506,6 +509,7 @@
 			files = (
 				F3000000000000000000000B /* Assets.xcassets in Resources */,
 				F30000000000000000000022 /* PrivacyInfo.xcprivacy in Resources */,
+				F300000000000000000000C1 /* emoji.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -122,9 +122,24 @@ struct PostRowActions {
     /// Ask the host to present this row's options. The *list* owns the sheet: one sheet for the
     /// whole window, not one per row.
     var onShowOptions: () -> Void
+    /// T37: ask the host to present the emoji picker for this row. The picker is likewise one sheet
+    /// for the window; a row only says *which* post it was opened for.
+    var canReact: Bool = false
+    var onReact: () -> Void = {}
 
     /// Whether there is anything to offer at all — an empty sheet is a worse affordance than none.
-    var hasAnyAction: Bool { canReply || canEdit || canDelete }
+    var hasAnyAction: Bool { canReply || canEdit || canDelete || canReact }
+}
+
+/// What a reader can do with a row's reaction bar (T37). Nil is the read-only rendering the older
+/// hosts and the previews use: pills are drawn, nothing can be pressed.
+struct PostRowReactionActions {
+    /// Toggle one pill (the emoji name as the *row* spells it — the coordinator canonicalises).
+    var onToggle: (String) -> Void
+    /// Long press / VoiceOver action on a pill: who reacted.
+    var onShowReactors: (String) -> Void
+    /// The `+` chip that opens the picker for this row.
+    var onAdd: () -> Void
 }
 
 struct PostRowView: View {
@@ -138,6 +153,8 @@ struct PostRowView: View {
     var actions: PostRowActions? = nil
     /// T36: open this post's thread (the reply line's tap). Nil keeps the line non-interactive.
     var onOpenThread: (() -> Void)? = nil
+    /// T37: press a pill, ask who reacted, add another. Nil keeps the read-only pills.
+    var reactionActions: PostRowReactionActions? = nil
 
     private var showsHeader: Bool { !row.isGrouped && !row.isSystem }
 
@@ -384,27 +401,10 @@ struct PostRowView: View {
     @ViewBuilder
     private var reactions: some View {
         if !row.reactions.isEmpty {
-            HStack(spacing: 6) {
-                ForEach(row.reactions) { reaction in
-                    HStack(spacing: 3) {
-                        EmojiGlyph(name: reaction.emojiName, emoji: emoji)
-                        Text("\(reaction.count)")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(reaction.includesMe
-                                ? Color.accentColor.opacity(0.16)
-                                : Color(.secondarySystemBackground),
-                                in: Capsule())
-                    .overlay(Capsule().strokeBorder(
-                        reaction.includesMe ? Color.accentColor.opacity(0.6) : .clear))
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("\(reaction.emojiName) \(reaction.count)")
-                    .accessibilityIdentifier("post.\(row.id).reaction.\(reaction.emojiName)")
-                }
-            }
-            .padding(.top, 2)
+            ReactionBarView(rowID: row.id,
+                            reactions: row.reactions,
+                            emoji: emoji,
+                            actions: reactionActions)
         }
     }
 }
@@ -430,6 +430,11 @@ struct PostOptionsSheet: View {
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }
                 Section {
+                    if actions.canReact {
+                        option("react", "React", "face.smiling", role: nil) {
+                            actions.onReact()
+                        }
+                    }
                     if actions.canReply {
                         option("reply", "Reply", "arrowshape.turn.up.left", role: nil) {
                             actions.onReply()

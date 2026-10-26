@@ -107,7 +107,8 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     private let now: () -> Date
     private let calendar: Calendar
     private let locale: Locale
-    private let myUserID: String?
+    /// The session user, as the reaction write needs it (S16/T37: a react is always mine).
+    let myUserID: String?
 
     /// Publishes a reply-count change to the pane that owns the root row (the channel timeline).
     /// Called with the root id, the count to draw and the thread's newest reply instant.
@@ -117,7 +118,8 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
 
     private var replies: [MMPost] = []
     private var repliesByID: [String: MMPost] = [:]
-    private var users: [String: MMUser] = [:]
+    /// Profiles for the chain (and, for T37, the reactor sheet).
+    private(set) var users: [String: MMUser] = [:]
     /// The thread row the server answered (`GET …/threads/{id}`), when it answered at all.
     private var threadRow: MMThread?
     /// Where the unread divider goes: `thread_row.last_viewed_at`, or the value a `thread_read_changed`
@@ -130,6 +132,9 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     /// Client id → the server's post, once it is known (for "did the retry already land?").
     private var pendingResolvedPosts: [String: MMPost] = [:]
     private var generation = 0
+    /// Subscriptions that forward a collaborator's published state as this model's (T37: the reaction
+    /// coordinator's failure banner and rollback).
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: Init
 
@@ -407,10 +412,14 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
                 return record(.ignored)
             }
         case .reactionAdded(let reaction):
-            guard patchReaction(reaction, adding: true) else { return record(.ignored) }
+            let added = patchReaction(reaction, adding: true)
+            reactions.noteSocketEvent(reaction, adding: true)
+            guard added else { return record(.ignored) }
             outcome = .reactions
         case .reactionRemoved(let reaction):
-            guard patchReaction(reaction, adding: false) else { return record(.ignored) }
+            let removed = patchReaction(reaction, adding: false)
+            reactions.noteSocketEvent(reaction, adding: false)
+            guard removed else { return record(.ignored) }
             outcome = .reactions
         case .threadUpdated(let update):
             let thread = update.thread
@@ -518,10 +527,73 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
         }
     }
 
+    // MARK: - Reactions (S16/T37)
+
+    /// The post a reaction belongs to: the root or one of the replies.
+    func post(id: String) -> MMPost? {
+        if let reply = repliesByID[id] { return reply }
+        if root?.id == id { return root }
+        return nil
+    }
+
+    /// The host side of the write: optimistic apply, rollback and the socket patch all land here, so
+    /// one tap and one server event mutate the post by the same set-shaped rule.
+    @discardableResult
+    func applyReaction(_ reaction: MMReaction, adding: Bool) -> Bool {
+        guard let post = post(id: reaction.postId) else { return false }
+        return patch(reaction, on: post, adding: adding)
+    }
+
+    var reactionUserProfiles: [String: MMUser] { users }
+
+    func loadReactionProfiles(for userIDs: [String]) async {
+        let ids = Set(userIDs.filter { !$0.isEmpty && users[$0] == nil })
+        guard !ids.isEmpty else { return }
+        await loadProfiles(for: ids)
+    }
+
+    private var reactionCoordinator: ReactionCoordinator?
+
+    /// The pane's reaction writes, created on first use (see `ChannelViewModel.reactions`).
+    var reactions: ReactionCoordinator {
+        if let reactionCoordinator { return reactionCoordinator }
+        let coordinator = ReactionCoordinator(
+            add: { [weak self] postID, emoji, userID in
+                guard let self else { throw MMError.notSignedIn }
+                return try await self.service.addReaction(postID: postID, emojiName: emoji,
+                                                          userID: userID)
+            },
+            remove: { [weak self] postID, emoji, userID in
+                guard let self else { throw MMError.notSignedIn }
+                try await self.service.removeReaction(postID: postID, emojiName: emoji,
+                                                      userID: userID)
+            },
+            target: self,
+            onReactionAdded: { [weak self] name in self?.onEmojiUsed?(name) })
+        coordinator.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+        reactionCoordinator = coordinator
+        return coordinator
+    }
+
+    /// Called after a successful react, so the picker's "recently used" row records it.
+    var onEmojiUsed: ((String) -> Void)?
+
+    @discardableResult
+    func toggleReaction(postID: String, emojiName: String) -> Bool {
+        reactions.toggle(postID: postID, emojiName: emojiName)
+    }
+
     private func patchReaction(_ reaction: MMReaction, adding: Bool) -> Bool {
-        guard var post = repliesByID[reaction.postId] ?? (root?.id == reaction.postId ? root : nil) else {
-            return false
-        }
+        guard let post = post(id: reaction.postId) else { return false }
+        return patch(reaction, on: post, adding: adding)
+    }
+
+    /// The set-shaped patch itself. Returns whether the post changed (a duplicate add and a missing
+    /// remove are no-ops, which is what makes a socket echo of our own write harmless).
+    private func patch(_ reaction: MMReaction, on existingPost: MMPost, adding: Bool) -> Bool {
+        var post = existingPost
         var list = post.metadata?["reactions"]?.arrayValue ?? []
         let matches: (JSONValue) -> Bool = { value in
             let existing = try? MMRawJSON(value).decode(MMReaction.self)
@@ -717,3 +789,9 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
                             fallback: "The thread could not be loaded.")
     }
 }
+
+// MARK: - ReactionTarget (S16/T37)
+
+/// The thread pane is the other host a reaction write can target: a root and its replies share the
+/// same patch rule, so a pill on a reply and a pill on the root behave identically.
+extension ThreadViewModel: ReactionTarget {}
