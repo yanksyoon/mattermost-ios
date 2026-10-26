@@ -1,0 +1,79 @@
+name: release
+
+# Every push to main publishes a release, with the version incremented at the minor
+# position (v0.1.4 -> v0.2.0 -> v0.3.0, patch reset to 0). See
+# scripts/release_version.py for the rule and its self-test.
+#
+# Guarantees:
+#   * one release per commit - a commit that already carries a v* tag yields SKIP,
+#     so a re-run or duplicate delivery is a no-op, never a second release
+#   * serialised - concurrent pushes queue instead of racing for the same tag
+#   * self-testing - the version rules are proven in CI before any tag is cut
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Prove the version rules
+        run: python3 scripts/release_version.py --self-test
+
+      - name: Tag and publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch --tags --force --quiet
+            TAG=$(python3 scripts/release_version.py --format tag --dry-run)
+
+            if [ "$TAG" = "SKIP" ]; then
+              echo "HEAD $(git rev-parse --short HEAD) already carries a release tag; nothing to do."
+              git tag --points-at HEAD | sed 's/^/  existing: /'
+              exit 0
+            fi
+
+            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+              echo "attempt $attempt: $TAG already exists, re-reading tags"
+              sleep $((attempt * 3))
+              continue
+            fi
+
+            SHA=$(git rev-parse HEAD)
+            git tag -a "$TAG" -m "Release $TAG" \
+              -m "Cut automatically on push to main. Commit $SHA. Policy: minor increment per release, see scripts/release_version.py."
+
+            if git push origin "refs/tags/$TAG"; then
+              echo "pushed tag $TAG at $SHA"
+              gh release create "$TAG" \
+                --verify-tag \
+                --title "$TAG" \
+                --generate-notes \
+                --latest
+              echo "RELEASE CREATED: $TAG"
+              exit 0
+            fi
+            echo "attempt $attempt: tag push for $TAG lost a race, retrying"
+            sleep $((attempt * 3))
+          done
+
+          echo "::error::could not publish a release after 5 attempts"
+          exit 1
