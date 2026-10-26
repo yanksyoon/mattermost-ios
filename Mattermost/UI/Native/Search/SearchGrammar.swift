@@ -174,9 +174,17 @@ struct SearchQuery: Equatable, Sendable {
     var isOrSearch: Bool = false
     /// Archived channels are searched, as upstream's `include_deleted_channels: true`.
     var includeDeletedChannels: Bool = true
-    /// Offset from UTC in minutes, so `on:` means the reader's day (upstream sends
-    /// `new Date().getTimezoneOffset()`).
-    var timeZoneOffsetMinutes: Int = 0
+    /// Offset from UTC in **seconds east of UTC**, so `on:` means the reader's day.
+    ///
+    /// The unit is the server's, not a preference. `GetStartOfDayMillis` in
+    /// `server/public/model/utils.go` passes this value straight into Go's `time.FixedZone(name,
+    /// offset)`, which takes **seconds**; both reference clients send seconds
+    /// (`mattermost-mobile` `app/actions/remote/search.ts:63` and the webapp
+    /// `webapp/channels/src/actions/views/rhs.ts:234` both multiply the zone's minute offset by
+    /// 60). The name carries the unit because T39 shipped minutes here and the only visible symptom
+    /// was a wrong `on:`/`before:` result set — measured on 9.11.19: `in:t34-showcase on:2026-10-26`
+    /// answered 3 posts as -420 (minutes = a UTC day) and 1 post as -25200 (seconds = the PDT day).
+    var timeZoneOffsetSeconds: Int = 0
 
     /// The request body for `POST /teams/{team_id}/posts/search`.
     struct Body: Encodable, Equatable {
@@ -204,7 +212,7 @@ struct SearchQuery: Equatable, Sendable {
     func body(page: Int = 0, perPage: Int = 60) -> Body {
         Body(terms: terms,
              isOrSearch: isOrSearch,
-             timeZoneOffset: timeZoneOffsetMinutes,
+             timeZoneOffset: timeZoneOffsetSeconds,
              page: max(0, page),
              perPage: perPage,
              includeDeletedChannels: includeDeletedChannels)
@@ -217,8 +225,8 @@ struct SearchQuery: Equatable, Sendable {
     /// Everything else — modifier spelling, the `-` prefix, the trailing `*` — is sent as typed: the
     /// server parses the string, and a client that rewrote it would be inventing a grammar.
     static func compose(from raw: String,
-                        timeZoneOffsetMinutes: Int = TimeZone.current.secondsFromGMT() / 60) -> SearchQuery {
-        SearchQuery(terms: normalize(raw), timeZoneOffsetMinutes: timeZoneOffsetMinutes)
+                        timeZoneOffsetSeconds: Int = TimeZone.current.secondsFromGMT()) -> SearchQuery {
+        SearchQuery(terms: normalize(raw), timeZoneOffsetSeconds: timeZoneOffsetSeconds)
     }
 
     /// Straighten the quotes a phone keyboard produces and collapse whitespace that no longer

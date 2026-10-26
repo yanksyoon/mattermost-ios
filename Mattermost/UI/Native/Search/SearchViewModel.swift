@@ -162,7 +162,7 @@ final class SearchViewModel: ObservableObject {
         }
         self.teamID = resolvedTeam
         let request = SearchQuery.compose(from: query,
-                                          timeZoneOffsetMinutes: TimeZone.current.secondsFromGMT() / 60)
+                                          timeZoneOffsetSeconds: TimeZone.current.secondsFromGMT())
         composed = request
         submittedText = request.terms
         generation += 1
