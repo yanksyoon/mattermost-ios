@@ -1,0 +1,1458 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=iOS Simulator,id=81A7F251-8B31-4945-8783-5A264C14B8D5" -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t35r-f4-6e93c8.xcresult -only-testing MattermostUITests/T35ComposerUITests
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift @ 7.11.1
+
+Writing result bundle at path:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t35r-f4-6e93c8.xcresult
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, arch:arm64, id:81A7F251-8B31-4945-8783-5A264C14B8D5, OS:18.3.1, name:iPhone 16 Pro }
+{ platform:iOS Simulator, arch:x86_64, id:81A7F251-8B31-4945-8783-5A264C14B8D5, OS:18.3.1, name:iPhone 16 Pro }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (7 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDBSQLite' in project 'GRDB'
+    Target 'GRDBSQLite' in project 'GRDB' (no dependencies)
+    Target 'GRDB_GRDB' in project 'GRDB' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Assets.xcassets
+
+ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+Build description signature: 245f45c18c77e79a0bf27e7b0a4b2f08
+Build description path: /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/XCBuildData/245f45c18c77e79a0bf27e7b0a4b2f08.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist (in target 'GRDB_GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist
+
+SwiftDriver Mattermost normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Mattermost -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist -producttype com.apple.product-type.framework -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ Mattermost (in target 'Mattermost' from project 'Mattermost')
+
+EmitSwiftModule normal arm64 (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:141:41: warning: conformance of 'DownloadWorker.DownloadFlow' to protocol 'URLSessionDownloadDelegate' crosses into main actor-isolated code and can cause data races; this is an error in the Swift 6 language mode
+    final class DownloadFlow: NSObject, URLSessionDownloadDelegate, WKDownloadDelegate {
+                                        ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:141:41: note: isolate this conformance to the main actor with '@MainActor'
+    final class DownloadFlow: NSObject, URLSessionDownloadDelegate, WKDownloadDelegate {
+                                        ^
+                                        @MainActor 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:141:17: note: mark all declarations used in the conformance 'nonisolated'
+    final class DownloadFlow: NSObject, URLSessionDownloadDelegate, WKDownloadDelegate {
+                ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:141:41: note: turn data races into runtime errors with '@preconcurrency'
+    final class DownloadFlow: NSObject, URLSessionDownloadDelegate, WKDownloadDelegate {
+                                        ^
+                                        @preconcurrency 
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:208:14: note: main actor-isolated instance method 'urlSession(_:downloadTask:didFinishDownloadingTo:)' cannot satisfy nonisolated requirement
+        func urlSession(_ session: URLSession, downloadTask task: URLSessionDownloadTask,
+             ^
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Core/DownloadWorker.swift:220:14: note: main actor-isolated instance method 'urlSession(_:downloadTask:didWriteData:totalBytesWritten:totalBytesExpectedToWrite:)' cannot satisfy nonisolated requirement
+        func urlSession(_ session: URLSession, downloadTask task: URLSessionDownloadTask,
+             ^
+
+SwiftCompile normal arm64 Compiling\ ComposerView.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerView.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerView.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ ComposerAPI.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerAPI.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerAPI.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ ComposerModels.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerModels.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerModels.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ ComposerDraftStore.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerDraftStore.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerDraftStore.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ ComposerService.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerService.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerService.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ ComposerViewModel.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerViewModel.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/UI/Native/Composer/ComposerViewModel.swift (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling ComposerService.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ComposerAPI.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ComposerDraftStore.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ComposerViewModel.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ComposerModels.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ComposerView.swift (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for Mattermost (in target 'Mattermost' from project 'Mattermost')
+
+SwiftDriver\ Compilation\ Requirements Mattermost normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Mattermost -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+SwiftDriver\ Compilation Mattermost normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Mattermost -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift/Sources/GRDBSQLite/module.modulemap -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -emit-localized-strings -emit-localized-strings-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftsourceinfo (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.swiftsourceinfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/arm64-apple-ios-simulator.abi.json /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.abi.json (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.abi.json /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.swiftmodule/arm64-apple-ios-simulator.abi.json
+
+SwiftDriver MattermostUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostUITests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+ExtractAppIntentsMetadata (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name Mattermost --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 17.0 --bundle-identifier com.mattermost.ios --output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app --target-triple arm64-apple-ios17.0-simulator --binary-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost --dependency-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost_dependency_info.dat --stringsdata-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftFileList --metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Objects-normal/arm64/Mattermost.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-25 21:46:23.996 appintentsmetadataprocessor[38587:5838278] Starting appintentsmetadataprocessor export
+2026-10-25 21:46:24.003 appintentsmetadataprocessor[38587:5838278] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -format binary -platform iphonesimulator -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib: replacing existing signature
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib: replacing existing signature
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --entitlements /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app.xcent --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app: replacing existing signature
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ MattermostUITests (in target 'MattermostUITests' from project 'Mattermost')
+EmitSwiftModule normal arm64 (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+
+SwiftCompile normal arm64 Compiling\ T35-ComposerUITests.swift /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostUITests/T35-ComposerUITests.swift (in target 'MattermostUITests' from project 'Mattermost')
+SwiftCompile normal arm64 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostUITests/T35-ComposerUITests.swift (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostUITests/T35-ComposerUITests.swift:133:48: warning: string interpolation produces a debug description for an optional value; did you mean to make this explicit?
+                              + "&in_team_id=\(teamID)")
+                                               ^~~~~~
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostUITests/T35-ComposerUITests.swift:133:48: note: provide a default value to avoid this warning
+                              + "&in_team_id=\(teamID)")
+                                               ^~~~~~
+                                                      ?? <#default value#>
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostUITests/T35-ComposerUITests.swift:133:48: note: use 'String(describing:)' to silence this warning
+                              + "&in_team_id=\(teamID)")
+                                               ^~~~~~
+                                               String(describing:  )
+
+Validate /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-validationUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app -shallow-bundle -infoplist-subpath Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for MattermostUITests (in target 'MattermostUITests' from project 'Mattermost')
+
+SwiftDriver\ Compilation\ Requirements MattermostUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostUITests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftsourceinfo (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftsourceinfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests.swiftmodule/arm64-apple-ios-simulator.swiftdoc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftdoc (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftdoc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests.swiftmodule/arm64-apple-ios-simulator.swiftdoc
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests.swiftmodule/arm64-apple-ios-simulator.abi.json /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.abi.json (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.abi.json /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests.swiftmodule/arm64-apple-ios-simulator.abi.json
+
+SwiftDriverJobDiscovery normal arm64 Compiling T35-ComposerUITests.swift (in target 'MattermostUITests' from project 'Mattermost')
+
+SwiftDriver\ Compilation MattermostUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostUITests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-Swift.h -working-directory /Users/yangsooyoon/Documents/yanks/code/mattermost-ios -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests normal (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -bundle -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -filelist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @loader_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_dependency_info.dat -fobjc-link-runtime -fprofile-instr-generate -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-linker-args.resp -Xlinker -needed_framework -Xlinker XCTest -framework XCTest -Xlinker -needed-lXCTestSwiftSupport -lXCTestSwiftSupport -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __entitlements -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.xctest-Simulated.xcent -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __ents_der -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.xctest-Simulated.xcent.der -Xlinker -no_adhoc_codesign -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ExtractAppIntentsMetadata (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name MattermostUITests --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 17.0 --bundle-identifier com.mattermost.iosUITests --output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest --target-triple arm64-apple-ios17.0-simulator --binary-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --dependency-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_dependency_info.dat --stringsdata-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList --metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-25 21:46:25.224 appintentsmetadataprocessor[38597:5838342] Starting appintentsmetadataprocessor export
+2026-10-25 21:46:25.226 appintentsmetadataprocessor[38597:5838342] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app: replacing existing signature
+
+2026-10-25 21:46:41.614456-0700 MattermostUITests-Runner[38787:5840246] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-10-25 21:46:44.877.
+Test Suite 'MattermostUITests.xctest' started at 2026-10-25 21:46:44.877.
+Test Suite 'T35ComposerUITests' started at 2026-10-25 21:46:44.877.
+Test Case '-[MattermostUITests.T35ComposerUITests testAChannelMentionUsesTheTildeForm]' started.
+    t =     0.00s Start Test at 2026-10-25 21:46:44.878
+    t =     0.27s Set Up
+    t =     0.51s Open com.mattermost.ios
+    t =     0.51s     Launch com.mattermost.ios
+2026-10-25 21:46:45.662 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 21:46:45.662 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.82s         Setting up automation session
+    t =     2.80s         Wait for com.mattermost.ios to idle
+    t =     4.71s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.75s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.75s         Checking existence of `"loginIDField" TextField`
+    t =     5.85s Tap "loginIDField" TextField
+    t =     5.85s     Wait for com.mattermost.ios to idle
+    t =     5.85s     Find the "loginIDField" TextField
+    t =     5.86s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.88s     Synthesize event
+    t =     6.29s     Wait for com.mattermost.ios to idle
+    t =     6.62s Type 'perfprobe' into "loginIDField" TextField
+    t =     6.62s     Wait for com.mattermost.ios to idle
+    t =     6.62s     Find the "loginIDField" TextField
+    t =     6.65s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.68s     Synthesize event
+    t =     7.03s     Wait for com.mattermost.ios to idle
+    t =     7.45s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     7.48s Tap "loginPasswordField" SecureTextField
+    t =     7.48s     Wait for com.mattermost.ios to idle
+    t =     7.49s     Find the "loginPasswordField" SecureTextField
+    t =     7.51s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.54s     Synthesize event
+    t =     7.83s     Wait for com.mattermost.ios to idle
+    t =     8.28s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     8.28s     Wait for com.mattermost.ios to idle
+    t =     8.28s     Find the "loginPasswordField" SecureTextField
+    t =     8.31s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     8.33s     Synthesize event
+    t =     9.01s     Wait for com.mattermost.ios to idle
+    t =     9.02s Tap "loginSubmitButton" Button
+    t =     9.02s     Wait for com.mattermost.ios to idle
+    t =     9.02s     Find the "loginSubmitButton" Button
+    t =     9.05s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     9.07s     Synthesize event
+    t =     9.37s     Wait for com.mattermost.ios to idle
+    t =     9.77s Waiting 40.0s for "nativeShell" Any to exist
+    t =    10.82s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    10.82s         Checking existence of `"nativeShell" Any`
+    t =    10.91s Waiting 40.0s for "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any to exist
+    t =    11.95s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    11.95s         Checking existence of `"channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    12.20s Tap "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    12.20s     Wait for com.mattermost.ios to idle
+    t =    12.20s     Find the "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    12.44s     Check for interrupting elements affecting "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Button
+    t =    12.54s     Synthesize event
+    t =    12.83s     Wait for com.mattermost.ios to idle
+    t =    12.98s Waiting 40.0s for "channelPostList" Any to exist
+    t =    14.02s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    14.02s         Checking existence of `"channelPostList" Any`
+    t =    14.09s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    15.14s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    15.14s         Checking existence of `"channelComposer.input" TextView`
+    t =    15.23s Tap "channelComposer.input" TextView
+    t =    15.23s     Wait for com.mattermost.ios to idle
+    t =    15.23s     Find the "channelComposer.input" TextView
+    t =    15.28s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    15.32s     Synthesize event
+    t =    15.62s     Wait for com.mattermost.ios to idle
+    t =    15.62s Type '#t35' into "channelComposer.input" TextView
+    t =    15.62s     Wait for com.mattermost.ios to idle
+    t =    15.63s     Find the "channelComposer.input" TextView
+    t =    15.69s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    15.75s     Synthesize event
+    t =    16.02s     Wait for com.mattermost.ios to idle
+    t =    16.36s Waiting 20.0s for "composerSuggestions" Any to exist
+    t =    17.40s     Checking `Expect predicate `existsNoRetry == 1` for object "composerSuggestions" Any`
+    t =    17.40s         Checking existence of `"composerSuggestions" Any`
+    t =    17.56s Waiting 10.0s for "composerSuggestion.channel-t35-composer" Any to exist
+    t =    18.60s     Checking `Expect predicate `existsNoRetry == 1` for object "composerSuggestion.channel-t35-composer" Any`
+    t =    18.60s         Checking existence of `"composerSuggestion.channel-t35-composer" Any`
+    t =    18.79s Tap "composerSuggestion.channel-t35-composer" Any
+    t =    18.79s     Wait for com.mattermost.ios to idle
+    t =    18.79s     Find the "composerSuggestion.channel-t35-composer" Any
+    t =    18.99s     Check for interrupting elements affecting "composerSuggestion.channel-t35-composer" Button
+    t =    19.06s     Synthesize event
+    t =    19.36s     Wait for com.mattermost.ios to idle
+    t =    19.36s Find the "channelComposer.input" TextView
+    t =    19.41s Find the Target Application 'com.mattermost.ios'
+    t =    19.56s Added attachment named 't35-05-channel-mention'
+    t =    19.56s Tear Down
+Test Case '-[MattermostUITests.T35ComposerUITests testAChannelMentionUsesTheTildeForm]' passed (19.829 seconds).
+Test Case '-[MattermostUITests.T35ComposerUITests testADraftIsRestoredAfterARelaunch]' started.
+    t =     0.00s Start Test at 2026-10-25 21:47:04.710
+    t =     0.03s Set Up
+    t =     0.29s Open com.mattermost.ios
+    t =     0.29s     Launch com.mattermost.ios
+    t =     0.29s         Terminate com.mattermost.ios:38813
+2026-10-25 21:47:06.097 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 21:47:06.097 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.60s         Setting up automation session
+    t =     2.55s         Wait for com.mattermost.ios to idle
+    t =     4.06s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.12s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.12s         Checking existence of `"loginIDField" TextField`
+    t =     5.19s Tap "loginIDField" TextField
+    t =     5.19s     Wait for com.mattermost.ios to idle
+    t =     5.19s     Find the "loginIDField" TextField
+    t =     5.21s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.22s     Synthesize event
+    t =     5.52s     Wait for com.mattermost.ios to idle
+    t =     5.52s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.52s     Wait for com.mattermost.ios to idle
+    t =     5.53s     Find the "loginIDField" TextField
+    t =     5.56s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.58s     Synthesize event
+    t =     5.93s     Wait for com.mattermost.ios to idle
+    t =     6.14s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.17s Tap "loginPasswordField" SecureTextField
+    t =     6.17s     Wait for com.mattermost.ios to idle
+    t =     6.18s     Find the "loginPasswordField" SecureTextField
+    t =     6.20s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.23s     Synthesize event
+    t =     6.52s     Wait for com.mattermost.ios to idle
+    t =     6.94s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     6.94s     Wait for com.mattermost.ios to idle
+    t =     6.95s     Find the "loginPasswordField" SecureTextField
+    t =     6.98s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.00s     Synthesize event
+    t =     7.69s     Wait for com.mattermost.ios to idle
+    t =     7.69s Tap "loginSubmitButton" Button
+    t =     7.69s     Wait for com.mattermost.ios to idle
+    t =     7.69s     Find the "loginSubmitButton" Button
+    t =     7.72s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     7.75s     Synthesize event
+    t =     8.04s     Wait for com.mattermost.ios to idle
+    t =     8.42s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.48s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.48s         Checking existence of `"nativeShell" Any`
+    t =     9.57s Waiting 40.0s for "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any to exist
+    t =    10.62s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.62s         Checking existence of `"channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.87s Tap "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    10.87s     Wait for com.mattermost.ios to idle
+    t =    10.87s     Find the "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    11.09s     Check for interrupting elements affecting "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Button
+    t =    11.19s     Synthesize event
+    t =    11.48s     Wait for com.mattermost.ios to idle
+    t =    11.96s Waiting 40.0s for "channelPostList" Any to exist
+    t =    13.00s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    13.01s         Checking existence of `"channelPostList" Any`
+    t =    13.08s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    14.11s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    14.12s         Checking existence of `"channelComposer.input" TextView`
+    t =    14.16s Tap "channelComposer.input" TextView
+    t =    14.16s     Wait for com.mattermost.ios to idle
+    t =    14.16s     Find the "channelComposer.input" TextView
+    t =    14.20s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    14.24s     Synthesize event
+    t =    14.53s     Wait for com.mattermost.ios to idle
+    t =    14.54s Type 't35 draft relaunch...' into "channelComposer.input" TextView
+    t =    14.54s     Wait for com.mattermost.ios to idle
+    t =    14.54s     Find the "channelComposer.input" TextView
+    t =    14.59s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    14.64s     Synthesize event
+    t =    15.51s     Wait for com.mattermost.ios to idle
+    t =    15.51s Find the Target Application 'com.mattermost.ios'
+    t =    15.64s Added attachment named 't35-14-draft-typed'
+    t =    15.64s Terminate com.mattermost.ios:38878
+    t =    16.70s Open com.mattermost.ios
+    t =    16.71s     Launch com.mattermost.ios
+2026-10-25 21:47:21.416 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 21:47:21.416 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =    16.91s         Setting up automation session
+    t =    17.82s         Wait for com.mattermost.ios to idle
+    t =    19.41s Waiting 40.0s for "nativeShell" Any to exist
+    t =    20.44s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    20.44s         Checking existence of `"nativeShell" Any`
+    t =    20.54s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    21.59s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    21.59s         Checking existence of `"channelComposer.input" TextView`
+    t =    21.72s         Capturing element debug description
+    t =    22.55s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    22.55s         Checking existence of `"channelComposer.input" TextView`
+    t =    22.61s         Capturing element debug description
+    t =    23.55s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    23.55s         Checking existence of `"channelComposer.input" TextView`
+    t =    23.63s         Capturing element debug description
+    t =    24.55s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    24.55s         Checking existence of `"channelComposer.input" TextView`
+    t =    24.61s         Capturing element debug description
+    t =    25.55s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    25.55s         Checking existence of `"channelComposer.input" TextView`
+    t =    25.61s         Capturing element debug description
+    t =    26.62s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    26.62s         Checking existence of `"channelComposer.input" TextView`
+    t =    26.68s         Capturing element debug description
+    t =    27.60s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    27.60s         Checking existence of `"channelComposer.input" TextView`
+    t =    27.66s         Capturing element debug description
+    t =    28.60s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    28.60s         Checking existence of `"channelComposer.input" TextView`
+    t =    28.66s         Capturing element debug description
+    t =    29.60s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    29.60s         Checking existence of `"channelComposer.input" TextView`
+    t =    29.66s         Capturing element debug description
+    t =    30.59s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    30.59s         Checking existence of `"channelComposer.input" TextView`
+    t =    30.65s         Capturing element debug description
+    t =    31.57s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    31.57s         Checking existence of `"channelComposer.input" TextView`
+    t =    31.63s         Capturing element debug description
+    t =    32.57s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    32.57s         Checking existence of `"channelComposer.input" TextView`
+    t =    32.63s         Capturing element debug description
+    t =    33.55s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    33.55s         Checking existence of `"channelComposer.input" TextView`
+    t =    33.61s         Capturing element debug description
+    t =    34.55s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    34.55s         Checking existence of `"channelComposer.input" TextView`
+    t =    34.61s         Capturing element debug description
+    t =    35.55s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    35.55s         Checking existence of `"channelComposer.input" TextView`
+    t =    35.62s         Capturing element debug description
+    t =    36.55s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    36.55s         Checking existence of `"channelComposer.input" TextView`
+    t =    36.61s         Capturing element debug description
+    t =    37.54s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    37.54s         Checking existence of `"channelComposer.input" TextView`
+    t =    37.61s         Capturing element debug description
+    t =    38.63s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    38.63s         Checking existence of `"channelComposer.input" TextView`
+    t =    38.70s         Capturing element debug description
+    t =    39.54s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    39.54s         Checking existence of `"channelComposer.input" TextView`
+    t =    39.60s         Capturing element debug description
+    t =    40.62s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    40.62s         Checking existence of `"channelComposer.input" TextView`
+    t =    40.68s         Capturing element debug description
+    t =    41.60s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    41.60s         Checking existence of `"channelComposer.input" TextView`
+    t =    41.66s         Capturing element debug description
+    t =    42.59s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    42.59s         Checking existence of `"channelComposer.input" TextView`
+    t =    42.65s         Capturing element debug description
+    t =    43.58s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    43.58s         Checking existence of `"channelComposer.input" TextView`
+    t =    43.65s         Capturing element debug description
+    t =    44.58s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    44.58s         Checking existence of `"channelComposer.input" TextView`
+    t =    44.65s         Capturing element debug description
+    t =    45.59s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    45.59s         Checking existence of `"channelComposer.input" TextView`
+    t =    45.65s         Capturing element debug description
+    t =    46.57s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    46.57s         Checking existence of `"channelComposer.input" TextView`
+    t =    46.63s         Capturing element debug description
+    t =    47.57s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    47.57s         Checking existence of `"channelComposer.input" TextView`
+    t =    47.63s         Capturing element debug description
+    t =    48.57s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    48.57s         Checking existence of `"channelComposer.input" TextView`
+    t =    48.63s         Capturing element debug description
+    t =    49.57s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    49.57s         Checking existence of `"channelComposer.input" TextView`
+    t =    49.64s         Capturing element debug description
+    t =    50.54s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    50.55s         Checking existence of `"channelComposer.input" TextView`
+    t =    50.61s         Capturing element debug description
+    t =    50.61s     Checking existence of `"channelComposer.input" TextView`
+    t =    50.67s Collecting debug information to assist test failure triage
+    t =    50.67s     Requesting snapshot of accessibility hierarchy for app with pid 38917
+    t =    50.80s Waiting 30.0s for "channelComposer.input" Any to exist
+    t =    51.85s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    51.85s         Checking existence of `"channelComposer.input" Any`
+    t =    52.10s         Capturing element debug description
+    t =    52.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    52.83s         Checking existence of `"channelComposer.input" Any`
+    t =    53.08s         Capturing element debug description
+    t =    53.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    53.80s         Checking existence of `"channelComposer.input" Any`
+    t =    54.05s         Capturing element debug description
+    t =    54.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    54.80s         Checking existence of `"channelComposer.input" Any`
+    t =    55.06s         Capturing element debug description
+    t =    55.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    55.80s         Checking existence of `"channelComposer.input" Any`
+    t =    56.06s         Capturing element debug description
+    t =    56.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    56.80s         Checking existence of `"channelComposer.input" Any`
+    t =    57.05s         Capturing element debug description
+    t =    57.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    57.80s         Checking existence of `"channelComposer.input" Any`
+    t =    58.05s         Capturing element debug description
+    t =    58.89s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    58.89s         Checking existence of `"channelComposer.input" Any`
+    t =    59.14s         Capturing element debug description
+    t =    59.87s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    59.87s         Checking existence of `"channelComposer.input" Any`
+    t =    60.18s         Capturing element debug description
+    t =    60.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    60.80s         Checking existence of `"channelComposer.input" Any`
+    t =    61.05s         Capturing element debug description
+    t =    61.87s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    61.87s         Checking existence of `"channelComposer.input" Any`
+    t =    62.12s         Capturing element debug description
+    t =    62.85s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    62.85s         Checking existence of `"channelComposer.input" Any`
+    t =    63.11s         Capturing element debug description
+    t =    63.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    63.83s         Checking existence of `"channelComposer.input" Any`
+    t =    64.10s         Capturing element debug description
+    t =    64.82s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    64.82s         Checking existence of `"channelComposer.input" Any`
+    t =    65.07s         Capturing element debug description
+    t =    65.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    65.81s         Checking existence of `"channelComposer.input" Any`
+    t =    66.06s         Capturing element debug description
+    t =    66.89s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    66.89s         Checking existence of `"channelComposer.input" Any`
+    t =    67.14s         Capturing element debug description
+    t =    67.86s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    67.86s         Checking existence of `"channelComposer.input" Any`
+    t =    68.11s         Capturing element debug description
+    t =    68.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    68.84s         Checking existence of `"channelComposer.input" Any`
+    t =    69.09s         Capturing element debug description
+    t =    69.82s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    69.82s         Checking existence of `"channelComposer.input" Any`
+    t =    70.07s         Capturing element debug description
+    t =    70.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    70.80s         Checking existence of `"channelComposer.input" Any`
+    t =    71.05s         Capturing element debug description
+    t =    71.87s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    71.87s         Checking existence of `"channelComposer.input" Any`
+    t =    72.11s         Capturing element debug description
+    t =    72.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    72.83s         Checking existence of `"channelComposer.input" Any`
+    t =    73.08s         Capturing element debug description
+    t =    73.81s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    73.81s         Checking existence of `"channelComposer.input" Any`
+    t =    74.06s         Capturing element debug description
+    t =    74.89s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    74.89s         Checking existence of `"channelComposer.input" Any`
+    t =    75.14s         Capturing element debug description
+    t =    75.87s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    75.87s         Checking existence of `"channelComposer.input" Any`
+    t =    76.12s         Capturing element debug description
+    t =    76.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    76.84s         Checking existence of `"channelComposer.input" Any`
+    t =    77.09s         Capturing element debug description
+    t =    77.82s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    77.82s         Checking existence of `"channelComposer.input" Any`
+    t =    78.07s         Capturing element debug description
+    t =    78.82s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    78.82s         Checking existence of `"channelComposer.input" Any`
+    t =    79.08s         Capturing element debug description
+    t =    79.82s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    79.82s         Checking existence of `"channelComposer.input" Any`
+    t =    80.07s         Capturing element debug description
+    t =    80.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    80.80s         Checking existence of `"channelComposer.input" Any`
+    t =    81.05s         Capturing element debug description
+    t =    81.05s     Checking existence of `"channelComposer.input" Any`
+    t =    81.30s Collecting debug information to assist test failure triage
+    t =    81.30s     Requesting snapshot of accessibility hierarchy for app with pid 38917
+    t =    81.44s Waiting 3.0s for "channelSidebar.quickSwitcher" Any to exist
+    t =    82.49s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    82.49s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    82.68s Waiting 25.0s for "teamSidebar.team.ocz148uck3r88dcjikj497bosh" Any to exist
+    t =    83.72s     Checking `Expect predicate `existsNoRetry == 1` for object "teamSidebar.team.ocz148uck3r88dcjikj497bosh" Any`
+    t =    83.72s         Checking existence of `"teamSidebar.team.ocz148uck3r88dcjikj497bosh" Any`
+    t =    83.82s Tap "teamSidebar.team.ocz148uck3r88dcjikj497bosh" Any
+    t =    83.82s     Wait for com.mattermost.ios to idle
+    t =    83.82s     Find the "teamSidebar.team.ocz148uck3r88dcjikj497bosh" Any
+    t =    83.93s     Check for interrupting elements affecting "teamSidebar.team.ocz148uck3r88dcjikj497bosh" Button
+    t =    84.01s     Synthesize event
+    t =    84.32s     Wait for com.mattermost.ios to idle
+    t =    84.33s Waiting 30.0s for "channelSidebar.quickSwitcher" Any to exist
+    t =    85.37s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    85.37s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    85.58s Waiting 20.0s for "channelSidebar.quickSwitcher" Any to exist
+    t =    86.63s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    86.63s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    86.85s Tap "channelSidebar.quickSwitcher" Any
+    t =    86.85s     Wait for com.mattermost.ios to idle
+    t =    86.85s     Find the "channelSidebar.quickSwitcher" Any
+    t =    87.06s     Check for interrupting elements affecting "channelSidebar.quickSwitcher" Button
+    t =    87.15s     Synthesize event
+    t =    87.46s     Wait for com.mattermost.ios to idle
+    t =    87.50s Waiting 10.0s for "channelSidebar.quickSwitcher.field" TextField to exist
+    t =    88.52s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher.field" TextField`
+    t =    88.52s         Checking existence of `"channelSidebar.quickSwitcher.field" TextField`
+    t =    88.65s Tap "channelSidebar.quickSwitcher.field" TextField
+    t =    88.65s     Wait for com.mattermost.ios to idle
+    t =    88.65s     Find the "channelSidebar.quickSwitcher.field" TextField
+    t =    88.75s     Check for interrupting elements affecting "channelSidebar.quickSwitcher.field" TextField
+    t =    88.84s     Synthesize event
+    t =    89.14s     Wait for com.mattermost.ios to idle
+    t =    89.68s Type 't35-composer' into "channelSidebar.quickSwitcher.field" TextField
+    t =    89.68s     Wait for com.mattermost.ios to idle
+    t =    89.69s     Find the "channelSidebar.quickSwitcher.field" TextField
+    t =    89.80s     Check for interrupting elements affecting "channelSidebar.quickSwitcher.field" TextField
+    t =    89.89s     Synthesize event
+    t =    90.30s     Wait for com.mattermost.ios to idle
+    t =    90.41s Waiting 20.0s for "channelSidebar.quickSwitcher.result.64d95e7oipf4jjk9qrxp8ad93e" Any to exist
+    t =    91.45s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher.result.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    91.45s         Checking existence of `"channelSidebar.quickSwitcher.result.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    91.67s Tap "channelSidebar.quickSwitcher.result.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    91.67s     Wait for com.mattermost.ios to idle
+    t =    91.67s     Find the "channelSidebar.quickSwitcher.result.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    91.90s     Check for interrupting elements affecting "channelSidebar.quickSwitcher.result.64d95e7oipf4jjk9qrxp8ad93e" Button
+    t =    91.99s     Synthesize event
+    t =    92.30s     Wait for com.mattermost.ios to idle
+    t =    92.51s Waiting 40.0s for "channelPostList" Any to exist
+    t =    93.54s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    93.54s         Checking existence of `"channelPostList" Any`
+    t =    93.62s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    94.67s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    94.67s         Checking existence of `"channelComposer.input" TextView`
+    t =    94.72s Waiting 40.0s for "channelComposer.input" TextView to exist
+    t =    95.75s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    95.75s         Checking existence of `"channelComposer.input" TextView`
+    t =    95.80s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    96.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    96.83s         Checking existence of `"channelComposer.input" TextView`
+    t =    96.88s Find the "channelComposer.input" TextView
+    t =    96.92s Find the Target Application 'com.mattermost.ios'
+    t =    97.06s Added attachment named 't35-15-draft-restored-after-relaunch'
+    t =    97.06s Tear Down
+Test Case '-[MattermostUITests.T35ComposerUITests testADraftIsRestoredAfterARelaunch]' passed (97.302 seconds).
+Test Case '-[MattermostUITests.T35ComposerUITests testADraftSurvivesATeamSwitch]' started.
+    t =     0.00s Start Test at 2026-10-25 21:48:42.012
+    t =     0.02s Set Up
+    t =     0.24s Open com.mattermost.ios
+    t =     0.24s     Launch com.mattermost.ios
+    t =     0.24s         Terminate com.mattermost.ios:38917
+2026-10-25 21:48:43.347 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 21:48:43.347 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.55s         Setting up automation session
+    t =     2.47s         Wait for com.mattermost.ios to idle
+    t =     3.99s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.03s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.03s         Checking existence of `"loginIDField" TextField`
+    t =     5.10s Tap "loginIDField" TextField
+    t =     5.10s     Wait for com.mattermost.ios to idle
+    t =     5.11s     Find the "loginIDField" TextField
+    t =     5.13s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.14s     Synthesize event
+    t =     5.44s     Wait for com.mattermost.ios to idle
+    t =     5.48s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.48s     Wait for com.mattermost.ios to idle
+    t =     6.03s     Find the "loginIDField" TextField
+    t =     6.08s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.11s     Synthesize event
+    t =     6.45s     Wait for com.mattermost.ios to idle
+    t =     6.45s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.48s Tap "loginPasswordField" SecureTextField
+    t =     6.48s     Wait for com.mattermost.ios to idle
+    t =     6.48s     Find the "loginPasswordField" SecureTextField
+    t =     6.51s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.54s     Synthesize event
+    t =     6.83s     Wait for com.mattermost.ios to idle
+    t =     6.84s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     6.84s     Wait for com.mattermost.ios to idle
+    t =     6.84s     Find the "loginPasswordField" SecureTextField
+    t =     6.87s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.90s     Synthesize event
+    t =     7.59s     Wait for com.mattermost.ios to idle
+    t =     7.59s Tap "loginSubmitButton" Button
+    t =     7.59s     Wait for com.mattermost.ios to idle
+    t =     7.59s     Find the "loginSubmitButton" Button
+    t =     7.62s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     7.65s     Synthesize event
+    t =     7.94s     Wait for com.mattermost.ios to idle
+    t =     8.28s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.31s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.32s         Checking existence of `"nativeShell" Any`
+    t =     9.40s Waiting 40.0s for "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any to exist
+    t =    10.45s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.45s         Checking existence of `"channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.70s Tap "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    10.70s     Wait for com.mattermost.ios to idle
+    t =    10.70s     Find the "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    10.92s     Check for interrupting elements affecting "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Button
+    t =    11.01s     Synthesize event
+    t =    11.31s     Wait for com.mattermost.ios to idle
+    t =    11.39s Waiting 40.0s for "channelPostList" Any to exist
+    t =    12.43s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    12.43s         Checking existence of `"channelPostList" Any`
+    t =    12.51s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    13.55s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    13.55s         Checking existence of `"channelComposer.input" TextView`
+    t =    13.60s Tap "channelComposer.input" TextView
+    t =    13.60s     Wait for com.mattermost.ios to idle
+    t =    13.60s     Find the "channelComposer.input" TextView
+    t =    13.64s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    13.68s     Synthesize event
+    t =    13.97s     Wait for com.mattermost.ios to idle
+    t =    14.39s Type 't35 draft team 179...' into "channelComposer.input" TextView
+    t =    14.39s     Wait for com.mattermost.ios to idle
+    t =    14.39s     Find the "channelComposer.input" TextView
+    t =    14.44s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    14.49s     Synthesize event
+    t =    15.29s     Wait for com.mattermost.ios to idle
+    t =    15.30s Find the Target Application 'com.mattermost.ios'
+    t =    15.43s Added attachment named 't35-11-draft-typed'
+    t =    15.44s Waiting 3.0s for "channelSidebar.quickSwitcher" Any to exist
+    t =    16.50s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    16.50s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    16.75s         Capturing element debug description
+    t =    17.46s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    17.46s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    17.71s         Capturing element debug description
+    t =    18.44s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    18.44s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    18.68s         Capturing element debug description
+    t =    18.69s     Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    18.93s Collecting debug information to assist test failure triage
+    t =    18.93s     Requesting snapshot of accessibility hierarchy for app with pid 39096
+    t =    19.04s Waiting 25.0s for "Back" Button to exist
+    t =    20.08s     Checking `Expect predicate `existsNoRetry == 1` for object "Back" Button`
+    t =    20.08s         Checking existence of `"Back" Button`
+    t =    20.14s Tap "Back" Button
+    t =    20.14s     Wait for com.mattermost.ios to idle
+    t =    20.14s     Find the "Back" Button
+    t =    20.19s     Check for interrupting elements affecting "Back" Button
+    t =    20.24s     Synthesize event
+    t =    20.55s     Wait for com.mattermost.ios to idle
+    t =    21.01s Waiting 30.0s for "channelSidebar.quickSwitcher" Any to exist
+    t =    22.05s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    22.05s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    22.27s Waiting 25.0s for "teamSidebar.team.79ckytgaoff5uxuw53d6syfmiw" Any to exist
+    t =    23.32s     Checking `Expect predicate `existsNoRetry == 1` for object "teamSidebar.team.79ckytgaoff5uxuw53d6syfmiw" Any`
+    t =    23.32s         Checking existence of `"teamSidebar.team.79ckytgaoff5uxuw53d6syfmiw" Any`
+    t =    23.44s Tap "teamSidebar.team.79ckytgaoff5uxuw53d6syfmiw" Any
+    t =    23.44s     Wait for com.mattermost.ios to idle
+    t =    23.44s     Find the "teamSidebar.team.79ckytgaoff5uxuw53d6syfmiw" Any
+    t =    23.56s     Check for interrupting elements affecting "teamSidebar.team.79ckytgaoff5uxuw53d6syfmiw" Button
+    t =    23.64s     Synthesize event
+    t =    23.95s     Wait for com.mattermost.ios to idle
+    t =    23.95s Waiting 30.0s for "channelSidebar.quickSwitcher" Any to exist
+    t =    24.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    24.98s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    25.19s Waiting 40.0s for "channelSidebar.channel.humopi8x8bno7k447zjmicoibh" Any to exist
+    t =    26.22s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.humopi8x8bno7k447zjmicoibh" Any`
+    t =    26.22s         Checking existence of `"channelSidebar.channel.humopi8x8bno7k447zjmicoibh" Any`
+    t =    26.43s Tap "channelSidebar.channel.humopi8x8bno7k447zjmicoibh" Any
+    t =    26.43s     Wait for com.mattermost.ios to idle
+    t =    26.43s     Find the "channelSidebar.channel.humopi8x8bno7k447zjmicoibh" Any
+    t =    26.64s     Check for interrupting elements affecting "channelSidebar.channel.humopi8x8bno7k447zjmicoibh" Button
+    t =    26.72s     Synthesize event
+    t =    27.02s     Wait for com.mattermost.ios to idle
+    t =    27.46s Waiting 40.0s for "channelPostList" Any to exist
+    t =    28.51s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    28.52s         Checking existence of `"channelPostList" Any`
+    t =    28.58s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    29.60s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    29.60s         Checking existence of `"channelComposer.input" TextView`
+    t =    29.63s Tap "channelComposer.input" TextView
+    t =    29.63s     Wait for com.mattermost.ios to idle
+    t =    29.63s     Find the "channelComposer.input" TextView
+    t =    29.66s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    29.69s     Synthesize event
+    t =    30.00s     Wait for com.mattermost.ios to idle
+    t =    30.37s Type 't35 other team dra...' into "channelComposer.input" TextView
+    t =    30.37s     Wait for com.mattermost.ios to idle
+    t =    30.37s     Find the "channelComposer.input" TextView
+    t =    30.42s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    30.46s     Synthesize event
+    t =    31.20s     Wait for com.mattermost.ios to idle
+    t =    31.20s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    32.25s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    32.25s         Checking existence of `"channelComposer.input" TextView`
+    t =    32.30s Find the "channelComposer.input" TextView
+    t =    32.34s Find the Target Application 'com.mattermost.ios'
+    t =    32.47s Added attachment named 't35-12-second-team-draft'
+    t =    32.47s Waiting 3.0s for "channelSidebar.quickSwitcher" Any to exist
+    t =    33.51s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    33.52s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    33.73s         Capturing element debug description
+    t =    34.56s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    34.57s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    34.77s         Capturing element debug description
+    t =    35.47s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    35.47s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    35.67s         Capturing element debug description
+    t =    35.67s     Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    35.87s Collecting debug information to assist test failure triage
+    t =    35.88s     Requesting snapshot of accessibility hierarchy for app with pid 39096
+    t =    35.96s Waiting 25.0s for "Back" Button to exist
+    t =    37.00s     Checking `Expect predicate `existsNoRetry == 1` for object "Back" Button`
+    t =    37.00s         Checking existence of `"Back" Button`
+    t =    37.05s Tap "Back" Button
+    t =    37.05s     Wait for com.mattermost.ios to idle
+    t =    37.05s     Find the "Back" Button
+    t =    37.09s     Check for interrupting elements affecting "Back" Button
+    t =    37.14s     Synthesize event
+    t =    37.44s     Wait for com.mattermost.ios to idle
+    t =    37.89s Waiting 30.0s for "channelSidebar.quickSwitcher" Any to exist
+    t =    38.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    38.92s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    39.14s Waiting 25.0s for "teamSidebar.team.ocz148uck3r88dcjikj497bosh" Any to exist
+    t =    40.16s     Checking `Expect predicate `existsNoRetry == 1` for object "teamSidebar.team.ocz148uck3r88dcjikj497bosh" Any`
+    t =    40.17s         Checking existence of `"teamSidebar.team.ocz148uck3r88dcjikj497bosh" Any`
+    t =    40.28s Tap "teamSidebar.team.ocz148uck3r88dcjikj497bosh" Any
+    t =    40.28s     Wait for com.mattermost.ios to idle
+    t =    40.28s     Find the "teamSidebar.team.ocz148uck3r88dcjikj497bosh" Any
+    t =    40.39s     Check for interrupting elements affecting "teamSidebar.team.ocz148uck3r88dcjikj497bosh" Button
+    t =    40.47s     Synthesize event
+    t =    40.78s     Wait for com.mattermost.ios to idle
+    t =    40.78s Waiting 30.0s for "channelSidebar.quickSwitcher" Any to exist
+    t =    41.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.quickSwitcher" Any`
+    t =    41.80s         Checking existence of `"channelSidebar.quickSwitcher" Any`
+    t =    42.02s Waiting 40.0s for "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any to exist
+    t =    43.08s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    43.08s         Checking existence of `"channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    43.30s Tap "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    43.30s     Wait for com.mattermost.ios to idle
+    t =    43.30s     Find the "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    43.52s     Check for interrupting elements affecting "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Button
+    t =    43.60s     Synthesize event
+    t =    43.91s     Wait for com.mattermost.ios to idle
+    t =    44.34s Waiting 40.0s for "channelPostList" Any to exist
+    t =    45.38s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    45.39s         Checking existence of `"channelPostList" Any`
+    t =    45.46s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    46.49s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    46.49s         Checking existence of `"channelComposer.input" TextView`
+    t =    46.53s Find the "channelComposer.input" TextView
+    t =    46.57s Find the Target Application 'com.mattermost.ios'
+    t =    46.70s Added attachment named 't35-13-draft-after-team-switch'
+    t =    46.70s Tear Down
+Test Case '-[MattermostUITests.T35ComposerUITests testADraftSurvivesATeamSwitch]' passed (46.974 seconds).
+Test Case '-[MattermostUITests.T35ComposerUITests testAMentionCompletesFromTheChannelsMembersAndInsertsTheUsername]' started.
+    t =     0.00s Start Test at 2026-10-25 21:49:28.987
+    t =     0.03s Set Up
+    t =     0.25s Open com.mattermost.ios
+    t =     0.25s     Launch com.mattermost.ios
+    t =     0.25s         Terminate com.mattermost.ios:39096
+2026-10-25 21:49:30.332 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 21:49:30.332 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.56s         Setting up automation session
+    t =     2.49s         Wait for com.mattermost.ios to idle
+    t =     4.03s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.06s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.06s         Checking existence of `"loginIDField" TextField`
+    t =     5.13s Tap "loginIDField" TextField
+    t =     5.13s     Wait for com.mattermost.ios to idle
+    t =     5.14s     Find the "loginIDField" TextField
+    t =     5.15s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.17s     Synthesize event
+    t =     5.46s     Wait for com.mattermost.ios to idle
+    t =     5.49s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.50s     Wait for com.mattermost.ios to idle
+    t =     6.05s     Find the "loginIDField" TextField
+    t =     6.09s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.12s     Synthesize event
+    t =     6.46s     Wait for com.mattermost.ios to idle
+    t =     6.47s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.49s Tap "loginPasswordField" SecureTextField
+    t =     6.49s     Wait for com.mattermost.ios to idle
+    t =     6.50s     Find the "loginPasswordField" SecureTextField
+    t =     6.52s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.55s     Synthesize event
+    t =     6.84s     Wait for com.mattermost.ios to idle
+    t =     6.85s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     6.85s     Wait for com.mattermost.ios to idle
+    t =     6.85s     Find the "loginPasswordField" SecureTextField
+    t =     6.88s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.90s     Synthesize event
+    t =     7.58s     Wait for com.mattermost.ios to idle
+    t =     7.58s Tap "loginSubmitButton" Button
+    t =     7.58s     Wait for com.mattermost.ios to idle
+    t =     7.58s     Find the "loginSubmitButton" Button
+    t =     7.61s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     7.64s     Synthesize event
+    t =     7.93s     Wait for com.mattermost.ios to idle
+    t =     8.30s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.36s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.36s         Checking existence of `"nativeShell" Any`
+    t =     9.44s Waiting 40.0s for "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any to exist
+    t =    10.46s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.46s         Checking existence of `"channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.70s Tap "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    10.70s     Wait for com.mattermost.ios to idle
+    t =    10.70s     Find the "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    10.92s     Check for interrupting elements affecting "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Button
+    t =    11.01s     Synthesize event
+    t =    11.31s     Wait for com.mattermost.ios to idle
+    t =    11.78s Waiting 40.0s for "channelPostList" Any to exist
+    t =    12.82s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    12.82s         Checking existence of `"channelPostList" Any`
+    t =    12.90s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    13.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    13.91s         Checking existence of `"channelComposer.input" TextView`
+    t =    13.96s Tap "channelComposer.input" TextView
+    t =    13.96s     Wait for com.mattermost.ios to idle
+    t =    13.96s     Find the "channelComposer.input" TextView
+    t =    14.00s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    14.04s     Synthesize event
+    t =    14.34s     Wait for com.mattermost.ios to idle
+    t =    14.75s Type '@p' into "channelComposer.input" TextView
+    t =    14.75s     Wait for com.mattermost.ios to idle
+    t =    14.75s     Find the "channelComposer.input" TextView
+    t =    14.80s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    14.85s     Synthesize event
+    t =    15.08s     Wait for com.mattermost.ios to idle
+    t =    15.08s Waiting 20.0s for "composerSuggestions" Any to exist
+    t =    16.11s     Checking `Expect predicate `existsNoRetry == 1` for object "composerSuggestions" Any`
+    t =    16.11s         Checking existence of `"composerSuggestions" Any`
+    t =    16.27s Find the Target Application 'com.mattermost.ios'
+    t =    16.40s Added attachment named 't35-03-mention-suggestions'
+    t =    16.40s Waiting 10.0s for "composerSuggestion.user-perfprobe" Any to exist
+    t =    17.44s     Checking `Expect predicate `existsNoRetry == 1` for object "composerSuggestion.user-perfprobe" Any`
+    t =    17.44s         Checking existence of `"composerSuggestion.user-perfprobe" Any`
+    t =    17.63s Checking existence of `"composerSuggestion.user-opsbot" Any`
+    t =    17.89s Checking existence of `"composerSuggestion.user-probeone832551" Any`
+    t =    18.15s Tap "composerSuggestion.user-perfprobe" Any
+    t =    18.15s     Wait for com.mattermost.ios to idle
+    t =    18.15s     Find the "composerSuggestion.user-perfprobe" Any
+    t =    18.34s     Check for interrupting elements affecting "composerSuggestion.user-perfprobe" Button
+    t =    18.41s     Synthesize event
+    t =    18.70s     Wait for com.mattermost.ios to idle
+    t =    18.70s Find the "channelComposer.input" TextView
+    t =    18.75s Find the Target Application 'com.mattermost.ios'
+    t =    18.89s Added attachment named 't35-04-mention-inserted'
+    t =    18.89s Tear Down
+Test Case '-[MattermostUITests.T35ComposerUITests testAMentionCompletesFromTheChannelsMembersAndInsertsTheUsername]' passed (19.162 seconds).
+Test Case '-[MattermostUITests.T35ComposerUITests testAnAttachmentUploadsWithProgressAndIsSentWithThePost]' started.
+    t =     0.00s Start Test at 2026-10-25 21:49:48.149
+    t =     0.02s Set Up
+    t =     0.22s Open com.mattermost.ios
+    t =     0.22s     Launch com.mattermost.ios
+    t =     0.22s         Terminate com.mattermost.ios:39175
+2026-10-25 21:49:49.430 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 21:49:49.430 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.50s         Setting up automation session
+    t =     2.41s         Wait for com.mattermost.ios to idle
+    t =     3.93s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     4.95s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     4.95s         Checking existence of `"loginIDField" TextField`
+    t =     5.02s Tap "loginIDField" TextField
+    t =     5.02s     Wait for com.mattermost.ios to idle
+    t =     5.03s     Find the "loginIDField" TextField
+    t =     5.04s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.06s     Synthesize event
+    t =     5.35s     Wait for com.mattermost.ios to idle
+    t =     5.39s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.39s     Wait for com.mattermost.ios to idle
+    t =     5.95s     Find the "loginIDField" TextField
+    t =     5.99s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.02s     Synthesize event
+    t =     6.36s     Wait for com.mattermost.ios to idle
+    t =     6.37s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.39s Tap "loginPasswordField" SecureTextField
+    t =     6.39s     Wait for com.mattermost.ios to idle
+    t =     6.40s     Find the "loginPasswordField" SecureTextField
+    t =     6.42s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.45s     Synthesize event
+    t =     6.75s     Wait for com.mattermost.ios to idle
+    t =     6.75s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     6.75s     Wait for com.mattermost.ios to idle
+    t =     6.75s     Find the "loginPasswordField" SecureTextField
+    t =     6.78s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.80s     Synthesize event
+    t =     7.48s     Wait for com.mattermost.ios to idle
+    t =     7.48s Tap "loginSubmitButton" Button
+    t =     7.48s     Wait for com.mattermost.ios to idle
+    t =     7.48s     Find the "loginSubmitButton" Button
+    t =     7.51s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     7.54s     Synthesize event
+    t =     7.83s     Wait for com.mattermost.ios to idle
+    t =     8.16s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.18s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.18s         Checking existence of `"nativeShell" Any`
+    t =     9.26s Waiting 40.0s for "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any to exist
+    t =    10.29s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.29s         Checking existence of `"channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.54s Tap "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    10.54s     Wait for com.mattermost.ios to idle
+    t =    10.54s     Find the "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    10.76s     Check for interrupting elements affecting "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Button
+    t =    10.86s     Synthesize event
+    t =    11.15s     Wait for com.mattermost.ios to idle
+    t =    11.23s Waiting 40.0s for "channelPostList" Any to exist
+    t =    12.26s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    12.26s         Checking existence of `"channelPostList" Any`
+    t =    12.33s Waiting 20.0s for "channelComposer.attachment.t35-upload.png" Any to exist
+    t =    13.36s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.attachment.t35-upload.png" Any`
+    t =    13.36s         Checking existence of `"channelComposer.attachment.t35-upload.png" Any`
+    t =    13.47s Find the "channelComposer.attachment.t35-upload.png" Any
+    t =    13.57s Find the "channelComposer.attachment.t35-upload.png" Other
+    t =    13.68s Find the Target Application 'com.mattermost.ios'
+    t =    13.80s Added attachment named 't35-06-uploaded'
+    t =    13.80s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    14.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    14.83s         Checking existence of `"channelComposer.input" TextView`
+    t =    14.87s Tap "channelComposer.input" TextView
+    t =    14.87s     Wait for com.mattermost.ios to idle
+    t =    14.87s     Find the "channelComposer.input" TextView
+    t =    14.91s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    14.95s     Synthesize event
+    t =    15.25s     Wait for com.mattermost.ios to idle
+    t =    15.65s Type 't35 upload 1792990...' into "channelComposer.input" TextView
+    t =    15.65s     Wait for com.mattermost.ios to idle
+    t =    15.66s     Find the "channelComposer.input" TextView
+    t =    15.71s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    15.75s     Synthesize event
+    t =    16.30s     Wait for com.mattermost.ios to idle
+    t =    16.30s Tap "channelComposer.send" Any
+    t =    16.30s     Wait for com.mattermost.ios to idle
+    t =    16.31s     Find the "channelComposer.send" Any
+    t =    16.48s     Check for interrupting elements affecting "channelComposer.send" Button
+    t =    16.55s     Synthesize event
+    t =    16.84s     Wait for com.mattermost.ios to idle
+    t =    16.87s Checking existence of `"post.53cm4whs4f8ymm8wzgpgfwssaa" Any`
+    t =    17.10s Checking existence of `"post.53cm4whs4f8ymm8wzgpgfwssaa" Any`
+    t =    17.31s Find the Target Application 'com.mattermost.ios'
+    t =    17.44s Added attachment named 't35-07-post-with-attachment'
+    t =    17.44s Tear Down
+Test Case '-[MattermostUITests.T35ComposerUITests testAnAttachmentUploadsWithProgressAndIsSentWithThePost]' passed (17.678 seconds).
+Test Case '-[MattermostUITests.T35ComposerUITests testMyOwnPostCanBeEditedAndDeletedFromTheRow]' started.
+    t =     0.00s Start Test at 2026-10-25 21:50:05.829
+    t =     0.02s Set Up
+2026-10-25 21:50:06.031643-0700 MattermostUITests-Runner[38787:5842280] [connection] nw_connection_add_timestamp_locked_on_nw_queue [C3] Hit maximum timestamp count, will start dropping events
+    t =     0.22s Open com.mattermost.ios
+    t =     0.22s     Launch com.mattermost.ios
+    t =     0.22s         Terminate com.mattermost.ios:39216
+2026-10-25 21:50:07.101 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 21:50:07.101 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.49s         Setting up automation session
+    t =     2.43s         Wait for com.mattermost.ios to idle
+    t =     3.97s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.01s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.01s         Checking existence of `"loginIDField" TextField`
+    t =     5.09s Tap "loginIDField" TextField
+    t =     5.09s     Wait for com.mattermost.ios to idle
+    t =     5.09s     Find the "loginIDField" TextField
+    t =     5.10s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.12s     Synthesize event
+    t =     5.41s     Wait for com.mattermost.ios to idle
+    t =     5.44s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.44s     Wait for com.mattermost.ios to idle
+    t =     6.00s     Find the "loginIDField" TextField
+    t =     6.05s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.07s     Synthesize event
+    t =     6.43s     Wait for com.mattermost.ios to idle
+    t =     6.43s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.46s Tap "loginPasswordField" SecureTextField
+    t =     6.46s     Wait for com.mattermost.ios to idle
+    t =     6.47s     Find the "loginPasswordField" SecureTextField
+    t =     6.50s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.52s     Synthesize event
+    t =     6.82s     Wait for com.mattermost.ios to idle
+    t =     6.82s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     6.82s     Wait for com.mattermost.ios to idle
+    t =     6.82s     Find the "loginPasswordField" SecureTextField
+    t =     6.85s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.88s     Synthesize event
+    t =     7.57s     Wait for com.mattermost.ios to idle
+    t =     7.57s Tap "loginSubmitButton" Button
+    t =     7.57s     Wait for com.mattermost.ios to idle
+    t =     7.57s     Find the "loginSubmitButton" Button
+    t =     7.60s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     7.63s     Synthesize event
+    t =     7.92s     Wait for com.mattermost.ios to idle
+    t =     8.28s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.33s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.33s         Checking existence of `"nativeShell" Any`
+    t =     9.42s Waiting 40.0s for "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any to exist
+    t =    10.48s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.48s         Checking existence of `"channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.74s Tap "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    10.74s     Wait for com.mattermost.ios to idle
+    t =    10.74s     Find the "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    10.96s     Check for interrupting elements affecting "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Button
+    t =    11.06s     Synthesize event
+    t =    11.35s     Wait for com.mattermost.ios to idle
+    t =    11.82s Waiting 40.0s for "channelPostList" Any to exist
+    t =    12.85s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    12.85s         Checking existence of `"channelPostList" Any`
+    t =    12.92s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    13.97s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    13.97s         Checking existence of `"channelComposer.input" TextView`
+    t =    14.02s Tap "channelComposer.input" TextView
+    t =    14.02s     Wait for com.mattermost.ios to idle
+    t =    14.03s     Find the "channelComposer.input" TextView
+    t =    14.07s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    14.11s     Synthesize event
+    t =    14.40s     Wait for com.mattermost.ios to idle
+    t =    14.82s Type 't35 edit before 17...' into "channelComposer.input" TextView
+    t =    14.82s     Wait for com.mattermost.ios to idle
+    t =    14.83s     Find the "channelComposer.input" TextView
+    t =    14.88s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    14.93s     Synthesize event
+    t =    15.57s     Wait for com.mattermost.ios to idle
+    t =    15.57s Tap "channelComposer.send" Any
+    t =    15.57s     Wait for com.mattermost.ios to idle
+    t =    15.58s     Find the "channelComposer.send" Any
+    t =    15.74s     Check for interrupting elements affecting "channelComposer.send" Button
+    t =    15.80s     Synthesize event
+    t =    16.10s     Wait for com.mattermost.ios to idle
+    t =    16.16s Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    16.40s Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    16.64s Swipe up "channelPostList" Any
+    t =    16.64s     Wait for com.mattermost.ios to idle
+    t =    16.64s     Find the "channelPostList" Any
+    t =    16.78s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    16.84s     Synthesize event
+    t =    17.24s     Wait for com.mattermost.ios to idle
+    t =    17.77s Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    17.96s Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    18.14s Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    18.33s Waiting 15.0s for "post.ief9oxt9c7dezj6madb9j7pu1w.menu" Any to exist
+    t =    19.37s     Checking `Expect predicate `existsNoRetry == 1` for object "post.ief9oxt9c7dezj6madb9j7pu1w.menu" Any`
+    t =    19.37s         Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w.menu" Any`
+    t =    19.59s Tap "post.ief9oxt9c7dezj6madb9j7pu1w.menu" Any
+    t =    19.59s     Wait for com.mattermost.ios to idle
+    t =    19.59s     Find the "post.ief9oxt9c7dezj6madb9j7pu1w.menu" Any
+    t =    19.79s     Check for interrupting elements affecting "post.ief9oxt9c7dezj6madb9j7pu1w.menu" Button
+    t =    19.86s     Synthesize event
+    t =    20.15s     Wait for com.mattermost.ios to idle
+    t =    20.62s Waiting 10.0s for "postOptions.edit" Any to exist
+    t =    21.68s     Checking `Expect predicate `existsNoRetry == 1` for object "postOptions.edit" Any`
+    t =    21.68s         Checking existence of `"postOptions.edit" Any`
+    t =    21.95s Tap "postOptions.edit" Any
+    t =    21.95s     Wait for com.mattermost.ios to idle
+    t =    21.95s     Find the "postOptions.edit" Any
+    t =    22.17s     Check for interrupting elements affecting "postOptions.edit" Button
+    t =    22.25s     Synthesize event
+    t =    22.54s     Wait for com.mattermost.ios to idle
+    t =    23.00s Waiting 10.0s for "channelComposer.editingBanner" Any to exist
+    t =    24.01s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.editingBanner" Any`
+    t =    24.02s         Checking existence of `"channelComposer.editingBanner" Any`
+    t =    24.17s Find the Target Application 'com.mattermost.ios'
+    t =    24.30s Added attachment named 't35-08-editing'
+    t =    24.30s Find the "channelComposer.input" TextView
+    t =    24.35s Tap "channelComposer.input" TextView
+    t =    24.35s     Wait for com.mattermost.ios to idle
+    t =    24.35s     Find the "channelComposer.input" TextView
+    t =    24.40s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    24.44s     Synthesize event
+    t =    24.74s     Wait for com.mattermost.ios to idle
+    t =    24.74s Type '...' into "channelComposer.input" TextView
+    t =    24.74s     Wait for com.mattermost.ios to idle
+    t =    24.74s     Find the "channelComposer.input" TextView
+    t =    24.87s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    24.93s     Synthesize event
+    t =    25.57s     Wait for com.mattermost.ios to idle
+    t =    25.57s Type 't35 edit after 179...' into "channelComposer.input" TextView
+    t =    25.57s     Wait for com.mattermost.ios to idle
+    t =    25.57s     Find the "channelComposer.input" TextView
+    t =    25.62s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    25.67s     Synthesize event
+    t =    26.29s     Wait for com.mattermost.ios to idle
+    t =    26.29s Tap "channelComposer.send" Any
+    t =    26.29s     Wait for com.mattermost.ios to idle
+    t =    26.29s     Find the "channelComposer.send" Any
+    t =    26.45s     Check for interrupting elements affecting "channelComposer.send" Button
+    t =    26.51s     Synthesize event
+    t =    26.80s     Wait for com.mattermost.ios to idle
+    t =    26.83s Waiting 30.0s for "post.ief9oxt9c7dezj6madb9j7pu1w" Any to exist
+    t =    27.87s     Checking `Expect predicate `existsNoRetry == 1` for object "post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    27.87s         Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    28.05s Waiting 5.0s for "channelComposer.editingBanner" Any to exist
+    t =    29.08s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.editingBanner" Any`
+    t =    29.08s         Checking existence of `"channelComposer.editingBanner" Any`
+    t =    29.33s         Capturing element debug description
+    t =    30.05s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.editingBanner" Any`
+    t =    30.06s         Checking existence of `"channelComposer.editingBanner" Any`
+    t =    30.28s         Capturing element debug description
+    t =    31.10s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.editingBanner" Any`
+    t =    31.11s         Checking existence of `"channelComposer.editingBanner" Any`
+    t =    31.33s         Capturing element debug description
+    t =    32.06s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.editingBanner" Any`
+    t =    32.06s         Checking existence of `"channelComposer.editingBanner" Any`
+    t =    32.28s         Capturing element debug description
+    t =    33.06s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.editingBanner" Any`
+    t =    33.06s         Checking existence of `"channelComposer.editingBanner" Any`
+    t =    33.28s         Capturing element debug description
+    t =    33.28s     Checking existence of `"channelComposer.editingBanner" Any`
+    t =    33.50s Collecting debug information to assist test failure triage
+    t =    33.50s     Requesting snapshot of accessibility hierarchy for app with pid 39256
+    t =    33.60s Find the Target Application 'com.mattermost.ios'
+    t =    33.73s Added attachment named 't35-09-edited'
+    t =    33.73s Tap "post.ief9oxt9c7dezj6madb9j7pu1w.menu" Any
+    t =    33.73s     Wait for com.mattermost.ios to idle
+    t =    33.73s     Find the "post.ief9oxt9c7dezj6madb9j7pu1w.menu" Any
+    t =    33.93s     Check for interrupting elements affecting "post.ief9oxt9c7dezj6madb9j7pu1w.menu" Button
+    t =    34.00s     Synthesize event
+    t =    34.30s     Wait for com.mattermost.ios to idle
+    t =    34.69s Waiting 15.0s for "postOptions.delete" Any to exist
+    t =    35.72s     Checking `Expect predicate `existsNoRetry == 1` for object "postOptions.delete" Any`
+    t =    35.72s         Checking existence of `"postOptions.delete" Any`
+    t =    35.96s Tap "postOptions.delete" Any
+    t =    35.96s     Wait for com.mattermost.ios to idle
+    t =    35.96s     Find the "postOptions.delete" Any
+    t =    36.18s     Check for interrupting elements affecting "postOptions.delete" Button
+    t =    36.26s     Synthesize event
+    t =    36.55s     Wait for com.mattermost.ios to idle
+    t =    37.00s Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    37.25s Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    37.50s Swipe up "channelPostList" Any
+    t =    37.50s     Wait for com.mattermost.ios to idle
+    t =    37.50s     Find the "channelPostList" Any
+    t =    37.66s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    37.73s     Synthesize event
+    t =    38.10s     Wait for com.mattermost.ios to idle
+    t =    38.74s Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    38.91s Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    39.09s Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w" Any`
+    t =    39.26s Waiting 20.0s for "post.ief9oxt9c7dezj6madb9j7pu1w.deleted" Any to exist
+    t =    40.30s     Checking `Expect predicate `existsNoRetry == 1` for object "post.ief9oxt9c7dezj6madb9j7pu1w.deleted" Any`
+    t =    40.31s         Checking existence of `"post.ief9oxt9c7dezj6madb9j7pu1w.deleted" Any`
+    t =    40.53s Find the Target Application 'com.mattermost.ios'
+    t =    40.68s Added attachment named 't35-10-deleted'
+    t =    40.68s Tear Down
+Test Case '-[MattermostUITests.T35ComposerUITests testMyOwnPostCanBeEditedAndDeletedFromTheRow]' passed (40.927 seconds).
+Test Case '-[MattermostUITests.T35ComposerUITests testSendingAMessageAppearsOnceAndCarriesTheServersID]' started.
+    t =     0.00s Start Test at 2026-10-25 21:50:46.756
+    t =     0.02s Set Up
+    t =     0.24s Open com.mattermost.ios
+    t =     0.24s     Launch com.mattermost.ios
+    t =     0.24s         Terminate com.mattermost.ios:39256
+2026-10-25 21:50:48.081 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-25 21:50:48.081 xcodebuild[38534:5837776] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.53s         Setting up automation session
+    t =     2.61s         Wait for com.mattermost.ios to idle
+    t =     4.14s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.18s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.18s         Checking existence of `"loginIDField" TextField`
+    t =     5.26s Tap "loginIDField" TextField
+    t =     5.26s     Wait for com.mattermost.ios to idle
+    t =     5.26s     Find the "loginIDField" TextField
+    t =     5.28s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.30s     Synthesize event
+    t =     5.59s     Wait for com.mattermost.ios to idle
+    t =     5.63s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.63s     Wait for com.mattermost.ios to idle
+    t =     6.18s     Find the "loginIDField" TextField
+    t =     6.22s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.25s     Synthesize event
+    t =     6.60s     Wait for com.mattermost.ios to idle
+    t =     6.60s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.63s Tap "loginPasswordField" SecureTextField
+    t =     6.63s     Wait for com.mattermost.ios to idle
+    t =     6.63s     Find the "loginPasswordField" SecureTextField
+    t =     6.66s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.69s     Synthesize event
+    t =     6.98s     Wait for com.mattermost.ios to idle
+    t =     6.98s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     6.98s     Wait for com.mattermost.ios to idle
+    t =     6.98s     Find the "loginPasswordField" SecureTextField
+    t =     7.01s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.04s     Synthesize event
+    t =     7.72s     Wait for com.mattermost.ios to idle
+    t =     7.73s Tap "loginSubmitButton" Button
+    t =     7.73s     Wait for com.mattermost.ios to idle
+    t =     7.73s     Find the "loginSubmitButton" Button
+    t =     7.76s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     7.79s     Synthesize event
+    t =     8.08s     Wait for com.mattermost.ios to idle
+    t =     8.45s Waiting 40.0s for "nativeShell" Any to exist
+    t =     9.47s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =     9.47s         Checking existence of `"nativeShell" Any`
+    t =     9.57s Waiting 40.0s for "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any to exist
+    t =    10.64s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.64s         Checking existence of `"channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any`
+    t =    10.91s Tap "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    10.91s     Wait for com.mattermost.ios to idle
+    t =    10.91s     Find the "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Any
+    t =    11.17s     Check for interrupting elements affecting "channelSidebar.channel.64d95e7oipf4jjk9qrxp8ad93e" Button
+    t =    11.27s     Synthesize event
+    t =    11.57s     Wait for com.mattermost.ios to idle
+    t =    11.73s Waiting 40.0s for "channelPostList" Any to exist
+    t =    12.75s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    12.75s         Checking existence of `"channelPostList" Any`
+    t =    12.94s Waiting 30.0s for "channelComposer.input" TextView to exist
+    t =    13.99s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" TextView`
+    t =    13.99s         Checking existence of `"channelComposer.input" TextView`
+    t =    14.03s Tap "channelComposer.input" TextView
+    t =    14.03s     Wait for com.mattermost.ios to idle
+    t =    14.03s     Find the "channelComposer.input" TextView
+    t =    14.07s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    14.11s     Synthesize event
+    t =    14.41s     Wait for com.mattermost.ios to idle
+    t =    14.83s Type 't35 send 1792990246' into "channelComposer.input" TextView
+    t =    14.83s     Wait for com.mattermost.ios to idle
+    t =    14.83s     Find the "channelComposer.input" TextView
+    t =    14.88s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    14.93s     Synthesize event
+    t =    15.45s     Wait for com.mattermost.ios to idle
+    t =    15.45s Find the Target Application 'com.mattermost.ios'
+    t =    15.59s Added attachment named 't35-01-typed'
+    t =    15.59s Waiting 10.0s for "channelComposer.send" Any to exist
+    t =    16.61s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.send" Any`
+    t =    16.61s         Checking existence of `"channelComposer.send" Any`
+    t =    16.77s Find the "channelComposer.send" Any
+    t =    16.93s Tap "channelComposer.send" Button
+    t =    16.93s     Wait for com.mattermost.ios to idle
+    t =    16.94s     Find the "channelComposer.send" Button
+    t =    17.09s     Check for interrupting elements affecting "channelComposer.send" Button
+    t =    17.16s     Synthesize event
+    t =    17.45s     Wait for com.mattermost.ios to idle
+    t =    17.49s Checking existence of `"post.7i3ekfbtgbfoimpsrfeag9xhbo" Any`
+    t =    17.73s Checking existence of `"post.7i3ekfbtgbfoimpsrfeag9xhbo" Any`
+    t =    18.07s Swipe up "channelPostList" Any
+    t =    18.07s     Wait for com.mattermost.ios to idle
+    t =    18.07s     Find the "channelPostList" Any
+    t =    18.25s     Check for interrupting elements affecting "channelPostList" ScrollView
+    t =    18.32s     Synthesize event
+    t =    18.73s     Wait for com.mattermost.ios to idle
+    t =    19.26s Checking existence of `"post.7i3ekfbtgbfoimpsrfeag9xhbo" Any`
+    t =    19.45s Checking existence of `"post.7i3ekfbtgbfoimpsrfeag9xhbo" Any`
+    t =    19.63s Checking existence of `"post.7i3ekfbtgbfoimpsrfeag9xhbo" Any`
+    t =    19.80s Find the Target Application 'com.mattermost.ios'
+    t =    19.93s Added attachment named 't35-02-sent'
+    t =    19.93s Get number of matches for: Elements matching predicate 'identifier BEGINSWITH "post.pending:"'
+    t =    19.97s Get number of matches for: Elements matching predicate 'identifier BEGINSWITH "post."'
+    t =    20.01s Find the Any (Element at index 0)
+    t =    20.04s Find the Any (Element at index 1)
+    t =    20.08s Find the Any (Element at index 2)
+    t =    20.12s Find the Any (Element at index 3)
+    t =    20.16s Find the Any (Element at index 4)
+    t =    20.19s Find the Any (Element at index 5)
+    t =    20.23s Find the Any (Element at index 6)
+    t =    20.27s Find the Any (Element at index 7)
+    t =    20.31s Find the Any (Element at index 8)
+    t =    20.35s Find the Any (Element at index 9)
+    t =    20.39s Find the Any (Element at index 10)
+    t =    20.43s Find the Any (Element at index 11)
+    t =    20.48s Find the Any (Element at index 12)
+    t =    20.52s Find the Any (Element at index 13)
+    t =    20.56s Find the "channelComposer.input" TextView
+    t =    20.62s Tear Down
+Test Case '-[MattermostUITests.T35ComposerUITests testSendingAMessageAppearsOnceAndCarriesTheServersID]' passed (20.834 seconds).
+Test Suite 'T35ComposerUITests' passed at 2026-10-25 21:51:07.591.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 262.706 (262.713) seconds
+Test Suite 'MattermostUITests.xctest' passed at 2026-10-25 21:51:07.593.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 262.706 (262.716) seconds
+Test Suite 'Selected tests' passed at 2026-10-25 21:51:07.594.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 262.706 (262.717) seconds
+2026-10-25 21:51:27.620 xcodebuild[38534:5837776] [MT] IDETestOperationsObserverDebug: 302.229 elapsed -- Testing started completed.
+2026-10-25 21:51:27.620 xcodebuild[38534:5837776] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-25 21:51:27.620 xcodebuild[38534:5837776] [MT] IDETestOperationsObserverDebug: 302.229 sec, +302.229 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t35r-f4-6e93c8.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started

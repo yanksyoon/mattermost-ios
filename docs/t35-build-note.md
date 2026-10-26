@@ -329,8 +329,8 @@ Both directions, run here:
 
 | run | command | result |
 | --- | --- | --- |
-| suite, real code | `scripts/qa-test.py --platform ios --sim id=81A7F251… --only-testing MattermostUITests/T35ComposerUITests --label t35r-f4` | **7 run / 0 skipped / 0 failed, 322 s**, `RESULT: PASS` (`build/logs/t35r-f4.log`); the mention test 19.2 s |
-| the same one test, with the filter **deleted** (`ComposerMembership.filter` returns every candidate) | `… --only-testing …/testAMentionCompletesFromTheChannelsMembersAndInsertsTheUsername --label t35r-f4-mutation` | **failed (22.1 s)** on both negatives — `T35-ComposerUITests.swift:157` and `:159`, `XCTAssertFalse failed - a team member who is not in this channel must not be offered` (`build/logs/t35r-f4-mutation.log`, `RESULT: FAIL`) |
+| suite, real code | `scripts/qa-test.py --platform ios --sim id=81A7F251… --only-testing MattermostUITests/T35ComposerUITests --label t35r-f4` | **7 run / 0 skipped / 0 failed, 322 s**, `RESULT: PASS` — committed as `docs/t35r-f4-live-2026-10-25.log` (the runner also writes it to `build/logs/t35r-f4.log`); the mention test 19.2 s |
+| the same one test, with the filter **deleted** (`ComposerMembership.filter` returns every candidate) | `… --only-testing …/testAMentionCompletesFromTheChannelsMembersAndInsertsTheUsername --label t35r-f4-mutation` | **failed (22.1 s)** on both negatives — `T35-ComposerUITests.swift:157` and `:159`, `XCTAssertFalse failed - a team member who is not in this channel must not be offered` — committed as `docs/t35r-f4-mutation-2026-10-25.log`, `RESULT: FAIL` |
 
 The mutation was reverted before anything was committed (`git diff` for `ComposerModels.swift` is the
 NOTICE-reference line and nothing else), and the passing suite above is the unmutated tree — the two
