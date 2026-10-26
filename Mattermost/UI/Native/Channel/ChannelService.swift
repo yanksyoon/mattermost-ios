@@ -24,6 +24,12 @@ protocol ChannelServing: AnyObject {
     func posts(channelID: String, before: String?, perPage: Int) async throws -> MMPostList
     /// Author profiles for the ids on screen, in one batched request.
     func users(ids: [String]) async throws -> [MMUser]
+
+    /// `GET /posts/{id}` — one post by id.
+    ///
+    /// T39's jump-to-message path needs a post the loaded window may not hold: a search result can be
+    /// older than the newest page, and the pane has to fetch it rather than scroll to nothing.
+    func post(id: String) async throws -> MMPost
     /// Bytes for an attachment thumbnail (or the file itself when the server has no thumbnail).
     func fileData(fileID: String, preferThumbnail: Bool) async throws -> Data
 
@@ -65,6 +71,9 @@ protocol ChannelServing: AnyObject {
 extension ChannelServing {
     var pageSize: Int { 60 }
     func membership(channelID: String) async throws -> MMChannelMember? { nil }
+    /// A service that cannot answer one post by id simply has no jump target: the pane then reports
+    /// "that message is no longer in this channel" instead of scrolling to an id it does not hold.
+    func post(id: String) async throws -> MMPost { throw MMError.notFound }
     func fileDownloadRequest(fileID: String) throws -> URLRequest { throw MMError.notSignedIn }
     func customEmoji(page: Int, perPage: Int) async throws -> [MMEmoji] { [] }
     func emojiImage(emojiID: String) async throws -> Data { throw MMError.notFound }
@@ -110,6 +119,11 @@ final class SessionChannelService: ChannelServing {
         // A profile failure must not fail the page: the rows fall back to the username carried in
         // `props` (system messages) or to "Unknown user", which is honest and still ordered.
         (try? await client().users(ids: ids)) ?? []
+    }
+
+    /// T39: one post by id, for the jump-to-message path.
+    func post(id: String) async throws -> MMPost {
+        try await client().post(id: id)
     }
 
     func fileData(fileID: String, preferThumbnail: Bool) async throws -> Data {

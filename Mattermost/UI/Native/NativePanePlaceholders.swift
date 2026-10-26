@@ -229,7 +229,11 @@ struct NativeChannelPaneView: View {
                 ChannelPaneContent(server: server,
                                    channelID: channelID,
                                    channelName: location.channelDisplayName,
-                                   navigation: navigation)
+                                   navigation: navigation,
+                                   // T39: a route that names a post lands on it (a search result, a
+                                   // saved/pinned message, a permalink). Before this the pane opened
+                                   // the channel at its newest message and the post was never shown.
+                                   focusPostID: location.postID)
             } else if location.hasChannel, let channelID = location.channelID {
                 // A channel without a resolvable server cannot make a request; say so rather than
                 // render a list that would spin forever.

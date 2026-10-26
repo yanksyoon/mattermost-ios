@@ -48,6 +48,21 @@ struct NativeShellView: View {
     @EnvironmentObject private var auth: AuthCoordinator
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
+    /// T39: the lookup screens (search, saved) in the **regular** layout.
+    ///
+    /// The compact layout reaches them as tabs. The split layout has no tab bar, and
+    /// `NativeTarget` has no search/saved case, so without this a Pad/desktop window could not open
+    /// the two screens at all — the surfaces would exist and be unreachable. One sheet holds either,
+    /// so only one `.sheet` modifier is attached to a given view (SwiftUI applies several unreliably).
+    @State private var lookupSheet: LookupSheet?
+
+    private enum LookupSheet: String, Identifiable {
+        case search
+        case saved
+        var id: String { rawValue }
+        var title: String { self == .search ? "Search" : "Saved messages" }
+    }
+
     /// An unauthenticated server shows the auth surface instead of a workspace (scope §2).
     ///
     /// Keyed on the *location's* server: `NativeNavigation.authState` describes the active
@@ -107,8 +122,51 @@ struct NativeShellView: View {
         } detail: {
             NativeDestinationPaneView(location: navigation.location, navigation: navigation,
                                       server: server)
+                // T39: the two lookup surfaces, reachable from the detail column's toolbar. They are
+                // gated on the `search` surface inside their own panes, so with the flag off they
+                // explain that rather than drawing a screen the dual-render switch called web.
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            lookupSheet = .search
+                        } label: {
+                            Label("Search", systemImage: "magnifyingglass")
+                        }
+                        .accessibilityIdentifier("shellSearchButton")
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            lookupSheet = .saved
+                        } label: {
+                            Label("Saved messages", systemImage: "bookmark")
+                        }
+                        .accessibilityIdentifier("shellSavedButton")
+                    }
+                }
         }
         .navigationSplitViewStyle(.balanced)
+        .sheet(item: $lookupSheet) { which in
+            NavigationStack {
+                Group {
+                    switch which {
+                    case .search:
+                        SearchPaneContent(server: server, navigation: navigation)
+                    case .saved:
+                        SavedPaneContent(server: server, navigation: navigation)
+                    }
+                }
+                .navigationTitle(which.title)
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { lookupSheet = nil }
+                            .accessibilityIdentifier("\(which.rawValue)SheetClose")
+                    }
+                }
+            }
+        }
     }
 
     /// Phone layout: the sidebar is a tab, the channel view is a push (see the type comment).
@@ -125,6 +183,21 @@ struct NativeShellView: View {
                     Label(NativeTab.threads.title, systemImage: NativeTab.threads.systemImage)
                 }
                 .tag(NativeTab.threads)
+
+            // T39 (S19/S20): the lookup tabs. Both are gated on the `search` surface inside their own
+            // pane (see `SearchPaneContent`), so with the flag off they say so instead of drawing a
+            // screen the dual-render switch says is not native.
+            SearchPaneContent(server: server, navigation: navigation)
+                .tabItem {
+                    Label(NativeTab.search.title, systemImage: NativeTab.search.systemImage)
+                }
+                .tag(NativeTab.search)
+
+            SavedPaneContent(server: server, navigation: navigation)
+                .tabItem {
+                    Label(NativeTab.saved.title, systemImage: NativeTab.saved.systemImage)
+                }
+                .tag(NativeTab.saved)
         }
     }
 }

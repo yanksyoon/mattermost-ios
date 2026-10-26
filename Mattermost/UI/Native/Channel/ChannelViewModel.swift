@@ -86,6 +86,15 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     @Published private(set) var expandedPostIDs: Set<String> = []
     /// Set after an older page lands, consumed by the view to scroll back to the reader's post.
     @Published private(set) var pendingScrollRestore: ScrollAnchor?
+    /// T39: a post a jump asked for. The view scrolls to it and calls `consumeJump()`.
+    @Published private(set) var jumpTarget: String?
+    /// T39: the post the jump landed on, drawn with a marking bar until the reader searches again.
+    @Published private(set) var focusedPostID: String?
+    /// T39: why a jump could not land (the post is gone, or it is another channel's).
+    @Published private(set) var focusError: String?
+    /// T39: set when the jump target is a **reply** — the view opens its thread instead (a reply is not
+    /// a row of a thread-collapsed timeline).
+    @Published private(set) var threadJumpRootID: String?
     /// The last socket event's effect, for diagnostics/tests (never rendered).
     @Published private(set) var lastEventOutcome: EventOutcome = .ignored
 
@@ -864,6 +873,101 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
 
     /// The id the view scrolls back to after an older page lands.
     var pendingScrollTarget: String? { pendingScrollRestore?.postID }
+
+    // MARK: - Jumping to one post (T39)
+
+    /// Land on one post: scroll to it when the window holds it, otherwise **fetch it** and merge it.
+    ///
+    /// That fetch is what makes "jump to a search result in a channel that was never opened" work: the
+    /// pane's first page is the newest 60 posts, and a result can be far older. The merged post is one
+    /// row at the older end of the window — honest about the gap (the list draws no separator it did
+    /// not earn) and enough to read the message the reader asked for.
+    ///
+    /// A **reply** cannot be a row here at all (`isTimelineRow` keeps replies out of a thread-collapsed
+    /// timeline), so its jump is its thread: `threadJumpRootID` tells the view to open the thread pane,
+    /// which is where the reply is actually drawn.
+    func focus(postID: String) async {
+        guard !postID.isEmpty else { return }
+        focusError = nil
+        if let post = postsByID[postID] {
+            if post.rootId.isEmpty {
+                jumpTarget = postID
+                focusedPostID = postID
+            } else {
+                threadJumpRootID = post.rootId
+            }
+            return
+        }
+        do {
+            let fetched = try await service.post(id: postID)
+            guard fetched.channelId == channelID else {
+                focusError = "That message belongs to a different channel."
+                return
+            }
+            guard fetched.rootId.isEmpty else {
+                threadJumpRootID = fetched.rootId
+                return
+            }
+            mergeJumpedPost(fetched)
+            jumpTarget = postID
+            focusedPostID = postID
+        } catch {
+            focusError = Self.focusMessage(for: error)
+        }
+    }
+
+    /// The view has scrolled to `jumpTarget`: clear it so a re-render does not scroll again.
+    func consumeJump() {
+        jumpTarget = nil
+    }
+
+    /// The view opened the thread a reply jump asked for: clear the request.
+    func consumeThreadJump() {
+        threadJumpRootID = nil
+    }
+
+    /// Drop the marking bar (the reader moved to another post or channel).
+    func clearFocus() {
+        focusedPostID = nil
+    }
+
+    /// A pin/unpin written from the pinned sheet: flip the row **in place**, no refetch.
+    ///
+    /// This is the card's "un-pinning updates in place": the sheet writes, the channel's own row learns
+    /// the new state from the same call, and neither screen reloads a page to find it out.
+    func applyPin(postID: String, isPinned: Bool) {
+        guard var post = postsByID[postID], post.isPinned != isPinned else { return }
+        post.isPinned = isPinned
+        replace(post)
+        rebuild()
+    }
+
+    private func mergeJumpedPost(_ post: MMPost) {
+        guard postsByID[post.id] == nil else { return }
+        posts.append(post)
+        postsByID[post.id] = post
+        posts = Self.sortedNewestFirst(posts)
+        rebuild()
+        // The jumped-to author may never have been on screen; without a profile the row would read
+        // "Unknown user" even though the post is the one the reader asked for.
+        scheduleProfileLoad(for: post.userId)
+    }
+
+    static func focusMessage(for error: Error) -> String {
+        // A missing post is the common case (deleted between the search and the tap) and deserves its
+        // own sentence rather than "the channel could not be loaded".
+        if case MMError.notFound = error {
+            return "That message no longer exists on the server."
+        }
+        return MMErrorCopy.message(for: error,
+                                   offline: "You are offline. This message will open when the connection is back.",
+                                   timeout: "The server did not answer in time.",
+                                   unauthorized: "Your session has expired. Sign in again to open this message.",
+                                   forbidden: "You do not have permission to read this message.",
+                                   notFound: "That message no longer exists on the server.",
+                                   rateLimited: "The server is rate limiting this app. Try again shortly.",
+                                   fallback: "That message could not be opened.")
+    }
 
     // MARK: - Derivation
 

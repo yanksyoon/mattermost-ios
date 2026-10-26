@@ -129,12 +129,18 @@ struct MarkdownView: View {
 struct MarkdownInlineText: View {
     let runs: [MarkdownInline]
     var emoji: EmojiCatalogue?
+    /// T39: the search terms to mark inside this run of text. Empty for every ordinary post.
+    ///
+    /// An environment value rather than a parameter, so a result row can highlight the body without
+    /// every caller in between (PostRowView, the attachment section, the fold view) growing a
+    /// highlight parameter it does not use.
+    @Environment(\.searchHighlightTerms) private var highlight
 
     var body: some View {
         if let emoji {
-            CatalogueInlineText(runs: runs, catalogue: emoji)
+            CatalogueInlineText(runs: runs, catalogue: emoji, highlight: highlight)
         } else {
-            Text(MarkdownText.attributed(runs))
+            Text(MarkdownText.attributed(runs, highlight: highlight))
         }
     }
 }
@@ -143,6 +149,7 @@ struct MarkdownInlineText: View {
 private struct CatalogueInlineText: View {
     let runs: [MarkdownInline]
     @ObservedObject var catalogue: EmojiCatalogue
+    var highlight: [SearchHighlightTerm] = []
 
     private var customNames: [String] {
         EmojiCatalogue.customNames(in: runs, catalogue: catalogue)
@@ -151,7 +158,7 @@ private struct CatalogueInlineText: View {
     var body: some View {
         Group {
             if customNames.isEmpty {
-                Text(MarkdownText.attributed(runs))
+                Text(MarkdownText.attributed(runs, highlight: highlight))
             } else {
                 MarkdownText.composed(runs,
                                       custom: Set(customNames),
@@ -223,10 +230,30 @@ struct CodeBlockView: View {
 enum MarkdownText {
 
     /// Every inline run, flattened into one `AttributedString`.
-    static func attributed(_ runs: [MarkdownInline]) -> AttributedString {
+    ///
+    /// `highlight` (T39) is the search-result emphasis: the terms the reader searched for are painted
+    /// behind the characters they match. It is applied here, on the finished attributed string, so the
+    /// markdown renderer keeps its single job (runs → attributed text) and the highlighting rules stay
+    /// in one pure function (`SearchHighlighter`).
+    static func attributed(_ runs: [MarkdownInline],
+                           highlight: [SearchHighlightTerm] = []) -> AttributedString {
         var out = AttributedString()
         append(runs, to: &out, bold: false, italic: false, strike: false, link: nil)
+        if !highlight.isEmpty {
+            applySearchHighlight(highlight, to: &out)
+        }
         return out
+    }
+
+    /// Paint every match of `terms` with a marking background.
+    ///
+    /// The ranges are found on the attributed string's own character view, so they cannot drift from
+    /// what is drawn (the plain string and the attributed string's characters are appended in the same
+    /// order by `append` above).
+    static func applySearchHighlight(_ terms: [SearchHighlightTerm], to out: inout AttributedString) {
+        for range in SearchHighlighter.ranges(in: out, terms: terms) where !range.isEmpty {
+            out[range].backgroundColor = Color.yellow.opacity(0.35)
+        }
     }
 
     private static func append(_ runs: [MarkdownInline],
@@ -475,5 +502,27 @@ enum EmojiShortcodes {
 
     static func character(for name: String) -> String? {
         table[name.lowercased()]
+    }
+}
+
+// MARK: - Search highlighting (T39)
+
+/// The search terms a markdown body should mark.
+///
+/// An environment value, not a parameter: the search result row is the only producer, and the consumer
+/// is `MarkdownInlineText` several views deep inside `PostRowView`. Threading it as a parameter would
+/// add a highlight argument to every row/attachment/fold initialiser on the way, most of which would
+/// always pass `[]`.
+///
+/// The default is empty, so every non-search rendering (a channel's timeline, a thread, a preview) is
+/// byte-for-byte what it drew before T39.
+struct SearchHighlightTermsKey: EnvironmentKey {
+    static let defaultValue: [SearchHighlightTerm] = []
+}
+
+extension EnvironmentValues {
+    var searchHighlightTerms: [SearchHighlightTerm] {
+        get { self[SearchHighlightTermsKey.self] }
+        set { self[SearchHighlightTermsKey.self] = newValue }
     }
 }

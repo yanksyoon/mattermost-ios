@@ -187,6 +187,23 @@ struct ChannelPostListView: View {
             }
             .coordinateSpace(name: "channelScroll")
             .accessibilityIdentifier("channelPostList")
+            // T39: a jump (a tapped search result, a saved message, a pinned one) scrolls to its post.
+            // The loop is deliberate: a jumped-to post that had to be *fetched* is merged into the
+            // window at the same moment the scroll is asked for, and a `LazyVStack` measures a new row
+            // a pass later — one `scrollTo` at that moment lands short of it or on nothing.
+            .onChange(of: model.jumpTarget) { _, target in
+                guard let target else { return }
+                Task { @MainActor in
+                    for _ in 0..<12 {
+                        if scrollController.offsetFromTop(ofRow: target) != nil { break }
+                        proxy.scrollTo("post-\(target)", anchor: .center)
+                        try? await Task.sleep(for: .milliseconds(60))
+                    }
+                    proxy.scrollTo("post-\(target)", anchor: .center)
+                    try? await Task.sleep(for: .milliseconds(120))
+                    model.consumeJump()
+                }
+            }
             // A conversation opens at its newest message, the way every chat client does. On iOS 18
             // the anchor is scoped to the *initial* offset, so a post that expands above the reader
             // no longer scrolls them down the list; iOS 17 has no such scope, which is why the fold
@@ -327,6 +344,19 @@ struct ChannelPostListView: View {
                 // The row's own UIView, so the restore can measure where the reader is without
                 // going through a SwiftUI preference (see ChannelScrollPosition.swift).
                 .background(RowAnchorProbe(postID: row.id, controller: scrollController))
+                // T39: the post a jump landed on keeps a marking bar until the reader searches again.
+                // A leaf of its own (rather than an accessibility value on the row) so a UI test can
+                // assert the jump landed without depending on how the row's element resolves.
+                .overlay(alignment: .leading) {
+                    if model.focusedPostID == row.id {
+                        Rectangle()
+                            .fill(Color.accentColor)
+                            .frame(width: 3)
+                            .accessibilityElement()
+                            .accessibilityLabel("Focused message")
+                            .accessibilityIdentifier("postFocus.\(row.id)")
+                    }
+                }
         }
     }
 
@@ -552,6 +582,13 @@ struct ChannelPaneContent: View {
     let channelID: String
     let channelName: String?
     @ObservedObject var navigation: NativeNavigation
+    /// T39: a post this pane must land on (a tapped search result, a saved or pinned message).
+    ///
+    /// Passed by the router (`NativeChannelPaneView` takes it from `NativeLocation.postID`), so a
+    /// search result, a notification tap and a permalink all arrive the same way. The pane loads the
+    /// channel first and then asks the model to focus the post — which fetches it when the first page
+    /// does not hold it.
+    var focusPostID: String? = nil
 
     @EnvironmentObject private var panes: ChannelPaneCoordinator
     @EnvironmentObject private var resolver: SurfaceModeResolver
@@ -568,6 +605,8 @@ struct ChannelPaneContent: View {
     @State private var composer: ComposerViewModel?
     /// T38: attachment save state for this server's rows.
     @State private var attachmentDownloads: AttachmentDownloads?
+    /// T39: the pinned-messages sheet for this channel (S21).
+    @State private var showsPinned = false
 
     /// Whether the write surface renders natively (T35's `.composer` surface).
     ///
@@ -582,6 +621,22 @@ struct ChannelPaneContent: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if let focusError = model?.focusError {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                        .accessibilityHidden(true)
+                    Text(focusError)
+                        .font(.footnote)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.orange.opacity(0.12))
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("channelFocusError")
+            }
             Divider()
             if let model {
                 ChannelPostListView(model: model,
@@ -632,9 +687,31 @@ struct ChannelPaneContent: View {
                                           emojiCatalogue: catalogue)
             }
             await panes.activate(server: server, channelID: channelID, channelName: channelName)
+            // T39: land on the post the route named. After the page, because the window may already
+            // hold it; `focus` fetches it when it does not (an old search result).
+            if let focusPostID {
+                await resolved.focus(postID: focusPostID)
+            }
             // The server's custom emoji are drawn as images inside post bodies; the list is fetched
             // once per server and the catalogue is shared by every channel of it.
             await catalogue.loadNamesIfNeeded()
+        }
+        .onChange(of: model?.threadJumpRootID) { _, rootID in
+            // The jump target turned out to be a reply: it is not a row of this timeline, so open the
+            // thread it lives in (which is where the message is actually drawn).
+            guard let rootID, let model else { return }
+            model.consumeThreadJump()
+            openThreadJump(rootID: rootID)
+        }
+        .sheet(isPresented: $showsPinned) {
+            PinnedPostsView(server: server,
+                            channelID: channelID,
+                            channelName: channelName,
+                            navigation: navigation,
+                            onPinnedChange: { postID, pinned in
+                                model?.applyPin(postID: postID, isPinned: pinned)
+                            },
+                            onClose: { showsPinned = false })
         }
         .onChange(of: scenePhase) { _, phase in
             // Backgrounding is the moment the debounce may not have fired yet: a message typed and
@@ -655,6 +732,16 @@ struct ChannelPaneContent: View {
         var request = navigation.location.request
         request.postID = rootID
         if request.channelID == nil { request.channelID = row.post.channelId }
+        if request.channelName == nil { request.channelName = channelName }
+        navigation.openThreads(request)
+    }
+
+    /// T39: open the thread a jumped-to reply lives in. Same request as the reply line's tap, but
+    /// without a row (the reply is not one).
+    private func openThreadJump(rootID: String) {
+        var request = navigation.location.request
+        request.postID = rootID
+        if request.channelID == nil { request.channelID = channelID }
         if request.channelName == nil { request.channelName = channelName }
         navigation.openThreads(request)
     }
@@ -700,6 +787,18 @@ struct ChannelPaneContent: View {
             Spacer(minLength: 8)
             if ChannelUITestHook.exposesLoadEarlier, let model {
                 LoadEarlierSeamButton(model: model)
+            }
+            // T39 (S21): the channel's pinned messages, behind the same `search` surface as the
+            // search/saved screens (pinned is part of that card's lookup group).
+            if resolver.resolvedMode(for: .search) == .native {
+                Button {
+                    showsPinned = true
+                } label: {
+                    Label("Pinned messages", systemImage: "pin")
+                        .labelStyle(.iconOnly)
+                }
+                .accessibilityLabel("Pinned messages")
+                .accessibilityIdentifier("nativeChannelPinnedButton")
             }
             Button {
                 navigation.openThreads(navigation.location.request)
