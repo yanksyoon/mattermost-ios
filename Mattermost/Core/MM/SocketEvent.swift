@@ -446,12 +446,22 @@ enum SocketEvent: Equatable, Sendable {
 
     private static func reaction(from data: MMRawJSON?) -> MMReaction? {
         guard let raw = data?["reaction"] else { return nil }
+        let decoded: MMReaction?
         switch raw {
         case .string(let text):
-            return try? JSONDecoder().decode(MMReaction.self, from: Data(text.utf8))
+            decoded = try? JSONDecoder().decode(MMReaction.self, from: Data(text.utf8))
         default:
-            return try? MMRawJSON(raw).decode(MMReaction.self)
+            decoded = try? MMRawJSON(raw).decode(MMReaction.self)
         }
+        guard var reaction = decoded else { return nil }
+        // 9.11.19 puts `channel_id` *inside* the reaction payload (measured, `av-ws-watch.log`), which
+        // is what lets the scope attribute the event to a team (T37-R F1). A frame that names the
+        // channel only in the envelope still gets it, so a proxy that strips one form is not a
+        // silently unroutable event.
+        if reaction.channelId.isEmpty {
+            reaction.channelId = data?["channel_id"]?.stringValue ?? ""
+        }
+        return reaction
     }
 
     /// The event name as the server spelled it (for diagnostics and `unhandled`).

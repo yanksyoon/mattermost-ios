@@ -45,6 +45,13 @@ struct EmojiPickerView: View {
                 content
             }
             .padding(.top, 8)
+            // The container id and its children have to coexist: an identifier alone, on a plain
+            // layout container, propagates to the container's children and the search field then
+            // reported `emojiPicker` instead of `emojiPicker.search` (T37-AV F2, measured in the
+            // attached hierarchy dump — the field was addressable by no documented name). With
+            // `.contain` the sheet is its own element **and** every child keeps its own identifier.
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("emojiPicker")
             .navigationTitle(model.mode == .reaction ? "Add a reaction" : "Emoji")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -53,7 +60,6 @@ struct EmojiPickerView: View {
                         .accessibilityIdentifier("emojiPicker.close")
                 }
             }
-            .accessibilityIdentifier("emojiPicker")
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)

@@ -38,8 +38,13 @@ final class T37ReactionsUITests: XCTestCase {
     private let secondPassword = "T36Reply-Not-A-Real-Secret-1"
     private var secondToken: String!
     private var secondUserID: String!
+    /// The server's own display names for the two fixture readers — the reactor sheet's oracle.
+    private var userDisplayName = ""
+    private var secondDisplayName = ""
 
     private let channelName = "t36-threads"
+    /// The only server custom emoji the fixture holds (40×40 PNG, `scripts/t34_post_seed.py`).
+    private let customEmoji = "t34parrot"
 
     override func setUpWithError() throws {
         let env = ProcessInfo.processInfo.environment
@@ -67,6 +72,8 @@ final class T37ReactionsUITests: XCTestCase {
         let second = try authenticate(login: secondLogin, password: secondPassword)
         secondToken = second.token
         secondUserID = second.userID
+        userDisplayName = session.displayName
+        secondDisplayName = second.displayName
     }
 
     // MARK: - 1. The pill is the server's, and a tap writes back
@@ -207,6 +214,305 @@ final class T37ReactionsUITests: XCTestCase {
         attach(app, "t37-06-alias-cleared")
     }
 
+    // MARK: - 4. A burst of taps never drifts from the server's count
+
+    /// T37-AV F5: the suite tapped once, waited, tapped once more. This one bursts taps with no
+    /// settling time — the case a coalescing write machine gets wrong — and then requires the pill to
+    /// end up showing exactly the count the server holds, with no duplicate row of mine.
+    func testBurstOfTapsConvergesAndNeverDrifts() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let post = try post(message: "t37 burst target \(stamp)", rootID: nil, as: secondToken)
+        let postID = try XCTUnwrap(post["id"] as? String)
+        try addReaction(postID: postID, emoji: "smile", as: secondToken)
+
+        let app = launchAndSignIn(resetState: true)
+        openChannel(app)
+        XCTAssertTrue(revealPost(app, postID).exists, "the fixture post must be a row of the channel")
+        let pillID = "post.\(postID).reaction.smile"
+        XCTAssertTrue(element(app, pillID).waitForExistence(timeout: 30),
+                      "the other reader's reaction must be a pill:\n\(app.debugDescription)")
+        XCTAssertEqual(pillLabel(app, pillID), "smile 1", "baseline pill")
+
+        // --- 7 taps: odd, so my reaction must end up present.
+        burstTap(app, at: element(app, pillID).frame, times: 7)
+        let added = converge(pillID: pillID, postID: postID, emoji: "smile",
+                             minePresent: true, timeout: 40, app: app)
+        attach(app, "t37-07-burst-7-added")
+        XCTAssertTrue(added.settled,
+                      "after 7 rapid taps the pill must settle on the server's count "
+                      + "(last sample: pill=\"\(added.lastPill)\" server=\(added.lastServerCount) "
+                      + "mine=\(added.lastMinePresent))")
+        XCTAssertEqual(added.lastPill, "smile \(added.lastServerCount)",
+                       "the pill must show the server's count, not a drifted one")
+        XCTAssertTrue(added.lastMinePresent, "7 taps (odd) must leave my reaction on the server")
+        XCTAssertEqual(reactionUserIDs(postID, emoji: "smile").filter { $0 == userID }.count, 1,
+                       "my reaction must exist exactly once — a duplicate row is the drift the card forbids")
+
+        // --- 7 more taps: odd again, so my reaction must be gone and only the other reader's row must
+        // remain. (Seven, not eight: each tap flips one state, so eight flips would return to where the
+        // first burst left it.)
+        burstTap(app, at: element(app, pillID).frame, times: 7)
+        let removed = converge(pillID: pillID, postID: postID, emoji: "smile",
+                               minePresent: false, timeout: 40, app: app)
+        attach(app, "t37-08-burst-7-removed")
+        XCTAssertTrue(removed.settled,
+                      "after 7 more rapid taps the pill must settle back to the server's count "
+                      + "(last sample: pill=\"\(removed.lastPill)\" server=\(removed.lastServerCount) "
+                      + "mine=\(removed.lastMinePresent))")
+        XCTAssertEqual(reactionUserIDs(postID, emoji: "smile"), [secondUserID],
+                       "only the other reader's row may survive; residue is a drift")
+        XCTAssertEqual(pillLabel(app, pillID), "smile 1",
+                       "the pill must read the two-reader baseline again")
+
+        // Stability: three samples two seconds apart, all equal to the server.
+        for _ in 0..<3 {
+            RunLoop.current.run(until: Date().addingTimeInterval(2))
+            let serverCount = reactionUserIDs(postID, emoji: "smile").count
+            XCTAssertEqual(pillLabel(app, pillID), "smile \(serverCount)",
+                           "the pill drifted after it had settled")
+        }
+    }
+
+    // MARK: - 5. A server custom emoji renders and is written under its own name
+
+    /// T37-AV F5: the suite picked `grinning` — a system emoji. This one picks the **server's** own
+    /// emoji, which is the case that fails when the bundled table shadows it or the catalogue image
+    /// never loads (a fallback box or the raw `:name:` text).
+    func testServerCustomEmojiIsOfferedAndWritten() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let post = try post(message: "t37 custom target \(stamp)", rootID: nil, as: secondToken)
+        let postID = try XCTUnwrap(post["id"] as? String)
+
+        let app = launchAndSignIn(resetState: true)
+        openChannel(app)
+        XCTAssertTrue(revealPost(app, postID).exists, "the fixture post must be a row of the channel")
+
+        XCTAssertTrue(openPickerFromRowMenu(app, postID: postID), "the row menu must open the picker")
+        let cell = element(app, "emojiPicker.custom.\(customEmoji)")
+        XCTAssertTrue(cell.waitForExistence(timeout: 25),
+                      "the picker's Custom section must offer the server's `:\(customEmoji):`:\n"
+                      + "\(app.debugDescription)")
+        attach(app, "t37-09-custom-picker")
+        cell.tap()
+
+        XCTAssertTrue(waitUntil(timeout: 25) {
+            self.reactionUserIDs(postID, emoji: self.customEmoji).contains(self.userID)
+        }, "picking a custom emoji must write it under its own (case-sensitive) name; the server holds "
+           + "\(reactionUserIDs(postID, emoji: customEmoji))")
+        let pillID = "post.\(postID).reaction.\(customEmoji)"
+        XCTAssertTrue(element(app, pillID).waitForExistence(timeout: 20),
+                      "a custom reaction must be drawn as its own pill:\n\(app.debugDescription)")
+        attach(app, "t37-10-custom-pill")
+        XCTAssertEqual(element(app, pillID).label, "\(customEmoji) 1", "the custom pill's label")
+    }
+
+    // MARK: - 6. The reactor sheet names the reactors, including me
+
+    /// T37-AV F5: the card's third criterion had no live coverage at all. A long press on a pill must
+    /// open the reactor list, and the names must be the server's display names with "(you)" on my row.
+    func testReactorSheetNamesBothReadersIncludingMe() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let post = try post(message: "t37 reactors target \(stamp)", rootID: nil, as: secondToken)
+        let postID = try XCTUnwrap(post["id"] as? String)
+        try addReaction(postID: postID, emoji: "smile", as: secondToken)
+        try addReaction(postID: postID, emoji: "smile", as: token)
+
+        let app = launchAndSignIn(resetState: true)
+        openChannel(app)
+        XCTAssertTrue(revealPost(app, postID).exists, "the fixture post must be a row of the channel")
+        let pill = element(app, "post.\(postID).reaction.smile")
+        XCTAssertTrue(pill.waitForExistence(timeout: 30), "both reactors must make a pill")
+        XCTAssertEqual(pill.label, "smile 2", "two reactors, one pill")
+
+        pill.press(forDuration: 1.0)
+        XCTAssertTrue(element(app, "reactions.sheet").waitForExistence(timeout: 20),
+                      "a long press on a pill must open the reactor sheet:\n\(app.debugDescription)")
+        // Identifier-contract probe: the sheet's NavigationStack carries `reactions.sheet`; record
+        // whether its documented children survive that construct (F2 was the picker's version of it).
+        print("PROBE reactions.close by id: \(element(app, "reactions.close").exists); "
+              + "reactions.tab.smile by id: \(element(app, "reactions.tab.smile").exists)")
+
+        let mine = element(app, "reactionReactor.\(userID!)")
+        XCTAssertTrue(mine.waitForExistence(timeout: 20),
+                      "my own row must be listed:\n\(app.debugDescription)")
+        XCTAssertTrue(mine.label.contains("(you)"),
+                      "my row must be marked as mine; it reads \"\(mine.label)\"")
+        XCTAssertTrue(mine.label.contains(userDisplayName),
+                      "my row must carry my display name (\(userDisplayName)); it reads \"\(mine.label)\"")
+
+        let other = element(app, "reactionReactor.\(secondUserID!)")
+        XCTAssertTrue(other.exists, "the other reactor's row must be listed:\n\(app.debugDescription)")
+        XCTAssertTrue(other.label.contains(secondDisplayName),
+                      "the other reactor's row must carry the server's display name "
+                      + "(\(secondDisplayName)); it reads \"\(other.label)\"")
+        XCTAssertFalse(other.label.contains("(you)"), "the other reactor is not me")
+        XCTAssertFalse(other.label.contains("Unknown user"),
+                       "the sheet must resolve the other reactor's profile, not leave it unknown: "
+                       + "\(app.debugDescription)")
+        attach(app, "t37-11-reactor-sheet")
+    }
+
+    // MARK: - 7. Recents persist across a relaunch
+
+    /// T37-AV F5: the card's suite never relaunched the app, and the app's own
+    /// `-uiTestResetPersistedState` seam wipes `UserDefaults`, so persistence is only observable by
+    /// starting again *without* that flag.
+    func testRecentsSurviveRelaunch() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let post = try post(message: "t37 recents target \(stamp)", rootID: nil, as: secondToken)
+        let postID = try XCTUnwrap(post["id"] as? String)
+        let picked = "seedling"
+        XCTAssertFalse(reactionUserIDs(postID, emoji: picked).contains(userID),
+                       "the recent-recording emoji must not already be on the post")
+
+        let app = launchAndSignIn(resetState: true)
+        openChannel(app)
+        XCTAssertTrue(revealPost(app, postID).exists, "the fixture post must be a row of the channel")
+        XCTAssertTrue(openPickerFromRowMenu(app, postID: postID), "the row menu must open the picker")
+        // The grid is a LazyVGrid: only the visible cells exist in the tree. Search narrows it to the
+        // one cell, which is also the search path the picker documents ("colon-stripping search").
+        searchInPicker(app, for: picked)
+        let cell = element(app, "emojiPicker.emoji.\(picked)")
+        XCTAssertTrue(cell.waitForExistence(timeout: 20),
+                      "the picker must draw a result for \"\(picked)\":\n\(app.debugDescription)")
+        cell.tap()
+        XCTAssertTrue(waitUntil(timeout: 25) {
+            self.reactionUserIDs(postID, emoji: picked).contains(self.userID)
+        }, "the pick must write the reaction (the recent is recorded on a successful pick)")
+
+        // Relaunch WITHOUT the reset seam: UserDefaults (and therefore the recents row) must survive.
+        app.terminate()
+        let relaunched = XCUIApplication()
+        relaunched.launchArguments = launchArguments(resetState: false, forgetSession: false)
+        relaunched.launch()
+        if relaunched.textFields["loginIDField"].waitForExistence(timeout: 10) {
+            signIn(relaunched, login: loginID, password: password)
+        }
+        XCTAssertTrue(element(relaunched, "nativeShell").waitForExistence(timeout: 40),
+                      "the relaunched app must reach the shell:\n\(relaunched.debugDescription)")
+        openChannel(relaunched)
+        XCTAssertTrue(revealPost(relaunched, postID).exists, "the post must still be a row")
+        XCTAssertTrue(openPickerFromRowMenu(relaunched, postID: postID),
+                      "the row menu must open the picker")
+        let recent = element(relaunched, "emojiPicker.recent.\(picked)")
+        attach(relaunched, "t37-12-recents-after-relaunch")
+        XCTAssertTrue(recent.waitForExistence(timeout: 20),
+                      "the emoji picked before the relaunch must be in the Recently Used row:\n"
+                      + "\(relaunched.debugDescription)")
+    }
+
+    // MARK: - 8. The composer's picker inserts what its own rule says
+
+    /// T37-AV F5 + F3(c): the composer's emoji button opens the same picker in `.composer` mode. The
+    /// insertion rule is a **character** for a system emoji and the **shortcode** for a custom one —
+    /// pinned here because the T35 parity row claimed the shortcode for both.
+    func testComposerPickerInsertsThePickedEmoji() throws {
+        let app = launchAndSignIn(resetState: true)
+        openChannel(app)
+        let button = element(app, "channelComposer.emoji")
+        XCTAssertTrue(button.waitForExistence(timeout: 30),
+                      "the native composer must offer its emoji button:\n\(app.debugDescription)")
+        button.tap()
+        XCTAssertTrue(element(app, "emojiPicker").waitForExistence(timeout: 20),
+                      "the composer's emoji button must open the picker")
+        // `tada` is far down the grid (a LazyVGrid draws only visible cells), so the search box is both
+        // the reliable way to reach it and the path the card's "search" behaviour is about.
+        searchInPicker(app, for: "tada")
+        let cell = element(app, "emojiPicker.emoji.tada")
+        XCTAssertTrue(cell.waitForExistence(timeout: 20),
+                      "the composer picker must draw a result for \"tada\":\n\(app.debugDescription)")
+        cell.tap()
+        let input = app.descendants(matching: .any).matching(identifier: "channelComposer.input").firstMatch
+        XCTAssertTrue(input.waitForExistence(timeout: 20), "the composer input must be on screen")
+        XCTAssertTrue(waitUntil(timeout: 15) { (input.value as? String ?? "").contains("🎉") },
+                      "picking a system emoji in the composer must insert its character; the input reads "
+                      + "\"\(input.value as? String ?? "")\"")
+
+        // A custom emoji has no character to insert, so the composer must carry its shortcode.
+        button.tap()
+        XCTAssertTrue(element(app, "emojiPicker").waitForExistence(timeout: 20),
+                      "the composer's emoji button must open the picker again")
+        searchInPicker(app, for: customEmoji)
+        let customCell = element(app, "emojiPicker.emoji.\(customEmoji)")
+        XCTAssertTrue(customCell.waitForExistence(timeout: 20),
+                      "the search must also find the server's custom emoji:\n\(app.debugDescription)")
+        customCell.tap()
+        XCTAssertTrue(waitUntil(timeout: 15) {
+            (input.value as? String ?? "").contains(":\(self.customEmoji):")
+        }, "picking a custom emoji must insert its shortcode; the input reads "
+           + "\"\(input.value as? String ?? "")\"")
+        attach(app, "t37-13-composer-insert")
+    }
+
+    // MARK: - 9. A reaction from another client arrives over the socket, once
+
+    /// T37-AV **F1**, the finding this card closes: the card's first criterion explicitly names *socket
+    /// events*. Nothing in the original suite drove a reaction the app did not itself write, so the
+    /// socket path was unproven — and it was dead, because `TeamSocketScope` refused reaction events
+    /// and that gate is the only route from the socket into a pane. Another user's reaction is written
+    /// through the REST API while the app shows the channel; the pill must appear — once — and leave
+    /// again when that row is deleted.
+    func testForeignReactionArrivesOverTheSocketOnce() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let post = try post(message: "t37 socket target \(stamp)", rootID: nil, as: secondToken)
+        let postID = try XCTUnwrap(post["id"] as? String)
+        let pillID = "post.\(postID).reaction.tada"
+        let emoji = "tada"
+
+        let app = launchAndSignIn(resetState: true)
+        openChannel(app)
+        XCTAssertTrue(revealPost(app, postID).exists, "the fixture post must be a row of the channel")
+        XCTAssertFalse(element(app, pillID).exists,
+                       "a post with no reactions must have no pill before the other client reacts")
+
+        // The other client (a second session, exactly what the web app would be) reacts while the app
+        // is open. Nothing in the app initiated this: only the socket can deliver it.
+        try addReaction(postID: postID, emoji: emoji, as: secondToken)
+        let pill = element(app, pillID)
+        XCTAssertTrue(waitUntil(timeout: 30) { pill.exists },
+                      "the other reader's reaction must arrive over the socket:\n\(app.debugDescription)")
+        attach(app, "t37-14-socket-added")
+        XCTAssertEqual(pill.label, "tada 1",
+                       "the pill must draw the one reactor the server holds, exactly once")
+
+        // And a removal by that client must take it away again.
+        try removeReaction(postID: postID, emoji: emoji, as: secondToken)
+        XCTAssertTrue(waitUntil(timeout: 30) { !element(app, pillID).exists },
+                      "the other reader's removal must clear the pill:\n\(app.debugDescription)")
+        attach(app, "t37-15-socket-removed")
+        XCTAssertTrue(reactionUserIDs(postID, emoji: emoji).isEmpty,
+                      "the server must hold no reaction after the other client's delete")
+    }
+
+    // MARK: - 10. The control: a foreign *post* arrives on the same socket
+
+    /// The contrast that isolated F1: the same second client, on the same socket, in the same channel —
+    /// a `posted` event reaches the open pane and a `reaction_added` must now reach it the same way.
+    /// Without the control, "the reaction did not appear" could be blamed on the socket.
+    func testForeignPostArrivesButItsReactionDoesNot() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let app = launchAndSignIn(resetState: true)
+        openChannel(app)
+
+        // control: the post is written by the other client *after* the pane is open, so only the
+        // socket can add the row.
+        let post = try post(message: "t37 socket control \(stamp)", rootID: nil, as: secondToken)
+        let postID = try XCTUnwrap(post["id"] as? String)
+        XCTAssertTrue(revealPost(app, postID).exists,
+                      "the other client's post must arrive over the socket (control):\n\(app.debugDescription)")
+
+        // subject: a reaction on that same post, by the same client, must arrive the same way.
+        try addReaction(postID: postID, emoji: "tada", as: secondToken)
+        XCTAssertTrue(reactionUserIDs(postID, emoji: "tada").contains(secondUserID),
+                      "control: the server must hold the other reader's reaction")
+        let appeared = waitUntil(timeout: 30) { self.element(app, "post.\(postID).reaction.tada").exists }
+        attach(app, "t37-16-socket-contrast")
+        XCTAssertTrue(appeared,
+                      "a foreign reaction_added must reach the open pane exactly like the foreign posted "
+                      + "above: if the post arrived and the reaction did not, TeamSocketScope is "
+                      + "refusing reaction events again (T37-AV F1)")
+    }
+
     // MARK: - Server helpers
 
     private func ping() throws {
@@ -216,7 +522,8 @@ final class T37ReactionsUITests: XCTestCase {
                           "no Mattermost at \(serverURL.absoluteString)")
     }
 
-    private func authenticate(login: String, password: String) throws -> (token: String, userID: String) {
+    private func authenticate(login: String, password: String) throws
+        -> (token: String, userID: String, displayName: String) {
         var request = URLRequest(url: serverURL.appendingPathComponent("api/v4/users/login"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -233,7 +540,11 @@ final class T37ReactionsUITests: XCTestCase {
               let id = me["id"] as? String else {
             throw XCTSkip("the login answer carried no token")
         }
-        return (header, id)
+        // The reactor sheet draws the server's own display name, so the oracle has to read it the way
+        // the sheet's `/users/ids` answer would: first + last name, falling back to the username.
+        let display = [(me["first_name"] as? String) ?? "", (me["last_name"] as? String) ?? ""]
+            .filter { !$0.isEmpty }.joined(separator: " ")
+        return (header, id, display.isEmpty ? (me["username"] as? String ?? "") : display)
     }
 
     private func teamsForMe() throws -> [[String: Any]] {
@@ -281,6 +592,30 @@ final class T37ReactionsUITests: XCTestCase {
         let status = (response as? HTTPURLResponse)?.statusCode ?? -1
         XCTAssertTrue(status == 201 || status == 200,
                       "POST /reactions for \(emoji) must be accepted (HTTP \(status))")
+    }
+
+    /// `DELETE /users/{uid}/posts/{pid}/reactions/{emoji}` — the other client's removal.
+    private func removeReaction(postID: String, emoji: String, as token: String) throws {
+        guard let me = try getJSON("/api/v4/users/me", as: token) as? [String: Any],
+              let uid = me["id"] as? String else {
+            throw XCTSkip("could not read the fixture user")
+        }
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: "+/")
+        let encoded = emoji.addingPercentEncoding(withAllowedCharacters: allowed) ?? emoji
+        let base = serverURL.absoluteString.hasSuffix("/")
+            ? String(serverURL.absoluteString.dropLast()) : serverURL.absoluteString
+        guard let url = URL(string: "\(base)/api/v4/users/\(uid)/posts/\(postID)/reactions/\(encoded)") else {
+            throw XCTSkip("could not build the delete URL")
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
+        let (_, response) = try synchronous(request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        XCTAssertTrue(status == 200 || status == 404,
+                      "DELETE the reaction for \(emoji) must be accepted (HTTP \(status))")
     }
 
     /// The user ids the server holds for one emoji name on one post — the oracle for every write here.
@@ -333,17 +668,46 @@ final class T37ReactionsUITests: XCTestCase {
 
     // MARK: - App helpers
 
+    private func launchArguments(resetState: Bool, forgetSession: Bool) -> [String] {
+        var args: [String] = ["-uiTestSeedServer", serverURL.absoluteString,
+                              "-uiTestSeedServerName", "Local Mattermost"]
+        if resetState { args.insert("-uiTestResetPersistedState", at: 0) }
+        if forgetSession { args.append(contentsOf: ["-uiTestForgetSession", serverURL.absoluteString]) }
+        args.append(contentsOf: ["-surfaceMode", "shell=native",
+                                 "-surfaceMode", "auth=native",
+                                 "-surfaceMode", "sidebar=native",
+                                 "-surfaceMode", "composer=native",
+                                 "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
+        return args
+    }
+
+    /// Launch and sign in, leaving the shell up (the adopted live tests open the channel themselves).
+    private func launchAndSignIn(resetState: Bool) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = launchArguments(resetState: resetState, forgetSession: true)
+        app.launch()
+        signIn(app, login: loginID, password: password)
+        return app
+    }
+
+    private func signIn(_ app: XCUIApplication, login: String, password: String) {
+        let field = app.textFields["loginIDField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 25),
+                      "the native sign-in must mount against \(serverURL.absoluteString):\n\(app.debugDescription)")
+        field.tap()
+        field.typeText(login)
+        let secret = app.secureTextFields["loginPasswordField"]
+        XCTAssertTrue(secret.exists)
+        secret.tap()
+        secret.typeText(password)
+        app.buttons["loginSubmitButton"].tap()
+        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 45),
+                      "signing in must reach the shell:\n\(app.debugDescription)")
+    }
+
     private func launchAndOpenChannel() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTestResetPersistedState",
-                               "-uiTestForgetSession", serverURL.absoluteString,
-                               "-uiTestSeedServer", serverURL.absoluteString,
-                               "-uiTestSeedServerName", "Local Mattermost",
-                               "-surfaceMode", "shell=native",
-                               "-surfaceMode", "auth=native",
-                               "-surfaceMode", "sidebar=native",
-                               "-surfaceMode", "composer=native",
-                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchArguments = launchArguments(resetState: true, forgetSession: true)
         app.launch()
         signIn(app)
         openChannel(app)
@@ -366,12 +730,102 @@ final class T37ReactionsUITests: XCTestCase {
     }
 
     private func openChannel(_ app: XCUIApplication) {
-        let row = element(app, "channelSidebar.channel.\(channelID!)")
-        XCTAssertTrue(row.waitForExistence(timeout: 40),
+        var row = element(app, "channelSidebar.channel.\(channelID!)")
+        if !row.waitForExistence(timeout: 20) {
+            // A relaunch can restore a different team on the rail (the fixture channel lives in #perf),
+            // so select the fixture team before looking for the row again.
+            let team = element(app, "teamSidebar.team.\(teamID!)")
+            if team.waitForExistence(timeout: 10) { team.tap() }
+            row = element(app, "channelSidebar.channel.\(channelID!)")
+        }
+        XCTAssertTrue(row.waitForExistence(timeout: 45),
                       "the sidebar must list channel \(channelID ?? ""):\n\(app.debugDescription)")
         row.tap()
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 40),
                       "the channel pane must mount:\n\(app.debugDescription)")
+    }
+
+    /// Type into the picker's search box **by its documented identifier**.
+    ///
+    /// T37-AV F2 measured that `emojiPicker.search` did not exist in the tree (the container id on the
+    /// layout VStack shadowed it), so the harness this helper came from had to fall back to "a text
+    /// field identified `emojiPicker`". The fallback is deliberately gone: the sheet carries
+    /// `.accessibilityElement(children: .contain)` now, and every adopted live test that searches
+    /// therefore asserts the identifier resolves — that is F2's regression test.
+    private func searchInPicker(_ app: XCUIApplication, for term: String) {
+        let documented = element(app, "emojiPicker.search")
+        guard documented.waitForExistence(timeout: 10) else {
+            XCTFail("the picker must expose `emojiPicker.search` (T37-AV F2); the sheet's search field "
+                    + "is addressable by no documented name:\n\(app.debugDescription)")
+            return
+        }
+        documented.tap()
+        documented.typeText(term)
+    }
+
+    /// Open the picker from a row's options menu (the only way to reach a **first** reaction).
+    private func openPickerFromRowMenu(_ app: XCUIApplication, postID: String) -> Bool {
+        let menu = element(app, "post.\(postID).menu")
+        guard menu.waitForExistence(timeout: 20) else { return false }
+        menu.tap()
+        let react = element(app, "postOptions.react")
+        guard react.waitForExistence(timeout: 20) else { return false }
+        react.tap()
+        return element(app, "emojiPicker").waitForExistence(timeout: 20)
+    }
+
+    /// Tap `times` times with no waiting between taps (the machine sees a burst, not a sequence).
+    ///
+    /// The taps go through the **application's** coordinate space at the pill's captured frame, not
+    /// through `element.coordinate(…)`: a burst re-renders the row after every write, and a coordinate
+    /// that re-resolves the element raises "No matches found" the moment the pill is between frames
+    /// (measured on this host — the first port of this test failed exactly that way, at the burst, and
+    /// not on an assertion).
+    private func burstTap(_ app: XCUIApplication, at frame: CGRect, times: Int) {
+        let point = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+            .withOffset(CGVector(dx: frame.midX, dy: frame.midY))
+        for _ in 0..<times { point.tap() }
+    }
+
+    private struct Convergence {
+        var settled: Bool
+        var lastPill: String
+        var lastServerCount: Int
+        var lastMinePresent: Bool
+    }
+
+    /// Poll until the pill's count equals the server's grouping of that emoji and my own reaction's
+    /// presence matches `minePresent`.
+    private func converge(pillID: String, postID: String, emoji: String,
+                          minePresent: Bool, timeout: TimeInterval,
+                          app: XCUIApplication) -> Convergence {
+        let started = Date()
+        var lastPill = ""
+        var lastCount = -1
+        var lastMine = false
+        while Date().timeIntervalSince(started) < timeout {
+            let rows = reactionUserIDs(postID, emoji: emoji)
+            lastCount = rows.count
+            lastMine = rows.contains(userID)
+            // A re-render can drop the pill from the tree for a frame; a sample taken then is "not yet",
+            // not "wrong", so it must not raise out of the poll.
+            lastPill = pillLabel(app, pillID) ?? ""
+            if lastMine == minePresent && lastPill == "\(emoji) \(lastCount)" {
+                return Convergence(settled: true, lastPill: lastPill, lastServerCount: lastCount,
+                                   lastMinePresent: lastMine)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        return Convergence(settled: false, lastPill: lastPill, lastServerCount: lastCount,
+                           lastMinePresent: lastMine)
+    }
+
+    /// The pill's label, or `nil` when the row is not in the tree at this instant (a snapshot taken
+    /// between the write and the re-render). Reading `.label` on a missing element raises, which would
+    /// turn a timing artefact into a red.
+    private func pillLabel(_ app: XCUIApplication, _ identifier: String) -> String? {
+        let pill = element(app, identifier)
+        return pill.exists ? pill.label : nil
     }
 
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {

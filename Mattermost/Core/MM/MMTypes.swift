@@ -323,24 +323,34 @@ struct MMPreference: Codable, Equatable, Sendable {
 }
 
 /// A reaction (`reaction_added` / `reaction_removed`).
+///
+/// `channelId` is the **routing** fact, not part of the stored reaction: 9.11.19 sends it inside the
+/// event's reaction payload (measured — `av-ws-watch.log`, `docs/t37-build-note.md` §T37-R), and it is
+/// what lets `TeamSocketScope` attribute an event the app did not write to the team on screen
+/// (T37-R F1). A `metadata.reactions` row read back from the server also carries it.
 struct MMReaction: Codable, Equatable, Sendable {
     var userId: String
     var postId: String
     var emojiName: String
     var createAt: Int64
+    /// The channel the reacted post is in. Empty when the payload did not name it.
+    var channelId: String
 
     enum CodingKeys: String, CodingKey {
         case createAt = "create_at"
         case userId = "user_id"
         case postId = "post_id"
         case emojiName = "emoji_name"
+        case channelId = "channel_id"
     }
 
-    init(userId: String = "", postId: String = "", emojiName: String = "", createAt: Int64 = 0) {
+    init(userId: String = "", postId: String = "", emojiName: String = "", createAt: Int64 = 0,
+         channelId: String = "") {
         self.userId = userId
         self.postId = postId
         self.emojiName = emojiName
         self.createAt = createAt
+        self.channelId = channelId
     }
 
     init(from decoder: Decoder) throws {
@@ -349,6 +359,19 @@ struct MMReaction: Codable, Equatable, Sendable {
         postId = try values.decodeIfPresent(String.self, forKey: .postId) ?? ""
         emojiName = try values.decodeIfPresent(String.self, forKey: .emojiName) ?? ""
         createAt = try values.decodeIfPresent(Int64.self, forKey: .createAt) ?? 0
+        channelId = try values.decodeIfPresent(String.self, forKey: .channelId) ?? ""
+    }
+
+    /// A reaction the pane applies locally is written back into the row's `metadata.reactions`; the
+    /// channel is routing and is left out unless the payload actually carried it, so the JSON this
+    /// client stores keeps the shape the server's own rows have.
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(userId, forKey: .userId)
+        try values.encode(postId, forKey: .postId)
+        try values.encode(emojiName, forKey: .emojiName)
+        try values.encode(createAt, forKey: .createAt)
+        if !channelId.isEmpty { try values.encode(channelId, forKey: .channelId) }
     }
 }
 

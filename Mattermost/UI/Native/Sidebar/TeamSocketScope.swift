@@ -88,11 +88,23 @@ struct TeamSocketScope: Equatable, Sendable {
             // An envelope without a team (a stripped proxy frame) is accepted rather than dropped —
             // the payload itself carries `team_id`, and drawing the same layout twice is harmless.
             return update.teamID.isEmpty || update.teamID == teamID
-        case .reactionAdded, .reactionRemoved:
-            // A reaction names a post, not a channel: without a post → channel map this scope cannot
-            // attribute it to a team, so it is refused rather than delivered into whichever team's
-            // conversation happens to be open. Reactions are the channel view's (T34) to resolve.
-            return false
+        case .reactionAdded(let reaction), .reactionRemoved(let reaction):
+            // A reaction names a post **and** a channel: 9.11.19 puts `channel_id` inside the event's
+            // reaction payload (measured — `av-ws-watch.log` carried it twice for one add), so the same
+            // attribution every other channel-scoped event gets applies here.
+            //
+            // T37 shipped this as `return false`, on the stated grounds that a reaction "names a post,
+            // not a channel" and so could not be attributed to a team. It can be — and refusing it was
+            // the whole of T37-AV F1: this scope is the only route from the server's one socket into
+            // the panes, so `.reactionAdded`/`.reactionRemoved` handling in `ChannelViewModel` and
+            // `ThreadViewModel` was unreachable in the running app and a reaction another client wrote
+            // never drew a pill.
+            //
+            // A payload that names no channel is **accepted** rather than dropped, and each pane keeps
+            // only its own posts (`postsByID[reaction.postId] != nil`), so a delivery into the wrong
+            // team's surface reaches no model at all. Same reasoning as `threadFollowChanged` below:
+            // refusing an unattributable event only makes an open pane miss its own.
+            return reaction.channelId.isEmpty || isInActiveTeam(channelID: reaction.channelId)
         case .hello, .statusChange, .preferencesChanged, .userUpdated, .unhandled:
             // Server-wide facts: presence, preferences, profile updates and protocol events belong
             // to no team (and to every team).

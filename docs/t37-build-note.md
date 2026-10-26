@@ -159,11 +159,22 @@ a reaction coming back on the next page load.
 * Reactor names come from the pane's profile cache; an unknown reactor draws "Unknown user" rather
   than an invented name, and the sheet triggers one batched `/users/ids` for the ids it lacks.
 * No skin-tone variants, and custom emoji are listed from `GET /emoji` only (no upload/deletion).
-* The un-driven edge: **two readers reacting at the same instant** is covered by the coalescing unit
-  tests (one request in flight, `desired` moves, one rollback) and by the same-instant alias test, but
-  a UI-level race against a second *client* (the web app reacting while the native pill is tapped) is
-  not driven on this host; the socket path makes it idempotent by construction
-  (`applyReaction` is set-shaped and is the same call both paths use).
+* The un-driven edge: **two readers reacting at the same instant**. The *machine* half is covered by
+  the coalescing unit tests (one request in flight, `desired` moves, one rollback) and by the
+  same-instant alias test, and the *wire* half now is too: a reaction written by a second client while
+  the pane is open arrives over the socket and draws exactly one pill
+  (`testForeignReactionArrivesOverTheSocketOnce`). What is still **not** driven on this host is a
+  genuine race — the web app reacting *while* the native pill is being tapped, so that our own write
+  and that client's `reaction_added` land in the same second. Both paths are set-shaped and go through
+  the same call (`applyReaction`), which is what makes the double delivery harmless — but that is an
+  argument, not a measurement (T37-AV F1/F5; the earlier wording here claimed the socket path made it
+  idempotent "by construction", when in fact the scope refused every reaction event, so that path never
+  ran at all).
+* **Undriven and now listed as such:** a reaction made from the **thread pane**. `ThreadView.swift`'s
+  row menu opens the picker for a thread reply and `ThreadViewModel.handle` has the same
+  `reaction_added`/`reaction_removed` branches as the channel pane, and the routing half is unit-pinned
+  (`T37SocketReactionRoutingTests`), but no live test drives a reaction inside an open thread — T37-AV
+  F5 named it, and this round documents it instead of claiming it.
 * **Cross-card note for T34's live suite** (not this card's file, which stays untouched for
   t_667988fd): `MattermostUITests/T34-ChannelPostListUITests.swift` derives the pill it looks for from
   the *server's* spelling of the first reaction on its `reactedPost`
@@ -173,3 +184,175 @@ a reaction coming back on the next page load.
   there. T37's canonicalisation is upstream's rule, so the fix belongs in that test (canonicalise the
   name it expects, or assert by count) when its owner next touches it; recorded here so it is not
   discovered as a surprise red.
+
+## T37-R — the T37-AV repair (2026-10-26, card `t_cd4723f2`)
+
+The T37-AV round (`t_de2110ce`) returned **FAIL** on `origin/main f02e345`, with one HIGH finding, one
+MEDIUM identifier finding, one LOW row-accuracy finding, one DoD finding and one coverage finding. This
+round closes all five. Nothing in the sections above was deleted: it is what T37 did, and the one
+sentence in it that claimed something untrue is corrected in place (§Known limits).
+
+### F1 (HIGH) — a foreign reaction now reaches the pane
+
+The app has one WebSocket per server, and its only route into the panes is
+`TeamSidebarCoordinator.onTeamEvent` → `ChannelPaneCoordinator.handle`, gated by
+`TeamSocketScope.accepts`. That gate **refused** `.reactionAdded`/`.reactionRemoved` on the stated
+grounds that "a reaction names a post, not a channel". The AV measured the opposite at three
+independent points (`av-ws-watch.log`: the server pushes `reaction_added` to this user's own socket
+with `channel_id` inside the reaction payload; `av-t37-socket.log`: no pill in 30 s;
+`av-t37-contrast.log`: a foreign `posted` on the same socket *does* arrive). So
+`ChannelViewModel.handle`'s and `ThreadViewModel.handle`'s reaction branches were unreachable in the
+running app, and the card's own unit tests could not see it because they called `handle` directly.
+
+Three changes, in the order the frames travel:
+
+1. `MMReaction` parses `channel_id`. It is the **routing** fact, so `encode(to:)` omits it when empty:
+   the JSON this client writes back into a row's `metadata.reactions` keeps the shape the server's own
+   rows have.
+2. `SocketEvent`'s reaction decoder takes `channel_id` from inside the reaction JSON (where 9.11.19
+   puts it) and falls back to the frame's `data.channel_id`, so a proxy that strips one form does not
+   produce a silently unroutable event.
+3. `TeamSocketScope` attributes a reaction exactly like every other channel-scoped event —
+   `reaction.channelId.isEmpty || isInActiveTeam(channelID: reaction.channelId)` — and an
+   unattributable reaction is **accepted** (each pane keeps only its own posts,
+   `postsByID[reaction.postId] != nil`), the same reasoning the scope already used for
+   `threadFollowChanged`.
+
+Pinned by `MattermostTests/T37SocketReactionRoutingTests.swift` (7 tests): the measured frame decodes
+with its channel; a frame without one still decodes; the scope admits the open channel and another
+channel of the active team and refuses another team's; and one test drives the **production fan-in**
+(real `TeamSidebarCoordinator` + its scope + `onTeamEvent` wired exactly as `MattermostApp` wires it →
+`ChannelPaneCoordinator.handle` → the row grows its pill, the other team's reaction is refused, the
+foreign removal clears it). That last test is the one that would have caught the shipped defect.
+
+The tests bite: with the branch restored to `return false` (the shipped behaviour) and nothing else
+changed, `Executed 7 tests, with 8 failures (0 unexpected) in 5.339 (5.341) seconds` — three of the
+seven fail by name (`docs/t37r-mutation-2026-10-26.log`). Restored: 7/7 green.
+
+Live proof, the two AV tests adopted unmodified in substance (`T37ReactionsUITests`):
+
+```
+python3 scripts/qa-test.py --platform ios --sim 023B9070-CAD0-409B-BFD0-78FF5CA5EACC \
+  --derived-data ~/Library/Developer/Xcode/DerivedData/t37r-ios --label t37r-socket \
+  --only-testing MattermostUITests/T37ReactionsUITests/testForeignReactionArrivesOverTheSocketOnce \
+  --only-testing MattermostUITests/T37ReactionsUITests/testForeignPostArrivesButItsReactionDoesNot
+→ tests: 2 run, 0 skipped, 0 failed (122 s)   ·  Executed 2 tests, with 0 failures …  ** TEST SUCCEEDED **
+```
+
+`testForeignReactionArrivesOverTheSocketOnce` → 21.9 s (fails in 65 s with 2 failures at `f02e345`),
+`testForeignPostArrivesButItsReactionDoesNot` → 30.6 s. `docs/t37r-socket-2026-10-26.log`.
+
+### F2 (MEDIUM) — `emojiPicker.search` is in the tree now
+
+The container identifier sat on the layout `VStack`, so its children inherited it and the search
+`TextField` reported `emojiPicker` (0 occurrences of `emojiPicker.search` in the AV's hierarchy dump).
+The sheet now carries `.accessibilityElement(children: .contain)` **with** the identifier, which makes
+the sheet its own element and leaves every child's identifier intact, and the container id moved off
+the modifier chain that ends in `.toolbar` (one id, one place).
+
+The adopted live tests assert it rather than work around it: `searchInPicker` uses
+`emojiPicker.search` and **fails** if the identifier does not resolve — the AV harness's fallback ("a
+text field identified `emojiPicker`") is deliberately gone, so the identifier cannot rot silently
+again. It passes in `testRecentsSurviveRelaunch` and `testComposerPickerInsertsThePickedEmoji`
+(`docs/t37r-live-2026-10-26.log`).
+
+### F3 (LOW) — the parity rows now say what the code does
+
+Code unchanged (the documented behaviour was wrong, not the behaviour). `docs/parity.md`:
+
+* T37: `Reactors` → `ReactionReactors.rows`, and it **keeps the server's order**; it does not move the
+  reader to the top (measured in the AV's sheet screenshot: the other reader is drawn first).
+* T37: `ReactionGroups` → `ReactionAliases.groups`.
+* T35: the composer's picker inserts the **character** for a system emoji (`🎉`, measured) and only a
+  **custom** emoji's shortcode (`:t34parrot:`); `EmojiPickerViewModel.insertion(for:)` is called by a
+  unit test only, so the `:` list and the picker do **not** share an insertion function.
+* T37's socket sentence is new and states the F1 rule (attributed by `channel_id`, unattributable ones
+  accepted and filtered per pane).
+
+The insertion rule is not just prose any more: `testComposerPickerInsertsThePickedEmoji` drives both
+branches against the real server.
+
+### F4 (MEDIUM) — the two commits without a card id, recorded
+
+History is published; it is not rewritten. For the record, of T37's four commits
+(`b54ec73..f02e345`):
+
+| Commit | Subject | Card id |
+| --- | --- | --- |
+| `b8b5779` | `feat(t37): emoji reactions and the picker on the native post list` | **absent** |
+| `335ffae` | `fix(t37): rebuild the rows after an optimistic react; live suite` | **absent** |
+| `106fb73` | `test(t37): tap and assert one emoji, and prove one tap clears every alias` | `Card: t5b764481 (T37)` |
+| `f02e345` | `docs(t37): parity row, NOTICE section 14, and the verification record` | `Card: t5b764481 (T37)` |
+
+The T37-R commit that carries this section names its own card (`Card: t_cd4723f2`, with the T37 card
+id it repairs) in its body.
+
+### F5 (MEDIUM) — coverage: seven adopted live tests, and the two gaps stated as gaps
+
+`MattermostUITests/T37ReactionsUITests.swift` went from 3 tests to **10**, against the real 9.11.19 at
+`127.0.0.1:8065`, every expectation read back from the server:
+
+| Test | What it drives | Time |
+| --- | --- | --- |
+| `testTappingAPillWritesTheReactionToTheServerAndTappingAgainRemovesIt` | the original add/remove | 30.3 s |
+| `testThePickerFromTheRowMenuAddsTheReactionTheServerStores` | the original picker write | 27.5 s |
+| `testAliasSpellingsAreOnePillAndOneRemoveClearsEveryRowIHold` | the original alias rule | 31.8 s |
+| `testBurstOfTapsConvergesAndNeverDrifts` | **new** — 7 then 7 taps with no settling, pill == server count, one row of mine, three stable samples | 49.2 s |
+| `testServerCustomEmojiIsOfferedAndWritten` | **new** — the server's `:t34parrot:` in the Custom section, written under its own case-sensitive name, drawn as a pill | 38.5 s |
+| `testReactorSheetNamesBothReadersIncludingMe` | **new** — the reactor sheet, both display names, `(you)` on mine, no "Unknown user" | 35.1 s |
+| `testRecentsSurviveRelaunch` | **new** — pick, terminate, relaunch without the reset seam, the recent is still there | 101.9 s |
+| `testComposerPickerInsertsThePickedEmoji` | **new** — composer mode: `🎉` for a system emoji, `:t34parrot:` for a custom one | 36.4 s |
+| `testForeignReactionArrivesOverTheSocketOnce` | **new (F1)** — another client's add and remove arrive over the socket | 29.4 s |
+| `testForeignPostArrivesButItsReactionDoesNot` | **new (F1 control)** — the foreign post arrives, and so does its reaction | 28.8 s |
+
+One portability note, because it is a fact about XCUITest rather than about the product: the burst
+test's first port tapped through `element.coordinate(…)` and failed with `Failed to get matching
+snapshot: No matches found` *at the burst* — the row re-renders after every write and a re-resolving
+coordinate raises the moment the pill is between frames. The taps now go through the application's
+coordinate space at the pill's captured frame, and the poll reads a label only when the element
+exists. No assertion was weakened: the expected counts, the server oracle and the "exactly one row of
+mine" check are the AV's.
+
+**Still undriven, now stated** (also in §Known limits): a reaction made from the **thread pane**
+(`ThreadView.swift`'s row menu opens the picker for a reply; `ThreadViewModel.handle` has the same
+branches; the routing half is unit-pinned — but no live test reacts inside a thread), and the genuine
+two-client **same-instant race** (the web app reacting while the native pill is tapped).
+
+### Verification — T37-R
+
+Catalyst units, from derived-data paths that had **never been built in** (both runs full builds), the
+runner's own lines:
+
+```
+--derived-data ~/Library/Developer/Xcode/DerivedData/t37r-cat-before   (at f02e345 + this card's new test file absent)
+  tests      : 1129 run, 4 skipped, 0 failed
+  Executed 1129 tests, with 4 tests skipped and 0 failures (0 unexpected) in 48.173 (48.848) seconds
+  ** TEST SUCCEEDED **                                    docs/t37r-catalyst-before-2026-10-26.log
+
+--derived-data ~/Library/Developer/Xcode/DerivedData/t37r-cat-after    (this repair, 41 T37 tests)
+  tests      : 1136 run, 4 skipped, 0 failed
+  Executed 1136 tests, with 4 tests skipped and 0 failures (0 unexpected) in 44.648 (45.283) seconds
+  ** TEST SUCCEEDED **                                    docs/t37r-catalyst-after-2026-10-26.log
+```
+
+The 4 skips are the same host-dependent ones as before the repair, none of them T37
+(`CertTrustTests.testKeychainSetOverwritesAnExistingItem`, `MentionPollerTests
+testLiveMentionsFetch_optIn`, both `SelfSignedTrustTests`). The 7 extra tests are this card's
+`T37SocketReactionRoutingTests` (1136 − 1129), and `grep -c "T37SocketReactionRoutingTests.*passed"`
+answers 8 = 7 tests + the suite line.
+
+The live suite, whole file, one run:
+
+```
+python3 scripts/qa-test.py --platform ios --sim 023B9070-CAD0-409B-BFD0-78FF5CA5EACC \
+  --derived-data ~/Library/Developer/Xcode/DerivedData/t37r-ios --label t37r-live-full2 \
+  --only-testing MattermostUITests/T37ReactionsUITests
+→ tests      : 10 run, 0 skipped, 0 failed          (xcodebuild rc=0, 466 s)
+  Executed 10 tests, with 0 failures (0 unexpected) in 408.830 (408.844) seconds
+  ** TEST SUCCEEDED **                                    docs/t37r-live-2026-10-26.log
+```
+
+Everything above ran on iOS 26.0 / `iPhone 17 Pro` (`023B9070-CAD0-409B-BFD0-78FF5CA5EACC`) against the
+real Mattermost 9.11.19 at `127.0.0.1:8065`; the iOS 18.5 runtime on this host still cannot run the
+test host (`libswiftWebKit.dylib` missing). Not validatable here, unchanged from T37-AV: real APNs, a
+Mattermost Cloud workspace, and the same-instant two-client race.
