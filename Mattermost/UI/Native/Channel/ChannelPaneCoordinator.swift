@@ -36,6 +36,8 @@ final class ChannelPaneCoordinator: ObservableObject {
     private var recent: [UUID: [String]] = [:]
     private var imageStores: [UUID: ChannelImageStore] = [:]
     private var emojiCatalogues: [UUID: EmojiCatalogue] = [:]
+    /// T38: per-server attachment download state (shares the app's one `DownloadWorker` journal).
+    private var attachmentDownloadsStores: [UUID: AttachmentDownloads] = [:]
     /// T37: recently-used emoji, per server (the store itself is keyed by server **and** user).
     private var emojiRecents: [UUID: EmojiRecentsStore] = [:]
     /// T35: one composer per channel, kept beside its list so a channel switch restores both the
@@ -98,6 +100,19 @@ final class ChannelPaneCoordinator: ObservableObject {
         let catalogue = EmojiCatalogue(service: service(for: server))
         emojiCatalogues[server.id] = catalogue
         return catalogue
+    }
+
+    /// T38: the attachment download state for one server, created on first use.
+    ///
+    /// Per server, not per channel, for the same reason the image cache is: the same file can appear in
+    /// two channels, and a save started in one must read as saved in the other. The worker is passed in
+    /// by the view (`@EnvironmentObject` at the app root) rather than owned here, because the Downloads
+    /// screen and the rows must share exactly one journal.
+    func attachmentDownloads(for server: ServerConfig, worker: DownloadWorker) -> AttachmentDownloads {
+        if let existing = attachmentDownloadsStores[server.id] { return existing }
+        let downloads = AttachmentDownloads(worker: worker, service: service(for: server))
+        attachmentDownloadsStores[server.id] = downloads
+        return downloads
     }
 
     /// T37: the recently-used emoji, one store per server **and** user.
@@ -203,6 +218,7 @@ final class ChannelPaneCoordinator: ObservableObject {
         draftStores.clear(serverID)
         imageStores[serverID]?.clear()
         imageStores[serverID] = nil
+        attachmentDownloadsStores[serverID] = nil
         // A new session may be a different team with a different emoji list, so the catalogue is
         // dropped with everything else rather than surviving a sign-out.
         emojiCatalogues[serverID]?.clear()

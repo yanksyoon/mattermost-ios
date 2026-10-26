@@ -125,6 +125,30 @@ final class APIClient: @unchecked Sendable {
         return response.body
     }
 
+    /// An authenticated `URLRequest` for one file's bytes — the seam the **download** path transfers
+    /// (S18/T38).
+    ///
+    /// `DownloadWorker` must not learn how to authenticate: the token belongs to this client and to
+    /// nothing else (the same boundary that keeps it out of the webview's JavaScript). This builds the
+    /// identical `/api/v4` URL and the identical `Authorization`/`X-Requested-With` pair every other
+    /// call sends, so a downloaded attachment is fetched exactly like a drawn one. No ETag, no body:
+    /// a file download is a plain GET, and the worker's own task handles progress and cancellation.
+    ///
+    /// A 401 during the transfer surfaces as a failed download rather than a re-auth prompt; the row
+    /// reports it, and the next ordinary request brings the session back (`AuthSession` owns that).
+    func authorizedRequest(path: String, query: [URLQueryItem] = []) throws -> URLRequest {
+        guard let url = baseURL.apiV4(path, query: query) else {
+            throw MMError.invalidURL(path)
+        }
+        guard let token = tokenProvider(), !token.isEmpty else { throw MMError.notSignedIn }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
+        request.setValue("*/*", forHTTPHeaderField: "Accept")
+        return request
+    }
+
     /// POST with a `Codable` body and a typed response.
     func post<T: Decodable, Body: Encodable>(_ type: T.Type,
                                              path: String,

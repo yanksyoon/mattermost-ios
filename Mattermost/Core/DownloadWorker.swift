@@ -46,12 +46,33 @@ final class DownloadWorker: ObservableObject {
     /// in-flight record so callers can observe progress or cancel it by id.
     @discardableResult
     func download(url: URL) -> DownloadRecord {
-        flow.startDownload(url: url)
+        flow.startDownload(request: URLRequest(url: url),
+                           suggestedFilename: url.lastPathComponent)
+    }
+
+    /// Begin downloading an **authenticated** request (T38: a Mattermost attachment) under a
+    /// caller-chosen file name.
+    ///
+    /// Why a `URLRequest` and not a URL: a private file's bytes need the session's bearer token, and
+    /// the token lives behind `AuthSession`/`APIClient` — the transfer engine must not learn how to
+    /// authenticate any more than a page's JavaScript may. The caller builds the request through the
+    /// one authenticated client; this method only transfers and journals it. `suggestedFilename` is
+    /// required because a Mattermost file URL ends in the file's *id* (`/api/v4/files/abc123`), which
+    /// is not a usable name on disk.
+    @discardableResult
+    func download(request: URLRequest, suggestedFilename: String) -> DownloadRecord {
+        flow.startDownload(request: request, suggestedFilename: suggestedFilename)
     }
 
     /// Cancel an in-flight download; the task's completion flips the record to `.cancelled`.
     func cancel(id: UUID) {
         flow.cancel(id: id)
+    }
+
+    /// The session task transferring a record, so a test can prove the transfer is **running** and
+    /// not merely journaled (`URLSessionTask.state`). Nil once it finished or was never started.
+    func task(for id: UUID) -> URLSessionDownloadTask? {
+        flow.tasksByRecord[id]
     }
 
     /// Re-issue a failed / cancelled / wait-to-retry download by its journal record.
@@ -108,6 +129,16 @@ final class DownloadWorker: ObservableObject {
         value.split(separator: separator).last.map(String.init) ?? ""
     }
 
+    /// The file names the journal says are taken: every record that already **landed**, minus the one
+    /// currently landing. A record exists in the journal from the moment its task starts, so counting
+    /// the landing record's own name would name every save `file (2).ext` (measured live before the
+    /// repair: the first save of `t38-shot-01.png` landed as `t38-shot-01 (2).png`).
+    static func occupiedNames(in records: [DownloadRecord], excluding id: UUID?) -> [String] {
+        records
+            .filter { $0.id != id && $0.state == .done }
+            .compactMap { $0.filename }
+    }
+
     /// Pick a non-colliding file name for `base` against the names already in `existing`:
     /// `report.pdf` -> `report (2).pdf`, `report (3).pdf`, … The first free name is returned
     /// (desktop download-dedup behaviour).
@@ -136,6 +167,27 @@ final class DownloadWorker: ObservableObject {
         return directory.appendingPathComponent(name)
     }
 
+    /// Move a finished download out of the session's temporary file and into `directory`.
+    ///
+    /// `URLSessionDownloadDelegate` hands over a location the session deletes the moment the delegate
+    /// returns, so this is the step that makes "done" mean "on disk". It is a separate, injectable
+    /// function so the landing rule (directory creation, de-duplication, replace-if-identical) is
+    /// unit-testable without a network.
+    static func install(downloadedFileAt location: URL,
+                        filename: String,
+                        in directory: URL = URL.downloadsDirectory,
+                        existingNames: [String]) throws -> URL {
+        let manager = FileManager.default
+        try manager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let destination = resolveDestination(for: filename, in: directory,
+                                             existingNames: existingNames)
+        if manager.fileExists(atPath: destination.path) {
+            try manager.removeItem(at: destination)
+        }
+        try manager.moveItem(at: location, to: destination)
+        return destination
+    }
+
     // MARK: DownloadFlow — the NSObject that implements the Foundation/WebKit download protocols
 
     final class DownloadFlow: NSObject, URLSessionDownloadDelegate, WKDownloadDelegate {
@@ -146,11 +198,24 @@ final class DownloadWorker: ObservableObject {
         /// `URLSessionDownloadTask`s report progress/completion without disturbing
         /// `URLSession.shared`. `lazy` because `URLSession(configuration:delegate:self)` uses
         /// `self` as the delegate and can only run after `super.init()`.
+        ///
+        /// `delegateQueue: .main` is not an optimisation: this flow is main-actor isolated (it is
+        /// nested in a `@MainActor` owner and mutates the journal the Downloads screen draws), and
+        /// `URLSession` otherwise invokes the delegate on a private background queue — which traps
+        /// with "Incorrect actor executor assumption" and kills the app the moment a download starts
+        /// (`signal kill`, measured the first time a save actually transferred:
+        /// `docs/t38-build-note.md` §5). The work done here is a file move inside the container and a
+        /// journal update, both cheap even for a large file.
         lazy var session: URLSession = URLSession(configuration: URLSessionConfiguration.default,
                                                   delegate: self,
-                                                  delegateQueue: nil)
+                                                  delegateQueue: .main)
         /// Maps an in-flight session download task to its journal record id.
         var activeTasks = Dictionary<URLSessionDownloadTask, UUID>()
+        /// Record id → the task transferring it. `activeTasks` answers "which record is this task?";
+        /// this answers "is this record's transfer actually running?" — a `URLSessionTask` is born
+        /// suspended, so a record whose task was created and never resumed is a row that sits at
+        /// "0 B · Progressing" forever (measured: `docs/t38-build-note.md` §5).
+        private(set) var tasksByRecord: [UUID: URLSessionDownloadTask] = [:]
         /// Maps an in-flight webview download to its journal record id.
         var activeDownloads = Dictionary<WKDownload, UUID>()
 
@@ -161,16 +226,22 @@ final class DownloadWorker: ObservableObject {
         // MARK: Shell-initiated downloads
 
         @discardableResult
-        func startDownload(url: URL) -> DownloadRecord {
+        func startDownload(request: URLRequest, suggestedFilename: String) -> DownloadRecord {
             var record = DownloadRecord(
-                filename: DownloadWorker.sanitizedFilename(url.lastPathComponent),
-                source: url.absoluteString)
+                filename: DownloadWorker.sanitizedFilename(suggestedFilename),
+                source: request.url?.absoluteString ?? "")
             owner?.history.add(record)
+            record = owner?.history.find(id: record.id) ?? record
 
-            let request = URLRequest(url: url)
             let task = session.downloadTask(with: request)
             activeTasks[task] = record.id
-            Logger.info("DownloadWorker", "started download \(url.absoluteString)")
+            tasksByRecord[record.id] = task
+            Logger.info("DownloadWorker", "started download \(request.url?.absoluteString ?? "")")
+            // A `URLSessionTask` is created **suspended**; without this the record sits at
+            // "0 B · Progressing" forever and no delegate callback ever fires. Measured on the
+            // simulator before the repair: the journal row existed, the Downloads screen drew it,
+            // `receivedBytes` stayed 0 and nothing landed (`docs/t38-build-note.md` §5).
+            task.resume()
             return record
         }
 
@@ -200,6 +271,8 @@ final class DownloadWorker: ObservableObject {
             let request = URLRequest(url: source)
             let task = session.downloadTask(with: request)
             activeTasks[task] = next.id
+            tasksByRecord[next.id] = task
+            task.resume()
             return next
         }
 
@@ -209,12 +282,36 @@ final class DownloadWorker: ObservableObject {
                         didFinishDownloadingTo location: URL) {
             guard let id = activeTasks.removeValue(forKey: task),
                   let record = owner?.history.find(id: id) else { return }
+            tasksByRecord[id] = nil
             var next = record
-            next.destination = landing(for: record).absoluteString
-            next.state = .done
+            // T38: the download has to actually land. `location` is a temporary file the session
+            // deletes as soon as this delegate returns, so a record that says `done` without moving
+            // it would be a lie the Downloads screen repeats (and the row's "Saved to Downloads"
+            // with it). The move is therefore part of the same step that sets `done`, and a failed
+            // move is `.error`, never `.done`.
+            do {
+                let dest = try DownloadWorker.install(downloadedFileAt: location,
+                                                      filename: record.filename,
+                                                      existingNames: journalFileNames(excluding: record.id))
+                next.destination = dest.absoluteString
+                next.state = .done
+                // `didWriteData` is not guaranteed even once for a small response, so a landed row
+                // would otherwise read "0 B · Downloaded". The file on disk is the truth about how
+                // many bytes landed.
+                let landedBytes = (try? FileManager.default
+                    .attributesOfItem(atPath: dest.path)[.size] as? Int64) ?? nil
+                if let landedBytes {
+                    next.receivedBytes = landedBytes
+                    next.totalBytes = max(next.totalBytes, landedBytes)
+                }
+                Logger.info("DownloadWorker", "finished \(record.filename) -> \(dest.path)")
+            } catch {
+                next.state = .error
+                Logger.error("DownloadWorker",
+                             "could not land \(record.filename): \(error.localizedDescription)")
+            }
             next.finishedAt = Date()
             owner?.history.update(next)
-            Logger.info("DownloadWorker", "finished \(record.filename) -> \(next.destination)")
         }
 
         func urlSession(_ session: URLSession, downloadTask task: URLSessionDownloadTask,
@@ -237,7 +334,7 @@ final class DownloadWorker: ObservableObject {
             let dest = DownloadWorker.resolveDestination(
                 for: suggestedFilename,
                 in: URL.downloadsDirectory,
-                existingNames: journalFileNames)
+                existingNames: journalFileNames())
             var record = DownloadRecord(
                 filename: DownloadWorker.sanitizedFilename(dest.lastPathComponent),
                 source: "",
@@ -273,12 +370,22 @@ final class DownloadWorker: ObservableObject {
         /// second download of the same name doesn't overwrite the first.
         private func landing(for record: DownloadRecord) -> URL {
             DownloadWorker.resolveDestination(for: record.filename, in: URL.downloadsDirectory,
-                                             existingNames: journalFileNames)
+                                             existingNames: journalFileNames(excluding: record.id))
         }
 
-        /// File names already in the journal (used to keep downloads from overwriting each other).
-        private var journalFileNames: [String] {
-            owner?.history.records.compactMap { $0.filename } ?? []
+        /// File names already in the journal *and* on disk (used to keep downloads from overwriting
+        /// each other). The disk half matters because the journal is capped (`maxRecords`): dropping an
+        /// old record must not make its file invisible to de-duplication.
+        ///
+        /// `excluding` is the record that is landing **right now**: it is already in the journal when
+        /// its bytes arrive, so counting its own name would save every download as `file (2).ext`
+        /// (measured live: `t38-shot-01 (2).png` for the first save of that file).
+        private func journalFileNames(excluding recordID: UUID? = nil) -> [String] {
+            let journal = DownloadWorker.occupiedNames(in: owner?.history.records ?? [],
+                                                       excluding: recordID)
+            let onDisk = (try? FileManager.default
+                .contentsOfDirectory(atPath: URL.downloadsDirectory.path)) ?? []
+            return journal + onDisk
         }
     }
 }

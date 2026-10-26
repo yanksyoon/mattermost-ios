@@ -148,13 +148,15 @@ struct PostRowView: View {
     let imageStore: ChannelImageStore?
     var emoji: EmojiCatalogue?
     let onToggleExpanded: () -> Void
-    let onRetryAttachment: (String) -> Void
     /// Nil = no menu (the pre-T35 rendering, used by previews and by any read-only host).
     var actions: PostRowActions? = nil
     /// T36: open this post's thread (the reply line's tap). Nil keeps the line non-interactive.
     var onOpenThread: (() -> Void)? = nil
     /// T37: press a pill, ask who reacted, add another. Nil keeps the read-only pills.
     var reactionActions: PostRowReactionActions? = nil
+    /// T38: what the attachment section may do — open the gallery, open a file preview, download.
+    /// Nil keeps the drawn-but-inert rendering (a preview host, or the web render of the pane).
+    var attachmentActions: PostRowAttachmentActions? = nil
 
     private var showsHeader: Bool { !row.isGrouped && !row.isSystem }
 
@@ -387,14 +389,10 @@ struct PostRowView: View {
     @ViewBuilder
     private var attachments: some View {
         if !row.attachments.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(row.attachments) { attachment in
-                    PostAttachmentView(attachment: attachment,
-                                       postID: row.id,
-                                       imageStore: imageStore,
-                                       onRetry: { onRetryAttachment(attachment.id) })
-                }
-            }
+            // T38: the section is its own view (`UI/Native/Files/AttachmentViews.swift`): image grid,
+            // file rows with type icons and sizes, placeholders, and the tap targets for the gallery
+            // and the file preview. The row only says what may be opened.
+            AttachmentSectionView(row: row, imageStore: imageStore, actions: attachmentActions)
         }
     }
 
@@ -538,140 +536,6 @@ private struct EmojiGlyphContent: View {
         } else {
             Text(EmojiShortcodes.character(for: name) ?? ":\(name):")
                 .font(.system(size: size))
-        }
-    }
-}
-
-// MARK: - Attachments
-
-/// One attachment. An image draws its thumbnail when the bytes arrive; anything else (or a failed
-/// image) draws the file row, which is still tappable and names the file.
-struct PostAttachmentView: View {
-    let attachment: PostAttachment
-    let postID: String
-    let imageStore: ChannelImageStore?
-    let onRetry: () -> Void
-
-    @State private var image: UIImage?
-    @State private var didFail = false
-
-    var body: some View {
-        Group {
-            if attachment.isBlocked {
-                fileRow(icon: "exclamationmark.triangle", note: "Blocked file")
-            } else if attachment.kind == .image, let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 280, maxHeight: 220)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .accessibilityLabel(attachment.name)
-                    .accessibilityIdentifier("post.\(postID).attachment.\(attachment.id)")
-            } else if attachment.kind == .image, !didFail {
-                fileRow(icon: "photo", note: attachment.sizeLabel)
-                    .task { await loadImage() }
-            } else {
-                fileRow(icon: "doc", note: attachment.sizeLabel)
-            }
-        }
-    }
-
-    private func fileRow(icon: String, note: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundStyle(.secondary)
-                .frame(width: 22)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(attachment.name)
-                    .font(.system(size: 13, weight: .medium))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                if !note.isEmpty {
-                    Text(note)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: 280, alignment: .leading)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("post.\(postID).attachment.\(attachment.id)")
-    }
-
-    private func loadImage() async {
-        guard let imageStore else {
-            didFail = true
-            return
-        }
-        if let cached = await imageStore.image(for: attachment) {
-            image = cached
-        } else {
-            didFail = true
-        }
-    }
-}
-
-// MARK: - Image bytes
-
-/// Attachment bytes, cached per file id.
-///
-/// The list asks the same store for every image on screen; the store collapses concurrent requests
-/// for one file (a thumbnail and a full image of the same id must not race) and keeps a small cache
-/// so a scroll back up does not refetch.
-@MainActor
-final class ChannelImageStore: ObservableObject {
-    private let load: (String) async throws -> Data
-    private var cache: [String: UIImage] = [:]
-    private var inFlight: [String: Task<UIImage?, Never>] = [:]
-
-    /// The cache is bounded: attachments are decorative, and a long session should not hold every
-    /// screenshot the user ever scrolled past.
-    static let cacheLimit = 40
-
-    init(load: @escaping (String) async throws -> Data) {
-        self.load = load
-    }
-
-    convenience init(service: ChannelServing) {
-        self.init { fileID in
-            try await service.fileData(fileID: fileID, preferThumbnail: true)
-        }
-    }
-
-    func image(for attachment: PostAttachment) async -> UIImage? {
-        if let cached = cache[attachment.id] { return cached }
-        if let running = inFlight[attachment.id] { return await running.value }
-        let task = Task<UIImage?, Never> { [load] in
-            guard let data = try? await load(attachment.id) else { return nil }
-            return UIImage(data: data)
-        }
-        inFlight[attachment.id] = task
-        let image = await task.value
-        inFlight[attachment.id] = nil
-        if let image {
-            cache[attachment.id] = image
-            trim()
-        }
-        return image
-    }
-
-    func clear() {
-        cache.removeAll()
-        for (_, task) in inFlight { task.cancel() }
-        inFlight.removeAll()
-    }
-
-    private func trim() {
-        guard cache.count > Self.cacheLimit else { return }
-        // Dictionary order is not insertion order, so drop an arbitrary excess; the bytes are
-        // re-fetchable and the visible rows re-ask on the next layout pass.
-        for key in cache.keys.prefix(cache.count - Self.cacheLimit) {
-            cache[key] = nil
         }
     }
 }

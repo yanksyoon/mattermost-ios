@@ -27,6 +27,14 @@ protocol ChannelServing: AnyObject {
     /// Bytes for an attachment thumbnail (or the file itself when the server has no thumbnail).
     func fileData(fileID: String, preferThumbnail: Bool) async throws -> Data
 
+    /// An **authenticated** request for one file's bytes, for the download path (S18/T38).
+    ///
+    /// The row hands this to `DownloadWorker` rather than a bare URL: a private file needs the
+    /// session's bearer token, and only the authenticated client may build a request that carries it.
+    /// Defaults to a signed-out error so a stub service reports "cannot download" instead of
+    /// downloading nothing silently (the same degradation rule as `addReaction`).
+    func fileDownloadRequest(fileID: String) throws -> URLRequest
+
     /// My membership row for the channel — `last_viewed_at` places the unread divider. Optional so a
     /// service that has already been handed a read position need not implement it.
     func membership(channelID: String) async throws -> MMChannelMember?
@@ -57,6 +65,7 @@ protocol ChannelServing: AnyObject {
 extension ChannelServing {
     var pageSize: Int { 60 }
     func membership(channelID: String) async throws -> MMChannelMember? { nil }
+    func fileDownloadRequest(fileID: String) throws -> URLRequest { throw MMError.notSignedIn }
     func customEmoji(page: Int, perPage: Int) async throws -> [MMEmoji] { [] }
     func emojiImage(emojiID: String) async throws -> Data { throw MMError.notFound }
     func addReaction(postID: String, emojiName: String, userID: String) async throws -> MMReaction {
@@ -116,6 +125,12 @@ final class SessionChannelService: ChannelServing {
         // A missing membership row is not a reason to fail the page: without `last_viewed_at` the
         // list simply draws no unread divider (`nil` = unknown, never "everything is read").
         try? await client().channelMembership(channelID: channelID)
+    }
+
+    /// S18/T38: the download path. `/api/v4/files/{id}` with the session's own bearer token, built by
+    /// the authenticated client so `DownloadWorker` never handles a credential.
+    func fileDownloadRequest(fileID: String) throws -> URLRequest {
+        try client().authorizedRequest(path: "/files/\(fileID)")
     }
 
     func customEmoji(page: Int, perPage: Int) async throws -> [MMEmoji] {

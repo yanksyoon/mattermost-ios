@@ -46,7 +46,13 @@ struct DownloadsView: View {
                                 onExport: { exportingRecord = record },
                                 onShare: { sharingRecord = record }
                             )
+                            // A container element per row, addressed by name, with the size/state on its
+                            // value: the row's own label otherwise resolves to the thumbnail ("Photo"),
+                            // so neither a UI test nor VoiceOver could ask "did this land?" —
+                            // `.contain` (not `.combine`) keeps the row's own menu button reachable.
+                            .accessibilityElement(children: .contain)
                             .accessibilityIdentifier("downloadRow-\(record.filename)")
+                            .accessibilityValue(DownloadFormatting.fileSizeAndStatus(record))
                         }
                     }
                     .listStyle(.insetGrouped)
@@ -112,6 +118,10 @@ struct DownloadRowView: View {
                     Text(DownloadFormatting.fileSizeAndStatus(record))
                         .font(.caption)
                         .foregroundStyle(record.state == .done ? Color.secondary : Color.orange)
+                        // A stable address for the size/state line: the row's own identifier resolves
+                        // to the image's label ("Photo"), so a test (or VoiceOver rotor) that asks
+                        // "did this land?" needs this line to be addressable.
+                        .accessibilityIdentifier("downloadStatus-\(record.filename)")
                 }
                 if record.state == .downloading {
                     ProgressView(value: DownloadFormatting.progress(record), total: 1)

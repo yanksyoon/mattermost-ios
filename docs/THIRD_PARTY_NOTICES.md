@@ -457,3 +457,68 @@ its per-server database, so neither client syncs them across devices), skin-tone
 when the write surface is native), and reaction **filtering/sorting choices** beyond upstream's
 default order. Search ranking uses a deterministic exact → prefix → subsequence tier instead of
 upstream's Fuse scores; the exact/prefix ordering rules are the same.
+
+## 15. T38 native attachments, image viewer and file previews — upstream read set (Apache-2.0, mobile @ `162f2560…`; webapp observed only, AGPL-3.0)
+
+T38 (`Mattermost/UI/Native/Files/` — `AttachmentModels.swift`, `FileTypeMap.swift`,
+`AttachmentImageStore.swift`, `AttachmentViews.swift`, `ImageViewer.swift`, `FilePreviewView.swift`,
+`AttachmentDownloads.swift`; the hosting sides `PostRowView.swift`'s `attachmentActions`,
+`ChannelView.swift`/`ThreadView.swift`'s `.gallery`/`.preview` sheet cases,
+`ChannelPaneCoordinator.attachmentDownloads`, `ChannelService`'s `fileDownloadRequest`,
+`APIClient.authorizedRequest`, and `DownloadWorker`'s `download(request:suggestedFilename:)` +
+`install(downloadedFileAt:…)`) reimplements the **attachment surface** named by
+`docs/component-map.md` §S18 (S18 file/image viewer + gallery): inline thumbnails in a grid, the
+full-screen gallery with paging/zoom/share/save, the file row with type icon, name and size, the PDF
+reader and the text reader, and the download path. The upstream read set is the one that map §S18
+names; no upstream file is copied or transpiled. The mobile pin is TypeScript (read for rules only);
+the webapp is AGPL-3.0 and was **observed in the running client**, never copied or ported. Every new
+file pins the upstream it derives from in its own header (mobile `@ v2.45.0`,
+`162f2560d0e1df073220f7701d5a67cc17c8abeb`), so this section is the repo-level entry those headers
+point at.
+
+| Upstream path (mobile @ `162f2560…` unless marked `W`) | Used for |
+|---|---|
+| `app/utils/file/index.ts` | `isDocument`, `getFileType`, `isSupportedExtension` — the extension-first classification this client's `FileTypeMap` reimplements |
+| `app/utils/file/file_icon.tsx` | document type → icon (`doc.richtext`, `tablecells`, `archivebox`, …); the SF Symbol table is this client's own mapping of the same categories |
+| `app/components/files/files.tsx` | the attachment section: images in a grid, everything else as rows below it, in the server's order |
+| `app/components/files/image_file.tsx`, `image_file_overlay.tsx` | the thumbnail cell, its overlay/tap affordance and the loading placeholder |
+| `app/components/files/file.tsx`, `file_info.tsx`, `file_options_icon.tsx` | the row: name, size, type, and the trailing download/options affordance |
+| `app/components/files/document_file.tsx` | the "no preview" branch — a named row plus the download, never an attempt to render |
+| `app/components/files/file_filter.tsx` | which types upstream hides outright; this client keeps every file visible and refuses only the **preview** |
+| `app/screens/gallery/gallery.tsx`, `image_viewer.tsx`, `footer.tsx` | horizontal paging across one post's images, pinch/double-tap zoom, and the footer's share/save |
+| `app/screens/pdf_viewer/` | native PDF rendering (this client uses `PDFKit`, not the upstream library) |
+| `app/screens/code/index.tsx`, `code.tsx` | the plain-text/code reader and its line rendering (this client draws bounded, selectable text) |
+| `app/client/rest/files.ts` | `GET /files/{id}`, `/files/{id}/link`, `/files/{id}/thumbnail` and the download entry points |
+| `app/utils/gallery/index.ts` | the gallery's start index and file-id ordering |
+| Gekidou `Cache/ImageCache*.swift` (Apache-2.0) | a memory/disk cache in front of the image endpoint — this client implements a bounded, cancellable LRU instead (no Gekidou source copied) |
+| `W …/components/file_attachment/`, `W …/components/file_attachment_list/`, `W …/components/file_preview_modal/`, `W …/components/file_info_preview.tsx`, `W …/components/files/` | **behaviour cross-check only** — what the Path A webview shows for the same attachment, watched in the running client; not ported |
+
+**Measured against the real server** (`scripts/t38_file_probe.py`, output in
+`docs/t38-file-probe-2026-10-26.log`, pinned by `MattermostTests/T38AttachmentTests.swift`):
+
+- `/files/{id}/thumbnail` answers a **120×90, 250-byte** PNG for a 640×480, 103,980-byte original
+  (and 75×100 for a 480×640 one). Drawn at the 300 pt bubble width that is a blurred preview, so the
+  inline path fetches the **original** and downsamples locally to 600 px
+  (`ChannelImageStore.inlineMaxPixel`). Thumbnails are therefore not used by this card at all.
+- `/files/{id}/thumbnail` answers **400** for a non-image (text/CSV/zip/PDF) — no thumbnail exists to
+  fall back to, which is why the store never asks for one.
+- `POST /posts` refuses **more than 10 file ids** with `400 model.post.is_valid.file_ids.app_error`
+  ("uploads are limited to 10 files maximum"). Attachments per message is a hard server limit of 10
+  (Mattermost product limits), not a configurable setting — so a single post with 10 images **and**
+  3 files **and** a PDF cannot exist on any real server. The fixture therefore uses two posts in one
+  channel (10 images; 3 files + PDF + 2 hostile files), and the 14-attachment case is covered by the
+  unit suite decoding a 14-file `metadata.files` payload
+  (`T38AttachmentDecodingTests.testAFourteenFilePostDecodesIntoImagesAndFileRows`).
+- The server **normalises** the stored `mime_type` of an upload (an `image/png` upload of an `.html`
+  body comes back `text/html; charset=utf-8`), so the hostile fixture is hostile by name and by MIME
+  rather than by a forged MIME claim. The forged-MIME case is covered by a unit test
+  (`testTheExtensionDecidesEvenWhenTheServerClaimsAnImageMimeType`) and by the classifier's own rule
+  that a dangerous MIME type is refused even when the name says `.png`.
+
+Not ported by this card (other cards own them, or the surface is out of scope): audio and video
+playback (`audio_file.tsx`/`video_file.tsx` — refused with the "no reader" screen, never handed to
+`AVPlayer`), the table and LaTeX renderers (`app/screens/table/`, `app/screens/latex/`), an external
+"open in another app" hand-off beyond the system share sheet, image editing/annotation, the webapp's
+signed-link (`/files/{id}/link`) flow for public links (this client always downloads through its
+authenticated `APIClient`), and file upload from the attachment surface (T35's composer owns
+uploads).

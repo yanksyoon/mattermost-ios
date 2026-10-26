@@ -27,6 +27,8 @@ struct ThreadPaneContent: View {
     @EnvironmentObject private var threads: ThreadCoordinator
     @EnvironmentObject private var panes: ChannelPaneCoordinator
     @EnvironmentObject private var resolver: SurfaceModeResolver
+    /// T38: the app's one download journal (a reply's attachment saves to the same Downloads screen).
+    @EnvironmentObject private var downloadWorker: DownloadWorker
 
     @State private var model: ThreadViewModel?
     @State private var composer: ComposerViewModel?
@@ -34,6 +36,8 @@ struct ThreadPaneContent: View {
     @State private var emoji: EmojiCatalogue?
     /// T37: recently-used emoji, the same store the channel pane records into.
     @State private var emojiRecents: EmojiRecentsStore?
+    /// T38: attachment save state (shared per server with the channel pane).
+    @State private var attachmentDownloads: AttachmentDownloads?
 
     /// Whether the write surface renders natively (T35's `.composer` surface). The thread's reply box
     /// is that same surface: with it on `.web` the reader gets the webview's composer, so the native
@@ -51,7 +55,8 @@ struct ThreadPaneContent: View {
                                    imageStore: imageStore,
                                    emoji: emoji,
                                    rowActions: rowActions,
-                                   recents: emojiRecents)
+                                   recents: emojiRecents,
+                                   attachmentDownloads: attachmentDownloads)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -73,6 +78,7 @@ struct ThreadPaneContent: View {
             emoji = catalogue
             let recents = panes.emojiRecents(for: server)
             emojiRecents = recents
+            attachmentDownloads = panes.attachmentDownloads(for: server, worker: downloadWorker)
             let resolved = await threads.activate(server: server,
                                                   rootID: rootID,
                                                   channelID: channelID.isEmpty ? nil : channelID)
@@ -214,6 +220,8 @@ struct ThreadPostListView: View {
     var rowActions: ((PostRowModel) -> PostRowActions?)? = nil
     /// T37: the picker's recently-used row, shared with the channel pane's store.
     var recents: EmojiRecentsStore? = nil
+    /// T38: the per-server attachment download state (nil leaves the section inert).
+    var attachmentDownloads: AttachmentDownloads? = nil
 
     /// One item-bound sheet for this list (options, T37's picker and reactor list).
     @State private var sheet: ChannelListSheet?
@@ -266,6 +274,16 @@ struct ThreadPostListView: View {
                               postID: postID,
                               initialEmoji: emojiName,
                               emojiCatalogue: emoji)
+        case .gallery(let target):
+            AttachmentGalleryView(target: target,
+                                  imageStore: imageStore,
+                                  downloads: attachmentDownloads,
+                                  onClose: { self.sheet = nil })
+        case .preview(let target):
+            AttachmentPreviewView(target: target,
+                                  imageStore: imageStore,
+                                  downloads: attachmentDownloads,
+                                  onClose: { self.sheet = nil })
         }
     }
 
@@ -367,9 +385,9 @@ struct ThreadPostListView: View {
                         imageStore: imageStore,
                         emoji: emoji,
                         onToggleExpanded: { model.toggleExpanded(row.id) },
-                        onRetryAttachment: { _ in },
                         actions: actions(for: row),
-                        reactionActions: reactionActions(for: row))
+                        reactionActions: reactionActions(for: row),
+                        attachmentActions: attachmentActions(for: row))
                 // A reply in a thread can itself be a root for the channel's reply line but never
                 // opens a second thread: the reply line is withheld here.
                 .accessibilityIdentifier("thread.post.\(row.id)")
@@ -382,6 +400,26 @@ struct ThreadPostListView: View {
         supplied.canReact = true
         supplied.onReact = { sheet = .picker(postID: row.id) }
         return supplied
+    }
+
+    /// The row's attachment handlers (T38) — the same rule as the channel list: gated on a download
+    /// coordinator, and the gallery target carries this row's own attachments.
+    private func attachmentActions(for row: PostRowModel) -> PostRowAttachmentActions? {
+        guard let attachmentDownloads else { return nil }
+        return PostRowAttachmentActions(
+            downloads: attachmentDownloads,
+            onOpenImage: { fileID in
+                guard row.attachments.contains(where: { $0.id == fileID }) else { return }
+                sheet = .gallery(AttachmentGalleryTarget(postID: row.id,
+                                                         attachments: row.attachments,
+                                                         startFileID: fileID))
+            },
+            onOpenFile: { fileID in
+                guard let attachment = row.attachments.first(where: { $0.id == fileID }) else {
+                    return
+                }
+                sheet = .preview(AttachmentPreviewTarget(postID: row.id, attachment: attachment))
+            })
     }
 
     /// Pills are pressable when this host supplied a row menu (the write surface is native) and the

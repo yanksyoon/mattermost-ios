@@ -25,12 +25,18 @@ enum ChannelListSheet: Identifiable {
     case picker(postID: String)
     /// Who reacted with one emoji.
     case reactors(postID: String, emojiName: String)
+    /// T38: the full-screen image gallery for one post, starting at one image.
+    case gallery(AttachmentGalleryTarget)
+    /// T38: one file's preview (PDF, text, or the safe "not previewed" screen).
+    case preview(AttachmentPreviewTarget)
 
     var id: String {
         switch self {
         case .options(let row): return "options.\(row.id)"
         case .picker(let postID): return "picker.\(postID)"
         case .reactors(let postID, let emojiName): return "reactors.\(postID).\(emojiName)"
+        case .gallery(let target): return "gallery.\(target.id)"
+        case .preview(let target): return "preview.\(target.id)"
         }
     }
 }
@@ -48,6 +54,9 @@ struct ChannelPostListView: View {
     var onOpenThread: ((PostRowModel) -> Void)? = nil
     /// T37: the recently-used emoji the picker opens with. Nil is a picker with no recent row.
     var recents: EmojiRecentsStore? = nil
+    /// T38: the per-server attachment download state. Nil leaves the attachment section inert (a
+    /// preview host, or a pane whose host does not offer a write surface).
+    var attachmentDownloads: AttachmentDownloads? = nil
 
     /// True while a top visit must not page: the reader has not been away from the top since the last
     /// auto-load, so this is the same visit. Cleared once the viewport is a screen away from the top.
@@ -111,6 +120,16 @@ struct ChannelPostListView: View {
                               postID: postID,
                               initialEmoji: emojiName,
                               emojiCatalogue: emoji)
+        case .gallery(let target):
+            AttachmentGalleryView(target: target,
+                                  imageStore: imageStore,
+                                  downloads: attachmentDownloads,
+                                  onClose: { self.sheet = nil })
+        case .preview(let target):
+            AttachmentPreviewView(target: target,
+                                  imageStore: imageStore,
+                                  downloads: attachmentDownloads,
+                                  onClose: { self.sheet = nil })
         }
     }
 
@@ -301,10 +320,10 @@ struct ChannelPostListView: View {
                         imageStore: imageStore,
                         emoji: emoji,
                         onToggleExpanded: { toggleExpanded(row.id) },
-                        onRetryAttachment: { _ in },
                         actions: actions(for: row),
                         onOpenThread: onOpenThread.map { open in { open(row) } },
-                        reactionActions: reactionActions(for: row))
+                        reactionActions: reactionActions(for: row),
+                        attachmentActions: attachmentActions(for: row))
                 // The row's own UIView, so the restore can measure where the reader is without
                 // going through a SwiftUI preference (see ChannelScrollPosition.swift).
                 .background(RowAnchorProbe(postID: row.id, controller: scrollController))
@@ -332,6 +351,30 @@ struct ChannelPostListView: View {
             onToggle: { name in model.toggleReaction(postID: row.id, emojiName: name) },
             onShowReactors: { name in sheet = .reactors(postID: row.id, emojiName: name) },
             onAdd: { sheet = .picker(postID: row.id) })
+    }
+
+    /// The row's attachment handlers (T38).
+    ///
+    /// Gated on `attachmentDownloads` for the same reason the options sheet is gated on `rowActions`:
+    /// a read-only host draws the thumbnails and rows but must not open a gallery whose Save button
+    /// starts a download. The gallery target carries **this row's own** attachments, so the sheet can
+    /// never show a different set than the row did.
+    private func attachmentActions(for row: PostRowModel) -> PostRowAttachmentActions? {
+        guard let attachmentDownloads else { return nil }
+        return PostRowAttachmentActions(
+            downloads: attachmentDownloads,
+            onOpenImage: { fileID in
+                guard row.attachments.contains(where: { $0.id == fileID }) else { return }
+                sheet = .gallery(AttachmentGalleryTarget(postID: row.id,
+                                                         attachments: row.attachments,
+                                                         startFileID: fileID))
+            },
+            onOpenFile: { fileID in
+                guard let attachment = row.attachments.first(where: { $0.id == fileID }) else {
+                    return
+                }
+                sheet = .preview(AttachmentPreviewTarget(postID: row.id, attachment: attachment))
+            })
     }
 
     /// Expand or collapse a post without moving the post's own position on screen.
@@ -512,6 +555,9 @@ struct ChannelPaneContent: View {
 
     @EnvironmentObject private var panes: ChannelPaneCoordinator
     @EnvironmentObject private var resolver: SurfaceModeResolver
+    /// T38: the app's one download journal (`MattermostApp` mounts it), so a save from a row is the
+    /// same record the Downloads screen lists.
+    @EnvironmentObject private var downloadWorker: DownloadWorker
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var model: ChannelViewModel?
@@ -520,6 +566,8 @@ struct ChannelPaneContent: View {
     /// T37: the recently-used emoji, resolved once per server pane (see the coordinator's cache).
     @State private var emojiRecents: EmojiRecentsStore?
     @State private var composer: ComposerViewModel?
+    /// T38: attachment save state for this server's rows.
+    @State private var attachmentDownloads: AttachmentDownloads?
 
     /// Whether the write surface renders natively (T35's `.composer` surface).
     ///
@@ -543,7 +591,8 @@ struct ChannelPaneContent: View {
                                     onOpenThread: { row in
                                         openThread(rootID: row.id, row: row)
                                     },
-                                    recents: emojiRecents)
+                                    recents: emojiRecents,
+                                    attachmentDownloads: attachmentDownloads)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -569,6 +618,8 @@ struct ChannelPaneContent: View {
             let recents = panes.emojiRecents(for: server)
             emojiRecents = recents
             resolved.onEmojiUsed = { name in recents.record(name) }
+            // T38: one download coordinator per server, sharing the app's journal.
+            attachmentDownloads = panes.attachmentDownloads(for: server, worker: downloadWorker)
             // T35: the composer is created beside the list and wired to it, so an optimistic row and
             // its reconciliation land in the same window the reader is looking at. Only when the
             // write surface is native: a webview composer must not open a draft database or a send
