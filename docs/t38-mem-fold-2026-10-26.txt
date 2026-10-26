@@ -1,0 +1,15 @@
+csv      : docs/t38-mem-probe-2026-10-26.csv
+window   : 1793011904..1793012074  (169 s)
+samples  : 151
+pids     : [50454]
+
+pid 50454: n=151
+  rss MB      : first=454.7 last=366.9 min=366.9 max=459.9 mean=402.4
+  rss thirds  : t1=449.5 t3=375.4 delta=-74.1 MB over 1793011905..1793012073
+  footprint MB: first=144.0 last=151.7 min=144.0 max=151.7 n=9
+  pass 1: peak=459.9 min=451.0 MB (n=30)
+  pass 2: peak=452.6 min=416.2 MB (n=22)
+  pass 3: peak=416.6 min=374.8 MB (n=23)
+  pass 4: peak=380.1 min=378.7 MB (n=22)
+  pass 5: peak=380.2 min=374.8 MB (n=23)
+  pass 6: peak=379.1 min=369.2 MB (n=23)

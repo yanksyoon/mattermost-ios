@@ -7,14 +7,15 @@ fetched itself through `APIClient`; nothing in this surface is handed to a webvi
 
 Companion rows: `docs/parity.md` (T38), `docs/THIRD_PARTY_NOTICES.md` §15 (the upstream read set),
 `docs/t38-file-probe-2026-10-26.log` (the server measurements), `docs/t38-shots/` (the screens from
-the live run).
+the live run), and `docs/t38-mem-probe-2026-10-26.csv` + `docs/t38-mem-fold-2026-10-26.txt` (the
+bounded-load measurement in §3.1).
 
 ## 1. Files
 
 | File | What it owns |
 |---|---|
-| `Mattermost/UI/Native/Files/AttachmentModels.swift` | `PostAttachment` (decoded from `metadata.files`), `AttachmentSection` (images first, then files), `AttachmentGallery` (one post's images + the tapped index), `AttachmentImageGrid` (1/2/3 columns and the `+N` remainder), `AttachmentDownloadState` (the row's second line), `AttachmentPreviewTarget` / `AttachmentGalleryTarget` |
-| `Mattermost/UI/Native/Files/FileTypeMap.swift` | the classifier and the refusal list; `FileCategory`, `FilePreviewKind`, the row's symbol/type label, `textPreviewByteLimit` |
+| `Mattermost/UI/Native/Files/AttachmentModels.swift` | `PostAttachment` (decoded from `metadata.files`), `AttachmentSection` (images first, then files), `AttachmentGallery` (one post's images + the tapped index), `AttachmentImageGrid` (1/2/3 columns; every image is drawn — there is **no** `+N` remainder, see §8), `AttachmentDownloadState` (the row's second line), `AttachmentPreviewTarget` / `AttachmentGalleryTarget` |
+| `Mattermost/UI/Native/Files/FileTypeMap.swift` | the classifier and the refusal list; `FileCategory`, `FilePreviewKind`, the row's symbol/type label, `textPreviewByteLimit`, `previewFetchByteLimit` (§8) |
 | `Mattermost/UI/Native/Files/AttachmentImageStore.swift` | `ChannelImageStore`: bounded previews, one request per file id, cancellation, LRU |
 | `Mattermost/UI/Native/Files/AttachmentViews.swift` | `AttachmentSectionView`, `AttachmentImageCell`, `AttachmentFileRowView`, `PostRowAttachmentActions` |
 | `Mattermost/UI/Native/Files/ImageViewer.swift` | `AttachmentGalleryView` (paging, counter, zoom, share, save), `AttachmentGalleryPage`, `ZoomableImageView` |
@@ -26,9 +27,11 @@ the live run).
 | `Mattermost/UI/Native/Channel/ChannelPaneCoordinator.swift` | (changed) one `AttachmentDownloads` per server |
 | `Mattermost/UI/Native/Channel/PostRowView.swift`, `ChannelView.swift`, `Thread/ThreadView.swift` | (changed) the section, and one item-bound sheet per window for the gallery and the preview |
 | `Mattermost/UI/DownloadsView.swift` | (changed) `downloadStatus-<name>` on the size/state line, so "did it land?" is addressable |
-| `MattermostTests/T38AttachmentTests.swift` | 62 unit tests (nine classes) |
+| `MattermostTests/T38AttachmentTests.swift` | 70 unit tests (eleven classes) |
 | `MattermostUITests/T38AttachmentsUITests.swift` | 4 live UI tests |
+| `MattermostUITests/T38HeavyScrollProbeUITests.swift` | the memory probe (§3.1) — a harness, not a suite member: it skips unless `#t38-heavy` and `MM_AUTH_*` exist |
 | `scripts/t38_attachment_seed.py`, `scripts/t38_file_probe.py` | the fixture and the server probe |
+| `scripts/t38_heavy_seed.py`, `scripts/t38_mem_sample.py`, `scripts/t38_mem_fold.py` | the media-heavy fixture, the RSS/footprint sampler and the fold behind §3.1 |
 
 ## 2. The rules, and what the server actually does
 
@@ -69,9 +72,69 @@ purpose:
 - at most one request per file id is in flight however many cells ask (a 10-image grid on a scroll
   and a gallery page for the same file share one download);
 - a cell that scrolls away cancels its request when no other cell wants it;
-- an LRU keeps the last 40 images / 32 MB; a failed fetch is **not** cached as a broken image (the
-  cell shows a retry, and the next appearance refetches);
+- two caches, each with a count **and** a byte budget (`AttachmentImageStore`'s own constants):
+  **previews** — `previewLimit` 40 decoded bitmaps / `previewByteLimit` 24 MB of estimated decoded
+  bytes (a 600² RGBA bitmap is 1.4 MB, so the byte budget is usually the first to bite); **originals**
+  — `originalLimit` 6 whole payloads / `originalByteLimit` 48 MB, for the gallery's share and save
+  path. Gallery display bitmaps are separately capped at `galleryBitmapLimit` 3. (Earlier revisions of
+  this section said "40 entries/32 MB", which is neither of the two budgets — T38-AV F7.)
+- a failed fetch is **not** cached as a broken image (the cell shows a retry, and the next appearance
+  refetches);
 - the store never writes to disk, so a relaunch refetches (stated as a limit in the parity row).
+
+### 3.1 Bounded, and measured (the card's memory criterion)
+
+The criterion is *"image loading is cancellable and bounded … measure it with the T27 probe."* The
+cancellation half is unit-pinned (`testACancelledRowCancelsTheRequestAndCachesNothing`,
+`testTwoRowsAskingForOneFileShareASingleRequest`); the bound is measured the way T27 measured the
+webview — sample the process from outside while a real channel scrolls — because a cache only shows
+itself under real pixels.
+
+Fixture: `scripts/t38_heavy_seed.py` → `#t38-heavy` in team `perf`, 4 posts × 10 images, 1024×768
+**noisy** PNGs, **83,042,276 bytes** in total, 2,075,541..2,076,496 bytes each. A flat-colour PNG
+downloads in a few hundred bytes and would measure nothing, which is why the pixels do not repeat.
+
+Run (repo root, 2026-10-26 03:52–03:55 PDT; simulator `023B9070-…`, iPhone 17 Pro / iOS 26.0,
+`--derived-data ~/Library/Developer/Xcode/DerivedData/t38-ios`):
+
+```
+python3 scripts/t38_mem_sample.py 600 > build/logs/t38-mem-probe-1.csv &
+TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 \
+TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
+TEST_RUNNER_MM_AUTH_PASSWORD=<local fixture password> \
+python3 scripts/qa-test.py --platform ios --sim "id=023B9070-…" \
+  --derived-data ~/Library/Developer/Xcode/DerivedData/t38-ios \
+  --label t38-heavy-probe-1 --only-testing MattermostUITests/T38HeavyScrollProbeUITests
+python3 scripts/t38_mem_fold.py build/logs/t38-mem-probe-1.csv \
+  1793011904.387795 1793012073.729881 1793011937.656174 1793011962.756376 \
+  1793011987.955987 1793012013.139639 1793012038.339583 1793012063.7201
+```
+
+`run : t38-heavy-probe-1 · 1 run, 0 skipped, 0 failed · 231 s · RESULT: PASS`
+(`build/logs/t38-heavy-probe-1.log`). The sampler watches the app; the test only drives it and prints
+its own `PROBE-START` / `PROBE-PASS-<n>` / `PROBE-END` epoch markers, which are the window and pass
+boundaries given to the fold. Window 1793011904..1793012074 (169 s), **151 one-second samples**,
+one pid:
+
+```
+rss MB      : first=454.7 last=366.9 min=366.9 max=459.9 mean=402.4
+rss thirds  : t1=449.5 t3=375.4 delta=-74.1 MB
+footprint MB: first=144.0 last=151.7 min=144.0 max=151.7 (n=9)
+pass peaks  : 459.9 452.6 416.6 380.1 380.2 379.1 MB
+```
+
+Read it as a **plateau with re-fetch churn, not growth**: RSS falls 74.1 MB across the six passes and
+the per-pass peaks stop climbing after the second (459.9 → 452.6 → 416.6, then 380.1 / 380.2 / 379.1),
+while physical footprint moves 144.0 → 151.7 MB and peaks there. `previewLimit` 40 with
+`previewByteLimit` 24 MB is smaller than one pass of ten 2 MB images decoded at 600², so every pass
+evicts and refetches — the state in which an unbounded cache would climb pass after pass. The CSV and
+the fold's own output are `docs/t38-mem-probe-2026-10-26.csv` and `docs/t38-mem-fold-2026-10-26.txt`.
+
+What this measurement is **not**: one run, one host, a simulator rather than a device, `ps`-RSS rather
+than Instruments, 40 images rather than hundreds, and it cannot see a leaked *request* — only that the
+bitmap and byte caches stay bounded (§8.1). T38-AV measured the same shape independently on its own
+fixture (40 × ~2 MB, six passes: RSS first third 461.3 → last third 409.6 MB, footprint 142.1 →
+150.4 MB), which is why the criterion is answered with two runs rather than one.
 
 ## 4. The download path: one worker, and `done` means on disk
 
@@ -140,23 +203,28 @@ legacy export readable instead of mojibake), capped at 256 KB with a "showing th
 
 ## 7. Evidence
 
-Unit suite — 62 tests, nine classes, all green on Mac Catalyst:
+Unit suite — 70 tests, eleven classes, all green on Mac Catalyst:
 
 ```
 python3 scripts/qa-test.py --platform mac \
-  --derived-data ~/Library/Developer/Xcode/DerivedData/t38-unit --label t38-unit-10 \
+  --derived-data ~/Library/Developer/Xcode/DerivedData/t38-unit --label t38r-unit-1 \
   --only-testing=MattermostTests/T38FileTypeClassificationTests \
   --only-testing=MattermostTests/T38AttachmentSectionTests \
   --only-testing=MattermostTests/T38AttachmentDecodingTests \
   --only-testing=MattermostTests/T38TextPreviewTests \
   --only-testing=MattermostTests/T38DownloadLandingTests \
+  --only-testing=MattermostTests/T38LandedNameTests \
+  --only-testing=MattermostTests/T38PreviewFetchLimitTests \
   --only-testing=MattermostTests/T38AttachmentDownloadStateTests \
   --only-testing=MattermostTests/T38AuthorizedRequestTests \
   --only-testing=MattermostTests/T38ChannelImageStoreTests \
   --only-testing=MattermostTests/T38AttachmentDownloadsTests
 ```
 
-`tests: 62 run, 0 skipped, 0 failed` → `RESULT: PASS` (`build/logs/t38-unit-10.log`).
+`tests: 70 run, 0 skipped, 0 failed` → `RESULT: PASS` (`build/logs/t38r-unit-1.log`, 28 s
+incremental). The 62-test run this card inherited is `build/logs/t38-unit-10.log`; the eight tests
+added by the T38-AV repair are `T38LandedNameTests` (3, the `Saved as …` line and the de-duplicated
+landing) and `T38PreviewFetchLimitTests` (5, the 32 MB whole-file fetch bound).
 
 Live UI suite against the real server (`http://127.0.0.1:8065`, account `perfprobe`, iPhone 17 Pro /
 iOS 26.0 simulator):
@@ -178,6 +246,11 @@ tests      : 4 run, 0 skipped, 0 failed
 RESULT: PASS          # ** TEST SUCCEEDED **, 4 tests in 132.7 s
 ```
 
+Re-run after the T38-AV repairs (the `tooLarge` preview branch, the `Saved as …` Downloads line, the
+new unit classes): label `t38r-live-1`, `4 run, 0 skipped, 0 failed`, 154 s, `RESULT: PASS`
+(`build/logs/t38r-live-1.log`) — the repair touches two views, so the live suite was re-derived rather
+than assumed.
+
 `build/logs/t38-live-5.log`. What the four tests assert, all against the server's own API rather than a
 mock:
 
@@ -196,10 +269,15 @@ mock:
    "0 B · Progressing"). Verified on disk outside the test as well: the simulator's app container holds
    `Downloads/t38-shot-01.png`, **103,980 bytes** — exactly the original's size from
    `docs/t38-file-probe-2026-10-26.log` (`docs/t38-shots/t38-11-downloads-row.png` reads
-   "103.98 kB • Downloaded").
+   "103.98 kB • Downloaded"). The `t38r-live-1` re-run saved again with the earlier files still in
+   Downloads, so it landed as `t38-shot-01 (3).png` while the row kept the server's name and drew the
+   repair's second line: `docs/t38-shots/t38-12-downloads-saved-as.png` reads
+   "t38-shot-01.png / 103.98 kB • Downloaded / **Saved as t38-shot-01 (3).png**" — the landed name is
+   the one on disk (`ls` of the container agrees), which is F6 fixed and seen in the running app.
 
 `docs/t38-shots/t38-01…11` are exported from this run's `xcresult` by
-`scripts/t37_export_shots.py` (the same exporter the earlier cards use).
+`scripts/t37_export_shots.py` (the same exporter the earlier cards use); `t38-12-downloads-saved-as.png`
+is the same export from the `t38r-live-1` re-run's attachment.
 
 ## 8. Limits that stay
 
@@ -210,6 +288,14 @@ mock:
 - The inline preview downloads the **original** bytes (the server's thumbnail is 120 px wide, §2), so
   a large photo costs its full size in transfer.
 - Previews are memory-only; a save re-downloads rather than reusing the preview's bytes.
+- A **text or PDF file larger than `FileTypeMap.previewFetchByteLimit` (32 MB)** is not previewed in
+  place: the sheet says the file is too large and offers Download instead
+  (`PreviewFetchDecision` → `attachmentPreview.tooLarge`). The readers need the whole payload
+  (`PDFDocument(data:)`, `TextPreview.decode`), so the bound has to be on the **fetch**, and it is
+  decided from the `metadata.files` size the post already carries — before any bytes arrive. Before
+  this repair (`T38-AV` F5) a 100 MB log became a 100 MB `Data` and the 256 KB text cap only bounded
+  what was drawn. An image is **not** gated by this rule: the gallery fetches the file and downsamples
+  during decode, bounded by pixel count, so a large photo still costs its full transfer size (§2).
 - The Downloads screen's own **Retry** re-sends the stored source URL without a bearer token, so it
   cannot recover a private attachment. The row's Retry (which rebuilds the authenticated request)
   is the working one. Fixing the screen's Retry would mean persisting a credential next to a journal
@@ -218,6 +304,38 @@ mock:
 - Text previews are plain selectable text, capped at 256 KB — no syntax highlighting.
 - The gallery pages images only, in the order the server lists them.
 - No part of this surface works offline.
+- The inline grid draws **every** image, in the 1/2/3-column layout above. There is no `+N` remainder
+  chip (upstream collapses a long set); earlier revisions of this note and the parity row claimed one
+  — T38-AV F4, corrected rather than implemented.
+
+### 8.1 What "verified" excludes (T38-AV F8)
+
+Written down so the next reader knows what the green runs do **not** cover. Every item here is a
+deliberate, honest gap, not a hidden failure:
+
+- **Thread-pane attachments have no test at all** — neither unit nor live. `ThreadView` draws the same
+  `AttachmentSectionView` and presents the same item-bound `.gallery` / `.preview` sheets as
+  `ChannelView`, but only the channel pane's are exercised (the live suite never opens a thread).
+- **The `.csv` row is drawn and never opened.** `csv` classifies as `.text` (so it gets the text
+  reader), and the live suite opens `.txt`, `.pdf`, `.log` and `.zip` — never a `.csv`.
+- **Audio and video refusal, and the server-blocked (`isBlocked`) branch, are unit-only.** No fixture
+  file was blocked by the server (§2) and the live suite deliberately does not play media, so those
+  two branches are pinned by `T38FileTypeClassificationTests` / `T38AttachmentDecodingTests` alone.
+- **The Downloads screen's own Retry is documented as broken and never demonstrated.** §8 says it
+  re-sends the stored URL without a bearer token; no test proves it fails (and none should start
+  passing by accident).
+- **Inline-preview cancellation is unit-fakes-only.** `T38ChannelImageStoreTests` proves the store
+  drops the waiter and cancels the request when its caller is cancelled; the real `.task`-on-scroll-away
+  path is not asserted anywhere. What *is* measured on a real scroll is the bound: §3.1's probe scrolls
+  40 images × ~2 MB six times and folds the sampler's RSS/footprint, which would expose an unbounded
+  cache — it cannot, however, see one leaked request.
+- **The remainder chip absence and the `tooLarge` refusal** are pinned by unit tests and the source
+  text respectively; no live fixture has a >32 MB attachment (the server's own upload limit is lower
+  than the fetch limit on this host), so `attachmentPreview.tooLarge` has never been drawn by a test
+  on a device.
+- **The memory probe is a harness, not a suite member.** `MattermostUITests/T38HeavyScrollProbeUITests`
+  skips unless the heavy fixture (`scripts/t38_heavy_seed.py`) and the `MM_AUTH_*` environment exist,
+  so it is not part of the 4-test live suite and does not contribute to its "0 skipped".
 
 ## 9. Identifiers
 
@@ -226,7 +344,9 @@ file row) with `.download` / `.progress` / `.saved`, `attachmentGallery` + `.cou
 `.page.<fileID>` (+ `.loading` / `.error` / `.retry`) / `.save` / `.share` / `.close` / `.empty` /
 `.error`, `attachmentPreview` + `.title` / `.subtitle` / `.image` / `.pdf` / `.text` (+ `.truncated`)
 / `.unsupported` (+ `.download`) / `.download` / `.share` / `.close` / `.loading` / `.error` /
-`.retry`, and the Downloads screen's `downloadRow-<name>` and `downloadStatus-<name>`.
+`.retry`, `attachmentPreview.tooLarge` (+ `.download`, the >32 MB refusal), and the Downloads screen's
+`downloadRow-<name>`, `downloadStatus-<name>` and `downloadLandedName-<name>` (present only when
+de-duplication landed the bytes under a different name).
 
 ## 10. Fixture
 
