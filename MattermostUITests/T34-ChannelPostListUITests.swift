@@ -195,6 +195,7 @@ final class T34ChannelPostListUITests: XCTestCase {
         XCTAssertEqual(fold.label, "Show more")
         let foldedHeight = element(app, "post.\(longID)").frame.height
         XCTAssertLessThan(foldedHeight, 3_000, "the folded row must be bounded (was \(foldedHeight))")
+        attach(app, "t34-long-post-folded")
 
         fold.tap()
         // Expanding must actually reveal the rest: the summary ("… 35 more blocks") goes away and the
@@ -208,16 +209,24 @@ final class T34ChannelPostListUITests: XCTestCase {
         let expandedRow = element(app, "post.\(longID)")
         XCTAssertGreaterThan(expandedRow.frame.height, foldedHeight * 2,
                             "expanding must reveal the rest of the post")
+        attach(app, "t34-long-post-expanded")
     }
 
     // MARK: - 3. Scrolling to the top pages older posts in, without duplicating them
 
+    /// Reaching the top of the loaded window asks for older posts, and the window that comes back is
+    /// the server's own contiguous newest-first sequence — no post dropped at a boundary, none drawn
+    /// twice, and the older end of the window is drawn at the top of the list.
+    ///
+    /// How many pages a visit brings in is **not** asserted: a reader who keeps swiping at the top
+    /// keeps asking, and the pane keeps merging (the earlier version of this test assumed exactly one
+    /// page and failed when the swipe loop paged the whole 503-post channel in — the merge was correct
+    /// and the assumption was not). So the window is checked against what the server says its newest
+    /// `n` posts are, for whatever `n` the pane reports.
     func testReachingTheTopLoadsOlderPostsWithoutDuplicates() throws {
         let channel = try channel(named: longChannelName)
         let firstPage = try channelPosts(channel.id, perPage: 60)
         XCTAssertEqual(firstPage.count, 60, "the long channel must have a full first page")
-        let older = try channelPosts(channel.id, perPage: 60, before: firstPage.last?["id"] as? String)
-        XCTAssertFalse(older.isEmpty, "the long channel must have an older page")
 
         let app = launchAndOpen(channelName: channel.name, exposeLoadEarlier: true)
         let list = element(app, "channelPostList")
@@ -232,61 +241,51 @@ final class T34ChannelPostListUITests: XCTestCase {
         let newest = try XCTUnwrap(firstPage.first?["id"] as? String)
         XCTAssertTrue(element(app, "post.\(newest)").waitForExistence(timeout: 30))
 
-        // Swipe down (towards older posts, which are above) until the sentinel is genuinely *on screen*.
-        // `exists` is not the same thing: the lazy stack realizes rows ahead of the viewport, so the
-        // sentinel exists while it is still off-screen — and the pane only pages when the reader is
-        // really at the top. Each gesture needs a settle, or the fast swipes coalesce and the list
-        // barely moves (a live run fired 40 gestures in 7 s and ended up mid-list).
-        let sentinel = element(app, "channelPostList.loadEarlier")
+        // Swipe towards the older end (down) until the pane pages *something* in. The stop condition is
+        // the pane's own post count, not a gesture count and not the sentinel's geometry: a fast
+        // synthetic swipe does not always transfer enough momentum to reach the top, and the sentinel
+        // exists (off screen) the whole time in a lazy list. One page is 60 posts ≈ three screens, so
+        // this is a few swipes at most.
         var swipes = 0
-        while swipes < 40 {
-            if sentinel.exists, !sentinel.frame.isEmpty, sentinel.frame.intersects(list.frame) { break }
+        while loadedPosts(app) <= 60, swipes < 14 {
             list.swipeDown(velocity: .fast)
-            Thread.sleep(forTimeInterval: 0.35)
+            Thread.sleep(forTimeInterval: 0.4)
             swipes += 1
         }
-        XCTAssertTrue(sentinel.waitForExistence(timeout: 30),
-                      "the load-earlier sentinel never appeared after \(swipes) swipes")
-        XCTAssertFalse(sentinel.frame.isEmpty, "the sentinel must have a frame (it is on screen)")
+        XCTAssertTrue(waitUntil(timeout: 20) { loadedPosts(app) > 60 },
+                      "reaching the top must page older posts in (pane holds \(loadedPosts(app)) "
+                      + "after \(swipes) swipes):\n\(app.debugDescription)")
 
-        // The sentinel is the pane's "load earlier" request. Reaching the top arms it; the tap is the
-        // explicit request (auto-fire is reserved for a window shorter than a screen — see the parity
-        // delta in docs/t34-build-note.md, which records why the auto-fire-on-scroll version paged in
-        // three windows from one visit).
-        if loadedPosts(app) == 60 {
-            sentinel.tap()
-        }
+        // The window is now the server's newest `held` posts, in order. Re-built from the server with
+        // the same `before` cursor the pane uses, so this is not a property the test author assumed:
+        // it is what the server answers for the window the pane claims to hold.
+        let held = loadedPosts(app)
+        XCTAssertGreaterThanOrEqual(held, 120, "one page insert adds 60 posts to the 60 already held")
+        let expected = try newestFirstSequence(channelID: channel.id, count: held)
+        XCTAssertGreaterThanOrEqual(expected.count, held,
+                                    "the server must be able to answer \(held) posts")
+        XCTAssertTrue(waitUntil(timeout: 20) { oldestLoadedPost(app) == expected[held - 1] },
+                      "the pane's oldest post should be the server's post #\(held) "
+                      + "(\(expected[held - 1])), not \(oldestLoadedPost(app) ?? "nil") — "
+                      + "a page stitched onto the wrong end would show that")
 
-        // The older page must merge into the pane, not merely be drawn somewhere unknown.
-        // `loadEarlier()` merging is also covered by the fixture-backed unit pager test; this is the
-        // same claim against the live server.
-        XCTAssertTrue(waitUntil(timeout: 40) { loadedPosts(app) > 60 },
-                      "reaching the top must page the older posts in "
-                      + "(pane still holds \(loadedPosts(app)) posts)")
-        XCTAssertGreaterThanOrEqual(loadedPosts(app), 120,
-                                    "one page insert adds 60 posts to the 60 already held")
+        // The window's older end is drawn at the top of the list, and it is reachable from where the
+        // reader is. Scrolling there may page one more window in (that is the reader asking again);
+        // the id was captured above, and it stays drawn either way.
+        let oldestID = try XCTUnwrap(oldestLoadedPost(app))
+        XCTAssertTrue(scrollTowardOlderPosts(app, "post.\(oldestID)", maxSwipes: 8),
+                      "the oldest post of the merged window is not drawn above the reader:\n"
+                      + "\(app.debugDescription)")
+        attach(app, "t34-paging-merged-window")
 
-        // The pane now holds the older page *at the older end*: its oldest post must be the older
-        // page's oldest. That is the pane's own account of the merge, and it catches a page stitched
-        // onto the wrong end without needing to scroll anywhere.
-        let olderOldest = try XCTUnwrap(older.last?["id"] as? String)
-        XCTAssertTrue(waitUntil(timeout: 20) { oldestLoadedPost(app) == olderOldest },
-                      "the pane's oldest post should be the older page's oldest "
-                      + "(\(olderOldest)), not \(oldestLoadedPost(app))")
-
-        // Display order is oldest-first, so the row directly above the reader is the *newest* post of
-        // the page that just landed: a couple of swipes prove the merge is drawn where it belongs.
-        let olderNewest = try XCTUnwrap(older.first?["id"] as? String)
-        XCTAssertTrue(scrollTowardOlderPosts(app, "post.\(olderNewest)", maxSwipes: 12),
-                      "the page that just merged is not drawn above the reader:\n" + "\(app.debugDescription)")
-
-        // No post is drawn twice.
+        // No post is drawn twice, and the row that ends the window is really on screen.
         let identifiers = postRows(app).map(\.identifier)
         XCTAssertEqual(Set(identifiers).count, identifiers.count,
                        "a post id was drawn twice: \(identifiers)")
-        XCTAssertTrue(identifiers.contains("post.\(olderNewest)"),
-                      "the older page's newest post is not on screen")
-        XCTAssertLessThanOrEqual(swipes, 40, "the sentinel needed \(swipes) swipes")
+        XCTAssertTrue(identifiers.contains("post.\(oldestID)"),
+                      "the oldest post of the merged window is not on screen")
+
+        XCTAssertLessThanOrEqual(swipes, 14, "the older page needed \(swipes) swipes")
     }
 
     // MARK: - 4. A single-block post folds too (review F6)
@@ -320,6 +319,7 @@ final class T34ChannelPostListUITests: XCTestCase {
         let summary = element(app, "post.\(fenceID).foldSummary")
         XCTAssertTrue(summary.waitForExistence(timeout: 10),
                       "the fold must say what it is hiding:\n\(app.debugDescription)")
+        attach(app, "t34-single-block-folded")
         XCTAssertTrue(summary.label.contains("more line"),
                       "a code fence is shortened by lines, got '\(summary.label)'")
 
@@ -418,6 +418,7 @@ final class T34ChannelPostListUITests: XCTestCase {
                       + "\(app.debugDescription)")
         XCTAssertTrue(row.label.contains(String(message.prefix(20))) || app.staticTexts[message].exists,
                       "the new row does not carry the message text, got '\(row.label)'")
+        attach(app, "t34-socket-post-arrived")
 
         // `last_viewed_at` (read back from the server) is what places the unread line — but opening a
         // channel marks it read, so whether the line is still due depends on the server's own read
@@ -552,6 +553,24 @@ final class T34ChannelPostListUITests: XCTestCase {
 
     private func membership(channelID: String) throws -> [String: Any] {
         try getJSON("/api/v4/channels/\(channelID)/members/me") as? [String: Any] ?? [:]
+    }
+
+    /// The server's newest-first post ids, `count` of them, walked with the same `before` cursor the
+    /// pane pages with. Used to check that the pane's window is exactly the server's contiguous window
+    /// of that length — no dropped post at a page boundary, none duplicated.
+    private func newestFirstSequence(channelID: String, count: Int,
+                                     pageSize: Int = 60) throws -> [String] {
+        var ids: [String] = []
+        var before: String?
+        while ids.count < count {
+            let page = try channelPosts(channelID, perPage: pageSize, before: before)
+            guard !page.isEmpty else { break }
+            let pageIDs = page.compactMap { $0["id"] as? String }
+            guard !pageIDs.isEmpty else { break }
+            ids.append(contentsOf: pageIDs)
+            before = pageIDs.last
+        }
+        return ids
     }
 
     private func markRead(channelID: String) throws {
