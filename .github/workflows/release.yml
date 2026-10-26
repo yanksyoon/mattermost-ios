@@ -109,7 +109,12 @@ jobs:
             grep -E "error:|failed|FAIL" "$LOG" | head -40 || true
             exit 1
           fi
-          echo "failures reported: $(grep -cE '^\s*Test Case .* failed' "$LOG" || true)"
+          # Print xcodebuild's own summary rather than a hand-rolled count: a counter
+          # built on a grep pattern can match its own echoed command line in the log,
+          # which is how a green suite once reported "failures reported: 1".
+          echo "--- result summary ---"
+          grep -E "Executed [0-9]+ tests" "$LOG" | tail -3 || true
+          grep -E "^\*\* TEST" "$LOG" | tail -1 || true
 
       - name: Upload log
         if: always()
