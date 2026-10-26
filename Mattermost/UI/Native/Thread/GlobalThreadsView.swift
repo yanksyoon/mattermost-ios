@@ -51,14 +51,29 @@ struct GlobalThreadsPaneContent: View {
                 .accessibilityIdentifier("globalThreads.title")
             Spacer(minLength: 8)
             if let model {
-                Text(model.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("globalThreads.subtitle")
+                // T36-AV F3: this line must observe the model. `model` is a `@State` reference, and a
+                // `@State`-held `ObservableObject` read directly in the parent's body does **not**
+                // re-render when its `@Published` values change — the list (a child holding the same
+                // model as `@ObservedObject`) updated while this header kept the frame it was built
+                // with, i.e. "No threads yet" over a page full of rows. The one-line subview is what
+                // subscribes.
+                GlobalThreadsSubtitleLine(model: model)
             }
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
+    }
+}
+
+/// The header's counter line ("3 threads" / "1 unread thread"), observing the list it describes.
+struct GlobalThreadsSubtitleLine: View {
+    @ObservedObject var model: GlobalThreadsViewModel
+
+    var body: some View {
+        Text(model.subtitle)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("globalThreads.subtitle")
     }
 }
 

@@ -74,7 +74,25 @@ final class T36GlobalThreadsViewModelTests: XCTestCase {
         XCTAssertEqual(model.tab, .unreads)
         XCTAssertEqual(service.threadListRequests.last?.unreadOnly, true)
         XCTAssertEqual(model.tab, .unreads)
-        XCTAssertEqual(model.subtitle, "No unread threads", "the totals carry the counter line")
+        // The rows on screen are unread, so the line must not claim there are none: the counter is the
+        // server's totals **bounded below by the rows it just answered with** (T36-AV F3). This page's
+        // totals said zero unread while carrying an unread thread.
+        XCTAssertEqual(model.subtitle, "1 unread thread")
+    }
+
+    /// The reconciliation only ever *raises* the counters to the rows on screen; a server total that is
+    /// larger than the rows (the list is paged) stays authoritative.
+    func testALargerServerCounterIsNotReducedToTheDrawnRows() async {
+        let service = FakeThreadService()
+        service.threadPages[nil] = MMThreadList(threads: [thread("t1", lastReplyAt: 900, unread: 1)],
+                                                total: 40, totalUnreadThreads: 7)
+        let model = makeModel(service: service)
+        await model.load()
+        await model.select(tab: .unreads)
+
+        XCTAssertEqual(model.rows.count, 1)
+        XCTAssertEqual(model.subtitle, "7 unread threads",
+                       "the counters describe the team, not the drawn page")
     }
 
     func testSwitchingTabsClearsTheOtherTabsRowsWhileItLoads() async {
@@ -116,6 +134,89 @@ final class T36GlobalThreadsViewModelTests: XCTestCase {
         await model.load()
 
         XCTAssertEqual(model.rows.first?.author.displayName, "Ana Lopez")
+    }
+
+    // MARK: - The counter line and the rows (T36-AV F3)
+
+    /// An empty counter set drawn over a page of rows is the F3 defect ("No threads yet" above a full
+    /// list). The header's copy therefore comes from the rows when the server's `total` says zero.
+    func testTheCounterLineNeverSaysNoThreadsYetOverDrawnRows() async {
+        let service = FakeThreadService()
+        // A page that carries rows but no usable total (a proxy that strips it, or a server that
+        // omitted it): the old copy was "No threads yet" over these two rows.
+        service.threadPages[nil] = MMThreadList(threads: [thread("t1", lastReplyAt: 900),
+                                                          thread("t2", lastReplyAt: 800)],
+                                                total: 0, includesTotals: false)
+        let model = makeModel(service: service)
+
+        await model.load()
+
+        XCTAssertEqual(model.rows.count, 2)
+        XCTAssertEqual(model.subtitle, "2 threads",
+                       "an empty totals must not be drawn over a non-empty page")
+        XCTAssertNotEqual(model.subtitle, "No threads yet")
+    }
+
+    /// The same rule for the Unreads tab: rows that are unread must be counted even when the server's
+    /// unread counter came back zero.
+    func testTheUnreadCounterLineAgreesWithUnreadRows() async {
+        let service = FakeThreadService()
+        service.threadPages[nil] = MMThreadList(threads: [thread("t1", lastReplyAt: 900, unread: 1)],
+                                                total: 1, totalUnreadThreads: 0)
+        let model = makeModel(service: service)
+        await model.load()
+        await model.select(tab: .unreads)
+
+        XCTAssertEqual(model.subtitle, "1 unread thread")
+    }
+
+    /// A page that omits `total` must not zero the counters a previous page stated.
+    func testAPageWithoutTotalsKeepsTheCounterLineStanding() async {
+        let service = FakeThreadService()
+        service.pageSize = 2
+        service.threadPages[nil] = MMThreadList(threads: [thread("t1", lastReplyAt: 900),
+                                                          thread("t2", lastReplyAt: 800)],
+                                                total: 5)
+        service.threadPages["t2"] = MMThreadList(threads: [thread("t3", lastReplyAt: 700)],
+                                                 includesTotals: false)
+        let model = makeModel(service: service)
+        await model.load()
+        XCTAssertEqual(model.subtitle, "5 threads")
+
+        _ = await model.loadMore()
+
+        XCTAssertEqual(model.subtitle, "5 threads",
+                       "the counters describe the team, not the page that carried them")
+    }
+
+    // MARK: - A deleted root (T36-AV F5)
+
+    /// A root deleted while the list is open takes its row with it: the whole chain 404s afterwards, so
+    /// the row could only open onto "This thread no longer exists.".
+    func testADeletedRootRemovesItsRow() async {
+        let service = FakeThreadService()
+        service.threadPages[nil] = MMThreadList(threads: [thread("t1", lastReplyAt: 900),
+                                                          thread("t2", lastReplyAt: 800)], total: 2)
+        let model = makeModel(service: service)
+        await model.load()
+
+        let outcome = model.handle(.postDeleted(MMPost(id: "t1", createAt: 100, channelId: "c1")))
+
+        XCTAssertEqual(outcome, .removed)
+        XCTAssertEqual(model.loadedThreadIDs, ["t2"])
+    }
+
+    func testADeletedReplyLeavesItsThreadsRowAlone() async {
+        let service = FakeThreadService()
+        service.threadPages[nil] = MMThreadList(threads: [thread("t1", lastReplyAt: 900)], total: 1)
+        let model = makeModel(service: service)
+        await model.load()
+
+        let outcome = model.handle(.postDeleted(MMPost(id: "r1", createAt: 200, channelId: "c1",
+                                                       rootId: "t1")))
+
+        XCTAssertEqual(outcome, .ignored)
+        XCTAssertEqual(model.loadedThreadIDs, ["t1"])
     }
 
     // MARK: - Socket

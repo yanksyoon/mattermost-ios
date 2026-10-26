@@ -9,7 +9,12 @@
 //
 // Measured on the pinned 9.11.19 server (`scripts/t36_thread_probe.py`, output in
 // `docs/t36-build-note.md` §2):
-//  - `GET /posts/{id}/thread` answers root-first, then replies ascending, in `order` + `posts`;
+//  - `GET /posts/{id}/thread` answers the root first, then replies in `order` + `posts` — but that
+//    `order` is **not** chronological: 2 of 6 threads whose replies were created with strictly
+//    increasing `create_at` came back with a newer reply before an older one, identically across five
+//    repeated GETs (probe_order.py, 9.11.19). The array is not a sequence and must not be drawn as
+//    one; `ThreadDerivation.chain` sorts by `create_at` (id tiebreak), which is the chronology a
+//    reader expects;
 //    `fromPost` **requires** `fromCreateAt` (a request with only `fromPost` is a 400
 //    `api.context.invalid_body_param.app_error`), which is why the paging call below passes both;
 //  - `collapsedThreads=true` adds `participants` to the root, `collapsedThreadsExtended=true` makes

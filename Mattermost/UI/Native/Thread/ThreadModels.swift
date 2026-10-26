@@ -80,8 +80,12 @@ enum ThreadDerivation {
     ///    replies — one root, one row;
     ///  - a post whose `root_id` is not this root is dropped (a page fetched with a stale cursor, or
     ///    a post from another channel) instead of being drawn as a reply to this thread;
-    ///  - replies keep the server's order (`create_at`, then id as a deterministic tiebreak), which
-    ///    is the order a conversation reads in;
+    ///  - replies are drawn **chronologically** — `create_at` ascending, id as the deterministic
+    ///    tiebreak. The server's `order` array for `GET /posts/{id}/thread` is **not** a sequence:
+    ///    measured on 9.11.19 (`probe_order.py`), 2 of 6 threads whose replies were created with
+    ///    strictly increasing `create_at` came back with a newer reply *before* an older one, and each
+    ///    thread answered identically across five repeated GETs (so not a race). Do **not** "restore"
+    ///    the server array here;
     ///  - a tombstoned reply stays in the chain: the server omits it from later fetches (measured),
     ///    but a reader who saw it must see it become "This message was deleted", not vanish.
     static func chain(root: MMPost, replies: [MMPost]) -> [MMPost] {

@@ -105,6 +105,9 @@ struct MMThread: Codable, Equatable, Identifiable, Sendable {
 ///
 /// `threads` is **omitted** (`null`) when `totalsOnly=true`; `includesThreads` records that, so
 /// "the server said none" and "the server was not asked" cannot be confused by a caller.
+/// `includesTotals` does the same job for `total`: a page that omits it (measured: the field is
+/// always present on 9.11.19, but a proxy or a future server may drop it) must not be read as
+/// "zero threads".
 struct MMThreadList: Codable, Equatable, Sendable {
     var threads: [MMThread]
     var total: Int
@@ -113,6 +116,8 @@ struct MMThreadList: Codable, Equatable, Sendable {
     var totalUnreadUrgentMentions: Int
     /// Whether the answer actually carried a `threads` array.
     var includesThreads: Bool
+    /// Whether the answer actually carried a `total` (the counter line's source).
+    var includesTotals: Bool
 
     enum CodingKeys: String, CodingKey {
         case threads, total
@@ -126,13 +131,15 @@ struct MMThreadList: Codable, Equatable, Sendable {
          totalUnreadThreads: Int = 0,
          totalUnreadMentions: Int = 0,
          totalUnreadUrgentMentions: Int = 0,
-         includesThreads: Bool = true) {
+         includesThreads: Bool = true,
+         includesTotals: Bool = true) {
         self.threads = threads
         self.total = total
         self.totalUnreadThreads = totalUnreadThreads
         self.totalUnreadMentions = totalUnreadMentions
         self.totalUnreadUrgentMentions = totalUnreadUrgentMentions
         self.includesThreads = includesThreads
+        self.includesTotals = includesTotals
     }
 
     init(from decoder: Decoder) throws {
@@ -140,6 +147,7 @@ struct MMThreadList: Codable, Equatable, Sendable {
         includesThreads = values.contains(.threads)
             && (try? values.decodeIfPresent([MMThread].self, forKey: .threads)) != nil
         threads = (try? values.decodeIfPresent([MMThread].self, forKey: .threads)) ?? []
+        includesTotals = values.contains(.total)
         total = try values.decodeIfPresent(Int.self, forKey: .total) ?? 0
         totalUnreadThreads = try values.decodeIfPresent(Int.self, forKey: .totalUnreadThreads) ?? 0
         totalUnreadMentions = try values.decodeIfPresent(Int.self, forKey: .totalUnreadMentions) ?? 0

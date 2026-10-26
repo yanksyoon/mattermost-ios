@@ -72,6 +72,13 @@ struct ThreadPaneContent: View {
                                                   rootID: rootID,
                                                   channelID: channelID.isEmpty ? nil : channelID)
             model = resolved
+            // Opening a thread is reading it. Upstream marks the thread read on mount, and this
+            // write is the only thing that can clear a badge: the server's `PUT …/read/{ts}`
+            // answers the thread with its counters already applied (`ThreadViewModel.markRead`
+            // takes that answer, and swallowing a failure is deliberate — reading must not become
+            // an error screen). Without this call a thread's unread counter never moves after a
+            // reader opened the pane, which is what left criterion 4 unobservable (T36-AV F4).
+            await resolved.markRead()
             // The composer needs the root's channel, which a permalink does not carry: it is created
             // after the load, not before.
             if composerIsNative, let built = threads.composer(for: server, model: resolved,

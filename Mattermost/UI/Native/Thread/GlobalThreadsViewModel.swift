@@ -53,7 +53,18 @@ final class GlobalThreadsViewModel: ObservableObject {
     var loadedThreadIDs: [String] { threads.map(\.id) }
     func thread(id: String) -> MMThread? { threads.first { $0.id == id } }
     /// The tab's own counter line ("3 unread threads").
-    var subtitle: String { GlobalThreadsDerivation.tabSubtitle(totals: totals, tab: tab) }
+    ///
+    /// It is derived from the totals **as displayed** — the server's counters, bounded below by the
+    /// rows on screen (`GlobalThreadsDerivation.displayedTotals`) — so an empty counter set can never
+    /// be drawn over a list that has rows (T36-AV F3).
+    var subtitle: String {
+        GlobalThreadsDerivation.tabSubtitle(totals: displayedTotals, tab: tab)
+    }
+
+    /// The server's totals, corrected by what is actually drawn.
+    var displayedTotals: ThreadTotals {
+        GlobalThreadsDerivation.displayedTotals(totals, drawn: threads)
+    }
 
     // MARK: Collaborators
 
@@ -105,7 +116,7 @@ final class GlobalThreadsViewModel: ObservableObject {
                                                  unreadOnly: tab == .unreads)
             guard requested == generation else { return }
             threads = ThreadDerivation.sorted(page.threads)
-            totals = page.totals
+            apply(totals: page)
             before = ThreadDerivation.nextBeforeCursor(page: page, pageSize: service.pageSize)
             hasMore = ThreadDerivation.hasMore(page: page, pageSize: service.pageSize)
             await loadProfiles(for: GlobalThreadsDerivation.profileIDs(in: page.threads))
@@ -152,7 +163,7 @@ final class GlobalThreadsViewModel: ObservableObject {
                 !threads.contains { $0.id == incoming.id }
             }
             threads = ThreadDerivation.mergeThreads(existing: threads, page: page.threads)
-            totals = page.totals
+            apply(totals: page)
             before = ThreadDerivation.nextBeforeCursor(page: page, pageSize: service.pageSize)
             hasMore = grew && ThreadDerivation.hasMore(page: page, pageSize: service.pageSize)
             await loadProfiles(for: GlobalThreadsDerivation.profileIDs(in: page.threads))
@@ -173,6 +184,16 @@ final class GlobalThreadsViewModel: ObservableObject {
         for user in loaded { users[user.id] = user }
     }
 
+    /// Take a page's counters, but never let a page that omitted them zero the header.
+    ///
+    /// The counters describe the whole team, not the page that was asked for, so a `total`-less answer
+    /// (a proxy that strips it, or a future server) must leave the previous counters standing — and
+    /// `displayedTotals` keeps the line honest even if they really are zero.
+    private func apply(totals page: MMThreadList) {
+        guard page.includesTotals else { return }
+        totals = page.totals
+    }
+
     // MARK: - Socket
 
     /// Apply one event (already scoped to the team on screen).
@@ -181,7 +202,9 @@ final class GlobalThreadsViewModel: ObservableObject {
     ///    does not hold the thread yet (a reply to a thread followed on another device);
     ///  - `thread_follow_changed` with `state == false` removes the row — an unfollowed thread does
     ///    not belong to a list of followed threads, and the server's own list drops it too;
-    ///  - `thread_read_changed` moves the badge and the row's position in "Unreads" without a refetch.
+    ///  - `thread_read_changed` moves the badge and the row's position in "Unreads" without a refetch;
+    ///  - `post_deleted` for a listed thread's **root** removes the row: the whole chain 404s once the
+    ///    root is gone (measured), so the row would only open onto an error.
     @discardableResult
     func handle(_ event: SocketEvent) -> EventOutcome {
         let outcome: EventOutcome
@@ -236,8 +259,18 @@ final class GlobalThreadsViewModel: ObservableObject {
             } else {
                 return record(.ignored)
             }
+        case .postDeleted(let post):
+            // A deleted **root** takes its whole chain with it: after deleting a thread's root,
+            // `GET /posts/{root}/thread` *and* `GET /posts/{reply}/thread` both answer 404 (measured,
+            // T36-AV F5), while `GET …/threads/{root}` can still answer 200. A list that kept the row
+            // would therefore offer a row that opens onto "This thread no longer exists.", so the row
+            // goes with the root. A deleted reply is not this list's business: the thread survives.
+            let before = threads.count
+            threads.removeAll { $0.id == post.id }
+            guard threads.count != before else { return record(.ignored) }
+            outcome = .removed
         case .hello, .typing, .statusChange, .preferencesChanged, .userUpdated, .posted,
-             .postEdited, .postDeleted, .reactionAdded, .reactionRemoved, .channelViewed,
+             .postEdited, .reactionAdded, .reactionRemoved, .channelViewed,
              .multipleChannelsViewed, .sidebarCategoryUpdated, .channelCreated, .channelDeleted,
              .channelMemberUpdated, .postUnread, .unhandled:
             return record(.ignored)

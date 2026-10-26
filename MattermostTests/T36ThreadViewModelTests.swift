@@ -45,6 +45,70 @@ final class T36ThreadViewModelTests: XCTestCase {
         XCTAssertEqual(model.loadedReplyIDs, ["r1"])
     }
 
+    /// T36-AV F1: the server's `order` array is **not** chronological, and the pane must not draw it
+    /// as if it were.
+    ///
+    /// Measured on 9.11.19 (`probe_order.py`): of 6 threads whose replies were created with strictly
+    /// increasing `create_at`, **2 came back with a newer reply before an older one** — and each thread
+    /// answered identically across five repeated GETs, so it is not a race. The drawn order is
+    /// therefore `create_at` ascending with the id as tiebreak, and this test exists so nobody
+    /// "restores" the server array into the chain. Same shape as the measurement: the newer reply
+    /// arrives *before* the older one.
+    func testANonChronologicalServerOrderIsDrawnChronologically() async {
+        let service = FakeThreadService()
+        service.root = post("root", at: 100)
+        // The server's array: …868 first, then the older …838, then …897 — exactly the measured shape.
+        service.pages = [MMPostList(order: ["root", "r868", "r838", "r897"],
+                                    posts: ["root": post("root", at: 100),
+                                            "r868": post("r868", at: 868, rootID: "root"),
+                                            "r838": post("r838", at: 838, rootID: "root"),
+                                            "r897": post("r897", at: 897, rootID: "root")])]
+        let model = makeModel(service: service)
+
+        await model.load()
+
+        XCTAssertEqual(model.loadedReplyIDs, ["r838", "r868", "r897"],
+                       "the chain is a chronology, not the server's `order` array")
+        XCTAssertEqual(model.items.compactMap(\.postID), ["root", "r838", "r868", "r897"],
+                       "the root stays first and its replies read oldest-first")
+    }
+
+    /// The tiebreak: two replies created in the same millisecond are still drawn in a stable order
+    /// (id ascending), which is what keeps a redraw from swapping two rows.
+    func testRepliesInTheSameMillisecondAreOrderedById() async {
+        let service = FakeThreadService()
+        service.root = post("root", at: 100)
+        service.pages = [MMPostList(order: ["root", "rb", "ra"],
+                                    posts: ["root": post("root", at: 100),
+                                            "rb": post("rb", at: 500, rootID: "root"),
+                                            "ra": post("ra", at: 500, rootID: "root")])]
+        let model = makeModel(service: service)
+
+        await model.load()
+
+        XCTAssertEqual(model.loadedReplyIDs, ["ra", "rb"])
+    }
+
+    // MARK: - A thread whose root is gone
+
+    /// T36-AV F5: deleting a thread's root makes the whole chain unreachable — measured on 9.11.19,
+    /// `GET /posts/{root}/thread` **and** `GET /posts/{reply}/thread` both answer 404 once the root is
+    /// deleted, while `GET …/threads/{root}` can still answer 200. The pane must say so with its
+    /// not-found copy, never draw an empty thread and never keep a spinner.
+    func testAThreadWhoseRootWasDeletedSaysSoAndDrawsNoEmptyPane() async {
+        let service = FakeThreadService()
+        service.loadError = MMError.notFound
+        let model = makeModel(service: service)
+
+        await model.load()
+
+        XCTAssertEqual(model.phase, .failed("This thread no longer exists."))
+        XCTAssertTrue(model.items.isEmpty, "an error screen is not an empty thread")
+        XCTAssertNil(model.root)
+        XCTAssertFalse(model.items.compactMap(\.postID).contains("root"))
+        XCTAssertEqual(ThreadViewModel.message(for: MMError.notFound), "This thread no longer exists.")
+    }
+
     func testAThreadOpenedWithoutAChannelLearnsItFromTheRoot() async {
         let service = FakeThreadService()
         service.root = post("root", at: 100, channel: "chan-from-root")

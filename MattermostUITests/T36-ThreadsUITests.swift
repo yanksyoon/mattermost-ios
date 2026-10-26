@@ -44,7 +44,6 @@ final class T36ThreadsUITests: XCTestCase {
     private var secondUserID: String!
 
     private let channelName = "t36-threads"
-    private let rootMessage = "T36 main thread — the root of the chain."
 
     override func setUpWithError() throws {
         let env = ProcessInfo.processInfo.environment
@@ -82,24 +81,55 @@ final class T36ThreadsUITests: XCTestCase {
     ///  * **collapsed**: the channel's page is asked with `collapsedThreads=true` (what the app
     ///    asks for), the server answers with the root only, and the app draws no reply row in the
     ///    channel — then the thread pane draws all three replies. Same server, two views.
+    ///  * **in order**: the oracle is chronology — `create_at` ascending, id as the tiebreak — read
+    ///    from the server's own posts. It is deliberately *not* the `order` array
+    ///    `GET /posts/{id}/thread` returns: measured on 9.11.19 that array is not a sequence (2 of 6
+    ///    threads came back with a newer reply before an older one, identically across five repeated
+    ///    GETs), and comparing against it would fail a pane that draws the conversation correctly.
     ///  * **deleted**: a reply is deleted over the **socket** while the pane is open. The server
     ///    omits a deleted reply from `/posts/{id}/thread` (measured, `docs/t36-build-note.md` §2), so
     ///    nothing but the reader's own copy can produce a tombstone — if the app drops the event the
     ///    row vanishes and this test fails.
     func testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply() throws {
-        let root = try rootPost()
+        // A chain of this test's own, at the **newest** end of the channel. The seeded chain is
+        // hundreds of posts back now, and scrolling to it took up to 24 swipes per run — enough
+        // accessibility traffic to crash the simulator's logging machinery (measured: SIGSEGV inside
+        // `firehose_client_start_quarantine` while `revealPost` enumerated the list). A fresh chain is
+        // on the first screen, so the row and frame assertions are stable.
+        let stamp = Int(Date().timeIntervalSince1970)
+        let root = try post(message: "t36 chain root \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the chain root")
         let rootID = try XCTUnwrap(root["id"] as? String)
+        for index in 1...3 {
+            // Strictly increasing `create_at`, 150 ms apart: this is what makes "in order" a claim about
+            // chronology rather than about the server's (measured non-sequential) `order` array.
+            Thread.sleep(forTimeInterval: 0.15)
+            let author = index.isMultiple(of: 2) ? secondToken! : token!
+            _ = try post(message: "T36 main reply \(index) \(stamp)", rootID: rootID, as: author)
+        }
         let chain = try threadPostIDs(rootID)
 
         // The oracles, before the app is even launched.
         XCTAssertEqual(chain.first, rootID, "the thread answers root-first")
-        let fixtureReplies = try fixtureReplyIDs(rootID)
-        XCTAssertEqual(fixtureReplies.count, 3,
-                       "the fixture chain is a root and three replies; server answered \(fixtureReplies)")
-        // The three fixture replies are in the chain, in the fixture's own order.
-        let positions = try fixtureReplies.map { try XCTUnwrap(chain.firstIndex(of: $0)) }
-        XCTAssertEqual(positions, positions.sorted(),
-                       "the chain must keep the server's order (oldest first); positions were \(positions)")
+        let fixtureEntries = try fixtureReplies(rootID)
+        XCTAssertEqual(fixtureEntries.count, 3,
+                       "the fixture chain is a root and three replies; server answered \(fixtureEntries)")
+        // The order this suite asserts is **chronology**, taken from the server's own `create_at`
+        // values — never the server's `order` array: measured on 9.11.19, 2 of 6 threads whose replies
+        // were created with strictly increasing `create_at` came back with a newer reply before an
+        // older one, identically across five repeated GETs (probe_order.py). The evidence is attached,
+        // not asserted, so a server that starts answering chronologically does not fail this test.
+        let expected = chronological(fixtureEntries)
+        let serverOrder = fixtureEntries.map(\.id)
+        let comparison = "server order: \(serverOrder)\nchronology  : \(expected)"
+        let evidence = XCTAttachment(string: comparison)
+        evidence.name = "t36-server-order-vs-chronology"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+        for reply in fixtureEntries {
+            XCTAssertTrue(chain.contains(reply.id),
+                          "every fixture reply must be part of the thread the server answers")
+        }
 
         let channelPage = try channelPosts(channelID, collapsedThreads: true, perPage: 200)
         let channelIDs = Set(channelPage.map { $0["id"] as? String ?? "" })
@@ -111,7 +141,7 @@ final class T36ThreadsUITests: XCTestCase {
         }
 
         let app = launchAndOpenChannel()
-        XCTAssertTrue(waitUntil(timeout: 30) { self.element(app, "post.\(rootID)").exists },
+        XCTAssertTrue(revealPost(app, rootID, maxSwipes: 4).exists,
                       "the root must be a row of the channel:\n\(app.debugDescription)")
         // The same page, drawn: the replies are not channel rows.
         for reply in chain.dropFirst() {
@@ -122,9 +152,9 @@ final class T36ThreadsUITests: XCTestCase {
 
         openThread(app, rootID: rootID)
 
-        // Every fixture member is drawn, in the server's order. The list opens scrolled to the newest
-        // reply, so it is scrolled back to the top before the frames are compared.
-        let drawn = [rootID] + fixtureReplies
+        // Every fixture member is drawn, oldest first. The list opens scrolled to the newest reply, so
+        // it is scrolled back to the top before the frames are compared.
+        let drawn = [rootID] + expected
         for id in drawn {
             XCTAssertTrue(revealThreadPost(app, id).exists,
                           "the thread must draw \(id):\n\(app.debugDescription)")
@@ -135,14 +165,14 @@ final class T36ThreadsUITests: XCTestCase {
         for index in 1..<frames.count {
             XCTAssertGreaterThan(frames[index].minY, frames[index - 1].minY,
                                  "reply \(drawn[index]) must be drawn below \(drawn[index - 1]) "
-                                 + "— the chain is oldest-first; frames were \(frames)")
+                                 + "— the chain is chronological (\(comparison)); frames were \(frames)")
         }
         attach(app, "t36-02-thread-chain")
 
         // Deleted reply: a reply this test creates and then deletes, so the fixture is not consumed by
         // an assertion (a deleted reply cannot be re-fetched — see below).
-        let stamp = Int(Date().timeIntervalSince1970)
-        let victimPost = try post(message: "t36 doomed reply \(stamp)", rootID: rootID, as: token)
+        let victimStamp = Int(Date().timeIntervalSince1970)
+        let victimPost = try post(message: "t36 doomed reply \(victimStamp)", rootID: rootID, as: token)
         let victim = try XCTUnwrap(victimPost["id"] as? String)
         XCTAssertTrue(waitUntil(timeout: 25) { self.element(app, "thread.post.\(victim)").exists },
                       "a reply from this client must reach the open thread:\n\(app.debugDescription)")
@@ -162,14 +192,21 @@ final class T36ThreadsUITests: XCTestCase {
     // MARK: - 2. Reply: the count moves, and the socket stream feeds the thread
 
     func testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies() throws {
-        let root = try rootPost()
-        let rootID = try XCTUnwrap(root["id"] as? String)
-        let before = try threadPostIDs(rootID).count - 1
+        // A thread of this test's own at the newest end of the channel (see the chain test for why: the
+        // seeded one needs a long scroll, and scrolling an ever-growing accessibility tree is what
+        // crashes the simulator's logging machinery).
         let stamp = Int(Date().timeIntervalSince1970)
+        let root = try post(message: "t36 reply fixture root \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the reply fixture root")
+        let rootID = try XCTUnwrap(root["id"] as? String)
+        let seeded = try post(message: "t36 reply fixture reply \(stamp)", rootID: rootID, as: token)
+        assertAuthoredBy(userID, seeded, "the reply fixture's own reply")
+        let before = try threadPostIDs(rootID).count - 1
+        XCTAssertEqual(before, 1, "the fixture thread starts with one reply")
         let message = "t36 reply from the app \(stamp)"
 
         let app = launchAndOpenChannel()
-        openThread(app, rootID: rootID)
+        openThread(app, rootID: rootID, maxSwipes: 4)
 
         let input = composerInput(app)
         XCTAssertTrue(input.waitForExistence(timeout: 30),
@@ -205,7 +242,7 @@ final class T36ThreadsUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(serverCount, before + 2, "two replies were made during this test")
         let back = app.navigationBars.buttons["Back"]
         XCTAssertTrue(back.waitForExistence(timeout: 20), "the thread pane must offer Back")
-        back.tap()
+        tapPaneBack(app)
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 30),
                       "Back must return to the channel:\n\(app.debugDescription)")
         let line = element(app, "post.\(rootID).replyCount")
@@ -220,13 +257,28 @@ final class T36ThreadsUITests: XCTestCase {
     func testFollowPersistsAndTheFollowedThreadsListPages() throws {
         let stamp = Int(Date().timeIntervalSince1970)
         // A fresh thread the app has never seen, so the list assertions do not depend on what an
-        // earlier run read: root by the other author, then a reply by *me* — a reply is what makes a
-        // thread followed, which is why this one starts followed and the test's job is to unfollow it.
+        // earlier run read: root by the other author, then a reply by *me*.
         let root = try post(message: "t36 follow fixture \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the fixture root")
         let rootID = try XCTUnwrap(root["id"] as? String)
-        _ = try post(message: "t36 follow reply \(stamp)", rootID: rootID, as: token)
+        let reply = try post(message: "t36 follow reply \(stamp)", rootID: rootID, as: token)
+        assertAuthoredBy(userID, reply, "the fixture reply")
+        XCTAssertEqual(reply["root_id"] as? String, rootID, "the fixture reply belongs to this thread")
+
+        // The follow is **written**, not assumed. T36-AV F2 measured that a fixture relying on
+        // "replying follows a thread" has no evidence at all: the reply was silently authored by the
+        // other account (a shared cookie jar), so no follow was ever created for me and the list was
+        // right to omit the thread. The fixture now states the follow explicitly and proves the
+        // thread is on the same page the app will ask for — *before* the app launches.
+        try follow(rootID)
         let followed = try XCTUnwrap(fetchThread(rootID),
-                                     "replying follows a thread; the server must list it (measured)")
+                                     "an explicitly followed thread must answer 200 for me")
+        XCTAssertEqual(followed.replyCount, 1, "the fixture thread holds exactly my one reply")
+        let listedBeforeLaunch = try XCTUnwrap(teamThreadEntry(rootID),
+                                               "the followed thread must be in GET …/threads?per_page=60 "
+                                               + "before the app is launched (T36-AV F2)")
+        XCTAssertEqual(listedBeforeLaunch.unreadReplies, 0,
+                       "a fresh fixture thread starts with nothing unread")
 
         let app = launchAndOpenChannel()
         let serverThreads = try teamThreads()
@@ -238,14 +290,27 @@ final class T36ThreadsUITests: XCTestCase {
         element(app, "nativeChannelThreadsButton").tap()
         XCTAssertTrue(element(app, "nativeThreadsList").waitForExistence(timeout: 40),
                       "the Threads button must open the followed list:\n\(app.debugDescription)")
+
+        // T36-AV F3: the counter line and the rows are one state. An empty `totals` drawn over a
+        // page of rows read "No threads yet" above a full list; they must agree now.
+        let subtitle = element(app, "globalThreads.subtitle")
+        XCTAssertTrue(subtitle.waitForExistence(timeout: 20),
+                      "the list must draw its counter line:\n\(app.debugDescription)")
+        XCTAssertFalse(threadRows(app).isEmpty, "the list must draw rows — the fixture has \(serverThreads.count) threads")
+        XCTAssertNotEqual(subtitle.label, "No threads yet",
+                          "an empty counter line must not be drawn over a non-empty page (T36-AV F3)")
+        XCTAssertTrue(subtitle.label.contains("thread"),
+                      "the counter line names the threads it counts, was \(subtitle.label.debugDescription)")
         attach(app, "t36-08-global-threads")
 
         // Open a thread from the list and follow/unfollow it: the bell is the UI's only follow control.
         let row = element(app, "globalThreads.row.\(rootID)")
         XCTAssertTrue(row.waitForExistence(timeout: 30),
-                      "the thread I replied in must be a row, newest activity first:\n\(app.debugDescription)")
-        XCTAssertTrue(row.label.contains(followed.authorLabel) || !followed.authorLabel.isEmpty,
-                      "the row names its root's author")
+                      "the thread I followed is on the server's page before the app launched and must be "
+                      + "a row, newest activity first:\n\(app.debugDescription)")
+        // The row is the thread I made, drawn newest-first, with the root's own text as its preview.
+        XCTAssertTrue(row.label.contains("t36 follow fixture"),
+                      "the row previews the root it was read from, was \(row.label.debugDescription)")
         row.tap()
         XCTAssertTrue(element(app, "threadPane").waitForExistence(timeout: 40),
                       "a list row must open its thread:\n\(app.debugDescription)")
@@ -269,9 +334,7 @@ final class T36ThreadsUITests: XCTestCase {
 
         // Back on the list, paging: the list is scrolled to its end and a row that only exists on the
         // server's second page must appear.
-        let back = app.navigationBars.buttons["Back"]
-        XCTAssertTrue(back.waitForExistence(timeout: 20))
-        back.tap()
+        tapPaneBack(app)
         XCTAssertTrue(element(app, "nativeThreadsList").waitForExistence(timeout: 30),
                       "Back must return to the list:\n\(app.debugDescription)")
         let list = element(app, "globalThreads.postList")
@@ -301,12 +364,18 @@ final class T36ThreadsUITests: XCTestCase {
 
         let stamp = Int(Date().timeIntervalSince1970)
         let root = try post(message: "t36 unread fixture \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the unread fixture root")
         let rootID = try XCTUnwrap(root["id"] as? String)
-        _ = try post(message: "t36 unread mine \(stamp)", rootID: rootID, as: token)
+        let mine = try post(message: "t36 unread mine \(stamp)", rootID: rootID, as: token)
+        assertAuthoredBy(userID, mine, "my reply in the unread fixture")
+        // Written, not assumed (T36-AV F2): a thread whose follow exists only as a side effect of a
+        // reply cannot be asserted about, because the reply's authorship is what was wrong.
+        try follow(rootID)
         // A gap, so their reply is unambiguously *after* my last read (the server compares
         // millisecond timestamps, and two calls on localhost can land in the same one).
         Thread.sleep(forTimeInterval: 0.35)
-        _ = try post(message: "t36 unread theirs \(stamp)", rootID: rootID, as: secondToken)
+        let theirs = try post(message: "t36 unread theirs \(stamp)", rootID: rootID, as: secondToken)
+        assertAuthoredBy(secondUserID, theirs, "the reply that should leave the thread unread")
 
         // Oracle: the server's own counter for this thread, retried because the counter is written
         // after the reply is committed.
@@ -346,9 +415,7 @@ final class T36ThreadsUITests: XCTestCase {
         XCTAssertTrue(waitUntil(timeout: 25) {
             (self.fetchThread(rootID)?.unreadReplies ?? -1) == 0
         }, "opening a thread marks it read on the server")
-        let back = app.navigationBars.buttons["Back"]
-        XCTAssertTrue(back.waitForExistence(timeout: 20))
-        back.tap()
+        tapPaneBack(app)
         XCTAssertTrue(waitUntil(timeout: 25) {
             !self.element(app, "globalThreads.unread.\(rootID)").exists
         }, "the badge must clear once the server reports the thread read:\n\(app.debugDescription)")
@@ -417,16 +484,6 @@ final class T36ThreadsUITests: XCTestCase {
         return try JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 
-    private func rootPost() throws -> [String: Any] {
-        // The channel holds more roots than one 60-row page (the paging fixture), and the main chain
-        // is the *oldest* of them, so one big page is the only way to find it without paging.
-        let posts = try channelPosts(channelID, collapsedThreads: true, perPage: 200)
-        guard let root = posts.first(where: { ($0["message"] as? String) == rootMessage }) else {
-            throw XCTSkip("the main thread is missing — run scripts/t36_thread_seed.py")
-        }
-        return root
-    }
-
     private func channelPosts(_ channelID: String, collapsedThreads: Bool = false,
                               perPage: Int = 60) throws -> [[String: Any]] {
         let suffix = collapsedThreads ? "&collapsedThreads=true" : ""
@@ -436,20 +493,83 @@ final class T36ThreadsUITests: XCTestCase {
         return order.compactMap { posts[$0] }
     }
 
-    /// The chain the **server** answers for a root, root-first: `order` is the server's own sequence.
+    /// The chain the server answers for a root, as its `order` array.
+    ///
+    /// Used for **membership only** ("is this post in the thread at all?"), never for order: on
+    /// 9.11.19 that array is not a sequence — 5 of 6 threads created with strictly increasing replies
+    /// came back in a different order, stable across five repeated GETs, and this fixture's own chain
+    /// (replies created at …838, …868, …897 ms) is answered `868, 838, 897` (T36-AV F1).
     private func threadPostIDs(_ rootID: String) throws -> [String] {
         let json = try getJSON("/api/v4/posts/\(rootID)/thread?perPage=200&collapsedThreads=true")
         return (json as? [String: Any])?["order"] as? [String] ?? []
     }
 
-    /// The three seeded replies of the main chain, in the server's order (its `order` is create_at
-    /// ascending), identified by their fixture text so a reply an earlier run added is not mistaken
-    /// for one of them.
-    private func fixtureReplyIDs(_ rootID: String) throws -> [String] {
+    /// The thread's posts with the server's own `create_at`, in the server's `order`.
+    private func threadEntries(_ rootID: String) throws -> [(id: String, createAt: Int64)] {
         let json = try getJSON("/api/v4/posts/\(rootID)/thread?perPage=200&collapsedThreads=true")
         let posts = (json as? [String: Any])?["posts"] as? [String: [String: Any]] ?? [:]
         let order = (json as? [String: Any])?["order"] as? [String] ?? []
-        return order.filter { (posts[$0]?["message"] as? String)?.hasPrefix("T36 main reply ") == true }
+        return order.compactMap { id in
+            guard let post = posts[id], let createAt = post["create_at"] as? Int64 else { return nil }
+            return (id, createAt)
+        }
+    }
+
+    /// The three replies of the chain this test creates, with their `create_at`, in the server's order.
+    /// Identified by their fixture text so a reply an earlier run added is not mistaken for one.
+    private func fixtureReplies(_ rootID: String) throws -> [(id: String, createAt: Int64)] {
+        let json = try getJSON("/api/v4/posts/\(rootID)/thread?perPage=200&collapsedThreads=true")
+        let posts = (json as? [String: Any])?["posts"] as? [String: [String: Any]] ?? [:]
+        let order = (json as? [String: Any])?["order"] as? [String] ?? []
+        return order.compactMap { id in
+            guard let post = posts[id], let createAt = post["create_at"] as? Int64,
+                  let message = post["message"] as? String,
+                  message.hasPrefix("T36 main reply ") else { return nil }
+            return (id, createAt)
+        }
+    }
+
+    /// Chronology — `create_at` ascending, id as the tiebreak. This is the order the pane must draw,
+    /// and the only order this suite asserts (never the server's `order` array).
+    private func chronological(_ entries: [(id: String, createAt: Int64)]) -> [String] {
+        entries.sorted { lhs, rhs in
+            if lhs.createAt != rhs.createAt { return lhs.createAt < rhs.createAt }
+            return lhs.id < rhs.id
+        }.map(\.id)
+    }
+
+    /// `PUT /users/me/teams/{team}/threads/{thread_id}/following` — follow the thread explicitly.
+    ///
+    /// A reply *does* follow a thread on this server (measured: one membership row per participant,
+    /// `following = true` for the reply's author), but that follow is only real if the reply was
+    /// really authored by the account the fixture believes it used — which is exactly what T36-AV F2
+    /// got wrong. The fixture therefore writes the follow it then asserts about, and
+    /// `assertAuthoredBy` proves the posts' authorship separately.
+    private func follow(_ threadID: String) throws {
+        var request = URLRequest(url: serverURL.appendingPathComponent(
+            "api/v4/users/me/teams/\(teamID!)/threads/\(threadID)/following"))
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("XMLHttpRequest", forHTTPHeaderField: "XMLHttpRequest")
+        request.httpBody = Data("{}".utf8)
+        let (_, response) = try synchronous(request)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200,
+                       "the fixture's explicit follow must be accepted")
+    }
+
+    /// The server's own list entry for one thread, from the same page shape the app asks for.
+    private func teamThreadEntry(_ threadID: String, perPage: Int = 60) throws -> ThreadEntry? {
+        try teamThreads(perPage: perPage).first { $0.id == threadID }
+    }
+
+    /// A fixture post must be authored by the account the test intended: the identity of a fixture
+    /// call is its `Authorization` header, and a cookie in the session's jar used to silently
+    /// re-attribute posts to the other author (T36-AV F2 — the root cause of the missing follow).
+    private func assertAuthoredBy(_ expectedID: String, _ post: [String: Any], _ what: String) {
+        XCTAssertEqual(post["user_id"] as? String, expectedID,
+                       "\(what) must be authored by the intended account (T36-AV F2: a shared "
+                       + "URLSession cookie jar re-attributed fixture posts to the other author)")
     }
 
     private func post(message: String, rootID: String?, as token: String) throws -> [String: Any] {
@@ -552,7 +672,7 @@ final class T36ThreadsUITests: XCTestCase {
         let semaphore = DispatchSemaphore(value: 0)
         var result: (Data, URLResponse)?
         var failure: Error?
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        Self.fixtureSession.dataTask(with: request) { data, response, error in
             if let error { failure = error }
             if let data, let response { result = (data, response) }
             semaphore.signal()
@@ -562,6 +682,35 @@ final class T36ThreadsUITests: XCTestCase {
         guard let result else { throw URLError(.timedOut) }
         return result
     }
+
+    /// The fixture's own session: **no cookie storage, and no cookies sent**.
+    ///
+    /// This is not tidiness, it is the fix for T36-AV F2 (measured on the pinned 9.11.19 server):
+    ///
+    ///  * `POST /users/login` answers `Set-Cookie: MMAUTHTOKEN=…; MMUSERID=…; MMCSRF=…` for exactly
+    ///    the requests this suite makes (`X-Requested-With: XMLHttpRequest`) — probed on the server;
+    ///  * a request that carries **both** `Cookie: MMAUTHTOKEN=<B>` and `Authorization: Bearer <A>` is
+    ///    resolved as **B**, and a bogus cookie is a 401 even with A's valid header (probe: six cookie
+    ///    shapes, header always `perfprobe`, every result authored by the cookie's user);
+    ///  * `URLSession.shared`'s jar is shared by every fixture call in the process, so the suite's
+    ///    second login (`t36reply`) **overwrote** the first one's cookie and every later "as me" call
+    ///    was authored by `t36reply`. Measured in a log: the reply meant to be `perfprobe`'s was stored
+    ///    with `user_id = t36reply` (DB author check), so no follow was ever created for `perfprobe`,
+    ///    the app's list was right to omit the row, and each "is it followed?" read was answered for
+    ///    the wrong account. That single defect is the whole of F2.
+    ///
+    /// An ephemeral session with cookies off makes the `Authorization` header the only identity a
+    /// fixture call can have — which is what the assertions assume, and what `assertAuthoredBy`
+    /// then checks on every fixture post.
+    private static let fixtureSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.urlCache = nil
+        configuration.timeoutIntervalForRequest = 20
+        return URLSession(configuration: configuration)
+    }()
 
     // MARK: - App helpers
 
@@ -607,9 +756,10 @@ final class T36ThreadsUITests: XCTestCase {
     }
 
     /// Open the thread the way a reader does: the root's reply line under the post.
-    private func openThread(_ app: XCUIApplication, rootID: String) {
+    private func openThread(_ app: XCUIApplication, rootID: String, maxSwipes: Int = 12) {
         let line = element(app, "post.\(rootID).replyCount")
-        XCTAssertTrue(revealPost(app, rootID).exists && line.waitForExistence(timeout: 30),
+        XCTAssertTrue(revealPost(app, rootID, maxSwipes: maxSwipes).exists
+                      && line.waitForExistence(timeout: 30),
                       "the root must carry a reply line to tap:\n\(app.debugDescription)")
         line.tap()
         XCTAssertTrue(element(app, "threadPane").waitForExistence(timeout: 40),
@@ -672,6 +822,23 @@ final class T36ThreadsUITests: XCTestCase {
             swipes += 1
         }
         return target
+    }
+
+    /// Leave the thread pane by the back button that is actually **enabled**.
+    ///
+    /// The shell draws a Back of its own in the top bar, and in the thread pane it is present but
+    /// `Disabled`; XCUITest matches it first and a tap on it does nothing at all (measured: the follow
+    /// test tapped it and stayed on the pane for 30 s). The pane's own back is the enabled one.
+    private func tapPaneBack(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let candidates = app.navigationBars.buttons.matching(NSPredicate(format: "label == 'Back'"))
+        for index in 0..<candidates.count {
+            let candidate = candidates.element(boundBy: index)
+            if candidate.exists, candidate.isEnabled {
+                candidate.tap()
+                return
+            }
+        }
+        XCTFail("no enabled Back button to leave the pane:\n\(app.debugDescription)", file: file, line: line)
     }
 
     /// Every drawn thread row (`globalThreads.row.<id>`), for a diagnostic count.

@@ -104,6 +104,28 @@ enum GlobalThreadsDerivation {
             return totals.total == 1 ? "1 thread" : "\(totals.total) threads"
         }
     }
+
+    /// The counters the header draws.
+    ///
+    /// The server's totals are the source, but a counter line and a row set must never contradict
+    /// each other: an empty `total` drawn over a page that has rows is a defect the reader sees as
+    /// "No threads yet" above a full list (T36-AV F3, reproduced). So a zero `total` is replaced by
+    /// the number of threads actually drawn, and the same for the unread counter — the drawn rows are
+    /// the lower bound of what exists, so this can only ever *under*-state, never invent a thread.
+    static func displayedTotals(_ totals: ThreadTotals, drawn threads: [MMThread]) -> ThreadTotals {
+        guard !threads.isEmpty else { return totals }
+        var result = totals
+        if result.total < threads.count { result.total = threads.count }
+        let unreadDrawn = threads.filter { $0.unread.isUnread }.count
+        if result.unreadThreads < unreadDrawn { result.unreadThreads = unreadDrawn }
+        if result.unreadMentions < threads.filter({ $0.unreadMentions > 0 }).count {
+            result.unreadMentions = threads.filter { $0.unreadMentions > 0 }.count
+        }
+        if result.unreadUrgentMentions < threads.filter({ $0.isUrgent }).count {
+            result.unreadUrgentMentions = threads.filter { $0.isUrgent }.count
+        }
+        return result
+    }
 }
 
 /// The two tabs upstream's `global_threads` screen offers.

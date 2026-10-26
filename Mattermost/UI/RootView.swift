@@ -228,7 +228,10 @@ struct RootView: View {
                     // Live webviews own mention delivery while active — a scheduled refresh
                     // (which the OS would only run in the background anyway) is stale.
                     BackgroundRefreshScheduler.cancelPending()
-                    if store.url == nil {
+                    // Only a pane that *is* the webview has a page to (re)start: under a native pane
+                    // the store is created but deliberately unloaded (T36-AV F7), and loading here
+                    // would boot the web app as a second same-user client on every foreground.
+                    if paneMode == .web, store.url == nil {
                         store.load(active.url)
                     }
                 }
@@ -299,21 +302,24 @@ struct RootView: View {
             navigationInFlight: false)
     }
 
-    /// Keep today's warmth: a mounted server's store exists (and, behind a native pane, has begun
-    /// loading) so switching to it is instant and its session is live **except** when the policy
-    /// allows this pane to be released, in which case nothing is created. Both registries are empty
-    /// today, so this is exactly the pre-R4 behaviour.
+    /// Keep today's warmth: a mounted server's store exists, so switching to it is instant and its
+    /// session is live **except** when the policy allows this pane to be released, in which case
+    /// nothing is created. Both registries are empty today, so this is exactly the pre-R4 behaviour.
     ///
-    /// The load is issued here only while the pane is **native** (where no web branch exists to do
-    /// it). While the pane is the webview, `WebPaneHost`'s appearance owns the navigation — loading
-    /// from both places issued the same request twice and cancelled the first one.
+    /// **T36-AV F7 — a native pane must not boot the web app.** This used to call
+    /// `loadIfNeeded(server.url)` while the pane was native, on the theory that "no web branch exists
+    /// to do it". Measured consequence (`build/proxy.log` of the T36-AV run): with
+    /// `-surfaceMode shell=native` the app still fetched ~60 `/static/*` bundles,
+    /// `/api/v4/config/client`, `/api/v4/plugins/webapp`, the calls/playbooks/nps plugin bundles and
+    /// opened 3+ `/api/v4/websocket` connections — i.e. the whole web app running as a **second,
+    /// same-user client** behind the native shell, while the pane the reader sees is native. The store
+    /// is still *created* (cheap: a detached `WKWebView` with no navigation, which the surface toggles
+    /// and the release policy reason about), but nothing is loaded: the moment the pane resolves
+    /// `.web`, `WebPaneHost`'s appearance owns the load (`docs/dual-render.md` §12.4's return trip), so
+    /// flipping the surface still shows the page instead of a blank pane.
     private func warmUpStore(for server: ServerConfig) {
         guard !paneMayBeReleased() else { return }
-        let store = viewStore.ensureStore(for: server)
-        guard paneMode == .native else { return }
-        // `loadIfNeeded`, not `load`: a page the surface toggle stopped mid-flight is resumed
-        // (T26-R R6) rather than restarted, and a live/finished page is left alone.
-        store.loadIfNeeded(server.url)
+        _ = viewStore.ensureStore(for: server)
     }
 
     /// The single release decision: read the pane state, ask the pure policy, and release only if

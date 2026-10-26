@@ -405,6 +405,30 @@ final class NativeNavigationTests: XCTestCase {
         XCTAssertEqual(navigation.location.pane, .threads)
     }
 
+    /// A thread opened from the Threads **list** stacks on the list, so Back returns to it. It carries
+    /// no channel, so the "thread on top of its channel" rule cannot fire; before this rule the list
+    /// was replaced and the stack left empty (T36-AV: the shell's back was disabled and a reader could
+    /// not return to the list they had just paged).
+    func testAThreadOpenedFromTheThreadsListStacksOnTheList() {
+        let serverConfig = server()
+        let store = makeServerStore([serverConfig])
+        let navigation = makeNavigation(serverStore: store)
+
+        _ = navigation.handle("mattermost://mm.example/acme/threads")
+        XCTAssertEqual(navigation.path.count, 1)
+        XCTAssertNil(navigation.path.last?.postID, "that route is the list, not a thread")
+
+        _ = navigation.openThreads(NativeChannelRequest(serverID: serverConfig.id,
+                                                        teamName: "acme",
+                                                        postID: "root-of-a-thread"))
+
+        XCTAssertEqual(navigation.path.count, 2,
+                       "the thread sits on top of the list so Back returns to the list")
+        XCTAssertEqual(navigation.path.first?.pane, .threads)
+        XCTAssertNil(navigation.path.first?.postID)
+        XCTAssertEqual(navigation.path.last?.postID, "root-of-a-thread")
+    }
+
     func testOpeningTheWorkspaceRootPopsTheStack() {
         let serverConfig = server()
         let store = makeServerStore([serverConfig])

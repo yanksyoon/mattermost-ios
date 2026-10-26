@@ -134,6 +134,19 @@ final class URLSessionTransport: NSObject, UploadTransport {
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 60
         configuration.httpMaximumConnectionsPerHost = 10
+        // T36-R — cookies are a **stronger** credential than this client's token on Mattermost,
+        // so this session must not carry any. Measured on 9.11.19: a request with
+        // `Authorization: Bearer <me>` *and* `Cookie: MMAUTHTOKEN=<someone else>` is resolved as
+        // *them* (and a stale/bogus cookie is a 401 even with a valid header), and
+        // `POST /users/login` answers `Set-Cookie: MMAUTHTOKEN=…` for exactly the requests this
+        // transport makes (`X-Requested-With: XMLHttpRequest`). An ephemeral session keeps its own
+        // in-memory cookie jar, so signing in again — as a different account on the same server —
+        // would leave the previous account's cookie in place and every request would silently be
+        // made as them. This client authenticates by header only (the socket additionally sends an
+        // in-band `authentication_challenge`), and the page in the webview has its own cookie store,
+        // so nothing here needs cookies.
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
         return configuration
     }
 

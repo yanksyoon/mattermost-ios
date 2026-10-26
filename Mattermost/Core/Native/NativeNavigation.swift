@@ -527,6 +527,20 @@ final class NativeNavigation: ObservableObject {
             if last != newLocation { path.append(newLocation) }
             return
         }
+        // A thread opened **from the Threads list** stacks on the list. Without this the thread
+        // replaced the list (the list carries no channel, so the case above does not fire, and the
+        // fall-through resets `path`), which left `path` empty: the shell's back was disabled and a
+        // reader who opened a thread from the list could not get back to it (T36-AV, measured — the
+        // live suite could not reach the list's paging assertion after following/unfollowing a row).
+        if newLocation.pane == .threads,
+           newLocation.postID != nil,
+           let last = path.last,
+           last.pane == .threads,
+           last.postID == nil,
+           last.serverID == newLocation.serverID {
+            if last != newLocation { path.append(newLocation) }
+            return
+        }
         if path.last == newLocation { return }
         path = [newLocation]
     }
