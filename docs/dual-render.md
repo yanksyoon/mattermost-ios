@@ -119,7 +119,7 @@ The 12 switch keys are the regions of the client, not the 40 inventory screens. 
 | `activity` | S25 Mentions inbox |
 | `settings` | shell `SettingsView` (already native, T3/T19a) |
 | `channelInfo` | S22 Channel info, S23 Members / manage |
-| `calls` | S33 Calls (currently "webview always, may cut for v1") |
+| `calls` | S33 Calls — **pinned to `web` by T44** (2026-10-27): no native card owns this surface, and the pin is deliberate. `docs/t44-build-note.md` §6 gives the four reasons (a native surface without the ReplayKit broadcast-extension target *regresses* screen share against today's webview; the fixture's Calls SFU publishes no reachable ICE port, so "bidirectional audio" is unmeasurable here by any implementation; no licence sign-off for the AGPL/source-available plugin; no surface card). Signalling is proven interoperable — `scripts/t44_calls_probe.py`, `docs/t44-build-note.md` §4 — so lifting the pin starts with T44b, not with a port. |
 | `plugins` | S29 System Console, S30 Plugin screens, S31 Boards, S32 Playbooks, S34 Apps framework |
 
 The catalogue is **additive**: surfaces are never repurposed or renamed, because the raw string is

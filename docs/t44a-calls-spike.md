@@ -14,6 +14,12 @@ its own bundle id, provisioning, App Group and review path — priced in §6 and
 This card flips nothing. `SurfaceDefaults.nativeApprovedSurfaces` is untouched and `calls` stays
 `web` (`Mattermost/Core/RenderMode.swift:84`) until the gate probes in §8 pass.
 
+> **Amended 2026-10-27 by T44 (`t_a3383222`):** see **§10**. It corrects three protocol statements in
+> §4.2/§4.4 (the `sdp` action needs MessagePack, not JSON; the client is the offerer; the pinned
+> protocol source is plugin `v1.12.6` while the fixture runs `v0.29.8`) and records the P1 result:
+> signalling interoperates (8/8), media cannot be established on this host (0/3 SFU candidates
+> reachable). Read §10 before implementing anything from §4.
+
 - Task: `t_0845e828` (T44a), 2026-10-24, isolated worktree `wt/t_0845e828`
 - Host: `MacBook-Pro-5.local` (MacBookPro18,3), macOS 26.3.1 (25D771280a), **Xcode 26.6 (17F113)**,
   Swift 6.3.3, SDKs: iOS 26.5 / iOS-Simulator 26.5 / macOS 26.5
@@ -423,3 +429,63 @@ All outside the repo, under `~/.hermes/profiles/mmios-architect/cache/scratch/t4
 `xcf/`, `lkxcf/`, `calls/` and `calls-common/` checkouts.
 
 Committed with this doc: the six build logs and the memory-probe log listed in §2 and §5.
+
+---
+
+## 10. T44 follow-up measurements (2026-10-27) — three corrections and the media gate
+
+This section was appended by **T44** (`t_a3383222`) when it landed this note on `main` (the note and
+its logs were written on `wt/t_0845e828` and had not been merged). It does not change §1's verdict for
+the *library* questions; it corrects three protocol statements and records the one gate §8 named that
+this card could close — and the one it could not.
+
+Measured with `scripts/t44_calls_probe.py` against the programme fixture's live plugin
+(`com.mattermost.calls` **0.29.8**, build `936dd00d3e456c843b846740aa76601d07e6a25a`, which is
+`mattermost-plugin-calls` tag `v0.29.8` = commit `936dd00` — a checkout of the *installed* build, not
+HEAD). Full output: `docs/t44-calls-probe-2026-10-27.log`; media-path evidence:
+`docs/t44-calls-media-path-2026-10-27.log`.
+
+**C1 — §4.2's "a native client may use plain JSON" holds for `join`/`ice`/call-state reads, but is
+wrong for `sdp`, and that is the one action a call cannot work without.** The plugin type-asserts the
+SDP payload to `[]byte` (`server/websocket.go`, `msgData, ok := req.Data["data"].([]byte)` —
+`websocket.go:1226` at `936dd00`, `:1350` at `6b65e3b`, i.e. **both** versions), and the core server's
+JSON decoder produces a `string`, so the frame is dropped server-side with
+`{"level":"error","msg":"invalid or missing sdp data","origin":"…WebSocketMessageHasBeenPosted websocket.go:1226"}`
+and the session is torn down at the 10 s signalling timeout. Measured as probe checks 5 (JSON offer,
+no `signal` ever arrives) and 6 (the same offer as a MessagePack binary frame is answered in ~60 ms).
+Consequence for T44c: `SocketClient` needs a **binary** send (`URLSessionWebSocketTask.send(.data:)`)
+plus a MessagePack encoder for this frame and **zlib** framing of the SDP JSON
+(`server/utils.go unpackSDPData` → `zlib.NewReader`). `ice` is a JSON *string* and stays on the text
+path.
+
+**C2 — the client is the offerer.** §4.4 lists the message set but not the direction. The SFU never
+offers: `calls-common`'s `RTCPeer` emits a local offer from `onNegotiationNeeded`
+(`src/rtc_peer.ts:136-142` at the plugin's pinned `e463e78cc76302d1bdbd085d9e1846c456f48d45`) as soon
+as the first local track is added, and only then answers the client
+(`:196-198`). A client that joins and waits is disconnected after ~10 s — measured, probe check 8.
+
+**C3 — the pinned protocol source and the deployed plugin were different versions.** This note read
+`mattermost-plugin-calls` at `6b65e3b` (= `v1.12.6-2`). The plugin shipping in the tested image is
+`v0.29.8`: it has **no** `video_on`/`video_off` (`server/client_message.go`) and no `/rtc` REST route
+(`server/api_router.go`). A client must be written against the behaviour both share — `join`, `leave`,
+`reconnect`, `sdp`, `ice`, `mute`/`unmute`, `voice_on`/`voice_off`, `screen_on`/`screen_off`,
+`raise_hand`/`unraise_hand`, `react`, `call_state` — and version-gate the rest. Also worth carrying
+into any implementation: the join payload key is `channelID` (not `channel_id`), the `join` ack is
+followed by `call_state` carrying `call` as a **JSON string**, and the plugin is an **SFU** (§4.1's
+"plugin hooks the core socket" is right, but media terminates on `rtc.NewServer` in the plugin
+process — it is not a relay between participants).
+
+**P1, partially closed.** §8's P1 asked for "SDP/ICE interop against a real Calls plugin". The
+signalling half is now measured end to end (join → call_state → offer → answer → 5 ICE candidates,
+8/8 probe checks green). The media half **cannot be closed on this host**: the SFU's ICE port is
+published nowhere. The container `mm-perf` publishes only `8065/tcp`; the ICE listener is bound at
+`172.19.0.3:8443` inside `mm-perf-net`; and all three UDP candidates the SFU advertised
+(`127.0.0.1:8443`, `64.251.85.226:8443`, `209.35.187.178:53080`) time out to a STUN binding request
+from the host while a control STUN server answers. 0/3 reachable → no client can connect. The remedy
+(UDP relay sidecar on `mm-perf-net` + `ICEHostOverride`) is written in
+`docs/t44-calls-media-path-2026-10-27.log` §5 and is T44b's job, not this card's.
+
+**What that means for this note's recommendation:** §8's split stands (T44b/T44c/T44d/T44e), with one
+addition — **T44b must come first and must prove RTP**, because until the fixture's SFU is reachable no
+"bidirectional audio" criterion can be measured by anybody, and `SurfaceDefaults.nativeApprovedSurfaces`
+must not gain `calls` on the strength of a signalling test alone.

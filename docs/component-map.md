@@ -401,6 +401,11 @@ at `987e5712…`; "decomposition" always follows §1 rules.
 
 ### S33 Calls — `webview (T46) always, may cut for v1`
 - Not ported: `M app/products/calls` (WebRTC VoIP, broadcast extension) stays webview-only (T44/T16).
+- **T44 decided this stays `webview` on 2026-10-27** — `docs/t44-build-note.md` §6 (screen share would
+  regress, the fixture's SFU media path cannot be verified, no licence sign-off, no surface card).
+  If a native card is ever opened, read that note's §5 first: the `sdp` action **requires MessagePack**
+  (a JSON text frame is dropped by the plugin), the **client is the offerer**, and the pinned protocol
+  source must match the plugin version under test. Conformance probe: `scripts/t44_calls_probe.py`.
 
 ### S34 Apps framework — `hybrid` (native where feasible, webview fallback)
 - Sources: `M app/screens/apps_form/`, `M app/screens/dialog_router/`,
