@@ -108,10 +108,20 @@ then `/enable`) — before the restart the candidates were unchanged, which is h
 misread.
 
 Where the setting does live (correction to the card's step 2, already recorded in a card comment):
-`PUT /api/v4/plugins/com.mattermost.calls/config` is a **404** on 9.11.19; plugin settings are in the
-core config at `PluginSettings.Plugins["com.mattermost.calls"]`, written with `PUT /api/v4/config`
-carrying the whole document. `scripts/t44b_calls_config.py` does read/write/clear of one key and
-verifies by reading back:
+plugin settings are in the **core** config at `PluginSettings.Plugins["com.mattermost.calls"]`,
+written with `PUT /api/v4/config` carrying the whole document. To be precise about the routes, since
+this is easy to misread as "the plugin config cannot be read" — it can:
+
+```
+GET  /plugins/com.mattermost.calls/config        -> 200   (the plugin's view: sku,
+                                                           AllowEnableCalls, ICEServersConfigs, …)
+PUT  /plugins/com.mattermost.calls/config        -> 405   (that route is GET-only)
+GET  /api/v4/plugins/com.mattermost.calls/config -> 404   (no core-namespaced plugin route)
+PUT  /api/v4/plugins/com.mattermost.calls/config -> 404
+GET  /api/v4/config                              -> 200   (core config, where the write goes)
+```
+
+`scripts/t44b_calls_config.py` does read/write/clear of one key and verifies by reading back:
 
 ```bash
 python3 scripts/t44b_calls_config.py show

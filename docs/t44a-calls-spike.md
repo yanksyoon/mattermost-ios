@@ -163,8 +163,8 @@ pinned to a commit you can diff.
 - `server/api_router.go:16` builds an HTTP-only `mux` router; there is no `/ws` route anywhere in it.
 - Client→server signalling arrives through the plugin hook
   `func (p *Plugin) WebSocketMessageHasBeenPosted(connID, userID string, req *model.WebSocketRequest)`
-  (`server/websocket.go:1200`) — i.e. the core server dispatches plugin-prefixed frames to the plugin.
-- The prefix is compiled in: `wsActionPrefix = "custom_" + manifest.Id + "_"` (`build/manifest/main.go:40`),
+  (`server/websocket.go:1101`) — i.e. the core server dispatches plugin-prefixed frames to the plugin.
+- The prefix is compiled in: `wsActionPrefix = "custom_" + manifest.Id + "_"` (`build/manifest/main.go:37`),
   so client actions are `custom_com.mattermost.calls_<type>` (`server/websocket.go:1205-1209`).
 - Core dispatch: prefixed actions bypass the core router and are pushed to plugins —
   `mattermost/mattermost` `server/channels/app/platform/web_conn.go:492-511`
@@ -173,7 +173,11 @@ pinned to a commit you can diff.
   at `c2f2eff3b2684e1be94a24bbc48848bb437389dd` (master on 2026-10-24).
 - Server→client: plugin events are published with the same prefix through `p.publishWebSocketEvent`
   (`server/websocket.go:121`); the SDP/ICE carrier is `wsEventSignal = "signal"`
-  (`server/websocket.go:27`, published at `:688`) with payload `{data: <sdp|ice JSON string>, connID}`.
+  (`server/websocket.go:26`, published at `:592`) with payload `{data: <sdp|ice JSON string>, connID}`.
+
+> Line numbers in this section were re-verified at `v0.29.8` = `936dd00` on 2026-10-27 (T44-AV-R).
+> The original spike cited `main.go:40`, `websocket.go:27` and `:688` from `v1.12.6`, and the hook at
+> `:1200`; all four were off. The initial §4 read the 1.x branch, which is why (see §10).
 
 ### 4.2 Framing: a native client may use plain JSON
 
@@ -198,12 +202,38 @@ reuses it rather than growing a second socket.
 
 Nothing Calls-specific. The plugin's WS session is the core session:
 `clonedReq.Session.Id = session.Id` (`web_conn.go:502-504`), consumed by `handleJoin(userID, connID,
-authSessionID, joinData)` (`server/websocket.go:734`), with a 10-second server-side re-check
-(`sessionAuthCheckInterval = 10 * time.Second`, `server/websocket.go:571+`, `p.API.GetSession` at
-`:600`) that force-closes RTC sessions whose session was revoked or expired. Plus the ordinary REST
-surface a client needs, from `server/api_router.go`: `GET /version` (:21), `GET /config` (:84),
-`GET /calls/{channel_id}/active` (:109), `POST /calls/{channel_id}/decline` (:106),
-`GET /turn-credentials` (:156), all under `/plugins/com.mattermost.calls/`.
+authSessionID, joinData)` (`server/websocket.go:644`), with a 10-second server-side re-check
+(`sessionAuthCheckInterval = 10 * time.Second` at `server/websocket.go:78`, `p.API.GetSession` at
+`:512`) that force-closes RTC sessions whose session was revoked or expired.
+
+The REST surface a client needs — **as it exists at `v0.29.8` = `936dd00`, the version this programme
+tests against** (`server/api_router.go`): `GET /version` (:18), `GET /config` (:81),
+`GET /calls/{channel_id}/active` (:98), `POST /calls/{call_id}/end` (:101), the host-control subrouter
+`POST /calls/{call_id}/host/{make,mute,screen-off,lower-hand,remove,mute-others,end}` (:105-111) and
+`GET /turn-credentials` (:142), all under `/plugins/com.mattermost.calls/`.
+
+> **Versioned, do not read as current.** The list this section first carried came from the **1.x**
+> branch: `POST /calls/{channel_id}/decline` (cited as `api_router.go:106`) **does not exist at
+> 0.29.8** — there is no `decline` route in that version's router at all. §10 C3 covers the rest of
+> the 1.x-vs-0.29.8 protocol drift; this list is now stamped with the version it was read from.
+
+Reading the plugin's own configuration is **not** a problem, and the probe depends on it — measured
+on the fixture (`t44av-evidence/config-routes.log`):
+
+```
+GET  /plugins/com.mattermost.calls/config            -> 200   (the plugin's config: sku,
+                                                               AllowEnableCalls, ICEServersConfigs, …)
+GET  /api/v4/plugins/com.mattermost.calls/config     -> 404   (no such core route)
+PUT  /plugins/com.mattermost.calls/config            -> 405   (the plugin route is GET-only)
+PUT  /api/v4/plugins/com.mattermost.calls/config     -> 404
+GET  /api/v4/config                                  -> 200   (core config)
+```
+
+So: the plugin config is readable at `GET /plugins/com.mattermost.calls/config` (unauthenticated
+`/version` too), while writes to it are not exposed by the plugin route — plugin settings change
+through the **core** config (`PUT /api/v4/config` with `PluginSettings.Plugins["com.mattermost.calls"]`),
+which is how the fixture's `ICEHostOverride` experiment was set and cleared in T44b. Any note that
+implies the plugin's config cannot be read is wrong.
 
 ### 4.4 Message set (client→server), `server/client_message.go:13-33 @ 6b65e3b5`
 
@@ -284,23 +314,54 @@ target (`Mattermost`, `MattermostShare`, `NotificationService`, `ErrorReporting`
 
 ## 5. Question 3 — memory: a native engine must not cost what the webview costs
 
-**Measured, on this host** (`probe-memory`, macOS arm64 slice of the same xcframework; three runs;
-`docs/t44a-memory-probe-2026-10-24.log`):
+**The metric is stated before the numbers**, because two different ones are in play and they are
+not interchangeable:
 
-| stage | run 1 | run 2 | run 3 |
+* **peak RSS** — `getrusage(RUSAGE_SELF).ru_maxrss`, the high-water mark of the resident set. It
+  includes shared pages, it is monotonic (a peak can never fall) and it is what `ps -o rss` shows.
+* **`phys_footprint`** — `task_info(TASK_VM_INFO).phys_footprint`, the kernel's dirty-footprint
+  accounting, which is what Instruments and `footprint(1)` report — and the metric the T27 baseline
+  quotes for the webview (`docs/perf/README.md`: "`phys_footprint` is the kernel's physical-footprint
+  accounting").
+
+The T44a capture recorded only the first. Measured on this host (`probe-memory`, macOS arm64 slice
+of the same xcframework; three runs; `docs/t44a-memory-probe-2026-10-24.log`):
+
+| stage | run 1 peak RSS | run 2 peak RSS | run 3 peak RSS |
 |---|---|---|---|
 | 0. process start | 8.1 MB | 8.1 MB | 8.2 MB |
 | 1. encoder/decoder factories + `RTCPeerConnectionFactory` | 14.0 MB | 14.0 MB | 14.0 MB |
 | 2. + one `RTCPeerConnection` with a `calls-dc` data channel | 15.1 MB | 15.1 MB | 15.2 MB |
-| 3. after 5 s settle | 15.1 MB | 11.6 MB | 15.2 MB |
+| 3. after 5 s settle | 15.1 MB | ~~11.6 MB~~ | 15.2 MB |
 
-So: **the engine baseline is ≈6 MB and one non-connected peer connection lands at ≈12-15 MB
-resident** — the entire WebRTC engine costs less than the SwiftUI shell's own floor (30.0 MB Catalyst
-shell, T27), and ~30-40× less than one loaded webview.
+T44-AV re-ran the same probe at the same commit and recorded **both** metrics
+(`t44av-evidence/memory-probe.log`):
+
+| stage | peak RSS (runs 1 / 2 / 3) | `phys_footprint` (runs 1 / 2 / 3) |
+|---|---|---|
+| 0. process start | 8.1 / 8.1 / 8.1 MB | 2.0 / 2.0 / 2.0 MB |
+| 1. factories created | 13.9 / 13.9 / 13.9 MB | 4.3 / 4.3 / 4.3 MB |
+| 2. + one `RTCPeerConnection` + `calls-dc` | 15.2 / 15.0 / 15.0 MB | 4.5 / 4.3 / 4.3 MB |
+| 3. after 5 s settle | 15.2 / 15.0 / 15.0 MB | 4.4 / 4.3 / 4.3 MB |
+
+So: **the engine baseline is ≈6 MB peak RSS (≈2.4 MB footprint) above process start, and one
+non-connected peer connection lands at ≈15 MB peak RSS / ≈4.4 MB `phys_footprint`.**
+
+The **11.6 MB** cell in run 2 of the original capture is **withdrawn: it is not a peak RSS.** A peak
+is monotonic, and 11.6 MB is below the same run's own earlier peak (15.1 MB at stage 2), so it is
+either a current-RSS sample or a timing artefact; it did not reproduce in three re-runs (stage 3 read
+15.1 / 15.0 / 15.2 MB), and nothing in this programme uses it.
+
+**Against the T27 baseline, on the same metric.** T27's "what one loaded webview costs" is
+`phys_footprint` — 562.1 MB Catalyst / 460.7 MB simulator, ~90 % of it the WebContent process
+(`docs/perf/README.md`). The engine's 4.4 MB footprint is therefore ~100× cheaper, not the
+"30-40×" a peak-RSS-vs-footprint comparison would suggest. The conclusion is unchanged and the
+honest number is *better* than the one this section first quoted: memory is not the reason to stay
+on the webview.
 
 **What is NOT measured, stated plainly:** media. No audio encoding (Opus), no video
 encode/decode, no remote streams, no rendering, no camera pipeline — this host has no Calls server to
-connect to. No vendor publishes a per-active-call RSS number for WebRTC on iOS, and this spike will
+connect to. No vendor publishes a per-active-call memory number for WebRTC on iOS, and this spike will
 not invent one. A realistic single-video-call cost is the measured floor plus codec and frame-buffer
 memory; that must be probed on a device (§8, P2).
 
@@ -448,7 +509,8 @@ HEAD). Full output: `docs/t44-calls-probe-2026-10-27.log`; media-path evidence:
 **C1 — §4.2's "a native client may use plain JSON" holds for `join`/`ice`/call-state reads, but is
 wrong for `sdp`, and that is the one action a call cannot work without.** The plugin type-asserts the
 SDP payload to `[]byte` (`server/websocket.go`, `msgData, ok := req.Data["data"].([]byte)` —
-`websocket.go:1226` at `936dd00`, `:1350` at `6b65e3b`, i.e. **both** versions), and the core server's
+`websocket.go:1224` at `936dd00`, i.e. the assert; `:1226` is the `LogError` directly below it, which
+is the line the server's log message quotes), and the core server's
 JSON decoder produces a `string`, so the frame is dropped server-side with
 `{"level":"error","msg":"invalid or missing sdp data","origin":"…WebSocketMessageHasBeenPosted websocket.go:1226"}`
 and the session is torn down at the 10 s signalling timeout. Measured as probe checks 5 (JSON offer,
@@ -462,7 +524,8 @@ path.
 offers: `calls-common`'s `RTCPeer` emits a local offer from `onNegotiationNeeded`
 (`src/rtc_peer.ts:136-142` at the plugin's pinned `e463e78cc76302d1bdbd085d9e1846c456f48d45`) as soon
 as the first local track is added, and only then answers the client
-(`:196-198`). A client that joins and waits is disconnected after ~10 s — measured, probe check 8.
+(`:196-198`). A client that joins and waits is disconnected after ~10 s — measured, probe run C
+(the no-offer check; this was "check 8" before T44-AV-R rebuilt it — see §11).
 
 **C3 — the pinned protocol source and the deployed plugin were different versions.** This note read
 `mattermost-plugin-calls` at `6b65e3b` (= `v1.12.6-2`). The plugin shipping in the tested image is
@@ -489,3 +552,56 @@ from the host while a control STUN server answers. 0/3 reachable → no client c
 addition — **T44b must come first and must prove RTP**, because until the fixture's SFU is reachable no
 "bidirectional audio" criterion can be measured by anybody, and `SurfaceDefaults.nativeApprovedSurfaces`
 must not gain `calls` on the strength of a signalling test alone.
+
+---
+
+## 11. T44-AV-R (2026-10-27) — record corrections, and why the probe's negatives changed shape
+
+T44-AV (`t_1929324b`) validated T44 and found that two of this note's numbers and one of its probe's
+checks did not mean what they said. This card (`t_19ac4035`) repaired the record and the probe. Nothing
+here changes the pin or the recommendation; §10's C1–C3 stand.
+
+**Corrections landed in this note:**
+
+* **§5 memory is peak RSS, and now says so.** The quoted 11.6–15.2 MB was `ru_maxrss` (peak RSS),
+  not `phys_footprint`; the same probe's footprint is **2.0 MB at process start → 4.4 MB** with a peer
+  connection. The `11.6 MB` cell in run 2 is **withdrawn** — a peak cannot fall below its own earlier
+  value (15.1 MB), and it did not reproduce in three re-runs. The T27 webview figure it was being
+  compared against (562.1 / 460.7 MB) is `phys_footprint`, so the honest comparison is
+  **4.4 MB vs 460–562 MB (≈100×)**, not the RSS-vs-footprint 30–40×. §5 carries the method.
+* **§4.1/§4.3 line numbers re-verified at `936dd00`**: `wsActionPrefix` is
+  `build/manifest/main.go:37`; the `[]byte` assert is `server/websocket.go:1224` (`:1226` is the
+  `LogError` it triggers); `WebSocketMessageHasBeenPosted` is `:1101`; `wsEventSignal` is `:26`
+  published at `:592`; `handleJoin` is `:644`; `sessionAuthCheckInterval` is `:78`.
+* **§4.3's REST list is 1.x, and is now stamped as such**: `POST /calls/{channel_id}/decline` does
+  **not** exist at 0.29.8. The route table this note now lists is the one in `v0.29.8`
+  `server/api_router.go`, and the plugin-config routes are recorded with what they actually answer
+  (`GET /plugins/com.mattermost.calls/config` → **200**; `GET /api/v4/plugins/…/config` → **404**;
+  `PUT` on the plugin route → **405**; `GET /api/v4/config` → **200**). The config is readable; the
+  probe reads it on every run.
+
+**Why the probe's checks changed shape** (detail: `docs/t44-calls-probe-2026-10-27.log`):
+
+* The plugin publishes `signal` **to the user**, not to the connection (`websocket.go:590-593`), so a
+  second live session of the same account delivers its answer and candidates to any socket of that
+  account. The old checks counted **any** `signal` frame, so they failed for a reason unrelated to
+  what they measured (T44-AV: 6 PASS / 2 FAIL under concurrency vs 8 PASS / 0 FAIL alone).
+* The probe now takes its own `connID` from the core server's `hello.connection_id` — not from the
+  join ack, which is *also* user-broadcast (`websocket.go:830-832`) and therefore ambiguous with two
+  live sessions — and ignores (and counts in `--json` as `foreign_signal_ignored`) every `signal`
+  frame whose `connID` is not its own. `scripts/t44r_conn_id_check.py` proves the attribution:
+  a client-supplied `?connection_id=` is ignored by the server, `hello` reports the id it assigned,
+  and the join ack for that socket repeats it.
+* The old check 8 ("the client is the offerer", which only really meant "run A was not
+  contaminated") is replaced by **run C**: a session that joins and sends nothing must receive **0**
+  `signal` frames for its own `connID` and must be torn down by the plugin at ~10 s, announced as
+  `user_left` with `session_id` == that connection's `connID` (measured: 10.04–10.15 s across six
+  runs). Both facts are attributed per connection, so the check holds alone and under concurrency —
+  proven in three arrangements in the refreshed log (isolated, concurrent, staggered).
+
+**Not done here, stated plainly:** the plugin's *own* `join` ack being user-scoped is a plugin
+behaviour, not something this repo can fix; a native client must get its `connID` from `hello` the
+same way this probe does, and T44c should inherit that sentence. `POST /calls/{channel_id}/decline`
+and the rest of the 1.x surface were **not** re-verified against 1.x here (no 1.x checkout on this
+host); §10 C3 remains the pointer for that drift.
+

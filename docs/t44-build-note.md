@@ -86,7 +86,74 @@ extension is a **parity regression against the webview**, not a port of it. **Wh
 `web`, screen share works exactly as it works today — inside the webview** (the web app's own
 `getDisplayMedia` path). That is the answer the retired T16 asked for.
 
-### 3.3 What the pin does not break: the webview's Calls UI still loads
+### 3.3 The pin holds on iPad width — and gives iPhone width no way into a call (measured)
+
+T44-AV could not find a Calls entry point at iPhone width and left the question open. Measured, in
+this app's own `WebViewStore` (desktop `customUserAgent`, the same `WKWebViewConfiguration`, the same
+bridge), signed in against the fixture, on an iPhone 16 Pro simulator at two explicit webview sizes:
+
+```
+cp scripts/t44r_webview_dom_probe.swift MattermostTests/T44RCallsWebviewDomTests.swift
+xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
+  -destination 'platform=iOS Simulator,id=<iPhone 16 Pro>' \
+  -derivedDataPath ~/Library/Developer/Xcode/DerivedData/t44r-wt-ios \
+  -only-testing:MattermostTests/T44RCallsWebviewDomTests     # clean worktree at 29cb3b2
+rm MattermostTests/T44RCallsWebviewDomTests.swift
+```
+
+The probe ships as `scripts/t44r_webview_dom_probe.swift`, not inside `MattermostTests/`:
+that folder is a `PBXFileSystemSynchronizedRootGroup`, so a file copied there is compiled into the
+test target with no pbxproj edit (the build log names `T44RCallsWebviewDomTests.swift (in target
+'MattermostTests')` although the project file never mentions it) — landing it there would move the
+Catalyst suite from 1489 run / 4 skipped to 1490 / 5, the baseline every later card compares to.
+The copy/remove above is the whole wiring, and the file is **unwired in the tree as committed**.
+
+| | 402 × 874 pt (iPhone 16 Pro) | 834 × 1194 pt (iPad Pro 11) |
+|---|---|---|
+| `window.innerWidth` | 402 | 834 |
+| `meta[name=viewport]` | `width=device-width,initial-scale=1` | same |
+| `documentElement.scrollWidth` | 402 (no overflow) | 834 (no overflow) |
+| `#calls-join-button` in DOM | **yes**, text "Start call" | **yes** |
+| its rect | **0 × 0 at (0,0)** | 95 × 32 at (646, 97) |
+| `.channel-header` computed style | **`display: none`** | `display: block`, 458 × 56 at (331, 85) |
+| `.team-sidebar` | `display: none` | `display: flex`, 65 wide |
+| desktop header / mobile header elements | 1 / **0** | 1 / **0** |
+| `#calls` (plugin UI root) | 402 × 0 at y = 874 | 834 × 0 |
+
+Three things follow, and they are the answer to "does the pin's screen-share reason justify a
+portrait-only iPhone app":
+
+1. **The webview's viewport is honest at both widths.** The requested width *is* `innerWidth`, the
+   page ships `width=device-width,initial-scale=1`, and the document does not scroll sideways
+   (`scrollWidth == innerWidth`, `layoutOverflows: false`). There is no zoom or scale hack in the
+   way, and nothing about the rendering is "off" — the layout is a desktop layout, correctly
+   rendered, at a narrow width.
+2. **At iPad width the pinned surface works.** Header visible, Calls button visible and hit-testable
+   (95 pt wide at x = 646), call UI root mounted full width.
+3. **At iPhone width the pinned surface has no header at all, so there is no Calls button to tap.**
+   The web app hides `.channel-header` with CSS (`display: none`) at this width and expects to have
+   swapped to its *mobile* layout — but the app sends a desktop `User-Agent` (T29), so the web app
+   never mounts the mobile header (`mobileHeader: 0`, `desktopHeader: 1`). What is left is a chat
+   surface with the left sidebar pushed off-canvas (channel list items measured at x = −259…−35),
+   the team sidebar hidden, and no channel header — hence no Calls entry point, no channel menu, no
+   "Add a channel header" action. The plugin itself is fine: `#calls` mounts full width at both
+   sizes, and `#calls-join-button` exists in the DOM at 402 pt — it is simply inside a
+   `display: none` subtree.
+
+So the pin's reason ("screen share works exactly as it works today") is true **on iPad** and moot
+**on iPhone**: an iPhone-portrait app whose chat surface is the pinned webview can offer channels
+and posts, but not placing or joining a call, because the entry point does not render. That is a
+property of the pin, not a bug in this card's scripts, and it is why `calls` must not be counted as
+"already works, just pin it" for an iPhone-sized viewport.
+
+*(Method note, for anyone repeating this: the fixture attaches `MMAUTHTOKEN`/`MMUSERID`/`MMCSRF`
+only to a login request carrying `X-Requested-With: XMLHttpRequest` — the identical request without
+that header answers 200 with no `Set-Cookie` and the app bounces to `/login`. The harness therefore
+logs in with `URLSession`, injects the resulting cookies into the webview's own
+`WKHTTPCookieStore`, and measures; driving the login from inside the page killed the hosted-test
+process.)*
+
+### 3.4 What the pin does not break: the webview's Calls UI still loads
 
 `calls` renders the webview, so what matters is that the server's web app still gets the Calls
 plugin's browser bundle. Measured on the fixture:
@@ -202,7 +269,9 @@ criterion cannot be approved.
 1. **"A native client may use plain JSON" is wrong for the `sdp` action.** The spike (§4.2) read the
    core server's ability to accept JSON text frames and concluded the T28 `SocketClient` could be
    reused as-is. It cannot: the plugin type-asserts the SDP payload to `[]byte`
-   (`server/websocket.go:1226` at `936dd00`, `:1350` at `6b65e3b` — both versions), and the core
+   (`server/websocket.go:1224` at `936dd00`; the `LogError` that follows it, "invalid or missing sdp
+   data", is on `:1226` — the two were conflated in this paragraph when it was first written, and the
+   assert is the one that matters), and the core
    server's JSON decoder produces a `string`, so the frame is dropped with the server-side log
    `{"level":"error","msg":"invalid or missing sdp data","origin":"…WebSocketMessageHasBeenPosted
    websocket.go:1226"}` and the session dies at the 10 s signalling timeout. Measured as probe checks
@@ -280,8 +349,20 @@ xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
 ```
 
 `build/logs/t44-catalyst-units.log` — 1489 run / 4 skipped / 0 failed, the same counts T43-R reported
-at `e6f5637`, which is the expected result for a docs-and-scripts commit. The 4 skips are the
-pre-existing ones (no APNs on this host).
+at `e6f5637`, which is the expected result for a docs-and-scripts commit.
+
+**The four skips are named, because "no APNs" was wrong.** None of them is about push notifications.
+From the same run (`catalyst-units.log`, T44-AV re-derived it at `7b25de2`):
+
+| skipped test | why it skips |
+|---|---|
+| `CertTrustTests.testKeychainSetOverwritesAnExistingItem` | ad-hoc Catalyst host has no keychain entitlement (`-34018`); `testCompositeSetOverwritesAnExistingItem` covers the fallback path |
+| `MentionPollerTests.testLiveMentionsFetch_optIn` | needs `TEST_RUNNER_MM_LIVE_URL` + `_TOKEN` (a real server) |
+| `SelfSignedTrustTests.testNativeCallFailsUntrustedThenSucceedsAfterTheCertificateIsTrusted` | needs the self-signed fixture on `https://127.0.0.1:18443` — `scripts/t28-selfsigned-check.sh` |
+| `SelfSignedTrustTests.testRealWebSocketTransportOpensOnlyAfterTheCertificateIsTrusted` | needs the self-signed `wss://` fixture on the same host |
+
+So three of the four are "live fixture not running" and one is an ad-hoc signing limitation of this
+host — all pre-existing, none introduced by T44.
 
 ## 8. Limits that stay (stated, not hidden)
 

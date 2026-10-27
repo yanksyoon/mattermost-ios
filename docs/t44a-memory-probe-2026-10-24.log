@@ -1,3 +1,26 @@
+# T44-AV-R annotation (2026-10-27) — the metric this file did not name.
+#
+# Every number below is PEAK RSS in MB: getrusage(RUSAGE_SELF).ru_maxrss, the resident-set
+# high-water mark (what `ps -o rss` shows), sampled after each stage by the `probe-memory`
+# executable. It is NOT `phys_footprint`.
+#
+# `phys_footprint` of the same probe, re-measured at the same commit by T44-AV (three runs,
+# ~/.hermes/profiles/mmios-qa/t44av-evidence/memory-probe.log):
+#   process start   2.0 / 2.0 / 2.0 MB
+#   factories       4.3 / 4.3 / 4.3 MB
+#   peer connection 4.5 / 4.3 / 4.3 MB
+#   after 5 s       4.4 / 4.3 / 4.3 MB
+# and its peak RSS, same three runs: 8.1 / 13.9 / 15.2-15.0 / 15.2-15.0 MB.
+#
+# The "3. after 5s settle  11.6 MB" line in run 2 is WITHDRAWN: a peak cannot fall, so an 11.6 MB
+# reading after a 15.1 MB peak is a current-RSS sample or a timing artefact, not a measurement of
+# the peak. It did not reproduce (stage 3 read 15.1 / 15.0 / 15.2 MB in the re-runs). The T27
+# webview figure it used to be compared against (562.1 / 460.7 MB) is `phys_footprint`, so the
+# apples-to-apples comparison is 4.4 MB footprint vs 460-562 MB footprint — see
+# docs/t44a-calls-spike.md §5.
+#
+# The raw capture follows, unedited.
+
 OK
 0. process start                                8.1 MB
 1. factories created                           14.0 MB
