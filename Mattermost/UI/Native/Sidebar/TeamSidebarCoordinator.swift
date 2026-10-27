@@ -115,6 +115,19 @@ final class TeamSidebarCoordinator: ObservableObject {
     /// team that is on screen, delivered after they passed the current scope.
     var onTeamEvent: ((UUID, SocketEvent) -> Void)?
 
+    /// T43: **every** event from this server's socket, delivered *before* the team scope decides anything.
+    ///
+    /// Notifications are not team-scoped: a mention in another team is still a mention of the reader, and
+    /// `TeamSocketScope` would refuse exactly those events, so the notification input cannot hang off
+    /// `onTeamEvent`. It does not need the scope either — the notification decision is made from the post,
+    /// the channel and the reader's own props (`MentionNotificationPolicy`), all of which the feed fetches
+    /// per mention.
+    var onServerEvent: ((UUID, SocketEvent) -> Void)?
+
+    /// T43: the pump's own lifetime, per server. The notification input gate needs it to know which
+    /// server's socket is the live input, and therefore which server's web bridge must be refused.
+    var onSocketStateChange: ((UUID, Bool) -> Void)?
+
     private let events: TeamEventSourcing
     /// How long post activity is coalesced before the counters are refetched. A burst of ten posts
     /// is one request, not ten (the unread endpoint is cheap, but it is still the server).
@@ -263,6 +276,9 @@ final class TeamSidebarCoordinator: ObservableObject {
         pumps[serverID] = nil
         scopes[serverID] = nil
         models[serverID] = nil
+        // T43: a pump that is gone is not the live mention input any more, so the web bridge is the
+        // fallback again (and the notification gate must know before the socket actually closes).
+        onSocketStateChange?(serverID, false)
         await events.close(serverID: serverID)
     }
 
@@ -347,6 +363,8 @@ final class TeamSidebarCoordinator: ObservableObject {
         let source = events
         pumps[server.id] = Task { [weak self] in
             guard let stream = await source.events(for: server, token: token) else { return }
+            // T43: the pump exists from here on, so this server's socket is the live mention input.
+            self?.onSocketStateChange?(server.id, true)
             for await event in stream {
                 guard let self else { return }
                 await self.handle(event, serverID: server.id)
@@ -359,9 +377,17 @@ final class TeamSidebarCoordinator: ObservableObject {
         guard pumpTokens[serverID] == token else { return }
         pumpTokens[serverID] = nil
         pumps[serverID] = nil
+        // The stream ended (a drop before the client's own reconnect loop takes over): the socket is not
+        // the live input again until the next pump reports itself.
+        onSocketStateChange?(serverID, false)
     }
 
     private func handle(_ event: SocketEvent, serverID: UUID) async {
+        // T43: notifications see every event, before the scope below can refuse an unattributable or
+        // other-team one. Nothing else subscribes at this point on purpose — a screen's data is scoped,
+        // a mention is not.
+        onServerEvent?(serverID, event)
+
         switch event {
         case .posted, .postEdited, .postDeleted, .channelViewed, .multipleChannelsViewed, .postUnread:
             // Any of these can change a team's counters — for *any* team, since the socket is

@@ -236,6 +236,23 @@ struct MentionKeys: Equatable, Sendable {
         return nil
     }
 
+    /// Whether `message` names the reader through **any** key, broadcast keys (`@channel`, `@all`,
+    /// `@here`) included.
+    ///
+    /// `matches` is the *inbox* rule and deliberately leaves the broadcast keys out: the mentions window is
+    /// a personal-mentions search, and asking the server for `@channel` would return every broadcast post on
+    /// the server. A **notification** is the other question — the server notifies a reader who enabled
+    /// "channel mentions", so T43's policy asks this one instead. Same whole-token matching, so
+    /// `@perf` is still not `@perfprobe`.
+    func matchesIncludingBroadcasts(_ message: String, caseSensitive: Bool? = nil) -> Bool {
+        guard !message.isEmpty else { return false }
+        for key in keys where !key.key.isEmpty {
+            let sensitive = caseSensitive ?? key.caseSensitive
+            if Self.contains(message, key.key, caseSensitive: sensitive) { return true }
+        }
+        return false
+    }
+
     /// A whole-token match: the character before and after the key is not a word character.
     nonisolated static func contains(_ message: String, _ key: String, caseSensitive: Bool) -> Bool {
         guard !key.isEmpty else { return false }

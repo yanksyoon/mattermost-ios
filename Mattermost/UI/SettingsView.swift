@@ -26,6 +26,11 @@ struct SettingsView: View {
     let viewStore: ViewStore?
     @ObservedObject var appSettings: AppSettings
     @ObservedObject var sessionStore: SessionStore
+    /// T43: which input reports mentions (backed by the process-wide `NotificationInputRouting`), and the
+    /// native input's own read-out. Optional so the view still renders in a preview or a test host that has
+    /// no shell; the app always passes both (`RootView` → here).
+    var notificationPath: NotificationPathStore? = nil
+    var notificationFeed: NativeNotificationFeed? = nil
     /// T31: the app-level auth owner. Settings is the shell's home for "sign out of this server":
     /// the native session lives in this object, so a sign-out here and a 401 anywhere else are the
     /// same state change.
@@ -65,6 +70,7 @@ struct SettingsView: View {
             Form {
                 generalSection
                 notificationsSection
+                notificationInputSection
                 languageSection
                 serversSection
                 sessionSection
@@ -190,6 +196,19 @@ struct SettingsView: View {
             }
         } header: {
             Text("Notifications")
+        }
+    }
+
+    // MARK: - Mention input (T43: which path reports mentions, and what it has done)
+
+    /// Renders only when the shell handed the two objects in (the app always does; a preview or a bare
+    /// test host gets no row rather than a crash).
+    @ViewBuilder
+    private var notificationInputSection: some View {
+        if let notificationPath, let notificationFeed {
+            NotificationInputSection(path: notificationPath,
+                                     feed: notificationFeed,
+                                     routing: .shared)
         }
     }
 

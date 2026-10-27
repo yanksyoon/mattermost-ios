@@ -66,6 +66,18 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     weak var serverStore: ServerStore?
     weak var viewStore: ViewStore?
 
+    /// What the user is actually looking at, when the shell can say. `nil` (no provider installed) is
+    /// treated as `.unknown` — the pre-T43 rule.
+    ///
+    /// T43 refined the foreground suppression: desktop's `view_should_not_notify` is about the
+    /// **channel** being read, not the server being visible, and the old whole-server rule swallowed a
+    /// mention in another channel of the visible server (the exact case T43's acceptance criterion
+    /// requires to produce one banner). `MattermostApp` installs this from `NativeNavigation.location`, so
+    /// the native input can compare channels; a webview-rendered surface answers `.unknown` and keeps the
+    /// conservative rule, because the web app already suppresses its own focused-channel mentions and a
+    /// second opinion there could only add noise.
+    var visibleChannel: ((UUID) -> VisibleChannel)?
+
     /// T30: the native shell's router. Same rule as `DeepLinkRouter.nativeNavigation` — consulted at
     /// call time and only while the pane host surface resolves `native`, so a tap never lands in a
     /// router that is not on screen.
@@ -121,11 +133,27 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
             return .notSent(.missingServer)
         }
 
-        // Desktop `view_should_not_notify`: the user is looking at this server right now —
-        // the web app suppresses its own focused mentions, and a banner here would be noise.
+        // Desktop `view_should_not_notify`: the user is looking at this mention right now — the web app
+        // suppresses its own focused mentions, and a banner here would be noise. T43: the comparison is
+        // per **channel** when the shell can say which channel is on screen (`visibleChannel`); the
+        // T8 whole-server rule survives only for `.unknown` (a webview-rendered surface).
         if isAppActive() && serverID == viewStore?.primaryServerID {
-            Logger.debug("NotificationWorker", "mention suppressed: \(serverID) is the visible server")
-            return .notSent(.viewShouldNotNotify)
+            let visible = visibleChannel?(serverID) ?? .unknown
+            let isBeingRead: Bool
+            switch visible {
+            case .unknown:
+                // Path A: the shell cannot see the web app's channel. Keep the conservative rule.
+                isBeingRead = true
+            case .noChannel:
+                // The native shell is on this server but nothing is open: nothing is being read.
+                isBeingRead = false
+            case .channel(let channelID):
+                isBeingRead = channelID == mention.channelID
+            }
+            if isBeingRead {
+                Logger.debug("NotificationWorker", "mention suppressed: \(mention.channelID) is the channel on screen")
+                return .notSent(.viewShouldNotNotify)
+            }
         }
 
         // First mention -> ask once, and only when the OS hasn't already decided (task T8 spec:
@@ -297,6 +325,20 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
 enum MentionSound: Equatable {
     case none
     case systemDefault
+}
+
+/// What the shell can say about the channel the user is looking at, for the foreground suppression rule.
+///
+/// `.unknown` is a real state, not a failure: it is what a webview-rendered pane answers (the channel lives
+/// inside the page, not in the shell). Collapsing it into "no channel" would make the worker notify for
+/// mentions the web app already decided to suppress; collapsing it into "a channel" is the T8 rule.
+enum VisibleChannel: Equatable {
+    /// The shell does not know which channel is on screen (Path A).
+    case unknown
+    /// The native shell is on this server with no channel open.
+    case noChannel
+    /// The native shell is showing this channel.
+    case channel(String)
 }
 
 // MARK: - Scheduling seam

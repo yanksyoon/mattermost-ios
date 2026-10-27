@@ -8,6 +8,11 @@ import SwiftUI
 struct RootView: View {
     @ObservedObject var serverStore: ServerStore
     @ObservedObject var viewStore: ViewStore
+    /// T43: the mention-input switch and the native input's read-out, handed to Settings. Optional so a
+    /// host that builds `RootView` without the shell's notification objects still renders; the app always
+    /// passes them (`MattermostApp`).
+    var notificationPath: NotificationPathStore? = nil
+    var notificationFeed: NativeNotificationFeed? = nil
     @EnvironmentObject var appSettings: AppSettings
     @EnvironmentObject var sessionStore: SessionStore
     /// The single render-mode decision point. `RootView` is the **only** caller of
@@ -126,7 +131,9 @@ struct RootView: View {
                         SettingsView(serverStore: serverStore,
                                      viewStore: viewStore,
                                      appSettings: appSettings,
-                                     sessionStore: sessionStore)
+                                     sessionStore: sessionStore,
+                                     notificationPath: notificationPath,
+                                     notificationFeed: notificationFeed)
                     }
             }
             .toolbar {
@@ -156,7 +163,9 @@ struct RootView: View {
                 SettingsView(serverStore: serverStore,
                              viewStore: viewStore,
                              appSettings: appSettings,
-                             sessionStore: sessionStore)
+                             sessionStore: sessionStore,
+                             notificationPath: notificationPath,
+                             notificationFeed: notificationFeed)
             }
                     .confirmationDialog(
                         "Remove \(serverPendingRemoval?.name ?? "this server")?",

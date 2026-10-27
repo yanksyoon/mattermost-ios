@@ -230,17 +230,30 @@ final class MentionPoller {
     private let deliverMention: (MentionNotification, UUID) async -> NotificationWorker.PresentOutcome
     private let nowMs: () -> Int64
 
+    /// T43: the **one** high-water mark, shared with the foreground socket input
+    /// (`NativeNotificationFeed.ledger`). The app points both at the same object; a test can too.
+    ///
+    /// Before T43 the poller owned this state outright, which made "already notified" a private fact and
+    /// left the known T14 duplicate (a mention delivered live *and* again by the next poll) unfixable
+    /// without a second dedupe guess. Sharing the state is what closes it: the socket records the post it
+    /// handled, so `isNew` refuses it on the next poll.
+    var ledger: MentionLedger
+
+    /// The persisted key. Kept as T14's original spelling (one definition lives in `MentionLedger`), so
+    /// an install that already polled keeps its watermark.
     static func stateKey(for serverID: UUID) -> String {
-        "mm.mentions.state.\(serverID.uuidString)"
+        MentionLedger.stateKey(for: serverID)
     }
 
     init(preferences: AppPreferences = AppPreferences(),
          session: URLSession? = nil,
          deliverMention: ((MentionNotification, UUID) async -> NotificationWorker.PresentOutcome)? = nil,
-         nowMs: @escaping () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) }) {
+         nowMs: @escaping () -> Int64 = { Int64(Date().timeIntervalSince1970 * 1000) },
+         ledger: MentionLedger? = nil) {
         self.preferences = preferences
         self.injectedSession = session
         self.nowMs = nowMs
+        self.ledger = ledger ?? MentionLedger(preferences: preferences)
         self.deliverMention = deliverMention ?? { mention, serverID in
             await NotificationWorker.shared.presentMention(mention, fromServerID: serverID)
         }
@@ -455,37 +468,36 @@ final class MentionPoller {
         return false
     }
 
-    /// Build the `MentionNotification` the foreground bridge would have produced: channel
-    /// display name (or the desktop default) as title, `@username: message` as body,
-    /// channel/team ids and server URL filled for the push-proxy-parity `userInfo`.
+    /// Build the `MentionNotification` the socket input would have produced: channel display name (or the
+    /// desktop default) as title, `@username: message` as body, channel/team ids and server URL filled for
+    /// the push-proxy-parity `userInfo`.
+    ///
+    /// T43: both call sites now go through `MentionNotificationFormatting`, so "the poller and the socket
+    /// produce the same banner" is structural rather than a promise (`T43NotificationFormattingTests`
+    /// pins the equality).
     nonisolated static func makeMention(post: MentionPost,
                                         channel: MentionChannelInfo?,
                                         user: MentionUserInfo?,
                                         server: ServerConfig) -> MentionNotification {
-        let title = channel?.displayName.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }?
-            .nilIfEmpty ?? "Someone mentioned you"
-        let body: String
-        if let username = user?.username, !username.isEmpty {
-            body = "@\(username): \(post.message)"
-        } else {
-            body = post.message
-        }
-        return MentionNotification(title: title, body: body,
-                                   channelID: post.channelId,
-                                   teamID: channel?.teamId ?? "",
-                                   serverURL: server.url.absoluteString,
-                                   silent: false, soundName: nil)
+        MentionNotificationFormatting.mention(
+            title: MentionNotificationFormatting.title(channelDisplayName: channel?.displayName),
+            body: MentionNotificationFormatting.body(message: post.message, username: user?.username),
+            channelID: post.channelId,
+            teamID: channel?.teamId ?? "",
+            serverURL: server.url.absoluteString,
+            silent: false)
     }
 
     // MARK: - State persistence
 
+    /// T43: the state lives in the one `MentionLedger`. Reading and writing it here would be a second
+    /// writer next to the socket input, so the poller only *reads* and *merges*.
     func loadState(for serverID: UUID) -> ServerMentionState {
-        preferences.get(ServerMentionState.self, forKey: Self.stateKey(for: serverID))
-            ?? ServerMentionState()
+        ledger.state(for: serverID)
     }
 
     private func persist(_ state: ServerMentionState, for serverID: UUID) {
-        preferences.set(state, forKey: Self.stateKey(for: serverID))
+        ledger.merge(state, for: serverID)
     }
 
     // MARK: - Fetch plumbing

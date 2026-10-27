@@ -25,8 +25,12 @@ struct WebViewContainer: UIViewRepresentable {
     @EnvironmentObject var notificationWorker: NotificationWorker
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(store: store, serverID: serverID, serverURL: serverURL,
-                    sessionStore: sessionStore, notificationWorker: notificationWorker)
+        let coordinator = Coordinator(store: store, serverID: serverID, serverURL: serverURL,
+                                      sessionStore: sessionStore, notificationWorker: notificationWorker)
+        // T43: the app-wide mention-input arbitration, so this webview's `notify_mention` frames are
+        // refused while the server's native socket is the live input.
+        coordinator.mentionInput = NotificationInputRouting.shared
+        return coordinator
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -111,6 +115,12 @@ struct WebViewContainer: UIViewRepresentable {
         /// Local-notification scheduler (desktop `main/notifications`); receives mention events.
         let notificationWorker: NotificationWorker
 
+        /// T43: the mention-input arbitration. `nil` (a Coordinator built without one, e.g. in a unit test)
+        /// accepts every frame, which is the pre-T43 behaviour; `makeCoordinator` installs the app's
+        /// instance. It is a plain optional rather than an `@EnvironmentObject` so a webview built outside
+        /// the app scene (a preview, a test, the SSO sheet) cannot crash on a missing environment value.
+        var mentionInput: NotificationInputRouting?
+
         init(store: WebViewStore,
              serverID: UUID,
              serverURL: URL,
@@ -170,6 +180,14 @@ struct WebViewContainer: UIViewRepresentable {
         // MARK: JsBridge
 
         func handleNotifyMention(_ payload: MentionNotification) {
+            // T43: **one source per server.** When the server's native socket is the live mention input,
+            // this frame is the second banner for the same post, so it is refused. That single refusal is
+            // what makes a dual-render run (webview still drawing, native input live) produce one banner
+            // instead of two — and it is why the flip needs no change here, only a different mode.
+            if let mentionInput, !mentionInput.acceptsBridge(serverID: serverID) {
+                Logger.info("Bridge", "notify_mention refused: the native socket is the live input")
+                return
+            }
             Logger.info("Bridge", "mention for \(payload.serverURL): \(payload.body)")
             Task { _ = await notificationWorker.presentMention(payload, fromServerID: serverID) }
         }

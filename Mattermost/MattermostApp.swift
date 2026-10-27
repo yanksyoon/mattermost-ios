@@ -65,6 +65,17 @@ struct MattermostApp: App {
     /// server's counters to `SessionStore`. Owned here because a tab switch re-creates the view and
     /// because a `posted` frame arrives on a socket no view owns.
     @StateObject private var activityCoordinator: ActivityCoordinator
+    /// T43: the mention-input switch (which of the two inputs is live). Owned here because Settings reads
+    /// it, the shell writes it and the gate must be one object for the process.
+    @StateObject private var notificationPath: NotificationPathStore
+    /// T43: the native mention input — socket `posted` → policy → `NotificationWorker`, with the ledger and
+    /// the badge hand-off. Owned here for the same reason every coordinator above is: it is fed by the
+    /// rail's single socket, which no view can subscribe to, and it must outlive a view re-creation.
+    @StateObject private var notificationFeed: NativeNotificationFeed
+
+    /// T43: keeps `NotificationInputRouting.shared` on the store's mode when the debug switch changes at
+    /// runtime (the Settings row) without a relaunch.
+    @State private var notificationPathCancellable: AnyCancellable?
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
@@ -178,6 +189,11 @@ struct MattermostApp: App {
         }())
         // T42: the activity feed's owner, bound in `bindShellStores()` like the rest.
         _activityCoordinator = StateObject(wrappedValue: ActivityCoordinator())
+        // T43: the mention-input switch and the native input that reads the rail's socket. Both are built
+        // here so the gate, the Settings read-out and the feed are the same objects the views see; their
+        // store seams are bound in `bindShellStores()`.
+        _notificationPath = StateObject(wrappedValue: NotificationPathStore())
+        _notificationFeed = StateObject(wrappedValue: NativeNotificationFeed())
         #if DEBUG
         // UI-test seam: `-uiTestAssumeSignedIn` makes the native shell render as if the seeded
         // server had a session, so its panes can be exercised against a stub server that has no
@@ -284,7 +300,8 @@ struct MattermostApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(serverStore: serverStore, viewStore: viewStore)
+            RootView(serverStore: serverStore, viewStore: viewStore,
+                     notificationPath: notificationPath, notificationFeed: notificationFeed)
                 .environmentObject(deepLinkRouter)
                 .environmentObject(downloadWorker)
                 .environmentObject(appSettings)
@@ -318,6 +335,10 @@ struct MattermostApp: App {
                 // T42: the activity feed's owner — app-wide for the same reasons (a tab switch must not
                 // lose the window, and it is fed by the rail's socket).
                 .environmentObject(activityCoordinator)
+                // T43: the mention-input switch (Settings reads it, and the diagnostics row shows which
+                // input is live) and the native input's own read-out (last mention, delivered/dropped).
+                .environmentObject(notificationPath)
+                .environmentObject(notificationFeed)
                 // T31: the SSO hand-off mounts the server's existing webview inside a sheet, so the
                 // store owner has to be reachable from the environment too (the pane's web branch
                 // still receives it as a parameter).
@@ -523,6 +544,36 @@ struct MattermostApp: App {
         activityCoordinator.bind(auth: authCoordinator,
                                  serverStore: serverStore,
                                  sessionStore: sessionStore)
+        // T43: the native mention input. It resolves the same session every other native service does
+        // (per call, so a service built before the session restored is not permanently signed out), is fed
+        // by the rail's single socket below, and shares **one** high-water mark with the T14 poller.
+        notificationFeed.bind(serverStore: serverStore, sessionStore: sessionStore)
+        notificationFeed.serviceFactory = { [weak authCoordinator] server in
+            SessionActivityService {
+                guard let authCoordinator,
+                      let session = try? authCoordinator.session(for: server) else { return nil }
+                return session.client
+            }
+        }
+        // One ledger object for both inputs: the poller merges what it notified into it, the socket records
+        // what it handled, and neither can deliver the other's mention a second time.
+        MentionPoller.shared.ledger = notificationFeed.ledger
+        // The gate the webview consults before it delivers a `notify_mention` frame. One mode per process,
+        // kept in step with the store so the Settings row and a `-notificationPath` launch flag both land
+        // on the same object.
+        NotificationInputRouting.shared.setMode(notificationPath.mode)
+        notificationPathCancellable = notificationPath.$mode
+            .removeDuplicates()
+            .sink { mode in NotificationInputRouting.shared.setMode(mode) }
+        // The worker's foreground rule compares the channel on screen, when the shell can say which one it
+        // is. A webview-rendered pane answers `.unknown`, which keeps T8's whole-server rule for Path A.
+        notificationWorker.visibleChannel = { [weak nativeNavigation] serverID -> VisibleChannel in
+            guard let nativeNavigation, nativeNavigation.acceptsNativeRouting else { return .unknown }
+            let location = nativeNavigation.location
+            guard location.serverID == serverID else { return .noChannel }
+            guard let channelID = location.channelID, !channelID.isEmpty else { return .noChannel }
+            return .channel(channelID)
+        }
         teamSidebarCoordinator.onTeamEvent = { [weak channelSidebarCoordinator, weak channelPaneCoordinator,
                                                 weak threadCoordinator, weak searchCoordinator,
                                                 weak channelInfoCoordinator,
@@ -550,6 +601,20 @@ struct MattermostApp: App {
         // T30 reserved this seam for S08: with a channel list loaded, a deep link's channel *name*
         // and a tapped mention's channel *id* resolve to the same `NativeLocation`.
         nativeNavigation.directory = channelSidebarCoordinator
+        // T43: the rail's socket is the **one** socket per server, so the native mention input reads that
+        // same stream — and it reads it *before* the team scope, because a mention in another team is still
+        // a mention of the reader (`onTeamEvent` below would drop exactly those).
+        teamSidebarCoordinator.onServerEvent = { [weak notificationFeed, weak serverStore] serverID, event in
+            guard let server = serverStore?.servers.first(where: { $0.id == serverID }) else { return }
+            Task { @MainActor in
+                await notificationFeed?.handle(event, server: server)
+            }
+        }
+        // T43: and it learns which servers' sockets are live, which is what makes the bridge refuse (and
+        // therefore what makes a dual-render run produce one banner, not two).
+        teamSidebarCoordinator.onSocketStateChange = { [weak notificationFeed] serverID, live in
+            notificationFeed?.socketStateChanged(serverID: serverID, live: live)
+        }
         authCoordinator.onChange = { [weak nativeNavigation, weak teamSidebarCoordinator,
                                       weak channelSidebarCoordinator, weak channelPaneCoordinator,
                                       weak threadCoordinator, weak searchCoordinator,
@@ -573,6 +638,8 @@ struct MattermostApp: App {
             profileCoordinator?.authPhaseChanged(serverID)
             // …and the mentions window, which was fetched with that credential (T42).
             activityCoordinator.authPhaseChanged(serverID)
+            // …and the mention input's cached profile keys and channel rows (T43).
+            notificationFeed.authPhaseChanged(serverID)
         }
     }
 
