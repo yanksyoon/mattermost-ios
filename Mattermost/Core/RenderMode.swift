@@ -83,13 +83,14 @@ public enum SurfaceDefaults {
     /// | Surface | Approved by | Evidence |
     /// |---|---|---|
     /// | `.auth` | T31-AV (`t_c57a7551`, verdict `PASS-WITH-FINDINGS`, F8 = approve) | `docs/t31r-patch-note.md` §5; findings F1–F4 repaired by T31-R before the flip was treated as final |
+    /// | `.calls` | T44d-AV (`t_466e8e90`, verdict `PASS-WITH-FINDINGS`) | `docs/t44d-build-note.md` §4/§7 (`build/logs/t44d-av-live1.log`: 2/2 live tests, `** TEST SUCCEEDED **`), `docs/parity.md` T44d row; reachability caveat recorded there — the entry point only mounts inside a native pane, and `.channelView` still resolves `web` |
     ///
     /// Everything not listed here defaults to `.web`, so an unapproved card can never ship its
     /// surface native. A card flips its own surface to native-by-default by appending its rawValue
     /// **after** its `-AV` card has passed, in its own clearly-labelled commit — that exact diff is
     /// what the next validator audits (`scripts/verify-dual-render-gates.sh` gate 5 fails on a
     /// non-empty registry unless `--allow-approved-registry` accompanies the approval commit).
-    public static let nativeApprovedSurfaces: Set<Surface> = [.auth]
+    public static let nativeApprovedSurfaces: Set<Surface> = [.auth, .calls]
 
     /// Surfaces whose native card renders the *entire* per-server work area — every region the
     /// one-per-server WKWebView paints (sidebar, channel header, post list, composer, RHS). Empty:

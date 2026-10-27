@@ -72,7 +72,7 @@ plugin to create a session and emit these; the plugin drops such a session ~10 s
 `user_disconnected` + `user_left`, because nothing ever connects media to it — which is why the
 probe's session ends that way and the app's does not.
 
-## 3. Rules the unit suite pins (40 T44d tests + 4 engine tests)
+## 3. Rules the unit suite pins (39 T44d tests + 4 engine tests)
 
 `MattermostTests/T44DCallsSurfaceTests.swift` (14), `…CoordinatorTests.swift` (17),
 `…APITests.swift` (5), `T44DSocketBinarySendTests.swift` (3), plus 4 in
@@ -249,3 +249,107 @@ Changed: `Mattermost/Core/MM/SocketEvent.swift` (`send(data:)` is a protocol req
 (`getPlugin`/plugin routes), `TeamSidebarCoordinator.swift` (`callsTransport`), `MattermostApp.swift`,
 `ChannelView.swift`, `MattermostTests/T44CCallsEventTests.swift` (measured names + channel),
 `MattermostTests/T44CCallsEngineTests.swift` (4 folding tests).
+
+## 7. T44d-AV — the adversarial pass (`t_466e8e90`, 2026-10-27)
+
+Re-derived from `origin/main` `a96bde02` in a **detached worktree** (the shared checkout had another
+worker's uncommitted `ChannelView`/`ScrollRestoreRunner` edits), with a **never-built** derived-data
+path (`~/Library/Developer/Xcode/DerivedData/mmios-t44d-av-units`; the GRDB submodule cannot be
+fetched offline, so `SourcePackages/` was copied from the existing cache — build products were not
+reused). Verdict: **PASS-WITH-FINDINGS**. Findings, and what the pass added, are below.
+
+### 7.1 Unit suite (Mac Catalyst), copied from the runner's own output
+
+```
+Executed 1596 tests, with 7 tests skipped and 0 failures (0 unexpected) in 45.480 (55.456) seconds
+** TEST SUCCEEDED **
+  T44DCallsSurfaceTests      14 run, 0 failed
+  T44DCallsCoordinatorTests  17 run, 0 failed
+  T44DCallsAPITests           5 run, 0 failed
+  T44DSocketBinarySendTests   3 run, 0 failed
+  T44CCallsEngineTests       18 run, 3 skipped (peer-negotiation, MM_CALLS_PEER_TESTS unset), 0 failed
+```
+
+Log: `build/logs/t44d-av-units.log`. The 39 T44d tests listed in §3 are 14+17+5+3 — the earlier
+"40" in this note and in `docs/parity.md` was arithmetic, corrected here.
+
+### 7.2 The two fixes bite (mutation-tested, not taken on trust)
+
+* **`send(data:)` as a protocol requirement.** Removed the requirement from
+  `SocketTransport` (`Mattermost/Core/MM/SocketEvent.swift`), re-ran the class:
+  `tests: 3 run, 0 skipped, 1 failed` — `testBinaryFrameReachesTheTransportThatImplementsSendData`
+  fails with `caught error: "binaryFramesUnsupported"` (the live error, reproduced). Restored the
+  line and re-ran: `3 run, 0 skipped, 0 failed`. Logs: `build/logs/t44d-av-mutationA.log`,
+  `t44d-av-mutationA-restored.log`.
+* **`CallsEngine.fold(_:)`.** Neutered the fold body (`return` before the switch) and re-ran the
+  engine class: `18 run, 3 skipped, 3 failed` — `testAConfirmedUnmuteSurvivesTheNextSnapshot`
+  (`user_unmuted` never reaches `snapshot.call`), `testUserJoinedAndLeftMoveTheSessions`,
+  `testRaisedHandAndHostChangeAreFolded`. Restored: `18 run, 3 skipped, 0 failed`
+  (`build/logs/t44d-av-mutationB.log`, `t44d-av-mutationB-restored.log`).
+  Note, for the next reader: the fourth case, `testADeltaForAnotherChannelIsNotFolded`, passes under
+  a full fold removal by construction (it asserts a delta is *not* applied), so it is a guard against
+  the wrong thing being folded, not evidence that folding happens. Three of the four bite.
+
+### 7.3 Live suite, re-run independently (the §4.2 abort did not recur)
+
+```
+python3 scripts/qa-test.py --platform ios --sim id=81A7F251-… --only-testing MattermostUITests/T44DCallsUITests \
+  --derived-data ~/Library/Developer/Xcode/DerivedData/mmios-t44d-av-units   (TEST_RUNNER_MM_AUTH_* set, perfprobe)
+Executed 2 tests, with 0 failures (0 unexpected) in 88.762 (88.765) seconds
+** TEST SUCCEEDED **
+  testMuteSurvivesTheSnapshotAndLeaveEndsTheCall  passed (47.814 s)
+  testStartCallCreatesTheCallOnTheServerAndLeaveEndsIt passed (40.948 s)
+```
+
+Log: `build/logs/t44d-av-live1.log` (attachments `01-header-start`, `02-surface-joining`,
+`03-surface-In-call`, `04-after-leave`, `05-unmuted`, `06-muted-after-roundtrip`; no new Mattermost
+crash report). Host at start: load 119/158/120, one simulator booted, another worker's
+`xcodebuild test` started during the run — so this pass does **not** reproduce the "quiet host only"
+story from §4.2; the abort did not recur, and the suite's own assertions (both `user_unmuted` **and**
+`user_muted` on a second socket, `app.state == .runningForeground`, `Leave` dismissing the surface)
+all ran, because a skipped test prints `skipped`, not `passed`. Independent server-side check after
+the run (`GET /plugins/com.mattermost.calls/calls/{channel}/active`): `{"active": false}` — the
+UI-driven Leave ended the call on the plugin.
+
+### 7.4 Registry flip (separate commit, `t_466e8e90`)
+
+`.calls` is now in `SurfaceDefaults.nativeApprovedSurfaces`. The flip is **not** a one-line diff: four
+assertions in two test files encode the registry's contents and the "canonical unapproved surface"
+(`ViewStoreTests.testEmptyRegistriesMakeReleaseUnreachable`; `SurfaceModeResolverTests`
+`testOnlyTheApprovedRegistryDefaultsToNative`, and two cases that used `.calls` as the example of a
+surface falling through to the compile-time default — those now use `.threads`, which is still
+unapproved). Missing either of the last two is what the first post-flip run showed: `1596 run,
+7 skipped, 2 failed` (`build/logs/t44d-av-units-postflip.log`); after the correction the suite is
+green again (`build/logs/t44d-av-units-postflip2.log`). **Reachability caveat**, measured in source:
+the entry point (`CallsJoinEntry`) is drawn by `NativeChannelPaneView`, so it only appears when the
+pane host `SurfaceDefaults.paneHostSurface` (`.channelView`) resolves `native` — and that surface is
+**not** approved, so a shipping build still renders the web app and the web client's Calls. The flip
+is the correct registry state; it is not a user-visible change until the pane is approved, and screen
+share stays web-only until T44e.
+
+Proof of the flip, as the card asks — a run with **no `-surfaceMode calls=native` flag**
+(`build/logs/t44d-av-flip-proof.log`; the proof test itself is not committed):
+
+```
+xcodebuild test … -only-testing MattermostUITests/T44DAVFlipProofUITests   (shell=native, no calls flag)
+Executed 1 test, with 0 failures (0 unexpected) in 18.963 seconds
+** TEST SUCCEEDED **
+  calls.joinButton exists, value "idle"   (attachment `flip-proof-calls-entry`)
+```
+
+`scripts/verify-dual-render-gates.sh --allow-approved-registry` → `RESULT: PASS — dual-render debug
+affordances cannot reach a Release build` (`nativeApprovedSurfaces` reads `[.auth, .calls]`).
+
+### 7.5 Findings that stay open (each with the command that reproduces it)
+
+1. **Camera control absent** although the card's scope line names it. Deliberate and documented
+   (§5, `CallsControlSet.showsCamera == false`, `CallsVideoCapability.unsupported`): 0.29.8 has no
+   `video_on`/`video_off` and the engine captures no video, so a button would be inert. Not a defect;
+   it is a scope deviation a reader of the card text must be told about.
+2. **Reachability** (§7.4) — `.calls` native-by-default has no user-visible effect until
+   `.channelView` is approved; recorded in `docs/parity.md` and `docs/dual-render.md` §4 now.
+3. **Test-count arithmetic**: 39, not 40 (corrected).
+4. **`testADeltaForAnotherChannelIsNotFolded` is vacuous under fold removal** (§7.2).
+5. **A second participant's tile from a real peer** and **remote audio arriving** are still not
+   rendered from the wire: §5 lists both; the live oracle here is the reader's own tile plus the
+   plugin's broadcasts.

@@ -34,12 +34,14 @@ final class SurfaceModeResolverTests: XCTestCase {
     // MARK: Compile-time default
 
     /// The registry is the **only** route to native-by-default (`docs/dual-render.md` §5). As of
-    /// T31-R it holds exactly one entry — `.auth`, approved by T31-AV (F8) — and every other
-    /// surface still falls back to the web view. Pinning the exact set is the point: a card that
-    /// quietly adds its surface here fails this test and the `-AV` gate script.
+    /// T44d-AV it holds two entries — `.auth` (approved by T31-AV, F8) and `.calls` (approved by
+    /// T44d-AV, `t_466e8e90`) — and every other surface still falls back to the web view. Pinning
+    /// the exact set is the point: a card that quietly adds its surface here fails this test and the
+    /// `-AV` gate script.
     func testOnlyTheApprovedRegistryDefaultsToNative() {
-        XCTAssertEqual(SurfaceDefaults.nativeApprovedSurfaces, [.auth],
-                      "T31-AV approved `.auth` and nothing else; adding to this set is an -AV claim")
+        XCTAssertEqual(SurfaceDefaults.nativeApprovedSurfaces, [.auth, .calls],
+                      "T31-AV approved `.auth` and T44d-AV approved `.calls`; adding to this set is "
+                      + "an -AV claim")
         let resolver = makeResolver()
         for surface in Surface.allCases {
             let expected: SurfaceRenderMode = SurfaceDefaults.nativeApprovedSurfaces.contains(surface)
@@ -178,14 +180,14 @@ final class SurfaceModeResolverTests: XCTestCase {
         resolver.setOverride(.native, for: .profile)
         XCTAssertEqual(resolver.resolvedMode(for: .profile), .native,
                        "the persisted override wins over the remote default")
-        XCTAssertEqual(resolver.resolvedMode(for: .calls), .native,
+        XCTAssertEqual(resolver.resolvedMode(for: .threads), .native,
                        "surface without an override still takes the remote default")
     }
 
     func testRemoteDefaultFillsBetweenPersistedAndCompileTimeDefault() {
         let resolver = makeResolver(remoteDefault: { $0 == .profile ? .native : nil })
         XCTAssertEqual(resolver.resolvedMode(for: .profile), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .calls), .web,
+        XCTAssertEqual(resolver.resolvedMode(for: .threads), .web,
                        "unhandled surfaces fall through to the compile-time default")
     }
 
@@ -370,7 +372,7 @@ final class SurfaceModeResolverTests: XCTestCase {
             preferences: AppPreferences(defaults: defaults),
             remoteDefault: { $0 == .profile ? .native : nil })
         XCTAssertEqual(releaseResolver.resolvedMode(for: .profile), .native)
-        XCTAssertEqual(releaseResolver.resolvedMode(for: .calls), .web)
+        XCTAssertEqual(releaseResolver.resolvedMode(for: .threads), .web)
     }
 
     // MARK: R5 — the reset paths beat a launch override too (T26-R)
