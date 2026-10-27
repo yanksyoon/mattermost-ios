@@ -617,6 +617,18 @@ struct MattermostApp: App {
             guard let channelSidebarCoordinator else { return }
             Task { await channelSidebarCoordinator.handle(event, serverID: serverID) }
         }
+        // T34-R5: a socket that dropped and came back missed whatever the server published while it was
+        // down — the server does not replay it on the new connection, so without this the miss is
+        // permanent until relaunch (measured: a `posted` that reached no pane in five of eight T34-R5
+        // runs; the rail's `SocketClient` had carried a `resync` seam nothing passed).
+        //
+        // Only the channel pane resyncs today: it is the surface T34 owns the window of, and
+        // `ChannelViewModel.resyncAfterReconnect` is the merge rule that keeps a reader's older pages.
+        // The thread pane, the mentions feed and channel info still repair only on their next appearance
+        // — a documented limit (docs/parity.md, T34 row) rather than a claim that they are live-correct.
+        teamSidebarCoordinator.onSocketResync = { [weak channelPaneCoordinator] serverID in
+            Task { await channelPaneCoordinator?.resync(serverID: serverID) }
+        }
         // T30 reserved this seam for S08: with a channel list loaded, a deep link's channel *name*
         // and a tapped mention's channel *id* resolve to the same `NativeLocation`.
         nativeNavigation.directory = channelSidebarCoordinator

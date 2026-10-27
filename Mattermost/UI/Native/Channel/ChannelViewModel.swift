@@ -97,6 +97,14 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     @Published private(set) var threadJumpRootID: String?
     /// The last socket event's effect, for diagnostics/tests (never rendered).
     @Published private(set) var lastEventOutcome: EventOutcome = .ignored
+    /// T34-R5: how many reconnect refetches this window ran, and how many **new** rows the last one added.
+    ///
+    /// Diagnostics and tests: "never resyncs" and "resyncs on every connect" look identical on screen
+    /// until one of them is counted, and the difference is what a lost frame costs. A failed refetch
+    /// counts as an attempt (`lastResyncInsertedCount` stays 0); only the phase and the window are left
+    /// alone, because the rows on screen are still the server's page as of the last load.
+    private(set) var resyncCount = 0
+    private(set) var lastResyncInsertedCount = 0
 
     /// How many posts the window holds (diagnostics/tests).
     var loadedCount: Int { posts.count }
@@ -247,6 +255,66 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
         } catch {
             guard requested == generation else { return }
             phase = .failed(Self.message(for: error))
+        }
+    }
+
+    // MARK: - Resync after a reconnect (T34-R5)
+
+    /// Repair the window after the socket dropped and came back.
+    ///
+    /// A reconnect is the one moment this client *knows* it may have missed events: the server does not
+    /// replay what it published while the connection was down, and `SocketClient` reports the reconnect
+    /// only as a message to the app (`resync`, once per reconnect). Nothing passed that closure until
+    /// T34-R5 measured a `posted` that never reached this model, which meant a message lost in that
+    /// window stayed lost until the app was relaunched.
+    ///
+    /// What it does, and what it deliberately does not:
+    ///  - it refetches the **newest page** and merges it: rows it does not hold are inserted, rows it does
+    ///    hold are replaced by the server's copy (an edit made while the socket was down), and **nothing
+    ///    is dropped** — a reader who has scrolled back through older pages keeps them;
+    ///  - it does not reset the window (`reload()` does), the paging cursor or `hasMore`, so a resync can
+    ///    neither move the reader nor make the older end unreachable;
+    ///  - it adopts a `last_viewed_at` that moved **forward** (the channel was read on another client),
+    ///    which is what moves the unread divider, and never moves it back;
+    ///  - it is a no-op on a model that never loaded: its first load fetches the newest page anyway.
+    ///
+    /// Returns how many rows were added (`0` when the window was already current or the request failed —
+    /// a failed resync is not a failed pane; the rows on screen are still the server's page as of the last
+    /// load, and the next reconnect tries again).
+    @discardableResult
+    func resyncAfterReconnect() async -> Int {
+        guard phase == .loaded else { return 0 }
+        let requested = generation
+        // Counted before the request: the attempt is what a diagnostic needs to see, and a refetch that
+        // fails is still a refetch the app made.
+        resyncCount += 1
+        lastResyncInsertedCount = 0
+        do {
+            let page = try await service.posts(channelID: channelID, before: nil, perPage: service.pageSize)
+            guard requested == generation else { return 0 }
+            let rows = Self.timelineRows(page.orderedPosts, channelID: channelID)
+            let known = Set(posts.map(\.id))
+            // A page cannot reorder what is already loaded: a row that is held keeps its position and
+            // only its content is refreshed.
+            for row in rows where known.contains(row.id) { replace(row) }
+            let fresh = rows.filter { !known.contains($0.id) }
+            if !fresh.isEmpty {
+                for row in fresh { postsByID[row.id] = row }
+                posts = Self.sortedNewestFirst(posts + fresh)
+            }
+            await loadProfiles(for: Array(Set(fresh.map(\.userId))))
+            guard requested == generation else { return 0 }
+            adoptReactionState(for: rows)
+            if let member = try? await service.membership(channelID: channelID),
+               member.lastViewedAt > (lastViewedAt ?? 0) {
+                lastViewedAt = member.lastViewedAt
+            }
+            guard requested == generation else { return 0 }
+            rebuild()
+            lastResyncInsertedCount = fresh.count
+            return fresh.count
+        } catch {
+            return 0
         }
     }
 

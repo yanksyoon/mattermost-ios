@@ -45,51 +45,121 @@ protocol TeamEventSourcing: AnyObject {
     /// server — instead of giving Calls a second connection. `nil` when the server's URL is not
     /// usable; a source that has never opened a connection creates it here (idempotent).
     func transport(for server: ServerConfig, token: String) async -> (any CallsSocketTransport)?
+
+    /// The socket dropped and came back: everything the server published while it was down was never
+    /// delivered, and the server does not replay it on the new connection. This hands that gap up to
+    /// the app, once per reconnect, with the server it happened on.
+    ///
+    /// `SocketClient` has carried a `resync` seam since T28 (`invoked once per reconnect`) and nothing
+    /// passed one until T34-R5 measured a `posted` that never reached the pane and T34-QA measured that
+    /// no wait in the test could create a frame the socket never delivered. The source holds no REST
+    /// service — it is one `SocketClient` per server — so *what* a resync means is the app's decision:
+    /// the handler refetches what it owns.
+    ///
+    /// The handler must return promptly: it is awaited on the socket's open path, before the receive
+    /// loop reads the next frame. A refetch therefore belongs in a task of its own.
+    func setResyncHandler(_ handler: @escaping @Sendable (UUID) async -> Void)
 }
 
 extension TeamEventSourcing {
-    /// Default for the test fakes: a fake that does not model sending simply has no transport.
+    /// Default for the test fakes: a fake that does not model reconnects has nothing to resync.
     func transport(for server: ServerConfig, token: String) async -> (any CallsSocketTransport)? {
         nil
     }
+
+    func setResyncHandler(_ handler: @escaping @Sendable (UUID) async -> Void) {}
 }
 
 /// Production source: `SocketClient` per server, with the shared `CertTrust` the webview uses (so a
 /// self-signed server that was trusted in the webview does not prompt twice).
+///
+/// The transport factory and the clock are injectable so the reconnect path — the only path where the
+/// resync handler is invoked — can be driven by a test without a network or a real backoff sleep. The
+/// production values build the same `WebSocketTransport` and sleep through `SystemSocketClock`.
 @MainActor
 final class SocketTeamEventSource: TeamEventSourcing {
+    typealias TransportFactory = @Sendable (URL, [String: String], ServerConfig) -> SocketTransport
+
     private var clients: [UUID: SocketClient] = [:]
     private let certTrust: CertTrust
     private let onUntrustedCertificate: ((CertificatePrompt) -> Void)?
+    private let transportFactory: TransportFactory?
+    private let clock: SocketClock
+    /// Read at *call* time, not captured when a client is built: the coordinator installs it in `init`,
+    /// but a handler installed after the first connection must still receive the next reconnect.
+    private var resyncHandler: (@Sendable (UUID) async -> Void)?
+
+    /// The heartbeat interval, `nil` to disable it.
+    ///
+    /// Production keeps `SocketClient`'s 30 s default. The seam exists because the heartbeat **recycles the
+    /// connection** on a missed pong, so a test that drives reconnects through a released clock would
+    /// otherwise produce heartbeat reconnects as well and could not tell them from the one it caused. The
+    /// heartbeat itself is pinned by `SocketClientTests`.
+    private let heartbeatInterval: TimeInterval?
 
     init(certTrust: CertTrust = CertTrust(),
-         onUntrustedCertificate: ((CertificatePrompt) -> Void)? = nil) {
+         onUntrustedCertificate: ((CertificatePrompt) -> Void)? = nil,
+         transportFactory: TransportFactory? = nil,
+         clock: SocketClock = SystemSocketClock(),
+         heartbeatInterval: TimeInterval? = 30) {
         self.certTrust = certTrust
         self.onUntrustedCertificate = onUntrustedCertificate
+        self.transportFactory = transportFactory
+        self.clock = clock
+        self.heartbeatInterval = heartbeatInterval
     }
 
     var openConnectionCount: Int { clients.count }
+
+    func setResyncHandler(_ handler: @escaping @Sendable (UUID) async -> Void) {
+        resyncHandler = handler
+    }
 
     func events(for server: ServerConfig, token: String) async -> AsyncStream<SocketEvent>? {
         if let existing = clients[server.id] { return await existing.subscribe() }
         guard let base = MMBaseURL(server.url), let url = base.websocket() else { return nil }
         let configuration = SocketClient.Configuration(url: url,
                                                        token: token,
-                                                       origin: base.origin)
+                                                       origin: base.origin,
+                                                       pingInterval: heartbeatInterval)
         let certTrust = self.certTrust
         let onUntrustedCertificate = self.onUntrustedCertificate
+        let injectedFactory = self.transportFactory
         let client = SocketClient(
             configuration: configuration,
             transportFactory: { url, headers in
-                WebSocketTransport(url: url,
-                                   headers: headers,
-                                   serverURL: server.url,
-                                   certTrust: certTrust,
-                                   onUntrustedCertificate: onUntrustedCertificate)
+                if let injectedFactory { return injectedFactory(url, headers, server) }
+                return WebSocketTransport(url: url,
+                                          headers: headers,
+                                          serverURL: server.url,
+                                          certTrust: certTrust,
+                                          onUntrustedCertificate: onUntrustedCertificate)
+            },
+            clock: clock,
+            resync: { [weak self] reason in
+                await self?.socketResynced(serverID: server.id, reason: reason)
             })
         clients[server.id] = client
         await client.start()
         return await client.subscribe()
+    }
+
+    /// One reconnect. `SocketClient` calls this once per reconnect, after the in-band authentication
+    /// challenge, before it starts the heartbeat — so it goes through the app's handler, which is
+    /// synchronous by design (`TeamSidebarCoordinator.socketResynced`) and cannot hold the receive loop
+    /// up on a page request.
+    ///
+    /// No handler installed is logged rather than ignored: it is exactly the state this class shipped
+    /// in (a `SocketClient` built without `resync`), and a silent gap is what made T34's flake read as
+    /// "the socket never delivered the frame" for two rounds.
+    private func socketResynced(serverID: UUID, reason: SocketClient.ResyncReason) async {
+        guard let resyncHandler else {
+            MMLog.info("MMSocket", "reconnected (\(reason.rawValue)) with no resync handler; "
+                + "frames published while the socket was down are not refetched")
+            return
+        }
+        MMLog.info("MMSocket", "reconnected (\(reason.rawValue)); requesting a resync")
+        await resyncHandler(serverID)
     }
 
     func close(serverID: UUID) async {
@@ -150,6 +220,14 @@ final class TeamSidebarCoordinator: ObservableObject {
     /// server's socket is the live input, and therefore which server's web bridge must be refused.
     var onSocketStateChange: ((UUID, Bool) -> Void)?
 
+    /// T34-R5: the socket dropped and came back. Whatever the server published while it was down was
+    /// never delivered and is never replayed, so every pane that shows live data has to refetch.
+    ///
+    /// Synchronous on purpose: this is called from `SocketClient`'s open path (before the receive loop
+    /// continues), so the refetch itself is the caller's task. `MattermostApp` wires it to the channel
+    /// pane; a pane that is not wired here keeps its current window until the next appearance.
+    var onSocketResync: ((UUID) -> Void)?
+
     private let events: TeamEventSourcing
     /// How long post activity is coalesced before the counters are refetched. A burst of ten posts
     /// is one request, not ten (the unread endpoint is cheap, but it is still the server).
@@ -174,6 +252,8 @@ final class TeamSidebarCoordinator: ObservableObject {
     private(set) var deliveredEventCount = 0
     private(set) var refusedEventCount = 0
     private(set) var scopeSwitchCount = 0
+    /// How many reconnects this coordinator was told about (one per `SocketClient` resync).
+    private(set) var socketResyncCount = 0
 
     init(events: TeamEventSourcing? = nil,
          unreadRefreshDelay: TimeInterval = 1.5,
@@ -185,6 +265,13 @@ final class TeamSidebarCoordinator: ObservableObject {
         self.unreadRefreshDelay = unreadRefreshDelay
         self.tokenOverride = tokenProvider
         self.serviceFactory = makeService
+        // T34-R5: the source reports a reconnect; what to refetch is this object's decision (it is the
+        // one place that knows which panes exist). Installed here, before any client is built —
+        // `events(for:)` creates them lazily — and it returns without awaiting anything, because the
+        // socket awaits it on its open path.
+        self.events.setResyncHandler { [weak self] serverID in
+            await self?.socketResynced(serverID)
+        }
     }
 
     // MARK: Wiring
@@ -454,6 +541,21 @@ final class TeamSidebarCoordinator: ObservableObject {
         } else {
             refusedEventCount += 1
         }
+    }
+
+    /// One reconnect, from `SocketClient` through `SocketTeamEventSource`.
+    ///
+    /// Three things, in this order and all cheap: count it (so a test and the log can tell a reconnect
+    /// from a first connect), hand it to the panes (they start their own refetch — this must not hold the
+    /// socket's open path on a page request), and refetch the per-team counters through the same
+    /// debounced path a socket event uses. The counters are refetched rather than incremented for the
+    /// reason `handle` already states — the server owns the arithmetic — and a resync is precisely the
+    /// case where a local increment would have missed events.
+    private func socketResynced(_ serverID: UUID) async {
+        socketResyncCount += 1
+        MMLog.info("T32", "socket resynced for server \(serverID.uuidString.prefix(8)); refetching panes")
+        onSocketResync?(serverID)
+        scheduleUnreadRefresh(serverID: serverID)
     }
 
     private func scheduleUnreadRefresh(serverID: UUID) {

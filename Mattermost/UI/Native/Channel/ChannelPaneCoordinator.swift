@@ -208,6 +208,39 @@ final class ChannelPaneCoordinator: ObservableObject {
         }
     }
 
+    /// The server's socket dropped and came back: repair every window this server already loaded.
+    ///
+    /// This is the other half of T34-R5's finding. `posted` patches a window in place, so an event that
+    /// is never delivered is never applied — and the server does not replay what it published while the
+    /// connection was down. The rail's `SocketClient` reports the reconnect once; this is where the
+    /// screen makes good on it.
+    ///
+    /// *Every warm channel*, not only the one on screen: the socket is server-scoped, so a `posted` for
+    /// any of the six kept channels can have been lost, and a channel switched to afterwards that
+    /// quietly lacks a message is the same defect one tap away. `resyncAfterReconnect()` merges the
+    /// newest page into whatever window each model holds, so an off-screen window is repaired in place.
+    ///
+    /// Only *loaded* models are resynced: an idle model has nothing to repair (its first load fetches the
+    /// newest page anyway) and asking the server for a channel nobody has opened would be work and a
+    /// request for nothing.
+    ///
+    /// Returns how many models were resynced, and counts the round in `resyncCount` (tests: "never
+    /// resyncs" and "resyncs on every connect" otherwise look identical).
+    @discardableResult
+    func resync(serverID: UUID) async -> Int {
+        guard let byChannel = models[serverID], !byChannel.isEmpty else { return 0 }
+        var repaired = 0
+        for (_, model) in byChannel where model.phase == .loaded {
+            _ = await model.resyncAfterReconnect()
+            repaired += 1
+        }
+        if repaired > 0 { resyncCount += 1 }
+        return repaired
+    }
+
+    /// How many reconnect rounds this coordinator repaired (diagnostics/tests).
+    private(set) var resyncCount = 0
+
     /// Sign-out / expiry / server removal: drop the server's windows.
     func deactivate(_ serverID: UUID) {
         models[serverID] = nil
