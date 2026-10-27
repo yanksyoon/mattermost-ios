@@ -154,11 +154,32 @@ $ ... --size 1                       -> [FAIL] ASSET ... 13402755 bytes on the r
 $ ... --sha 75796c1a...              -> [FAIL] TAG COMMIT v0.6.0 -> 7685cd00, built 75796c1a
 ```
 
-The G1/G2 demonstration — two documentation commits pushed back-to-back, one superseded
-run and one tip run — is recorded with its run ids on board card `t_4ae44452`. The
-behaviour it shows is the one documented above: the superseded run ends **green in
-seconds** with every macOS job `skipped`, and the tip run skips only the *test* legs
-while still cutting a release and attaching the app.
+### The two-push demonstration (G1 + G2)
+
+Two documentation commits pushed back-to-back, `bdcb3227` then `27547373`:
+
+| run | commit | guard | outcome |
+|---|---|---|---|
+| `40430717885` | `bdcb3227` | started 01:07:53, done 01:08:00 (**7 s**) | whole run **12 s**, conclusion **success**: `is_tip=false`, `docs_only=true`, `run_tests=false`, `reason=superseded: bdcb3227 is not the tip of main (27547373)`; `test`, `tag and publish`, `package` all **skipped** |
+| `40430720554` | `27547373` | started 01:08:04, done 01:08:09 (**5 s**) | `is_tip=true`, `docs_only=true`, `run_tests=false`, `reason=tip of main; documentation only (1 file(s)), test legs skipped, release still cut`; `test` **skipped**, `tag and publish` **success** (`v0.8.0`), `package` **success** |
+
+So the superseded run costs twelve seconds and is *green*, with the reason printed on the
+run page; the tip run skips only the test legs and still produces
+`v0.8.0` at `27547373` with `Mattermost-macOS-v0.8.0.zip` attached and verified:
+
+```
+[PASS] RELEASE    v0.8.0 is published
+[PASS] ASSET      Mattermost-macOS-v0.8.0.zip 13402755 bytes matches the built zip
+[PASS] TAG COMMIT v0.8.0 -> 27547373 (the built commit)
+VERIFY: PASS — the release carries this job's asset, at this job's commit.
+```
+
+`git ls-remote --tags` confirms the tip is tagged: `refs/tags/v0.8.0` → `27547373`.
+
+One rendering quirk, because it looks like a bug and is not: on a run where the matrix
+job never started, GitHub does not expand the matrix in the job name, so the two skipped
+legs appear as `test (${{ matrix.name }})`. A job that ran always shows its leg
+(`test (ios-simulator)`, `test (catalyst)`).
 
 ## Residual limitation, stated so it is not assumed away
 

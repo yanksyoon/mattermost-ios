@@ -73,6 +73,11 @@ run is **green**, not cancelled. Run B is the tip with `docs_only=true`, so its 
 answers `run_tests=false` and only the release and package jobs do work — the release is
 still cut and the app is still attached to it.
 
+On such a run the two skipped test legs render as `test (${{ matrix.name }})`: GitHub
+does not expand the matrix in the name of a job that never started. A leg that ran always
+shows its name (`test (ios-simulator)`, `test (catalyst)`), so this is a rendering quirk,
+not a broken template — check the guard's `reason` line for the actual decision.
+
 ### Stage 1 — test (macos-26, matrix: `ios-simulator` + `catalyst`)
 
 The runner image ships **Xcode 26.6 (17F113)**, the same build the app is developed
