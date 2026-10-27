@@ -28,11 +28,18 @@ struct NativeChannelSidebarContent: View {
     /// The owner of the per-server model. It is asked to `activate` because the first appearance is
     /// what turns "the shell is on this server" into a load (one model, one socket, no view state).
     @EnvironmentObject private var channels: ChannelSidebarCoordinator
+    /// The threads coordinator, so this row can show how many threads are unread without the pane
+    /// being open. The model it hands back is the same one the Threads pane uses.
+    @EnvironmentObject private var threads: ThreadCoordinator
 
     @State private var quickSwitcherPresented = false
     /// T40: the channel browser (S24). Presented from this list because the list is where a missing
     /// channel would be looked for.
     @State private var browseChannelsPresented = false
+    /// The team's global-thread list, resolved once the sidebar knows its team. Held so the row can
+    /// draw the unread count live: a thread that arrives over the socket moves the badge the same
+    /// way it moves the list.
+    @State private var globalThreads: GlobalThreadsViewModel?
 
     var body: some View {
         List {
@@ -45,6 +52,15 @@ struct NativeChannelSidebarContent: View {
         // The appearance pass: point the model at the shell's current team and load it. The
         // coordinator owns the model, so a re-mount (rotation, tab switch) does not reload it.
         .task { await channels.activate(server) }
+        // The unread-thread count is the threads list's own view of the world — the same endpoint the
+        // pane pages, asked once for the sidebar (and reused when the pane opens, so it is not paid
+        // for twice). No team yet means nothing to count; the task re-runs when the team resolves.
+        .task(id: model.teamID) {
+            guard let teamID = model.teamID, !teamID.isEmpty else { return }
+            let resolved = threads.globalModel(for: server, teamID: teamID)
+            globalThreads = resolved
+            await resolved.load(ifNeeded: true)
+        }
         .sheet(isPresented: $quickSwitcherPresented) {
             QuickSwitcherView(model: model) { entry in
                 open(entry)
@@ -146,9 +162,20 @@ struct NativeChannelSidebarContent: View {
     private var threadsSection: some View {
         Section {
             Button {
+                // The wide layout has no tab bar — its detail pane follows `location.pane` — so
+                // selecting the tab alone left this row inert on a Mac (measured: tapping it did
+                // nothing, which is what "I cannot see the unread threads" looked like). Set the tab
+                // for the compact layout and route the pane for the wide one.
                 navigation.select(tab: .threads)
+                navigation.openThreads(NativeChannelRequest(serverID: server.id, teamID: model.teamID))
             } label: {
-                Label("All threads", systemImage: "text.bubble")
+                HStack(spacing: 6) {
+                    Label("All threads", systemImage: "text.bubble")
+                    Spacer(minLength: 4)
+                    if let globalThreads {
+                        ThreadsUnreadBadge(model: globalThreads)
+                    }
+                }
             }
             .accessibilityIdentifier("nativeSidebarAllThreads")
         } header: {
@@ -403,6 +430,30 @@ struct ChannelSidebarRow: View {
                 .padding(.vertical, 1)
                 .background(Color.red, in: Capsule())
                 .accessibilityHidden(true)
+        }
+    }
+}
+
+/// How many threads in this team are unread, beside the sidebar's "All threads" row.
+///
+/// It observes the threads model rather than polling: the same socket event that moves a row in the
+/// pane moves this number, so the badge and the list cannot disagree. A zero count draws nothing —
+/// an always-visible "0" reads as a failed load, which is how the missing unread state looked.
+private struct ThreadsUnreadBadge: View {
+    @ObservedObject var model: GlobalThreadsViewModel
+
+    var body: some View {
+        let unread = model.displayedTotals.unreadThreads
+        if unread > 0 {
+            Text("\(unread)")
+                .font(.caption2.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
+                .background(Capsule().fill(Color.accentColor))
+                .accessibilityLabel("\(unread) unread threads")
+                .accessibilityIdentifier("channelSidebar.unreadThreads")
         }
     }
 }

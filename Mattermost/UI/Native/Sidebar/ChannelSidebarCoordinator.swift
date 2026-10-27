@@ -51,6 +51,18 @@ final class ChannelSidebarCoordinator: ObservableObject {
     private let serviceFactory: ((ServerConfig) -> ChannelSidebarServing)?
 
     private var models: [UUID: ChannelListViewModel] = [:]
+
+    /// What the channel list for one server thinks it is doing.
+    ///
+    /// The native shell showed a permanent "Loading channels..." with no way to see why: the pane had
+    /// no page to inspect (the webview is not there) and no log line said which team it was loading or
+    /// what it had. This is the state the pane is actually drawing from — the `-shellSnapshot` seam
+    /// prints it, so a stuck list is a measurement rather than a guess.
+    func diagnosticSummary(for server: ServerConfig) -> String {
+        guard let model = models[server.id] else { return "no-model" }
+        let channelCount = model.groups.reduce(0) { $0 + $1.entries.count }
+        return "team=\(model.teamID ?? "nil") phase=\(String(describing: model.phase)) stage=\(model.diagnosticStage) service=\(SidebarLoadTrace.step) groups=\(model.groups.count) channels=\(channelCount) err=\(model.actionError ?? "-")"
+    }
     private var pendingRefresh: [UUID: Task<Void, Never>] = [:]
     private var refreshTokens: [UUID: UUID] = [:]
     /// Servers whose pending debounce must be a **full reload** instead of a counter refresh (a

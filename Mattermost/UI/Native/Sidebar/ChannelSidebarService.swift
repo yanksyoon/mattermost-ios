@@ -38,6 +38,38 @@ protocol ChannelSidebarServing: AnyObject {
 /// finished restoring, and a captured `APIClient` would then be a permanently signed-out one.
 /// Because every call goes through that client, a 401 from any of them lands in
 /// `AuthCoordinator.reportUnauthorized` — this file must not swallow it.
+/// Where the one hanging `await` is, for the `-shellSnapshot` seam.
+///
+/// The native pane can only say "Loading channels…"; a load that never returns and one that never
+/// starts look identical from the outside. This records the step the service is in, so the dump can
+/// name it. Diagnostics only — nothing reads it in a shipping path.
+@MainActor
+enum SidebarLoadTrace {
+    static var step = "not-started"
+}
+
+/// A continuation that may be resumed exactly once — by the work or by its deadline, whichever is
+/// first. `@MainActor`, like everything that touches it, so the flag needs no lock.
+@MainActor
+final class ResumeOnce<T: Sendable> {
+    private var continuation: CheckedContinuation<T?, Never>?
+
+    init(_ continuation: CheckedContinuation<T?, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(_ value: T?) {
+        guard let continuation else { return }
+        self.continuation = nil
+        continuation.resume(returning: value)
+    }
+}
+
+/// An optional sidebar call did not answer in time.
+struct SidebarDeadlineExceeded: Error, CustomStringConvertible {
+    var description: String { "no answer within the deadline" }
+}
+
 @MainActor
 final class SessionChannelSidebarService: ChannelSidebarServing {
     private let resolve: () -> (client: APIClient, userID: String?)?
@@ -51,17 +83,67 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
         return value
     }
 
+    /// Run optional work with a deadline that can **actually be abandoned**.
+    ///
+    /// `withThrowingTaskGroup` cannot do this: its scope waits for every child, so a call that ignores
+    /// cancellation holds the group open and the deadline never fires — measured, with a 10 s deadline
+    /// in place the pane still sat in `loading` for minutes. Here the work runs in its own `Task`, and
+    /// when the timer wins we simply stop listening and return `nil`; the abandoned task finishes
+    /// unwatched. That is the difference between a sidebar with unlabelled direct messages and an
+    /// empty pane, which is what a hang inside label resolution used to produce.
+    static func abandoning<T: Sendable>(after seconds: Double,
+                                        _ operation: @escaping @Sendable () async -> T?) async -> T? {
+        await withCheckedContinuation { continuation in
+            let once = ResumeOnce(continuation)
+            let work = Task { @MainActor in
+                let value = await operation()
+                once.resume(value)
+            }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                work.cancel()
+                once.resume(nil)
+            }
+        }
+    }
+
+    /// Run an optional call with a deadline, so a request that never returns cannot hold the pane in
+    /// `loading` forever. The required call (`teamChannels`) is deliberately not wrapped: without the
+    /// channel list there is nothing to draw, so waiting is the honest behaviour there.
+    static func within<T: Sendable>(seconds: Double,
+                                    _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw SidebarDeadlineExceeded()
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next() else { throw SidebarDeadlineExceeded() }
+            return first
+        }
+    }
+
     func load(teamID: String) async throws -> ChannelSidebarData {
+        SidebarLoadTrace.step = "resolve client"
         let (client, resolvedUserID) = try resolved()
+        SidebarLoadTrace.step = "client ok"
         // The channel list is the one required answer: without it there is nothing to draw, and its
         // error is the error the sidebar shows. Everything else degrades with a defined behaviour.
+        SidebarLoadTrace.step = "teamChannels…"
         let channels = try await client.teamChannels(teamID: teamID)
+        SidebarLoadTrace.step = "teamChannels ok (\(channels.count))"
         var userID = resolvedUserID
         if userID == nil { userID = (try? await client.currentUser())?.id }
 
         var data = ChannelSidebarData(channels: channels)
+        SidebarLoadTrace.step = "members…"
         do {
-            data.members = try await client.myChannelMembers()
+            // Degrading only on *error* still hangs the pane when the call never comes back:
+            // measured on a real server, `phase=loading` forever with this the last step entered.
+            // A deadline turns "hung" into "failed", which the sidebar already knows how to draw.
+            data.members = try await Self.within(seconds: 8) { try await client.myChannelMembers() }
+            SidebarLoadTrace.step = "members ok (\(data.members.count))"
         } catch {
             data.membersFailed = true
             // A 401 is the session, not a hiccup: it has to reach re-auth.
@@ -70,7 +152,11 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
 
         if let userID {
             do {
-                let categories = try await client.sidebarCategories(userID: userID, teamID: teamID)
+                SidebarLoadTrace.step = "categories…"
+                let categories = try await Self.within(seconds: 8) {
+                    try await client.sidebarCategories(userID: userID, teamID: teamID)
+                }
+                SidebarLoadTrace.step = "categories ok (\(categories.categories.count))"
                 data.categories = categories.categories
                 data.categoryOrder = categories.order
             } catch {
@@ -80,13 +166,22 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
             // The legacy favourite preference is only consulted when there is no categories answer;
             // asking for it anyway would be a request that is almost always discarded.
             if data.categoriesFailed || data.categories.isEmpty {
-                data.preferences = (try? await client.preferences(userID: userID)) ?? []
+                SidebarLoadTrace.step = "preferences…"
+                data.preferences = (try? await Self.within(seconds: 8) {
+                    try await client.preferences(userID: userID)
+                }) ?? []
             }
         }
 
-        let labels = await Self.resolveDirectLabels(client: client,
-                                                    userID: userID,
-                                                    channels: channels)
+        SidebarLoadTrace.step = "direct labels…"
+        // Naming a DM or a group message costs one request per group channel, sequentially, and this
+        // is the *label* of a row: one slow channel must not hold the whole sidebar in `loading`
+        // (measured: it did — the pane sat on "Loading channels..." with this the last step entered).
+        // The deadline degrades to unlabelled rows, which the list already draws by channel name.
+        let labels = (await Self.abandoning(after: 10) {
+            await Self.resolveDirectLabels(client: client, userID: userID, channels: channels)
+        }) ?? (labels: [String: String](), terms: [String: [String]]())
+        SidebarLoadTrace.step = "labels ok (\(labels.labels.count))"
         data.directLabels = labels.labels
         data.searchTerms = labels.terms
         return data
@@ -96,7 +191,7 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
         let (client, _) = try resolved()
         let channels = try await client.teamChannels(teamID: teamID)
         do {
-            let members = try await client.myChannelMembers()
+            let members = try await Self.within(seconds: 8) { try await client.myChannelMembers() }
             return ChannelSidebarRefresh(channels: channels, members: members)
         } catch {
             // A 401 is the session, not a hiccup: it has to reach re-auth.
@@ -148,6 +243,7 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
 
         // channel id → the other people in it.
         var memberIDsByChannel: [String: [String]] = [:]
+        var groupChannels: [MMChannel] = []
         for channel in directs {
             switch ChannelSidebarDerivation.kind(of: channel) {
             case .directMessage:
@@ -156,11 +252,28 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
                     .components(separatedBy: "__")
                     .filter { !$0.isEmpty && $0 != userID }
             case .groupMessage:
-                if let members = try? await client.channelMembers(channelID: channel.id) {
-                    memberIDsByChannel[channel.id] = members.map(\.userId).filter { $0 != userID }
-                }
+                groupChannels.append(channel)
             default:
                 break
+            }
+        }
+        // One member request per group channel, and each is a round trip on a real server: done in
+        // sequence the sidebar sat on "Loading channels..." long enough to look hung (measured — the
+        // last step entered was this loop). A batch at a time makes the wall time the slowest batch
+        // instead of the sum.
+        for batch in stride(from: 0, to: groupChannels.count, by: 8).map({
+            Array(groupChannels[$0..<min($0 + 8, groupChannels.count)])
+        }) {
+            await withTaskGroup(of: (String, [String]?).self) { group in
+                for channel in batch {
+                    group.addTask {
+                        let members = try? await client.channelMembers(channelID: channel.id)
+                        return (channel.id, members?.map(\.userId).filter { $0 != userID })
+                    }
+                }
+                for await (channelID, ids) in group {
+                    if let ids { memberIDsByChannel[channelID] = ids }
+                }
             }
         }
 
@@ -223,6 +336,9 @@ final class ChannelListViewModel: ObservableObject {
     let server: ServerConfig
 
     @Published private(set) var phase: Phase = .idle
+    /// Where the last load stopped. The pane can only draw "Loading channels…"; this says which
+    /// `await` it never came back from (printed by the `-shellSnapshot` seam).
+    private(set) var diagnosticStage = "new"
     @Published private(set) var groups: [ChannelSidebarGroup] = []
     @Published private(set) var totals = ChannelSidebarTotals()
     /// The team this sidebar is currently showing (`nil` until the shell has a team for this server).
@@ -605,9 +721,11 @@ final class ChannelListViewModel: ObservableObject {
     private func performLoad(teamID: String) async {
         generation += 1
         let mine = generation
+        diagnosticStage = "loading team=\(teamID)"
         if groups.isEmpty { phase = .loading }
         do {
             let next = try await service.load(teamID: teamID)
+            diagnosticStage = "returned \(next.channels.count) channels"
             guard mine == generation else { return }
             // A team switch that landed while this load was in flight must not be overwritten.
             guard self.teamID == nil || self.teamID == teamID else { return }
@@ -619,6 +737,7 @@ final class ChannelListViewModel: ObservableObject {
             // somebody's grouping from a guess (`canWriteLayout`).
             groupingIsApproximate = next.categoriesFailed || next.categories.isEmpty
             phase = .loaded
+            diagnosticStage = "loaded \(groups.count) groups"
             rebuild()
         } catch {
             guard mine == generation else { return }
@@ -626,6 +745,7 @@ final class ChannelListViewModel: ObservableObject {
                 // The session is gone; `AuthCoordinator` owns that transition.
                 return
             }
+            diagnosticStage = "failed: \(error)"
             phase = .failed(Self.message(for: error, action: "load your channels"))
             rebuild()
         }
