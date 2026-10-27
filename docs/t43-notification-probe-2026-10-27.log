@@ -1,0 +1,16 @@
+PASS  the server answers /system/ping  —  HTTP 200
+PASS  the fixture accounts exist (run scripts/t43_notification_seed.py)  —  perfprobe ok, t43buddy ok
+      reader notify_props: {"channel": "true", "comments": "never", "desktop": "mention", "desktop_sound": "true", "desktop_threads": "all", "email": "true", "email_threads": "all", "first_name": "false", "mention_keys": "", "push": "mention", "push_status": "away", "push_threads": "all"}
+PASS  the reader's own notify_props carries the desktop setting  —  keys: channel, comments, desktop, desktop_sound, desktop_threads, email, email_threads, first_name, mention_keys, push, push_status, push_threads
+PASS  the reader has a team
+PASS  the fixture channels exist (t43-notify, t43-muted)  —  found ['t43-muted', 't43-notify']
+      t43-notify member notify_props: {"channel_auto_follow_threads": "off", "desktop": "default", "email": "default", "ignore_channel_mentions": "default", "mark_unread": "all", "push": "default"}
+      t43-muted member notify_props: {"channel_auto_follow_threads": "off", "desktop": "default", "email": "default", "ignore_channel_mentions": "default", "mark_unread": "mention", "push": "default"}
+PASS  the muted fixture channel is muted (mark_unread == mention)  —  mark_unread=mention
+PASS  a mention in a muted channel increments the server's mention_count  —  1 -> 2
+      posted props: {}
+PASS  the `posted` post carries the reader in props.mentions (if not, the text keys are the shipping path)  —  props={}
+      DM member notify_props: {"channel_auto_follow_threads": "off", "desktop": "default", "email": "default", "ignore_channel_mentions": "default", "mark_unread": "all", "push": "default"}
+PASS  a DM membership reports notify_props (what a DM notification is decided from)  —  desktop=default
+
+9 PASS / 0 FAIL
