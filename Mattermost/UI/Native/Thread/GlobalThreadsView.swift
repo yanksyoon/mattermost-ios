@@ -71,6 +71,58 @@ struct GlobalThreadsPaneContent: View {
     }
 }
 
+/// The Threads **tab** on a phone: the pane, with the team's unread-thread count on the tab item.
+///
+/// The compact layout reaches Threads as a tab (upstream reaches the same screen from the channel
+/// list, which this layout has as its Channels tab), and the tab item is the only place unread threads
+/// can announce themselves while the reader is looking at Mentions or Search. So the count is drawn
+/// there — the same number, from the same model, as the split layout's sidebar row: the model comes
+/// from `ThreadCoordinator`, which owns exactly one `GlobalThreadsViewModel` per (server, team), so the
+/// tab badge, the sidebar row and the pane's counter line cannot disagree.
+///
+/// The tab does not load the list itself: the sidebar's own appearance pass already loads this model
+/// (it is the tab the app opens on), and a second loader would double every request on launch. When the
+/// Threads tab is opened directly, the pane's own `.task` is the loader.
+struct NativeThreadsTabView: View {
+    let server: ServerConfig
+    @ObservedObject var navigation: NativeNavigation
+
+    @EnvironmentObject private var threads: ThreadCoordinator
+    @State private var model: GlobalThreadsViewModel?
+
+    var body: some View {
+        Group {
+            if let model {
+                ThreadsTabContent(model: model, server: server, navigation: navigation)
+            } else {
+                GlobalThreadsPaneContent(server: server, navigation: navigation)
+            }
+        }
+        .task(id: navigation.location.teamID) {
+            model = threads.globalModel(for: server, teamID: navigation.location.teamID ?? "")
+        }
+    }
+}
+
+/// The badged half of `NativeThreadsTabView`, split out so the badge **observes** the list.
+///
+/// The badge has to be applied to this view's top-level content — `TabView` reads it from the tab's
+/// content — while reading `model.railEntry`, which only republishes into a view that owns the model as
+/// an `@ObservedObject`. Both halves in one type would mean either a badge that never moves or a model
+/// read in a body that does not subscribe.
+private struct ThreadsTabContent: View {
+    @ObservedObject var model: GlobalThreadsViewModel
+    let server: ServerConfig
+    @ObservedObject var navigation: NativeNavigation
+
+    var body: some View {
+        GlobalThreadsPaneContent(server: server, navigation: navigation)
+            // `.badge(0)` draws nothing, which is the state before the team's counters arrive and
+            // when nothing is unread: an always-visible "0" reads as a load that failed.
+            .badge(model.railEntry.unreadThreads)
+    }
+}
+
 /// The header's counter line ("3 threads" / "1 unread thread"), observing the list it describes.
 struct GlobalThreadsSubtitleLine: View {
     @ObservedObject var model: GlobalThreadsViewModel

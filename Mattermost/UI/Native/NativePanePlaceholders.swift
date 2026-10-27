@@ -365,16 +365,6 @@ struct NativeThreadsPaneView: View {
     }
 }
 
-/// The Threads **tab** (global threads, upstream `global_threads`).
-struct NativeThreadsPlaceholderView: View {
-    let server: ServerConfig
-    @ObservedObject var navigation: NativeNavigation
-
-    var body: some View {
-        GlobalThreadsPaneContent(server: server, navigation: navigation)
-    }
-}
-
 // MARK: - Empty destination
 
 /// Nothing selected yet — the wide layout's detail column before a channel is resolved. Built like

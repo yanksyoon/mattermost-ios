@@ -126,6 +126,60 @@ enum GlobalThreadsDerivation {
         }
         return result
     }
+
+    /// The rail's view of the counters.
+    ///
+    /// Deliberately the **same** rule the pane's header uses (`displayedTotals`): the server's totals,
+    /// bounded below by the rows already drawn. A rail badge and a pane header that could disagree
+    /// would be two numbers for one question, and the reader has no way to tell which is right —
+    /// so they are derived from one function and pinned together by test.
+    static func railEntry(totals: ThreadTotals, drawn threads: [MMThread]) -> ThreadsRailEntry {
+        let displayed = displayedTotals(totals, drawn: threads)
+        return ThreadsRailEntry(unreadThreads: displayed.unreadThreads,
+                                mentions: displayed.unreadMentions)
+    }
+}
+
+/// What the rail's Threads entry (the sidebar row, and the phone's Threads tab) has to say while the
+/// pane is **closed**.
+///
+/// This is the value the reported complaint was missing: "no place in the left panel to see unread
+/// threads". A reader must be able to tell, from the channel list alone, that threads are waiting and
+/// how many, without opening the pane to find out — so the entry carries both facts the pane's own
+/// header carries: whether anything is unread (upstream's `unreads`, which bolds the Threads button in
+/// `app/components/threads_button/threads_button.tsx`) and how many threads are unread (the badge).
+///
+/// The number is the **unread thread** count, not upstream mobile's thread-mention sum: this client's
+/// pane counts unread threads (`GlobalThreadsDerivation.tabSubtitle`, "12 unread threads"), and a rail
+/// badge that answered a different question than the header one tap away would be the kind of
+/// disagreement T36-AV F3 was about. Mentions are not lost — they are named in
+/// ``accessibilityValue``, so VoiceOver hears "12 unread threads, 11 mentions".
+struct ThreadsRailEntry: Equatable, Sendable {
+    var unreadThreads: Int = 0
+    var mentions: Int = 0
+
+    static let none = ThreadsRailEntry()
+
+    /// Whether the row draws its unread emphasis. Mentions alone can leave a thread counted as read
+    /// (a channel read clears replies but not a thread's mention counter — measured in T42), so the
+    /// emphasis is "anything waiting", not "unreadThreads > 0".
+    var isUnread: Bool { unreadThreads > 0 || mentions > 0 }
+
+    /// The badge's text. Zero draws **nothing**: an always-visible "0" reads as a load that failed,
+    /// which is exactly how the missing unread state looked when this card was reported.
+    var badgeText: String? { unreadThreads > 0 ? "\(unreadThreads)" : nil }
+
+    /// What a VoiceOver reader hears for the row, in the order the numbers matter.
+    var accessibilityValue: String {
+        var parts: [String] = []
+        if unreadThreads > 0 {
+            parts.append(unreadThreads == 1 ? "1 unread thread" : "\(unreadThreads) unread threads")
+        }
+        if mentions > 0 {
+            parts.append(mentions == 1 ? "1 mention" : "\(mentions) mentions")
+        }
+        return parts.isEmpty ? "No unread threads" : parts.joined(separator: ", ")
+    }
 }
 
 /// The two tabs upstream's `global_threads` screen offers.

@@ -198,7 +198,9 @@ struct NativeShellView: View {
                 }
                 .tag(NativeTab.channels)
 
-            NativeThreadsPlaceholderView(server: server, navigation: navigation)
+            // The Threads tab carries the team's unread count on its tab item (NativeThreadsTabView),
+            // which is this layout's counterpart of the split layout's sidebar row.
+            NativeThreadsTabView(server: server, navigation: navigation)
                 .tabItem {
                     Label(NativeTab.threads.title, systemImage: NativeTab.threads.systemImage)
                 }

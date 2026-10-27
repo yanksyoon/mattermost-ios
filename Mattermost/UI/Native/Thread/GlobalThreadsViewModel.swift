@@ -66,6 +66,13 @@ final class GlobalThreadsViewModel: ObservableObject {
         GlobalThreadsDerivation.displayedTotals(totals, drawn: threads)
     }
 
+    /// What the rail's Threads entry draws while this list's pane is closed: the unread count and
+    /// whether the row is emphasised. One derivation for the sidebar and the phone's tab badge, so the
+    /// two surfaces cannot report different numbers for the same team.
+    var railEntry: ThreadsRailEntry {
+        GlobalThreadsDerivation.railEntry(totals: totals, drawn: threads)
+    }
+
     // MARK: Collaborators
 
     private let service: ThreadServing
@@ -249,9 +256,27 @@ final class GlobalThreadsViewModel: ObservableObject {
                                       unreadUrgentMentions: 0)
                 outcome = .unread
             } else if let index = threads.firstIndex(where: { $0.id == change.threadID }) {
+                // The team's counters move with the thread, and the event carries that move: the
+                // thread's new unread state **and** what it was before. Without this the header's
+                // "N unread threads" (and the rail badge beside it) kept announcing a thread the
+                // reader had just read from another client until the next page load — the same
+                // question answered two ways, which is the T36-AV F3 class of defect.
+                //
+                // The model's own copy is the "before" value on purpose, not
+                // `change.previousUnreadReplies`: a replayed event then finds the thread already read
+                // and decrements nothing, so a duplicate frame cannot inflate the drop.
+                let wasUnread = threads[index].unread.isUnread
+                let wasMentions = threads[index].unreadMentions
                 threads[index].unreadReplies = change.unreadReplies
                 threads[index].unreadMentions = change.unreadMentions
                 threads[index].lastViewedAt = max(threads[index].lastViewedAt, change.timestamp)
+                if wasUnread, !threads[index].unread.isUnread, totals.unreadThreads > 0 {
+                    totals.unreadThreads -= 1
+                }
+                if wasMentions > change.unreadMentions {
+                    totals.unreadMentions = max(0, totals.unreadMentions
+                                                - (wasMentions - change.unreadMentions))
+                }
                 if tab == .unreads, !threads[index].unread.isUnread {
                     threads.removeAll { $0.id == change.threadID }
                 }

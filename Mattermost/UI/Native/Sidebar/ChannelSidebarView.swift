@@ -45,7 +45,6 @@ struct NativeChannelSidebarContent: View {
         List {
             workspaceSection
             channelSections
-            threadsSection
             footerSection
         }
         .listStyle(.sidebar)
@@ -93,6 +92,15 @@ struct NativeChannelSidebarContent: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("sidebarCurrentTeam")
             }
+
+            // The Threads entry, above the categories — upstream mounts its Threads button in the
+            // channel list's own body for exactly this reason (`categories_list.tsx` renders
+            // `ThreadsButton` above the categories). Below the list it was unreachable in practice on a
+            // real account: this server's `perfprobe` is in 11 categories / 347 channels, so the row sat
+            // past hundreds of conversations and is not built at all until scrolled to (measured: the
+            // live suite found no `nativeSidebarAllThreads` row, and the reader's report — "no place to
+            // see unread threads" — is what that looks like from the outside).
+            threadsEntry
 
             Button {
                 quickSwitcherPresented = true
@@ -159,28 +167,38 @@ struct NativeChannelSidebarContent: View {
         }
     }
 
-    private var threadsSection: some View {
-        Section {
+    /// The rail's Threads entry (upstream `channel_list.threads.button`): the way into the
+    /// followed-threads pane, and the only place that pane's unread state is visible while it is closed.
+    @ViewBuilder
+    private var threadsEntry: some View {
+        if let globalThreads {
+            ThreadsRailRow(model: globalThreads) { openThreads() }
+        } else {
+            // Before the team resolves there is no list to count. The row is still drawn — a row that
+            // appears late would make the rail jump — but it carries no number.
             Button {
-                // The wide layout has no tab bar — its detail pane follows `location.pane` — so
-                // selecting the tab alone left this row inert on a Mac (measured: tapping it did
-                // nothing, which is what "I cannot see the unread threads" looked like). Set the tab
-                // for the compact layout and route the pane for the wide one.
-                navigation.select(tab: .threads)
-                navigation.openThreads(NativeChannelRequest(serverID: server.id, teamID: model.teamID))
+                openThreads()
             } label: {
                 HStack(spacing: 6) {
-                    Label("All threads", systemImage: "text.bubble")
+                    Label("Threads", systemImage: "text.bubble")
                     Spacer(minLength: 4)
-                    if let globalThreads {
-                        ThreadsUnreadBadge(model: globalThreads)
-                    }
                 }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .accessibilityIdentifier("nativeSidebarAllThreads")
-        } header: {
-            Text("Threads")
         }
+    }
+
+    /// Open the followed-threads pane.
+    ///
+    /// Two layouts, two destinations, and the row must not be inert on either: the wide layout has no
+    /// tab bar — its detail column follows `location.pane` — so selecting the tab alone left this row
+    /// doing nothing on a Mac (measured: tapping it changed nothing, which is exactly what "I cannot
+    /// see the unread threads" looked like when this card was reported).
+    private func openThreads() {
+        navigation.select(tab: .threads)
+        navigation.openThreads(NativeChannelRequest(serverID: server.id, teamID: model.teamID))
     }
 
     private var footerSection: some View {
@@ -434,26 +452,51 @@ struct ChannelSidebarRow: View {
     }
 }
 
-/// How many threads in this team are unread, beside the sidebar's "All threads" row.
+/// The rail's Threads entry: the way into the followed-threads pane, and the only place that pane's
+/// unread state is visible while it is closed.
 ///
-/// It observes the threads model rather than polling: the same socket event that moves a row in the
-/// pane moves this number, so the badge and the list cannot disagree. A zero count draws nothing —
-/// an always-visible "0" reads as a failed load, which is how the missing unread state looked.
-private struct ThreadsUnreadBadge: View {
+/// One `@ObservedObject` subview rather than a read in `NativeChannelSidebarContent.body`: a model held
+/// in `@State` and read directly in the parent does **not** re-render when its `@Published` counters
+/// change — T36-AV F3 shipped exactly that defect in the pane's header, where "No threads yet" stayed
+/// drawn over a full page of rows. A badge that only moved on the next unrelated redraw would make
+/// this number a lie for as long as the reader stayed on the list.
+///
+/// The copy is upstream's (`app/components/threads_button/threads_button.tsx`): the entry is named
+/// "Threads", it is bold while anything is unread, and it carries a badge for the count. The number is
+/// the unread **thread** count, so it agrees with the pane's own counter line one tap away; the
+/// thread-mention count rides along in the accessibility value (`ThreadsRailEntry.accessibilityValue`).
+private struct ThreadsRailRow: View {
     @ObservedObject var model: GlobalThreadsViewModel
+    let action: () -> Void
 
     var body: some View {
-        let unread = model.displayedTotals.unreadThreads
-        if unread > 0 {
-            Text("\(unread)")
-                .font(.caption2.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(.white)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 1)
-                .background(Capsule().fill(Color.accentColor))
-                .accessibilityLabel("\(unread) unread threads")
-                .accessibilityIdentifier("channelSidebar.unreadThreads")
+        let entry = model.railEntry
+        return Button(action: action) {
+            HStack(spacing: 6) {
+                Label("Threads", systemImage: "text.bubble")
+                    // Upstream's unread emphasis: the row is bold while anything is waiting.
+                    .fontWeight(entry.isUnread ? .bold : .regular)
+                Spacer(minLength: 4)
+                if let text = entry.badgeText {
+                    Text(text)
+                        .font(.caption2.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.accentColor))
+                        // Decoration: the row's own value carries the sentence (the same split
+                        // `ChannelSidebarRow` uses for its badges, and for the same reason — a
+                        // `Button` merges its label's children into one accessibility element).
+                        .accessibilityHidden(true)
+                }
+            }
+            // A `.plain` button hit-tests its label's content shape; without this the space after the
+            // Spacer would not take a tap even though the row is reported as the control.
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("nativeSidebarAllThreads")
+        .accessibilityValue(entry.accessibilityValue)
     }
 }
