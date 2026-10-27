@@ -1,0 +1,280 @@
+# t_eccd49eb acceptance run 2: whole MattermostTests, plain xcodebuild, no freeze
+
+# full log (not committed, build/ is ignored): build/logs/t-eccd49eb-rebase-full-2.log
+# sha256 of that file: 70d87427d4ebfcccae99625c4aceed4b947cd1ac388d47045da6b5eb4fd39c3c
+# runner log: build/logs/rebase-full-2.runner.log
+# runner verdict: DONE
+# regenerate:  python3 scripts/qa-test.py --platform ios --sim id=<udid> \
+#                --only-testing MattermostTests --label t-eccd49eb-full-units-2 \
+#                --derived-data ~/Library/Developer/Xcode/DerivedData/t-eccd49eb \
+#                --timeout 1200 -- -collect-test-diagnostics never
+
+## head of the log
+
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=iOS Simulator,id=81A7F251-8B31-4945-8783-5A264C14B8D5" -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/t-eccd49eb -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/t-eccd49eb/TestResults/t-eccd49eb-rebase-full-2-eb4f0e.xcresult -only-testing MattermostTests -collect-test-diagnostics never
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift @ 7.11.1
+
+Writing result bundle at path:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/t-eccd49eb/TestResults/t-eccd49eb-rebase-full-2-eb4f0e.xcresult
+
+
+## suite and per-class verdicts
+
+Test Suite 'APIClientTests' passed at 2026-10-27 16:26:25.909.
+	 Executed 28 tests, with 0 failures (0 unexpected) in 0.068 (0.078) seconds
+Test Suite 'AppSettingsTests' passed at 2026-10-27 16:26:25.952.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.034 (0.038) seconds
+Test Suite 'AuthSessionTests' passed at 2026-10-27 16:26:26.646.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.668 (0.693) seconds
+Test Suite 'AvatarImageStoreTests' passed at 2026-10-27 16:26:26.673.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.026 (0.027) seconds
+Test Suite 'BadgeMathTests' passed at 2026-10-27 16:26:26.678.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.003 (0.005) seconds
+Test Suite 'BridgeTests' passed at 2026-10-27 16:26:26.777.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.093 (0.099) seconds
+Test Suite 'CertPromptTests' passed at 2026-10-27 16:26:26.787.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.007 (0.010) seconds
+Test Suite 'CertTrustDebugTests' passed at 2026-10-27 16:26:27.011.
+Test Suite 'CertTrustFallbackTests' passed at 2026-10-27 16:26:27.041.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.028 (0.030) seconds
+Test Suite 'CertTrustTests' passed at 2026-10-27 16:26:27.116.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.071 (0.074) seconds
+Test Suite 'ChannelRepositoryTests' passed at 2026-10-27 16:26:27.227.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.108 (0.111) seconds
+Test Suite 'ComposerReturnPolicyTests' passed at 2026-10-27 16:26:27.231.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'DeepLinkRouterTests' passed at 2026-10-27 16:26:27.269.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.031 (0.038) seconds
+Test Suite 'DiagnosticsTests' passed at 2026-10-27 16:26:27.927.
+	 Executed 25 tests, with 0 failures (0 unexpected) in 0.649 (0.658) seconds
+Test Suite 'DownloadFormattingTests' passed at 2026-10-27 16:26:27.954.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.011 (0.027) seconds
+Test Suite 'DownloadHistoryCapTests' passed at 2026-10-27 16:26:27.996.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.039 (0.041) seconds
+Test Suite 'DownloadHistoryTests' passed at 2026-10-27 16:26:28.070.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.070 (0.074) seconds
+Test Suite 'DownloadRecordTests' passed at 2026-10-27 16:26:28.074.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'DownloadWorkerTests' passed at 2026-10-27 16:26:28.097.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.018 (0.022) seconds
+Test Suite 'DraftRepositoryTests' passed at 2026-10-27 16:26:28.210.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.110 (0.113) seconds
+Test Suite 'EncryptedFileSecretStoreTests' passed at 2026-10-27 16:26:28.253.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.038 (0.042) seconds
+Test Suite 'FallbackSecretStoreTests' passed at 2026-10-27 16:26:28.268.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.013 (0.015) seconds
+Test Suite 'InMemoryRepositoryContractTests' passed at 2026-10-27 16:26:28.403.
+	 Executed 18 tests, with 0 failures (0 unexpected) in 0.128 (0.134) seconds
+Test Suite 'MMStoreConcurrencyTests' passed at 2026-10-27 16:26:30.492.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 2.085 (2.089) seconds
+Test Suite 'MMStoreMigrationTests' passed at 2026-10-27 16:26:30.584.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.090 (0.092) seconds
+Test Suite 'MMStoreSizeTests' passed at 2026-10-27 16:26:41.315.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 10.729 (10.731) seconds
+Test Suite 'MMStoreTests' passed at 2026-10-27 16:26:41.869.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.548 (0.553) seconds
+Test Suite 'MentionPollerTests' passed at 2026-10-27 16:26:42.222.
+	 Executed 20 tests, with 1 test skipped and 0 failures (0 unexpected) in 0.336 (0.353) seconds
+Test Suite 'NativeNavigationTests' passed at 2026-10-27 16:26:42.415.
+	 Executed 36 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.180 (0.193) seconds
+Test Suite 'NotificationWorkerTests' passed at 2026-10-27 16:26:42.523.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.102 (0.108) seconds
+Test Suite 'PerfProbeTests' passed at 2026-10-27 16:26:42.533.
+Test Suite 'PostRepositoryTests' passed at 2026-10-27 16:26:43.092.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.554 (0.559) seconds
+Test Suite 'SQLiteRepositoryContractTests' passed at 2026-10-27 16:26:43.367.
+	 Executed 18 tests, with 0 failures (0 unexpected) in 0.268 (0.274) seconds
+Test Suite 'SecureVaultFallbackTests' passed at 2026-10-27 16:26:43.403.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.033 (0.036) seconds
+Test Suite 'SecureVaultTests' passed at 2026-10-27 16:26:43.458.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.051 (0.055) seconds
+Test Suite 'SelfSignedTrustTests' passed at 2026-10-27 16:26:43.477.
+	 Executed 3 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.017 (0.018) seconds
+Test Suite 'SentryServiceTests' passed at 2026-10-27 16:26:43.494.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.010 (0.017) seconds
+Test Suite 'ServerAPITests' passed at 2026-10-27 16:26:43.503.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.007 (0.008) seconds
+Test Suite 'ServerFormModelTests' passed at 2026-10-27 16:26:43.511.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.006 (0.008) seconds
+Test Suite 'ServerInfoTests' passed at 2026-10-27 16:26:43.520.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.007 (0.009) seconds
+Test Suite 'ServerStoreLookupTests' passed at 2026-10-27 16:26:43.530.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.009 (0.010) seconds
+Test Suite 'ServerStoreTests' passed at 2026-10-27 16:26:43.555.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.022 (0.024) seconds
+Test Suite 'ServerTrustPolicyTests' passed at 2026-10-27 16:26:43.565.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.007 (0.010) seconds
+Test Suite 'ServerURLTests' passed at 2026-10-27 16:26:43.576.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.009 (0.011) seconds
+Test Suite 'ServerURLValidatorTests' passed at 2026-10-27 16:26:43.607.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.026 (0.031) seconds
+Test Suite 'SessionStoreTests' passed at 2026-10-27 16:26:43.640.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.029 (0.033) seconds
+Test Suite 'SheetHostTests' passed at 2026-10-27 16:26:43.659.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.012 (0.018) seconds
+Test Suite 'SocketClientTests' passed at 2026-10-27 16:26:43.754.
+	 Executed 19 tests, with 0 failures (0 unexpected) in 0.086 (0.095) seconds
+Test Suite 'SurfaceModeResolverTests' passed at 2026-10-27 16:26:43.853.
+	 Executed 32 tests, with 0 failures (0 unexpected) in 0.089 (0.099) seconds
+Test Suite 'SyncCursorRepositoryTests' passed at 2026-10-27 16:26:43.920.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.065 (0.067) seconds
+Test Suite 'T31AuthCoordinatorTests' passed at 2026-10-27 16:26:45.999.
+	 Executed 22 tests, with 0 failures (0 unexpected) in 2.065 (2.078) seconds
+Test Suite 'T31LoginErrorCopyTests' passed at 2026-10-27 16:26:46.010.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.009 (0.011) seconds
+Test Suite 'T31LoginViewModelTests' passed at 2026-10-27 16:26:46.039.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.024 (0.029) seconds
+Test Suite 'T31MFAViewModelTests' passed at 2026-10-27 16:26:46.042.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'T31SSOViewModelTests' passed at 2026-10-27 16:26:46.351.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.306 (0.309) seconds
+Test Suite 'T31WebSessionHarvestTests' passed at 2026-10-27 16:26:46.393.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.040 (0.042) seconds
+Test Suite 'T32TeamSidebarTests' passed at 2026-10-27 16:26:46.544.
+	 Executed 42 tests, with 0 failures (0 unexpected) in 0.137 (0.151) seconds
+Test Suite 'T33ChannelSidebarTests' passed at 2026-10-27 16:26:47.516.
+	 Executed 74 tests, with 0 failures (0 unexpected) in 0.925 (0.972) seconds
+Test Suite 'T34ChannelPageRequestTests' passed at 2026-10-27 16:26:47.520.
+Test Suite 'T34ChannelPaneCoordinatorTests' passed at 2026-10-27 16:26:47.539.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.013 (0.018) seconds
+Test Suite 'T34ChannelViewModelTests' passed at 2026-10-27 16:26:47.762.
+	 Executed 28 tests, with 0 failures (0 unexpected) in 0.214 (0.224) seconds
+Test Suite 'T34ChannelViewRestoreWiringTests' passed at 2026-10-27 16:26:53.874.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 6.110 (6.111) seconds
+Test Suite 'T34CodeHighlightTests' passed at 2026-10-27 16:26:53.892.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.011 (0.017) seconds
+Test Suite 'T34EmojiTests' passed at 2026-10-27 16:26:53.945.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.033 (0.053) seconds
+Test Suite 'T34FixtureTests' passed at 2026-10-27 16:26:54.127.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.181 (0.182) seconds
+Test Suite 'T34MarkdownTests' passed at 2026-10-27 16:26:54.227.
+	 Executed 27 tests, with 0 failures (0 unexpected) in 0.081 (0.099) seconds
+Test Suite 'T34PostListTests' passed at 2026-10-27 16:26:54.468.
+	 Executed 30 tests, with 0 failures (0 unexpected) in 0.226 (0.241) seconds
+Test Suite 'T34ScrollRestorePathTests' passed at 2026-10-27 16:26:54.491.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.016 (0.019) seconds
+Test Suite 'T34ScrollRestoreTests' passed at 2026-10-27 16:26:54.512.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.014 (0.022) seconds
+Test Suite 'T34SocketResyncTests' passed at 2026-10-27 16:26:54.744.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.225 (0.228) seconds
+Test Suite 'T34SocketStallWatchdogTests' passed at 2026-10-27 16:26:55.941.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 1.194 (1.197) seconds
+Test Suite 'T35ChannelPendingRowTests' passed at 2026-10-27 16:26:55.967.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.020 (0.025) seconds
+Test Suite 'T35ComposerAPITests' passed at 2026-10-27 16:26:55.993.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.023 (0.025) seconds
+Test Suite 'T35ComposerDraftStoreTests' passed at 2026-10-27 16:26:56.194.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.198 (0.202) seconds
+Test Suite 'T35ComposerModelsTests' passed at 2026-10-27 16:26:56.268.
+	 Executed 36 tests, with 0 failures (0 unexpected) in 0.051 (0.073) seconds
+Test Suite 'T35ComposerViewModelTests' passed at 2026-10-27 16:26:57.062.
+	 Executed 34 tests, with 0 failures (0 unexpected) in 0.781 (0.794) seconds
+Test Suite 'T35UploadTests' passed at 2026-10-27 16:26:57.073.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.009 (0.011) seconds
+Test Suite 'T36ChannelReplyLineTests' passed at 2026-10-27 16:26:57.087.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.009 (0.013) seconds
+Test Suite 'T36GlobalThreadsViewModelTests' passed at 2026-10-27 16:26:57.156.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.028 (0.069) seconds
+Test Suite 'T36ThreadModelsTests' passed at 2026-10-27 16:26:57.227.
+	 Executed 31 tests, with 0 failures (0 unexpected) in 0.043 (0.071) seconds
+Test Suite 'T36ThreadViewModelTests' passed at 2026-10-27 16:26:57.279.
+	 Executed 26 tests, with 0 failures (0 unexpected) in 0.035 (0.052) seconds
+Test Suite 'T37ReactionTests' passed at 2026-10-27 16:26:57.767.
+	 Executed 34 tests, with 0 failures (0 unexpected) in 0.476 (0.488) seconds
+Test Suite 'T37SocketReactionRoutingTests' passed at 2026-10-27 16:26:57.869.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.100 (0.102) seconds
+Test Suite 'T38AttachmentDecodingTests' passed at 2026-10-27 16:26:57.880.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.009 (0.011) seconds
+Test Suite 'T38AttachmentDownloadStateTests' passed at 2026-10-27 16:26:57.885.
+Test Suite 'T38AttachmentDownloadsTests' passed at 2026-10-27 16:26:57.906.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.019 (0.021) seconds
+Test Suite 'T38AttachmentSectionTests' passed at 2026-10-27 16:26:57.921.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.011 (0.015) seconds
+Test Suite 'T38AuthorizedRequestTests' passed at 2026-10-27 16:26:57.930.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.001 (0.008) seconds
+Test Suite 'T38ChannelImageStoreTests' passed at 2026-10-27 16:26:58.080.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.147 (0.151) seconds
+Test Suite 'T38DownloadLandingTests' passed at 2026-10-27 16:26:58.101.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.018 (0.021) seconds
+Test Suite 'T38FileTypeClassificationTests' passed at 2026-10-27 16:26:58.123.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.017 (0.022) seconds
+Test Suite 'T38LandedNameTests' passed at 2026-10-27 16:26:58.131.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.006 (0.007) seconds
+Test Suite 'T38PreviewFetchLimitTests' passed at 2026-10-27 16:26:58.137.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.004 (0.006) seconds
+Test Suite 'T38TextPreviewTests' passed at 2026-10-27 16:26:58.144.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.003 (0.006) seconds
+Test Suite 'T39SearchAPITests' passed at 2026-10-27 16:26:58.153.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.008 (0.009) seconds
+Test Suite 'T39SearchTests' passed at 2026-10-27 16:26:58.231.
+	 Executed 45 tests, with 0 failures (0 unexpected) in 0.054 (0.078) seconds
+Test Suite 'T40ChannelInfoTests' passed at 2026-10-27 16:26:58.311.
+	 Executed 49 tests, with 0 failures (0 unexpected) in 0.050 (0.080) seconds
+Test Suite 'T41ProfileAPITests' passed at 2026-10-27 16:26:58.332.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.013 (0.019) seconds
+Test Suite 'T41ProfileTests' passed at 2026-10-27 16:26:59.626.
+	 Executed 65 tests, with 0 failures (0 unexpected) in 1.251 (1.294) seconds
+Test Suite 'T42ActivityAPITests' passed at 2026-10-27 16:26:59.633.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'T42ActivityTests' passed at 2026-10-27 16:26:59.722.
+	 Executed 42 tests, with 0 failures (0 unexpected) in 0.046 (0.075) seconds
+Test Suite 'T43NativeNotificationFeedTests' passed at 2026-10-27 16:26:59.899.
+	 Executed 23 tests, with 0 failures (0 unexpected) in 0.169 (0.177) seconds
+Test Suite 'T43NotificationInputTests' passed at 2026-10-27 16:27:00.577.
+	 Executed 37 tests, with 0 failures (0 unexpected) in 0.659 (0.677) seconds
+Test Suite 'T43RSocketLivenessTests' passed at 2026-10-27 16:27:00.701.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.122 (0.124) seconds
+Test Suite 'T44CCallsCodecTests' passed at 2026-10-27 16:27:00.714.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.011 (0.013) seconds
+Test Suite 'T44CCallsEngineTests' passed at 2026-10-27 16:27:02.831.
+	 Executed 18 tests, with 3 tests skipped and 0 failures (0 unexpected) in 2.110 (2.117) seconds
+Test Suite 'T44CCallsEventTests' passed at 2026-10-27 16:27:02.866.
+	 Executed 24 tests, with 0 failures (0 unexpected) in 0.024 (0.035) seconds
+Test Suite 'T44CCallsSignallingPortTests' passed at 2026-10-27 16:27:03.532.
+	 Executed 17 tests, with 0 failures (0 unexpected) in 0.652 (0.658) seconds
+Test Suite 'T44DCallsAPITests' passed at 2026-10-27 16:27:03.543.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.007 (0.011) seconds
+Test Suite 'T44DCallsCoordinatorTests' passed at 2026-10-27 16:27:03.607.
+	 Executed 21 tests, with 0 failures (0 unexpected) in 0.048 (0.063) seconds
+Test Suite 'T44DCallsSurfaceTests' passed at 2026-10-27 16:27:03.640.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.012 (0.028) seconds
+Test Suite 'T44DSocketBinarySendTests' passed at 2026-10-27 16:27:03.665.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.023 (0.024) seconds
+Test Suite 'ThemeSyncTests' passed at 2026-10-27 16:27:03.675.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.006 (0.010) seconds
+Test Suite 'TokenLoggingTests' passed at 2026-10-27 16:27:03.705.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.017 (0.030) seconds
+Test Suite 'ViewStoreTests' passed at 2026-10-27 16:27:03.959.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.249 (0.253) seconds
+Test Suite 'WebViewStoreTests' passed at 2026-10-27 16:27:04.063.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.093 (0.104) seconds
+Test Suite 'WelcomePagerModelTests' passed at 2026-10-27 16:27:04.394.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.021 (0.331) seconds
+Test Suite 'MattermostTests.xctest' passed at 2026-10-27 16:27:04.394.
+	 Executed 1640 tests, with 8 tests skipped and 0 failures (0 unexpected) in 37.319 (38.563) seconds
+Test Suite 'All tests' passed at 2026-10-27 16:27:04.395.
+	 Executed 1640 tests, with 8 tests skipped and 0 failures (0 unexpected) in 37.319 (38.565) seconds
+** TEST SUCCEEDED **
+2026-10-27 16:26:25.390130-0500 Mattermost[65772:16390198] [SentryService] os_log_type_t(rawValue: 1).SentryService: Sentry is enabled but not configured (no DSN provided); SDK start skipped (no-op) @ Logger.swift.info(_:_:):66
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/MattermostTests/MentionPollerTests.swift:639: -[MattermostTests.MentionPollerTests testLiveMentionsFetch_optIn] : Test skipped - Live mention poll: set TEST_RUNNER_MM_LIVE_URL + TEST_RUNNER_MM_LIVE_TOKEN to run
+Test Case '-[MattermostTests.MentionPollerTests testLiveMentionsFetch_optIn]' skipped (0.004 seconds).
+Test Case '-[MattermostTests.MentionPollerTests testServerWithoutTokenIsSkipped]' started.
+Test Case '-[MattermostTests.MentionPollerTests testServerWithoutTokenIsSkipped]' passed (0.005 seconds).
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/MattermostTests/NativeNavigationTests.swift:464: -[MattermostTests.NativeNavigationTests testClosingAThreadFromTheThreadsListReturnsToTheShellRoot] : Test skipped - blocked on the real thread route shape
+Test Case '-[MattermostTests.NativeNavigationTests testClosingAThreadFromTheThreadsListReturnsToTheShellRoot]' skipped (0.002 seconds).
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/MattermostTests/NativeNavigationTests.swift:441: -[MattermostTests.NativeNavigationTests testClosingAThreadReturnsToItsChannel] : Test skipped - blocked on the real thread route shape
+Test Case '-[MattermostTests.NativeNavigationTests testClosingAThreadReturnsToItsChannel]' skipped (0.002 seconds).
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/MattermostTests/SelfSignedTrustTests.swift:65: -[MattermostTests.SelfSignedTrustTests testNativeCallFailsUntrustedThenSucceedsAfterTheCertificateIsTrusted] : Test skipped - no self-signed fixture on https://127.0.0.1:18443: run scripts/t28-selfsigned-check.sh
+Test Case '-[MattermostTests.SelfSignedTrustTests testNativeCallFailsUntrustedThenSucceedsAfterTheCertificateIsTrusted]' skipped (0.010 seconds).
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/MattermostTests/SelfSignedTrustTests.swift:140: -[MattermostTests.SelfSignedTrustTests testRealWebSocketTransportOpensOnlyAfterTheCertificateIsTrusted] : Test skipped - no self-signed wss fixture on wss://127.0.0.1:18443/api/v4/websocket: run scripts/t28-selfsigned-check.sh
+Test Case '-[MattermostTests.SelfSignedTrustTests testRealWebSocketTransportOpensOnlyAfterTheCertificateIsTrusted]' skipped (0.007 seconds).
+2026-10-27 16:26:43.485187-0500 Mattermost[65772:16390198] [SentryService] os_log_type_t(rawValue: 1).SentryService: Sentry is enabled but not configured (no DSN provided); SDK start skipped (no-op) @ Logger.swift.info(_:_:):66
+2026-10-27 16:26:43.486239-0500 Mattermost[65772:16390198] [SentryService] os_log_type_t(rawValue: 1).SentryService: Sentry is enabled but not configured (no DSN provided); SDK start skipped (no-op) @ Logger.swift.info(_:_:):66
+Test Case '-[MattermostTests.T41ProfileTests testAPresenceRefreshIsSkippedBeforeTheProfileLoadsAndAFailedPollIsSilent]' started.
+Test Case '-[MattermostTests.T41ProfileTests testAPresenceRefreshIsSkippedBeforeTheProfileLoadsAndAFailedPollIsSilent]' passed (0.001 seconds).

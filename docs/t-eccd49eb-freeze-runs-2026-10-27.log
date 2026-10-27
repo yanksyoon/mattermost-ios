@@ -1,0 +1,333 @@
+# t_eccd49eb freeze evidence — every run quoted in docs/t-eccd49eb-freeze-table.md
+
+repo   : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb
+base   : 5a75513e0ca27cec873275d96d1f4707cf5fb5ab
+host   : macOS 26.3.1, iPhone 16 Pro simulator 81A7F251-8B31-4945-8783-5A264C14B8D5
+harness: scripts/qa-freeze-measure.py (suite mode: offsets from 'Test Suite … started';
+         class mode: -test-iterations + lag sweep from the first test-case line)
+proof  : a row is used only when a test's own reported duration >= the measured freeze
+         (XCTest times on the wall clock; a stopped process cannot finish a test).
+
+## baseline (no freeze)
+
+whole MattermostTests: 1631 run, 6 skipped, 0 failed
+  log: /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/t-eccd49eb-baseline.log
+
+## runs
+
+[suite-freeze-measure.json]
+  suite-freeze-off0  only=MattermostTests  off=0s  freeze=4.54s  stop=15:08:02 cont=15:08:06  marker_lag=0.17
+    summary: Executed 1631 tests, 6 skipped, 0 failures (TEST SUCCEEDED)
+    frozen : ['AuthSessionTests.testAdoptingAWebSessionEndToEndThroughThePerServerCookieStore (4.60s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/suite-freeze-off0.log
+  suite-freeze-off4  only=MattermostTests  off=4s  freeze=4.52s  stop=15:09:07 cont=15:09:11  marker_lag=4.2
+    summary: Executed 1631 tests, 6 skipped, 0 failures (TEST SUCCEEDED)
+    frozen : ['MMStoreConcurrencyTests.testEvictionDuringConcurrentInsertsKeepsTheBudget (5.18s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/suite-freeze-off4.log
+  suite-freeze-off8  only=MattermostTests  off=8s  freeze=4.57s  stop=15:10:11 cont=15:10:16  marker_lag=8.14
+    summary: Executed 152 tests, 1 skipped, 0 failures (TEST FAILED)
+    frozen : ['MMStoreSizeTests.testHundredChannelsAtTheShippingWindow (8.47s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/suite-freeze-off8.log
+  suite-freeze-off12  only=MattermostTests  off=12s  freeze=4.52s  stop=15:12:23 cont=15:12:28  marker_lag=12.21
+    summary: Executed 1631 tests, 6 skipped, 0 failures (TEST SUCCEEDED)
+    frozen : ['MMStoreSizeTests.testRetentionPolicyBoundsDiskForABusyServer (7.79s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/suite-freeze-off12.log
+  suite-freeze-off16  only=MattermostTests  off=16s  freeze=4.5s  stop=15:13:21 cont=15:13:26  marker_lag=16.22
+    summary: Executed 1631 tests, 6 skipped, 0 failures (TEST SUCCEEDED)
+    frozen : ['MMStoreTests.testStoreSizeReportsPagesAndFileBytes (4.60s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/suite-freeze-off16.log
+  suite-freeze-off20  only=MattermostTests  off=20s  freeze=4.53s  stop=15:14:26 cont=15:14:31  marker_lag=20.25
+    summary: Executed 1631 tests, 6 skipped, 0 failures (TEST SUCCEEDED)
+    frozen : ['T31AuthCoordinatorTests.testSignOutClearsTheVaultBeforeTheLogoutCallCompletes (4.86s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/suite-freeze-off20.log
+  suite-freeze-off24  only=MattermostTests  off=24s  freeze=4.57s  stop=15:15:28 cont=15:15:32  marker_lag=24.15
+    summary: Executed 1631 tests, 6 skipped, 0 failures (TEST SUCCEEDED)
+    frozen : ['T34ChannelViewRestoreWiringTests.testASecondRequestRestoresAgainAfterTheFirstWasConsumed (8.32s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/suite-freeze-off24.log
+  suite-freeze-off28  only=MattermostTests  off=28s  freeze=4.54s  stop=15:16:30 cont=15:16:34  marker_lag=28.19
+    summary: Executed 1631 tests, 6 skipped, 0 failures (TEST SUCCEEDED)
+    frozen : ['T34ChannelViewRestoreWiringTests.testTheListTurnsAPendingAnchorIntoARestoreAndConsumesIt (6.93s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/suite-freeze-off28.log
+
+[cls45-SocketClientTests-measure.json]
+  cls45-SocketClientTests-lag0  only=MattermostTests/SocketClientTests  lag=0s  freeze=4.52s  stop=15:18:14 cont=15:18:18  marker_lag=0.46
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect (25.06s)', 'SocketClientTests.testALongLivedSessionResetsAnAlreadyClimbedLadder (8.00s)', 'SocketClientTests.testPongClearsTheMissedPongCount (5.03s)']
+    red    : ['SocketClientTests.testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect', 'SocketClientTests.testPongClearsTheMissedPongCount']
+    FAIL   : SocketClientTests.testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect: failed - timed out waiting for ping sent
+    FAIL   : SocketClientTests.testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect: failed - timed out waiting for connection recycled
+    FAIL   : SocketClientTests.testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect: failed - timed out waiting for backoff scheduled
+    FAIL   : SocketClientTests.testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect: failed - timed out waiting for reconnected transport
+    FAIL   : SocketClientTests.testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect: failed - timed out waiting for resync after the reconnect
+    FAIL   : SocketClientTests.testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect: XCTAssertEqual failed: ("[]") is not equal to ("[Mattermost.SocketClient.ResyncReason.reconnected]") - exactly one resync for the whole dropout
+    FAIL   : SocketClientTests.testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect: XCTAssertEqual failed: ("0") is not equal to ("1")
+    FAIL   : SocketClientTests.testPongClearsTheMissedPongCount: failed - timed out waiting for second ping
+    FAIL   : SocketClientTests.testPongClearsTheMissedPongCount: XCTAssertEqual failed: ("1") is not equal to ("0") - a pong resets the miss count, so no recycle
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-SocketClientTests-lag0.log
+
+[cls45-T31AuthCoordinatorTests-measure.json]
+  cls45-T31AuthCoordinatorTests-lag0  only=MattermostTests/T31AuthCoordinatorTests  lag=0s  freeze=4.52s  stop=15:25:00 cont=15:25:04  marker_lag=0.28
+    summary: n/a (class mode)
+    frozen : ['T31AuthCoordinatorTests.testSignOutClearsTheVaultBeforeTheLogoutCallCompletes (4.54s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T31AuthCoordinatorTests-lag0.log
+
+[cls45-T32TeamSidebarTests-measure.json]
+  cls45-T32TeamSidebarTests-lag0  only=MattermostTests/T32TeamSidebarTests  lag=0s  freeze=4.57s  stop=15:23:11 cont=15:23:15  marker_lag=0.16
+    summary: n/a (class mode)
+    frozen : ['T32TeamSidebarTests.testAfterASwitchThePreviousTeamsEventsAreRefused (4.64s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T32TeamSidebarTests-lag0.log
+
+[cls45-T34ChannelViewRestoreWiringTests-measure.json]
+  cls45-T34ChannelViewRestoreWiringTests-lag0  only=MattermostTests/T34ChannelViewRestoreWiringTests  lag=0s  freeze=4.58s  stop=15:23:48 cont=15:23:53  marker_lag=0.29
+    summary: n/a (class mode)
+    frozen : ['T34ChannelViewRestoreWiringTests.testASecondRequestRestoresAgainAfterTheFirstWasConsumed (7.57s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T34ChannelViewRestoreWiringTests-lag0.log
+
+[cls45-T34SocketResyncTests-measure.json]
+  cls45-T34SocketResyncTests-lag0  only=MattermostTests/T34SocketResyncTests  lag=0s  freeze=4.51s  stop=15:21:56 cont=15:22:00  marker_lag=0.21
+    summary: n/a (class mode)
+    frozen : ['T34SocketResyncTests.testAFirstConnectDoesNotRefetchTheWindowAndTheSocketStillDelivers (4.59s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T34SocketResyncTests-lag0.log
+
+[cls45-T34SocketStallWatchdogTests-measure.json]
+  cls45-T34SocketStallWatchdogTests-lag0  only=MattermostTests/T34SocketStallWatchdogTests  lag=0s  freeze=4.5s  stop=15:20:52 cont=15:20:56  marker_lag=0.22
+    summary: n/a (class mode)
+    frozen : ['T34SocketStallWatchdogTests.testAClientWithoutAVisibilityPredicateNeverStartsWithAWatchdog (4.60s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T34SocketStallWatchdogTests-lag0.log
+
+[cls45-T35ComposerViewModelTests-measure.json]
+  cls45-T35ComposerViewModelTests-lag0  only=MattermostTests/T35ComposerViewModelTests  lag=0s  freeze=4.57s  stop=15:19:45 cont=15:19:49  marker_lag=0.47
+    summary: n/a (class mode)
+    frozen : []
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T35ComposerViewModelTests-lag0.log
+  cls45-T35ComposerViewModelTests-lag0.5  only=MattermostTests/T35ComposerViewModelTests  lag=0.5s  freeze=4.55s  stop=15:20:23 cont=15:20:27  marker_lag=1.1
+    summary: n/a (class mode)
+    frozen : ['T35ComposerViewModelTests.testASecondSendIsRefusedWhileTheFirstIsInFlight (4.63s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T35ComposerViewModelTests-lag0.5.log
+
+[cls45-T37SocketReactionRoutingTests-measure.json]
+  cls45-T37SocketReactionRoutingTests-lag0  only=MattermostTests/T37SocketReactionRoutingTests  lag=0s  freeze=4.56s  stop=15:23:28 cont=15:23:32  marker_lag=0.41
+    summary: n/a (class mode)
+    frozen : ['T37SocketReactionRoutingTests.testAnUnattributableReactionIsAcceptedAndEachPaneFiltersByPost (4.57s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T37SocketReactionRoutingTests-lag0.log
+
+[cls45-T43RSocketLivenessTests-measure.json]
+  cls45-T43RSocketLivenessTests-lag0  only=MattermostTests/T43RSocketLivenessTests  lag=0s  freeze=4.56s  stop=15:22:38 cont=15:22:43  marker_lag=0.59
+    summary: n/a (class mode)
+    frozen : ['T43RSocketLivenessTests.testAFinishedPumpWithdrawsLiveness (4.69s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T43RSocketLivenessTests-lag0.log
+
+[cls45-T44CCallsEngineTests-measure.json]
+  cls45-T44CCallsEngineTests-lag0  only=MattermostTests/T44CCallsEngineTests  lag=0s  freeze=4.54s  stop=15:21:20 cont=15:21:25  marker_lag=0.53
+    summary: Executed 48 tests, 3 skipped, 0 failures (TEST SUCCEEDED)
+    frozen : ['T44CCallsEngineTests.testAConfirmedUnmuteSurvivesTheNextSnapshot (4.94s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T44CCallsEngineTests-lag0.log
+
+[cls45-T44DSocketBinarySendTests-measure.json]
+  cls45-T44DSocketBinarySendTests-lag0  only=MattermostTests/T44DSocketBinarySendTests  lag=0s  freeze=4.58s  stop=15:24:28 cont=15:24:33  marker_lag=0.21
+    summary: n/a (class mode)
+    frozen : []
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T44DSocketBinarySendTests-lag0.log
+  cls45-T44DSocketBinarySendTests-lag0.5  only=MattermostTests/T44DSocketBinarySendTests  lag=0.5s  freeze=4.5s  stop=15:24:45 cont=15:24:50  marker_lag=0.78
+    summary: n/a (class mode)
+    frozen : ['T44DSocketBinarySendTests.testBinaryFrameReachesTheTransportThatImplementsSendData (4.51s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-T44DSocketBinarySendTests-lag0.5.log
+
+[cls45-TokenLoggingTests-measure.json]
+  cls45-TokenLoggingTests-lag0  only=MattermostTests/TokenLoggingTests  lag=0s  freeze=4.5s  stop=15:24:13 cont=15:24:18  marker_lag=0.23
+    summary: n/a (class mode)
+    frozen : ['TokenLoggingTests.testLoginFlowNeverLogsTheSessionToken (4.50s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/cls45-TokenLoggingTests-lag0.log
+
+[clsbeyond-SocketClientTests-measure.json]
+  clsbeyond-SocketClientTests-lag0  only=MattermostTests/SocketClientTests  lag=0s  freeze=6.57s  stop=15:25:32 cont=15:25:39  marker_lag=4.75
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testSequenceGateDropsAReplayOnTheSameConnection (6.59s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-SocketClientTests-lag0.log
+
+[clsbeyond-T32TeamSidebarTests-measure.json]
+  clsbeyond-T32TeamSidebarTests-lag0  only=MattermostTests/T32TeamSidebarTests  lag=0s  freeze=6.57s  stop=15:31:26 cont=15:31:32  marker_lag=0.29
+    summary: n/a (class mode)
+    frozen : ['T32TeamSidebarTests.testAFailedCounterRefreshKeepsTheLastNumbersAndSaysTheyAreStale (6.67s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T32TeamSidebarTests-lag0.log
+
+[clsbeyond-T34SocketResyncTests-measure.json]
+  clsbeyond-T34SocketResyncTests-lag0  only=MattermostTests/T34SocketResyncTests  lag=0s  freeze=11.51s  stop=15:28:34 cont=15:28:46  marker_lag=0.26
+    summary: n/a (class mode)
+    frozen : ['T34SocketResyncTests.testAFirstConnectDoesNotRefetchTheWindowAndTheSocketStillDelivers (12.04s)']
+    red    : ['T34SocketResyncTests.testAFirstConnectDoesNotRefetchTheWindowAndTheSocketStillDelivers']
+    FAIL   : T34SocketResyncTests.testAFirstConnectDoesNotRefetchTheWindowAndTheSocketStillDelivers: failed - timed out after 10s waiting for the delivered post
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T34SocketResyncTests-lag0.log
+
+[clsbeyond-T34SocketStallWatchdogTests-measure.json]
+  clsbeyond-T34SocketStallWatchdogTests-lag0  only=MattermostTests/T34SocketStallWatchdogTests  lag=0s  freeze=11.54s  stop=15:26:16 cont=15:26:28  marker_lag=0.19
+    summary: n/a (class mode)
+    frozen : ['T34SocketStallWatchdogTests.testAClientWithoutAVisibilityPredicateNeverStartsWithAWatchdog (11.74s)']
+    red    : ['T34SocketStallWatchdogTests.testAClientWithoutAVisibilityPredicateNeverStartsWithAWatchdog']
+    FAIL   : T34SocketStallWatchdogTests.testAClientWithoutAVisibilityPredicateNeverStartsWithAWatchdog: failed - timed out after 10s waiting for the authentication challenge
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T34SocketStallWatchdogTests-lag0.log
+
+[clsbeyond-T35ComposerViewModelTests-measure.json]
+  clsbeyond-T35ComposerViewModelTests-lag0  only=MattermostTests/T35ComposerViewModelTests  lag=0s  freeze=6.51s  stop=15:25:55 cont=15:26:01  marker_lag=1.05
+    summary: n/a (class mode)
+    frozen : ['T35ComposerViewModelTests.testAStaleAutocompleteAnswerIsDropped (6.73s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T35ComposerViewModelTests-lag0.log
+
+[clsbeyond-T37SocketReactionRoutingTests-measure.json]
+  clsbeyond-T37SocketReactionRoutingTests-lag0  only=MattermostTests/T37SocketReactionRoutingTests  lag=0s  freeze=0.0s  stop=None cont=None  marker_lag=None
+    summary: n/a (class mode)
+    frozen : []
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T37SocketReactionRoutingTests-lag0.log
+  clsbeyond-T37SocketReactionRoutingTests-lag0.5  only=MattermostTests/T37SocketReactionRoutingTests  lag=0.5s  freeze=6.56s  stop=15:32:45 cont=15:32:52  marker_lag=0.93
+    summary: n/a (class mode)
+    frozen : ['T37SocketReactionRoutingTests.testASocketReactionReachesTheOpenPanesRowThroughTheRail (6.65s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T37SocketReactionRoutingTests-lag0.5.log
+
+[clsbeyond-T43RSocketLivenessTests-measure.json]
+  clsbeyond-T43RSocketLivenessTests-lag0  only=MattermostTests/T43RSocketLivenessTests  lag=0s  freeze=6.51s  stop=16:14:43 cont=16:14:49  marker_lag=0.21
+    summary: n/a (class mode)
+    frozen : ['T43RSocketLivenessTests.testAFinishedPumpWithdrawsLiveness (6.63s)']
+    red    : ['T43RSocketLivenessTests.testAFinishedPumpWithdrawsLiveness']
+    FAIL   : T43RSocketLivenessTests.testAFinishedPumpWithdrawsLiveness: failed - timed out waiting for: live first
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T43RSocketLivenessTests-lag0.log
+
+[clsbeyond-T44CCallsEngineTests-measure.json]
+  clsbeyond-T44CCallsEngineTests-lag0  only=MattermostTests/T44CCallsEngineTests  lag=0s  freeze=0.0s  stop=None cont=None  marker_lag=None
+    summary: Executed 48 tests, 3 skipped, 0 failures (TEST SUCCEEDED)
+    frozen : []
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T44CCallsEngineTests-lag0.log
+  clsbeyond-T44CCallsEngineTests-lag0.5  only=MattermostTests/T44CCallsEngineTests  lag=0.5s  freeze=6.58s  stop=15:28:04 cont=15:28:11  marker_lag=0.91
+    summary: Executed 48 tests, 3 skipped, 0 failures (TEST SUCCEEDED)
+    frozen : ['T44CCallsEngineTests.testADeltaForAnotherChannelIsNotFolded (6.74s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T44CCallsEngineTests-lag0.5.log
+
+[clsbeyond-T44DSocketBinarySendTests-measure.json]
+  clsbeyond-T44DSocketBinarySendTests-lag0  only=MattermostTests/T44DSocketBinarySendTests  lag=0s  freeze=6.58s  stop=16:15:59 cont=16:16:05  marker_lag=0.19
+    summary: n/a (class mode)
+    frozen : []
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T44DSocketBinarySendTests-lag0.log
+  clsbeyond-T44DSocketBinarySendTests-lag0.5  only=MattermostTests/T44DSocketBinarySendTests  lag=0.5s  freeze=6.57s  stop=16:16:19 cont=16:16:26  marker_lag=1.33
+    summary: n/a (class mode)
+    frozen : ['T44DSocketBinarySendTests.testBinaryFrameReachesTheTransportThatImplementsSendData (6.63s)']
+    red    : ['T44DSocketBinarySendTests.testBinaryFrameReachesTheTransportThatImplementsSendData']
+    FAIL   : T44DSocketBinarySendTests.testBinaryFrameReachesTheTransportThatImplementsSendData: failed - timed out waiting for socket open
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T44DSocketBinarySendTests-lag0.5.log
+
+[clsbeyond-TokenLoggingTests-measure.json]
+  clsbeyond-TokenLoggingTests-lag0  only=MattermostTests/TokenLoggingTests  lag=0s  freeze=6.51s  stop=16:15:41 cont=16:15:47  marker_lag=0.26
+    summary: n/a (class mode)
+    frozen : ['TokenLoggingTests.testLoginFlowNeverLogsTheSessionToken (6.54s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-TokenLoggingTests-lag0.log
+
+[clsbeyond-T31AuthCoordinatorTests-measure.json]
+  clsbeyond-T31AuthCoordinatorTests-lag0  only=MattermostTests/T31AuthCoordinatorTests  lag=0s  freeze=6.53s  stop=16:15:12 cont=16:15:18  marker_lag=0.46
+    summary: n/a (class mode)
+    frozen : ['T31AuthCoordinatorTests.testBeginSignOutIsSynchronousAndStillRevokesWithTheDiscardedToken (6.55s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T31AuthCoordinatorTests-lag0.log
+
+[clsbeyond-T34ChannelViewRestoreWiringTests-measure.json]
+  clsbeyond-T34ChannelViewRestoreWiringTests-lag0  only=MattermostTests/T34ChannelViewRestoreWiringTests  lag=0s  freeze=11.56s  stop=16:16:45 cont=16:16:56  marker_lag=0.22
+    summary: n/a (class mode)
+    frozen : ['T34ChannelViewRestoreWiringTests.testASecondRequestRestoresAgainAfterTheFirstWasConsumed (14.53s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/clsbeyond-T34ChannelViewRestoreWiringTests-lag0.log
+
+[after45-SocketClientTests-measure.json]
+  after45-SocketClientTests-lag0  only=MattermostTests/SocketClientTests  lag=0s  freeze=4.58s  stop=15:34:27 cont=15:34:31  marker_lag=0.24
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testALongLivedSessionThenADropStartsTheLadderAtBase (4.58s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after45-SocketClientTests-lag0.log
+  after45-SocketClientTests-lag0.5  only=MattermostTests/SocketClientTests  lag=0.5s  freeze=4.58s  stop=15:34:44 cont=15:34:49  marker_lag=0.83
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testOnlyReplayableIdentitiesCarryADedupeKey (4.58s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after45-SocketClientTests-lag0.5.log
+  after45-SocketClientTests-lag1  only=MattermostTests/SocketClientTests  lag=1s  freeze=4.5s  stop=15:35:02 cont=15:35:07  marker_lag=1.19
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testSequenceGateDropsAReplayOnTheSameConnection (4.52s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after45-SocketClientTests-lag1.log
+  after45-SocketClientTests-lag1.5  only=MattermostTests/SocketClientTests  lag=1.5s  freeze=4.58s  stop=15:35:21 cont=15:35:26  marker_lag=1.68
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testSequenceGateDropsAReplayOnTheSameConnection (4.62s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after45-SocketClientTests-lag1.5.log
+  after45-SocketClientTests-lag2  only=MattermostTests/SocketClientTests  lag=2s  freeze=4.53s  stop=15:35:38 cont=15:35:42  marker_lag=2.25
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testSequenceGateDropsAReplayOnTheSameConnection (4.56s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after45-SocketClientTests-lag2.log
+  after45-SocketClientTests-lag3  only=MattermostTests/SocketClientTests  lag=3s  freeze=4.5s  stop=15:35:55 cont=15:36:00  marker_lag=3.21
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testStopFinishesSubscriberStreams (4.50s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after45-SocketClientTests-lag3.log
+
+[after65-SocketClientTests-measure.json]
+  after65-SocketClientTests-lag0  only=MattermostTests/SocketClientTests  lag=0s  freeze=6.54s  stop=15:36:58 cont=15:37:04  marker_lag=0.26
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testAReAddedReactionIsDelivered (6.55s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after65-SocketClientTests-lag0.log
+  after65-SocketClientTests-lag0.5  only=MattermostTests/SocketClientTests  lag=0.5s  freeze=6.56s  stop=15:37:22 cont=15:37:28  marker_lag=0.8
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testOnlyReplayableIdentitiesCarryADedupeKey (6.57s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after65-SocketClientTests-lag0.5.log
+  after65-SocketClientTests-lag1.5  only=MattermostTests/SocketClientTests  lag=1.5s  freeze=6.5s  stop=15:38:19 cont=15:38:26  marker_lag=1.91
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testOpenSendsAuthenticationChallengeAndDeliversHello (6.53s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after65-SocketClientTests-lag1.5.log
+  after65-SocketClientTests-lag3  only=MattermostTests/SocketClientTests  lag=3s  freeze=6.5s  stop=15:38:48 cont=15:38:55  marker_lag=3.24
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testTwoChannelViewedEventsOnOneConnectionAreBothDelivered (6.50s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after65-SocketClientTests-lag3.log
+
+[after45-final-measure.json]
+  after45-final-lag0  only=MattermostTests/SocketClientTests  lag=0s  freeze=4.56s  stop=16:21:19 cont=16:21:24  marker_lag=0.19
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testAReAddedReactionIsDelivered (4.56s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after45-final-lag0.log
+
+[after65-final-measure.json]
+  after65-final-lag0  only=MattermostTests/SocketClientTests  lag=0s  freeze=6.5s  stop=16:21:37 cont=16:21:44  marker_lag=0.22
+    summary: n/a (class mode)
+    frozen : ['SocketClientTests.testALongLivedSessionThenADropStartsTheLadderAtBase (6.51s)']
+    red    : []
+    log    : /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/after65-final-lag0.log
+

@@ -95,6 +95,8 @@ struct ChannelMembersView: View {
                 Text(row.initials)
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.secondary)
+                // The server's picture, when this account has one (the initials stay underneath).
+                AvatarPicture(userID: row.id, size: 32)
             }
             .frame(width: 32, height: 32)
             .accessibilityHidden(true)

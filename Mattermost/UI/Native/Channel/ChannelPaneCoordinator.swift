@@ -35,7 +35,8 @@ final class ChannelPaneCoordinator: ObservableObject {
     /// Most-recently-activated channel ids per server, newest last.
     private var recent: [UUID: [String]] = [:]
     private var imageStores: [UUID: ChannelImageStore] = [:]
-    /// One avatar cache per server: a face is a fact about the server, not about a channel.
+    /// Profile pictures, one cache per server: a face is a fact about the server, not about a
+    /// channel, and the channel pane, the thread panes and the member lists all ask for the same ones.
     private var avatarStores: [UUID: AvatarImageStore] = [:]
     private var emojiCatalogues: [UUID: EmojiCatalogue] = [:]
     /// T38: per-server attachment download state (shares the app's one `DownloadWorker` journal).
@@ -106,10 +107,16 @@ final class ChannelPaneCoordinator: ObservableObject {
         return store
     }
 
-    /// Profile pictures for one server (one cache per server, shared by every pane's rows).
+    /// Profile pictures for one server, created on first use.
+    ///
+    /// One store per server and not per pane: the channel timeline, the thread pane, the global
+    /// threads tab and the member list all draw the same faces, and a face must cost one request.
+    /// The bytes are also kept on disk under the server's own caches directory, so a relaunch draws
+    /// them before any request is made.
     func avatarStore(for server: ServerConfig) -> AvatarImageStore {
         if let existing = avatarStores[server.id] { return existing }
-        let store = AvatarImageStore(service: service(for: server))
+        let store = AvatarImageStore(service: service(for: server),
+                                     disk: AvatarDiskCache(directory: AvatarDiskCache.defaultDirectory(for: server.id)))
         avatarStores[server.id] = store
         return store
     }

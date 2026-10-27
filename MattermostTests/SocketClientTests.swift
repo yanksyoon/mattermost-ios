@@ -28,10 +28,11 @@ final class SocketClientTests: XCTestCase {
         let factory: ScriptedTransportFactory
         let box: EventBox
         let consumer: Task<Void, Never>
+        let clock: TestSocketClock
     }
 
     private func makeHarness(_ transports: [ScriptedSocketTransport],
-                             clock: SocketClock = TestSocketClock(autoRelease: true),
+                             clock: TestSocketClock = TestSocketClock(autoRelease: true),
                              token: String? = "tok-socket",
                              pingInterval: TimeInterval? = nil,
                              now: @escaping @Sendable () -> Date = { Date() },
@@ -55,7 +56,7 @@ final class SocketClientTests: XCTestCase {
         let stream = await client.subscribe()
         let box = EventBox()
         let consumer = box.consume(stream)
-        return Harness(client: client, factory: factory, box: box, consumer: consumer)
+        return Harness(client: client, factory: factory, box: box, consumer: consumer, clock: clock)
     }
 
     // MARK: - Connect
@@ -64,16 +65,15 @@ final class SocketClientTests: XCTestCase {
         let transport = ScriptedSocketTransport()
         let harness = await makeHarness([transport])
         await harness.client.start()
-        await waitUntil("transport created") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
 
         transport.push(.opened)
-        await waitUntil("authentication challenge sent") {
-            transport.sent.contains { $0.contains("authentication_challenge") }
-        }
+        await awaitSignal("the authentication challenge", signal: transport.sentSignal,
+                          until: { $0.contains("authentication_challenge") })
         transport.pushEvent("hello", seq: 1, data: ["connection_id": "conn-1",
                                                   "server_version": "9.11.19"])
 
-        await waitUntil("hello delivered") { harness.box.count == 1 }
+        await awaitSignal("the hello event", signal: harness.box.appendedSignal, until: { $0 == 1 })
         XCTAssertEqual(harness.box.events.first,
                        .hello(SocketHello(connectionID: "conn-1", serverVersion: "9.11.19")))
 
@@ -93,7 +93,7 @@ final class SocketClientTests: XCTestCase {
         let transport = ScriptedSocketTransport()
         let harness = await makeHarness([transport], token: "tok-header-1")
         await harness.client.start()
-        await waitUntil("transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
 
         let headers = harness.factory.madeHeaders.first
         XCTAssertEqual(headers?["Authorization"], "Bearer tok-header-1")
@@ -109,7 +109,7 @@ final class SocketClientTests: XCTestCase {
         let transport = ScriptedSocketTransport()
         let harness = await makeHarness([transport], token: nil)
         await harness.client.start()
-        await waitUntil("transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
 
         XCTAssertNil(harness.factory.madeHeaders.first?["Authorization"])
 
@@ -142,19 +142,29 @@ final class SocketClientTests: XCTestCase {
                                         resync: { reason in resyncReasons.append(reason) })
 
         await harness.client.start()
-        await waitUntil("first transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the first transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         console.push(.opened)
-        await waitUntil("first open handled") { await harness.client.state == .open }
+        // The auth challenge is written from `handleOpen()` *after* it sets `state = .open`, so the
+        // frame is a signal that the open was handled (no poll of the actor's state).
+        await awaitSignal("the first open", signal: console.sentSignal,
+                          until: { $0.contains("authentication_challenge") })
         console.push(.closed(code: 1006, reason: nil))
 
         // Second connection fails to open at all: the backoff must escalate.
-        await waitUntil("second transport") { harness.factory.created.count == 2 }
+        await awaitSignal("the second transport", signal: harness.factory.createdSignal, until: { $0 == 2 })
         failed.push(.failed("connection reset"))
 
-        await waitUntil("third transport") { harness.factory.created.count == 3 }
+        await awaitSignal("the third transport", signal: harness.factory.createdSignal, until: { $0 == 3 })
         recovered.push(.opened)
 
-        await waitUntil("resync after reconnect") { resyncReasons.count == 1 }
+        await awaitSignal("the resync", signal: resyncReasons.signal, until: { $0 == .reconnected })
+        // The client's frame loop stays inside `handleOpen()` until that open's resync has run, so a
+        // frame pushed now and delivered proves the open is fully handled: the count read below is
+        // then the whole story, not a snapshot taken before a second (duplicate) resync could land.
+        recovered.pushEvent("typing", seq: 1,
+                            data: ["channel_id": "c1", "parent_id": "", "user_id": "u2"])
+        await awaitSignal("a frame after the open", signal: harness.box.appendedSignal,
+                          until: { $0 >= 1 })
         let delays = await harness.client.retryDelays
         XCTAssertEqual(delays, [1, 2], "exactly one backoff sequence: base, then base*2")
         XCTAssertEqual(resyncReasons.reasons, [.reconnected])
@@ -177,16 +187,15 @@ final class SocketClientTests: XCTestCase {
 
         await harness.client.start()
         for (index, transport) in transports.enumerated() {
-            await waitUntil("transport \(index + 1)") {
-                harness.factory.created.count == index + 1
-            }
+            await awaitSignal("transport \(index + 1)", signal: harness.factory.createdSignal,
+                              until: { $0 == index + 1 })
             transport.push(.opened)
-            await waitUntil("open \(index + 1)") { await harness.client.state == .open }
+            await awaitSignal("open \(index + 1)", signal: transport.sentSignal,
+                              until: { $0.contains("authentication_challenge") })
             now.advance(0.1) // a flap, not a session: far below stableSessionInterval (5 s)
             transport.push(.closed(code: 1006, reason: nil))
-            await waitUntil("retry \(index + 1) scheduled") {
-                await harness.client.retryDelays.count == index + 1
-            }
+            await awaitSignal("retry \(index + 1) scheduled", signal: harness.clock.sleepSignal,
+                              until: { $0 == index + 1 })
         }
 
         let delays = await harness.client.retryDelays
@@ -209,15 +218,16 @@ final class SocketClientTests: XCTestCase {
         let harness = await makeHarness([first, second], now: now.provider)
 
         await harness.client.start()
-        await waitUntil("first transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the first transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         first.push(.opened)
-        await waitUntil("open") { await harness.client.state == .open }
+        await awaitSignal("the open", signal: first.sentSignal,
+                          until: { $0.contains("authentication_challenge") })
         now.advance(10) // well past stableSessionInterval
         first.push(.closed(code: 1006, reason: nil))
 
-        await waitUntil("second transport") { harness.factory.created.count == 2 }
+        await awaitSignal("the second transport", signal: harness.factory.createdSignal, until: { $0 == 2 })
         second.push(.failed("connection reset"))
-        await waitUntil("two retries") { await harness.client.retryDelays.count == 2 }
+        await awaitSignal("the second retry", signal: harness.clock.sleepSignal, until: { $0 == 2 })
 
         let delays = await harness.client.retryDelays
         XCTAssertEqual(delays, [1, 2],
@@ -237,18 +247,19 @@ final class SocketClientTests: XCTestCase {
         let harness = await makeHarness([first, second, third], now: now.provider)
 
         await harness.client.start()
-        await waitUntil("first transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the first transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         first.push(.failed("connection refused"))
 
-        await waitUntil("second transport") { harness.factory.created.count == 2 }
+        await awaitSignal("the second transport", signal: harness.factory.createdSignal, until: { $0 == 2 })
         second.push(.opened)
-        await waitUntil("open") { await harness.client.state == .open }
+        await awaitSignal("the open", signal: second.sentSignal,
+                          until: { $0.contains("authentication_challenge") })
         now.advance(10)
         second.push(.closed(code: 1006, reason: nil))
 
-        await waitUntil("third transport") { harness.factory.created.count == 3 }
+        await awaitSignal("the third transport", signal: harness.factory.createdSignal, until: { $0 == 3 })
         third.push(.failed("connection refused"))
-        await waitUntil("three retries") { await harness.client.retryDelays.count == 3 }
+        await awaitSignal("the third retry", signal: harness.clock.sleepSignal, until: { $0 == 3 })
 
         let delays = await harness.client.retryDelays
         XCTAssertEqual(delays, [1, 1, 2],
@@ -263,11 +274,12 @@ final class SocketClientTests: XCTestCase {
         let resyncReasons = ResyncLog()
         let harness = await makeHarness([transport], resync: { reason in resyncReasons.append(reason) })
         await harness.client.start()
-        await waitUntil("transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         transport.push(.opened)
-        await waitUntil("open") { await harness.client.state == .open }
+        await awaitSignal("the open", signal: transport.sentSignal,
+                          until: { $0.contains("authentication_challenge") })
         transport.pushEvent("hello", seq: 1, data: ["connection_id": "c", "server_version": "1"])
-        await waitUntil("hello") { harness.box.count == 1 }
+        await awaitSignal("the hello event", signal: harness.box.appendedSignal, until: { $0 == 1 })
         XCTAssertEqual(resyncReasons.count, 0, "the first connect is not a resync")
         await harness.client.stop()
         harness.consumer.cancel()
@@ -283,14 +295,14 @@ final class SocketClientTests: XCTestCase {
                                         resync: { reason in resyncReasons.append(reason) })
 
         await harness.client.start()
-        await waitUntil("first transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the first transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         first.push(.opened)
         first.pushEvent("hello", seq: 1, data: ["connection_id": "conn-1", "server_version": "9"])
         first.pushEvent("posted", seq: 2, data: ["post": postEvent("p1")])
-        await waitUntil("initial events") { harness.box.count == 2 }
+        await awaitSignal("the initial events", signal: harness.box.appendedSignal, until: { $0 == 2 })
         first.push(.closed(code: 1006, reason: nil))
 
-        await waitUntil("second transport") { harness.factory.created.count == 2 }
+        await awaitSignal("the second transport", signal: harness.factory.createdSignal, until: { $0 == 2 })
         second.push(.opened)
         // The server replays the last post after the reconnect (same identity, new seq) and then
         // sends the genuinely new one.
@@ -298,9 +310,8 @@ final class SocketClientTests: XCTestCase {
         second.pushEvent("posted", seq: 2, data: ["post": postEvent("p1")])
         second.pushEvent("posted", seq: 3, data: ["post": postEvent("p2", updateAt: 1_700_000_100_000)])
 
-        await waitUntil("replayed stream drained") {
-            await harness.client.deliveredEventCount == 3
-        }
+        await awaitSignal("the replayed stream to drain", signal: harness.box.appendedSignal,
+                          until: { $0 == 3 })
         let events = harness.box.events
         let postedIDs = events.compactMap { event -> String? in
             if case .posted(let post) = event { return post.id }
@@ -320,13 +331,13 @@ final class SocketClientTests: XCTestCase {
         let transport = ScriptedSocketTransport()
         let harness = await makeHarness([transport])
         await harness.client.start()
-        await waitUntil("transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         transport.push(.opened)
         let typing = ["channel_id": "c1", "parent_id": "", "user_id": "u2"]
         transport.pushEvent("typing", seq: 1, data: typing)
         transport.pushEvent("typing", seq: 2, data: typing)
 
-        await waitUntil("both typing events") { harness.box.count == 2 }
+        await awaitSignal("both typing events", signal: harness.box.appendedSignal, until: { $0 == 2 })
         let duplicates = await harness.client.duplicateEventCount
         XCTAssertEqual(duplicates, 0, "typing is transient: identical frames are both delivered")
         await harness.client.stop()
@@ -341,13 +352,14 @@ final class SocketClientTests: XCTestCase {
         let transport = ScriptedSocketTransport()
         let harness = await makeHarness([transport])
         await harness.client.start()
-        await waitUntil("transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         transport.push(.opened)
         let viewed = ["channel_id": "c1", "user_id": "u1"]
         transport.pushEvent("channel_viewed", seq: 1, data: viewed)
         transport.pushEvent("channel_viewed", seq: 2, data: viewed)
 
-        await waitUntil("both channel_viewed events") { harness.box.count == 2 }
+        await awaitSignal("both channel_viewed events", signal: harness.box.appendedSignal,
+                          until: { $0 == 2 })
         XCTAssertEqual(harness.box.events.map(\.name), ["channel_viewed", "channel_viewed"])
         let duplicates = await harness.client.duplicateEventCount
         XCTAssertEqual(duplicates, 0, "a second view of the same channel is not a replay")
@@ -361,14 +373,15 @@ final class SocketClientTests: XCTestCase {
         let transport = ScriptedSocketTransport()
         let harness = await makeHarness([transport])
         await harness.client.start()
-        await waitUntil("transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         transport.push(.opened)
         let reaction = "{\"user_id\":\"u2\",\"post_id\":\"p1\",\"emoji_name\":\"+1\",\"create_at\":5}"
         transport.pushEvent("reaction_added", seq: 1, data: ["reaction": reaction])
         transport.pushEvent("reaction_removed", seq: 2, data: ["reaction": reaction])
         transport.pushEvent("reaction_added", seq: 3, data: ["reaction": reaction])
 
-        await waitUntil("all three reaction events") { harness.box.count == 3 }
+        await awaitSignal("all three reaction events", signal: harness.box.appendedSignal,
+                          until: { $0 == 3 })
         XCTAssertEqual(harness.box.events.map(\.name),
                        ["reaction_added", "reaction_removed", "reaction_added"])
         let duplicates = await harness.client.duplicateEventCount
@@ -397,13 +410,16 @@ final class SocketClientTests: XCTestCase {
         let transport = ScriptedSocketTransport()
         let harness = await makeHarness([transport])
         await harness.client.start()
-        await waitUntil("transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         transport.push(.opened)
         transport.pushEvent("posted", seq: 5, data: ["post": postEvent("p1")])
         transport.pushEvent("posted", seq: 4, data: ["post": postEvent("p2")])
 
-        await waitUntil("first event") { harness.box.count == 1 }
-        // Give the run loop a chance to (not) deliver the stale frame.
+        await awaitSignal("the first event", signal: harness.box.appendedSignal, until: { $0 == 1 })
+        // A negative assertion — "seq 4 is *not* delivered" — is the one case a signal cannot
+        // express: there is no event to wait for. The settle delay is a fixed window, not a budget
+        // for a value to arrive in, so a frozen host cannot red it; the delivery it would hide (if
+        // the gate were broken) is the very next frame, microseconds of work here.
         try? await Task.sleep(nanoseconds: 50_000_000)
         XCTAssertEqual(harness.box.count, 1, "seq 4 arrived after seq 5: dropped before delivery")
         await harness.client.stop()
@@ -423,25 +439,31 @@ final class SocketClientTests: XCTestCase {
                                         resync: { reason in resyncReasons.append(reason) })
 
         await harness.client.start()
-        await waitUntil("transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         transport.push(.opened)
-        await waitUntil("open") { await harness.client.state == .open }
+        await awaitSignal("the open", signal: transport.sentSignal,
+                          until: { $0.contains("authentication_challenge") })
 
-        clock.release() // first tick: sends a ping
-        await waitUntil("ping sent") { transport.sent.contains { $0.contains("\"ping\"") } }
+        // Each tick is released only once the client is *parked* in the heartbeat sleep, and each
+        // effect is awaited as a signal. `clock.release()` alone is a no-op when the client has not
+        // reached its sleep yet, and the old poll then burned its 5 s budget — the 4.5 s-freeze red
+        // measured on this test (docs/t-eccd49eb-freeze-table.md).
+        await clock.releaseWhenParked() // first tick: sends a ping
+        await awaitSignal("the ping", signal: transport.sentSignal, until: { $0.contains("\"ping\"") })
 
-        clock.release() // second tick with no pong: recycle
-        await waitUntil("connection recycled") { transport.closeCount == 1 }
+        await clock.releaseWhenParked() // second tick with no pong: recycle
+        await awaitSignal("the recycle", signal: transport.closeSignal, until: { $0 == 1 })
         // T28-AV F5: the timeout itself must NOT resync — the reconnect is the one refetch point.
         XCTAssertEqual(resyncReasons.count, 0,
                        "a heartbeat timeout recycles the socket; the reconnect reports the resync")
 
-        await waitUntil("backoff scheduled") { clock.requestedDelays.contains { $0 >= 0.5 } }
-        clock.release() // let the run loop reconnect
-        await waitUntil("reconnected transport") { harness.factory.created.count == 2 }
+        await awaitSignal("the backoff", signal: clock.delaySignal, until: { $0 >= 0.5 })
+        await clock.releaseWhenParked() // let the run loop reconnect
+        await awaitSignal("the reconnected transport", signal: harness.factory.createdSignal,
+                          until: { $0 == 2 })
         reconnect.push(.opened)
 
-        await waitUntil("resync after the reconnect") { resyncReasons.count == 1 }
+        await awaitSignal("the resync", signal: resyncReasons.signal, until: { $0 == .reconnected })
         XCTAssertEqual(resyncReasons.reasons, [.reconnected],
                        "exactly one resync for the whole dropout")
         let resyncCount = await harness.client.resyncCount
@@ -457,16 +479,26 @@ final class SocketClientTests: XCTestCase {
         let harness = await makeHarness([transport], clock: clock, pingInterval: 0.01)
 
         await harness.client.start()
-        await waitUntil("transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         transport.push(.opened)
-        await waitUntil("open") { await harness.client.state == .open }
+        await awaitSignal("the open", signal: transport.sentSignal,
+                          until: { $0.contains("authentication_challenge") })
 
-        clock.release()
-        await waitUntil("first ping") { transport.sent.count == 2 } // challenge + ping
+        await clock.releaseWhenParked()
+        await awaitSignal("the first ping", signal: transport.sentCountSignal, until: { $0 == 2 })
         transport.push(.text(ScriptedSocketTransport.reply(seq: 2, text: "pong")))
+        // The pong is folded inside the client actor (`missedPongs = 0`) and the client publishes no
+        // completion signal for it, so a `hello` frame is used as a **fence**: the client's frame
+        // loop is FIFO over one transport stream, so the hello reaching the box proves the pong
+        // before it was folded. Without the fence the next heartbeat tick races the pong — which is
+        // exactly the ordering the 4.5 s freeze flipped (measured red in
+        // docs/t-eccd49eb-freeze-table.md), and no poll here would have fixed it.
+        transport.pushEvent("hello", seq: 1, data: ["connection_id": "conn-pong", "server_version": "9"])
+        await awaitSignal("the pong to be folded (fenced by hello)", signal: harness.box.appendedSignal,
+                          until: { $0 == 1 })
 
-        clock.release()
-        await waitUntil("second ping") { transport.sent.count == 3 }
+        await clock.releaseWhenParked()
+        await awaitSignal("the second ping", signal: transport.sentCountSignal, until: { $0 == 3 })
         XCTAssertEqual(transport.closeCount, 0, "a pong resets the miss count, so no recycle")
 
         await harness.client.stop()
@@ -479,7 +511,7 @@ final class SocketClientTests: XCTestCase {
         let transport = ScriptedSocketTransport()
         let harness = await makeHarness([transport])
         await harness.client.start()
-        await waitUntil("transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         transport.push(.opened)
 
         var seq = 0
@@ -511,7 +543,7 @@ final class SocketClientTests: XCTestCase {
         ])
         transport.pushEvent("plugin_something_new", seq: next(), data: ["x": 1])
 
-        await waitUntil("all events") { harness.box.count == 12 }
+        await awaitSignal("all events", signal: harness.box.appendedSignal, until: { $0 == 12 })
         let events = harness.box.events
         XCTAssertEqual(events.map(\.name), [
             "hello", "posted", "post_edited", "post_deleted", "channel_viewed", "typing",
@@ -545,12 +577,14 @@ final class SocketClientTests: XCTestCase {
         let transport = ScriptedSocketTransport()
         let harness = await makeHarness([transport])
         await harness.client.start()
-        await waitUntil("transport") { harness.factory.created.count == 1 }
+        await awaitSignal("the transport", signal: harness.factory.createdSignal, until: { $0 == 1 })
         transport.push(.opened)
-        await waitUntil("open") { await harness.client.state == .open }
+        await awaitSignal("the open", signal: transport.sentSignal,
+                          until: { $0.contains("authentication_challenge") })
 
         await harness.client.stop()
-        await waitUntil("stream finished") { harness.box.streamFinished }
+        await awaitSignal("the subscriber stream to finish", signal: harness.box.finishedSignal,
+                          until: { $0 })
         let state = await harness.client.state
         XCTAssertEqual(state, .idle)
         harness.consumer.cancel()
@@ -562,6 +596,9 @@ final class ResyncLog: @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [SocketClient.ResyncReason] = []
 
+    /// Every reason, as it is appended — the signal form of "a resync happened".
+    let signal = TestSignal<SocketClient.ResyncReason>()
+
     var reasons: [SocketClient.ResyncReason] {
         lock.lock()
         defer { lock.unlock() }
@@ -572,7 +609,8 @@ final class ResyncLog: @unchecked Sendable {
 
     func append(_ reason: SocketClient.ResyncReason) {
         lock.lock()
-        defer { lock.unlock() }
         storage.append(reason)
+        lock.unlock()
+        signal.send(reason)
     }
 }

@@ -571,8 +571,8 @@ struct ChannelPaneContent: View {
 
     @State private var model: ChannelViewModel?
     @State private var imageStore: ChannelImageStore?
-    /// Profile pictures for this server's authors, created beside the list (§ the same rule as
-    /// `imageStore`: one cache per server, shared by every row that draws a face).
+    /// This server's profile pictures, resolved beside the list (§ the same rule as `imageStore`:
+    /// one cache per server, shared by every row that draws a face).
     @State private var avatarStore: AvatarImageStore?
     @State private var emoji: EmojiCatalogue?
     /// T37: the recently-used emoji, resolved once per server pane (see the coordinator's cache).
@@ -654,7 +654,9 @@ struct ChannelPaneContent: View {
         }
         // The model is created on first appearance and re-used from the coordinator afterwards, so a
         // rotation, a push and a return all keep the same window and scroll position.
-        // Every avatar in this pane reads the one store, so a face is fetched once per user.
+        //
+        // Every avatar in this pane reads the one per-server store, so an author's face is fetched
+        // once however many rows and sheets (a reaction list, a profile popover) draw it.
         .environment(\.avatarImages, avatarStore)
         .task(id: channelID) {
             let resolved = panes.model(for: server, channelID: channelID, channelName: channelName)

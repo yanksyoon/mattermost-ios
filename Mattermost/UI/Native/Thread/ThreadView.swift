@@ -33,6 +33,9 @@ struct ThreadPaneContent: View {
     @State private var model: ThreadViewModel?
     @State private var composer: ComposerViewModel?
     @State private var imageStore: ChannelImageStore?
+    /// This server's profile pictures (one cache per server; the reply rows draw the same faces the
+    /// channel timeline does).
+    @State private var avatarStore: AvatarImageStore?
     @State private var emoji: EmojiCatalogue?
     /// T37: recently-used emoji, the same store the channel pane records into.
     @State private var emojiRecents: EmojiRecentsStore?
@@ -72,8 +75,10 @@ struct ThreadPaneContent: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("threadPane")
+        .environment(\.avatarImages, avatarStore)
         .task(id: rootID) {
             imageStore = panes.imageStore(for: server)
+            avatarStore = panes.avatarStore(for: server)
             let catalogue = panes.emojiCatalogue(for: server)
             emoji = catalogue
             let recents = panes.emojiRecents(for: server)

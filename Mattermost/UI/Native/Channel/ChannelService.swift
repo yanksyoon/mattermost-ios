@@ -54,10 +54,10 @@ protocol ChannelServing: AnyObject {
     /// The image bytes for one custom emoji (`GET /emoji/{id}/image`).
     func emojiImage(emojiID: String) async throws -> Data
 
-    /// `GET /users/{user_id}/image` — one user's profile picture.
+    /// `GET /users/{user_id}/image` — one account's profile picture.
     ///
-    /// Defaults to a failure, like `emojiImage`: a service that cannot fetch avatars still draws the
-    /// initials, and nothing silently pretends a picture exists.
+    /// Defaults to `notFound`, like `emojiImage`: a service that cannot fetch avatars still draws the
+    /// initials, and nothing pretends a picture exists.
     func userImage(userID: String) async throws -> Data
 
     /// `POST /reactions` — add one reaction (S16/T37).
