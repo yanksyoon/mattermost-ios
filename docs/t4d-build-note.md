@@ -52,6 +52,7 @@ copy, same two facts (something is waiting, and how much).
 | `t4d-ui8` | live, `MattermostUITests/T4dUnreadThreadsUITests` on iPhone 15 Pro (iOS 17.0.1) | **1 run, 0 failed**, 27.9 s — rail count drawn with the pane closed, server-side read moves it, tap opens the pane, thread gone from Unreads, header agrees |
 | `t4d-ui-ipad2` | same test on iPad Pro 11 (M5), iOS 26.0.1 — the **split** layout | **1 run, 0 failed**, 170 s |
 | `t4d-units4` / `t4d-ui9-rebased` | the same two suites after rebasing onto `origin/main` (which brought in the owner's last-conversation restore) | **62 run / 0 failed** and **1 run / 0 failed** (137 s) |
+| `t4d-whole-units` | whole `MattermostTests` target on the pushed tree | **1669 run, 8 skipped, 0 failed** (112 s) |
 | `t4d-regress-t32` | `MattermostUITests/T32SidebarIdentifiersTests` | 5/6 passed; `testTeamsFailureStateIsReachable` fails **identically with this card's changes stashed** (`t4d-baseline-t32`), i.e. pre-existing on this branch, not a regression here |
 
 Screens (exported from the iPad run's attachments): the sidebar with **Threads • 1** above the
