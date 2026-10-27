@@ -261,68 +261,33 @@ struct ChannelPostListView: View {
 
     /// Put the anchored post back where the reader left it.
     ///
-    /// The older page was inserted *above* the anchor, so the anchor moved down by the height of that
-    /// page; scrolling the content up by exactly that difference leaves the reader looking at the same
-    /// pixels. The correction is applied through the scroll view's `contentOffset` (a point offset, not
-    /// a row edge), which keeps a reader who was half-way through a post from being moved by up to a
-    /// row height — the case `scrollTo(anchor: .top)` cannot express.
+    /// The loop itself is `ScrollRestoreRunner` (its own file) so the arithmetic, the single
+    /// application of a correction and the un-laid-out fallback are pinned by fast unit tests against a
+    /// fake surface. What stays here is the part only the view can supply: the real scroll view, and
+    /// SwiftUI's `scrollTo` for a row the lazy stack has dropped.
     ///
-    /// Every number in the loop is measured from the row's own `UIView` at the moment it is read
-    /// (`ChannelScrollController.offsetFromTop`), so the loop is a closed control system: measure,
-    /// correct the residual, measure again. That is why a correction cannot be applied twice — the
-    /// second measurement *contains* the first correction, and reads ~0 if it was right. R3 combined a
-    /// SwiftUI preference value from one layout pass with a content offset read a moment later; the
-    /// mismatch reapplied the move, and the live anchor test measured the row 585 pt from where it was.
-    ///
-    /// The row can be un-laid-out after the insert (a page pushes it a few screens down, and a lazy
-    /// stack drops off-screen rows). Then `ScrollViewReader` is asked to bring it back, and the loop
-    /// measures again from there.
+    /// The report is published on the model (`lastScrollRestore`) because the user-visible property is
+    /// not the same claim: QA measured that the anchored row keeps its y on this host even with this
+    /// call deleted (task t_a4d02070). The live anchor test asserts the report too, so a missing restore
+    /// is a failure rather than a coincidence of iOS 18+ anchoring.
     @MainActor
     private func restoreReader(_ restore: ChannelViewModel.ScrollAnchor,
                                proxy: ScrollViewProxy) async {
-        let baseHeight = scrollController.lastPlace?.contentHeight ?? scrollController.contentHeight
-        var unchangedRuns = 0
-        var previousHeight = scrollController.contentHeight
-        for _ in 0..<75 {                      // ~1.2 s at 16 ms; the insert lays out in a frame or two
-            try? await Task.sleep(for: .milliseconds(16))
-            // A layout that has not run yet still reports the *old* positions, which read as "no
-            // correction needed". Content height is what tells the two apart, so an early exit needs
-            // both: the content has been re-laid-out *and settled*, and the anchor is where it belongs.
-            let height = scrollController.contentHeight
-            let laidOut = abs(height - baseHeight) > 1 && abs(height - previousHeight) <= 1
-            previousHeight = height
-
-            if let measured = scrollController.offsetFromTop(ofRow: restore.postID) {
-                let adjustment = ScrollRestorePlan.adjustment(
-                    recordedOffsetFromTop: restore.offsetFromTop,
-                    currentOffsetFromTop: measured)
-                if ScrollRestorePlan.isNoOp(adjustment) {
-                    unchangedRuns = laidOut ? unchangedRuns + 1 : 0
-                    if unchangedRuns >= 3 {
-                        model.consumeScrollRestore()
-                        return
-                    }
-                } else {
-                    unchangedRuns = 0
-                    _ = scrollController.scroll(by: adjustment)
-                }
-                continue
-            }
-
-            // Not laid out: bring it back with SwiftUI's own scroll-to, then put the recorded distance
-            // back above it with a point offset.
-            unchangedRuns = 0
-            proxy.scrollTo("post-\(restore.postID)", anchor: .top)
-            try? await Task.sleep(for: .milliseconds(16))
-            if let measured = scrollController.offsetFromTop(ofRow: restore.postID) {
-                let adjustment = ScrollRestorePlan.adjustment(
-                    recordedOffsetFromTop: restore.offsetFromTop,
-                    currentOffsetFromTop: measured)
-                if !ScrollRestorePlan.isNoOp(adjustment) {
-                    _ = scrollController.scroll(by: adjustment)
-                }
-            }
-        }
+        let surface = ScrollRestoreSurface(
+            contentHeight: { [scrollController] in scrollController.contentHeight },
+            offsetFromTop: { [scrollController] postID in
+                scrollController.offsetFromTop(ofRow: postID)
+            },
+            scrollBy: { [scrollController] delta in scrollController.scroll(by: delta) },
+            scrollRowIntoView: { postID in
+                proxy.scrollTo("post-\(postID)", anchor: .top)
+            })
+        let report = await ScrollRestoreRunner.run(
+            anchor: restore,
+            baselineContentHeight: scrollController.lastPlace?.contentHeight
+                ?? scrollController.contentHeight,
+            surface: surface)
+        model.recordScrollRestore(report)
         model.consumeScrollRestore()
     }
 
@@ -833,6 +798,10 @@ struct ChannelPaneContent: View {
             Spacer(minLength: 8)
             if ChannelUITestHook.exposesLoadEarlier, let model {
                 LoadEarlierSeamButton(model: model)
+                // The second pin (task t_a4d02070): what the last reader-restore actually did. The
+                // frame comparison alone passes on this host with the restore deleted, so the live
+                // anchor test needs a signal only the restore can produce.
+                ScrollRestoreSeam(model: model)
             }
             // T40 (S22/S23): the channel's own header opens its info screen. The web client makes the
             // channel *title* the affordance; a pane header that shows a title is the same place, so the
@@ -966,6 +935,28 @@ private struct LoadEarlierSeamButton: View {
         // to have scrolled.
         .accessibilityValue("\(model.loadedCount) posts loaded, oldest \(model.oldestLoadedPostID ?? "none")")
         .accessibilityIdentifier("channelPostList.forceLoadEarlier")
+    }
+}
+
+/// What the last reader-restore did, as a launch-argument-only element (task t_a4d02070).
+///
+/// QA measured that the anchor test's frame comparison still passes with the restore deleted from the
+/// list (mutation A, `docs/t34qa-build-note.md` §8): the OS keeps the row where it was, so the live
+/// suite's green did not cover the restore path. This publishes `ScrollRestoreRunner`'s report —
+/// which post, how many frames, how many corrections, whether the layout settled, and the first
+/// measured residual — so the live test can assert that a restore **ran**. Hidden unless the seam's
+/// launch argument is present, like every other hook in `ChannelUITestHook`.
+private struct ScrollRestoreSeam: View {
+    @ObservedObject var model: ChannelViewModel
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 4, height: 4)
+            .accessibilityElement()
+            .accessibilityLabel("Scroll restore report")
+            .accessibilityValue(model.lastScrollRestore?.summary ?? "none recorded")
+            .accessibilityIdentifier("channelPostList.scrollRestore")
     }
 }
 

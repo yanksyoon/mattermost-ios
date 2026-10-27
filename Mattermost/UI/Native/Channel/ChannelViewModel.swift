@@ -86,6 +86,16 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     @Published private(set) var expandedPostIDs: Set<String> = []
     /// Set after an older page lands, consumed by the view to scroll back to the reader's post.
     @Published private(set) var pendingScrollRestore: ScrollAnchor?
+    /// The last reader-restore the view performed, and what it did.
+    ///
+    /// Published because the restore is otherwise invisible: the live anchor test asserts the
+    /// user-visible property ("the row keeps its y"), which on iOS 18+ also holds when the restore is
+    /// deleted outright (task t_a4d02070, `docs/t34qa-build-note.md` §8 mutation A). This report is the
+    /// second, narrower signal — a restore that ran names its post, counts its frames and corrections,
+    /// and says whether the layout settled — so "the restore path is wired" is assertable in a unit
+    /// test (`T34ChannelViewRestoreWiringTests`) and through the `-uiTestExposeLoadEarlier` seam in the
+    /// live suite.
+    @Published private(set) var lastScrollRestore: ScrollRestoreReport?
     /// T39: a post a jump asked for. The view scrolls to it and calls `consumeJump()`.
     @Published private(set) var jumpTarget: String?
     /// T39: the post the jump landed on, drawn with a marking bar until the reader searches again.
@@ -947,6 +957,11 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     /// The view calls this once it has scrolled back, so the anchor is not applied twice.
     func consumeScrollRestore() {
         pendingScrollRestore = nil
+    }
+
+    /// The view's record of the restore it just performed (see `lastScrollRestore`).
+    func recordScrollRestore(_ report: ScrollRestoreReport) {
+        lastScrollRestore = report
     }
 
     func toggleExpanded(_ postID: String) {

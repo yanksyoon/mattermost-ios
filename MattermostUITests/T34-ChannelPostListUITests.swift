@@ -404,18 +404,39 @@ final class T34ChannelPostListUITests: XCTestCase {
         }
 
         let after = element(app, top.identifier)
+        let restoreReport = restoreReportValue(app)
+        print("t34 restore report: \(restoreReport)")
+        let reportAttachment = XCTAttachment(string: restoreReport)
+        reportAttachment.name = "t34-restore-report"
+        reportAttachment.lifetime = .keepAlways
+        add(reportAttachment)
         if after.exists {
             let moved = after.frame.minY - before.minY
             XCTAssertEqual(after.frame.minY, before.minY, accuracy: 2,
                            "the anchored post \(top.identifier) moved \(String(format: "%.1f", moved)) pt "
                            + "from y=\(String(format: "%.1f", before.minY)) across a page insert "
-                           + "(the pane holds \(loadedPosts(app)) posts; rows on screen: "
-                           + "\(describeRows(app)))")
+                           + "(the pane holds \(loadedPosts(app)) posts; restore report: \(restoreReport); "
+                           + "rows on screen: \(describeRows(app)))")
         } else {
             XCTFail("the anchored post \(top.identifier) left the screen across a page insert: "
                     + "the pane holds \(loadedPosts(app)) posts and the rows in the tree are "
-                    + "\(describeRows(app))")
+                    + "\(describeRows(app)) (restore report: \(restoreReport))")
         }
+
+        // The second, narrower pin (task t_a4d02070). The frame comparison above is the *user-visible*
+        // property, and QA measured that it still holds on this host with the restore deleted (mutation
+        // A, `docs/t34qa-build-note.md` §8): iOS 18+ anchoring keeps the row in place by itself, so a
+        // green run above says "the list did not jump", not "the restore ran". This element is published
+        // by `ScrollRestoreRunner` — nothing else writes it — so deleting the restore fails here even
+        // when the OS hides the displacement.
+        let restore = element(app, "channelPostList.scrollRestore")
+        XCTAssertTrue(restore.waitForExistence(timeout: 15),
+                      "the -uiTestExposeLoadEarlier seam did not publish channelPostList.scrollRestore")
+        XCTAssertFalse(restoreReport.contains("none recorded"),
+                       "no reader-restore ran across the page insert, so the anchored row only looks "
+                       + "still because iOS kept it there (restore report: \(restoreReport))")
+        XCTAssertTrue(restoreReport.contains("outcome="),
+                      "the restore report is malformed: \(restoreReport)")
 
         // And the page really was inserted: the reader can now reach posts that were not loaded
         // before. Without this the frame comparison above would pass on a no-op.
@@ -972,6 +993,19 @@ final class T34ChannelPostListUITests: XCTestCase {
         guard let marker = value.range(of: "oldest ") else { return nil }
         let id = String(value[marker.upperBound...]).trimmingCharacters(in: .whitespaces)
         return id.isEmpty || id == "none" ? nil : id
+    }
+
+    /// What the last reader-restore did, as the `-uiTestExposeLoadEarlier` seam publishes it
+    /// (`channelPostList.scrollRestore`, value `restore post.<id> outcome=… frames=… corrections=…`).
+    ///
+    /// Why the live anchor test needs this at all (task t_a4d02070): its frame comparison asserts the
+    /// user-visible property, which on this host also holds with the restore deleted — mutation A in
+    /// `docs/t34qa-build-note.md` §8 passed. Only the restore can write this value, so reading it is
+    /// what distinguishes "the restore ran" from "the OS kept the row still".
+    private func restoreReportValue(_ app: XCUIApplication) -> String {
+        let seam = element(app, "channelPostList.scrollRestore")
+        guard seam.exists else { return "element missing" }
+        return (seam.value as? String) ?? (seam.label.isEmpty ? "value missing" : seam.label)
     }
 
     /// Scroll towards the **newer** end (swipe up) until `identifier` — optionally with a given label —

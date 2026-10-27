@@ -219,3 +219,35 @@ Rule that follows: **ask the accessibility tree one question per snapshot, not o
 queries (`grep -c 'Element at index' build/logs/t34q-final1.log` → 0) and two consecutive full-suite
 runs without losing the process. When a run *does* lose the host, count it as one harness failure -
 not as N test failures — and check the crash reports before believing the test names.
+
+## 8. An assertion of a user-visible property does not pin the code that produces it (T34 anchor pin)
+
+Third lesson, and the one that cost a green suite its meaning. `testLoadingOlderPostsDoesNotMoveTheAnchoredPost`
+asserts "the anchored row keeps its y across a page insert". QA deleted the restore call and the test
+**still passed** on this host (`docs/t34qa-build-note.md` §8 mutation A): on iOS 18+ the scroll view
+preserves the reader's place for a prepend by itself, so the property held for a reason the test was not
+about. The suite's claim was therefore "the list does not jump" — true and worth having — and not "the
+restore works".
+
+Rules that follow (implemented in `ScrollRestoreRunner` + `T34ScrollRestorePathTests` +
+`T34ChannelViewRestoreWiringTests`, `docs/t34-anchor-pin.md`):
+
+1. **If the OS (or any layer under test) can produce the asserted property on its own, the test needs a
+   second signal that only the code path under test emits.** Here: `ScrollRestoreReport`, published on
+   the model and read by the live test through `channelPostList.scrollRestore`. It names the post,
+   counts frames and corrections, and states whether the layout settled. No report ⇒ no restore.
+2. **Lift the logic out of the `View` so it can be driven without a window.** The loop takes a
+   `ScrollRestoreSurface` (four closures) and a `pause` closure; the fake surface simulates the page
+   insert, so the arithmetic, the sign, the single application and the un-laid-out fallback are
+   millisecond tests instead of an 80 s simulator run.
+3. **Pin the caller separately, in-process, with the real view.** `UIHostingController` + a
+   `UIWindow` + the real `ChannelPostListView` + a `requestScrollRestore`: the anchor must be consumed
+   and a report published. This is the level that actually catches the deleted call, in ~2 s.
+4. **Mutate both levels and record which one catches what.** Mutation A (delete the call) fails the two
+   hosted wiring tests and nothing else; mutation C (compute the correction, never apply it) fails the
+   runner tests and nothing else. A pin nobody has seen fail is a guess; a pin whose red case is not
+   written down is a story.
+5. **Do not turn the report into the assertion.** The frame comparison stays: it is the user-visible
+   property, and QA's mutation B (scroll the pane to the bottom on purpose) proves it can fail. The
+   report answers "did our code run", the frame answers "is the reader where they were". A green run
+   needs both.

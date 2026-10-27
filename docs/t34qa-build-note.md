@@ -185,6 +185,16 @@ row that iOS 18+ anchoring — not `restoreReader` — is what a reader gets on 
 suite's claim is "the list does not jump", not "the restore works"; those are different sentences and
 only the first one has live evidence.
 
+**Closed by the channel owner (task `t_a4d02070`, `docs/t34-anchor-pin.md`).** Option 1 plus the
+measurement: the loop is now `ScrollRestoreRunner` (driver-able by a fake surface, 9 unit tests), the
+caller is pinned in-process by `T34ChannelViewRestoreWiringTests` (the real list in a window), and the
+live anchor test reads a `ScrollRestoreReport` published at `channelPostList.scrollRestore` — a value
+only the restore writes. Deleting the restore call now fails 4 assertions in 2 tests (`build/logs/t34pin-mutationA.log`);
+deleting only the *application* of the correction fails 11 (`t34pin-mutationC.log`). The mechanism is
+measured too: on this host the report reads `firstResidual=0.0 corrections=0` (iOS 26.0), i.e. the OS
+kept the row and the restore correctly had nothing to do — the first of the two candidates, now stated
+in `docs/parity.md` (T34, Limits) rather than left as a question.
+
 ## 9. What is still not validated here (no fabricated passes)
 
 * **One host, one simulator, one server.** iPad Pro 11-inch (M5) on iOS 26.0 against a throwaway
