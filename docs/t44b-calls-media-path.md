@@ -83,7 +83,12 @@ docker rm -f mm-calls-udp
 ```
 
 Nothing else about `mm-perf` was modified: no plugin config is left set, no file is left in the
-container (see §3 and §9).
+container (see §3 and §9). State left behind by this card, verified at the end of the run:
+`docker ps` shows `mm-calls-udp  Up  127.0.0.1:8443->8443/udp`,
+`python3 scripts/t44b_calls_config.py show` prints
+`PluginSettings.Plugins['com.mattermost.calls'] = {} (absent: plugin defaults)`, and
+`curl -o /dev/null -w '%{http_code}' http://127.0.0.1:8065/static/t44b_rtp_spike.js` prints `404`
+(the RTP harness was served from the fixture's static dir for the measurement and moved out again).
 
 ## 3. `ICEHostOverride` is *not* part of the fix on this build — it breaks it
 
@@ -124,7 +129,9 @@ $ python3 scripts/t44_calls_probe.py --url http://127.0.0.1:8065
 ...
 --- reachability of the SFU's own candidates, from this host ---
 DATA  candidate  —  candidate:2878742611 1 udp 2130706431 127.0.0.1 8443 typ host
+DATA  candidate  —  candidate:408902208 1 udp 2130706431 209.35.187.178 8443 typ host
 DATA  candidate  —  candidate:375738803 1 tcp 1671430143 127.0.0.1 8443 typ host tcptype passive
+DATA  candidate  —  candidate:2779524000 1 tcp 1671430143 209.35.187.178 8443 typ host tcptype passive
 DATA  candidate  —  candidate:1244823927 1 udp 1694498815 209.35.187.178 59429 typ srflx raddr 0.0.0.0 rport 58885
 DATA  ICE credentials  —  server ufrag PZLGoKQRnBswBZJV, client ufrag t44a
 DATA  ice check to 127.0.0.1:8443  —  no reply (timeout)
@@ -143,10 +150,13 @@ $ docker run -d --name mm-calls-udp --network mm-perf-net -p 127.0.0.1:8443:8443
     alpine/socat:latest UDP4-LISTEN:8443,fork,reuseaddr UDP4:mm-perf:8443
 $ python3 scripts/t44_calls_probe.py --url http://127.0.0.1:8065
 ...
+--- reachability of the SFU's own candidates, from this host ---
 DATA  candidate  —  candidate:2878742611 1 udp 2130706431 127.0.0.1 8443 typ host
+DATA  candidate  —  candidate:408902208 1 udp 2130706431 209.35.187.178 8443 typ host
 DATA  candidate  —  candidate:375738803 1 tcp 1671430143 127.0.0.1 8443 typ host tcptype passive
-DATA  candidate  —  candidate:1244823927 1 udp 1694498815 209.35.187.178 62582 typ srflx raddr 0.0.0.0 rport 0
-DATA  ICE credentials  —  server ufrag pUDmRnJdinWDHeOr, client ufrag t44a
+DATA  candidate  —  candidate:2779524000 1 tcp 1671430143 209.35.187.178 8443 typ host tcptype passive
+DATA  candidate  —  candidate:1244823927 1 udp 1694498815 209.35.187.178 62582 typ srflx raddr 0.0.0.0 rport 52498
+DATA  ICE credentials  —  server ufrag WMjovQzLyzrENxCB, client ufrag t44a
 DATA  ice check to 127.0.0.1:8443  —  binding success in 13 ms, message-integrity=True, mapped=172.19.0.4:48035
 DATA  ice check to 209.35.187.178:8443  —  no reply (timeout)
 DATA  ice check to 209.35.187.178:62582  —  no reply (timeout)
@@ -157,9 +167,9 @@ MEDIA PATH: 1/3 advertised UDP candidate(s) reachable from this host
 ```
 
 `mapped=172.19.0.4:<port>` is the relay's own address on `mm-perf-net` — i.e. the datagram reached the
-SFU's ICE agent *through* the sidecar, and the agent authenticated it. The two `209.35.187.178`
-candidates are the fixture's srflx address; they do not route from this host and are expected silent.
-One candidate is enough: ICE picks the pair that works.
+SFU's ICE agent *through* the sidecar, and the agent authenticated it. The `209.35.187.178` candidates
+(`:8443` host and the srflx port) are the fixture's public-address view; they do not route back from
+this host and are expected silent. One candidate is enough: ICE picks the pair that works.
 
 `scripts/t44b_ice_check.py` is the same check as a standalone diagnostic, with `--also host:port` for
 a port the SFU does not advertise:
