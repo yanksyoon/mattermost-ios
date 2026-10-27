@@ -27,6 +27,13 @@ struct NotificationInputSection: View {
                     : nil)
 
             LabeledContent {
+                Text("\(routing.webPaneCount)")
+                    .accessibilityIdentifier("notificationPath.webPanes")
+            } label: {
+                Text("Web view panes mounted")
+            }
+
+            LabeledContent {
                 Text("\(routing.liveSocketCount)")
                     .accessibilityIdentifier("notificationPath.liveSockets")
             } label: {
@@ -76,17 +83,29 @@ struct NotificationInputSection: View {
         } header: {
             Text("Mention notifications")
         } footer: {
-            Text("Which input tells the shell a mention happened. " + path.mode.label
-                 + ": the native socket reads the server's own `posted` event, and while it is live the "
-                 + "web view's report is refused so the same mention cannot produce two banners. The "
-                 + "shipped default stays on the web view until T43's adversarial validation approves the "
-                 + "flip (-notificationPath socket proves it today).")
+            Text(footerText)
                 .font(.caption)
         }
     }
 
-    private func row(title: String, value: String, identifier: String,
-                     detail: String?) -> some View {
+    /// Which input is live, said in one sentence, and why.
+    private var footerText: String {
+        let live: String
+        if routing.webPaneCount > 0 {
+            live = "A web view is drawing this server's pane, so the page is the input: it is the only "
+                + "side that knows which channel is on screen, and the socket stays silent so the same "
+                + "mention cannot produce two banners."
+        } else {
+            live = "No web view is mounted, so the native socket is the input: it reads the server's own "
+                + "`posted` event, and the page's report would be refused so the same mention cannot "
+                + "produce two banners."
+        }
+        return "Which input tells the shell a mention happened. " + live
+            + " The shipped default stays on the web view until T43's adversarial validation approves "
+            + "the flip (-notificationPath socket proves it today)."
+    }
+
+    private func row(title: String, value: String, identifier: String, detail: String?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             LabeledContent {
                 Text(value)

@@ -438,4 +438,46 @@ final class T43NotificationInputTests: XCTestCase {
                        "newest first")
         XCTAssertFalse(state.hasNotified("p0"), "the oldest falls out of the ring once it is full")
     }
+
+    // MARK: - A mounted webview makes the page the input (the dual-render rule)
+
+    /// The rule that a live dual-render run forced: while the web app draws the pane it is the *only*
+    /// input that can see which channel the reader is on, so it is the input — the socket goes silent
+    /// instead of delivering into the worker's conservative `.unknown` suppression.
+    func testAMountedWebViewMakesThePageTheInput() {
+        let server = UUID()
+        let routing = NotificationInputRouting()
+        routing.setMode(.socket)
+        routing.socketStateChanged(serverID: server, live: true)
+        XCTAssertTrue(routing.gate.acceptsSocket(serverID: server))
+        XCTAssertFalse(routing.gate.acceptsBridge(serverID: server))
+
+        routing.paneKindChanged(serverID: server, isWeb: true)
+        XCTAssertEqual(routing.webPaneCount, 1)
+        XCTAssertFalse(routing.gate.acceptsSocket(serverID: server),
+                       "the page is the input while it draws the pane")
+        XCTAssertTrue(routing.gate.acceptsBridge(serverID: server),
+                      "and it must not be refused: nothing else is left to deliver")
+
+        routing.paneKindChanged(serverID: server, isWeb: false)
+        XCTAssertEqual(routing.webPaneCount, 0)
+        XCTAssertTrue(routing.gate.acceptsSocket(serverID: server),
+                      "a native pane hands the input back to the socket")
+        XCTAssertFalse(routing.gate.acceptsBridge(serverID: server))
+    }
+
+    /// Pane state is per server: a webview on one server must not silence another server's socket.
+    func testTheWebPaneRuleIsPerServer() {
+        let web = UUID()
+        let native = UUID()
+        let routing = NotificationInputRouting()
+        routing.setMode(.socket)
+        routing.socketStateChanged(serverID: web, live: true)
+        routing.socketStateChanged(serverID: native, live: true)
+        routing.paneKindChanged(serverID: web, isWeb: true)
+
+        XCTAssertFalse(routing.gate.acceptsSocket(serverID: web))
+        XCTAssertTrue(routing.gate.acceptsSocket(serverID: native))
+        XCTAssertFalse(routing.gate.acceptsBridge(serverID: native))
+    }
 }

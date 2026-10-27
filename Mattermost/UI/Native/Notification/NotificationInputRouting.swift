@@ -58,17 +58,27 @@ struct NotificationInputGate: Equatable {
     /// Servers whose socket pump is running *right now*. The rail is the only writer
     /// (`TeamSidebarCoordinator`), from the pump's own lifetime.
     var socketLive: Set<UUID> = []
+    /// Servers whose pane is **the web app right now** (`WebViewContainer` reports mount/unmount).
+    ///
+    /// This is the dual-render answer, and it is a measurement, not a preference: while the web app
+    /// is drawing the pane, *the page* is the only party that knows which channel the reader is
+    /// looking at — the native shell cannot see inside it (`visibleChannel` answers `.unknown`, and a
+    /// server-wide suppression there silently swallowed every mention: measured, `delivered=0
+    /// suppressed=1` with the webview mounted). So a mounted webview makes the page the input and the
+    /// socket stays silent, which is exactly today's behaviour and cannot double-fire. The native
+    /// socket takes over the moment the pane is native, which is when Path B actually renders.
+    var webPane: Set<UUID> = []
 
     /// Whether the socket input may deliver for this server.
     func acceptsSocket(serverID: UUID) -> Bool {
-        // The socket only produces events while its pump is live, so liveness is not re-tested here —
-        // a scripted event in a test is a legitimate socket input.
-        mode == .socket
+        // Liveness is not re-tested: the socket only produces events while its pump is live, so a
+        // scripted event in a test is a legitimate socket input.
+        mode == .socket && !webPane.contains(serverID)
     }
 
     /// Whether a `notify_mention` frame from this server's webview may deliver.
     func acceptsBridge(serverID: UUID) -> Bool {
-        mode == .bridge || !socketLive.contains(serverID)
+        !(mode == .socket && !webPane.contains(serverID) && socketLive.contains(serverID))
     }
 
     /// Why a `notify_mention` frame was refused, for the log line and the Settings read-out. `nil`
@@ -106,6 +116,9 @@ final class NotificationInputRouting: ObservableObject {
 
     var mode: NotificationInputMode { gate.mode }
     var liveSocketCount: Int { gate.socketLive.count }
+    var webPaneCount: Int { gate.webPane.count }
+
+    // MARK: - Adopting state
 
     /// Adopt `mode`, keeping the liveness the rail already reported (a switch at runtime must not
     /// forget which sockets are up, or the bridge would be refused for the wrong reason).
@@ -121,6 +134,18 @@ final class NotificationInputRouting: ObservableObject {
         } else {
             gate.socketLive.remove(serverID)
         }
+    }
+
+    /// The webview pane for `serverID` mounted (`isWeb == true`) or went away. A mounted page is the
+    /// input for that server: it is the only input that knows which channel the reader is looking at.
+    func paneKindChanged(serverID: UUID, isWeb: Bool) {
+        let changed = isWeb ? gate.webPane.insert(serverID).inserted
+                            : gate.webPane.remove(serverID) != nil
+        guard changed else { return }
+        Logger.info("NotificationInput",
+                    "pane for \(serverID.uuidString.prefix(8)) -> "
+                    + (isWeb ? "web view (the page reports mentions)"
+                             : "native (the socket reports mentions)"))
     }
 
     /// Whether a bridge frame may deliver for this server. Counts the decision so the Settings

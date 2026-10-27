@@ -39,6 +39,10 @@ struct WebViewContainer: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         context.coordinator.webView = webView
+        // T43: the pane is the web app, so the *page* is this server's mention input (it is the only
+        // input that knows which channel the reader is looking at). The native socket stays silent for
+        // this server while the webview is mounted — one source, and the one that can see the screen.
+        NotificationInputRouting.shared.paneKindChanged(serverID: serverID, isWeb: true)
         return webView
     }
 
@@ -49,6 +53,9 @@ struct WebViewContainer: UIViewRepresentable {
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
         uiView.navigationDelegate = nil
         uiView.uiDelegate = nil
+        // T43: the webview is gone, so this server's pane is no longer the page — if a native pane
+        // takes over, the socket is the input and must be allowed to deliver again.
+        NotificationInputRouting.shared.paneKindChanged(serverID: coordinator.serverID, isWeb: false)
         // The store records "I stopped an unfinished page" itself: `WKWebView.isLoading` flips to
         // false asynchronously (KVO), so a resume decision taken right after this call cannot rely on
         // it (T26-R R6, race found by re-running the UI repro in a batch).

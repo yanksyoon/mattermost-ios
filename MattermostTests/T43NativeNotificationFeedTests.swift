@@ -198,6 +198,41 @@ final class T43NativeNotificationFeedTests: XCTestCase {
 
     // MARK: - One source per server (the dual-render guarantee)
 
+    /// The live dual-render case, at the call sites: with the web app drawing the pane, the socket
+    /// delivers nothing **and** the page's own report is accepted — one source, one banner. Before this
+    /// rule the socket kept the mention and the worker's conservative `.unknown` suppression ate it, so a
+    /// dual-render run produced *no* banner at all (measured: `delivered=0 suppressed=1`).
+    func testAMountedWebPaneSilencesTheSocketAndLetsThePageDeliver() async {
+        let store = WebViewStore()
+        let coordinator = WebViewContainer.Coordinator(
+            store: store, serverID: server.id, serverURL: server.url,
+            sessionStore: sessionStore, notificationWorker: worker)
+        coordinator.mentionInput = routing
+        // Exactly what `makeUIView` reports when the web app's pane mounts.
+        routing.paneKindChanged(serverID: server.id, isWeb: true)
+
+        await feed.handle(.posted(post()), server: server)
+        await settle()
+        XCTAssertEqual(mock.added.count, 0, "the page is the input while it draws the pane")
+        XCTAssertEqual(feed.deliveredCount, 0)
+
+        let frame = MentionNotification(title: "T43 notify", body: "@t43buddy said hi",
+                                        channelID: "ch1", teamID: "team1",
+                                        serverURL: server.url.absoluteString)
+        coordinator.handleNotifyMention(frame)
+        await settle()
+        XCTAssertEqual(mock.added.count, 1, "the page's report is the one banner")
+        XCTAssertEqual(routing.bridgeAccepted, 1)
+        XCTAssertEqual(routing.bridgeRefused, 0, "and it was never refused")
+
+        // The pane goes native (the webview unmounts): the socket is the input again.
+        routing.paneKindChanged(serverID: server.id, isWeb: false)
+        await feed.handle(.posted(post(id: "post2")), server: server)
+        await settle()
+        XCTAssertEqual(mock.added.count, 2)
+        XCTAssertEqual(feed.deliveredCount, 1)
+    }
+
     func testTheSocketInputIsSilentInBridgeMode() async {
         routing.setMode(.bridge)
         await feed.handle(.posted(post()), server: server)

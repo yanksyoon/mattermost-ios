@@ -64,6 +64,8 @@ final class T43NotificationUITests: XCTestCase {
                       "the launch flag must select the native input:\n\(app.debugDescription)")
         XCTAssertTrue(waitForValue(app, "notificationPath.liveSockets", equals: "1", timeout: 40),
                       "the server's socket must be live for the native input to be authoritative:\n\(app.debugDescription)")
+        XCTAssertTrue(waitForValue(app, "notificationPath.webPanes", equals: "0", timeout: 15),
+                      "this is the native pane: no web view may be mounted for it:\n\(app.debugDescription)")
 
         // Another account mentions me while this app is in the foreground, on another channel.
         let mention = try seedMention(marker: "live")
@@ -119,6 +121,48 @@ final class T43NotificationUITests: XCTestCase {
                        "the native input must be inert until the flip")
     }
 
+    // MARK: - 3. Dual-render: the webview mounted *and* the native socket live
+
+    /// The card's second acceptance criterion, measured in the configuration this host can actually
+    /// mount with both inputs present: the pane host stays on the web app (`app.webViews` non-empty)
+    /// while the native socket is live. One source only — the page, because it is the only side that
+    /// knows which channel is on screen — so the socket delivers nothing and the page is never refused.
+    /// (The first implementation got this wrong: the socket kept the mention and the foreground rule
+    /// suppressed it, `delivered=0 suppressed=1`, i.e. **no** banner with a webview mounted. This test
+    /// is what caught it.)
+    func testDualRenderKeepsOneSourceAndNeverRefusesThePage() throws {
+        let app = launchWebviewApp()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 60),
+                      "the web app must be mounted for this configuration:\n\(app.debugDescription)")
+
+        openSettings(app)
+        XCTAssertTrue(waitForLabel(app, "notificationPath.mode", equals: "Native socket", timeout: 20),
+                      "the flag still selects the native input:\n\(app.debugDescription)")
+        XCTAssertTrue(waitForValue(app, "notificationPath.liveSockets", equals: "1", timeout: 40),
+                      "the rail's socket must be live in this configuration:\n\(app.debugDescription)")
+        XCTAssertTrue(waitForValue(app, "notificationPath.webPanes", equals: "1", timeout: 20),
+                      "and the shell must know the pane is the web app:\n\(app.debugDescription)")
+
+        let mention = try seedMention(marker: "dualrender")
+        // Let the socket event and (if the page decides to notify) the bridge frame land.
+        RunLoop.current.run(until: Date().addingTimeInterval(10))
+
+        let counters = parseCounters(readOut(app, "notificationPath.socket"))
+        XCTAssertEqual(counters["delivered"] ?? 0, 0,
+                       "with the web app drawing the pane the socket must not deliver — reads "
+                       + "'\(readOut(app, "notificationPath.socket"))'")
+        XCTAssertFalse(readOut(app, "notificationPath.lastMention").contains("post=\(mention.id)"),
+                       "and it must not record a delivery for that post")
+        let bridge = parseCounters(readOut(app, "notificationPath.bridge"))
+        XCTAssertEqual(bridge["refused"] ?? 0, 0,
+                       "the page must never be refused while it is the input — reads "
+                       + "'\(readOut(app, "notificationPath.bridge"))'")
+        XCTAssertLessThanOrEqual(bridge["accepted"] ?? 0, 1,
+                                 "one mention can produce at most one accepted page report, so at most "
+                                 + "one banner — reads '\(readOut(app, "notificationPath.bridge"))'")
+        attach(app, "t43-dual-render")
+    }
+
     // MARK: - App driving
 
     private func launchApp(nativeInput: Bool) -> XCUIApplication {
@@ -136,6 +180,26 @@ final class T43NotificationUITests: XCTestCase {
             arguments += ["-notificationPath", "socket"]
         }
         app.launchArguments = arguments
+        app.launchEnvironment["OS_ACTIVITY_MODE"] = "disable"
+        app.launch()
+        return app
+    }
+
+    /// The webview configuration: the pane host stays on the web app (`channelView` unset ⇒ `.web`),
+    /// the native input is still selected by the flag. No `shell=native`, so no native rail.
+    ///
+    /// The session is seeded into the vault (the seam the shell's own tests use) so the app opens
+    /// straight into the pane instead of a login form the webview would have to be driven through.
+    private func launchWebviewApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTestResetPersistedState",
+                               "-uiTestForgetSession", serverURL.absoluteString,
+                               "-uiTestSeedServer", serverURL.absoluteString,
+                               "-uiTestSeedServerName", "Local Mattermost",
+                               "-uiTestSeedStoredToken", token ?? "",
+                               "-notificationPath", "socket",
+                               "-uiTestLogLevel", "error",
+                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launchEnvironment["OS_ACTIVITY_MODE"] = "disable"
         app.launch()
         return app
