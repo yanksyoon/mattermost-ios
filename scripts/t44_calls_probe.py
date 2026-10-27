@@ -21,8 +21,22 @@ What it establishes, in order:
   5. the same offer sent as a **MessagePack binary frame** (the shape the web client uses,
      `webapp/src/websocket.ts` `encode(msg)`) is answered: the SFU (the plugin's own pion RTC server,
      `server/activate.go` `rtc.NewServer`) returns `{"type":"answer","sdp":...}` plus ICE candidates;
-  6. the client is the **offerer**: nothing is sent until the client offers, and an unanswered session
-     is torn down after the server's signalling timeout (~10 s);
+  6. the client is the **offerer**: nothing is sent until the client offers. Measured on its own
+     connection — a session that joins and sends nothing receives **no** `signal` frame of its
+     own and is torn down by the plugin at its signalling timeout (`wsReconnectionTimeout`,
+     ~10 s), announced as `user_left` carrying `session_id` == that connection's `connID`.
+     This is the only shape of the check that holds under load: the plugin publishes `signal`
+     to the **user**, not to the connection (`p.publishWebSocketEvent(wsEventSignal, …,
+     &WebSocketBroadcast{UserID: us.userID})`, `server/websocket.go:590-593` at v0.29.8), so
+     every `signal` frame in the payload carries the `connID` of the session it belongs to and
+     a frame for another live session of the same account must be **ignored** — counted, not
+     believed. The same is true of the `join` ack itself (`websocket.go:830-832`, UserID
+     broadcast). The one per-connection fact is the core server's `hello` event, whose payload
+     carries this socket's `connection_id`; that — not the ack — is the probe's own `connID`
+     (measured: `hello` said `iheruubwujdj7xaotpp6qobjhy` and the ack for our join repeated it).
+     Without that scope a second session (another probe, a browser tab) lands its answer and
+     candidates on the socket that is supposed to prove "an unanswered offer gets no answer",
+     and the negative checks fail for a reason that has nothing to do with them;
   7. every UDP candidate the SFU advertises is probed **from this host, with ICE credentials**, by
      sending the same credentialed binding request a client's ICE agent would send, so "can media
      actually flow here" is a measurement and not an assumption. A bare, unauthenticated STUN
@@ -156,12 +170,15 @@ def ensure_channel(url: str, token: str, name: str) -> dict[str, Any]:
 # --------------------------------------------------------------------------------------------
 
 class WSClient:
-    def __init__(self, url: str, token: str, timeout: float = 20.0):
+    def __init__(self, url: str, token: str, timeout: float = 20.0,
+                 query: str | None = None):
         parsed = urllib.parse.urlparse(url)
         secure = parsed.scheme == "https"
         self.host = parsed.hostname or "127.0.0.1"
         self.port = parsed.port or (443 if secure else 80)
         path = (parsed.path or "") + "/api/v4/websocket"
+        if query:
+            path += "?" + query
         self.sock = socket.create_connection((self.host, self.port), timeout=timeout)
         self.sock.settimeout(timeout)
         if secure:
@@ -462,11 +479,23 @@ def sdp_credentials(sdp: str) -> tuple[str | None, str | None]:
 # One call session: connect, join, and collect what the plugin sends back.
 # --------------------------------------------------------------------------------------------
 
+def signal_kind(data: dict[str, Any]) -> str:
+    """The inner `type` of a `signal` frame's `data` ("answer" / "candidate" / ...)."""
+    payload = data.get("data")
+    try:
+        inner = json.loads(payload) if isinstance(payload, str) else payload
+    except Exception:
+        return "unparsable"
+    return inner.get("type", "?") if isinstance(inner, dict) else "?"
+
+
 def run_session(url: str, token: str, prefix: str, channel_id: str, mode: str,
                 seconds: float = 6.0, hook: Any = None) -> dict[str, Any]:
     ws = WSClient(url, token)
-    result: dict[str, Any] = {"ack": False, "call_state": None, "answer": None,
-                              "candidates": [], "errors": [], "raw_signal": []}
+    result: dict[str, Any] = {"ack": False, "conn_id": None, "call_state": None,
+                              "answer": None, "candidates": [], "errors": [],
+                              "raw_signal": [], "foreign_signal_ignored": [],
+                              "foreign_acks": []}
     deadline = time.time() + seconds
     joined = False
     offered = False
@@ -478,12 +507,23 @@ def run_session(url: str, token: str, prefix: str, channel_id: str, mode: str,
             event = frame.get("event", "")
             data = frame.get("data") or {}
             if event == "hello":
+                # The core server's per-connection greeting carries THIS socket's id, and the
+                # plugin's join ack repeats it. It is the only frame that is ours alone: the
+                # plugin broadcasts the ack itself to every session of the user.
+                result["conn_id"] = data.get("connection_id") or None
                 ws.send_text(json.dumps({"seq": 1, "action": prefix + "join",
                                          "data": {"channelID": channel_id}}))
                 joined = True
                 continue
             if event == prefix + "join":
-                result["ack"] = bool(data.get("connID"))
+                ack_id = data.get("connID") or None
+                if result["conn_id"] and ack_id and ack_id != result["conn_id"]:
+                    # Another live session of this account joined; its ack reached us because
+                    # the broadcast targets the user. Not our join.
+                    result["foreign_acks"].append(ack_id)
+                    continue
+                result["conn_id"] = result["conn_id"] or ack_id
+                result["ack"] = bool(ack_id)
                 if not offered:
                     body = json.dumps({"type": "offer", "sdp": OFFER_SDP}).encode()
                     packed = zlib.compress(body, 9)
@@ -507,6 +547,14 @@ def run_session(url: str, token: str, prefix: str, channel_id: str, mode: str,
                     result["call_state"] = None
                 continue
             if event == prefix + "signal":
+                # The plugin publishes `signal` to the USER (websocket.go:590-593 at v0.29.8), so
+                # a second live session of this account delivers its frames here too. Only the
+                # frames whose connID is the one our join ack returned are ours to believe.
+                conn = str(data.get("connID") or "")
+                inner_kind = signal_kind(data)
+                if not result["conn_id"] or conn != result["conn_id"]:
+                    result["foreign_signal_ignored"].append({"connID": conn, "type": inner_kind})
+                    continue
                 result["raw_signal"].append(data)
                 payload = data.get("data")
                 try:
@@ -530,6 +578,92 @@ def run_session(url: str, token: str, prefix: str, channel_id: str, mode: str,
             ws.send_text(json.dumps({"seq": 99, "action": prefix + "leave",
                                      "data": {"channelID": channel_id}}))
             time.sleep(0.3)
+    finally:
+        ws.close()
+    return result
+
+
+def run_no_offer_session(url: str, token: str, prefix: str, channel_id: str,
+                         seconds: float = 16.0) -> dict[str, Any]:
+    """Join, send nothing, and measure what the plugin does with a session that never offers.
+
+    This is check 8, and it is deliberately **one connection's** story rather than a comparison
+    between two runs of the same account:
+
+      * every `signal` frame that arrives is attributed by its `connID`. Nothing is offered from
+        this connection, so a frame carrying our `connID` would mean the SFU answered an offer
+        that does not exist; a frame carrying anyone else's is another live session of the same
+        account and is counted, not believed (`foreign_signal_ignored`).
+      * the teardown is attributed by `session_id`: the plugin's `user_left` carries the
+        `connID` of the session that left, so "our silent session was torn down at ~10 s" is a
+        fact about this connection and cannot be borrowed from a neighbour either.
+    """
+    ws = WSClient(url, token)
+    result: dict[str, Any] = {"ack": False, "conn_id": None, "own_signals": 0,
+                              "foreign_signal_ignored": [], "teardown_seconds": None,
+                              "user_disconnected_seconds": None, "events": [], "errors": [],
+                              "foreign_acks": []}
+    start = time.time()
+    deadline = start + seconds
+    joined = False
+    try:
+        while time.time() < deadline:
+            frame = ws.receive(deadline)
+            if frame is None:
+                break
+            elapsed = time.time() - start
+            event = frame.get("event", "")
+            data = frame.get("data") or {}
+            if event == "hello":
+                result["conn_id"] = data.get("connection_id") or None
+                ws.send_text(json.dumps({"seq": 1, "action": prefix + "join",
+                                         "data": {"channelID": channel_id}}))
+                joined = True
+                result["events"].append((round(elapsed, 2),
+                                         f"hello connection_id {result['conn_id']} -> join sent"))
+                continue
+            if event == prefix + "join":
+                ack_id = data.get("connID") or None
+                if result["conn_id"] and ack_id and ack_id != result["conn_id"]:
+                    result["foreign_acks"].append(ack_id)
+                    result["events"].append((round(elapsed, 2),
+                                             f"join ack {ack_id} (another session)"))
+                    continue
+                result["ack"] = bool(ack_id)
+                result["events"].append((round(elapsed, 2), f"join ack {ack_id} (our connID)"))
+                continue
+            if event == prefix + "signal":
+                conn = str(data.get("connID") or "")
+                kind = signal_kind(data)
+                if result["conn_id"] and conn == result["conn_id"]:
+                    result["own_signals"] += 1
+                else:
+                    result["foreign_signal_ignored"].append({"connID": conn, "type": kind})
+                continue
+            if event == prefix + "error":
+                result["errors"].append(data)
+                result["events"].append((round(elapsed, 2), "error"))
+                continue
+            if event == prefix + "user_left":
+                if data.get("session_id") == result["conn_id"]:
+                    result["teardown_seconds"] = elapsed
+                    result["events"].append((round(elapsed, 2), "user_left (our connID)"))
+                    break
+                result["events"].append((round(elapsed, 2), "user_left (another session)"))
+                continue
+            if event == prefix + "user_disconnected":
+                if result["user_disconnected_seconds"] is None:
+                    result["user_disconnected_seconds"] = elapsed
+                result["events"].append((round(elapsed, 2), "user_disconnected"))
+                continue
+            result["events"].append((round(elapsed, 2), event))
+        if joined and result["teardown_seconds"] is None:
+            try:
+                ws.send_text(json.dumps({"seq": 99, "action": prefix + "leave",
+                                         "data": {"channelID": channel_id}}))
+                time.sleep(0.2)
+            except Exception:
+                pass
     finally:
         ws.close()
     return result
@@ -592,7 +726,11 @@ def main() -> int:
     # 3-4. JSON text frames: join works, sdp is not a JSON action.
     print("\n--- run A: join over JSON, offer over a JSON text frame ---")
     json_run = run_session(args.url, token, prefix, channel_id, "json")
-    check("a JSON text frame joins the call (join ack carries connID)", json_run["ack"])
+    check("a JSON text frame joins the call (the join ack repeats this socket's connID)",
+          json_run["ack"],
+          f"connID {json_run['conn_id']}"
+          + (f", {len(json_run['foreign_acks'])} foreign ack(s) ignored"
+             if json_run["foreign_acks"] else ""))
     call_state = json_run["call_state"] or {}
     sessions = call_state.get("sessions") or []
     check("the join is followed by a full call_state (what a native calls UI renders)",
@@ -602,19 +740,49 @@ def main() -> int:
         measure("call_state session shape", json.dumps(sessions[0], sort_keys=True))
     check("a JSON-framed sdp is NOT answered (the plugin needs MessagePack for this action)",
           json_run["answer"] is None and not json_run["candidates"],
-          f"{len(json_run['raw_signal'])} signal event(s)")
+          f"{len(json_run['raw_signal'])} signal event(s) for connID {json_run['conn_id']}, "
+          f"{len(json_run['foreign_signal_ignored'])} foreign frame(s) ignored")
 
     # 5-6. MessagePack: the same offer is answered by the SFU.
     print("\n--- run B: join over JSON, offer over a MessagePack binary frame ---")
     mp_run = run_session(args.url, token, prefix, channel_id, "msgpack")
     check("a MessagePack sdp frame is answered", bool(mp_run["answer"]),
-          f"answer {len(mp_run['answer'] or '')} bytes")
+          f"answer {len(mp_run['answer'] or '')} bytes for connID {mp_run['conn_id']}")
     check("the SFU trickles ICE candidates to the client", bool(mp_run["candidates"]),
-          f"{len(mp_run['candidates'])} candidate(s)")
-    check("the client is the offerer (no answer without an offer)", bool(mp_run["answer"])
-          and bool(json_run["answer"]) is False)
+          f"{len(mp_run['candidates'])} candidate(s), "
+          f"{len(mp_run['foreign_signal_ignored'])} foreign frame(s) ignored")
     if mp_run["errors"]:
         measure("plugin error events", json.dumps(mp_run["errors"]))
+
+    # 6 (check 8). The offerer property, measured on ONE connection: a session that joins and
+    # sends nothing must receive no `signal` frame of its own, and the plugin must tear it down
+    # at its signalling timeout. Both facts are attributed by this connection's own connID, so
+    # the check survives another live session of the same account (see run_no_offer_session).
+    print("\n--- run C: join and send nothing (the no-offer check) ---")
+    no_offer = run_no_offer_session(args.url, token, prefix, channel_id)
+    for elapsed, what in no_offer["events"]:
+        measure(f"no-offer {elapsed:6.2f}s", what)
+    check("a session that never offers receives no signal frame for its own connection",
+          no_offer["own_signals"] == 0,
+          f"0 own signal(s) for connID {no_offer['conn_id']}, "
+          f"{len(no_offer['foreign_signal_ignored'])} foreign frame(s) ignored "
+          f"(other live sessions of this account)")
+    teardown = no_offer["teardown_seconds"]
+    check("the plugin tears an unanswered session down at its ~10 s signalling timeout",
+          teardown is not None and 5.0 <= teardown <= 15.0,
+          (f"user_left session_id={no_offer['conn_id']} after {teardown:.2f} s"
+           + (f" (user_disconnected at {no_offer['user_disconnected_seconds']:.2f} s)"
+              if no_offer["user_disconnected_seconds"] is not None else ""))
+          if teardown is not None else
+          f"no user_left for connID {no_offer['conn_id']} within the window")
+    if no_offer["foreign_signal_ignored"]:
+        measure("foreign signal frames ignored during the no-offer session",
+                json.dumps(no_offer["foreign_signal_ignored"][:8]))
+    # A foreign frame anywhere in this run is the pointer to *why* the old check was unreliable;
+    # it is not a failure, but it is worth surfacing on every run.
+    measure("foreign signal frames ignored across runs A/B/C",
+            str(len(json_run["foreign_signal_ignored"]) + len(mp_run["foreign_signal_ignored"])
+                + len(no_offer["foreign_signal_ignored"])))
 
     # 7. Reachability of what the SFU just advertised — measured with ICE credentials, while the
     # session is still joined (the SFU drops the ICE agent on `leave`, so a check after run_session
@@ -669,6 +837,23 @@ def main() -> int:
             "candidates": [{"text": t, "parsed": parse_candidate(t)}
                            for t in mp_run["candidates"]],
             "candidates_reachable": reachable,
+            "connections": {
+                "run_a_json": {"connID": json_run["conn_id"],
+                               "own_signal_frames": len(json_run["raw_signal"]),
+                               "foreign_signal_ignored": json_run["foreign_signal_ignored"],
+                               "foreign_join_acks_ignored": json_run["foreign_acks"]},
+                "run_b_msgpack": {"connID": mp_run["conn_id"],
+                                  "own_signal_frames": len(mp_run["raw_signal"]),
+                                  "foreign_signal_ignored": mp_run["foreign_signal_ignored"],
+                                  "foreign_join_acks_ignored": mp_run["foreign_acks"]},
+                "run_c_no_offer": {"connID": no_offer["conn_id"],
+                                   "own_signal_frames": no_offer["own_signals"],
+                                   "foreign_signal_ignored": no_offer["foreign_signal_ignored"],
+                                   "foreign_join_acks_ignored": no_offer["foreign_acks"],
+                                   "teardown_seconds": no_offer["teardown_seconds"],
+                                   "user_disconnected_seconds":
+                                       no_offer["user_disconnected_seconds"]},
+            },
             "checks": [{"name": n, "ok": ok, "detail": d} for n, ok, d in checks],
             "measures": [{"name": n, "detail": d} for n, d in measures],
         }))

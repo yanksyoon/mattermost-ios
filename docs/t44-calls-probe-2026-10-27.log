@@ -1,3 +1,69 @@
+T44 Calls probe — conformance transcript, refreshed by T44-AV-R on 2026-10-27
+============================================================================
+
+Probe      scripts/t44_calls_probe.py  (target: the Calls signalling contract, from outside the app)
+Server     Mattermost 9.11.19, docker `mm-perf`, http://127.0.0.1:8065
+Plugin     com.mattermost.calls 0.29.8, build 936dd00d3e456c843b846740aa76601d07e6a25a
+Account    fixture account `perfprobe`; the probe creates the channels it joins
+Fixture    `mm-calls-udp` (T44b's UDP relay, 127.0.0.1:8443 -> 8443/udp) is Up, so the media path
+           reads 1/3 here — not the 0/3 of the T44 log of the same date. See
+           docs/t44b-calls-media-path.md for why the relay is the fixture's documented state.
+
+WHY THIS LOG WAS REFRESHED (T44-AV finding F1)
+----------------------------------------------
+The probe's two negative checks counted **any** `signal` event and never compared the payload's
+`connID`. The plugin publishes `signal` to the *user*, not to the connection
+(`p.publishWebSocketEvent(wsEventSignal, …, &WebSocketBroadcast{UserID: us.userID,
+ReliableClusterSend: true})`, server/websocket.go:590-593 at v0.29.8), so a second live session of
+the fixture account (another probe, a browser tab) delivered its answer and candidates to the
+socket that was supposed to prove "a JSON-framed sdp is not answered". Measured by T44-AV:
+6 PASS / 2 FAIL while T44b ran, vs 8 PASS / 0 FAIL alone.
+
+Two things changed in the probe:
+
+1. Every `signal` frame is attributed by `connID` and a frame whose `connID` is not this socket's
+   is counted in `foreign_signal_ignored` and ignored. The socket's own `connID` comes from the
+   core server's `hello` event (`data.connection_id`) — measured, not assumed: a handshake that
+   supplied `?connection_id=…` was ignored by the server, `hello` answered with the id it
+   assigned, and the plugin's join ack repeated exactly that id. This matters because the join
+   ack is itself broadcast to the user (server/websocket.go:830-832), so with two live sessions
+   *both* sockets receive *both* acks; taking the last ack as "ours" silently attributed this
+   socket's frames to the other session (observed while writing this card: two concurrent probes
+   reported the same connID for different joins until attribution moved to `hello`).
+
+2. Check 8 ("the client is the offerer", which only meant "run A was not contaminated") is now a
+   real no-offer session (`run C`): join, send nothing, assert **0** `signal` frames carrying this
+   connection's `connID`, and observe the plugin's teardown. The teardown is attributed the same
+   way: the plugin's `user_left` carries `session_id` == the `connID` of the session that left, so
+   "our silent session was torn down at ~10 s" cannot be borrowed from a neighbour either.
+   (A foreign `user_disconnected` is still *printed* by run C when one arrives — see the staggered
+   transcript, where it lands at 0.94 s under another session's teardown — but it is not the
+   signal the check reads.)
+
+THE RUNS IN THIS FILE, IN ORDER
+--------------------------------
+  1. ISOLATED     one probe, nothing else signed in to the fixture account.
+                  Expectation: 9 PASS / 0 FAIL, exit 0.
+  2. CONCURRENT   two invocations started together, in different channels (t44-calls,
+                  t44-calls-b) so neither join replaces the other. Both send MessagePack offers,
+                  so each socket receives the other's answer + candidates.
+                  Expectation: both 9 PASS / 0 FAIL, exit 0.
+  3. STAGGERED    the sharp direction: probe A starts, probe B starts 1.5 s later, so B's answer
+                  and candidates arrive **inside A's run A** — the JSON-offer window whose whole
+                  point is that no answer arrives. A's run A reports `6 foreign frame(s) ignored`
+                  and still passes; under the old check 5 that was the FAIL. B's no-offer session
+                  ignores the same six frames (the old check 8 FAIL).
+                  Expectation: both 9 PASS / 0 FAIL, exit 0.
+
+Exit codes are printed after each transcript. The probe exits non-zero if any check fails, so
+"EXIT CODE: 0" is the whole claim.
+
+Nothing here weakens a check: the negative checks are now *narrower* (they only believe frames
+that belong to the socket under test) and were made *stronger* by the same move (a frame that
+belongs to this connection but should not exist now fails the check, where before any frame —
+including a neighbour's — decided it).
+
+$ python3 scripts/t44_calls_probe.py --url http://127.0.0.1:8065   # nothing else on this account
 T44 Calls probe against http://127.0.0.1:8065
       signed in as perfprobe (jruqqzxtobg7tn4wehwmwjjo5c)
 PASS  the Calls plugin answers /version  —  HTTP 200
@@ -9,26 +75,473 @@ DATA  ICE servers the plugin hands a client  —  [{"urls": ["stun:stun.global.c
 DATA  probe channel  —  t44-calls (wikybttr8tnfzkxge9rk7aipph)
 
 --- run A: join over JSON, offer over a JSON text frame ---
-PASS  a JSON text frame joins the call (join ack carries connID)
-PASS  the join is followed by a full call_state (what a native calls UI renders)  —  1 session(s), call id xw4cicsujffezkdn67bowzq9to
-DATA  call_state session shape  —  {"raised_hand": 0, "session_id": "1rjq1mg7xtdyukqtaizjc5n3dc", "unmuted": false, "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
-PASS  a JSON-framed sdp is NOT answered (the plugin needs MessagePack for this action)  —  0 signal event(s)
+PASS  a JSON text frame joins the call (the join ack repeats this socket's connID)  —  connID qf6g5otyip8hppyyeziy9f1m3r
+PASS  the join is followed by a full call_state (what a native calls UI renders)  —  1 session(s), call id epz5i3bdjfdf9kmkdr397sb3kc
+DATA  call_state session shape  —  {"raised_hand": 0, "session_id": "qf6g5otyip8hppyyeziy9f1m3r", "unmuted": false, "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+PASS  a JSON-framed sdp is NOT answered (the plugin needs MessagePack for this action)  —  0 signal event(s) for connID qf6g5otyip8hppyyeziy9f1m3r, 0 foreign frame(s) ignored
 
 --- run B: join over JSON, offer over a MessagePack binary frame ---
-PASS  a MessagePack sdp frame is answered  —  answer 481 bytes
-PASS  the SFU trickles ICE candidates to the client  —  5 candidate(s)
-PASS  the client is the offerer (no answer without an offer)
+PASS  a MessagePack sdp frame is answered  —  answer 481 bytes for connID uoya8j5wdfrfxkgh131hrzweko
+PASS  the SFU trickles ICE candidates to the client  —  5 candidate(s), 0 foreign frame(s) ignored
+
+--- run C: join and send nothing (the no-offer check) ---
+DATA  no-offer   0.00s  —  hello connection_id yge8o9nzqpyoxkjrp914dgbqdy -> join sent
+DATA  no-offer   0.00s  —  status_change
+DATA  no-offer   0.02s  —  custom_com.mattermost.calls_call_host_changed
+DATA  no-offer   0.03s  —  ephemeral_message
+DATA  no-offer   0.05s  —  posted
+DATA  no-offer   0.05s  —  custom_com.mattermost.calls_call_start
+DATA  no-offer   0.06s  —  join ack yge8o9nzqpyoxkjrp914dgbqdy (our connID)
+DATA  no-offer   0.06s  —  custom_com.mattermost.calls_user_connected
+DATA  no-offer   0.06s  —  custom_com.mattermost.calls_user_joined
+DATA  no-offer   0.06s  —  custom_com.mattermost.calls_call_state
+DATA  no-offer  10.10s  —  user_disconnected
+DATA  no-offer  10.10s  —  user_left (our connID)
+PASS  a session that never offers receives no signal frame for its own connection  —  0 own signal(s) for connID yge8o9nzqpyoxkjrp914dgbqdy, 0 foreign frame(s) ignored (other live sessions of this account)
+PASS  the plugin tears an unanswered session down at its ~10 s signalling timeout  —  user_left session_id=yge8o9nzqpyoxkjrp914dgbqdy after 10.10 s (user_disconnected at 10.10 s)
+DATA  foreign signal frames ignored across runs A/B/C  —  0
 
 --- reachability of the SFU's own candidates, from this host ---
 DATA  candidate  —  candidate:2878742611 1 udp 2130706431 127.0.0.1 8443 typ host
-DATA  candidate  —  candidate:774415737 1 udp 2130706431 64.251.85.226 8443 typ host
+DATA  candidate  —  candidate:408902208 1 udp 2130706431 209.35.187.178 8443 typ host
 DATA  candidate  —  candidate:375738803 1 tcp 1671430143 127.0.0.1 8443 typ host tcptype passive
-DATA  candidate  —  candidate:2480657561 1 tcp 1671430143 64.251.85.226 8443 typ host tcptype passive
-DATA  candidate  —  candidate:1244823927 1 udp 1694498815 209.35.187.178 61506 typ srflx raddr 0.0.0.0 rport 51601
-DATA  stun binding to 127.0.0.1:8443  —  no reply (2.0 s)
-DATA  stun binding to 64.251.85.226:8443  —  no reply (2.0 s)
-DATA  stun binding to 209.35.187.178:61506  —  no reply (2.0 s)
-DATA  control: a public STUN server answers from this host  —  yes
+DATA  candidate  —  candidate:2779524000 1 tcp 1671430143 209.35.187.178 8443 typ host tcptype passive
+DATA  candidate  —  candidate:1244823927 1 udp 1694498815 209.35.187.178 49335 typ srflx raddr 0.0.0.0 rport 37454
+DATA  ICE credentials  —  server ufrag kHEqfknBtposBvUQ, client ufrag t44a
+DATA  ice check to 127.0.0.1:8443  —  binding success in 12 ms, message-integrity=True, mapped=172.19.0.4:59500
+DATA  ice check to 209.35.187.178:8443  —  no reply (timeout)
+DATA  ice check to 209.35.187.178:49335  —  no reply (timeout)
+DATA  control: a public STUN server answers a bare binding request from this host  —  yes
 
-8 PASS / 0 FAIL
-MEDIA PATH: 0/3 advertised UDP candidate(s) reachable from this host — media cannot flow here (see the build note)
+9 PASS / 0 FAIL
+MEDIA PATH: 1/3 advertised UDP candidate(s) reachable from this host
+
+EXIT CODE: 0
+
+$ # two invocations started together, each in its own channel
+
+$ ( python3 scripts/t44_calls_probe.py --json --channel t44-calls > A ; echo $? > A.rc ) &
+
+$ ( python3 scripts/t44_calls_probe.py --json --channel t44-calls-b > B ; echo $? > B.rc ) &
+
+--- run A (channel t44-calls) ---
+T44 Calls probe against http://127.0.0.1:8065
+      signed in as perfprobe (jruqqzxtobg7tn4wehwmwjjo5c)
+PASS  the Calls plugin answers /version  —  HTTP 200
+DATA  plugin version  —  0.29.8 (build 936dd00d3e456c843b846740aa76601d07e6a25a)
+DATA  plugin websocket prefix  —  custom_com.mattermost.calls_
+PASS  the plugin allows calls to be enabled  —  HTTP 200, AllowEnableCalls=True
+DATA  plugin sku / test mode  —  starter / DefaultEnabled=False / MaxCallParticipants=0
+DATA  ICE servers the plugin hands a client  —  [{"urls": ["stun:stun.global.calls.mattermost.com:3478"]}]
+DATA  probe channel  —  t44-calls (wikybttr8tnfzkxge9rk7aipph)
+
+--- run A: join over JSON, offer over a JSON text frame ---
+PASS  a JSON text frame joins the call (the join ack repeats this socket's connID)  —  connID nobcscjt7jfjtq117ci43ceafe, 1 foreign ack(s) ignored
+PASS  the join is followed by a full call_state (what a native calls UI renders)  —  1 session(s), call id up13yuzpbidnucfxm78dpsecxh
+DATA  call_state session shape  —  {"raised_hand": 0, "session_id": "3wkfweiy33gzjgnsteo3yh9hne", "unmuted": false, "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+PASS  a JSON-framed sdp is NOT answered (the plugin needs MessagePack for this action)  —  0 signal event(s) for connID nobcscjt7jfjtq117ci43ceafe, 0 foreign frame(s) ignored
+
+--- run B: join over JSON, offer over a MessagePack binary frame ---
+PASS  a MessagePack sdp frame is answered  —  answer 481 bytes for connID 3j6e95petjfy8jh7rta79ogqcc
+PASS  the SFU trickles ICE candidates to the client  —  5 candidate(s), 6 foreign frame(s) ignored
+
+--- run C: join and send nothing (the no-offer check) ---
+DATA  no-offer   0.00s  —  hello connection_id 45i1o15z9pdfmxqwno6589fwwo -> join sent
+DATA  no-offer   0.03s  —  custom_com.mattermost.calls_call_host_changed
+DATA  no-offer   0.03s  —  ephemeral_message
+DATA  no-offer   0.03s  —  custom_com.mattermost.calls_call_host_changed
+DATA  no-offer   0.04s  —  ephemeral_message
+DATA  no-offer   0.06s  —  posted
+DATA  no-offer   0.07s  —  posted
+DATA  no-offer   0.07s  —  custom_com.mattermost.calls_call_start
+DATA  no-offer   0.07s  —  custom_com.mattermost.calls_call_start
+DATA  no-offer   0.08s  —  join ack 45i1o15z9pdfmxqwno6589fwwo (our connID)
+DATA  no-offer   0.08s  —  custom_com.mattermost.calls_user_connected
+DATA  no-offer   0.09s  —  custom_com.mattermost.calls_user_joined
+DATA  no-offer   0.09s  —  custom_com.mattermost.calls_call_state
+DATA  no-offer   0.09s  —  join ack 59hswkojmp88fdradsuuej9j4w (another session)
+DATA  no-offer   0.09s  —  custom_com.mattermost.calls_user_connected
+DATA  no-offer   0.09s  —  custom_com.mattermost.calls_user_joined
+DATA  no-offer   0.09s  —  custom_com.mattermost.calls_call_state
+DATA  no-offer  10.13s  —  user_disconnected
+DATA  no-offer  10.13s  —  user_disconnected
+DATA  no-offer  10.13s  —  user_left (another session)
+DATA  no-offer  10.13s  —  user_left (our connID)
+PASS  a session that never offers receives no signal frame for its own connection  —  0 own signal(s) for connID 45i1o15z9pdfmxqwno6589fwwo, 0 foreign frame(s) ignored (other live sessions of this account)
+PASS  the plugin tears an unanswered session down at its ~10 s signalling timeout  —  user_left session_id=45i1o15z9pdfmxqwno6589fwwo after 10.13 s (user_disconnected at 10.13 s)
+DATA  foreign signal frames ignored across runs A/B/C  —  6
+
+--- reachability of the SFU's own candidates, from this host ---
+DATA  candidate  —  candidate:2878742611 1 udp 2130706431 127.0.0.1 8443 typ host
+DATA  candidate  —  candidate:408902208 1 udp 2130706431 209.35.187.178 8443 typ host
+DATA  candidate  —  candidate:375738803 1 tcp 1671430143 127.0.0.1 8443 typ host tcptype passive
+DATA  candidate  —  candidate:2779524000 1 tcp 1671430143 209.35.187.178 8443 typ host tcptype passive
+DATA  candidate  —  candidate:1244823927 1 udp 1694498815 209.35.187.178 51175 typ srflx raddr 0.0.0.0 rport 36273
+DATA  ICE credentials  —  server ufrag PUWpOKMJEMnWHbip, client ufrag t44a
+DATA  ice check to 127.0.0.1:8443  —  binding success in 8 ms, message-integrity=True, mapped=172.19.0.4:46740
+DATA  ice check to 209.35.187.178:8443  —  no reply (timeout)
+DATA  ice check to 209.35.187.178:51175  —  no reply (timeout)
+DATA  control: a public STUN server answers a bare binding request from this host  —  yes
+
+9 PASS / 0 FAIL
+MEDIA PATH: 1/3 advertised UDP candidate(s) reachable from this host
+
+EXIT CODE: 0
+
+--- run B (channel t44-calls-b) ---
+T44 Calls probe against http://127.0.0.1:8065
+      signed in as perfprobe (jruqqzxtobg7tn4wehwmwjjo5c)
+PASS  the Calls plugin answers /version  —  HTTP 200
+DATA  plugin version  —  0.29.8 (build 936dd00d3e456c843b846740aa76601d07e6a25a)
+DATA  plugin websocket prefix  —  custom_com.mattermost.calls_
+PASS  the plugin allows calls to be enabled  —  HTTP 200, AllowEnableCalls=True
+DATA  plugin sku / test mode  —  starter / DefaultEnabled=False / MaxCallParticipants=0
+DATA  ICE servers the plugin hands a client  —  [{"urls": ["stun:stun.global.calls.mattermost.com:3478"]}]
+DATA  probe channel  —  t44-calls-b (ip5ehgy7t3dspqquirguid7a8h)
+
+--- run A: join over JSON, offer over a JSON text frame ---
+PASS  a JSON text frame joins the call (the join ack repeats this socket's connID)  —  connID 3wkfweiy33gzjgnsteo3yh9hne
+PASS  the join is followed by a full call_state (what a native calls UI renders)  —  1 session(s), call id up13yuzpbidnucfxm78dpsecxh
+DATA  call_state session shape  —  {"raised_hand": 0, "session_id": "3wkfweiy33gzjgnsteo3yh9hne", "unmuted": false, "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+PASS  a JSON-framed sdp is NOT answered (the plugin needs MessagePack for this action)  —  0 signal event(s) for connID 3wkfweiy33gzjgnsteo3yh9hne, 0 foreign frame(s) ignored
+
+--- run B: join over JSON, offer over a MessagePack binary frame ---
+PASS  a MessagePack sdp frame is answered  —  answer 481 bytes for connID s1khztjeapde5btw7gxmzpcu6h
+PASS  the SFU trickles ICE candidates to the client  —  5 candidate(s), 0 foreign frame(s) ignored
+
+--- run C: join and send nothing (the no-offer check) ---
+DATA  no-offer   0.00s  —  hello connection_id 59hswkojmp88fdradsuuej9j4w -> join sent
+DATA  no-offer   0.02s  —  custom_com.mattermost.calls_call_host_changed
+DATA  no-offer   0.02s  —  ephemeral_message
+DATA  no-offer   0.02s  —  custom_com.mattermost.calls_call_host_changed
+DATA  no-offer   0.03s  —  ephemeral_message
+DATA  no-offer   0.06s  —  posted
+DATA  no-offer   0.06s  —  posted
+DATA  no-offer   0.06s  —  custom_com.mattermost.calls_call_start
+DATA  no-offer   0.06s  —  custom_com.mattermost.calls_call_start
+DATA  no-offer   0.07s  —  join ack 45i1o15z9pdfmxqwno6589fwwo (another session)
+DATA  no-offer   0.08s  —  custom_com.mattermost.calls_user_connected
+DATA  no-offer   0.08s  —  custom_com.mattermost.calls_user_joined
+DATA  no-offer   0.08s  —  custom_com.mattermost.calls_call_state
+DATA  no-offer   0.08s  —  join ack 59hswkojmp88fdradsuuej9j4w (our connID)
+DATA  no-offer   0.08s  —  custom_com.mattermost.calls_user_connected
+DATA  no-offer   0.08s  —  custom_com.mattermost.calls_user_joined
+DATA  no-offer   0.08s  —  custom_com.mattermost.calls_call_state
+DATA  no-offer  10.12s  —  user_disconnected
+DATA  no-offer  10.12s  —  user_disconnected
+DATA  no-offer  10.12s  —  user_left (our connID)
+PASS  a session that never offers receives no signal frame for its own connection  —  0 own signal(s) for connID 59hswkojmp88fdradsuuej9j4w, 0 foreign frame(s) ignored (other live sessions of this account)
+PASS  the plugin tears an unanswered session down at its ~10 s signalling timeout  —  user_left session_id=59hswkojmp88fdradsuuej9j4w after 10.12 s (user_disconnected at 10.12 s)
+DATA  foreign signal frames ignored across runs A/B/C  —  0
+
+--- reachability of the SFU's own candidates, from this host ---
+DATA  candidate  —  candidate:2878742611 1 udp 2130706431 127.0.0.1 8443 typ host
+DATA  candidate  —  candidate:408902208 1 udp 2130706431 209.35.187.178 8443 typ host
+DATA  candidate  —  candidate:375738803 1 tcp 1671430143 127.0.0.1 8443 typ host tcptype passive
+DATA  candidate  —  candidate:2779524000 1 tcp 1671430143 209.35.187.178 8443 typ host tcptype passive
+DATA  candidate  —  candidate:1244823927 1 udp 1694498815 209.35.187.178 65303 typ srflx raddr 0.0.0.0 rport 50132
+DATA  ICE credentials  —  server ufrag RxAIfhqZVBKpqyMR, client ufrag t44a
+DATA  ice check to 127.0.0.1:8443  —  binding success in 13 ms, message-integrity=True, mapped=172.19.0.4:39675
+DATA  ice check to 209.35.187.178:8443  —  no reply (timeout)
+DATA  ice check to 209.35.187.178:65303  —  no reply (timeout)
+DATA  control: a public STUN server answers a bare binding request from this host  —  yes
+
+9 PASS / 0 FAIL
+MEDIA PATH: 1/3 advertised UDP candidate(s) reachable from this host
+
+EXIT CODE: 0
+
+$ # probe A first, probe B 1.5 s later so B's answer falls inside A's JSON-offer window
+
+--- run A (channel t44-calls, started first) ---
+T44 Calls probe against http://127.0.0.1:8065
+      signed in as perfprobe (jruqqzxtobg7tn4wehwmwjjo5c)
+PASS  the Calls plugin answers /version  —  HTTP 200
+DATA  plugin version  —  0.29.8 (build 936dd00d3e456c843b846740aa76601d07e6a25a)
+DATA  plugin websocket prefix  —  custom_com.mattermost.calls_
+PASS  the plugin allows calls to be enabled  —  HTTP 200, AllowEnableCalls=True
+DATA  plugin sku / test mode  —  starter / DefaultEnabled=False / MaxCallParticipants=0
+DATA  ICE servers the plugin hands a client  —  [{"urls": ["stun:stun.global.calls.mattermost.com:3478"]}]
+DATA  probe channel  —  t44-calls (wikybttr8tnfzkxge9rk7aipph)
+
+--- run A: join over JSON, offer over a JSON text frame ---
+PASS  a JSON text frame joins the call (the join ack repeats this socket's connID)  —  connID ihjbbnkptibz8yd1sg1j8omsoc, 1 foreign ack(s) ignored
+PASS  the join is followed by a full call_state (what a native calls UI renders)  —  1 session(s), call id dbrgq7huff8ytxokhdf6o5e91w
+DATA  call_state session shape  —  {"raised_hand": 0, "session_id": "qnymsc5fxfbk8gwzymbowqsmta", "unmuted": false, "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+PASS  a JSON-framed sdp is NOT answered (the plugin needs MessagePack for this action)  —  0 signal event(s) for connID ihjbbnkptibz8yd1sg1j8omsoc, 0 foreign frame(s) ignored
+
+--- run B: join over JSON, offer over a MessagePack binary frame ---
+PASS  a MessagePack sdp frame is answered  —  answer 481 bytes for connID ssec65nr3pyrxfcfumxu9iwcia
+PASS  the SFU trickles ICE candidates to the client  —  5 candidate(s), 6 foreign frame(s) ignored
+
+--- run C: join and send nothing (the no-offer check) ---
+DATA  no-offer   0.00s  —  hello connection_id a1o3p1bc6iboir7kao9odijrih -> join sent
+DATA  no-offer   0.02s  —  custom_com.mattermost.calls_call_host_changed
+DATA  no-offer   0.02s  —  ephemeral_message
+DATA  no-offer   0.04s  —  posted
+DATA  no-offer   0.05s  —  custom_com.mattermost.calls_call_start
+DATA  no-offer   0.06s  —  join ack a1o3p1bc6iboir7kao9odijrih (our connID)
+DATA  no-offer   0.06s  —  custom_com.mattermost.calls_user_connected
+DATA  no-offer   0.06s  —  custom_com.mattermost.calls_user_joined
+DATA  no-offer   0.06s  —  custom_com.mattermost.calls_call_state
+DATA  no-offer   0.94s  —  user_disconnected
+DATA  no-offer   0.94s  —  user_left (another session)
+DATA  no-offer   0.96s  —  post_edited
+DATA  no-offer   1.23s  —  custom_com.mattermost.calls_call_host_changed
+DATA  no-offer   1.24s  —  ephemeral_message
+DATA  no-offer   1.25s  —  posted
+DATA  no-offer   1.26s  —  custom_com.mattermost.calls_call_start
+DATA  no-offer   1.27s  —  join ack qkc7b3z74t8j8kw59pn5ynrgie (another session)
+DATA  no-offer   1.27s  —  custom_com.mattermost.calls_user_connected
+DATA  no-offer   1.27s  —  custom_com.mattermost.calls_user_joined
+DATA  no-offer   1.27s  —  custom_com.mattermost.calls_call_state
+DATA  no-offer  10.09s  —  user_disconnected
+DATA  no-offer  10.10s  —  user_left (our connID)
+PASS  a session that never offers receives no signal frame for its own connection  —  0 own signal(s) for connID a1o3p1bc6iboir7kao9odijrih, 0 foreign frame(s) ignored (other live sessions of this account)
+PASS  the plugin tears an unanswered session down at its ~10 s signalling timeout  —  user_left session_id=a1o3p1bc6iboir7kao9odijrih after 10.10 s (user_disconnected at 0.94 s)
+DATA  foreign signal frames ignored across runs A/B/C  —  6
+
+--- reachability of the SFU's own candidates, from this host ---
+DATA  candidate  —  candidate:2878742611 1 udp 2130706431 127.0.0.1 8443 typ host
+DATA  candidate  —  candidate:408902208 1 udp 2130706431 209.35.187.178 8443 typ host
+DATA  candidate  —  candidate:375738803 1 tcp 1671430143 127.0.0.1 8443 typ host tcptype passive
+DATA  candidate  —  candidate:2779524000 1 tcp 1671430143 209.35.187.178 8443 typ host tcptype passive
+DATA  candidate  —  candidate:1244823927 1 udp 1694498815 209.35.187.178 59942 typ srflx raddr 0.0.0.0 rport 40249
+DATA  ICE credentials  —  server ufrag CmeyyDgnCKWGqWJz, client ufrag t44a
+DATA  ice check to 127.0.0.1:8443  —  binding success in 12 ms, message-integrity=True, mapped=172.19.0.4:43751
+DATA  ice check to 209.35.187.178:8443  —  no reply (timeout)
+DATA  ice check to 209.35.187.178:59942  —  no reply (timeout)
+DATA  control: a public STUN server answers a bare binding request from this host  —  yes
+
+9 PASS / 0 FAIL
+MEDIA PATH: 1/3 advertised UDP candidate(s) reachable from this host
+
+EXIT CODE: 0
+
+--- run B (channel t44-calls-c, started 1.5 s later) ---
+T44 Calls probe against http://127.0.0.1:8065
+      signed in as perfprobe (jruqqzxtobg7tn4wehwmwjjo5c)
+PASS  the Calls plugin answers /version  —  HTTP 200
+DATA  plugin version  —  0.29.8 (build 936dd00d3e456c843b846740aa76601d07e6a25a)
+DATA  plugin websocket prefix  —  custom_com.mattermost.calls_
+PASS  the plugin allows calls to be enabled  —  HTTP 200, AllowEnableCalls=True
+DATA  plugin sku / test mode  —  starter / DefaultEnabled=False / MaxCallParticipants=0
+DATA  ICE servers the plugin hands a client  —  [{"urls": ["stun:stun.global.calls.mattermost.com:3478"]}]
+DATA  probe channel  —  t44-calls-c (en41reah3t8wmnpy576zbnp3iy)
+
+--- run A: join over JSON, offer over a JSON text frame ---
+PASS  a JSON text frame joins the call (the join ack repeats this socket's connID)  —  connID qnymsc5fxfbk8gwzymbowqsmta, 1 foreign ack(s) ignored
+PASS  the join is followed by a full call_state (what a native calls UI renders)  —  1 session(s), call id 485mf8zjc7bofgxsryr4558yro
+DATA  call_state session shape  —  {"raised_hand": 0, "session_id": "ssec65nr3pyrxfcfumxu9iwcia", "unmuted": false, "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+PASS  a JSON-framed sdp is NOT answered (the plugin needs MessagePack for this action)  —  0 signal event(s) for connID qnymsc5fxfbk8gwzymbowqsmta, 6 foreign frame(s) ignored
+
+--- run B: join over JSON, offer over a MessagePack binary frame ---
+PASS  a MessagePack sdp frame is answered  —  answer 480 bytes for connID 6hhfknbxo7rp3jc9f4jb86x9ka
+PASS  the SFU trickles ICE candidates to the client  —  5 candidate(s), 0 foreign frame(s) ignored
+
+--- run C: join and send nothing (the no-offer check) ---
+DATA  no-offer   0.00s  —  hello connection_id qkc7b3z74t8j8kw59pn5ynrgie -> join sent
+DATA  no-offer   0.02s  —  custom_com.mattermost.calls_call_host_changed
+DATA  no-offer   0.03s  —  ephemeral_message
+DATA  no-offer   0.05s  —  posted
+DATA  no-offer   0.05s  —  custom_com.mattermost.calls_call_start
+DATA  no-offer   0.06s  —  join ack qkc7b3z74t8j8kw59pn5ynrgie (our connID)
+DATA  no-offer   0.06s  —  custom_com.mattermost.calls_user_connected
+DATA  no-offer   0.06s  —  custom_com.mattermost.calls_user_joined
+DATA  no-offer   0.06s  —  custom_com.mattermost.calls_call_state
+DATA  no-offer   8.89s  —  user_disconnected
+DATA  no-offer   8.89s  —  user_left (another session)
+DATA  no-offer   8.91s  —  post_edited
+DATA  no-offer   8.92s  —  custom_com.mattermost.calls_call_host_changed
+DATA  no-offer   8.92s  —  ephemeral_message
+DATA  no-offer   8.94s  —  posted
+DATA  no-offer   8.94s  —  custom_com.mattermost.calls_call_start
+DATA  no-offer   8.95s  —  join ack ykbm6dmq57yn3cwa8tow9b8qoo (another session)
+DATA  no-offer   8.95s  —  custom_com.mattermost.calls_user_connected
+DATA  no-offer   8.95s  —  custom_com.mattermost.calls_user_joined
+DATA  no-offer   8.96s  —  custom_com.mattermost.calls_call_state
+DATA  no-offer  10.10s  —  user_disconnected
+DATA  no-offer  10.10s  —  user_left (our connID)
+PASS  a session that never offers receives no signal frame for its own connection  —  0 own signal(s) for connID qkc7b3z74t8j8kw59pn5ynrgie, 6 foreign frame(s) ignored (other live sessions of this account)
+PASS  the plugin tears an unanswered session down at its ~10 s signalling timeout  —  user_left session_id=qkc7b3z74t8j8kw59pn5ynrgie after 10.10 s (user_disconnected at 8.89 s)
+DATA  foreign signal frames ignored during the no-offer session  —  [{"connID": "ykbm6dmq57yn3cwa8tow9b8qoo", "type": "answer"}, {"connID": "ykbm6dmq57yn3cwa8tow9b8qoo", "type": "candidate"}, {"connID": "ykbm6dmq57yn3cwa8tow9b8qoo", "type": "candidate"}, {"connID": "ykbm6dmq57yn3cwa8tow9b8qoo", "type": "candidate"}, {"connID": "ykbm6dmq57yn3cwa8tow9b8qoo", "type": "candidate"}, {"connID": "ykbm6dmq57yn3cwa8tow9b8qoo", "type": "candidate"}]
+DATA  foreign signal frames ignored across runs A/B/C  —  12
+
+--- reachability of the SFU's own candidates, from this host ---
+DATA  candidate  —  candidate:2878742611 1 udp 2130706431 127.0.0.1 8443 typ host
+DATA  candidate  —  candidate:408902208 1 udp 2130706431 209.35.187.178 8443 typ host
+DATA  candidate  —  candidate:375738803 1 tcp 1671430143 127.0.0.1 8443 typ host tcptype passive
+DATA  candidate  —  candidate:2779524000 1 tcp 1671430143 209.35.187.178 8443 typ host tcptype passive
+DATA  candidate  —  candidate:1244823927 1 udp 1694498815 209.35.187.178 54103 typ srflx raddr 0.0.0.0 rport 40489
+DATA  ICE credentials  —  server ufrag iOADkLQEdErumQCm, client ufrag t44a
+DATA  ice check to 127.0.0.1:8443  —  binding success in 20 ms, message-integrity=True, mapped=172.19.0.4:49020
+DATA  ice check to 209.35.187.178:8443  —  no reply (timeout)
+DATA  ice check to 209.35.187.178:54103  —  no reply (timeout)
+DATA  control: a public STUN server answers a bare binding request from this host  —  yes
+
+9 PASS / 0 FAIL
+MEDIA PATH: 1/3 advertised UDP candidate(s) reachable from this host
+
+EXIT CODE: 0
+
+MACHINE-READABLE ATTRIBUTION (`--json`)
+---------------------------------------
+A `--json` run prints one `connections` object per session: the socket's own connID, how
+many `signal` frames were its own, and every frame it ignored because the connID belonged
+to another live session of the account. This is the object an automated check should read.
+
+$ python3 scripts/t44_calls_probe.py --json --channel t44-calls-c   # probe B, staggered pair
+# stagger-B.log
+{
+  "connections": {
+    "run_a_json": {
+      "connID": "yuhp9oha5frydxtooexqyoseie",
+      "own_signal_frames": 0,
+      "foreign_signal_ignored": [
+        {
+          "connID": "7z1m9aiqbibyuqj3eupxedw5ew",
+          "type": "candidate"
+        },
+        {
+          "connID": "7z1m9aiqbibyuqj3eupxedw5ew",
+          "type": "answer"
+        },
+        {
+          "connID": "7z1m9aiqbibyuqj3eupxedw5ew",
+          "type": "candidate"
+        },
+        {
+          "connID": "7z1m9aiqbibyuqj3eupxedw5ew",
+          "type": "candidate"
+        },
+        {
+          "connID": "7z1m9aiqbibyuqj3eupxedw5ew",
+          "type": "candidate"
+        },
+        {
+          "connID": "7z1m9aiqbibyuqj3eupxedw5ew",
+          "type": "candidate"
+        }
+      ],
+      "foreign_join_acks_ignored": [
+        "7z1m9aiqbibyuqj3eupxedw5ew"
+      ]
+    },
+    "run_b_msgpack": {
+      "connID": "dg7eufnsu3rwxnwemyeanzz3ew",
+      "own_signal_frames": 6,
+      "foreign_signal_ignored": [],
+      "foreign_join_acks_ignored": [
+        "usp516bynbr5jmrhrdwaaxfegr"
+      ]
+    },
+    "run_c_no_offer": {
+      "connID": "mbk3rakawbri9jb58icnnu5syc",
+      "own_signal_frames": 0,
+      "foreign_signal_ignored": [
+        {
+          "connID": "15w33q3nibfmpp8sysrwr43ssw",
+          "type": "answer"
+        },
+        {
+          "connID": "15w33q3nibfmpp8sysrwr43ssw",
+          "type": "candidate"
+        },
+        {
+          "connID": "15w33q3nibfmpp8sysrwr43ssw",
+          "type": "candidate"
+        },
+        {
+          "connID": "15w33q3nibfmpp8sysrwr43ssw",
+          "type": "candidate"
+        },
+        {
+          "connID": "15w33q3nibfmpp8sysrwr43ssw",
+          "type": "candidate"
+        },
+        {
+          "connID": "15w33q3nibfmpp8sysrwr43ssw",
+          "type": "candidate"
+        }
+      ],
+      "foreign_join_acks_ignored": [
+        "15w33q3nibfmpp8sysrwr43ssw"
+      ],
+      "teardown_seconds": 10.074896812438965,
+      "user_disconnected_seconds": 8.670346975326538
+    }
+  }
+}
+
+# concurrent-A.log
+{
+  "connections": {
+    "run_a_json": {
+      "connID": "ag9surynsbfgmmkd87crhbyt1w",
+      "own_signal_frames": 0,
+      "foreign_signal_ignored": [],
+      "foreign_join_acks_ignored": [
+        "4wxj9dhfijrjp8qhrad7tbfhdw"
+      ]
+    },
+    "run_b_msgpack": {
+      "connID": "94wadsxy43dgte3dgnzjxjhjwa",
+      "own_signal_frames": 6,
+      "foreign_signal_ignored": [
+        {
+          "connID": "nnrrrdtxh78hukjuppnk8t4kra",
+          "type": "answer"
+        },
+        {
+          "connID": "nnrrrdtxh78hukjuppnk8t4kra",
+          "type": "candidate"
+        },
+        {
+          "connID": "nnrrrdtxh78hukjuppnk8t4kra",
+          "type": "candidate"
+        },
+        {
+          "connID": "nnrrrdtxh78hukjuppnk8t4kra",
+          "type": "candidate"
+        },
+        {
+          "connID": "nnrrrdtxh78hukjuppnk8t4kra",
+          "type": "candidate"
+        },
+        {
+          "connID": "nnrrrdtxh78hukjuppnk8t4kra",
+          "type": "candidate"
+        }
+      ],
+      "foreign_join_acks_ignored": [
+        "nnrrrdtxh78hukjuppnk8t4kra"
+      ]
+    },
+    "run_c_no_offer": {
+      "connID": "jk9mecsn8fdozgszs15631c5sc",
+      "own_signal_frames": 0,
+      "foreign_signal_ignored": [],
+      "foreign_join_acks_ignored": [
+        "hecb6wwn77yxtbimottjujka5c"
+      ],
+      "teardown_seconds": 10.09445595741272,
+      "user_disconnected_seconds": 10.09335708618164
+    }
+  }
+}
+
+
+WHY THE PROBE'S OWN connID COMES FROM `hello` (scripts/t44r_conn_id_check.py)
+----------------------------------------------------------------------------
+$ python3 scripts/t44r_conn_id_check.py --url http://127.0.0.1:8065
+signed in as perfprobe; channel t44-calls (wikybttr8tnfzkxge9rk7aipph)
+client-supplied ?connection_id=t44r9fd5c3c95ec0dd2d8a3eb4
+hello.connection_id = 5ypd9tj7c7rzme3qghkc3mk59h
+join ack connID = 5ypd9tj7c7rzme3qghkc3mk59h
+
+PASS  the server assigns the connection id (a client-supplied ?connection_id= is ignored)
+PASS  the join ack for this socket repeats hello.connection_id
+DATA  no foreign join ack arrived on this socket (no other session of the account was live)
+2 PASS / 0 FAIL
+EXIT CODE: 0
+
