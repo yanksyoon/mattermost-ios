@@ -8,6 +8,13 @@
 // The card's criterion: "joining a public channel from the browser navigates straight into it". The tap
 // therefore completes the join **and** opens the channel — the reader never lands back on a list and
 // hunts for the channel in the sidebar.
+//
+// ## Why the list is drawn by a second view (T40-R)
+//
+// The browser's model is created in `.task` (it needs the coordinator from the environment) and was
+// held in a plain `@State`, which does not observe an `ObservableObject` — so a `join` in flight could
+// not repaint the row it was joining, and a failed join could not draw its sentence. `BrowseChannelsList`
+// observes the model. The same defect blanked the Add button (F1) and the Save button (F2).
 
 import SwiftUI
 
@@ -16,27 +23,15 @@ struct BrowseChannelsView: View {
     let teamID: String
 
     @EnvironmentObject private var coordinator: ChannelInfoCoordinator
-    @EnvironmentObject private var navigation: NativeNavigation
-    @Environment(\.dismiss) private var dismiss
     @State private var model: BrowseChannelsViewModel?
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let model {
-                    content(model)
-                } else {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-            .navigationTitle("Browse channels")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                        .accessibilityIdentifier("browseChannels.done")
-                }
+        Group {
+            if let model {
+                BrowseChannelsList(server: server, teamID: teamID, model: model)
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .task {
@@ -46,9 +41,35 @@ struct BrowseChannelsView: View {
         }
         .accessibilityIdentifier("browseChannels.sheet")
     }
+}
+
+/// The browser: the joined section, the other public channels, the term field and the row tap.
+///
+/// Separate from `BrowseChannelsView` so the model is **observed** (see the note at the top).
+struct BrowseChannelsList: View {
+    let server: ServerConfig
+    let teamID: String
+
+    @ObservedObject var model: BrowseChannelsViewModel
+    @EnvironmentObject private var navigation: NativeNavigation
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            content
+                .navigationTitle("Browse channels")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { dismiss() }
+                            .accessibilityIdentifier("browseChannels.done")
+                    }
+                }
+        }
+    }
 
     @ViewBuilder
-    private func content(_ model: BrowseChannelsViewModel) -> some View {
+    private var content: some View {
         List {
             switch model.phase {
             case .idle, .loading:
@@ -77,14 +98,14 @@ struct BrowseChannelsView: View {
                 if !sections.joined.isEmpty {
                     Section("Channels you are in") {
                         ForEach(sections.joined) { entry in
-                            row(entry, model: model)
+                            row(entry)
                         }
                     }
                 }
                 if !sections.others.isEmpty {
                     Section {
                         ForEach(sections.others) { entry in
-                            row(entry, model: model)
+                            row(entry)
                         }
                     } header: {
                         Text("Other public channels")
@@ -103,9 +124,9 @@ struct BrowseChannelsView: View {
     }
 
     @ViewBuilder
-    private func row(_ entry: BrowseChannelEntry, model: BrowseChannelsViewModel) -> some View {
+    private func row(_ entry: BrowseChannelEntry) -> some View {
         Button {
-            Task { await open(entry, model: model) }
+            Task { await open(entry) }
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: entry.kind.glyph)
@@ -137,7 +158,7 @@ struct BrowseChannelsView: View {
     }
 
     /// Join (when needed) and go into the channel.
-    private func open(_ entry: BrowseChannelEntry, model: BrowseChannelsViewModel) async {
+    private func open(_ entry: BrowseChannelEntry) async {
         guard let channelID = await model.join(entry) else { return }
         let target = BrowseChannelsDerivation.joinTarget(for: entry)
         dismiss()

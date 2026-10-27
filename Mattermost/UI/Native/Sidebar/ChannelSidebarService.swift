@@ -354,6 +354,13 @@ final class ChannelListViewModel: ObservableObject {
     ///   makes a reorder/collapse/favourite made elsewhere visible without a relaunch (T33-AV F3).
     /// - `channel_created`: the list gained a channel; the caller reloads. `channel_deleted`: the
     ///   channel list read drops it, so the ordinary counter refresh is enough.
+    /// - `user_added` / `user_removed` **for me**: my own membership moved, and the endpoint the list is
+    ///   built from (`GET /users/me/teams/{t}/channels`) is "the channels *I* am in" — a counter
+    ///   refresh reads the same endpoint, but the row has to be **added** (or dropped) rather than
+    ///   re-counted, so the caller reloads. T40-R F3 measured what its absence cost: a join reached the
+    ///   server, the pane opened, and the sidebar never gained the row. Somebody else's membership
+    ///   change is not this list's business and must not cost a reload (it would be one request per
+    ///   join of every other member of the team).
     func handle(_ event: SocketEvent, myUserID: String?) -> ChannelEventOutcome {
         switch event {
         case .channelViewed(let viewed):
@@ -373,6 +380,14 @@ final class ChannelListViewModel: ObservableObject {
             return .counters
         case .posted, .postDeleted, .postEdited, .preferencesChanged:
             return .refreshNeeded
+        case .userAdded(let change):
+            // A join. Only my own changes this list; anybody else's is ignored.
+            guard change.userID == myUserID else { return .ignored }
+            return .reloadNeeded
+        case .userRemoved(let change):
+            // A removal or a leave. Mine drops the row; somebody else's does not touch my list.
+            guard change.userID == myUserID else { return .ignored }
+            return .reloadNeeded
         case .postUnread(let unread):
             guard unread.teamID.isEmpty || unread.teamID == teamID else { return .ignored }
             guard applyUnread(unread, myUserID: myUserID) else { return .ignored }

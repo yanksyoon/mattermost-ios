@@ -96,6 +96,18 @@ struct MattermostApp: App {
             UserDefaults.standard.removePersistentDomain(forName: domain)
             UserDefaults.standard.synchronize()
         }
+        // UI-test seam: `-uiTestLogLevel <desktop level>` (error/warn/info/verbose) raises the `os_log`
+        // floor for a test run.
+        //
+        // Why: XCUITest captures accessibility "runtime issues" as `os_log` faults, and the simulator's
+        // tracing layer quarantines a process whose log volume is high — after which XCTest's own
+        // snapshot callback dereferences a NULL and the **test process** dies mid-suite (T40-R measured
+        // this twice: `_platform_strcmp` under `runtime_issue_os_log_fault_callback`, "quarantined due
+        // to high logging volume"). The app's ordinary logging is most of that volume, so a UI run turns
+        // it down to `error`; nothing else about the app changes, and the argument is inert in normal use.
+        if let idx = args.firstIndex(of: "-uiTestLogLevel"), args.indices.contains(idx + 1) {
+            Logger.setMinimumLevel(args[idx + 1])
+        }
         _serverStore = StateObject(wrappedValue: ServerStore())
         _viewStore = StateObject(wrappedValue: ViewStore())
         _downloadWorker = StateObject(wrappedValue: DownloadWorker(history: DownloadHistory()))

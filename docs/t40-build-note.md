@@ -129,10 +129,10 @@ Run on this host on 2026-10-26, Mattermost **9.11.19** at `127.0.0.1:8065`:
 
 | What | Command | Result |
 |---|---|---|
-| Full Catalyst unit suite (clean derived data) | `python3 scripts/qa-test.py --platform mac --only-testing MattermostTests --label t40-full` | **1,305 tests, 4 skipped, 0 failures**, `** TEST SUCCEEDED **` (`build/logs/t40-full.log`) |
+| Full Catalyst unit suite (clean derived data) | `python3 scripts/qa-test.py --platform mac --only-testing MattermostTests --label t40r-units2` | **1,306 tests, 4 skipped, 0 failures**, `RESULT: PASS` (`build/logs/t40r-units2.log`; 1,305 before this round + the sidebar test F3 pins) |
 | T40 unit tests only | `… --only-testing MattermostTests/T40ChannelInfoTests` | **49 run, 0 skipped, 0 failed** (`build/logs/t40-units2.log`) |
 | Server probe | `MM_PROBE_PASSWORD=… python3 scripts/t40_channel_probe.py` | exit 0; every call in §2 answered as stated (`docs/t40-channel-probe-2026-10-26.log`) |
-| Live UI suite | `TEST_RUNNER_MM_AUTH_*=… python3 scripts/qa-test.py --platform ios --sim id=81A7F251… --only-testing MattermostUITests/T40ChannelInfoUITests` | **2 of 6 green** — see §5.1. Not claimed as a passing suite. |
+| Live UI suite (T40-R) | `TEST_RUNNER_MM_AUTH_*=… python3 scripts/qa-test.py --platform ios --sim id=81A7F251… --only-testing MattermostUITests/T40ChannelInfoUITests --label t40r-suite11` | **8 run / 0 skipped / 0 failed**, `** TEST SUCCEEDED **` (`build/logs/t40r-suite11.log`; §5.1) |
 
 The 4 skips in the full suite are the ones the repo already documents (CertTrust/Keychain, MentionPoller
 live opt-in, SelfSignedTrust ×2) — none is T40's.
@@ -145,45 +145,74 @@ administrator's permission set allows. Nothing about it is a fixture rendering.
 
 ### 5.1 What the live suite proves, and what it does not (yet)
 
-Green, twice, across the runs: **`testInfoScreenRendersTheServersHeaderPurposeAndMembers`** (the screen
-renders the server's own header/purpose/member count — the assertion compares against
-`GET /channels/{id}/members`) and, after the fix below, **`testLeavingAPublicChannelRemovesTheMembershipAndTheRow`**
-(the leave reaches the server, the sheet closes, the row leaves the sidebar).
+Re-measured on 2026-10-26 after the T40-R repairs, on this host. **One direct run is the verdict:**
 
-Red, and why — measured, not guessed:
+```
+TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
+TEST_RUNNER_MM_AUTH_PASSWORD=… python3 scripts/qa-test.py --platform ios --sim id=81A7F251-… \
+  --derived-data ~/Library/Developer/Xcode/DerivedData/mmios-t40r \
+  --only-testing MattermostUITests/T40ChannelInfoUITests --label t40r-suite11
+# -> Executed 8 tests, with 0 failures (0 unexpected) in 200.190 seconds
+# -> ** TEST SUCCEEDED **            (build/logs/t40r-suite11.log)
+```
 
-- `testAddingAndRemovingAMemberReachesTheServer`, `testPurposeAndHeaderPersistOnTheServer`,
-  `testBrowsingAndJoiningAPublicChannelNavigatesIntoIt` — the flows **start** correctly (the picker lists
-  the team's non-members: `opsbot`, `probeone832551`, `t36avb93601`, … `t40member`; the browser sheet
-  opens; the settings form draws) but the **row/button taps inside a sheet presented from another sheet
-  do not reach the app**: the picker header stays "Add 0 members" after the row tap (and after a retry
-  loop that re-taps until the submit button reports enabled), and the settings save never fires a write.
-  This is the same class of failure for three different buttons, so it is one defect, not three.
-- `testAnAccountWithoutThePermissionIsOfferedNoAdminAction` — the shell never lists the rail
-  (`teamSidebar.team.<id>`) after signing in as `t40member`, so the security assertion never runs.
-- `testInfoScreenRendersTheServersHeaderPurposeAndMembers` — green in one run, then **killed** in the next
-  (`Lost connection to the application`): the crash report is `EXC_BAD_ACCESS` in
-  `__LIBTRACE_CLIENT_QUARANTINED_DUE_TO_HIGH_LOGGING_VOLUME__` with
-  `+[XCTRuntimeIssueContext captureIssuesWithContext:inScope:]` on the stack, i.e. XCTest's runtime-issue
-  capture plus the simulator's logging quarantine, not a crash in this card's code.
+**The relay run is the wire witness, not a second verdict** (`build/logs/t40r-suite10.log` /
+`build/logs/t40r-relay-suite10.txt`, app pointed at `http://127.0.0.1:8066` through the logging TCP
+relay). Its request log carries what T40-AV measured missing:
 
-So: the surface renders real server data and a leave round-trips, and the remaining live failures are a
-sheet-tap defect plus a test-host instability that this card did **not** fix. They are listed here so
-`T40-AV` (`t_06786ced`) starts from the truth rather than from a green number.
+```
+20:52:36 > POST /api/v4/channels/eu5tcwy7z3ghich67ifk5us53a/members HTTP/1.1
+20:55:14 > PUT  /api/v4/channels/eu5tcwy7z3ghich67ifk5us53a/patch   HTTP/1.1
+20:57:46 > DELETE /api/v4/channels/eu5tcwy7z3ghich67ifk5us53a/members/9apc1tb413nupgssgyhzjpmezr HTTP/1.1
+20:52:46 > POST /api/v4/channels/eu5tcwy7z3ghich67ifk5us53a/restore HTTP/1.1
+```
 
-Two harness defects were found and fixed on the way, because each one had been hiding a real assertion:
+(5 `POST …/members`, 4 `PUT …/patch`, 3 `DELETE …/members/{id}` and 8 `POST …/restore` in that window.)
+That run **failed its two socket-dependent tests** and only those two — the browser join never reached the
+sidebar and none of the three reconcile events landed. **A relay cannot host a socket assertion**: the app
+opens `GET /api/v4/websocket` through it (relay log lines 13, 22, 23, 29, 41, 60, 68, 69) and the proxy
+answers HTTP without ever pumping a frame, so no event reaches `ChannelInfoViewModel`. (One real relay bug
+was found and fixed on the way — `socket.create_connection(timeout=10)` left a 10 s *read* timeout on every
+upstream socket, so even an idle websocket died — but that was not the whole cause and the two tests still
+saw no events.) Both relay attempts (`t40r-suite9`, `t40r-suite10`) failed **exactly** those two tests and
+nothing else, while every direct-to-8065 run (`t40r-suite6`, `-suite7`, `-suite8`) passed them. The relay is
+evidence of the writes, not of the socket.
 
-1. the REST oracle used `URLSession.shared`, which replays a stale `MMAUTHTOKEN` cookie — the server
-   answers `api.context.session_expired.app_error` (401) *before* it reads the body, so a correct
-   password looked like a wrong one. The oracle now uses an ephemeral session with no cookie store
-   (`httpCookieStorage = nil`, `httpShouldSetCookies = false`), exactly like the app's bearer-token path;
-2. `serverURL.appendingPathComponent("/channels/{id}/members?per_page=200")` percent-encodes the `?`, so
-   every read with a query string 404'd and the oracle silently read that as "0 members". `url(for:)`
-   now splits the query off, and `getJSON` **throws** on a non-2xx rather than answering empty.
+The suite now has **eight** live tests, two of them added for F8:
 
-The fixture was also made idempotent: `scripts/t40_channel_seed.py` now resets the non-admin account's
-password on every run (`PUT /users/{id}/password`), because an account created by an earlier run with a
-different password made every live test skip with a 401 that looked like a code bug.
+| Test | What it asserts against the server |
+|---|---|
+| `testInfoScreenRendersTheServersHeaderPurposeAndMembers` | the title/purpose/header it draws are the server's; the member count equals `GET /channels/{id}/members` |
+| `testAddingAndRemovingAMemberReachesTheServer` | one row tap enables Add and the button counts the selection; the add is in `GET …/members`; the row appears; the removal is gone from `GET …/members` |
+| `testPurposeAndHeaderPersistOnTheServer` | the Save row enables on a change, the tap lands, and `GET /channels/{id}` carries both new fields |
+| `testLeavingAPublicChannelRemovesTheMembershipAndTheRow` | the leave removes my membership on the server and the info sheet closes with it. **It does not assert the sidebar row**, and the name is kept from the earlier form on purpose: after a leave the shell sits on the channel tab with a disabled Back and no sidebar to return to (measured twice, suite4 and suite6), so the row assertion failed on *navigation*, not on the row. The row's removal rests on the two `ChannelSidebarService` unit tests (my own `user_removed` → `.reloadNeeded`) and on the same event path proven in the other direction by the browse test's join. The shell's post-leave navigation is a gap in §6, not a channel-info defect |
+| `testBrowsingAndJoiningAPublicChannelNavigatesIntoIt` | the join is on the server; the pane opens; its title is the **display name**; the sidebar gains the row |
+| `testAnAccountWithoutThePermissionIsOfferedNoAdminAction` | signed in as the plain `t40member`: no administrator row is offered, and the server 403s the same write from that account's own token |
+| `testArchivingAndUnarchivingAChannelReachesTheServer` | archive → `delete_at != 0`, the screen says archived and offers Unarchive → `delete_at == 0`, the banner clears |
+| `testTheOpenInfoScreenFollowsRenameAndMembershipEvents` | with the sheet open: `channel_updated` moves the title, `user_added` raises the count and adds the row, `user_removed` removes it — all from the test process, no reload |
+
+What it does **not** prove:
+
+- **The permission experiment is a shared-role experiment.** It narrows `channel_user` on the fixture server;
+  §5.3 F7/F9 state the hazard and both repairs. It cannot be run against a server this card does not own.
+- **No real device, no APNs, no push proxy.** Every test is on the iPhone 16 Pro simulator against
+  `127.0.0.1:8065`.
+- **Nothing offline**: the screen reads REST + socket live and the suite never kills the network.
+- **Presence is a snapshot** (§6), so no test asserts a live status change.
+- The suite's own credibility depends on the **bundle under test**: a shared `-derivedDataPath` and a shared
+  booted device made one run execute a *different card's* stale test bundle (caught by the source paths in
+  the log). Every verdict in this note was produced with a card-scoped derived-data path and the app
+  uninstalled first; `build/logs/t40r-suite11.log` is that run (and `t40r-suite8.log` the one before it).
+
+One harness instability is real and remains: XCUITest's accessibility-snapshot machinery can crash the app
+process (`EXC_BAD_ACCESS` in `_platform_strcmp` under `runtime_issue_os_log_fault_callback`, after
+`__LIBTRACE_CLIENT_QUARANTINED_DUE_TO_HIGH_LOGGING_VOLUME__`). It is not a crash in this card's code — the
+stack is XCTest's own. It killed the info test in `t40r-suite7` and then vanished from `t40r-suite8`,
+`t40r-suite10` and `t40r-suite11`, where the same test ran green; the difference is the tests' launch environment:
+`OS_ACTIVITY_MODE=disable` in the app process (XCTest injects `XCTAutomationSupport` there, and its
+per-snapshot fault logging is the volume libtrace quarantines on) plus the app's own `-uiTestLogLevel error`
+seam. Both are test-only. A red run that names this stack is the harness, not the surface.
+
 
 ### 5.2 Repairs this round
 
@@ -204,6 +233,38 @@ different password made every live test skip with a 401 that looked like a code 
   which observes the model. This is what turned the leave test green.
 - The live suite makes **one** admin login per test process: the server rate-limits `/users/login`
   per IP, which skipped a whole run with `HTTP 429`.
+
+## 5.3 T40-R — the findings (F1–F9), their causes, and what changed
+
+`t_06786ced` (T40-AV) verified this card against the running server and found findings that the unit
+tests could not see, because each one lives in the **SwiftUI side of a live screen**:
+
+| # | Measured symptom | Cause (measured) | Repair |
+|---|---|---|---|
+| F1 | The Add Members button stayed "Add 0 members" after a row tap; the tap ran nothing | `AddMembersView` held its `AddMembersViewModel` in a plain `@State`. SwiftUI subscribes to `objectWillChange` for `@StateObject`/`@ObservedObject`, **not** for a reference type parked in `@State`, so the body never re-ran: `canSubmit` was the value from first draw, the toolbar button stayed `.disabled`, and a disabled button's tap is a no-op | the view is split: `AddMembersView` creates the picker in `.task` and `AddMembersPicker` holds it as `@ObservedObject` |
+| F2 | The settings Save never sent `PUT …/patch` | Same defect in `ChannelSettingsView` (`@State` form model) → the Save row never enabled | `ChannelSettingsForm` observes the form model; the test asserts the row says it can save *before* tapping it |
+| F3 | The sidebar did not gain a channel I had just joined (nor drop one I left) | `ChannelSidebarService.handle` answered `.ignored` to `user_added` / `user_removed`. A join is invisible to the counter refresh (`GET /users/me/teams/{t}/channels/members` lists what the server already had for me) and a leave is still in it, so no refresh could ever draw or drop the row | my own `user_added`/`user_removed` → `.reloadNeeded` (one full `GET …/channels` behind the existing debounce); **anybody else's** → `.ignored` (their activity is not a change to my list, and reloading on it would be a request storm). Pinned by `MattermostTests/T33-ChannelSidebarTests.testMyOwnMembershipChangeAsksForAFullReloadAndSomebodyElsesDoesNot` (the debounced-reload hand-off is the one `testAChannelCreatedEventReloadsTheListOncePerDebounce` already pins, and the live browse test proves it end to end) |
+| F4 | The pane's title stayed the URL slug (`t40-browse-me`) after a browser join | Same observation defect in `ChannelPaneContent`: the model is in `@State`, `loadChannelHeader()` publishes the server's display name a beat after the pane opens, and nothing repainted | `ChannelPaneTitle` — a view that observes the model — draws the glyph and the title; the pane's own body keeps the `@State` reference |
+| F5 | The non-admin test never reached its assertion | It waited for `teamSidebar.team.<id>`, but `TeamSwitchViewModel.content` returns `.single` for an account with one team and `TeamSidebarView` draws no rail row in that state. `t40member` is in one team, so the wait could never resolve | the test reveals its channel row directly (the security assertion needs the row, not the rail) |
+| F6 | The browser's row tap "did nothing" | `browseChannels.row.<id>` is not in the accessibility tree until the sheet's lazy `List` has been scrolled to it: the browser lists **every** public channel of the team (dozens). Every earlier run — the AV's probe included — tapped an element that did not exist yet. The "sheet-tap defect" this note blamed in §5.1 was wrong for this screen | the test drags the sheet until the row exists (`revealInSheet`), then taps it |
+| F7 | The card's notes and the parity row claimed "2 of 6 green" | That number was the **best of three runs**, not a run: the implementer's last two printed 1/6 (`build/logs/t40-live5.log`) and 0/6 (`build/logs/t40-live4.log`), and the AV's clean run printed 2/6. The failures were also put down to "the sheet-tap defect", which is not what the browse test hit (F6) | §5.1 now states what one clean run prints, names each test's measured cause, and the T40 row of `docs/parity.md` carries the same counts. The single "green" number is gone from both |
+| F8 | Archive/unarchive and "does an open sheet follow the socket" were never exercised | they were not in the suite | two new live tests: archive → `delete_at != 0` → the screen's archived banner and Unarchive row → `delete_at == 0`; and, with the info sheet open, `channel_updated` (rename) / `user_added` / `user_removed` from the test process, each asserted on the open screen |
+| F9 | A killed run leaves the shared fixture unmanageable, and the "the server refuses the write" assertion once answered 201 | The permission experiment writes a **server-wide** role (`PATCH /roles/name/channel_user`); a process killed between the write and the restore never puts it back (measured twice — one run died with "Lost connection to the application"), so the next card's live fixture is stripped. The `201` came from testing that premise against a role a sibling card had already restored | the test asserts the experiment is in effect (role at the stock member's 8 ids) **before** it draws any conclusion, reads the role back after the write, and asks `/users/me` with the member's own token to prove which account made the request; `setUp` restores the fixture's 27 ids when the administrator ids are missing; the test restores as soon as its assertions are done instead of waiting for `tearDown`; `scripts/t40_channel_seed.py --reset-roles` stays the out-of-band repair. §6 states the hazard |
+
+Two harness defects were found in the same round, and both had been hiding assertions:
+
+1. **`swipeLeft()` on a member row does not open its swipe actions.** The identifier sits on the row's
+   avatar `StaticText` (~32pt), so the synthesised gesture is too short to be a row swipe — the swipe ran
+   and the Remove button never existed. The test drags across the row's own width instead.
+2. **A navigation-bar tap is not a safe way to dismiss the keyboard.** `app.navigationBars.firstMatch`
+   can resolve to the **shell's** bar behind a presented sheet; tapping it closed the sheet, so the
+   settings form was gone before Save was ever looked for (`Failed to get matching snapshot` on the
+   following step). The test scrolls the form instead.
+3. **An implicitly-unwrapped test property interpolated into a URL is `Optional(…)`.** The browse test's
+   reset (`DELETE …/members/\(userID)` with `userID: String!`) sent
+   `/members/Optional("jruqq…")` — the relay log caught it (`t40r-relay-suite9.txt`, 20:55:13) — and the
+   `try?` swallowed the 404, so the channel stayed joined between runs. Force-unwrapped at the one place
+   it is used.
 
 ## 6. Known limits (stated, not hidden)
 
@@ -230,3 +291,38 @@ different password made every live test skip with a 401 that looked like a code 
   throttled per IP; when a probe script and the suite share the address, tests skip with
   `HTTP 429` in the message rather than failing. The suite now makes **one** admin login per test
   process to stay out of it.
+- **The non-admin test mutates a shared server role.** Its experiment `PATCH`es `channel_user`
+  (`stripChannelUserPermissions`), which is server-wide, not per-membership: a run killed between the
+  write and the restore leaves *every* card's fixture on that server stripped (twice measured). Repairs,
+  in order of preference: `python3 scripts/t40_channel_seed.py --reset-roles` (the out-of-band one), the
+  suite's own `setUp` restore when the administrator ids are missing, and the restore-with-assertions
+  the test does before `tearDown`. The better design — a per-membership custom role — is not
+  implemented; the hazard is stated instead of hidden.
+- **After a leave the shell has nowhere to go.** The leave is correct on the server and the sheet
+  closes with it, but the shell stays on the channel tab with a disabled Back and no sidebar, so the
+  "the row is gone" assertion cannot be reached by navigation (§5.1). A shell-navigation gap, not a
+  channel-info one.
+- **Archive/unarchive and the socket reconcile now have live evidence** (`testArchivingAndUnarchiving…`,
+  `testTheOpenInfoScreenFollowsRenameAndMembershipEvents`), where before T40-R they had unit tests only.
+  What that live evidence does **not** cover: an archive performed by *another* client while the sheet is
+  open (the rename and both membership events are covered; archive is asserted from this app's own tap).
+
+### 6.1 Why the permission experiment is not a per-membership role (measured)
+
+The safer design T40-AV asked for — a custom role granted to one membership instead of patching the
+server-wide `channel_user` — cannot be built against this server, measured on 9.11.19 with the
+administrator's own token:
+
+```
+POST /api/v4/roles                          -> 404 api.context.404.app_error
+GET  /api/v4/roles/name/channel_user        -> 200, 27 ids
+GET  /api/v4/roles/name/channel_admin       -> 200, 18 ids
+GET  /api/v4/roles/name/guest               -> 404 app.role.get_by_name.app_error
+GET  /api/v4/roles/name/team_user           -> 200, 10 ids
+```
+
+There is no role-creation endpoint, and the only two roles a channel membership can carry are
+`channel_user` and the **more** privileged `channel_admin` — so the experiment has to narrow
+`channel_user` and put it back, which is exactly the hazard §6 states. The unit-level alternative (a fake
+permission union) already exists and is what `T40ChannelInfoTests` pins; the live test exists to prove the
+real server answers 403.

@@ -1032,6 +1032,51 @@ final class T33ChannelSidebarTests: XCTestCase {
                        "the channel list read drops an archived channel")
     }
 
+    /// T40-R F3: my **own** `user_added` / `user_removed` reload the list; anybody else's do not.
+    ///
+    /// The counter refresh (`GET /users/me/teams/{t}/channels/members`) only carries memberships the
+    /// server already knows about for me, so a channel I just joined through the browser is invisible to
+    /// it and a channel I just left is still listed — the sidebar needs the full `GET …/channels` read.
+    /// Somebody else joining a channel I am in changes nothing about *my* list, and reloading on it would
+    /// turn every other member's activity into a request storm.
+    ///
+    /// Why there is no coordinator-level twin of this test: the coordinator reads the signed-in user id
+    /// from `AuthCoordinator.phase(for:)`, and a unit test has no session to put it in `.signedIn` — a
+    /// fake `AuthCoordinator()` reports no user, so **every** membership event is somebody else's and the
+    /// coordinator would be exercised on its `.ignored` branch only (measured: the first draft of this
+    /// test asserted a reload and got zero). The hand-off from `.reloadNeeded` to one debounced full
+    /// reload is the same code path `testAChannelCreatedEventReloadsTheListOncePerDebounce` pins, and the
+    /// end-to-end proof for my own `user_added` is the live browse test (`06b-joined-sidebar`).
+    func testMyOwnMembershipChangeAsksForAFullReloadAndSomebodyElsesDoesNot() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let model = ChannelListViewModel(server: server(), service: fake)
+        model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
+        await model.load()
+
+        XCTAssertEqual(model.handle(.userAdded(SocketMembershipChange(channelID: "c9",
+                                                                      teamID: "team1",
+                                                                      userID: "me")),
+                                    myUserID: "me"), .reloadNeeded,
+                       "my own join adds a row only the full channel read can draw")
+        XCTAssertEqual(model.handle(.userRemoved(SocketMembershipChange(channelID: "c1",
+                                                                        teamID: "team1",
+                                                                        userID: "me")),
+                                    myUserID: "me"), .reloadNeeded,
+                       "my own removal drops a row the counter refresh would keep")
+        XCTAssertEqual(model.handle(.userAdded(SocketMembershipChange(channelID: "c9",
+                                                                      teamID: "team1",
+                                                                      userID: "them")),
+                                    myUserID: "me"), .ignored,
+                       "somebody else joining my channel is not a change to my list")
+        XCTAssertEqual(model.handle(.userRemoved(SocketMembershipChange(channelID: "c1",
+                                                                        teamID: "team1",
+                                                                        userID: "them")),
+                                    myUserID: "me"), .ignored,
+                       "somebody else leaving my channel is not a change to my list")
+        XCTAssertEqual(fake.loadTeamIDs, ["team1"],
+                       "the model only answers what the coordinator should do; it reads nothing itself")
+    }
+
     /// The coordinator's half of `channel_created`: one **full** reload behind the debounce.
     func testAChannelCreatedEventReloadsTheListOncePerDebounce() async throws {
         let fake = FakeChannelSidebarService(data: standardData())

@@ -787,14 +787,23 @@ struct ChannelPaneContent: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: glyph)
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            Text(title)
-                .font(.headline)
-                .lineLimit(2)
-                .accessibilityIdentifier("nativeChannelTitle")
+            // T40-R F4: the title lives in its own view **because the model has to be observed**.
+            //
+            // The pane keeps the model in `@State` — it cannot be a `@StateObject`, because the
+            // coordinator creates it in `.task` — and a `@State` reference does not republish anything.
+            // `ChannelViewModel.title` starts as the name the shell was handed (`t40-browse-me`, the URL
+            // slug) and `loadChannelHeader()` replaces it with the server's display name a beat later;
+            // with nothing observing the model, that second publish never reached the screen and the
+            // header sat at the slug for as long as the pane was open. Same defect as the Add button
+            // (F1) and the Save row (F2), same fix: a view that observes the object.
+            if let model {
+                ChannelPaneTitle(model: model, fallback: channelName ?? "Channel")
+            } else {
+                Text(channelName ?? "Channel")
+                    .font(.headline)
+                    .lineLimit(2)
+                    .accessibilityIdentifier("nativeChannelTitle")
+            }
             Spacer(minLength: 8)
             if ChannelUITestHook.exposesLoadEarlier, let model {
                 LoadEarlierSeamButton(model: model)
@@ -840,15 +849,6 @@ struct ChannelPaneContent: View {
     private var title: String {
         if let model, !model.title.isEmpty { return model.title }
         return channelName ?? "Channel"
-    }
-
-    /// A direct message gets a person glyph, a group message a people glyph, a channel a `#`.
-    private var glyph: String {
-        switch model?.channelType {
-        case "D": return "person.crop.circle"
-        case "G": return "person.2"
-        default: return "number"
-        }
     }
 
     /// S14 (T35) owns the composer. This stand-in is drawn when the `.composer` surface is rendering
@@ -900,11 +900,12 @@ enum ChannelUITestHook {
 
 /// The `-uiTestExposeLoadEarlier` button, as a view that **observes** the model.
 ///
-/// It is its own view for one reason: the pane's header does not observe `ChannelViewModel`, so an
-/// accessibility value rendered there would keep whatever `loadedCount` was at first draw. Observing
-/// here publishes "<n> posts loaded" — a page insert changes it, and a UI test can therefore assert
-/// that a load really merged instead of inferring it from where the lazy list happens to have
-/// scrolled. Mounted only under the launch argument; a normal launch renders nothing.
+/// It is its own view for one reason: the pane holds its model in `@State` (the coordinator creates it),
+/// so a value rendered in the pane's own body would keep whatever `loadedCount` was at first draw.
+/// Observing here publishes "<n> posts loaded" — a page insert changes it, and a UI test can therefore
+/// assert that a load really merged instead of inferring it from where the lazy list happens to have
+/// scrolled. (T40-R F4 gave the title the same treatment: see `ChannelPaneTitle`.) Mounted only under the
+/// launch argument; a normal launch renders nothing.
 private struct LoadEarlierSeamButton: View {
     @ObservedObject var model: ChannelViewModel
 
@@ -918,5 +919,38 @@ private struct LoadEarlierSeamButton: View {
         // to have scrolled.
         .accessibilityValue("\(model.loadedCount) posts loaded, oldest \(model.oldestLoadedPostID ?? "none")")
         .accessibilityIdentifier("channelPostList.forceLoadEarlier")
+    }
+}
+
+/// The pane header's glyph and title, in a view of its own so the model is **observed** (T40-R F4).
+///
+/// `ChannelViewModel.title` is the server's answer, not the shell's: the pane is opened with a name the
+/// router had (`t40-browse-me`, a URL slug) and `loadChannelHeader()` replaces it with the channel's
+/// display name (`T40 Browse Me`) once the channel read lands. That second publish only reaches the
+/// screen if something observes the object, which is what this view is for — the pane's own body keeps
+/// the model in `@State` and never re-renders on `objectWillChange`.
+private struct ChannelPaneTitle: View {
+    @ObservedObject var model: ChannelViewModel
+    /// What the shell was handed, shown only in the frame before the server's title arrives.
+    let fallback: String
+
+    var body: some View {
+        Image(systemName: glyph)
+            .font(.headline)
+            .foregroundStyle(.secondary)
+            .accessibilityHidden(true)
+        Text(model.title.isEmpty ? fallback : model.title)
+            .font(.headline)
+            .lineLimit(2)
+            .accessibilityIdentifier("nativeChannelTitle")
+    }
+
+    /// A direct message gets a person glyph, a group message a people glyph, a channel a `#`.
+    private var glyph: String {
+        switch model.channelType {
+        case "D": return "person.crop.circle"
+        case "G": return "person.2"
+        default: return "number"
+        }
     }
 }

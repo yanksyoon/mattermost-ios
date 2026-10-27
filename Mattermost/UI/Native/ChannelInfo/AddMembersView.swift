@@ -9,6 +9,20 @@
 //    400 for it, measured), and the list is "team members not in this channel";
 //  * the selection survives a change of term: a reader can pick two people from one search and one from
 //    another and press Add once.
+//
+// ## Why the picker is drawn by a second view (T40-R, finding F1)
+//
+// The picker's view model is created in `.task`, because it needs the coordinator from the
+// environment. It used to be held in a plain `@State` on this struct — and `@State` does **not**
+// observe an `ObservableObject`: no `objectWillChange` subscription exists, so publishing `selection`
+// or `rows` invalidated nothing. The Add button kept the `.disabled` state it was born with, and the
+// live suite measured exactly that: the row tap wrote `selection = 1` into the model while the toolbar
+// stayed disabled, so the tap on Add ran no action and no `POST /channels/{id}/members` ever left the
+// app. (The retry loop the old test used to "get the button to enable" was compensating for this.)
+//
+// So this struct only *creates* the model; `AddMembersPickerView` takes it as an `@ObservedObject` and
+// owns the toolbar and the list. `ChannelSettingsView` and `BrowseChannelsView` had the same defect and
+// are split the same way.
 
 import SwiftUI
 
@@ -17,34 +31,15 @@ struct AddMembersView: View {
     let server: ServerConfig
 
     @EnvironmentObject private var coordinator: ChannelInfoCoordinator
-    @Environment(\.dismiss) private var dismiss
     @State private var picker: AddMembersViewModel?
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let picker {
-                    content(picker)
-                } else {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-            .navigationTitle("Add members")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .accessibilityIdentifier("addMembers.cancel")
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(picker?.submitTitle ?? "Add") {
-                        guard let picker else { return }
-                        Task { await submit(picker) }
-                    }
-                    .disabled(!(picker?.canSubmit ?? false))
-                    .accessibilityIdentifier("addMembers.submit")
-                }
+        Group {
+            if let picker {
+                AddMembersPickerView(picker: picker, model: model)
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .task {
@@ -56,9 +51,42 @@ struct AddMembersView: View {
         }
         .accessibilityIdentifier("addMembers.sheet")
     }
+}
+
+/// The picker itself: the chosen block, the search field, the candidate list and the Add button.
+///
+/// A separate view because it must **observe** the model (see the note at the top of this file): a
+/// publish has to re-run the body for the Add button's enabled state and for the rows to follow the
+/// model.
+struct AddMembersPickerView: View {
+    @ObservedObject var picker: AddMembersViewModel
+    @ObservedObject var model: ChannelInfoViewModel
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            content
+                .navigationTitle("Add members")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                            .accessibilityIdentifier("addMembers.cancel")
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(picker.submitTitle) {
+                            Task { await submit() }
+                        }
+                        .disabled(!picker.canSubmit)
+                        .accessibilityIdentifier("addMembers.submit")
+                    }
+                }
+        }
+    }
 
     @ViewBuilder
-    private func content(_ picker: AddMembersViewModel) -> some View {
+    private var content: some View {
         List {
             if !picker.selectedRows.isEmpty {
                 Section("Selected") {
@@ -142,7 +170,7 @@ struct AddMembersView: View {
         .accessibilityIdentifier("addMembers.list")
     }
 
-    private func submit(_ picker: AddMembersViewModel) async {
+    private func submit() async {
         let ids = picker.selectedIDs
         let profiles = picker.selectedProfiles
         let succeeded = await model.addMembers(ids, profiles: profiles)
