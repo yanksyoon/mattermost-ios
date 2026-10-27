@@ -87,6 +87,8 @@ struct ProfileSheet: View {
         .task {
             let resolved = coordinator.model(for: server, userID: userID)
             model = resolved
+            // One presence read on open, warm model or not (`load()`): the sheet may have been
+            // closed for minutes, and this server never sends a colleague's `status_change`.
             await resolved.load()
             // Presence keeps itself current while the profile is open. `status_change` cannot do it
             // for somebody else — the server addresses that frame to the account that changed — so the

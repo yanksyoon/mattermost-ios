@@ -738,9 +738,12 @@ point at.
 - `POST /users/status/ids` answers `{user_id, status, manual, last_activity_at, dnd_end_time}`.
 - **`status_change` is addressed to the account that changed** (`broadcast.user_id` = that account):
   a client subscribed to a team receives `posted` and the other team-scoped events for everybody but
-  never another account's `status_change` (verified in both directions, and on connect/disconnect). A
+  never another account's `status_change` — measured in one 12 s window by
+  `scripts/t41_profile_probe.py` §5 (the peer's frame absent, a team-scoped `posted` from that same
+  account present in the same window) and reproduced independently by T41-AV with its own control. A
   peer's presence therefore arrives through the batched read, which is what the browser uses too — the
-  reason `ProfileViewModel` polls `POST /users/status/ids` while a profile is open.
+  reason `ProfileViewModel` polls `POST /users/status/ids` while a profile is open, and reads it once
+  more each time the sheet opens.
 - `POST /channels/direct` answers **201** on the first call *and* on a repeat that finds the existing
   conversation (same channel id), so any 2xx must be accepted.
 - `GET /users/{id}/profile_image` answers 404 for an account without a picture (the normal case for a

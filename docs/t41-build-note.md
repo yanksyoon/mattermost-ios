@@ -70,8 +70,12 @@ otherwise:
 1. **A colleague's `status_change` never reaches this client.** The server publishes the event with
    `broadcast.user_id` set to the account that changed (`app/platform/status.go`:
    `NewWebSocketEvent(StatusChange, "", "", status.UserId, …)`), so it is delivered to **that
-   account's own connections**. Measured both directions with a raw client that provably receives
-   team-scoped events (`posted` for another account arrives), and on connect/disconnect too.
+   account's own connections**. Measured in the committed transcript (§5): my own `status_change`
+   arrives, and in a 12 s window in which the *same socket* receives `t41buddy`'s team-scoped
+   `posted`, **no** `status_change` for `t41buddy` arrives. That peer half is a **negative result
+   with its positive control** — "nothing arrived" cannot be a dead or unscoped listener, because
+   something else from that account did arrive. T41-AV reproduced the pair independently
+   (`peer_status_change=false, own_status_change=true, team_scoped_post_from_peer=true`).
    Consequence: an open profile re-reads `POST /users/status/ids` every 15 s while it is open
    (`ProfileViewModel.runPresenceUpdates`, cancelled when the sheet closes) — which is how the web
    client learns a colleague's presence as well. `status_change` still matters, for **my own**
@@ -125,9 +129,9 @@ _Measured on this host; logs in `build/logs/` (gitignored) and shots in `docs/t4
 
 | What | Command | Result |
 |---|---|---|
-| Probe (server contract) | `uv run --with websockets python3 scripts/t41_profile_probe.py --log docs/t41-profile-probe-2026-10-26.log` | exit 0 — every expectation held; transcript committed |
-| Catalyst unit suite | `python3 scripts/qa-test.py --platform mac --only-testing MattermostTests --label t41-units8` | **1,378 run / 4 skipped / 0 failed**, `TEST SUCCEEDED` (`build/logs/t41-units8.log`); T41 = **72** of them (64 `T41ProfileTests` + 8 `T41ProfileAPITests`) |
-| Live UI suite | `TEST_RUNNER_MM_AUTH_*=… python3 scripts/qa-test.py --platform ios --sim id=81A7F251… --only-testing MattermostUITests/T41ProfileUITests --label t41-suite8` | **7 run / 0 skipped / 0 failed** in 157 s, `TEST SUCCEEDED` (`build/logs/t41-suite8.log`; `t41-suite7.log` also 7/7 before it) |
+| Probe (server contract) | `uv run --with websockets python3 scripts/t41_profile_probe.py --log docs/t41-profile-probe-2026-10-26.log` | exit 0 — every expectation held; transcript committed. Re-run for T41-R after the §5 repair: **48 PASS / 0 FAIL**, the peer half recorded as a negative with its `posted` control (`t41r` run at `2026-10-27T04:24:43Z`) |
+| Catalyst unit suite | `python3 scripts/qa-test.py --platform mac --only-testing MattermostTests --label t41r-units2` | **1,379 run / 4 skipped / 0 failed**, `TEST SUCCEEDED` (`build/logs/t41r-units2.log`); T41 = **73** of them (65 `T41ProfileTests` + 8 `T41ProfileAPITests`). The pre-repair run was 1,378 with 72 T41 (`build/logs/t41-units8.log`) — T41-R adds one test |
+| Live UI suite | `TEST_RUNNER_MM_AUTH_*=… python3 scripts/qa-test.py --platform ios --sim id=81A7F251… --only-testing MattermostUITests/T41ProfileUITests --label t41r-suite1` | **7 run / 0 skipped / 0 failed** in 163 s, `TEST SUCCEEDED` (`build/logs/t41r-suite1.log`, re-run for T41-R; `t41-suite7.log`/`t41-suite8.log` were 7/7 before it) |
 | Screenshots | `python3 scripts/t37_export_shots.py <that run's .xcresult> docs/t41-shots` | 7 exported (below) |
 
 The four skips in the unit suite are pre-existing and unrelated (CertTrust/Keychain ×1, MentionPoller
@@ -169,6 +173,21 @@ launches with `-uiTestProfilePresenceInterval 3`, so its two waits are 15 s rath
 runtime fell from 62–84 s to 25 s. With both in place the suite is **7/7 in `t41-suite7` and
 `t41-suite8`** (157 s).
 
+### 5.3 T41-R: the two T41-AV findings, re-measured after the repair
+
+_T41-AV (`t_980fc302`) returned PASS-WITH-FINDINGS; this is the repair card's own evidence, taken
+after the fix. `build/logs/` is gitignored; the transcripts it names are the pasted runs._
+
+| What | Command | Result |
+|---|---|---|
+| Probe (server contract, §5 included) | `uv run --with websockets python3 scripts/t41_profile_probe.py --log docs/t41-profile-probe-2026-10-26.log` | exit 0, **48 PASS / 0 FAIL**; §5 records my own `status_change` arriving, the peer's absent, and the buddy's team-scoped `posted` arriving in the same window |
+| Warm reopen at a 60 s poll | the AV probe's `testReopeningACachedProfile…` with its assertion flipped | `AV-REOPEN-FIXED @t41av1 server=away ui-at-open="Away" away-within=0.05s corrected=true poll=60s`, PASS (`build/logs/t41r-reopen1.log`) |
+| …and the same test against the code *before* the fix | same run, `load()`'s warm branch reverted for one build | FAIL on the flipped assertion, `at open the label was "Online"` — the AV card's own signature (`build/logs/t41r-reopen-prefix.log`) |
+| The unit test that pins it | `--only-testing MattermostTests/T41ProfileTests/testReopeningAWarmProfileReadsPresenceOnceWithoutReReadingTheProfile` | PASS with the fix; FAIL (3 assertions) with the warm branch reverted (`t41r-warm1.log`, `t41r-warm-prefix.log`) |
+
+The AV probe source is **not** shipped: it was compiled in, run, and removed — it needs the
+`t41av1…t41av5` accounts and a fixture password the shipped suite must not depend on.
+
 ## 6. Defects this round found and fixed
 
 Each was found by an executable check, not by reading the code:
@@ -183,6 +202,8 @@ Each was found by an executable check, not by reading the code:
 | F6 | **Peer presence assumed to arrive over the socket.** The card's first acceptance criterion assumed `status_change` carries a colleague's change; it does not (§2.1). Without a read loop the row froze at whatever the first read said. | the live socket test: the server said `dnd`, the screen still said `Online` | the presence refresh loop (§3) + the criterion split into two measured halves (a peer's change through the batch, my own through the socket). |
 | F7 | **The DND "clears after" list drew every choice twice** — an inline `Picker` *and* the four buttons, so eight rows and two ticks on "30 minutes". | looking at the run's own screenshot (`docs/t41-shots/t41-presence-dnd.png`) instead of trusting the test's pass | the picker is gone; the rows are the control (they carry the identifiers the test taps), and the shot was re-exported from the run after the fix. |
 | F8 | **The auto-away preference was overwritten by the server's own echo** of this client's `away` write: the coordinator adopted every `status_change` about my account as "a choice made elsewhere", so the return found nothing to put back and left the reader away. | the same live test, after F1 was fixed: background → `away` on the server, foreground → still `away` | `AutoAwayRule.adoptsSocketStatus` — an `away` frame is ignored as a preference while this client owns an auto-away; any other value (dnd, offline) still wins. Pinned by `testTheEchoOfMyOwnAutoAwayWriteDoesNotBecomeMyPreference`. |
+| F9 (T41-AV F1) | **The probe aborted on the correct answer, and its check asserted the opposite one.** `watch_someone_else` read with `asyncio.wait_for(socket.recv(), 12)`, so the peer frame this server correctly never sends came back as an uncaught `TimeoutError`, and the line under it asserted that the frame *does* arrive. The committed transcript never ran the block at all: its §5 ended after the own-status checks, because it was produced while `buddy_id` was still falsy (F3 above). | `uv run --with websockets python3 scripts/t41_profile_probe.py; echo $?` → exit 1 with a traceback at `scripts/t41_profile_probe.py:323`, on a server that was doing the right thing | a receive timeout is "no frame" (`recv_frame`), the check asserts the **measured negative**, and the positive control is a `posted` by the buddy, received by the same socket inside the same 12 s window. Transcript regenerated: 48 PASS / 0 FAIL, exit 0, the peer line present (§5). |
+| F10 (T41-AV F2) | **Reopening a warm profile issued no presence read on open.** `load()` returned early on `phase == .loaded` and the coordinator hands back the cached model, so the second open of an account showed the previous read's dot for up to a poll interval. | the AV probe with the poll at 60 s: server `away`, `ui-at-open="Online"`, corrected only when the poll fired | `load()` on a loaded model now performs one `refreshPresence()` and returns; the profile itself is still not re-read (no blink). Pinned by `testReopeningAWarmProfileReadsPresenceOnceWithoutReReadingTheProfile`; the AV probe's test, assertion flipped, reads `Away` at open (§5.3). |
 
 ## 7. What is measured, and what is not
 
@@ -199,9 +220,13 @@ oracle wherever the criterion is about persistence. What it deliberately does no
 - The status setter's DND clear-after picker is unit-pinned (`StatusDuration`) and drawn by the live
   tap, but no live test picks an expiry; the write it would send is covered by
   `testTodayIsSentWithTheEndOfDayExpiry` / `testAFixedDurationAlwaysCarriesAFutureExpiryInRFC3339WithMilliseconds`.
-- A peer's presence is polled every 15 s while a profile is open; a change made while the **sheet is
-  closed** appears on the next open (one read). There is no background presence subscription, and
-  none is possible over this server's socket (§2.1).
+- A peer's presence is polled every 15 s while a profile is open, and **each open reads it once** —
+  including the second open of a profile the coordinator still holds warm, so a change made while
+  the sheet was closed is on screen when the sheet opens (T41-AV measured the stale window that
+  existed before that read; `testReopeningAWarmProfileReadsPresenceOnceWithoutReReadingTheProfile`
+  pins it, and the AV probe's own test run at a 60 s poll now reads the server's value at open).
+  There is no background presence subscription, and none is possible over this server's socket
+  (§2.1).
 - The avatar is fetched through `APIClient` (an `AsyncImage` could not carry the bearer); the fixture
   accounts have no picture, so the live shots show the initials fallback. A real picture's bytes are
   unit-tested through the service seam only.

@@ -649,6 +649,37 @@ final class T41ProfileTests: XCTestCase {
         XCTAssertNotNil(model.banner)
     }
 
+    /// Measured by T41-AV (F2): reopening a **warm** profile used to issue no read at all, so a
+    /// change made while the sheet was closed stayed invisible until the poll fired (15 s in
+    /// production; the AV probe measured 60 s with the poll pushed out). The sheet's `.task` runs
+    /// `load()`, so a `load()` on a `.loaded` model must read presence once — and only presence:
+    /// the profile is already the server's answer, and re-reading it would blink a screen that is
+    /// correct.
+    func testReopeningAWarmProfileReadsPresenceOnceWithoutReReadingTheProfile() async {
+        let service = FakeProfileService()
+        service.profiles[otherID] = profile(id: otherID)
+        service.statusesByID[otherID] = MMStatus(userId: otherID, status: "online")
+        let model = model(service, userID: otherID, now: { self.fixedNow })
+        await model.load()
+        XCTAssertEqual(service.statusRequests, [[otherID]])
+        XCTAssertEqual(service.profileRequests, [otherID])
+
+        // The sheet closes; the colleague goes away while it is shut.
+        service.statusesByID[otherID] = MMStatus(userId: otherID, status: "away", manual: true,
+                                                 lastActivityAt: 1_790_000_100_000)
+
+        // Opening it again runs `load()` on this same, cached model.
+        await model.load()
+
+        XCTAssertEqual(service.statusRequests, [[otherID], [otherID]],
+                       "a reopen reads presence once — the row on screen is the server's, not the cache")
+        XCTAssertEqual(model.presence, .away, "the reopened sheet shows the status the server holds now")
+        XCTAssertEqual(model.status?.manual, true)
+        XCTAssertEqual(service.profileRequests, [otherID],
+                       "the profile is unchanged, so it is not re-read (no blink)")
+        XCTAssertEqual(model.phase, .loaded)
+    }
+
     func testAnEmptyUserIDFailsWithoutARequest() async {
         let service = FakeProfileService()
         let model = model(service, userID: "", now: { self.fixedNow })

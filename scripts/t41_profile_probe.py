@@ -19,6 +19,13 @@ It also measures the two things the live UI test depends on: that an account can
 account's status only as a system admin (so the test either uses the admin token or signs in as the
 buddy), and that `POST /channels/direct` answers 201 then 200.
 
+One of these checks is a **negative** result, and it says so: a colleague's `status_change` never
+reaches this client's socket (`broadcast.user_id` addresses it to the account that changed), so §5
+measures a frame that must *not* arrive. A receive timeout there is the measurement, not a failure —
+the probe used to abort with an uncaught `TimeoutError` instead of recording it (T41-AV F1). To keep
+that negative honest, the same socket, in the same window, must receive a team-scoped `posted` from
+that colleague: the control proves the listener was alive and scoped while nothing else arrived.
+
 Every check prints `PASS`/`FAIL` with the observed value, and the exit code is non-zero if any
 expectation the Swift code relies on does not hold. Run it against the pinned throwaway server:
 
@@ -41,12 +48,17 @@ import json
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from typing import Any
 
 ADMIN_LOGIN = "perfprobe"
 ADMIN_PASSWORD = "PerfProbe-Not-A-Real-Secret-1"
 BUDDY_LOGIN = "t41buddy"
 BUDDY_PASSWORD = "T41-Buddy-Not-A-Real-Secret-1"
+# The channel `scripts/t41_profile_seed.py` creates with a post by the buddy: §5's control posts
+# there from the buddy's own session, which is what proves my socket receives team-scoped events.
+PROBE_CHANNEL = "t41-profile"
+CONTROL_POST = "T41 probe: socket control post (deleted by the probe)"
 
 FAILURES: list[str] = []
 LINES: list[str] = []
@@ -112,6 +124,7 @@ def main() -> int:
     base = args.url
 
     say(f"# T41 profile / presence / custom-status probe against {base}")
+    say(f"run at {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')} (UTC)")
     status, ping, _ = call(base, "GET", "/system/ping")
     check("the server answers /system/ping", status == 200 and ping.get("status") == "OK", ping)
 
@@ -270,7 +283,7 @@ def main() -> int:
              token=buddy_token)
 
     # ---------------------------------------------------------------- 5. the socket frame
-    say("\n## 5. The socket's `status_change` frame")
+    say("\n## 5. The socket: my own `status_change` arrives, a colleague's does not")
     try:
         import asyncio
         import websockets  # type: ignore
@@ -278,9 +291,39 @@ def main() -> int:
         say("  SKIP  the `websockets` package is not available — rerun under "
             "`uv run --with websockets`")
     else:
+        def ws_url() -> str:
+            return (base.replace("http://", "ws://").replace("https://", "wss://")
+                    + "/api/v4/websocket")
+
+        async def recv_frame(socket: Any, timeout: float) -> dict[str, Any] | None:
+            """One frame, or `None` when the window closed with nothing to read.
+
+            A receive timeout is a **measurement** here, not an error: the peer half of this
+            section expects no frame at all, and the old form (`wait_for(socket.recv(), 12)`) died
+            with an uncaught `TimeoutError` on a correct server instead of recording that.
+            """
+            try:
+                raw = await asyncio.wait_for(socket.recv(), timeout=timeout)
+            except TimeoutError:
+                return None
+            try:
+                frame = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                return None
+            return frame if isinstance(frame, dict) else None
+
+        def posted_by(frame: dict[str, Any], user_id: str) -> bool:
+            """Whether a `posted` event's post was written by `user_id` (`data.post` is JSON text)."""
+            post = (frame.get("data") or {}).get("post")
+            if isinstance(post, str):
+                try:
+                    post = json.loads(post)
+                except json.JSONDecodeError:
+                    return False
+            return isinstance(post, dict) and post.get("user_id") == user_id
+
         async def watch() -> dict[str, Any]:
-            ws_url = base.replace("http://", "ws://").replace("https://", "wss://") + "/api/v4/websocket"
-            async with websockets.connect(ws_url) as socket:
+            async with websockets.connect(ws_url()) as socket:
                 await socket.send(json.dumps({"seq": 1, "action": "authentication_challenge",
                                               "data": {"token": admin_token}}))
                 await socket.recv()  # the hello / status frame
@@ -288,13 +331,17 @@ def main() -> int:
                      {"user_id": admin_id, "status": "away"}, token=admin_token)
                 deadline = asyncio.get_event_loop().time() + 10
                 while asyncio.get_event_loop().time() < deadline:
-                    frame = json.loads(await asyncio.wait_for(socket.recv(), timeout=10))
+                    frame = await recv_frame(socket, 1.0)
+                    if frame is None:
+                        continue
                     if frame.get("event") == "status_change":
                         return frame
                 return {}
 
         frame = asyncio.run(watch())
-        check("a status_change frame arrives after the write", bool(frame), frame)
+        check("a status_change frame arrives after my own write "
+              "(the positive control: this socket captures status_change frames)",
+              bool(frame), frame)
         if frame:
             data = frame.get("data") or {}
             check("…and it carries user_id + status and **no** manual/activity",
@@ -303,33 +350,88 @@ def main() -> int:
         call(base, "PUT", "/users/me/status", {"user_id": admin_id, "status": "online"},
              token=admin_token)
 
-        # The live UI test's premise: *another* account's change reaches this client's socket. Without
-        # this, an open profile could never follow a colleague's presence and the criterion would be
-        # unimplementable rather than unimplemented.
+        # The measured **negative**: *another* account's change must not reach this client's socket.
+        # The server addresses `status_change` to the account that changed (`broadcast.user_id`), so
+        # "no frame" is the correct answer and the probe asserts exactly that. The `posted` control
+        # below is what keeps the negative from being indistinguishable from a dead socket.
         if buddy_id:
             buddy_token, _ = login(base, BUDDY_LOGIN, BUDDY_PASSWORD)
 
+            control_channel = ""
+            _, teams, _ = call(base, "GET", "/users/me/teams", token=admin_token)
+            for team in teams if isinstance(teams, list) else []:
+                status, channel, _ = call(base, "GET",
+                                          f"/teams/{team.get('id')}/channels/name/{PROBE_CHANNEL}",
+                                          token=admin_token)
+                if status == 200 and (channel or {}).get("id"):
+                    control_channel = channel["id"]
+                    break
+
             async def watch_someone_else() -> dict[str, Any]:
-                ws_url = (base.replace("http://", "ws://").replace("https://", "wss://")
-                          + "/api/v4/websocket")
-                async with websockets.connect(ws_url) as socket:
+                seen: dict[str, Any] = {"peer": None, "control": None, "control_post": ""}
+                async with websockets.connect(ws_url()) as socket:
                     await socket.send(json.dumps({"seq": 1, "action": "authentication_challenge",
                                                   "data": {"token": admin_token}}))
                     await socket.recv()
+                    # Control first: the buddy posts in a channel this socket is scoped to. A
+                    # team-scoped `posted` from *that* account must arrive, or "nothing arrived"
+                    # below would mean only that the listener was dead.
+                    if control_channel:
+                        # `POST /posts` is the route 9.11.19 answers (`POST /channels/{id}/posts`
+                        # is a 404 on this server — measured while fixing this control).
+                        status, post, _ = call(base, "POST", "/posts",
+                                               {"channel_id": control_channel,
+                                                "message": CONTROL_POST}, token=buddy_token)
+                        if status in (200, 201) and (post or {}).get("id"):
+                            seen["control_post"] = post["id"]
+                    # Then the write under test: the buddy changes its own status.
                     call(base, "PUT", f"/users/{buddy_id}/status",
                          {"user_id": buddy_id, "status": "dnd"}, token=buddy_token)
                     deadline = asyncio.get_event_loop().time() + 12
                     while asyncio.get_event_loop().time() < deadline:
-                        frame = json.loads(await asyncio.wait_for(socket.recv(), timeout=12))
-                        if frame.get("event") == "status_change" \
+                        frame = await recv_frame(socket, 1.0)
+                        if frame is None:
+                            continue
+                        event = frame.get("event")
+                        if event == "posted" and posted_by(frame, buddy_id):
+                            seen["control"] = frame
+                        elif event == "status_change" \
                                 and (frame.get("data") or {}).get("user_id") == buddy_id:
-                            return frame
-                    return {}
+                            seen["peer"] = frame
+                            break
+                return seen
 
             other = asyncio.run(watch_someone_else())
-            check("another account's status_change reaches **my** socket", bool(other), other)
+            check("another account's `status_change` does **not** reach my socket "
+                  "(measured negative — that is this server's contract)",
+                  other["peer"] is None,
+                  other["peer"] or "no status_change for the buddy in a 12 s window")
+            if control_channel:
+                check("…and the same socket, in the same window, receives that account's "
+                      "team-scoped `posted` (the control that keeps the negative honest)",
+                      other["control"] is not None,
+                      "posted from the buddy arrived" if other["control"]
+                      else "no posted control arrived — the negative above is then not evidence")
+            else:
+                say(f"  SKIP  no #{PROBE_CHANNEL} channel, so the `posted` control could not be "
+                    "posted — run scripts/t41_profile_seed.py; the negative above stands unconfirmed")
+            if other["control_post"]:
+                call(base, "DELETE", "/posts/" + other["control_post"], token=buddy_token)
             call(base, "PUT", f"/users/{buddy_id}/status", {"user_id": buddy_id, "status": "online"},
                  token=buddy_token)
+
+            say("\n  What the two checks above mean, so the transcript cannot be read the other way:")
+            say("    - A colleague's presence is **not** delivered over the socket on this server: the")
+            say("      `status_change` frame carries `broadcast.user_id` = the account that changed, so")
+            say("      it goes to that account's own connections. This client learns a colleague's")
+            say("      status only from the batched read (`POST /users/status/ids`).")
+            if other["control"] is not None:
+                say("    - The absent frame is a measurement, not a broken probe: the same socket received")
+                say("      a team-scoped `posted` from the same account during the same window, so")
+                say("      \"nothing arrived\" means \"nothing was addressed to me\".")
+            else:
+                say("    - The control did NOT arrive, so the negative above proves nothing about the")
+                say("      server: treat it as an unconfirmed measurement until the control passes.")
 
     # ---------------------------------------------------------------- 6. the DM shortcut
     say("\n## 6. POST /channels/direct — the DM shortcut")

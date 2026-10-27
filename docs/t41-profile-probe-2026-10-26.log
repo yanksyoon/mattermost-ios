@@ -1,4 +1,5 @@
 # T41 profile / presence / custom-status probe against http://127.0.0.1:8065
+run at 2026-10-27T04:24:43Z (UTC)
   PASS  the server answers /system/ping
           observed: {"ActiveSearchBackend": "database", "AndroidLatestVersion": "", "AndroidMinVersion": "", "IosLatestVersion": "", "IosMinVersion": "", "status": "OK"}
 
@@ -14,7 +15,7 @@ signed in as @perfprobe (jruqqzxtobg7tn4wehwmwjjo5c) — token not printed
   PASS  the profile carries `position`
   PASS  the profile carries `nickname`
   PASS  the profile carries `timezone`
-          observed: {"automaticTimezone": "America/Vancouver", "manualTimezone": "", "useAutomaticTimezone": "true"}
+          observed: {"automaticTimezone": "America/Cancun", "manualTimezone": "", "useAutomaticTimezone": "true"}
   PASS  the profile carries `props`
           observed: {"customStatus": ""}
   PASS  there is **no** `custom_status` key on the user object
@@ -69,13 +70,13 @@ signed in as @perfprobe (jruqqzxtobg7tn4wehwmwjjo5c) — token not printed
   PASS  `dnd` is accepted
           observed: {"status": 200}
   PASS  …and comes back manual=true
-          observed: {"dnd_end_time": 0, "last_activity_at": 1793068078212, "manual": true, "status": "dnd", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+          observed: {"dnd_end_time": 0, "last_activity_at": 1793075026605, "manual": true, "status": "dnd", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
   PASS  …and the answer carries user_id/status/manual/last_activity_at
           observed: ["dnd_end_time", "last_activity_at", "manual", "status", "user_id"]
   PASS  `online` is accepted
           observed: 200
   PASS  …and clears manual (the asymmetry auto-away relies on)
-          observed: {"dnd_end_time": 0, "last_activity_at": 1793068091573, "manual": false, "status": "online", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+          observed: {"dnd_end_time": 0, "last_activity_at": 1793075083582, "manual": false, "status": "online", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
   PASS  a status outside online/away/dnd/offline is a 400
           observed: {"id": "api.context.invalid_body_param.app_error", "status": 400}
   PASS  `dnd_end_time` is epoch **milliseconds** and is echoed
@@ -91,11 +92,24 @@ signed in as @perfprobe (jruqqzxtobg7tn4wehwmwjjo5c) — token not printed
   PASS  …and the account itself can (the live test's second route)
           observed: 200
 
-## 5. The socket's `status_change` frame
-  PASS  a status_change frame arrives after the write
+## 5. The socket: my own `status_change` arrives, a colleague's does not
+  PASS  a status_change frame arrives after my own write (the positive control: this socket captures status_change frames)
           observed: {"broadcast": {"channel_id": "", "connection_id": "", "omit_connection_id": "", "omit_users": null, "team_id": "", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}, "data": {"status": "away", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}, "event": "status_change", "seq": 1}
   PASS  …and it carries user_id + status and **no** manual/activity
           observed: {"status": "away", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+  PASS  another account's `status_change` does **not** reach my socket (measured negative — that is this server's contract)
+          observed: no status_change for the buddy in a 12 s window
+  PASS  …and the same socket, in the same window, receives that account's team-scoped `posted` (the control that keeps the negative honest)
+          observed: posted from the buddy arrived
+
+  What the two checks above mean, so the transcript cannot be read the other way:
+    - A colleague's presence is **not** delivered over the socket on this server: the
+      `status_change` frame carries `broadcast.user_id` = the account that changed, so
+      it goes to that account's own connections. This client learns a colleague's
+      status only from the batched read (`POST /users/status/ids`).
+    - The absent frame is a measurement, not a broken probe: the same socket received
+      a team-scoped `posted` from the same account during the same window, so
+      "nothing arrived" means "nothing was addressed to me".
 
 ## 6. POST /channels/direct — the DM shortcut
   PASS  the first call answers 201 with a `D` channel

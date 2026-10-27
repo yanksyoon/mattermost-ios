@@ -125,10 +125,17 @@ final class ProfileViewModel: ObservableObject {
 
     /// Read the profile and its presence from the server.
     ///
-    /// `force` is for the socket's `user_updated` and for pull-to-refresh: a plain `load()` while a
-    /// profile is already drawn would blink the screen for no new information.
+    /// A **warm** model (the coordinator kept it after the sheet closed, see `ProfileCoordinator`'s
+    /// LRU) does not re-read the profile — that would blink a screen whose content the server has
+    /// not changed — but it does read *presence* once, because the sheet may have been closed for
+    /// minutes and this server never sends a colleague's `status_change` (T41-AV F2: reopening a
+    /// warm profile showed the cached dot until the first poll, 15 s later). `force` re-reads both
+    /// and is what pull-to-refresh uses.
     func load(force: Bool = false) async {
-        if !force, phase == .loaded { return }
+        if !force, phase == .loaded {
+            await refreshPresence()
+            return
+        }
         if phase != .loaded { phase = .loading }
         banner = nil
         loadGeneration += 1
@@ -181,12 +188,14 @@ final class ProfileViewModel: ObservableObject {
     /// **Measured, and it changes what "live" means here** (`scripts/t41_profile_probe.py` §5): the
     /// server publishes `status_change` with `broadcast.user_id` set to the account that changed
     /// (`app/platform/status.go`: `NewWebSocketEvent(StatusChange, "", "", status.UserId, …)`), so that
-    /// frame reaches **that account's own connections only**. A raw client subscribed to a team
-    /// receives `posted` and friends for everybody (verified) but never another account's
-    /// `status_change` (verified, both directions, and on connect/disconnect too) — so the browser
-    /// cannot be learning a colleague's presence from the socket either. It learns it from the batched
-    /// read, `POST /users/status/ids`, which is why this loop exists: without it an open profile would
-    /// keep whatever the first read said until it was reopened.
+    /// frame reaches **that account's own connections only**. The probe's own transcript shows the
+    /// negative with its control: in one 12 s window my socket receives no `status_change` for the
+    /// buddy, yet it does receive the buddy's team-scoped `posted` — so "nothing arrived" is not a
+    /// dead listener. A raw client subscribed to a team receives `posted` and friends for everybody but
+    /// never another account's `status_change`; the browser cannot be learning a colleague's presence
+    /// from the socket either. It learns it from the batched read, `POST /users/status/ids`, which is
+    /// why this loop exists: the sheet reads presence once on open (`load()`) and then keeps it current
+    /// here.
     static var defaultPresenceInterval: TimeInterval = 15
 
     /// Re-read presence until the caller's task is cancelled (the sheet's `.task`, i.e. until the
