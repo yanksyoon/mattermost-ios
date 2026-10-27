@@ -1,12 +1,18 @@
 # t_00fb623c — the last 94 clock-poll waits, converted and proven able to fail
 
 The eleven files t_eccd49eb left measured-not-converted (`docs/t-eccd49eb-freeze-table.md` §5) no
-longer poll a clock. `waitUntil` is **deleted from `MattermostTests`**: every await is now a value a
-fake, transport, coordinator callback or Combine publisher mirror recorded, and `awaitSignal` keeps
-only its 30 s hang detector.
+longer poll a clock. `waitUntil` is **gone from `MattermostTests`** (two mentions survive as
+comments in `T44DCallsCoordinatorTests`, another card's file — no call sites): every await is now a
+value a fake, transport, coordinator callback or Combine publisher mirror recorded, and
+`awaitSignal` keeps only its 30 s hang detector. Whole target: **1658 run / 8 skipped / 0 failed**.
 
-Commit: `ca7f97d` on `t_00fb623c` (worktree `.worktrees/t_00fb623c`), whole `MattermostTests`
-1640 run / 8 skipped / 0 failed (`build/logs/t_00fb623c-full.log`).
+| commit | what it carries |
+|---|---|
+| `1e87032` | the eleven files' conversion + `CallsEngine.observeSnapshots` |
+| `ad63fe4` | the fences and coverage the mutation pass exposed |
+| `HEAD` | tracked harnesses (`scripts/qa-*.py`), this document, the two extra mutants below |
+
+(`HEAD` is the commit that adds this file; the two rows above it are its ancestors on `t_00fb623c`.)
 
 ## 1. What each file's waits became
 
@@ -22,66 +28,111 @@ Commit: `ca7f97d` on `t_00fb623c` (worktree `.worktrees/t_00fb623c`), whole `Mat
 | T32TeamSidebarTests | 9 | service `loadSignal`/`unreadSignal`/icon signal, source `subscribedSignal` |
 | T31AuthCoordinatorTests | 1 | `AuthCoordinator.onChange` → `TestSignal<UUID>` phase changes |
 | TokenLoggingTests | 2 | factory `createdSignal`, transport `sentSignal` |
-| T34ChannelViewRestoreWiringTests | 3 | `mirrorPublished(model.$lastScrollRestore)` |
+| T34ChannelViewRestoreWiringTests | 3 | `mirrorPublished(model.$lastScrollRestore)` / `$pendingScrollRestore` |
 
-Three waits stay fixed settles **on purpose** (pile b — they assert an *absence*, and an absence has
-no event to await): the autocomplete superseded-answer window, the loopback ICE gathering window, and
-two "does not refetch" fences. Each carries a comment naming it as such.
+**Waits kept as fixed settles on purpose** (pile b — they assert an *absence* or a UI layout state,
+and there is no event to await): the autocomplete superseded-answer window, the loopback ICE
+gathering window, two "does not refetch" fences, and the two 1 s `mount()` layout settles in
+`T34ChannelViewRestoreWiringTests` (rows have to lay out before a restore can be *requested*; the
+values the tests assert are still the publisher mirrors).
 
-## 2. Mutations — every converted test must be able to fail
+**Other clock reads in these files that this card did not touch, and why:** `T31-AuthTests`'
+`StallingLogoutTransport` sleeps 2 s to keep `/users/logout` in flight, and
+`testSignOutClearsTheVaultBeforeTheLogoutCallCompletes` sleeps 0.4 s to observe the vault *during*
+that call — a deliberate bounded observation of an intermediate state, not a wait for a value the
+test drives. The `T34ChannelViewModelTests` / `T34ScrollRestorePathTests` sleeps are other cards'
+files.
 
-`build/mutants/run_mutants.py`: 39 product mutants, one at a time (`edit → class run → git checkout`
-per mutant, anchor-checked so a `find` that is not unique aborts instead of mutating something else).
-Raw evidence: `docs/t_00fb623c-mutations-2026-10-27.log` (a later row for an id supersedes an earlier
+## 2. Mutations — every converted test can fail
+
+`scripts/qa-mutants.py` (42 product mutants, one at a time: edit → class run → `git checkout` in a
+`finally`; a `find` that is not unique aborts the run instead of mutating something else).
+`scripts/qa-mutation-coverage.py` checks the result against the tests this card touched. Raw
+evidence: `docs/t_00fb623c-mutations-2026-10-27.log` (a later row for an id supersedes an earlier
 one — the first pass found real defects that were then fixed and re-run).
 
-**38 of 39 PASS** (the mutant reds every test it names). Four mutants exposed test defects that are
-now fixed in this commit:
+**42 of 42 PASS. 47 of the 51 converted test bodies are redded by a PASS mutant.** The 4 that are
+not are the recorded exemptions below.
 
-| mutant | what the first pass proved | fix |
+Defects the mutants exposed in the *tests* (all fixed in `ad63fe4`):
+
+| mutant | what it proved | fix |
 |---|---|---|
 | MS5 watchdog-starts-without-visibility | `testAClientWithoutAVisibilityPredicateNeverStartsWithAWatchdog` asserted a park count before the watchdog Task could run — a race, not a test | documented pile-(b) settle before the assertion |
 | MS7 watchdog-window-not-restarted | `testAReconnectDoesNotDoubleFire…` never advanced virtual time between the first open and the drop, so "the open restarted the window" was untestable | `now.advance(watchdog.threshold - 5)` before `first.close()` |
-| MCP6 custom-emoji-dropped | `testEmojiComeFromTheBuiltInTableAndTheServersCatalogue` only asserted the built-in table | test now stubs an `EmojiCatalogue` page and asserts the custom shortcode |
-| MS3 frame-logged-with-token → socket-never-authenticates | a `debug`-level leak never reaches the test sink, so that mutant was unobservable | mutant now removes the challenge frame (the token test reds on its first assertion) |
+| MCP6 custom-emoji-dropped | `testEmojiComeFromTheBuiltInTableAndTheServersCatalogue` only asserted the built-in table | test stubs an `EmojiCatalogue` page and asserts the custom shortcode |
+| MCP8 draft-row-survives-a-send | the draft row is cleared by **two** paths (the success path's `Task { drafts.delete }` *and* the debounced empty-draft write), so mutating either one alone left the test green | mutant now removes both (one defect: "a send leaves its draft behind") and reds `testASuccessfulSendClearsTheDraftRow` |
 
-**MCP8 (draft row survives a send) SURVIVED**: the deletion path mutated in `writeDraftSnapshot()`
-is not the one this test observes, and the test stayed green. Recorded as an open finding, not as
-coverage — the draft-clear-after-send assertion is weaker than its name.
+Mutants added for tests the first pass never redded (all PASS):
 
-**Exempt (cannot red on this host, by construction not by luck):** the three calls peer-negotiation
-tests are `XCTSkip`ped (a second `RTCPeerConnectionFactory` blocks in CoreAudio),
-`testLocalCandidatesAreSentOnlyAfterTheOffer` is a bounded observation window on loopback ICE
-gathering, and `testStatisticsReadTheEngineWithoutCrashing` is a no-crash smoke test.
+| mutant | defect | reds |
+|---|---|---|
+| MR1 first-connect-refetches | a first connect is treated as a gap | `testAFirstConnectDoesNotRefetchTheWindowAndTheSocketStillDelivers` |
+| MR2 late-resync-handler-ignored | the resync handler is captured when the client is built | `testAHandlerInstalledAfterTheConnectionStillReceivesTheReconnect` |
+| MW1 pong-does-not-answer-the-ping | a pong is not folded into the heartbeat counter | `testASilentButPingableSocketRefetchesTheOpenWindow` |
+| MT7 switch-leaves-the-old-scope | a rail tap moves the destination but not the socket scope | `testTenRapidSwitches…` (+3 more in T32) |
 
-## 3. Freeze runs (class level, each file's largest former budget + 2 s)
+**Exempt (cannot red on this host, by construction, not by luck):** `testTheSFUsAnswerIsApplied…`,
+`testAServerReOfferIsAnswered` and `testARemoteCandidateBeforeTheAnswerIsQueued…` are gated behind
+`MM_CALLS_PEER_TESTS=1` with `XCTSkip` (a second `RTCPeerConnectionFactory` blocks in CoreAudio on
+this host); `testLocalCandidatesAreSentOnlyAfterTheOffer` is a bounded observation window on
+loopback ICE gathering; `testStatisticsReadTheEngineWithoutCrashing` is a no-crash smoke test.
 
-Method: `scripts/qa-freeze-measure.py --only-testing MattermostTests/<Class> --iterations 6
---lags 0,1.0,3.0 --freeze <budget+2> --stop-on-frozen`; a landing only counts when a test's own
-reported XCTest duration is ≥ the measured SIGSTOP (`frozen=`), so the log proves where the stop
-landed. Driver: `build/mutants/freeze_sweep.py`, rows in `build/logs/freeze-rows.txt`.
+## 3. Freeze runs — before red, after green
 
-| file (class) | freeze | proven frozen test (its own duration) | red |
-|---|---|---|---|
-| T34SocketResyncTests | 12 s | `testAResyncMergesTheNewestPageAndKeepsTheOlderPagesTheReaderLoaded` (12.05 s) | **none** |
-| T34SocketStallWatchdogTests | 12 s | `testAClientWithoutAVisibilityPredicateNeverStartsWithAWatchdog` (12.27 s) | **none** |
-| T32TeamSidebarTests | 7 s | `testASecondAppearanceDoesNotRefetchTheRail` (7.05 s) | **none** |
-| T31AuthCoordinatorTests | 5 s | `testMFAChallengeThenSuccess` (5.04 s) | **none** |
-| T34ChannelViewRestoreWiringTests | 12 s | `testASecondRequestRestoresAgainAfterTheFirstWasConsumed` (14.98 s) | **none** |
-| T35ComposerViewModelTests | 7 s | `testAStaleAutocompleteAnswerIsDropped` (7.14 s) | **none** |
-| T44CCallsEngineTests | 7 s | `testAConfirmedUnmuteSurvivesTheNextSnapshot` (7.25 s) | **none** |
-| T43RSocketLivenessTests, T44DSocketBinarySendTests, T37SocketReactionRoutingTests, TokenLoggingTests | 7 s | **no landing** — 6 iterations × 3 lags never had the stop land inside the class (it is shorter than xcodebuild's log-flush lag), so these rows are not evidence | not measured |
+Method: `scripts/qa-freeze-measure.py` SIGSTOPs the **test host** for that file's largest former wait
+budget + 2 s (`scripts/qa-freeze-sweep.py` drives the eleven). A row only counts when a test's own
+reported XCTest duration is ≥ the measured stop (`frozen=`), so the log proves where the stop
+landed; `-- -collect-test-diagnostics never` keeps a deliberately-red run from spending minutes on a
+sysdiagnose.
 
-Seven of eleven files are proven green with the host frozen for longer than any wait they used to
-carry. The remaining four are *unproven, not failed*: their classes are too short for a class-level
-SIGSTOP to land inside them with this harness, and the honest statement is "no landing", not "green".
-Their conversion rests on §2 (each converted test reds under a product mutant) and on the whole-suite
-run, both of which are measured.
+**Before** (pre-conversion tree `.worktrees/t_eccd49eb`, `docs/t-eccd49eb-freeze-runs-2026-10-27.log`)
+→ **after** (this tree, `build/logs/freeze-rows.txt`):
 
+| file (class) | before: freeze, frozen test, verdict | after: freeze, frozen test, verdict |
+|---|---|---|
+| T34SocketResyncTests | 11.51 s, `testAFirstConnectDoesNotRefetch…` 12.04 s, **red** (`timed out after 10s waiting for the delivered post`) | 12.05 s, `testAResyncMergesTheNewestPage…` 12.05 s, **green** |
+| T34SocketStallWatchdogTests | 11.54 s, `testAClientWithoutAVisibilityPredicate…` 11.74 s, **red** (`timed out … authentication challenge`) | 12.15 s, same test 12.27 s, **green** |
+| T32TeamSidebarTests | 6.57 s, landing green | 7.05 s, `testASecondAppearanceDoesNotRefetchTheRail` 7.05 s, **green** |
+| T31AuthCoordinatorTests | 6.53 s, green | 5.03 s, `testMFAChallengeThenSuccess` 5.04 s, **green** |
+| T34ChannelViewRestoreWiringTests | 11.56 s, green | 12.15 s, `testASecondRequestRestoresAgain…` 14.98 s, **green** |
+| T35ComposerViewModelTests | 6.51 s, green | 7.01 s, `testAStaleAutocompleteAnswerIsDropped` 7.14 s, **green** |
+| T44CCallsEngineTests | 6.58 s, green | 7.15 s, `testAConfirmedUnmuteSurvivesTheNextSnapshot` 7.25 s, **green** |
+| T43RSocketLivenessTests | 6.51 s, `testAFinishedPumpWithdrawsLiveness` 6.63 s, **red** | **no landing** |
+| T44DSocketBinarySendTests | 6.57 s, `testBinaryFrameReaches…` 6.63 s, **red** | **no landing** |
+| T37SocketReactionRoutingTests | 6.56 s, landing green | **no landing** |
+| TokenLoggingTests | 6.51 s, landing green | **no landing** |
 
-## 4. What this card does not prove
+Seven classes are proven green with the host frozen **for longer than any wait they used to carry**.
+Two of the four proven clock-polls (T34R, T34S) are proven green the same way after conversion.
 
-- A freeze can still inflate a *test that measures the host by design* (the `MMStoreSize` byte
-  measurements, the audio/ICE peer tests). Those are not clock polls and were out of scope here.
-- MCP8's survivor above: the draft-clear assertion should be re-bound to the actual clear path
-  before it is trusted as coverage.
+**The other two proven clock-polls (T43R, T44D) and two already-green classes are "no landing", not
+"green".** After conversion those classes finish their whole class in ~0.04–0.16 s (six iterations),
+shorter than xcodebuild's log-flush lag, so a class-level SIGSTOP cannot be made to land inside a
+test: the sweep's first pass never froze them, and a second pass that repeats the class
+(`-test-iterations` 900–3000, so the host spends ~30 s inside it) applied a 7 s stop that no test
+absorbed — consistent with the stop landing in an inter-test gap, and a sibling worker's test host
+was live on a second simulator during that window, which the pid-matching instrument cannot tell
+apart from ours. Recorded as unmeasured rather than retried. Their conversion rests on §2 (each of
+their converted tests reds under a product mutant) and on the full-target run, both measured; and
+the *before* rows show what the clock wait looked like when it existed.
+
+## 4. Whole target
+
+| run | tree | result |
+|---|---|---|
+| `build/logs/t_00fb623c-full-rebased.log` (18:14) | `ad63fe4` | 1658 run / 8 skipped / 0 failed |
+| `build/logs/t_00fb623c-full-3.log` (18:39) | `ad63fe4` + docs/scripts only | 1658 run / 8 skipped / 0 failed |
+
+Two consecutive green full-target runs on the same Swift tree.
+
+## 5. What this card does not prove
+
+- A freeze can still inflate a *test that measures the host by design* (`MMStoreSize` byte
+  measurements, the audio/ICE peer tests). Those are not clock polls and are out of scope here.
+- The four "no landing" classes above: their awaits rest on mutation evidence, not on a frozen host.
+- The exemptions in §2 still cannot fail on this host at all; a host with a working audio device
+  (`MM_CALLS_PEER_TESTS=1`) should red the three gated peer tests under a signalling defect.
+- MCP8's redundancy: `testASuccessfulSendClearsTheDraftRow` now reds only when *both* clear paths
+  are broken. That is the product's real behaviour (defence in depth), but it means the test cannot
+  tell you that either single path is gone.

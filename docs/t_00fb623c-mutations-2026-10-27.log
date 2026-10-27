@@ -292,3 +292,39 @@ target: MattermostTests/TokenLoggingTests
 must red: testSocketAuthenticationFrameCarriesTheTokenButNoLogLineDoes
 red: testSocketAuthenticationFrameCarriesTheTokenButNoLogLineDoes
 
+### MCP8-draft-row-survives-a-send  MISSING ['testASuccessfulSendClearsTheDraftRow']
+mutation: a sent message leaves its draft behind, so the next visit reopens the sent text
+target: MattermostTests/T35ComposerViewModelTests
+must red: testASuccessfulSendClearsTheDraftRow
+red: (none)
+
+### MCP8-draft-row-survives-a-send  PASS
+mutation: a sent message leaves its draft behind, so the next visit reopens the sent text (both clears removed: the success path's own delete and the empty-draft write the debounce folds in)
+target: MattermostTests/T35ComposerViewModelTests
+must red: testASuccessfulSendClearsTheDraftRow
+red: testASuccessfulSendClearsTheDraftRow, testClearingTheTextDeletesTheDraftRow
+
+### MR1-first-connect-refetches  PASS
+mutation: a first connect is treated as a delivery gap: opening the socket refetches the window it just loaded
+target: MattermostTests/T34SocketResyncTests
+must red: testAFirstConnectDoesNotRefetchTheWindowAndTheSocketStillDelivers
+red: testAFirstConnectDoesNotRefetchTheWindowAndTheSocketStillDelivers
+
+### MR2-late-resync-handler-ignored  PASS
+mutation: the resync handler is captured when the client is built, so a handler installed afterwards never hears about a reconnect
+target: MattermostTests/T34SocketResyncTests
+must red: testAHandlerInstalledAfterTheConnectionStillReceivesTheReconnect
+red: testAHandlerInstalledAfterTheConnectionStillReceivesTheReconnect
+
+### MW1-pong-does-not-answer-the-ping  PASS
+mutation: a pong is not folded into the heartbeat's counter, so a socket that answers every ping is still recycled as dead
+target: MattermostTests/T34SocketStallWatchdogTests
+must red: testASilentButPingableSocketRefetchesTheOpenWindow
+red: testASilentButPingableSocketRefetchesTheOpenWindow
+
+### MT7-switch-leaves-the-old-scope  PASS
+mutation: a rail tap moves the destination but not the socket scope, so the previous team's events keep being admitted
+target: MattermostTests/T32TeamSidebarTests
+must red: testTenRapidSwitchesLeaveOneSubscriptionAndTheLastTeamWins
+red: testAfterASwitchThePreviousTeamsEventsAreRefused, testSwitchingTeamsClearsTheChannelAndThePushStack, testTenRapidSwitchesLeaveOneSubscriptionAndTheLastTeamWins, testTheFirstTeamBecomesCurrentWhenNothingIsSelected
+
