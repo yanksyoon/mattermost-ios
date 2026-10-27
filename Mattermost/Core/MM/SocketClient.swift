@@ -184,6 +184,35 @@ actor SocketClient {
         await send(action: "ping", data: nil)
     }
 
+    /// Send one already-encoded **text** frame verbatim.
+    ///
+    /// Plugin actions build their own envelope (`action` + `seq` + plugin-shaped `data`), which the
+    /// socket must not reinterpret. The binary sibling is `sendBinaryFrame(_:)`.
+    func sendTextFrame(_ text: String) async throws {
+        guard let transport = currentTransport, state == .open else {
+            throw SocketTransportError.notConnected
+        }
+        try await transport.send(text: text)
+    }
+
+    /// Send one already-encoded **binary** frame verbatim.
+    ///
+    /// The one caller today is Calls' `sdp` action, and it is the reason this method exists: the
+    /// plugin type-asserts `req.Data["data"]` to `[]byte`, which the core server can only produce
+    /// from a MessagePack frame — a JSON text frame is dropped server-side
+    /// (`docs/t44-build-note.md` §5.1, measured). The frame's own `seq`/`action` are built by the
+    /// caller because they are the caller's protocol, not the socket's.
+    ///
+    /// Throws when there is no open connection or the transport has no binary path, so a caller can
+    /// surface "the call could not be signalled" instead of waiting out the plugin's 10 s timeout.
+    func sendBinaryFrame(_ frame: Data) async throws {
+        guard let transport = currentTransport, state == .open else {
+            throw SocketTransportError.notConnected
+        }
+        try await transport.send(data: frame)
+        MMLog.debug("MMSocket", "sent binary frame (\(frame.count) bytes)")
+    }
+
     private func send(action: String, data: [String: Any]?) async {
         var frame: [String: Any] = ["action": action, "seq": responseSequence]
         responseSequence += 1
@@ -442,6 +471,12 @@ final class WebSocketTransport: SocketTransport, @unchecked Sendable {
 
     func send(text: String) async throws {
         try await task.send(.string(text))
+    }
+
+    /// `URLSessionWebSocketTask.send(.data:)` — the frame reaches the server as opcode 0x2, which is
+    /// what the core socket's msgpack decoder expects (`web_conn.go` branches on `msgType`).
+    func send(data: Data) async throws {
+        try await task.send(.data(data))
     }
 
     func close() {

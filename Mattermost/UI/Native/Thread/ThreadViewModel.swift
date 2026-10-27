@@ -447,7 +447,9 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
         case .hello, .typing, .statusChange, .preferencesChanged, .userUpdated,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelMemberUpdated,
              .channelUpdated, .channelRestored, .userAdded, .userRemoved,
-             .channelViewed, .multipleChannelsViewed, .postUnread, .unhandled:
+             .channelViewed, .multipleChannelsViewed, .postUnread, .plugin, .unhandled:
+            // `.plugin` frames are a plugin's own sub-protocol; the Calls engine reads them off the
+            // socket itself, and a thread has nothing to do with one.
             return record(.ignored)
         }
         rebuild()

@@ -48,6 +48,26 @@ struct SystemSocketClock: SocketClock {
     }
 }
 
+/// A binary frame could not be sent.
+///
+/// Failure is deliberately loud: the Calls `sdp` action exists **only** on the binary path (the
+/// plugin drops a JSON-framed SDP — `docs/t44-build-note.md` §5.1), so a transport that silently
+/// downgraded a binary frame to text would turn "call cannot start" into "call looks like it started
+/// and then times out at 10 s". A transport that does not implement `send(data:)` gets this error.
+enum SocketTransportError: Error, Equatable {
+    case binaryFramesUnsupported
+    case notConnected
+}
+
+extension SocketTransport {
+    /// The binary send path. `WebSocketTransport` implements it with
+    /// `URLSessionWebSocketTask.send(.data:)`; a test fake overrides it to record frames. The default
+    /// is a hard failure rather than a silent text downgrade.
+    func send(data: Data) async throws {
+        throw SocketTransportError.binaryFramesUnsupported
+    }
+}
+
 // MARK: - Protocol frames
 
 /// A WebSocket v4 frame. Server events carry `event` + `seq` + `data`; replies to our own actions
@@ -322,6 +342,16 @@ enum SocketEvent: Equatable, Sendable {
     case threadFollowChanged(SocketThreadFollowChanged)
     /// My read position in a thread (or in the whole team's threads) moved (`thread_read_changed`).
     case threadReadChanged(SocketThreadReadChanged)
+    /// A **plugin** frame (`custom_<plugin id>_<event>`), carried with its payload intact.
+    ///
+    /// The core socket hands every plugin-prefixed frame to the plugin and publishes plugin events
+    /// with the same prefix, so a plugin's protocol is a sub-protocol of this socket — not a second
+    /// connection. Calls is the first consumer (`docs/t44-build-note.md` §4.1): its `signal`,
+    /// `call_state` and `user_*` events all arrive here and are decoded by `CallsEvent(frame:)`.
+    ///
+    /// The payload is kept raw on purpose. A typed case per plugin would put the plugin's model in
+    /// the core socket; this way the socket stays a transport and the *plugin* owns its decode.
+    case plugin(name: String, data: MMRawJSON)
     /// An event this build does not model (still delivered, still counted).
     case unhandled(name: String)
 
@@ -476,7 +506,14 @@ enum SocketEvent: Equatable, Sendable {
                 previousUnreadReplies: data["previous_unread_replies"]?.intValue ?? 0,
                 previousUnreadMentions: data["previous_unread_mentions"]?.intValue ?? 0))
         default:
-            self = .unhandled(name: name)
+            // Plugin frames keep their payload: `custom_<plugin id>_<event>` is a sub-protocol of
+            // this socket (T44c), and dropping the payload here would make it indistinguishable from
+            // an event this build simply does not know.
+            if name.hasPrefix("custom_") {
+                self = .plugin(name: name, data: frame.data ?? MMRawJSON(.null))
+            } else {
+                self = .unhandled(name: name)
+            }
         }
     }
 
@@ -555,6 +592,7 @@ enum SocketEvent: Equatable, Sendable {
         case .threadUpdated: return "thread_updated"
         case .threadFollowChanged: return "thread_follow_changed"
         case .threadReadChanged: return "thread_read_changed"
+        case .plugin(let name, _): return name
         case .unhandled(let name): return name
         }
     }
@@ -583,7 +621,7 @@ enum SocketEvent: Equatable, Sendable {
              .channelCreated, .channelDeleted, .channelUpdated, .channelRestored,
              .userAdded, .userRemoved, .channelMemberUpdated, .postUnread,
              .threadUpdated, .threadFollowChanged, .threadReadChanged,
-             .unhandled:
+             .plugin, .unhandled:
             return nil
         }
     }

@@ -428,7 +428,9 @@ final class MentionsViewModel: ObservableObject {
         case .hello, .typing, .statusChange, .preferencesChanged, .reactionAdded, .reactionRemoved,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelRestored,
              .userAdded, .userRemoved, .channelMemberUpdated, .threadUpdated, .threadFollowChanged,
-             .channelViewed, .unhandled:
+             .channelViewed, .plugin, .unhandled:
+            // `.plugin` frames belong to a plugin's own client code (Calls reads them off the socket
+            // directly); a mentions feed has no use for one.
             return record(.ignored)
         }
     }

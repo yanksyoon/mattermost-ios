@@ -479,7 +479,10 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
         case .hello, .typing, .statusChange, .preferencesChanged, .userUpdated,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelMemberUpdated,
              .channelUpdated, .channelRestored, .userAdded, .userRemoved,
-             .postUnread, .unhandled:
+             .postUnread, .plugin, .unhandled:
+            // `.plugin` is a plugin's own sub-protocol (`custom_<id>_<event>`), consumed by that
+            // plugin's client code — for Calls, `CallsSignallingPort` reads it off the socket
+            // directly. A channel timeline has nothing to do with it.
             return record(.ignored)
         }
         rebuild()

@@ -809,6 +809,36 @@ reader's own mention keys are the shipping path; a mention in a **muted** channe
 `mention_count`, so muting is not consulted for a real mention (`scripts/t43_notification_probe.py`,
 `docs/t43-notification-probe-2026-10-27.log`).
 
-T43-R (the repair card) changed no files' provenance: the ledger ordering, the liveness signal and the
-Settings read-out row are this repo's own code, and `docs/t43-build-note.md` §3b records what each
+T43-R (the repair card) changed no files' provenance: the ledger ordering, the liveness signal and
+the Settings read-out row are this repo's own code, and `docs/t43-build-note.md` §3b records what each
 measurement was.
+
+## 21. T44c native Calls engine — WebRTC.xcframework (BSD-3-Clause) and system zlib
+
+The first **shipped third-party binary** in this repository, and the first time the app links a
+library whose code we did not write. Both are recorded here because a binary in the bundle is a
+licence obligation, not an implementation detail.
+
+| Component | Where | Licence | Verification |
+|---|---|---|---|
+| **WebRTC** (`WebRTC.xcframework`, Google WebRTC via `stasel/WebRTC` 137.0.0) | `Mattermost/Vendor/WebRTC.xcframework`, linked + embedded into `Mattermost.app/Contents/Frameworks` | **BSD-3-Clause** (`Copyright (c) 2011, The WebRTC project authors`) | Read the `LICENSE` that ships inside the xcframework (29 lines, BSD 3-clause body with the "Neither the name of Google nor the names of its contributors" clause), and the upstream pin `b85669f32ffb3f48ce3a8f18ad828c6f559a8a0c` recorded in `docs/t44a-calls-spike.md` §2. Archive SHA-256 checked against stasel's own manifest. |
+| **zlib** (system `libz`) | `import zlib` in `Mattermost/Core/Calls/CallsSignallingCodec.swift` | **zlib licence** (OS-supplied, not redistributed by us) | Apple SDK header `/usr/include/zlib.h` on the iOS/Catalyst SDK; we link the system stub, so no copy is bundled. Its "altered source versions must be plainly marked" clause is satisfied by not altering it. |
+
+**BSD-3-Clause obligations, and how they are met:** (a) the copyright notice and licence text are
+retained — they travel inside `WebRTC.framework/Versions/A/Resources/…` (the xcframework's own
+`LICENSE` is committed at `Mattermost/Vendor/WebRTC.xcframework/LICENSE`), and this section is the
+documentation-level reproduction; (b) no endorsement claim is made — the app's name and icons are
+ours, and the About screen does not imply Google sponsorship; (c) the licence is not used to promote
+derived products.
+
+`Mattermost/Vendor/README.md` carries the operational record (version, hashes, per-slice sizes, how
+the framework is linked/embedded/signed, how to update it). The framework also ships its own
+`PrivacyInfo.xcprivacy` declaring the two required-reason API categories it uses
+(`NSPrivacyAccessedAPICategorySystemBootTime`, `…FileTimestamp`) and no collected data — Xcode merges
+an embedded framework's manifest into the app's privacy report, so our `Mattermost/PrivacyInfo.xcprivacy`
+does not duplicate those reasons.
+
+**Nothing else was added.** The signalling codec (`CallsSignallingCodec.swift`), the MessagePack
+writer, the event decoder, the engine and the audio-session owner are this repository's own code,
+written against the wire contract measured from `mattermost-plugin-calls` v0.29.8 (Apache-2.0 for the
+plugin's client-side sources; the server sources were read as behaviour only, never ported).

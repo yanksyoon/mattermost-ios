@@ -85,6 +85,9 @@
 		F30000000000000000000099 /* SyncCursorRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000099 /* SyncCursorRepository.swift */; };
 		F3000000000000000000009A /* PreferenceUserRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000009A /* PreferenceUserRepositories.swift */; };
 		A10000000000000000000004 /* GRDB in Frameworks (tests) */ = {isa = PBXBuildFile; productRef = A10000000000000000000002 /* GRDB */; };
+		D00000000000000000000002 /* WebRTC.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D00000000000000000000001 /* WebRTC.xcframework */; };
+		D00000000000000000000006 /* WebRTC.xcframework in Frameworks (tests) */ = {isa = PBXBuildFile; fileRef = D00000000000000000000001 /* WebRTC.xcframework */; };
+		D00000000000000000000003 /* WebRTC.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D00000000000000000000001 /* WebRTC.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -103,6 +106,20 @@
 			remoteInfo = Mattermost;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D00000000000000000000004 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				D00000000000000000000003 /* WebRTC.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		F10000000000000000000001 /* Mattermost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mattermost.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -186,6 +203,7 @@
 		F20000000000000000000098 /* DraftRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftRepository.swift; sourceTree = "<group>"; };
 		F20000000000000000000099 /* SyncCursorRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCursorRepository.swift; sourceTree = "<group>"; };
 		F2000000000000000000009A /* PreferenceUserRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferenceUserRepositories.swift; sourceTree = "<group>"; };
+		D00000000000000000000001 /* WebRTC.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = WebRTC.xcframework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C00000000000000000000001 /* Native */ = {
@@ -203,6 +221,11 @@
 			path = MattermostUITests;
 			sourceTree = "<group>";
 		};
+		D00000000000000000000007 /* Calls */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Mattermost/Core/Calls;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 /* Begin PBXFrameworksBuildPhase section */
 		F60000000000000000000002 /* Frameworks */ = {
@@ -210,6 +233,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000003 /* GRDB in Frameworks */,
+				D00000000000000000000002 /* WebRTC.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -218,6 +242,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000004 /* GRDB in Frameworks (tests) */,
+				D00000000000000000000006 /* WebRTC.xcframework in Frameworks (tests) */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -239,6 +264,7 @@
 				C00000000000000000000001 /* Native */,
 				C00000000000000000000002 /* MattermostTests */,
 				C00000000000000000000003 /* MattermostUITests */,
+				D00000000000000000000007 /* Calls */,
 			);
 			sourceTree = "<group>";
 		};
@@ -264,6 +290,7 @@
 				F2000000000000000000001B /* Info.plist */,
 				F20000000000000000000037 /* PrivacyInfo.xcprivacy */,
 				F200000000000000000000C1 /* emoji.json */,
+				D00000000000000000000005 /* Vendor */,
 			);
 			path = Mattermost;
 			sourceTree = "<group>";
@@ -385,6 +412,14 @@
 			path = UI;
 				sourceTree = "<group>";
 			};
+		D00000000000000000000005 /* Vendor */ = {
+			isa = PBXGroup;
+			children = (
+				D00000000000000000000001 /* WebRTC.xcframework */,
+			);
+			path = Vendor;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -394,6 +429,7 @@
 			buildPhases = (
 				F60000000000000000000001 /* Sources */,
 				F60000000000000000000002 /* Frameworks */,
+				D00000000000000000000004 /* Embed Frameworks */,
 				F60000000000000000000003 /* Resources */,
 			);
 			buildRules = (
@@ -402,6 +438,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				C00000000000000000000001 /* Native */,
+				D00000000000000000000007 /* Calls */,
 			);
 			name = Mattermost;
 			packageProductDependencies = (

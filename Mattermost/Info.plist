@@ -62,16 +62,18 @@
 		<true/>
 	</dict>
 	<!--
-		Permission rationale strings. Camera/microphone are NOT used by native code today;
-		they are required by WKWebView's getUserMedia so the Mattermost web app's Calls
-		feature can request the device camera/mic when the user starts a call inside the
-		hosted web app. Local-network covers connecting to LAN self-hosted dev servers
-		(modelled by NSAllowsLocalNetworking above).
+		Permission rationale strings. Microphone is required by **both** capture paths:
+		WKWebView's getUserMedia lets the hosted Mattermost web app's Calls feature request the
+		mic, and the native Calls engine (T44c, Mattermost/Core/Calls/) opens its own
+		AVAudioSession for a native audio call. Camera is still webview-only — native video
+		capture is a later card, and the string is kept because the web app asks for it.
+		Local-network covers connecting to LAN self-hosted dev servers (modelled by
+		NSAllowsLocalNetworking above).
 	-->
 	<key>NSCameraUsageDescription</key>
 	<string>Mattermost needs camera access for video calls you start in the Mattermost web app.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Mattermost needs microphone access for voice and video calls you start in the Mattermost web app.</string>
+	<string>Mattermost needs microphone access for the voice calls you join, so other participants can hear you.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Mattermost connects to Mattermost servers on your local network, for example a self-hosted development server on your LAN.</string>
 	<!--
