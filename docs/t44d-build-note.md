@@ -318,9 +318,16 @@ assertions in two test files encode the registry's contents and the "canonical u
 (`ViewStoreTests.testEmptyRegistriesMakeReleaseUnreachable`; `SurfaceModeResolverTests`
 `testOnlyTheApprovedRegistryDefaultsToNative`, and two cases that used `.calls` as the example of a
 surface falling through to the compile-time default — those now use `.threads`, which is still
-unapproved). Missing either of the last two is what the first post-flip run showed: `1596 run,
-7 skipped, 2 failed` (`build/logs/t44d-av-units-postflip.log`); after the correction the suite is
-green again (`build/logs/t44d-av-units-postflip2.log`). **Reachability caveat**, measured in source:
+unapproved). Measured, by running the **pre-flip** test files against the flipped registry (`git
+checkout a96bde0 -- MattermostTests/ViewStoreTests.swift MattermostTests/SurfaceModeResolverTests.swift`,
+run, revert): all four fail and name the reason — `("[Mattermost.Surface.auth, Mattermost.Surface.calls]")
+is not equal to ("[Mattermost.Surface.auth]") — T31-AV approved `.auth` and nothing else`, plus
+`("native") is not equal to ("web")` twice (`build/logs/t44d-av-flip-red-oldtests.log`: 46 run,
+4 failed). With the four updated the whole suite is green: **1603 run, 7 skipped, 0 failed, `** TEST
+SUCCEEDED **`** (`build/logs/t44d-av-units-rebased.log` — the commit as pushed, rebased onto
+`389516d`). The first post-flip attempt had fixed only the two registry lists and not the two
+`.calls`-as-example cases, and showed exactly those two failures
+(`build/logs/t44d-av-units-postflip.log`: 1596 run, 2 failed). **Reachability caveat**, measured in source:
 the entry point (`CallsJoinEntry`) is drawn by `NativeChannelPaneView`, so it only appears when the
 pane host `SurfaceDefaults.paneHostSurface` (`.channelView`) resolves `native` — and that surface is
 **not** approved, so a shipping build still renders the web app and the web client's Calls. The flip
