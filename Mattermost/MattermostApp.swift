@@ -791,6 +791,26 @@ struct MattermostApp: App {
         guard let path = shellSnapshotPath else { return }
         shellSnapshotTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 5_000_000_000)
+
+            // A native pane has no web content, and this probe used to return before writing anything
+            // when no store had committed — every native run looked like a silent failure. Capture the
+            // window and the shell state first, unconditionally.
+            let earlyWindows = UIApplication.shared.connectedScenes
+                .compactMap { ($0 as? UIWindowScene)?.windows }.joined()
+            if let window = earlyWindows.first(where: \.isKeyWindow) ?? earlyWindows.first {
+                let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
+                let image = renderer.image { _ in
+                    window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+                }
+                try? image.pngData()?.write(to: URL(fileURLWithPath: path + ".window.png"))
+            }
+            let shellState = """
+            location=\(String(describing: nativeNavigation.location))
+            surfaces=\(Surface.allCases.map { "\($0.rawValue):\(surfaceModeResolver.resolvedMode(for: $0).rawValue)" }.joined(separator: ","))
+            sidebar=\(serverStore.servers.map { channelSidebarCoordinator.diagnosticSummary(for: $0) }.joined(separator: " | "))
+            auth=\(serverStore.servers.map { "\($0.name):\(String(describing: authCoordinator.phase(for: $0))):token=\(authCoordinator.hasStoredToken(for: $0))" }.joined(separator: ","))
+            """
+
             var target: WebViewStore?
             for _ in 0..<60 {
                 if let id = viewStore.primaryServerID ?? serverStore.activeServerID,
@@ -802,7 +822,16 @@ struct MattermostApp: App {
                 }
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
-            guard let store = target else { return }
+            guard let store = target else {
+                // The pane is native: there is no page to snapshot, but the shell's route is the
+                // evidence this run exists to produce.
+                try? ("url=nil (native pane)\n" + shellState)
+                    .write(to: URL(fileURLWithPath: path + ".txt"), atomically: true, encoding: .utf8)
+                return
+            }
+
+            try? shellState.write(to: URL(fileURLWithPath: path + ".shell.txt"),
+                                  atomically: true, encoding: .utf8)
 
             // Wait for the SPA to paint: poll until the DOM has meaningful text (≤30s).
             var pageInfo: PageInfo = PageInfo()
@@ -854,6 +883,23 @@ struct MattermostApp: App {
                 mainWrapperHtml: mw ? mw.innerHTML.slice(0, 400) : null,
                 appBarKids: appBar ? [...appBar.children].map(describe) : null,
                 modals: document.querySelectorAll('.modal, .Modal, [role=dialog]').length,
+                modalEls: [...document.querySelectorAll('.modal, .Modal, [role=dialog]')].map(describe).slice(0, 4),
+                imgCount: document.querySelectorAll('img').length,
+                avatars: [...document.querySelectorAll('img')].slice(0, 25).map(i => ({
+                    src: (i.currentSrc || i.src || '').replace(location.origin, '').slice(0, 100),
+                    w: i.naturalWidth, h: i.naturalHeight,
+                    cls: (i.className || '').toString().slice(0, 40)
+                })),
+                imageRequests: performance.getEntriesByType('resource')
+                    .filter(r => (r.name.indexOf('/image') !== -1
+                                  || r.name.indexOf('avatar') !== -1
+                                  || r.name.indexOf('profile') !== -1))
+                    .slice(-15)
+                    .map(r => r.name.replace(location.origin, '') + ' size=' + r.transferSize
+                              + ' d=' + Math.round(r.duration) + ' ' + r.initiatorType),
+                threadEntries: [...document.querySelectorAll('a, button, li')]
+                    .filter(e => /thread/i.test(e.textContent || ''))
+                    .slice(0, 6).map(describe),
                 loadingish: [...document.querySelectorAll('[class*=load], [class*=Load], [class*=skeleton]')].map(describe).slice(0, 6),
                 errors: (window.__mmErrorLog || []).slice(0, 30),
                 online: navigator.onLine,
