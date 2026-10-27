@@ -12,6 +12,10 @@ import WebKit
 struct MattermostApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    /// T41: the app's own foreground/background state, which drives presence (auto-away). Read here
+    /// rather than in a screen because it must apply with no screen open.
+    @Environment(\.scenePhase) private var scenePhase
+
     @StateObject private var serverStore: ServerStore
     @StateObject private var viewStore: ViewStore
     @StateObject private var downloadWorker: DownloadWorker
@@ -51,6 +55,11 @@ struct MattermostApp: App {
     /// panes: SwiftUI re-creates views on every sheet presentation, and `user_added` / `user_removed` /
     /// `channel_updated` arrive on the rail's single socket, which a view cannot subscribe to.
     @StateObject private var channelInfoCoordinator: ChannelInfoCoordinator
+    /// T41: the profile owner — one model per (server, user) with a bounded LRU, the per-server presence
+    /// memory, and the auto-away pass. Owned here because the profile sheet is re-created on every
+    /// presentation, `status_change` / `user_updated` arrive on the rail's single socket, and auto-away
+    /// has to happen with no profile open at all.
+    @StateObject private var profileCoordinator: ProfileCoordinator
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
@@ -148,6 +157,20 @@ struct MattermostApp: App {
         _searchCoordinator = StateObject(wrappedValue: SearchCoordinator())
         // T40: the channel-info and channel-browser owner, bound in `bindShellStores()` like the rest.
         _channelInfoCoordinator = StateObject(wrappedValue: ChannelInfoCoordinator())
+        _profileCoordinator = StateObject(wrappedValue: {
+            let coordinator = ProfileCoordinator()
+            #if DEBUG
+            // UI-test seam: `-uiTestProfilePresenceInterval <seconds>` sets how often an open profile
+            // re-reads presence. The live socket test holds its status-change window well under this,
+            // so a green socket assertion cannot be a poll that happened to fire at the right moment.
+            if let idx = args.firstIndex(of: "-uiTestProfilePresenceInterval"),
+               args.indices.contains(idx + 1),
+               let seconds = Double(args[idx + 1]) {
+                coordinator.presenceInterval = seconds
+            }
+            #endif
+            return coordinator
+        }())
         #if DEBUG
         // UI-test seam: `-uiTestAssumeSignedIn` makes the native shell render as if the seeded
         // server had a session, so its panes can be exercised against a stub server that has no
@@ -282,6 +305,9 @@ struct MattermostApp: App {
                 // sheet re-presentation must not lose a member list, and membership changes are patched
                 // by the rail's socket).
                 .environmentObject(channelInfoCoordinator)
+                // T41: the profile owner — app-wide for the same reasons, plus auto-away: it has to act
+                // on the app's background/foreground transitions whether or not a profile is open.
+                .environmentObject(profileCoordinator)
                 // T31: the SSO hand-off mounts the server's existing webview inside a sheet, so the
                 // store owner has to be reachable from the environment too (the pane's web branch
                 // still receives it as a parameter).
@@ -290,6 +316,20 @@ struct MattermostApp: App {
                 // Inert (and never touches the user's own Dynamic Type) unless the probe is running.
                 .modifier(NativeShellSnapshotEnvironment(scheme: snapshotColorScheme,
                                                           typeSize: snapshotDynamicTypeSize))
+                // T41: presence follows the app's lifecycle. Backgrounding ages a server-derived
+                // `online` to `away`; coming back puts the reader's own status back. The decision is
+                // pure (`AutoAwayRule`); this is only the trigger, and it is app-level because presence
+                // is not a screen's business.
+                //
+                // Only `.background` ages, never `.inactive`: the latter fires for the app switcher, a
+                // system prompt or a Control Centre swipe, and ageing on those would tell colleagues a
+                // reader is away because they glanced at their notifications.
+                .onChange(of: scenePhase) { _, phase in
+                    guard phase == .active || phase == .background else { return }
+                    let servers = serverStore.servers
+                    Task { await profileCoordinator.sceneChanged(isActive: phase == .active,
+                                                                 servers: servers) }
+                }
                 .onOpenURL { url in
                     // Deep-link entry point (native counterpart of desktop `second-instance` /
                     // `open-url` → `NavigationManager.openLinkInPrimaryTab`).
@@ -464,9 +504,14 @@ struct MattermostApp: App {
         channelInfoCoordinator.bind(auth: authCoordinator,
                                     navigation: nativeNavigation,
                                     serverStore: serverStore)
+        // T41: the profile models, the presence memory and the auto-away pass resolve their service
+        // from the same session and are fed by the rail's socket (a colleague's status, a custom status
+        // set from another client).
+        profileCoordinator.bind(auth: authCoordinator, serverStore: serverStore)
         teamSidebarCoordinator.onTeamEvent = { [weak channelSidebarCoordinator, weak channelPaneCoordinator,
                                                 weak threadCoordinator, weak searchCoordinator,
-                                                weak channelInfoCoordinator] serverID, event in
+                                                weak channelInfoCoordinator,
+                                                weak profileCoordinator] serverID, event in
             // T33's list debounces its own refresh; T34's open channels apply the event directly (a
             // posted message must appear without a refetch — that is what a socket is for).
             Task { await channelPaneCoordinator?.handle(event, serverID: serverID) }
@@ -477,6 +522,9 @@ struct MattermostApp: App {
             // T40: an open channel-info screen is live (a member added or removed elsewhere, a rename,
             // an archive).
             Task { @MainActor in channelInfoCoordinator?.handle(event, serverID: serverID) }
+            // T41: presence and profile updates are live (a colleague's status dot, a custom status set
+            // from another client — the server publishes `user_updated` for it).
+            Task { @MainActor in profileCoordinator?.handle(event, serverID: serverID) }
             guard let channelSidebarCoordinator else { return }
             Task { await channelSidebarCoordinator.handle(event, serverID: serverID) }
         }
@@ -486,7 +534,8 @@ struct MattermostApp: App {
         authCoordinator.onChange = { [weak nativeNavigation, weak teamSidebarCoordinator,
                                       weak channelSidebarCoordinator, weak channelPaneCoordinator,
                                       weak threadCoordinator, weak searchCoordinator,
-                                      weak channelInfoCoordinator] serverID in
+                                      weak channelInfoCoordinator,
+                                      weak profileCoordinator] serverID in
             nativeNavigation?.refreshAuthState()
             // A sign-out/expiry must take the rail's socket down with the credential it was built
             // with; a finished sign-in is what lets it come up.
@@ -501,6 +550,8 @@ struct MattermostApp: App {
             searchCoordinator?.authPhaseChanged(serverID)
             // …and a channel's info screen and its member list (T40): those rows were fetched with it.
             channelInfoCoordinator?.authPhaseChanged(serverID)
+            // …and the profiles, the presence memory and any auto-away bookkeeping (T41).
+            profileCoordinator?.authPhaseChanged(serverID)
         }
     }
 

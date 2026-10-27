@@ -196,6 +196,10 @@ struct PostRowView: View {
     /// T38: what the attachment section may do — open the gallery, open a file preview, download.
     /// Nil keeps the drawn-but-inert rendering (a preview host, or the web render of the pane).
     var attachmentActions: PostRowAttachmentActions? = nil
+    /// T41: a tap on the author's avatar opens that account's profile. Nil keeps the avatar inert —
+    /// a preview host, the thread host that has not been wired yet, and every host while the
+    /// `profile` surface resolves web.
+    var onShowProfile: ((String) -> Void)? = nil
 
     private var showsHeader: Bool { !row.isGrouped && !row.isSystem }
 
@@ -269,7 +273,21 @@ struct PostRowView: View {
     @ViewBuilder
     private var gutter: some View {
         if showsHeader {
-            PostAvatarView(author: row.author)
+            if let onShowProfile {
+                // T41: the avatar is the profile affordance, as it is in the web client and in
+                // upstream's `app/components/post/avatar`. A row with no host callback keeps the plain
+                // drawing (a preview, or the surface resolving web).
+                Button {
+                    onShowProfile(row.author.id)
+                } label: {
+                    PostAvatarView(author: row.author)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(row.author.displayName) profile")
+                .accessibilityIdentifier("post.\(row.id).avatar")
+            } else {
+                PostAvatarView(author: row.author)
+            }
         } else if row.isSystem {
             Image(systemName: "info.circle")
                 .font(.system(size: 15))

@@ -1,0 +1,111 @@
+# T41 profile / presence / custom-status probe against http://127.0.0.1:8065
+  PASS  the server answers /system/ping
+          observed: {"ActiveSearchBackend": "database", "AndroidLatestVersion": "", "AndroidMinVersion": "", "IosLatestVersion": "", "IosMinVersion": "", "status": "OK"}
+
+## Session
+signed in as @perfprobe (jruqqzxtobg7tn4wehwmwjjo5c) — token not printed
+  fixture buddy @t41buddy (zs6s1y3ih3rtzcr3rf9ms3yeuo)
+
+## 1. GET /users/{id} — what a profile actually carries
+  PASS  200 for my own profile
+          observed: 200
+  PASS  the profile carries `roles`
+          observed: system_admin system_user
+  PASS  the profile carries `position`
+  PASS  the profile carries `nickname`
+  PASS  the profile carries `timezone`
+          observed: {"automaticTimezone": "America/Vancouver", "manualTimezone": "", "useAutomaticTimezone": "true"}
+  PASS  the profile carries `props`
+          observed: {"customStatus": ""}
+  PASS  there is **no** `custom_status` key on the user object
+          observed: ["auth_data", "auth_service", "create_at", "delete_at", "disable_welcome_email", "email", "first_name", "id", "last_name", "last_password_update", "locale", "nickname", "notify_props", "position", "props", "remote_id", "roles", "timezone", "update_at", "username"]
+  PASS  `timezone.useAutomaticTimezone` is the string "true"/"false", not a bool
+          observed: {"type": "str", "value": "true"}
+  PASS  `is_bot` is absent or null rather than false
+          observed: null
+  PASS  `last_activity_at` is not part of GET /users/{id}
+          observed: ["auth_data", "auth_service", "create_at", "delete_at", "disable_welcome_email", "email", "first_name", "id", "last_name", "last_password_update", "locale", "nickname", "notify_props", "position", "props", "remote_id", "roles", "timezone", "update_at", "username"]
+
+## 2. PUT /users/{id}/status/custom — the custom status
+  PASS  a flat body with no expiry is accepted
+          observed: {"body": {"status": "OK"}}
+  PASS  the status lives in props.customStatus as a **JSON string**
+          observed: {"emoji":"coffee","text":"Probe status","duration":"","expires_at":"0001-01-01T00:00:00Z"}
+  PASS  …and that string decodes to the emoji and text that were sent
+          observed: {"duration": "", "emoji": "coffee", "expires_at": "0001-01-01T00:00:00Z", "text": "Probe status"}
+  PASS  no expiry round-trips as the Go zero time
+          observed: 0001-01-01T00:00:00Z
+  PASS  a **wrapped** body is a 400 (the status is flat on the wire)
+          observed: {"id": "api.context.invalid_body_param.app_error", "status": 400}
+  PASS  duration `30m` is not in the server's vocabulary (400)
+          observed: {"id": "api.context.invalid_body_param.app_error", "status": 400}
+  PASS  duration `1h` is not in the server's vocabulary (400)
+          observed: {"id": "api.context.invalid_body_param.app_error", "status": 400}
+  PASS  duration `99y` is not in the server's vocabulary (400)
+          observed: {"id": "api.context.invalid_body_param.app_error", "status": 400}
+  PASS  a non-empty duration **without** a future expires_at is a 400
+          observed: {"id": "api.context.invalid_body_param.app_error", "status": 400}
+  PASS  `expires_at: ""` is a 400 (Go cannot parse an empty time)
+          observed: {"id": "api.context.invalid_body_param.app_error", "status": 400}
+  PASS  an emoji the server does not know is refused
+          observed: {"id": "api.custom_status.set_custom_statuses.emoji_not_found", "status": 400}
+  PASS  duration `thirty_minutes` is accepted with a future expiry
+          observed: {"status": 200}
+  PASS  duration `one_hour` is accepted with a future expiry
+          observed: {"status": 200}
+  PASS  duration `four_hours` is accepted with a future expiry
+          observed: {"status": 200}
+  PASS  duration `today` is accepted with a future expiry
+          observed: {"status": 200}
+  PASS  duration `this_week` is accepted with a future expiry
+          observed: {"status": 200}
+  PASS  there is **no** GET …/status/custom route (404) — read props instead
+          observed: {"id": "api.context.404.app_error", "status": 404}
+  PASS  DELETE clears it and answers {status: OK}
+          observed: {"status": "OK"}
+  PASS  …and props.customStatus is gone or empty afterwards
+
+## 3. PUT /users/me/status and PUT /users/{id}/status — presence
+  PASS  `dnd` is accepted
+          observed: {"status": 200}
+  PASS  …and comes back manual=true
+          observed: {"dnd_end_time": 0, "last_activity_at": 1793068078212, "manual": true, "status": "dnd", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+  PASS  …and the answer carries user_id/status/manual/last_activity_at
+          observed: ["dnd_end_time", "last_activity_at", "manual", "status", "user_id"]
+  PASS  `online` is accepted
+          observed: 200
+  PASS  …and clears manual (the asymmetry auto-away relies on)
+          observed: {"dnd_end_time": 0, "last_activity_at": 1793068091573, "manual": false, "status": "online", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+  PASS  a status outside online/away/dnd/offline is a 400
+          observed: {"id": "api.context.invalid_body_param.app_error", "status": 400}
+  PASS  `dnd_end_time` is epoch **milliseconds** and is echoed
+          observed: {"dnd_end_time": 4102444800000, "status": 200}
+  PASS  POST /users/status/ids answers a list of rows
+          observed: {"status": 200, "type": "list"}
+  PASS  a row carries user_id/status/manual/last_activity_at
+          observed: ["dnd_end_time", "last_activity_at", "manual", "status", "user_id"]
+
+## 4. Can one account set another's status?
+  PASS  a system admin may set another account's status
+          observed: {"id": null, "status": 200}
+  PASS  …and the account itself can (the live test's second route)
+          observed: 200
+
+## 5. The socket's `status_change` frame
+  PASS  a status_change frame arrives after the write
+          observed: {"broadcast": {"channel_id": "", "connection_id": "", "omit_connection_id": "", "omit_users": null, "team_id": "", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}, "data": {"status": "away", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}, "event": "status_change", "seq": 1}
+  PASS  …and it carries user_id + status and **no** manual/activity
+          observed: {"status": "away", "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+
+## 6. POST /channels/direct — the DM shortcut
+  PASS  the first call answers 201 with a `D` channel
+          observed: {"status": 201, "type": "D"}
+  PASS  a repeat call answers 2xx with the **same** channel id (9.11.19 answers 201 both times, not 200 — so a client must accept both)
+          observed: {"same_id": true, "status": 201}
+
+## 7. GET /users/{id}/profile_image
+  PASS  an account without a picture answers 404 (not an error on screen)
+          observed: 404
+
+## Summary
+  every expectation held — the Swift rules match this server

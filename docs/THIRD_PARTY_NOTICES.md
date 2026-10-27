@@ -682,3 +682,71 @@ archived-channel browser (`GET /teams/{team}/channels/deleted` is read, but an a
 shown as not-joinable rather than in its own screen), and inviting by email (the picker adds existing
 team members only — `POST /teams/{team}/invite/email` is not called).
 
+
+## 18. T41 native user profile, presence and custom status — upstream read set (Apache-2.0, mobile @ `162f2560…`; webapp observed only, AGPL-3.0)
+
+`Mattermost/UI/Native/Profile/` (`ProfileModels.swift`, `ProfileAPI.swift`, `ProfileService.swift`,
+`ProfileViewModel.swift`, `ProfileCoordinator.swift`, `ProfileView.swift`, `StatusSetterView.swift`)
+reimplements the **profile / presence / custom-status surface** named by `docs/component-map.md` §S24:
+the profile popover and full profile (avatar, display name, username, role badges, local time,
+member-since, last activity, custom status), the status setter (online / away / do-not-disturb /
+offline, with a do-not-disturb end time), the custom-status editor (emoji + text + clear-after
+duration), "Send message" (the DM shortcut) and auto-away on background/foreground. Its hosting sides
+are `ChannelView` (the pane header's `nativeProfileButton` and the profile sheet) and `PostRowView`
+(a tapped author avatar), with `MattermostApp` owning one `ProfileCoordinator` per app.
+
+The upstream read set is the one `docs/component-map.md` §S24 names; no upstream file is copied or
+transpiled. The mobile pin is TypeScript (read for rules only); the webapp is AGPL-3.0 and was
+**observed in the running client** for the same popover, never copied or ported. Every new file pins
+the upstream it derives from in its own header (mobile `@ v2.45.0`,
+`162f2560d0e1df073220f7701d5a67cc17c8abeb`), so this section is the repo-level entry those headers
+point at.
+
+| Upstream path (mobile @ `162f2560…` unless marked `W`) | Used for |
+|---|---|
+| `app/screens/user_profile/index.ts`, `…/user_profile/user_profile.tsx` | the popover/screen layout: avatar, name over @username, the presence line, the custom-status pill, the role line, the option rows, "user not found" and retry |
+| `app/screens/user_profile/options/` | which option rows exist (send message, view profile) and when they are offered |
+| `app/screens/custom_status/`, `…/custom_status_clear_after/` | the status setter's four choices, the clear-after picker, and the "Do not disturb until …" copy |
+| `app/components/custom_status/custom_status.tsx`, `…/user_status/` | the emoji+text pill and the presence dot (including the do-not-disturb glyph) |
+| `app/utils/custom_status.ts` | `getCustomStatusExpiryTime` and the duration table this client's `StatusDuration` mirrors |
+| `app/utils/user/index.ts` | `displayUsername`, `getFullName`, `isGuest`/`isSystemAdmin`, `getLastActivity`, `getUserTimezone` — the derivation rules |
+| `app/actions/remote/user.ts` | `fetchUserIfNeeded` (fetch, never invent), `setStatus`, `setCustomStatus`, `unsetCustomStatus` (optimistic with rollback), `getStatusesByIds`/`fetchStatusesForUserIds` |
+| `app/actions/websocket/user.ts`, `app/actions/websocket/index.ts` | the `status_change` and `user_updated` handlers, and the single-socket-per-server assumption |
+| `app/actions/app/global.ts` | the app-state handler that ages presence on background/foreground |
+| `app/client/rest/users.ts` | `getUser`, `getStatusesByIds`, `getUserStatus`, `updateMe`, `updateCustomStatus`, `unsetCustomStatus`, `getUserProfilePictureUrl` |
+| `app/client/rest/channels.ts` | `createDirectChannel` — the "Send message" shortcut |
+| `W …/components/profile_popover/`, `W …/components/user_profile/`, `W …/components/custom_status/` | **behaviour cross-check only** — what Path A's webview shows for the same operations; not ported |
+
+**Measured against the real server** (`scripts/t41_profile_probe.py`, run 2026-10-26 against Mattermost
+**9.11.19**, transcript `docs/t41-profile-probe-2026-10-26.log`; pinned by
+`MattermostTests/T41ProfileTests.swift` + `T41ProfileAPITests.swift`):
+
+- `GET /users/{id}` carries `roles`, `position`, `nickname`, `timezone` and `props` and **no**
+  `custom_status` field: the status lives in `props.customStatus` as a **JSON string** (decoded twice).
+- `timezone.useAutomaticTimezone` is the **string** `"true"`/`"false"`, not a bool.
+- `PUT /users/{id}/status/custom` takes the status **flat** (a `custom_status` wrapper is a 400) with a
+  fixed duration vocabulary (`""`, `thirty_minutes`, `one_hour`, `four_hours`, `today`, `this_week`,
+  `date_and_time`); `30m`/`1h`/`99y` are 400s, a duration without a future `expires_at` is a 400, and
+  `expires_at: ""` is a 400. "No expiry" round-trips as the Go zero time `0001-01-01T00:00:00Z` — a
+  perfectly ordinary past date, so the expiry rule treats a year ≤ 1 as "never".
+- An emoji the server does not know is refused (`api.custom_status.set_custom_statuses.emoji_not_found`).
+- There is **no** `GET …/status/custom` (404): the status is read back from the user's props.
+- `DELETE …/status/custom` answers `{"status":"OK"}`.
+- `PUT /users/me/status` takes `{user_id, status, dnd_end_time}`; `status` must be one of
+  online/away/dnd/offline, `dnd_end_time` is epoch **ms**, and `online` comes back `manual: false`
+  while `away`/`dnd` come back `manual: true`. That asymmetry is what auto-away is built on.
+- `POST /users/status/ids` answers `{user_id, status, manual, last_activity_at, dnd_end_time}`.
+- **`status_change` is addressed to the account that changed** (`broadcast.user_id` = that account):
+  a client subscribed to a team receives `posted` and the other team-scoped events for everybody but
+  never another account's `status_change` (verified in both directions, and on connect/disconnect). A
+  peer's presence therefore arrives through the batched read, which is what the browser uses too — the
+  reason `ProfileViewModel` polls `POST /users/status/ids` while a profile is open.
+- `POST /channels/direct` answers **201** on the first call *and* on a repeat that finds the existing
+  conversation (same channel id), so any 2xx must be accepted.
+- `GET /users/{id}/profile_image` answers 404 for an account without a picture (the normal case for a
+  fixture), which the screen must read as "draw initials", not as an error.
+
+Not ported by this card: editing the profile (name, username, email, picture, position — that is
+§S28's `edit_profile` surface), custom profile attributes (§S39, feature-gated), the "common
+channels" list inside the popover (mobile draws it; this client's channel list is T33's sidebar), the
+avatar-picture file picker, and any notification sound/vibration preferences.

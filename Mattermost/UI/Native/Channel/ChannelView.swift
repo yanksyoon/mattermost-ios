@@ -57,6 +57,8 @@ struct ChannelPostListView: View {
     /// T38: the per-server attachment download state. Nil leaves the attachment section inert (a
     /// preview host, or a pane whose host does not offer a write surface).
     var attachmentDownloads: AttachmentDownloads? = nil
+    /// T41: a tap on a row's author opens that account's profile. Nil keeps the avatars inert.
+    var onShowProfile: ((String) -> Void)? = nil
 
     /// True while a top visit must not page: the reader has not been away from the top since the last
     /// auto-load, so this is the same visit. Cleared once the viewport is a screen away from the top.
@@ -342,7 +344,8 @@ struct ChannelPostListView: View {
                         actions: actions(for: row),
                         onOpenThread: onOpenThread.map { open in { open(row) } },
                         reactionActions: reactionActions(for: row),
-                        attachmentActions: attachmentActions(for: row))
+                        attachmentActions: attachmentActions(for: row),
+                        onShowProfile: onShowProfile)
                 // The row's own UIView, so the restore can measure where the reader is without
                 // going through a SwiftUI preference (see ChannelScrollPosition.swift).
                 .background(RowAnchorProbe(postID: row.id, controller: scrollController))
@@ -594,6 +597,9 @@ struct ChannelPaneContent: View {
 
     @EnvironmentObject private var panes: ChannelPaneCoordinator
     @EnvironmentObject private var resolver: SurfaceModeResolver
+    /// T41: the profile owner, read for the signed-in account's id (the header's own avatar opens my
+    /// profile, and `ProfileCoordinator` is where that id is already resolved).
+    @EnvironmentObject private var profiles: ProfileCoordinator
     /// T38: the app's one download journal (`MattermostApp` mounts it), so a save from a row is the
     /// same record the Downloads screen lists.
     @EnvironmentObject private var downloadWorker: DownloadWorker
@@ -611,6 +617,9 @@ struct ChannelPaneContent: View {
     @State private var showsPinned = false
     /// T40: the channel-info sheet (S22/S23 + the member/settings screens behind it).
     @State private var showsChannelInfo = false
+    /// T41: whose profile popover is open, if any. One item-bound sheet for both entries (the header's
+    /// own avatar and a tapped message author), so the two cannot fight over a presentation.
+    @State private var profileTarget: ProfileTarget?
 
     /// Whether the write surface renders natively (T35's `.composer` surface).
     ///
@@ -620,6 +629,15 @@ struct ChannelPaneContent: View {
     /// default stays `.web` until T35-AV approves the flip (`SurfaceDefaults.nativeApprovedSurfaces`).
     private var composerIsNative: Bool {
         resolver.resolvedMode(for: .composer) == .native
+    }
+
+    /// Whether the profile popover renders natively (T41's `.profile` surface).
+    ///
+    /// With it resolving web there is no avatar button and no author tap: the webview's own profile
+    /// popover is the only one on screen, and drawing a second, native one beside it would be two
+    /// answers to the same tap.
+    private var profileSurfaceIsNative: Bool {
+        resolver.resolvedMode(for: .profile) == .native
     }
 
     var body: some View {
@@ -651,7 +669,10 @@ struct ChannelPaneContent: View {
                                         openThread(rootID: row.id, row: row)
                                     },
                                     recents: emojiRecents,
-                                    attachmentDownloads: attachmentDownloads)
+                                    attachmentDownloads: attachmentDownloads,
+                                    onShowProfile: profileSurfaceIsNative
+                                        ? { userID in profileTarget = ProfileTarget(userID: userID) }
+                                        : nil)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -723,6 +744,11 @@ struct ChannelPaneContent: View {
             ChannelInfoSheet(server: server,
                              channelID: channelID,
                              fallbackTitle: title)
+        }
+        // T41: the profile popover. Its own item-bound sheet (the header's own avatar and a tapped
+        // message author share it), and the account it opens for is the only state it carries.
+        .sheet(item: $profileTarget) { target in
+            ProfileSheet(server: server, userID: target.userID, navigation: navigation)
         }
         .onChange(of: scenePhase) { _, phase in
             // Backgrounding is the moment the debounce may not have fired yet: a message typed and
@@ -820,6 +846,19 @@ struct ChannelPaneContent: View {
                 }
                 .accessibilityLabel("Channel info")
                 .accessibilityIdentifier("nativeChannelInfoButton")
+            }
+            // T41 (S24): my own profile. Upstream's tab bar has an "Account" entry for exactly this;
+            // the native pane has no tab of its own, so the header's avatar is the affordance (the same
+            // place the web client puts it).
+            if profileSurfaceIsNative, let myID = profiles.myUserID(for: server), !myID.isEmpty {
+                Button {
+                    profileTarget = ProfileTarget(userID: myID)
+                } label: {
+                    Label("My profile", systemImage: "person.crop.circle")
+                        .labelStyle(.iconOnly)
+                }
+                .accessibilityLabel("My profile")
+                .accessibilityIdentifier("nativeProfileButton")
             }
             // T39 (S21): the channel's pinned messages, behind the same `search` surface as the
             // search/saved screens (pinned is part of that card's lookup group).

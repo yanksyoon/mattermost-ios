@@ -381,18 +381,25 @@ struct MMStatus: Codable, Equatable, Sendable {
     var status: String
     var manual: Bool
     var lastActivityAt: Int64
+    /// `dnd_end_time`, epoch **milliseconds** (0 when there is none — measured: a plain `away`/`online`
+    /// row carries 0, and `PUT /users/me/status` echoes whatever was sent). T41 reads it so the profile
+    /// can say *until when* a do-not-disturb lasts instead of implying it is permanent.
+    var dndEndTime: Int64
 
     enum CodingKeys: String, CodingKey {
         case status, manual
         case userId = "user_id"
         case lastActivityAt = "last_activity_at"
+        case dndEndTime = "dnd_end_time"
     }
 
-    init(userId: String = "", status: String = "offline", manual: Bool = false, lastActivityAt: Int64 = 0) {
+    init(userId: String = "", status: String = "offline", manual: Bool = false,
+         lastActivityAt: Int64 = 0, dndEndTime: Int64 = 0) {
         self.userId = userId
         self.status = status
         self.manual = manual
         self.lastActivityAt = lastActivityAt
+        self.dndEndTime = dndEndTime
     }
 
     init(from decoder: Decoder) throws {
@@ -401,6 +408,7 @@ struct MMStatus: Codable, Equatable, Sendable {
         status = try values.decodeIfPresent(String.self, forKey: .status) ?? "offline"
         manual = try values.decodeIfPresent(Bool.self, forKey: .manual) ?? false
         lastActivityAt = try values.decodeIfPresent(Int64.self, forKey: .lastActivityAt) ?? 0
+        dndEndTime = try values.decodeIfPresent(Int64.self, forKey: .dndEndTime) ?? 0
     }
 }
 
