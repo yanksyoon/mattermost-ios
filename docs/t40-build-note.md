@@ -170,13 +170,14 @@ relay). Its request log carries what T40-AV measured missing:
 (5 `POST …/members`, 4 `PUT …/patch`, 3 `DELETE …/members/{id}` and 8 `POST …/restore` in that window.)
 That run **failed its two socket-dependent tests** and only those two — the browser join never reached the
 sidebar and none of the three reconcile events landed. **A relay cannot host a socket assertion**: the app
-opens `GET /api/v4/websocket` through it (relay log lines 13, 22, 23, 29, 41, 60, 68, 69) and the proxy
-answers HTTP without ever pumping a frame, so no event reaches `ChannelInfoViewModel`. (One real relay bug
-was found and fixed on the way — `socket.create_connection(timeout=10)` left a 10 s *read* timeout on every
-upstream socket, so even an idle websocket died — but that was not the whole cause and the two tests still
-saw no events.) Both relay attempts (`t40r-suite9`, `t40r-suite10`) failed **exactly** those two tests and
-nothing else, while every direct-to-8065 run (`t40r-suite6`, `-suite7`, `-suite8`) passed them. The relay is
-evidence of the writes, not of the socket.
+opens `GET /api/v4/websocket` through it (relay log lines 13, 22, 23, 29, 41, 60, 68, 69) and no frame ever
+arrives — the request line goes through the forwarder, the long-lived frame stream does not — so nothing
+reaches `ChannelInfoViewModel`. (One real relay bug was found and fixed on the way —
+`socket.create_connection(timeout=10)` left a 10 s *read* timeout on every upstream socket, so even an idle
+websocket died — but that was not the whole cause and the two tests still saw no events.) Both relay
+attempts (`t40r-suite9`, `t40r-suite10`) failed **exactly** those two tests and nothing else, while every
+direct-to-8065 run (`t40r-suite6`, `-suite7`, `-suite8`, `-suite11`) passed them. The relay is evidence of
+the writes, not of the socket.
 
 The suite now has **eight** live tests, two of them added for F8:
 
@@ -185,7 +186,7 @@ The suite now has **eight** live tests, two of them added for F8:
 | `testInfoScreenRendersTheServersHeaderPurposeAndMembers` | the title/purpose/header it draws are the server's; the member count equals `GET /channels/{id}/members` |
 | `testAddingAndRemovingAMemberReachesTheServer` | one row tap enables Add and the button counts the selection; the add is in `GET …/members`; the row appears; the removal is gone from `GET …/members` |
 | `testPurposeAndHeaderPersistOnTheServer` | the Save row enables on a change, the tap lands, and `GET /channels/{id}` carries both new fields |
-| `testLeavingAPublicChannelRemovesTheMembershipAndTheRow` | the leave removes my membership on the server and the info sheet closes with it. **It does not assert the sidebar row**, and the name is kept from the earlier form on purpose: after a leave the shell sits on the channel tab with a disabled Back and no sidebar to return to (measured twice, suite4 and suite6), so the row assertion failed on *navigation*, not on the row. The row's removal rests on the two `ChannelSidebarService` unit tests (my own `user_removed` → `.reloadNeeded`) and on the same event path proven in the other direction by the browse test's join. The shell's post-leave navigation is a gap in §6, not a channel-info defect |
+| `testLeavingAPublicChannelRemovesTheMembershipAndTheRow` | the leave removes my membership on the server and the info sheet closes with it. **It does not assert the sidebar row**, and the name is kept from the earlier form on purpose: after a leave the shell sits on the channel tab with a disabled Back and no sidebar to return to (measured twice, suite4 and suite6), so the row assertion failed on *navigation*, not on the row. The row's removal rests on the `ChannelSidebarService` unit test (my own `user_removed` → `.reloadNeeded`) and on the same event path proven in the other direction by the browse test's join. The shell's post-leave navigation is a gap in §6, not a channel-info defect |
 | `testBrowsingAndJoiningAPublicChannelNavigatesIntoIt` | the join is on the server; the pane opens; its title is the **display name**; the sidebar gains the row |
 | `testAnAccountWithoutThePermissionIsOfferedNoAdminAction` | signed in as the plain `t40member`: no administrator row is offered, and the server 403s the same write from that account's own token |
 | `testArchivingAndUnarchivingAChannelReachesTheServer` | archive → `delete_at != 0`, the screen says archived and offers Unarchive → `delete_at == 0`, the banner clears |
