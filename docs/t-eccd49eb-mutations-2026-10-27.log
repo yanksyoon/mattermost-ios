@@ -1,0 +1,95 @@
+# t_eccd49eb mutation evidence
+
+Every converted test in `MattermostTests/SocketClientTests.swift` has a product defect that
+makes it fail, applied to the pristine tree in this worktree: product edit -> class run ->
+`git checkout` of the edited files. `must red` is from the harness's own table
+(`build/mutants/run_mutants.py`); `PASS` means every named target appears in the failures,
+`MISSING` names a target that stayed green (that is a finding about the test, not the mutant).
+
+base: 5a75513e0ca27cec873275d96d1f4707cf5fb5ab
+harness: build/mutants/run_mutants.py (per mutant), build/mutants/run_batches.py (batched)
+
+## verdicts
+
+(D's M13 row is superseded by D2: the assertion the mutation exposed was a snapshot; the
+conversion added an ordering fence, and D2 is the re-check. See docs/t-eccd49eb-freeze-table.md §6.3.)
+
+M1-dedupe-off                    PASS
+M2-typing-keyed                  PASS
+M3-channel-viewed-keyed          PASS
+M4-reaction-keyed                PASS
+M5-sequence-gate-off             PASS
+M7-constant-backoff              PASS
+M10-no-stream-finish             PASS
+M9-pong-not-folded               PASS
+M12-challenge-without-token      PASS
+M14-ws-not-wss                   PASS
+M16-preferences-unmapped         PASS
+M6-no-resync                     PASS
+M8-no-ping                       PASS
+M15-anonymous-bearer             PASS
+M13-always-resync                MISSING ['testReconnectProducesOneBackoffSequenceAndOneResync']
+M11-no-bearer-header             PASS
+M13-always-resync                PASS
+
+## raw harness output
+
+### one mutant at a time (M1-M3) — build/mutants/run_mutants.py
+# source: build/logs/mutations.out
+M1-dedupe-off                PASS                                                         red=['testReplayedEventsAfterReconnectAreNotDeliveredTwice']
+    testReplayedEventsAfterReconnectAreNotDeliveredTwice: XCTAssertEqual failed: ("["p1"]") is not equal to ("["p1", "p2"]") - the replayed p1 is suppressed, p2 is delivered
+M2-typing-keyed              PASS                                                         red=['testOnlyReplayableIdentitiesCarryADedupeKey', 'testTypingIsNeverDeduplicated']
+    testTypingIsNeverDeduplicated: XCTAssertTrue failed - timed out after 30s waiting for both typing events
+    testOnlyReplayableIdentitiesCarryADedupeKey: XCTAssertNil failed: "typing"
+M3-channel-viewed-keyed      PASS                                                         red=['testOnlyReplayableIdentitiesCarryADedupeKey', 'testTwoChannelViewedEventsOnOneConnectionAreBothDelivered']
+    testTwoChannelViewedEventsOnOneConnectionAreBothDelivered: XCTAssertTrue failed - timed out after 30s waiting for both channel_viewed events
+    testOnlyReplayableIdentitiesCarryADedupeKey: XCTAssertNil failed: "channel_viewed"
+mutations rc=143
+
+### batch A — build/mutants/run_batches.py A
+# source: build/logs/mutbatches.out
+batch A M4-reaction-keyed            PASS                                     red=['testALongLivedSessionResetsAnAlreadyClimbedLadder', 'testALongLivedSessionThenADropStartsTheLadderAtBase', 'testAReAddedReactionIsDelivered', 'testOnlyReplayableIdentitiesCarryADedupeKey', 'testReconnectProducesOneBackoffSequenceAndOneResync', 'testRepeatedOpenThenInstantCloseEscalatesTheBackoffLadder', 'testSequenceGateDropsAReplayOnTheSameConnection', 'testStopFinishesSubscriberStreams']
+    testAReAddedReactionIsDelivered: XCTAssertTrue failed - timed out after 30s waiting for all three reaction events
+    testOnlyReplayableIdentitiesCarryADedupeKey: XCTAssertNil failed: "reaction_added"
+batch A M5-sequence-gate-off         PASS                                     red=['testALongLivedSessionResetsAnAlreadyClimbedLadder', 'testALongLivedSessionThenADropStartsTheLadderAtBase', 'testAReAddedReactionIsDelivered', 'testOnlyReplayableIdentitiesCarryADedupeKey', 'testReconnectProducesOneBackoffSequenceAndOneResync', 'testRepeatedOpenThenInstantCloseEscalatesTheBackoffLadder', 'testSequenceGateDropsAReplayOnTheSameConnection', 'testStopFinishesSubscriberStreams']
+    testSequenceGateDropsAReplayOnTheSameConnection: XCTAssertEqual failed: ("2") is not equal to ("1") - seq 4 arrived after seq 5: dropped before delivery
+batch A M7-constant-backoff          PASS                                     red=['testALongLivedSessionResetsAnAlreadyClimbedLadder', 'testALongLivedSessionThenADropStartsTheLadderAtBase', 'testAReAddedReactionIsDelivered', 'testOnlyReplayableIdentitiesCarryADedupeKey', 'testReconnectProducesOneBackoffSequenceAndOneResync', 'testRepeatedOpenThenInstantCloseEscalatesTheBackoffLadder', 'testSequenceGateDropsAReplayOnTheSameConnection', 'testStopFinishesSubscriberStreams']
+    testRepeatedOpenThenInstantCloseEscalatesTheBackoffLadder: XCTAssertEqual failed: ("[1.0, 1.0, 1.0, 1.0]") is not equal to ("[1.0, 2.0, 4.0, 8.0]") - open-then-instant-close must climb the ladder, not reset it
+    testALongLivedSessionThenADropStartsTheLadderAtBase: XCTAssertEqual failed: ("[1.0, 1.0]") is not equal to ("[1.0, 2.0]") - a long-lived session resets the ladder; the next failure doubles from base
+    testALongLivedSessionResetsAnAlreadyClimbedLadder: XCTAssertEqual failed: ("[1.0, 1.0, 1.0]") is not equal to ("[1.0, 1.0, 2.0]") - refused -> 1, long-lived session resets -> 1, refused -> 2
+batch A M10-no-stream-finish         PASS                                     red=['testALongLivedSessionResetsAnAlreadyClimbedLadder', 'testALongLivedSessionThenADropStartsTheLadderAtBase', 'testAReAddedReactionIsDelivered', 'testOnlyReplayableIdentitiesCarryADedupeKey', 'testReconnectProducesOneBackoffSequenceAndOneResync', 'testRepeatedOpenThenInstantCloseEscalatesTheBackoffLadder', 'testSequenceGateDropsAReplayOnTheSameConnection', 'testStopFinishesSubscriberStreams']
+    testStopFinishesSubscriberStreams: XCTAssertTrue failed - timed out after 30s waiting for the subscriber stream to finish
+batches rc=143
+
+### batches B, C, D (+ D2 re-check) — build/mutants/run_batches.py B C D / D2
+# source: build/logs/mutbatches-bcd.out
+batch B M9-pong-not-folded           PASS                                     red=['testOpenSendsAuthenticationChallengeAndDeliversHello', 'testPongClearsTheMissedPongCount', 'testSocketURLIsWSSWithReliableParameters', 'testTypedEventMatrix']
+    testPongClearsTheMissedPongCount: XCTAssertTrue failed - timed out after 30s waiting for the second ping
+batch B M12-challenge-without-token  PASS                                     red=['testOpenSendsAuthenticationChallengeAndDeliversHello', 'testPongClearsTheMissedPongCount', 'testSocketURLIsWSSWithReliableParameters', 'testTypedEventMatrix']
+    testOpenSendsAuthenticationChallengeAndDeliversHello: XCTAssertTrue failed - the token travels in the challenge frame
+batch B M14-ws-not-wss               PASS                                     red=['testOpenSendsAuthenticationChallengeAndDeliversHello', 'testPongClearsTheMissedPongCount', 'testSocketURLIsWSSWithReliableParameters', 'testTypedEventMatrix']
+    testSocketURLIsWSSWithReliableParameters: XCTAssertEqual failed: ("Optional("ws")") is not equal to ("Optional("wss")")
+batch B M16-preferences-unmapped     PASS                                     red=['testOpenSendsAuthenticationChallengeAndDeliversHello', 'testPongClearsTheMissedPongCount', 'testSocketURLIsWSSWithReliableParameters', 'testTypedEventMatrix']
+    testTypedEventMatrix: failed - expected preferences_changed
+batch C M6-no-resync                 PASS                                     red=['testHandshakeHeadersOmitAuthorizationWithoutAToken', 'testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect', 'testPongClearsTheMissedPongCount', 'testReconnectProducesOneBackoffSequenceAndOneResync', 'testReplayedEventsAfterReconnectAreNotDeliveredTwice']
+    testReconnectProducesOneBackoffSequenceAndOneResync: XCTAssertTrue failed - timed out after 30s waiting for the resync
+    testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect: XCTAssertTrue failed - timed out after 30s waiting for the ping
+batch C M8-no-ping                   PASS                                     red=['testHandshakeHeadersOmitAuthorizationWithoutAToken', 'testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect', 'testPongClearsTheMissedPongCount', 'testReconnectProducesOneBackoffSequenceAndOneResync', 'testReplayedEventsAfterReconnectAreNotDeliveredTwice']
+    testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect: XCTAssertTrue failed - timed out after 30s waiting for the ping
+    testPongClearsTheMissedPongCount: XCTAssertTrue failed - timed out after 30s waiting for the first ping
+batch C M15-anonymous-bearer         PASS                                     red=['testHandshakeHeadersOmitAuthorizationWithoutAToken', 'testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect', 'testPongClearsTheMissedPongCount', 'testReconnectProducesOneBackoffSequenceAndOneResync', 'testReplayedEventsAfterReconnectAreNotDeliveredTwice']
+    testHandshakeHeadersOmitAuthorizationWithoutAToken: XCTAssertNil failed: "Bearer "
+batch D M13-always-resync            MISSING ['testReconnectProducesOneBackoffSequenceAndOneResync'] red=['testFirstConnectDoesNotResync', 'testHandshakeHeadersCarryTheBearerTokenWhenOneIsConfigured', 'testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect', 'testReplayedEventsAfterReconnectAreNotDeliveredTwice']
+    testFirstConnectDoesNotResync: XCTAssertEqual failed: ("1") is not equal to ("0") - the first connect is not a resync
+batch D M11-no-bearer-header         PASS                                     red=['testFirstConnectDoesNotResync', 'testHandshakeHeadersCarryTheBearerTokenWhenOneIsConfigured', 'testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect', 'testReplayedEventsAfterReconnectAreNotDeliveredTwice']
+    testHandshakeHeadersCarryTheBearerTokenWhenOneIsConfigured: XCTAssertEqual failed: ("nil") is not equal to ("Optional("Bearer tok-header-1")")
+
+wrote /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/t-eccd49eb-mutations-batched.json
+batches rc=1
+batch D2 M13-always-resync            PASS                                     red=['testFirstConnectDoesNotResync', 'testHeartbeatTimeoutRecyclesTheConnectionAndResyncsOnceAfterTheReconnect', 'testReconnectProducesOneBackoffSequenceAndOneResync', 'testReplayedEventsAfterReconnectAreNotDeliveredTwice']
+    testFirstConnectDoesNotResync: XCTAssertEqual failed: ("1") is not equal to ("0") - the first connect is not a resync
+    testReconnectProducesOneBackoffSequenceAndOneResync: XCTAssertEqual failed: ("[Mattermost.SocketClient.ResyncReason.reconnected, Mattermost.SocketClient.ResyncReason.reconnected]") is not equal to ("[Mattermost.SocketClient.ResyncReason.reconnected]")
+
+wrote /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_eccd49eb/build/logs/t-eccd49eb-mutations-batched.json
+d2 rc=0
+

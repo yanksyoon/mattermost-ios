@@ -106,10 +106,111 @@ final class InMemorySecretStore: SecretPersisting {
     }
 }
 
+/// A signal a fake records and a test awaits — the replacement for polling a value the test drove
+/// itself (kanban t_eccd49eb).
+///
+/// Two properties matter:
+///  * **it remembers** every value, so a test may await an event that already fired. A test that
+///    installs an `XCTestExpectation` after the fact can miss one that landed just before; a poll
+///    cannot. Recording the value removes that ordering trap from every call site.
+///  * **the timeout is a hang detector, not a latency budget**: `wait(until:)` returns as soon as a
+///    matching value exists or arrives, so a busy or frozen host cannot make it miss. A broken
+///    pipeline reds after 30 s (the default) instead of hanging the suite; 30 s is ~1000x the
+///    measured latency of these fakes, which is milliseconds.
+final class TestSignal<Value: Sendable>: @unchecked Sendable {
+
+    private final class Waiter: @unchecked Sendable {
+        let predicate: @Sendable (Value) -> Bool
+        var resume: ((Bool) -> Void)?
+        var outcome: Bool?
+        init(_ predicate: @escaping @Sendable (Value) -> Bool) { self.predicate = predicate }
+    }
+
+    private let lock = NSLock()
+    private var values: [Value] = []
+    private var waiters: [Waiter] = []
+
+    /// Record one value and wake every waiter whose predicate matches it.
+    func send(_ value: Value) {
+        lock.lock()
+        values.append(value)
+        var hits: [Waiter] = []
+        waiters.removeAll { waiter in
+            guard waiter.predicate(value) else { return false }
+            hits.append(waiter)
+            return true
+        }
+        lock.unlock()
+        for hit in hits { deliver(hit, true) }
+    }
+
+    /// Every value recorded so far, in order (for assertions that want the history).
+    var recorded: [Value] {
+        lock.lock()
+        defer { lock.unlock() }
+        return values
+    }
+
+    /// Await the first value that matches `predicate`, including one recorded before this call.
+    /// Returns false only when the hang detector fired (nothing matched within `timeout`).
+    func wait(until predicate: @escaping @Sendable (Value) -> Bool,
+              timeout: TimeInterval = 30) async -> Bool {
+        lock.lock()
+        if values.contains(where: predicate) {
+            lock.unlock()
+            return true
+        }
+        let waiter = Waiter(predicate)
+        waiters.append(waiter)
+        lock.unlock()
+
+        let timer = Task.detached { [weak self] in
+            guard timeout.isFinite, timeout > 0 else { return }
+            try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+            guard let self, self.take(waiter) else { return }   // lost the race: a value arrived
+            self.deliver(waiter, false)
+        }
+        defer { timer.cancel() }
+
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            lock.lock()
+            let early = waiter.outcome
+            waiter.resume = { continuation.resume(returning: $0) }
+            lock.unlock()
+            if let early { continuation.resume(returning: early) }
+        }
+    }
+
+    // MARK: - Internals (exactly one resume per waiter: `send` and the timer race under the lock)
+
+    private func take(_ waiter: Waiter) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let index = waiters.firstIndex(where: { $0 === waiter }) else { return false }
+        waiters.remove(at: index)
+        return true
+    }
+
+    private func deliver(_ waiter: Waiter, _ outcome: Bool) {
+        lock.lock()
+        let resume = waiter.resume
+        if resume == nil { waiter.outcome = outcome }
+        lock.unlock()
+        resume?(outcome)
+    }
+}
+
 /// A scripted WebSocket transport. The test decides what the server says and when the socket
 /// dies; `sent` records every frame the client wrote (so the authentication challenge and pings
 /// are assertable without a server).
 final class ScriptedSocketTransport: SocketTransport, @unchecked Sendable {
+
+    /// Every frame the client writes, and the running count — ("the second ping" is then a signal,
+    /// not a poll of `sent.count`).
+    let sentSignal = TestSignal<String>()
+    let sentCountSignal = TestSignal<Int>()
+    /// Every close the client asked for, with the running count.
+    let closeSignal = TestSignal<Int>()
 
     let events: AsyncStream<SocketTransportEvent>
     private let continuation: AsyncStream<SocketTransportEvent>.Continuation
@@ -181,6 +282,7 @@ final class ScriptedSocketTransport: SocketTransport, @unchecked Sendable {
     func send(text: String) async throws {
         lock.lock()
         frames.append(text)
+        let count = frames.count
         var reply: String?
         if answersPingsWithPong, text.contains("\"action\":\"ping\"") {
             pongs += 1
@@ -188,6 +290,8 @@ final class ScriptedSocketTransport: SocketTransport, @unchecked Sendable {
             pongSeq += 1
         }
         lock.unlock()
+        sentSignal.send(text)
+        sentCountSignal.send(count)
         // Answered outside the lock (`push` takes it again): the pong travels back through the same
         // event stream a real socket's would.
         if let reply { push(.text(reply)) }
@@ -203,7 +307,9 @@ final class ScriptedSocketTransport: SocketTransport, @unchecked Sendable {
     func close() {
         lock.lock()
         closes += 1
+        let count = closes
         lock.unlock()
+        closeSignal.send(count)
         push(.closed(code: 1000, reason: nil))
         finish()
     }
@@ -230,13 +336,16 @@ final class ScriptedTransportFactory: @unchecked Sendable {
     private var urls: [URL] = []
     private var headers: [[String: String]] = []
 
+    /// Fires with the running count of transports handed out, so "the second connection" is a
+    /// signal rather than a poll of `created.count`.
+    let createdSignal = TestSignal<Int>()
+
     init(_ transports: [ScriptedSocketTransport]) {
         self.remaining = transports
     }
 
     func make(_ url: URL, _ headers: [String: String]) -> SocketTransport {
         lock.lock()
-        defer { lock.unlock() }
         urls.append(url)
         self.headers.append(headers)
         let transport: ScriptedSocketTransport
@@ -247,6 +356,9 @@ final class ScriptedTransportFactory: @unchecked Sendable {
             transport = remaining.removeFirst()
         }
         created.append(transport)
+        let count = created.count
+        lock.unlock()
+        createdSignal.send(count)
         return transport
     }
 
@@ -270,6 +382,16 @@ final class TestSocketClock: SocketClock, @unchecked Sendable {
     private var delays: [TimeInterval] = []
     private var waiters: [CheckedContinuation<Void, Never>] = []
     private let autoRelease: Bool
+    private var releaseTargets = 0
+
+    /// Every sleep the client asked for, with the running count, plus the delay itself. A test can
+    /// therefore await "a 0.5 s backoff was requested" or "the next sleep is parked" without
+    /// polling `requestedDelays`.
+    let sleepSignal = TestSignal<Int>()
+    let delaySignal = TestSignal<TimeInterval>()
+    /// Fires with the running count of *parked* sleeps (only when `autoRelease` is false).
+    let parkedSignal = TestSignal<Int>()
+    private var parkedCount = 0
 
     init(autoRelease: Bool) {
         self.autoRelease = autoRelease
@@ -284,14 +406,20 @@ final class TestSocketClock: SocketClock, @unchecked Sendable {
     func sleep(for seconds: TimeInterval) async {
         lock.lock()
         delays.append(seconds)
+        let delayCount = delays.count
         let shouldWait = !autoRelease
         lock.unlock()
+        sleepSignal.send(delayCount)
+        delaySignal.send(seconds)
         guard shouldWait else { return }
         await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 lock.lock()
                 waiters.append(continuation)
+                parkedCount += 1
+                let count = parkedCount
                 lock.unlock()
+                parkedSignal.send(count)
             }
         } onCancel: {
             self.release()
@@ -304,6 +432,23 @@ final class TestSocketClock: SocketClock, @unchecked Sendable {
         let waiter = waiters.isEmpty ? nil : waiters.removeFirst()
         lock.unlock()
         waiter?.resume()
+    }
+
+    /// Release exactly one parked sleep, waiting until one is parked.
+    ///
+    /// This is the signal form of "release one tick": `release()` on its own is a no-op when the
+    /// client has not reached its sleep yet, and a test that then waits for the effect burns its
+    /// budget (measured as a 4.5 s-freeze red in `testHeartbeatTimeout…`, t_eccd49eb). Waiting for
+    /// the park first removes the race; the 30 s is a hang detector.
+    func releaseWhenParked(timeout: TimeInterval = 30) async -> Bool {
+        lock.lock()
+        releaseTargets += 1
+        let target = releaseTargets
+        lock.unlock()
+        let parked = await parkedSignal.wait(until: { $0 >= target }, timeout: timeout)
+        guard parked else { return false }
+        release()
+        return true
     }
 }
 
@@ -343,6 +488,12 @@ final class EventBox: @unchecked Sendable {
     private var storage: [SocketEvent] = []
     private var finished = false
 
+    /// Fires with the running count each time the consumer appends an event; "all 12 arrived" is
+    /// then a signal rather than a poll of `count`.
+    let appendedSignal = TestSignal<Int>()
+    /// Fires once when the stream ends.
+    let finishedSignal = TestSignal<Bool>()
+
     var events: [SocketEvent] {
         lock.lock()
         defer { lock.unlock() }
@@ -358,14 +509,17 @@ final class EventBox: @unchecked Sendable {
 
     func append(_ event: SocketEvent) {
         lock.lock()
-        defer { lock.unlock() }
         storage.append(event)
+        let count = storage.count
+        lock.unlock()
+        appendedSignal.send(count)
     }
 
     func markFinished() {
         lock.lock()
-        defer { lock.unlock() }
         finished = true
+        lock.unlock()
+        finishedSignal.send(true)
     }
 
     /// Starts a task that drains `stream` into this box. Cancel the returned task to stop.
@@ -411,6 +565,18 @@ extension XCTestCase {
             try? await Task.sleep(nanoseconds: 5_000_000)
         }
         XCTFail("timed out waiting for \(description)", file: file, line: line)
+    }
+
+    /// Await a value a fake recorded, with the 30 s hang detector. No clock, no latency budget:
+    /// `TestSignal` returns as soon as the value exists, so a busy host cannot make this miss.
+    func awaitSignal<Value>(_ what: String,
+                            signal: TestSignal<Value>,
+                            timeout: TimeInterval = 30,
+                            file: StaticString = #filePath, line: UInt = #line,
+                            until predicate: @escaping @Sendable (Value) -> Bool = { _ in true }) async {
+        let matched = await signal.wait(until: predicate, timeout: timeout)
+        XCTAssertTrue(matched, "timed out after \(Int(timeout))s waiting for \(what)",
+                      file: file, line: line)
     }
 
     /// Filters JSON-decoded objects for a query item by name.
