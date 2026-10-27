@@ -182,6 +182,24 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
 
     // MARK: - Session restore (launch / foreground)
 
+    /// Adopt a session that exists **only** in the webview's cookie store.
+    ///
+    /// SSO runs in the web view and the server answers with an `HttpOnly` `MMAUTHTOKEN`. The native
+    /// transport reads the vault, not WebKit's cookie jar, so without this the app boots "signed out"
+    /// for a user who is plainly signed in and every native surface runs unauthenticated (measured:
+    /// the channel list sat on "Loading channels..." with `token=false`).
+    private func adoptExistingWebSessionIfPresent(_ server: ServerConfig) async -> Bool {
+        do {
+            _ = try await adoptWebSession(server,
+                                          using: WebKitSessionCookieReader(serverID: server.id))
+            MMLog.info("MMAuth", "adopted the webview session for \(server.name)")
+            return true
+        } catch {
+            MMLog.info("MMAuth", "no webview session to adopt for \(server.name): \(error)")
+            return false
+        }
+    }
+
     /// Restore one server's stored session.
     ///
     /// - Returns: the restored session, or `nil` when the server rejected the stored token or there
@@ -199,6 +217,8 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
             let restored = try await session.restore()
             if let restored {
                 setPhase(.signedIn(username: restored.username, userID: restored.userID), for: server.id)
+            } else if await adoptExistingWebSessionIfPresent(server) {
+                // Signed in through the webview (the shipped path): the vault learns about it here.
             } else if session.needsReauth {
                 // No stored token, or the server rejected it (AuthSession has already cleared the
                 // vault copy and flagged re-auth). The expiry transition clears the webview's copy
