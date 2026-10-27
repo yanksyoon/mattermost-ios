@@ -58,6 +58,21 @@ guard job itself — there is no second copy of the glob in the workflow. When t
 changed-file list cannot be determined at all (dispatch, force-push, first push) the
 answer is "test everything"; unknown is never "nothing to do".
 
+### Reproducing the two-push demonstration
+
+```bash
+printf '\n' >> docs/releasing.md && git add docs/releasing.md
+git commit -qm "docs: demo A" && git push -q origin main
+printf '\n' >> docs/releasing.md && git add docs/releasing.md
+git commit -qm "docs: demo B" && git push -q origin main
+```
+
+Run A's guard asks the remote for the tip of `main` (`git ls-remote`), sees run B's
+commit, and ends in seconds with `is_tip=false`: every macOS job is `skipped` and the
+run is **green**, not cancelled. Run B is the tip with `docs_only=true`, so its guard
+answers `run_tests=false` and only the release and package jobs do work — the release is
+still cut and the app is still attached to it.
+
 ### Stage 1 — test (macos-26, matrix: `ios-simulator` + `catalyst`)
 
 The runner image ships **Xcode 26.6 (17F113)**, the same build the app is developed
