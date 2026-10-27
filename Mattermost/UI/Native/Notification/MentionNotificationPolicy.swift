@@ -74,6 +74,22 @@ enum MentionDropReason: String, Equatable, Sendable {
     case alreadyDelivered
     case noChannelContext
 
+    /// T43-R (F1): whether this drop means **"the input that owns this post handled it"** — so the T14
+    /// poll must not deliver it later — or "this input could not decide", in which case the post stays
+    /// pollable.
+    ///
+    /// Only the reader's own configuration makes a drop definitive. `notAMention` is not a delivery
+    /// decision (the server's own `mention_count` will not move for it, and the poller asks the server),
+    /// and `noChannelContext` is a failed lookup that the next poll may well succeed at.
+    var recordsAsHandled: Bool {
+        switch self {
+        case .notificationsDisabled, .channelNotificationsOff, .mentionsIgnored:
+            return true
+        case .deleted, .ownPost, .systemPost, .notAMention, .alreadyDelivered, .noChannelContext:
+            return false
+        }
+    }
+
     /// The sentence the Settings read-out shows (the strings are user-facing there, so they are not the
     /// enum's raw values).
     var label: String {

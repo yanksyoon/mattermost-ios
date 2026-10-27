@@ -363,10 +363,22 @@ final class TeamSidebarCoordinator: ObservableObject {
         let source = events
         pumps[server.id] = Task { [weak self] in
             guard let stream = await source.events(for: server, token: token) else { return }
-            // T43: the pump exists from here on, so this server's socket is the live mention input.
-            self?.onSocketStateChange?(server.id, true)
+            // T43-R (F3): liveness is **the server's answer**, not the stream object's existence.
+            //
+            // `SocketClient.start()` is fire-and-forget: it spawns the connect loop and returns, so a
+            // stream is created before the WebSocket handshake has happened. Reporting liveness here
+            // (T43 did) let a caller post a mention into the connect window and lose it — measured: the
+            // AC1 live test failed once in four executions, reading `none` after 40 s, because the
+            // read-out said "live socket" while the connection was still being opened. The protocol's
+            // first server event on a connection is `hello`, so the first event that arrives on this
+            // stream is the earliest moment the socket is provably connected.
+            var reportedLive = false
             for await event in stream {
                 guard let self else { return }
+                if !reportedLive {
+                    reportedLive = true
+                    self.onSocketStateChange?(server.id, true)
+                }
                 await self.handle(event, serverID: server.id)
             }
             self?.pumpFinished(serverID: server.id, token: tokenID)

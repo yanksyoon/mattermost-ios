@@ -473,8 +473,9 @@ final class MentionPoller {
     /// the push-proxy-parity `userInfo`.
     ///
     /// T43: both call sites now go through `MentionNotificationFormatting`, so "the poller and the socket
-    /// produce the same banner" is structural rather than a promise (`T43NotificationFormattingTests`
-    /// pins the equality).
+    /// produce the same banner" is structural rather than a promise — the equality is pinned by
+    /// `MattermostTests/T43NativeNotificationFeedTests.testTheBannerTextMatchesTheWebappsContract`
+    /// (T43-R F4: this comment used to name a `T43NotificationFormattingTests` that does not exist).
     nonisolated static func makeMention(post: MentionPost,
                                         channel: MentionChannelInfo?,
                                         user: MentionUserInfo?,

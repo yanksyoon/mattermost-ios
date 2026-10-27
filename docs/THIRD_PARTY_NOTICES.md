@@ -781,3 +781,34 @@ measured end-to-end by `scripts/t42_activity_probe.py` against the pinned 9.11.1
 Not ported by this card: the in-app notification toast / snackbar (`app/screens/in_app_notification/`,
 `app/screens/snack_bar/`), the mentions *filter chips* of the mobile search screen, and push
 notification delivery (T14's worker).
+
+## 20. T43 native mention input (and T43-R) — upstream read set (Apache-2.0, mobile @ `162f2560…`; server contract read, never copied)
+
+`Mattermost/UI/Native/Notification/` (`NotificationInputRouting.swift`, `NotificationPathStore.swift`,
+`MentionNotificationPolicy.swift`, `MentionLedger.swift`, `NativeNotificationFeed.swift`,
+`NotificationInputSection.swift`) reimplements **which input turns a post into a banner**, and the
+decision rule behind it. No upstream file is copied or transpiled. The mobile pin is TypeScript (read for
+rules only); the server's Go notification contract was read as documented behaviour and is **never**
+ported (AGPL-3.0/commercial — see §4). Every file carries the upstream path it derives from in its own
+header, so this section is the repo-level entry those headers point at.
+
+| Upstream path | Used for |
+|---|---|
+| `app/actions/websocket/posts.ts` (mobile @ `162f2560…`) | a `posted` event is what a running client reacts to; the shell's own socket input follows the same trigger |
+| `app/notifications/index.ts` (mobile @ `162f2560…`) | the client decides locally whether a post is a notification, from the post, the channel and the reader's own notify props |
+| `app/utils/notification/index.ts` (mobile @ `162f2560…`) | the channel/account notification-level vocabulary the policy's drop reasons mirror |
+| `src/main/notifications/index.ts` (desktop, behaviour reference) | **one** notification manager: every renderer `NOTIFY_MENTION` funnels into it, and there is no second path — the reason this client has one input per server rather than two |
+| `app/notification.go` (`sendNotification`), Mattermost **server** — behaviour read only | the server's notification contract the policy reimplements: account `notify_props.desktop`, the channel member's `desktop` / `ignore_channel_mentions` / `mark_unread`, and `isUserMentioned` |
+
+No icon font, emoji sprite or extra dependency is added by this card: **SF Symbols** replace every
+`compass-icons` glyph, and the banner is a plain `UNNotificationRequest`. The only shipped third-party code
+in the app is GRDB.swift (MIT, §6) — see the repository's `NOTICE` for the bundle-level statement.
+
+Measured, not assumed (the probe is the authority): a `posted` frame carries **`props: {}`**, so the
+reader's own mention keys are the shipping path; a mention in a **muted** channel still moves the server's
+`mention_count`, so muting is not consulted for a real mention (`scripts/t43_notification_probe.py`,
+`docs/t43-notification-probe-2026-10-27.log`).
+
+T43-R (the repair card) changed no files' provenance: the ledger ordering, the liveness signal and the
+Settings read-out row are this repo's own code, and `docs/t43-build-note.md` §3b records what each
+measurement was.

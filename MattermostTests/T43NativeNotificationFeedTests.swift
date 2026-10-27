@@ -215,6 +215,11 @@ final class T43NativeNotificationFeedTests: XCTestCase {
         await settle()
         XCTAssertEqual(mock.added.count, 0, "the page is the input while it draws the pane")
         XCTAssertEqual(feed.deliveredCount, 0)
+        // T43-R (F1): gated out means handled by nobody **here**, so the ring must stay untouched —
+        // the page (or, if the page never reports, the next T14 poll) owns this post.
+        XCTAssertFalse(ledger.hasHandled("post1", for: server.id),
+                       "a silenced socket must not mark the post handled — that is what swallowed mentions "
+                       + "in bridge mode")
 
         let frame = MentionNotification(title: "T43 notify", body: "@t43buddy said hi",
                                         channelID: "ch1", teamID: "team1",
@@ -233,15 +238,22 @@ final class T43NativeNotificationFeedTests: XCTestCase {
         XCTAssertEqual(feed.deliveredCount, 1)
     }
 
-    func testTheSocketInputIsSilentInBridgeMode() async {
+    func testInBridgeModeTheSocketDeliversNothingAndLeavesThePostPollable() async {
         routing.setMode(.bridge)
         await feed.handle(.posted(post()), server: server)
         await settle()
 
         XCTAssertEqual(mock.added.count, 0, "Path A still owns the banners in the shipped default")
         XCTAssertEqual(feed.deliveredCount, 0)
-        XCTAssertTrue(ledger.hasHandled("post1", for: server.id),
-                      "the ledger is still fed: the poller's watermark must not fall behind a live socket")
+        // T43-R (F1): the old assertion here was the bug. The socket marked the post handled without
+        // delivering it, and `MentionPoller.isNew` then refused it for ever — measured on
+        // `rfu9jjxubtrdxm5kb4sipmfjkw`: no banner, and `notifiedPostIDs` gained the id anyway.
+        XCTAssertFalse(ledger.hasHandled("post1", for: server.id),
+                       "the socket delivered nothing, so it must not write the shared ring")
+        let pollPost = MentionPost(id: "post1", createAt: 1_700_000_000_000, userId: "buddy",
+                                   channelId: "ch1", message: "T43 please look @perfprobe")
+        XCTAssertTrue(MentionPoller.isNew(pollPost, relativeTo: ledger.state(for: server.id)),
+                      "and the T14 poll must still be able to deliver it: delivered or still pollable")
     }
 
     func testALiveSocketMakesTheBridgeRefuseAndAFinishedPumpHandsItBack() {
@@ -339,6 +351,32 @@ final class T43NativeNotificationFeedTests: XCTestCase {
 
         XCTAssertEqual(mock.added.count, 0, "no channel context, no guess")
         XCTAssertEqual(feed.lastRecord?.outcome, "the channel could not be resolved")
+    }
+
+    /// T43-R (F1): a failed lookup is not a decision. The post must stay pollable, or a network hiccup
+    /// would silently swallow a mention.
+    func testAFailedLookupLeavesThePostPollable() async {
+        service.failChannel = true
+        await feed.handle(.posted(post()), server: server)
+        await settle()
+
+        XCTAssertFalse(ledger.hasHandled("post1", for: server.id),
+                       "the channel could not be read — the T14 poll may well succeed at it")
+    }
+
+    /// The other half of the same rule: a drop the **reader's own configuration** decided is a handled
+    /// post, so the poll must not override it with a banner the reader turned off.
+    func testAConfiguredDropIsRecordedAsHandled() async {
+        service.membership = membership(desktop: "none")
+        await feed.handle(.posted(post()), server: server)
+        await settle()
+
+        XCTAssertEqual(mock.added.count, 0)
+        XCTAssertTrue(ledger.hasHandled("post1", for: server.id),
+                      "notifications are off for this channel: the poller must not deliver it later")
+        XCTAssertTrue(MentionDropReason.channelNotificationsOff.recordsAsHandled)
+        XCTAssertFalse(MentionDropReason.notAMention.recordsAsHandled)
+        XCTAssertFalse(MentionDropReason.noChannelContext.recordsAsHandled)
     }
 
     // MARK: - One high-water mark with the T14 poller

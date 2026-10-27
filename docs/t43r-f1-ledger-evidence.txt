@@ -1,0 +1,51 @@
+T43-R (F1) — the shared mention ledger, measured end to end on 2026-10-27
+=======================================================================
+
+Audit target this repairs: T43-AV's measurement on origin/main 8ad4141a, post
+`rfu9jjxubtrdxm5kb4sipmfjkw`: in `.bridge` mode the app showed no banner, no read-out record, **and**
+the persisted `mm.mentions.state.34D540A3-…` gained that post id and its create_at — so the T14 poll
+would refuse it for ever.
+
+The repair: `NativeNotificationFeed.handle` checks the input gate **before every ledger write**, and the
+ring is written only by a delivery attempt (`.deliver`) or a drop the reader's own configuration decided
+(`MentionDropReason.recordsAsHandled`).
+
+A/B measurement of the same seam, same device, same server (both runs green):
+
+A. `.bridge` mode (the shipped default) — `python3 scripts/qa-test.py … --only-testing
+   MattermostUITests/T43NotificationUITests/testTheDefaultStillUsesTheWebViewInput --label t43r-f1neg`
+   → `1 run, 0 skipped, 0 failed`, RESULT: PASS (`build/logs/t43r-f1-neg.log`).
+
+   The mention the buddy posted during that run, read back from the server (`GET
+   /channels/{id}/posts`, the fixture channel `t43-notify`):
+
+     9duyey8ugigwbghhbzwi7citch  2026-10-27T02:48:00.746  "T43 UI 1793087280741 default: @perfprobe you were named"
+
+   The app's persisted ledger after that run (`Library/Preferences/com.mattermost.ios.plist` in the app's
+   data container):
+
+     RESULT: no mm.mentions.state.* key — the ledger was never written in this run
+
+   i.e. the post is **not** in `notifiedPostIDs` and the watermark never moved: it stays pollable, which is
+   the card's constraint ("delivered or still pollable"). Under the T43 implementation this key was written
+   by the socket for *every* post, mode-independent — which is the F1 bug.
+
+B. `.socket` mode (the native input, delivered) — `… --only-testing
+   MattermostUITests/T43NotificationUITests/testASocketMentionReachesTheShellOnce --label t43r-f1pos`
+   → `1 run, 0 skipped, 0 failed`, RESULT: PASS (`build/logs/t43r-f1-pos.log`).
+
+   The mention delivered in that run:
+
+     igwxzyrguidotcktpj4417whbe  2026-10-27T02:49:53.076  "T43 UI 1793087393071 live: @perfprobe you were named"
+
+   The ledger after that run:
+
+     RESULT: mm.mentions.state.7414D056-A119-4539-B068-447D1E670B11 ->
+       {"channelMentionCounts": {}, "notifiedPostIDs": ["igwxzyrguidotcktpj4417whbe"],
+        "watermarkPostID": "igwxzyrguidotcktpj4417whbe", "watermarkTs": 1793087393076}
+
+   The delivered post is recorded, exactly once, by the delivery that happened.
+
+The plist was read with `xcrun simctl get_app_container 81A7F251-8B31-4945-8783-5A264C14B8D5
+com.mattermost.ios data` + `plistlib` (the ledger is a JSON `Data` blob under
+`mm.mentions.state.<serverUUID>`); the posts were read back over the REST API as the fixture account.

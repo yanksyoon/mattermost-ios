@@ -22,9 +22,9 @@
 //     `userInfo` contract T13's Notification Service Extension and the tap router read is unchanged;
 //   * it does not compute a badge number — `SessionStore.serverBadgeInput`/`applyServerCounters` is the
 //     only arithmetic (T42's rule, and T14's poller goes through the same call);
-//   * it does not fire while its input is not the live one. In `.bridge` mode (the default until
-//     `T43-AV`) it keeps the ledger and the counters honest and delivers nothing, so the web path owns
-//     the banners exactly as it does today.
+//   * it does not fire while its input is not the live one. In `.bridge` mode (the default until an
+//     `-AV` approves the flip) it delivers nothing **and writes nothing**: the page is the input, so a
+//     post the socket sees must stay pollable rather than be marked handled here (T43-R F1).
 
 import Foundation
 import Combine
@@ -119,18 +119,28 @@ final class NativeNotificationFeed: ObservableObject {
         guard case .posted(let post) = event else { return }
         guard !post.channelId.isEmpty, !post.id.isEmpty else { return }
 
-        // The ledger is fed whatever the mode is: the socket is a truthful "this post exists" signal, and
-        // the poller's watermark should never fall behind it. Recording a post is *not* delivering it.
+        // **T43-R (F1): the gate comes before every ledger write.**
         //
+        // The ring in `MentionLedger` is not "posts this process looked at" — `MentionPoller.isNew`
+        // refuses anything in it, so an entry means "this mention has been handled; do not deliver it
+        // again". Only the input that *owns* the mention may put it there. Writing it first (the T43
+        // implementation did) meant the socket marked a mention handled in the shipped `.bridge` mode —
+        // where the page is the input and the socket delivers nothing — and T14's poll then refused it
+        // for ever: measured on post `rfu9jjxubtrdxm5kb4sipmfjkw`, no banner anywhere, yet
+        // `notifiedPostIDs` gained that id and `watermarkTs` its `create_at`. The same hole applied to a
+        // dual-render pane, where the gate also answers "not me".
+        //
+        // The rule now: a post this input is not allowed to deliver stays **pollable**.
+        guard routing.gate.acceptsSocket(serverID: server.id) else {
+            // Seen, but not this input's to handle: counted for the read-out, recorded nowhere.
+            routing.noteSocketPost(isMention: false)
+            return
+        }
+
         // **Read before write:** `alreadyHandled` is captured first, so a replayed frame — or a post the
         // T14 poller already notified — is refused as a duplicate instead of being mistaken for new
         // (recording first and checking after made every first mention look like a replay).
         let alreadyHandled = ledger.hasHandled(post.id, for: server.id)
-        if post.deleteAt == 0 {
-            ledger.observe(postID: post.id, createAt: post.createAt, for: server.id)
-        }
-
-        guard routing.gate.acceptsSocket(serverID: server.id) else { return }
 
         if alreadyHandled {
             // The ring is shared with the poller: a mention the background poll already delivered must not
@@ -194,6 +204,13 @@ final class NativeNotificationFeed: ObservableObject {
                               outcome: reason.label, delivered: false, at: now()),
                        delivered: false, reason: reason.label)
             }
+            // T43-R (F1): the ring is written by the input that **decided**, and only for a decision the
+            // reader's own configuration made (notifications off, mentions ignored). "Not a mention" and
+            // "the channel could not be resolved" are not decisions about delivery — they stay pollable,
+            // so the T14 poll can still deliver a mention this path could not classify.
+            if reason.recordsAsHandled {
+                ledger.observe(postID: post.id, createAt: post.createAt, for: server.id)
+            }
             routing.noteSocketPost(isMention: false)
 
         case .deliver(let silent):
@@ -210,6 +227,10 @@ final class NativeNotificationFeed: ObservableObject {
             let outcome = await deliver(mention, serverID: server.id)
             // Record the attempt whatever the outcome, the poller's rule: a denied permission must not be
             // retried on every message, and the ring is "already handled", not "already shown".
+            //
+            // T43-R (F1): this is the **only** place the socket input writes the ring, and it is written
+            // by the delivery that actually happened — which is what makes the ledger honest for the
+            // poller that reads it.
             ledger.observe(postID: post.id, createAt: post.createAt, for: server.id)
             switch outcome {
             case .scheduled:

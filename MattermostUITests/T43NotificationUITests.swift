@@ -1,6 +1,6 @@
 // T43 — the native mention input against a **real** Mattermost server.
 //
-// What these two tests are for, and what they are not: the notification banner itself is a system surface
+// What these tests are for, and what they are not: the notification banner itself is a system surface
 // XCUITest cannot see, so the shell publishes the same facts the banner was built from — which input is
 // live, how many socket mentions were delivered or suppressed, and the last mention's post id, channel and
 // outcome — in Settings → Mention notifications. That read-out is fed by the same code path that schedules
@@ -12,6 +12,12 @@
 //      and the read-out shows exactly one delivery for that post.
 //   2. the shipped default (no flag): the input is the web bridge, and the socket path stays silent — the
 //      flip is the `-AV` claim, and this test is what keeps the default honest until then.
+//   3. dual-render (web app mounted + socket live): T43-R (F2) rewrote this to assert the configuration's
+//      **premises** — the page cannot report (`notificationPath.pageBridge` = "not installed"), so the
+//      socket being gated out *before* the policy and the page never being refused are what "one source"
+//      means here. The rule itself is unit-tested at the real `handleNotifyMention` call site.
+//   4. the same mount with `-desktopBridge`: the page *can* report, and the read-out says so — otherwise
+//      the "accepted=0" in (3) could be a constant rather than a measured fact.
 //
 // Fixture: `python3 scripts/t43_notification_seed.py` (accounts perfprobe/t43buddy, channels t43-notify and
 // t43-muted). Environment as for the other live suites: TEST_RUNNER_MM_AUTH_SERVER / _LOGIN / _PASSWORD.
@@ -125,11 +131,21 @@ final class T43NotificationUITests: XCTestCase {
 
     /// The card's second acceptance criterion, measured in the configuration this host can actually
     /// mount with both inputs present: the pane host stays on the web app (`app.webViews` non-empty)
-    /// while the native socket is live. One source only — the page, because it is the only side that
-    /// knows which channel is on screen — so the socket delivers nothing and the page is never refused.
-    /// (The first implementation got this wrong: the socket kept the mention and the foreground rule
-    /// suppressed it, `delivered=0 suppressed=1`, i.e. **no** banner with a webview mounted. This test
-    /// is what caught it.)
+    /// while the native socket is live.
+    ///
+    /// **T43-R (F2) — what this test can and cannot show.** `window.desktop.notifyMention` is installed
+    /// only with `-desktopBridge`, which this configuration does not pass (and must not: advertising it
+    /// sends the web app down its Electron path, where the channel view never loads — README "What is
+    /// not there yet"). So the page **cannot report** here, `accepted` is 0 for that structural reason,
+    /// and a passing `accepted <= 1` would have been vacuous — the T43 version asserted exactly that and
+    /// proved nothing. This version asserts the premises instead: the page has no shim, the socket was
+    /// gated out *before* the policy (0 delivered **and** 0 suppressed), the page was never refused, and
+    /// therefore zero banners is what this configuration can produce by construction.
+    ///
+    /// The one-source rule itself is proven where a page report exists: the unit tests drive the real
+    /// `WebViewContainer.Coordinator.handleNotifyMention` (`testAMountedWebPaneSilencesTheSocketAndLetsThePageDeliver`,
+    /// `testTheWebViewPathIsRefusedWhileTheSocketIsLive`), and `testThePageBridgeIsInstalledOnlyWhenAsked`
+    /// measures the shim's presence the live run depends on.
     func testDualRenderKeepsOneSourceAndNeverRefusesThePage() throws {
         let app = launchWebviewApp()
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 60),
@@ -142,25 +158,50 @@ final class T43NotificationUITests: XCTestCase {
                       "the rail's socket must be live in this configuration:\n\(app.debugDescription)")
         XCTAssertTrue(waitForValue(app, "notificationPath.webPanes", equals: "1", timeout: 20),
                       "and the shell must know the pane is the web app:\n\(app.debugDescription)")
+        XCTAssertTrue(waitForLabel(app, "notificationPath.pageBridge", equals: "not installed", timeout: 10),
+                      "T43-R F2: this run does not install `window.desktop`, so the page structurally "
+                      + "cannot emit notify_mention — every 'accepted=0' below is that fact, not a refusal")
 
         let mention = try seedMention(marker: "dualrender")
-        // Let the socket event and (if the page decides to notify) the bridge frame land.
+        // Let the socket event land (and, if the page could report, its bridge frame too).
         RunLoop.current.run(until: Date().addingTimeInterval(10))
 
         let counters = parseCounters(readOut(app, "notificationPath.socket"))
         XCTAssertEqual(counters["delivered"] ?? 0, 0,
                        "with the web app drawing the pane the socket must not deliver — reads "
                        + "'\(readOut(app, "notificationPath.socket"))'")
+        XCTAssertEqual(counters["suppressed"] ?? 0, 0,
+                       "and it must not record a suppression either: the gate stops it before the policy, "
+                       + "so no delivery decision was made for that post in this process")
         XCTAssertFalse(readOut(app, "notificationPath.lastMention").contains("post=\(mention.id)"),
                        "and it must not record a delivery for that post")
         let bridge = parseCounters(readOut(app, "notificationPath.bridge"))
+        XCTAssertEqual(bridge["accepted"] ?? 0, 0,
+                       "zero accepted is structural in this configuration (the page cannot report — see "
+                       + "notificationPath.pageBridge), reads '\(readOut(app, "notificationPath.bridge"))'")
         XCTAssertEqual(bridge["refused"] ?? 0, 0,
-                       "the page must never be refused while it is the input — reads "
+                       "the page must never be refused while it is the input: no frame was ever sent — reads "
                        + "'\(readOut(app, "notificationPath.bridge"))'")
-        XCTAssertLessThanOrEqual(bridge["accepted"] ?? 0, 1,
-                                 "one mention can produce at most one accepted page report, so at most "
-                                 + "one banner — reads '\(readOut(app, "notificationPath.bridge"))'")
         attach(app, "t43-dual-render")
+    }
+
+    /// T43-R (F2): the other half of the premise, measured live — with `-desktopBridge` the page really
+    /// can report, and the shell says so. Without this, `notificationPath.pageBridge` could be a constant
+    /// and the dual-render run above would still pass.
+    ///
+    /// The shipped configuration does not pass the flag because of the render consequence (README), so
+    /// this test only measures the shim's presence + the web pane, not a banner.
+    func testThePageBridgeIsInstalledOnlyWhenAsked() throws {
+        let app = launchWebviewApp(desktopBridge: true)
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 60),
+                      "the pane host must mount with the shim installed:\n\(app.debugDescription)")
+        openSettings(app)
+        XCTAssertTrue(waitForLabel(app, "notificationPath.pageBridge", equals: "installed", timeout: 20),
+                      "with -desktopBridge the page can call window.desktop.notifyMention; the read-out "
+                      + "must report that, or the dual-render 'accepted=0' means nothing:\n\(app.debugDescription)")
+        XCTAssertTrue(waitForValue(app, "notificationPath.webPanes", equals: "1", timeout: 20),
+                      "and it is still a web pane:\n\(app.debugDescription)")
+        attach(app, "t43-page-bridge-installed")
     }
 
     // MARK: - App driving
@@ -190,16 +231,22 @@ final class T43NotificationUITests: XCTestCase {
     ///
     /// The session is seeded into the vault (the seam the shell's own tests use) so the app opens
     /// straight into the pane instead of a login form the webview would have to be driven through.
-    private func launchWebviewApp() -> XCUIApplication {
+    ///
+    /// - Parameter desktopBridge: install `window.desktop` (`-desktopBridge`). Off for the shipped
+    ///   configuration, because the web app then takes its Electron path (README); on only for the
+    ///   test that measures the shim's presence. T43-R F2.
+    private func launchWebviewApp(desktopBridge: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTestResetPersistedState",
-                               "-uiTestForgetSession", serverURL.absoluteString,
-                               "-uiTestSeedServer", serverURL.absoluteString,
-                               "-uiTestSeedServerName", "Local Mattermost",
-                               "-uiTestSeedStoredToken", token ?? "",
-                               "-notificationPath", "socket",
-                               "-uiTestLogLevel", "error",
-                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        var arguments = ["-uiTestResetPersistedState",
+                         "-uiTestForgetSession", serverURL.absoluteString,
+                         "-uiTestSeedServer", serverURL.absoluteString,
+                         "-uiTestSeedServerName", "Local Mattermost",
+                         "-uiTestSeedStoredToken", token ?? "",
+                         "-notificationPath", "socket",
+                         "-uiTestLogLevel", "error",
+                         "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        if desktopBridge { arguments += ["-desktopBridge"] }
+        app.launchArguments = arguments
         app.launchEnvironment["OS_ACTIVITY_MODE"] = "disable"
         app.launch()
         return app

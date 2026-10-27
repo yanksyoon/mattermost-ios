@@ -85,6 +85,11 @@ final class WebViewStore: ObservableObject {
     static let userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         + "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
 
+    /// Whether this process installs the `window.desktop` shim (`-desktopBridge`, off by default — see
+    /// `init`). One definition, read by the install decision **and** by the Settings read-out, so
+    /// "the page cannot report in this configuration" is a measured fact rather than a claim (T43-R F2).
+    static let desktopBridgeEnabled = ProcessInfo.processInfo.arguments.contains("-desktopBridge")
+
     let webView: WKWebView
     let configuration: WKWebViewConfiguration
 
@@ -122,8 +127,6 @@ final class WebViewStore: ObservableObject {
         config.userContentController = contentController
         configuration = config
 
-        let args = ProcessInfo.processInfo.arguments
-
         // Phase-1 JS↔native bridge: the single message handler plus the shell-side page fixes
         // (SSO entry guard, bounded error log). Always installed — these are what make sign-in
         // work at all.
@@ -138,7 +141,11 @@ final class WebViewStore: ObservableObject {
         // Electron code path, which needs more of that API than the shell provides: the workspace
         // shell mounts and the channel view never loads. Kept behind a flag (and its unit tests)
         // so the bridge work is not lost while the surface is filled in.
-        if args.contains("-desktopBridge") {
+        //
+        // T43-R (F2): the fact that the page **can** report at all is itself measured state — the
+        // Settings read-out shows it, because a dual-render run without this flag can only ever show
+        // "0 accepted" for the structural reason that `window.desktop` does not exist in that page.
+        if Self.desktopBridgeEnabled {
             contentController.addUserScript(WKUserScript(
                 source: Bridge.preloadJavascript,
                 injectionTime: .atDocumentStart,

@@ -60,6 +60,18 @@ struct NotificationInputSection: View {
                 Text("From the web view")
             }
 
+            // T43-R (F2): whether the page **can** report at all. `window.desktop.notifyMention` is only
+            // installed with `-desktopBridge` (off by default, because advertising it breaks the web
+            // app's render), so `accepted=0` in the shipped configuration is structural, not a decision.
+            // This row is what lets a live run say which of the two it measured.
+            LabeledContent {
+                Text(WebViewStore.desktopBridgeEnabled ? "installed" : "not installed")
+                    .accessibilityIdentifier("notificationPath.pageBridge")
+                    .accessibilityValue(WebViewStore.desktopBridgeEnabled ? "installed" : "not installed")
+            } label: {
+                Text("Page can report (window.desktop)")
+            }
+
             if let record = feed.lastRecord {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(record.delivered ? "Last mention delivered" : "Last mention suppressed")
