@@ -284,15 +284,16 @@ docker inspect mm-perf --format '{{.HostConfig.NetworkMode}}'
 
 ## 10. Follow-ups (cards created by this one)
 
-* **T44b — open the media path and measure a real call's media** (gate for anything else): publish
-  the SFU's ICE port through a UDP relay sidecar and set `ICEHostOverride`, then measure
-  `inbound-rtp`/`outbound-rtp` on a real peer connection and the per-call memory with the T27 probe.
-  Until this passes, no native Calls claim can be approved.
-* **T44c — engine shell + the signalling port in Swift** (gated on T44b): vendored
+* **T44b — open the media path and measure a real call's media** (`t_7b826839`, gate for anything
+  else): publish the SFU's ICE port through a UDP relay sidecar on `mm-perf-net` and set
+  `ICEHostOverride`, then measure `inbound-rtp`/`outbound-rtp` on a real peer connection and the
+  per-call memory with the T27 probe. Until this passes, no native Calls claim can be approved.
+* **T44c — engine shell + the signalling port in Swift** (`t_d7b43d10`, gated on T44b): vendored
   `stasel/WebRTC` 137.0.0, `RTCPeerConnectionFactory` lifecycle, `AVAudioSession` + background audio
   mode + runtime permissions, and the MessagePack/zlib socket path §5.1 discovered, on top of T28's
   `SocketClient`.
-* **T44d — native call surface** (gated on T44c): participant tiles, mute/camera/hand, host controls,
-  its own `-AV`; flips `calls` only after that `-AV` passes.
-* **T44e — screen share** (gated on T44d + a licence sign-off): the ReplayKit broadcast upload
-  extension, Catalyst answered (T44a P3).
+* **T44d — native call surface** (`t_a2ff267a`, gated on T44c): participant tiles, mute/camera/hand,
+  host controls, its own `-AV`; flips `calls` only after that `-AV` passes.
+* **T44e — screen share is deliberately *not* created.** It needs a second app target (ReplayKit
+  Broadcast Upload Extension) *and* a recorded licence/App-Review position, which is a human decision,
+  not a worker's. §3.2 above is the specification; whoever takes that decision can open the card.
