@@ -140,6 +140,21 @@ struct RootView: View {
                 // The switcher/add chrome only belongs once at least one server exists;
                 // over the welcome/empty state there is nothing to switch.
                 if !serverStore.servers.isEmpty {
+                    // T36: a thread is a pane route, not a pushed destination, so the regular-width
+                    // layout has no stack chevron. Without this the only way out of a thread was to
+                    // tap the channel again.
+                    if navigation.location.postID != nil || navigation.location.pane == .threads {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button {
+                                navigation.closeThread()
+                            } label: {
+                                Label("Back", systemImage: "chevron.left")
+                            }
+                            .accessibilityLabel("Back to the channel")
+                            .accessibilityIdentifier("nativeBackButton")
+                        }
+                    }
+
                     ToolbarItem(placement: .principal) { serverSwitcher }
 
                     // History chrome follows the *active* server's webview only — and only while

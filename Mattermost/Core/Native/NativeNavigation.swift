@@ -423,6 +423,30 @@ final class NativeNavigation: ObservableObject {
         open(.threads(request))
     }
 
+    /// Close an open thread and return to the channel it was opened from.
+    ///
+    /// A thread is a *pane route*, not a pushed destination, so on a regular-width layout there is no
+    /// navigation-stack chevron to go back with — the pane simply swaps and the user is stranded
+    /// unless they re-tap the channel. This is that back affordance: same server, team and channel,
+    /// minus the post the thread was opened for. A thread opened from the global Threads list has no
+    /// channel to return to, so it falls back to the shell root.
+    func closeThread() {
+        guard location.pane == .threads || location.postID != nil else { return }
+        // The channel the reader came from, recorded *before* the thread was opened: the thread's own
+        // route may carry only a post id, so reconstructing the channel from it can lose the name.
+        if let channel = lastChannelLocation, channel.serverID == location.serverID {
+            open(.channel(channel.request))
+            return
+        }
+        var request = location.request
+        request.postID = nil
+        if request.channelID != nil || request.channelName != nil {
+            open(.channel(request))
+        } else {
+            popToRoot()
+        }
+    }
+
     @discardableResult
     func openHome(serverID: UUID? = nil, serverHost: String? = nil) -> NativeNavigationOutcome {
         open(.home(serverID: serverID, serverHost: serverHost))
@@ -515,7 +539,18 @@ final class NativeNavigation: ObservableObject {
     /// what makes `/pl/<post>` and `/{team}/threads` visible on a phone (T30-AV F3); the pane does
     /// the honest thing (a "Resolving this permalink…" state, a threads placeholder) instead of the
     /// link silently doing nothing.
+    /// The last channel view the reader was on, without a thread open. Back from a thread returns
+    /// here. Recorded in `apply`, so it is set by every route that shows a channel — a tap, a deep
+    /// link, a notification — and never by a thread route.
+    private var lastChannelLocation: NativeLocation?
+
     private func apply(_ newLocation: NativeLocation) {
+        // Record the channel *before* a thread replaces it — the thread's own route may carry only a
+        // post id, so reading it back afterwards cannot reconstruct where the reader came from.
+        if location.hasChannel, location.postID == nil, location.pane == .channel,
+           newLocation.postID != nil || newLocation.pane == .threads {
+            lastChannelLocation = location
+        }
         // Remembering the location per server here (not only in `activate`) keeps a deep link that
         // lands on server B from overwriting what server A was showing.
         if let id = location.serverID, id != newLocation.serverID {

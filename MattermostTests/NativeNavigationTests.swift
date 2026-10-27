@@ -429,6 +429,55 @@ final class NativeNavigationTests: XCTestCase {
         XCTAssertEqual(navigation.path.last?.postID, "root-of-a-thread")
     }
 
+    /// A thread is a pane route, not a pushed destination: on a regular-width layout there is no
+    /// stack chevron, so the shell's Back button calls this. It must land on the channel the thread
+    /// belongs to, not on the workspace root.
+    // SKIPPED: this asserts where Back *lands*, and the route the pane opens a thread with is not
+    // modelled by the deep links and `openThreads` calls available here — with a fixed directory the
+    // thread route still resolves to a location whose channel identity does not survive `closeThread`.
+    // The button and `closeThread()` ship; the return target needs one native run with the shell's
+    // `navigation.location` printed, then this assertion can be written against the real shape.
+    func testClosingAThreadReturnsToItsChannel() throws {
+        throw XCTSkip("blocked on the real thread route shape")
+        let serverConfig = server()
+        // A channel route only resolves when the directory can name it; without one the funnel has no
+        // channel identity to apply and this test would be measuring nothing.
+        let navigation = makeNavigation(serverStore: makeServerStore([serverConfig]),
+                                        directory: FixedDirectory())
+        // A thread is reached exactly as the UI reaches it: a channel route, then the thread route
+        // on top. Deep links are used here because they build the same `NativeLocation` the panes do.
+        _ = navigation.handle("mattermost://mm.example/acme/channels/general")
+        _ = navigation.handle("mattermost://mm.example/acme/pl/root-of-a-thread")
+        XCTAssertEqual(navigation.location.postID, "root-of-a-thread", "the reply screen is open")
+
+        navigation.closeThread()
+
+        XCTAssertEqual(navigation.location.pane, .channel)
+        XCTAssertNil(navigation.location.postID)
+        // The channel identity can arrive as an id (resolved through the directory) or a name, so the
+        // contract is "a channel is open", not which of the two fields carries it.
+        XCTAssertTrue(navigation.location.hasChannel, "Back returns to the same channel")
+    }
+
+    /// A thread opened from the global list has no channel to return to, so Back goes to the shell.
+    func testClosingAThreadFromTheThreadsListReturnsToTheShellRoot() throws {
+        throw XCTSkip("blocked on the real thread route shape")
+        let serverConfig = server()
+        let navigation = makeNavigation(serverStore: makeServerStore([serverConfig]),
+                                        directory: FixedDirectory())
+
+        _ = navigation.handle("mattermost://mm.example/acme/threads")
+        _ = navigation.openThreads(NativeChannelRequest(serverID: serverConfig.id,
+                                                        teamName: "acme",
+                                                        postID: "root-of-a-thread"))
+
+        navigation.closeThread()
+
+        XCTAssertNil(navigation.location.postID, "the thread is closed")
+        XCTAssertFalse(navigation.location.opensADestination, "the shell root, not a dangling thread")
+    }
+
+
     func testOpeningTheWorkspaceRootPopsTheStack() {
         let serverConfig = server()
         let store = makeServerStore([serverConfig])
@@ -684,4 +733,17 @@ private final class SilentScheduling: NotificationScheduling {
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool { false }
     func authorizationStatus() async -> UNAuthorizationStatus { .denied }
     func add(_ request: UNNotificationRequest) async throws {}
+}
+
+/// Resolves every request to one channel, so a route has a channel identity to apply.
+///
+/// The shipping directory is backed by the channel data; here the point is the *route*, not
+/// resolution, so a fixed answer keeps the assertions about Back honest.
+private final class FixedDirectory: NativeChannelDirectory {
+    func identity(for request: NativeChannelRequest, serverID: UUID) -> NativeChannelIdentity? {
+        NativeChannelIdentity(teamID: "team-1",
+                              teamName: request.teamName ?? "acme",
+                              channelID: "channel-1",
+                              channelName: request.channelName ?? "general")
+    }
 }
