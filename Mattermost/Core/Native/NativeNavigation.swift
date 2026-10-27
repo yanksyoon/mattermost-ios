@@ -308,6 +308,8 @@ final class NativeNavigation: ObservableObject {
     private let resolver: SurfaceModeResolver?
     /// Name ⇄ id resolution; `nil` until S08/T36 supply data (see `NativeChannelDirectory`).
     var directory: NativeChannelDirectory?
+    /// Where the reader last was, so the next launch can open it instead of an empty pane.
+    var lastChannels: LastChannelStore?
     var authGate: NativeAuthGate = VaultAuthGate()
 
     // MARK: Published state
@@ -341,6 +343,11 @@ final class NativeNavigation: ObservableObject {
     /// `web` (the escape hatch) immediately restores the web path — no stale flag.
     var acceptsNativeRouting: Bool {
         resolver?.resolvedMode(for: SurfaceDefaults.paneHostSurface) == .native
+    }
+
+    /// The conversation this server was last left in, if any.
+    func savedChannel(for serverID: UUID) -> LastChannel? {
+        lastChannels?.last(for: serverID)
     }
 
     // MARK: The funnel
@@ -556,9 +563,31 @@ final class NativeNavigation: ObservableObject {
         if let id = location.serverID, id != newLocation.serverID {
             lastLocations[id] = location
         }
-        location = newLocation
+        // "Show me this team" arrives as a channel route with a team and no channel. It must not
+        // close the conversation that is already open in that team — measured: the launch restore
+        // opened the last channel and a team selection a moment later cleared it back to an empty pane.
+        var resolved = newLocation
+        if !newLocation.hasChannel, newLocation.pane == .channel, location.hasChannel,
+           newLocation.serverID == location.serverID,
+           newLocation.teamID != nil || newLocation.teamName != nil,
+           newLocation.teamID == nil || newLocation.teamID == location.teamID {
+            resolved = location
+        }
+        location = resolved
 
-        guard newLocation.opensADestination else {
+        // Remember the conversation, not the thread: a reply pane is a view *of* a channel, and
+        // re-opening the app on a single thread would hide the channel it belongs to.
+        if newLocation.pane == .channel, newLocation.postID == nil, newLocation.hasChannel,
+           let serverID = newLocation.serverID {
+            lastChannels?.save(LastChannel(serverID: serverID,
+                                           teamID: newLocation.teamID,
+                                           teamName: newLocation.teamName,
+                                           channelID: newLocation.channelID,
+                                           channelName: newLocation.channelName,
+                                           openedAt: Date()))
+        }
+
+        guard resolved.opensADestination else {
             // The workspace root: the sidebar is the screen again.
             path = []
             return
@@ -704,5 +733,117 @@ final class NativeNavigation: ObservableObject {
         }
         // `/{team}` — the team's root, which for this skeleton is the server's workspace root.
         return .home(serverID: nil, serverHost: host)
+    }
+}
+
+// MARK: - Where the app opens
+//
+// These live here rather than in their own file because `Mattermost/Core` is a hand-registered
+// group in the project (only `UI/Native`, `Core/Calls` and the test trees are synchronized), so a new
+// file there needs a `project.pbxproj` entry — and this is navigation policy, which is this file's
+// subject.
+
+// Where the app opens.
+//
+// The shell used to land on "No channel selected": a reader had to find the channel they were in
+// yesterday, every morning. Upstream opens the last channel and falls back to the team's town hall,
+// and that is what this does — with one rule the naive version gets wrong: a saved channel that no
+// longer exists (archived, left, deleted) must not be opened blindly, because the pane would then
+// show an error instead of a conversation.
+
+
+/// The channel the reader was last in, on one server.
+struct LastChannel: Codable, Equatable, Sendable {
+    var serverID: UUID
+    var teamID: String?
+    var teamName: String?
+    var channelID: String?
+    var channelName: String?
+    var openedAt: Date
+
+    /// The navigation request that re-opens it.
+    var request: NativeChannelRequest {
+        NativeChannelRequest(serverID: serverID,
+                             teamID: teamID,
+                             teamName: teamName,
+                             channelID: channelID,
+                             channelName: channelName)
+    }
+}
+
+/// One saved destination, in `UserDefaults`.
+///
+/// One entry, not a list: "last opened" is a single fact, and a per-server map would grow forever
+/// with servers the reader stopped using. The server id inside the entry is what stops a stale
+/// record from one server being opened against another.
+final class LastChannelStore {
+    static let defaultsKey = "mm.native.lastChannel"
+
+    private let defaults: UserDefaults
+    private let key: String
+
+    init(defaults: UserDefaults = .standard, key: String = LastChannelStore.defaultsKey) {
+        self.defaults = defaults
+        self.key = key
+    }
+
+    func save(_ channel: LastChannel) {
+        guard let data = try? JSONEncoder().encode(channel) else { return }
+        defaults.set(data, forKey: key)
+    }
+
+    func last(for serverID: UUID) -> LastChannel? {
+        guard let data = defaults.data(forKey: key),
+              let saved = try? JSONDecoder().decode(LastChannel.self, from: data),
+              saved.serverID == serverID else { return nil }
+        return saved
+    }
+
+    func clear() {
+        defaults.removeObject(forKey: key)
+    }
+}
+
+/// Chooses what to open when the shell starts with nowhere to go.
+enum LaunchDestination {
+    /// The names the default channel goes by. `town-square` is Mattermost's own default; `town-hall`
+    /// is what it is called on the server this was measured against, renamed by the admins. Matching
+    /// both beats guessing one and landing on nothing.
+    static let townHallNames = ["town-square", "town-hall"]
+    static let townHall = townHallNames[0]
+
+    /// - Parameters:
+    ///   - saved: the last channel, if it was on this server.
+    ///   - available: the channel ids the sidebar actually knows about, when that is known. Empty
+    ///     means "not loaded yet": the saved destination is then trusted, and the pane is the judge.
+    ///   - townHallAvailable: whether a channel named `townHall` is in `available`.
+    /// - Parameter fallbackChannelID: the first ordinary channel in the sidebar, used when the team
+    ///   has no town hall at all (archived, or renamed to something unrecognised). Without it the shell
+    ///   would rather show nothing than pick a conversation — which is the state this fixes.
+    static func request(saved: LastChannel?,
+                        available: Set<String> = [],
+                        townHallAvailable: Bool = true,
+                        fallbackChannelID: String? = nil,
+                        serverID: UUID,
+                        teamID: String?,
+                        teamName: String?) -> NativeChannelRequest? {
+        if let saved, saved.serverID == serverID, saved.channelID != nil || saved.channelName != nil {
+            let stillThere = available.isEmpty
+                || saved.channelID.map(available.contains) == true
+                || saved.channelName.map { name in available.contains(name) } == true
+            if stillThere { return saved.request }
+        }
+        guard teamID != nil else { return nil }
+        if townHallAvailable {
+            return NativeChannelRequest(serverID: serverID,
+                                        teamID: teamID,
+                                        teamName: teamName,
+                                        channelName: townHall)
+        }
+        guard let fallbackChannelID else { return nil }
+        return NativeChannelRequest(serverID: serverID,
+                                    teamID: teamID,
+                                    teamName: teamName,
+                                    channelID: fallbackChannelID)
     }
 }

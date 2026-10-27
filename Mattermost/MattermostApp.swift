@@ -156,6 +156,8 @@ struct MattermostApp: App {
         // before it is installed hands back a throwaway instance, so a `weak` reference taken in
         // `init` points at an object the views never see.
         let navigation = NativeNavigation(resolver: _surfaceModeResolver.wrappedValue)
+        // The shell opens where the reader left off, so the destination outlives the process.
+        navigation.lastChannels = LastChannelStore()
         _nativeNavigation = StateObject(wrappedValue: navigation)
         // T31: the auth owner is created before any view exists, so the shell's gate and the sign-in
         // surface always talk to the same object. Its `serverStore`/`onChange` seams are bound in
@@ -886,6 +888,24 @@ struct MattermostApp: App {
                 auth=\(serverStore.servers.map { "\($0.name):\(String(describing: authCoordinator.phase(for: $0))):token=\(authCoordinator.hasStoredToken(for: $0))" }.joined(separator: ","))
                 """
                 try? nativeDiag.write(to: URL(fileURLWithPath: path + ".txt"), atomically: true, encoding: .utf8)
+                // The early capture above is five seconds in, before channels and posts exist. Take a
+                // second one here, after the pane has had its time, so the image and the state agree.
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                let settled = UIApplication.shared.connectedScenes
+                    .compactMap { ($0 as? UIWindowScene)?.windows }.joined()
+                if let window = settled.first(where: \.isKeyWindow) ?? settled.first {
+                    let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
+                    let image = renderer.image { _ in
+                        window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+                    }
+                    try? image.pngData()?.write(to: URL(fileURLWithPath: path + ".late.png"))
+                    let lateState = """
+                    location=\(String(describing: nativeNavigation.location))
+                    sidebar=\(serverStore.servers.map { channelSidebarCoordinator.diagnosticSummary(for: $0) }.joined(separator: " | "))
+                    """
+                    try? lateState.write(to: URL(fileURLWithPath: path + ".late.txt"),
+                                         atomically: true, encoding: .utf8)
+                }
                 return
             }
 

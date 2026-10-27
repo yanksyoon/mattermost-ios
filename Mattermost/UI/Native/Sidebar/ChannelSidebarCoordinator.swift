@@ -61,7 +61,7 @@ final class ChannelSidebarCoordinator: ObservableObject {
     func diagnosticSummary(for server: ServerConfig) -> String {
         guard let model = models[server.id] else { return "no-model" }
         let channelCount = model.groups.reduce(0) { $0 + $1.entries.count }
-        return "team=\(model.teamID ?? "nil") phase=\(String(describing: model.phase)) stage=\(model.diagnosticStage) service=\(SidebarLoadTrace.step) groups=\(model.groups.count) channels=\(channelCount) err=\(model.actionError ?? "-")"
+        return "team=\(model.teamID ?? "nil") phase=\(String(describing: model.phase)) stage=\(model.diagnosticStage) service=\(SidebarLoadTrace.step) groups=\(model.groups.count) channels=\(channelCount) err=\(model.actionError ?? "-") launch=\(lastLaunchDecision ?? "-")"
     }
     private var pendingRefresh: [UUID: Task<Void, Never>] = [:]
     private var refreshTokens: [UUID: UUID] = [:]
@@ -69,11 +69,15 @@ final class ChannelSidebarCoordinator: ObservableObject {
     /// `channel_created` arrived: the channel list itself changed).
     private var pendingReload: Set<UUID> = []
     private var locationSink: AnyCancellable?
+    /// One per list: the "the list has arrived, decide where to open" hook.
+    private var launchSinks = Set<AnyCancellable>()
     /// The team each server's list was last asked for, so a location change that only moved the
     /// selected channel does not reload anything.
     private var loadedTeams: [UUID: String] = [:]
 
     // Observable evidence for tests and diagnostics.
+    /// What the launch-destination step decided (diagnostics: the shell's dump prints it).
+    private(set) var lastLaunchDecision: String?
     private(set) var counterRefreshCount = 0
     private(set) var reloadCount = 0
     private(set) var eventCount = 0
@@ -128,6 +132,19 @@ final class ChannelSidebarCoordinator: ObservableObject {
                                channelName: location.channelName)
         }
         models[server.id] = model
+        // The list can still be empty on the first pass — the sidebar is mounted before the team and
+        // the session settle — and a launch destination computed against an empty list is no
+        // destination at all. Decide once more when the list actually arrives (event-driven: polling
+        // here kept the whole suite waiting on a timer).
+        // `groups`, not `phase`: the model sets `phase = .loaded` a statement before it rebuilds the
+        // groups, so a phase sink sees an empty list and decides "nothing to open" (measured: it did,
+        // twice). The groups arriving is the fact this needs.
+        model.$groups
+            .sink { [weak self, weak model] groups in
+                guard !groups.isEmpty, let self, let model else { return }
+                self.applyLaunchDestinationIfNeeded(for: server, model: model)
+            }
+            .store(in: &launchSinks)
         return model
     }
 
@@ -143,6 +160,39 @@ final class ChannelSidebarCoordinator: ObservableObject {
         if let teamID = model.teamID { loadedTeams[server.id] = teamID }
         publishChannelTeams(for: server, model: model)
         await applyPendingTeam(for: server, model: model)
+        applyLaunchDestinationIfNeeded(for: server, model: model)
+    }
+
+    /// Open what the shell should show when it starts with nowhere to go: the conversation the reader
+    /// was last in, else the team's town hall.
+    ///
+    /// Only when the shell has no destination of its own — a deep link, a tapped mention or a restored
+    /// route always wins over a remembered channel. A saved channel that is no longer in the list (left,
+    /// archived, deleted) falls back to the town hall rather than opening something that will error.
+    private func applyLaunchDestinationIfNeeded(for server: ServerConfig, model: ChannelListViewModel) {
+        guard let navigation else {
+            lastLaunchDecision = "no-navigation"
+            return
+        }
+        let location = navigation.location
+        guard !location.opensADestination else { return }
+        if let current = location.serverID, current != server.id { return }
+        guard let teamID = model.teamID ?? location.teamID else { return }
+
+        let entries = model.groups.flatMap(\.entries)
+        let available = Set(entries.map(\.id))
+        let hasTownHall = entries.contains { LaunchDestination.townHallNames.contains($0.name) }
+        let fallback = entries.first { !$0.kind.isDirect }?.id
+        lastLaunchDecision = "entries=\(entries.count) saved=\(navigation.savedChannel(for: server.id)?.channelID ?? "-") townhall=\(hasTownHall) fallback=\(fallback ?? "-")"
+        guard let request = LaunchDestination.request(saved: navigation.savedChannel(for: server.id),
+                                                     available: available,
+                                                     townHallAvailable: hasTownHall,
+                                                     fallbackChannelID: fallback,
+                                                     serverID: server.id,
+                                                     teamID: teamID,
+                                                     teamName: location.teamName) else { return }
+        let outcome = navigation.openChannel(request)
+        lastLaunchDecision? += " -> \(outcome)"
     }
 
     /// The auth coordinator's phase for one server changed.
@@ -200,7 +250,16 @@ final class ChannelSidebarCoordinator: ObservableObject {
 
     // MARK: Location → models
 
+    /// The location moved. When the shell still has no destination, this is also the moment to try the
+    /// launch destination again: the team arrives asynchronously (the rail picks it), so the first
+    /// attempt after the list loads can legitimately find no team yet and must not be the last word.
     private func apply(_ location: NativeLocation) {
+        defer {
+            if !location.opensADestination, let serverStore,
+               let server = serverStore.servers.first(where: { $0.id == location.serverID }) {
+                applyLaunchDestinationIfNeeded(for: server, model: model(for: server))
+            }
+        }
         guard let serverID = location.serverID else { return }
         let model = models[serverID]
         model?.setSelection(teamID: location.teamID,
