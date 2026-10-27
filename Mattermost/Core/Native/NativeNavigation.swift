@@ -20,15 +20,16 @@ enum NativePane: String, Hashable {
     case threads
 }
 
-/// The shell's top-level sections (upstream `app/screens/home/tab_bar`, trimmed to the four the native
-/// shell renders: the channel list/Home tab, global threads, search and saved messages).
+/// The shell's top-level sections (upstream `app/screens/home/tab_bar`, trimmed to the five the native
+/// shell renders: the channel list/Home tab, global threads, activity/mentions, search and saved messages).
 ///
-/// T39 added `.search` and `.saved` with their screens (S19/S20). The upstream tab bar has five
-/// (Home / Search / Mentions / Saved / Account); Mentions (S10) and Account (S03) are their own cards,
-/// and a tab without a screen would be a dead control, so they are not listed here yet.
+/// T39 added `.search` and `.saved` with their screens (S19/S20); T42 added `.activity` (S25), which is
+/// upstream's `Mentions` tab — the fifth of upstream's five. Only Account (S03) remains, and it is a
+/// surface of its own (the profile sheet, T41) rather than a tab in this shell.
 enum NativeTab: String, Hashable, CaseIterable {
     case channels
     case threads
+    case activity
     case search
     case saved
 
@@ -36,6 +37,7 @@ enum NativeTab: String, Hashable, CaseIterable {
         switch self {
         case .channels: return "Channels"
         case .threads: return "Threads"
+        case .activity: return "Mentions"
         case .search: return "Search"
         case .saved: return "Saved"
         }
@@ -45,6 +47,7 @@ enum NativeTab: String, Hashable, CaseIterable {
         switch self {
         case .channels: return "bubble.left.and.bubble.right"
         case .threads: return "text.bubble"
+        case .activity: return "bell.badge"
         case .search: return "magnifyingglass"
         case .saved: return "bookmark"
         }

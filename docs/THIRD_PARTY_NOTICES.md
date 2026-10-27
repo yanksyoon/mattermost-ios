@@ -753,3 +753,31 @@ Not ported by this card: editing the profile (name, username, email, picture, po
 §S28's `edit_profile` surface), custom profile attributes (§S39, feature-gated), the "common
 channels" list inside the popover (mobile draws it; this client's channel list is T33's sidebar), the
 avatar-picture file picker, and any notification sound/vibration preferences.
+
+## 19. T42 native Recent Mentions (S25) — upstream read set (Apache-2.0, mobile @ `162f2560…`)
+
+The behaviour of the mentions inbox was reimplemented from `mattermost/mattermost-mobile` tag
+`v2.45.0` (commit `162f2560d0e1df073220f7701d5a67cc17c8abeb`), Apache-2.0. No Swift source from
+upstream is copied; what is reproduced is the *behaviour*, and the files read to establish it were:
+
+- `app/screens/home/recent_mentions/recent_mentions.tsx` — the screen: a list of the reader's mentions,
+  refreshed on focus, each row carrying its channel and the post itself.
+- `app/actions/remote/search.ts` (`fetchRecentMentions`) — how the window is fetched: the reader's
+  mention keys as `terms`, `is_or_search: true`, paged through the search action.
+- `app/client/rest/posts.ts` (`searchPostsWithParams`) — the route: **`POST /posts/search` when
+  `teamId` is empty**, `/teams/{team}/posts/search` otherwise.
+- `app/database/models/server/user.ts` (`mentionKeys`) — the key derivation this client mirrors:
+  `notify_props.mention_keys` split on `,`, the first name when `notify_props.first_name` is `"true"`
+  and matched case-sensitively, `@channel`/`@all`/`@here` when `notify_props.channel` is `"true"`, and
+  `@username` last.
+- `app/utils/post/index.ts` — mention matching (a key must not be glued to a word character).
+- `app/client/rest/channels.ts` (`markChannelAsRead`, `viewMyChannel`) — the read write.
+
+Server-side routes were checked against `mattermost/mattermost` branch `release-9.11`
+(`server/channels/api4/channel.go`: `viewChannel`, `readMultipleChannels`, the thread read) and
+measured end-to-end by `scripts/t42_activity_probe.py` against the pinned 9.11.19 server
+(`docs/t42-activity-probe-2026-10-27.log`).
+
+Not ported by this card: the in-app notification toast / snackbar (`app/screens/in_app_notification/`,
+`app/screens/snack_bar/`), the mentions *filter chips* of the mobile search screen, and push
+notification delivery (T14's worker).

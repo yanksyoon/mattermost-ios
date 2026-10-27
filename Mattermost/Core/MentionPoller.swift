@@ -305,11 +305,13 @@ final class MentionPoller {
                 path: "users/me/teams/unread",
                 query: [URLQueryItem(name: "exclude_team", value: "")],
                 token: token)
-            let mentionTotal = teamsUnread.reduce(0) { $0 + $1.mentionCount }
-            let unreadTotal = teamsUnread.reduce(0) { $0 + $1.msgCount }
             if let sessionStore {
-                sessionStore.updateMentions(serverID: server.id, mentionCount: mentionTotal,
-                                            isUnread: mentionTotal > 0 || unreadTotal > 0)
+                // T42: the *one* place these counters become badge inputs (`SessionStore.serverBadgeInput`),
+                // shared with the foreground activity feed — the poller no longer does its own arithmetic,
+                // so the two paths cannot disagree about the badge.
+                sessionStore.applyServerCounters(serverID: server.id,
+                                                 mentionCounts: teamsUnread.map(\.mentionCount),
+                                                 messageCounts: teamsUnread.map(\.msgCount))
             } else {
                 Logger.debug("MentionPoller", "\(server.name): sessionStore unbound — badge not updated")
             }

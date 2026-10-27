@@ -59,8 +59,15 @@ struct NativeShellView: View {
     private enum LookupSheet: String, Identifiable {
         case search
         case saved
+        case activity
         var id: String { rawValue }
-        var title: String { self == .search ? "Search" : "Saved messages" }
+        var title: String {
+            switch self {
+            case .search: return "Search"
+            case .saved: return "Saved messages"
+            case .activity: return "Recent mentions"
+            }
+        }
     }
 
     /// An unauthenticated server shows the auth surface instead of a workspace (scope §2).
@@ -142,6 +149,17 @@ struct NativeShellView: View {
                         }
                         .accessibilityIdentifier("shellSavedButton")
                     }
+                    // T42 (S25): the mentions feed, reachable from the split layout's toolbar for the same
+                    // reason the two lookup surfaces are — the split layout has no tab bar, and a screen
+                    // that exists but cannot be reached is not ported.
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            lookupSheet = .activity
+                        } label: {
+                            Label("Recent mentions", systemImage: "bell.badge")
+                        }
+                        .accessibilityIdentifier("shellActivityButton")
+                    }
                 }
         }
         .navigationSplitViewStyle(.balanced)
@@ -153,6 +171,8 @@ struct NativeShellView: View {
                         SearchPaneContent(server: server, navigation: navigation)
                     case .saved:
                         SavedPaneContent(server: server, navigation: navigation)
+                    case .activity:
+                        MentionsPaneContent(server: server, navigation: navigation)
                     }
                 }
                 .navigationTitle(which.title)
@@ -192,6 +212,15 @@ struct NativeShellView: View {
                     Label(NativeTab.search.title, systemImage: NativeTab.search.systemImage)
                 }
                 .tag(NativeTab.search)
+
+            // T42 (S25): the mentions feed — upstream's `Mentions` tab. Gated on the `activity` surface
+            // inside its pane, so with the flag off it says so instead of drawing a screen the switch
+            // called web.
+            MentionsPaneContent(server: server, navigation: navigation)
+                .tabItem {
+                    Label(NativeTab.activity.title, systemImage: NativeTab.activity.systemImage)
+                }
+                .tag(NativeTab.activity)
 
             SavedPaneContent(server: server, navigation: navigation)
                 .tabItem {

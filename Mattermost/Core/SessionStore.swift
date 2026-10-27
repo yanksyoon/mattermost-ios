@@ -127,6 +127,31 @@ final class SessionStore: ObservableObject {
         return 0
     }
 
+    /// The two numbers a server's per-team unread counters imply (`GET /users/me/teams/unread`).
+    ///
+    /// **This is the one place those counters become badge inputs.** Two callers feed it and neither
+    /// keeps its own arithmetic: `MentionPoller` (the T14 background poll) and the T42 activity feed
+    /// (foreground). Before T42 the poller did the sum inline; the feed would have had to either repeat
+    /// it — two sources of truth for the badge, which is exactly what its acceptance criterion forbids —
+    /// or invent a badge of its own. One function, two callers, one badge.
+    ///
+    /// `isUnread` is the desktop `unreads-and-mentions` "has any unread message" input: a mention implies
+    /// it, and so does any unread message, which is what lets the badge show the dot (1) for a server with
+    /// unread messages but no mentions.
+    nonisolated static func serverBadgeInput(mentionCounts: [Int],
+                                             messageCounts: [Int]) -> (mentions: Int, isUnread: Bool) {
+        let mentions = mentionCounts.reduce(0) { $0 + max(0, $1) }
+        let messages = messageCounts.reduce(0) { $0 + max(0, $1) }
+        return (mentions, mentions > 0 || messages > 0)
+    }
+
+    /// Apply a `GET /users/me/teams/unread` answer for one server (the poller's and the feed's shared
+    /// landing point — see `serverBadgeInput`).
+    func applyServerCounters(serverID: UUID, mentionCounts: [Int], messageCounts: [Int]) {
+        let input = Self.serverBadgeInput(mentionCounts: mentionCounts, messageCounts: messageCounts)
+        updateMentions(serverID: serverID, mentionCount: input.mentions, isUnread: input.isUnread)
+    }
+
     private func recomputeTotals() {
         totalMentions = states.values.reduce(0) { $0 + $1.mentionCount }
         hasUnread = states.values.contains { $0.isUnread }

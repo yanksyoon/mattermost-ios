@@ -1,0 +1,104 @@
+# T42 mentions/activity probe against http://127.0.0.1:8065
+run at 2026-10-27T05:39:10Z (UTC)
+  PASS  the server answers /system/ping
+          observed: {"ActiveSearchBackend": "database", "AndroidLatestVersion": "", "AndroidMinVersion": "", "IosLatestVersion": "", "IosMinVersion": "", "status": "OK"}
+
+## Session
+signed in as @perfprobe (jruqqzxtobg7tn4wehwmwjjo5c) — token not printed
+
+## Fixture
+  team perf (ocz148uck3r88dcjikj497bosh), channel #t42-activity (b48rb8k7djbq5fmb93gj5ttewc), buddy @t42buddy (d54fazuuc7g7jreoa6xpzk59gc)
+
+## 1. Which route answers "my mentions"
+  PASS  `GET /users/me/mentions` is not a route (404) — the card's path does not exist
+          observed: {"id": "api.context.404.app_error", "status": 404}
+  PASS  `/teams//posts/search` does not reach the search handler (the empty team segment is normalised away)
+          observed: {"id": "api.context.404.app_error", "status": 404}
+
+## 2. POST /posts/search — the cross-team mentions window
+  PASS  200 from POST /posts/search with no team in the path
+          observed: 200
+  PASS  the answer is `order` + `posts`, the shape the search screen already decodes
+          observed: {"order": 25, "posts": 25}
+  PASS  `has_next` is present and false on this database backend
+          observed: false
+  PASS  `page: 1` answers an empty `order` (one window per query on the database backend)
+          observed: {"order": 0, "status": 200}
+  PASS  the window contains posts by the buddy that name me
+          observed: {"first": {"channel_id": "b48rb8k7djbq5fmb93gj5ttewc", "create_at": 1793079549959, "delete_at": 0, "edit_at": 0, "hashtags": "", "id": "dyn99ti7oi84idryaawyj9o4mo", "is_pinned": false, "last_reply_at": 0, "message": "T42 seed 1793079549855: @perfprobe mention 3", "metadata": {}, "original_id": "", "participants": null, "pending_post_id": "", "props": {}, "remote_id": "", "reply_count": 0, "root_id…
+  PASS  a post that names nobody is not in the window
+          observed: []
+  PASS  a mention inside a thread is in the window too, with its `root_id`
+          observed: {"reply_count": 3}
+  PASS  a mentioning post carries **no** `props.mentions` (so the client's key match is the shipping path)
+          observed: {"props": {}}
+
+## 3. GET /users/me — where the mention keys live
+  PASS  200 and the account carries `notify_props`
+          observed: {"keys": ["channel", "comments", "desktop", "desktop_sound", "desktop_threads", "email", "email_threads", "first_name", "mention_keys", "push", "push_status", "push_threads"], "status": 200}
+  PASS  `notify_props.mention_keys` is a **string** on the wire
+          observed: {"type": "str", "value": ""}
+  PASS  `notify_props.first_name` is a **string** on the wire
+          observed: {"type": "str", "value": "false"}
+  PASS  `notify_props.channel` is a **string** on the wire
+          observed: {"type": "str", "value": "true"}
+  PASS  `notify_props.first_name` is `"true"`/`"false"`, not a bool
+          observed: false
+
+## 4. The read cursor: last_viewed_at
+  PASS  `GET /users/{me}/teams/{team}/channels/members` lists my channel rows
+          observed: {"rows": 40}
+  PASS  the row carries `last_viewed_at`, `mention_count` and `msg_count`
+          observed: {"last_viewed_at": 1793079520897, "mention_count": 4, "msg_count": 13}
+  PASS  the seeded mentions are unread for me (mention_count > 0)
+          observed: {"mention_count": 4}
+  PASS  every seeded mention is newer than my read cursor (so the row's dot is exact)
+          observed: {"last_viewed_at": 1793079520897, "newest_mention": 1793079549959}
+  PASS  `GET /users/me/teams/unread` answers the badge's numbers (mention_count > 0)
+          observed: {"mention_count": 4, "mention_count_root": 3, "msg_count": 216, "msg_count_root": 171, "team_id": "ocz148uck3r88dcjikj497bosh", "thread_count": 0, "thread_mention_count": 0, "thread_urgent_mention_count": 0}
+  PASS  `POST /users/ids` answers the rows' authors in one request
+          observed: {"count": 2, "status": 200}
+
+## 5. A reply's read state is not the channel's
+  PASS  `GET …/threads?unread=true` lists the seeded thread
+          observed: {"roots": ["8g6rq4ncojfabek6eazpxgi7xa", "j7ijoycfh7fazftqugi58e84kw", "tcmnstj57irhtxhopqjqo1jz4r"], "threads": 3}
+  PASS  …with `unread_mentions` > 0 (the reply that names me)
+          observed: {"unread_mentions": 1, "unread_replies": 1}
+
+## 6. POST /channels/members/{me}/mark_read
+  PASS  a **wrapped** body `{channel_ids: [...]}` is a 400 (the body is a bare array)
+          observed: {"id": "api.payload.parse.error", "status": 400}
+  PASS  a bare array is accepted and answers `{status: "OK", last_viewed_at_times}`
+          observed: {"answer": {"last_viewed_at_times": {"b48rb8k7djbq5fmb93gj5ttewc": 1793079549978}, "status": "OK"}, "status": 200}
+  PASS  the answer carries my channel's new cursor
+          observed: {"b48rb8k7djbq5fmb93gj5ttewc": 1793079549978}
+  PASS  the server then reports the channel read (mention_count == 0, cursor moved)
+          observed: {"last_viewed_at": 1793079549978, "mention_count": 0}
+  PASS  the team's badge counters follow (mention_count == 0)
+          observed: {"mention_count": 0, "mention_count_root": 0, "msg_count": 210, "msg_count_root": 166, "team_id": "ocz148uck3r88dcjikj497bosh", "thread_count": 0, "thread_mention_count": 0, "thread_urgent_mention_count": 0}
+  PASS  the window still contains the messages after they are read (readness is not a filter)
+          observed: {"order": 25}
+  PASS  reading the **channel** left the thread's unread mention untouched — the measured reason a reply row's dot cannot come from the channel cursor
+          observed: {"id": "tcmnstj57irhtxhopqjqo1jz4r", "unread_mentions": 1}
+  PASS  `PUT …/threads/{id}/read/{ts}` answers the thread with its counters
+          observed: {"id": "tcmnstj57irhtxhopqjqo1jz4r", "status": 200}
+  PASS  …and the thread is read now (unread_mentions == 0)
+          observed: {"unread_mentions": 0, "unread_replies": 0}
+
+## 7. The socket — a live mention and a read elsewhere
+  PASS  the socket authenticates with my token
+          observed: ["hello", null, "status_change"]
+  PASS  the buddy could post a live mention
+          observed: {"status": 201}
+  PASS  my socket receives `posted` for that mention (the feed's live path)
+          observed: {"channel_id": "b48rb8k7djbq5fmb93gj5ttewc", "event": "posted"}
+  PASS  …with the post payload as a **JSON string** in `data.post`, which is what the decoder re-reads
+          observed: {"keys": ["channel_id", "create_at", "delete_at", "edit_at", "hashtags", "id", "is_pinned", "last_reply_at"]}
+  PASS  …and no `props.mentions` on it (the reason the client matches its own keys)
+          observed: {"props": {}}
+  PASS  a second session of my account can mark the channel read
+          observed: 200
+  PASS  my open socket is told about that read (the feed follows read state moved elsewhere)
+          observed: {"events": ["multiple_channels_viewed"], "frame": {"channel_times": {"b48rb8k7djbq5fmb93gj5ttewc": 1793079551863}}}
+
+## Result: every expectation held

@@ -60,6 +60,11 @@ struct MattermostApp: App {
     /// presentation, `status_change` / `user_updated` arrive on the rail's single socket, and auto-away
     /// has to happen with no profile open at all.
     @StateObject private var profileCoordinator: ProfileCoordinator
+    /// T42: the activity feed's owner — one mentions model per server (the window is cross-team, so
+    /// there is no team key), fed by the rail's single socket, and the one object that hands the
+    /// server's counters to `SessionStore`. Owned here because a tab switch re-creates the view and
+    /// because a `posted` frame arrives on a socket no view owns.
+    @StateObject private var activityCoordinator: ActivityCoordinator
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
     @State private var historyCapCancellable: AnyCancellable?
@@ -171,6 +176,8 @@ struct MattermostApp: App {
             #endif
             return coordinator
         }())
+        // T42: the activity feed's owner, bound in `bindShellStores()` like the rest.
+        _activityCoordinator = StateObject(wrappedValue: ActivityCoordinator())
         #if DEBUG
         // UI-test seam: `-uiTestAssumeSignedIn` makes the native shell render as if the seeded
         // server had a session, so its panes can be exercised against a stub server that has no
@@ -308,6 +315,9 @@ struct MattermostApp: App {
                 // T41: the profile owner — app-wide for the same reasons, plus auto-away: it has to act
                 // on the app's background/foreground transitions whether or not a profile is open.
                 .environmentObject(profileCoordinator)
+                // T42: the activity feed's owner — app-wide for the same reasons (a tab switch must not
+                // lose the window, and it is fed by the rail's socket).
+                .environmentObject(activityCoordinator)
                 // T31: the SSO hand-off mounts the server's existing webview inside a sheet, so the
                 // store owner has to be reachable from the environment too (the pane's web branch
                 // still receives it as a parameter).
@@ -508,10 +518,16 @@ struct MattermostApp: App {
         // from the same session and are fed by the rail's socket (a colleague's status, a custom status
         // set from another client).
         profileCoordinator.bind(auth: authCoordinator, serverStore: serverStore)
+        // T42: the activity feed resolves its service from the same session, is fed by the rail's socket,
+        // and hands the server's own counters to `SessionStore` (the badge's single source of truth).
+        activityCoordinator.bind(auth: authCoordinator,
+                                 serverStore: serverStore,
+                                 sessionStore: sessionStore)
         teamSidebarCoordinator.onTeamEvent = { [weak channelSidebarCoordinator, weak channelPaneCoordinator,
                                                 weak threadCoordinator, weak searchCoordinator,
                                                 weak channelInfoCoordinator,
-                                                weak profileCoordinator] serverID, event in
+                                                weak profileCoordinator,
+                                                weak activityCoordinator] serverID, event in
             // T33's list debounces its own refresh; T34's open channels apply the event directly (a
             // posted message must appear without a refetch — that is what a socket is for).
             Task { await channelPaneCoordinator?.handle(event, serverID: serverID) }
@@ -525,6 +541,9 @@ struct MattermostApp: App {
             // T41: presence and profile updates are live (a colleague's status dot, a custom status set
             // from another client — the server publishes `user_updated` for it).
             Task { @MainActor in profileCoordinator?.handle(event, serverID: serverID) }
+            // T42: an open mentions feed inserts a mention that arrives while it is on screen, and follows
+            // read state that moved in another client of mine.
+            Task { @MainActor in activityCoordinator?.handle(event, serverID: serverID) }
             guard let channelSidebarCoordinator else { return }
             Task { await channelSidebarCoordinator.handle(event, serverID: serverID) }
         }
@@ -552,6 +571,8 @@ struct MattermostApp: App {
             channelInfoCoordinator?.authPhaseChanged(serverID)
             // …and the profiles, the presence memory and any auto-away bookkeeping (T41).
             profileCoordinator?.authPhaseChanged(serverID)
+            // …and the mentions window, which was fetched with that credential (T42).
+            activityCoordinator.authPhaseChanged(serverID)
         }
     }
 
