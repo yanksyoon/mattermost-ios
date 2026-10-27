@@ -132,6 +132,7 @@ struct AddMembersPickerView: View {
                                     Text(candidate.initials)
                                         .font(.footnote.weight(.semibold))
                                         .foregroundStyle(.secondary)
+                                    AvatarPicture(userID: candidate.id, size: 30)
                                 }
                                 .frame(width: 30, height: 30)
                                 VStack(alignment: .leading, spacing: 2) {

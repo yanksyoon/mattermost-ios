@@ -15,8 +15,12 @@ struct GlobalThreadsPaneContent: View {
     @ObservedObject var navigation: NativeNavigation
 
     @EnvironmentObject private var threads: ThreadCoordinator
+    /// The per-server caches (avatars here): the global list draws the same authors the channel
+    /// timeline does, so it must read the same store rather than fetch a second copy of every face.
+    @EnvironmentObject private var panes: ChannelPaneCoordinator
 
     @State private var model: GlobalThreadsViewModel?
+    @State private var avatarStore: AvatarImageStore?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,7 +37,9 @@ struct GlobalThreadsPaneContent: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("nativeThreadsList")
+        .environment(\.avatarImages, avatarStore)
         .task(id: navigation.location.teamID) {
+            avatarStore = panes.avatarStore(for: server)
             let resolved = threads.globalModel(for: server, teamID: navigation.location.teamID ?? "")
             model = resolved
             await resolved.load(ifNeeded: true)

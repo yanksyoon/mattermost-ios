@@ -114,22 +114,11 @@ struct PostAvatarView: View {
     let author: PostAuthor
     var size: CGFloat = 36
 
-    /// The pane's picture cache. Absent in previews and tests, where the initials are the whole
-    /// point; present in the app, where the server has the real face.
-    @Environment(\.avatarImages) private var avatars: AvatarImageStore?
-    @State private var picture: UIImage?
-
     var body: some View {
         ZStack {
             Circle()
                 .fill(Color(hue: author.avatarHue, saturation: 0.45, brightness: 0.82))
-            if let picture {
-                Image(uiImage: picture)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
-            } else if author.initials.isEmpty {
+            if author.initials.isEmpty {
                 // A participant the server sent as an id-only stub: an avatar is honest, an invented
                 // name is not (T36).
                 Image(systemName: "person.fill")
@@ -140,14 +129,12 @@ struct PostAvatarView: View {
                     .font(.system(size: size * 0.36, weight: .semibold))
                     .foregroundStyle(.white)
             }
+            // The server's own picture, once it lands. Drawn last so it covers the initials; draws
+            // nothing at all while loading, for an account without a picture, or in a preview/host
+            // that has no session — the circle and the initials stay exactly as they were.
+            AvatarPicture(userID: author.id, size: size)
         }
         .frame(width: size, height: size)
-        .task(id: author.id) {
-            // One fetch per author per pane; the initials stand in until the bytes arrive, and stay
-            // when the server has no picture for this user.
-            guard let avatars, picture == nil else { return }
-            picture = await avatars.image(for: author.id)
-        }
         .accessibilityHidden(true)
     }
 }

@@ -50,15 +50,19 @@ extension APIClient {
                              useETag: false)
     }
 
-    /// `GET /files/{file_id}/thumbnail` (a JPEG the server generates) or the file's own bytes.
+    /// `GET /users/{user_id}/image` — one account's profile picture, as the server stores it.
     ///
-    /// A thumbnail endpoint answers 404 for an image too small to have one, so the caller can ask for
-    /// the original bytes with `thumbnail: false` — the row then scales them down itself.
-    /// `GET /users/{user_id}/image` — the profile picture as the server stores it.
+    /// Through `getData`, i.e. through this client: the bearer token from the vault, the same base
+    /// URL, the same 401 funnel. A 404 is the server's "this account has no picture" and surfaces as
+    /// `MMError.notFound` — the avatar store treats that as a fact rather than a failure.
     func userImage(userID: String) async throws -> Data {
         try await getData(path: "/users/\(userID)/image")
     }
 
+    /// `GET /files/{file_id}/thumbnail` (a JPEG the server generates) or the file's own bytes.
+    ///
+    /// A thumbnail endpoint answers 404 for an image too small to have one, so the caller can ask for
+    /// the original bytes with `thumbnail: false` — the row then scales them down itself.
     func fileBytes(fileID: String, thumbnail: Bool) async throws -> Data {
         try await getData(path: "/files/\(fileID)\(thumbnail ? "/thumbnail" : "")")
     }

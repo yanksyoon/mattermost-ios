@@ -220,6 +220,9 @@ struct CallsParticipantTile: View {
                 Text(participant.initials)
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.primary)
+                // The account's own picture. Below the speaking ring on purpose: the ring is state,
+                // the picture is identity, and state stays visible.
+                AvatarPicture(userID: participant.userID, size: 64)
                 if participant.isSpeaking && !participant.isMuted {
                     Circle().stroke(Color.accentColor, lineWidth: 3)
                 }
