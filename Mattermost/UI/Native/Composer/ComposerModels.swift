@@ -566,3 +566,31 @@ enum ComposerSuggestionRanking {
         return Array((prefix + contains).prefix(limit))
     }
 }
+
+// MARK: - The Return key
+
+/// What the Return key means in the composer input.
+///
+/// Enter sends; Shift+Enter starts a new line. It is a pure rule rather than an `if` buried in the
+/// text view, because the bridge can only ever report "a newline arrived, and shift was (or was not)
+/// down" — the decision itself is what has to be pinned by a test.
+enum ComposerReturnPolicy {
+
+    enum Action: Equatable {
+        /// Send the message as it stands.
+        case send
+        /// Let the newline through: a multi-line message.
+        case newline
+        /// Not the Return key — leave the text system alone.
+        case passThrough
+    }
+
+    /// - Parameters:
+    ///   - isReturnKey: the key was Return/Enter (the on-screen keyboard's Return counts as one).
+    ///   - shiftPressed: a hardware shift is down. The on-screen keyboard reports no modifiers, so a
+    ///     tap on its Return sends — which is Mattermost's own default on mobile.
+    static func action(isReturnKey: Bool, shiftPressed: Bool) -> Action {
+        guard isReturnKey else { return .passThrough }
+        return shiftPressed ? .newline : .send
+    }
+}
