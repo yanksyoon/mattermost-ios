@@ -354,7 +354,7 @@ final class T34ChannelPostListUITests: XCTestCase {
 
         // Move the window off the bottom so the anchor is genuinely mid-content, then let it settle.
         list.swipeDown()
-        _ = waitUntil(timeout: 10) { postRows(app).count > 3 }
+        _ = waitUntil(timeout: 10) { firstPostRow(app) != nil }
 
         let top = try XCTUnwrap(topVisibleRow(app),
                                 "no post row is visible to anchor on:\n\(app.debugDescription)")
@@ -373,23 +373,49 @@ final class T34ChannelPostListUITests: XCTestCase {
         attach(app, "t34-scroll-after-load")
 
         // The anchor must still be on screen, at the same offset. `PostRowView` rows are lazy: if the
-        // restore did not happen, the viewport keeps its content offset, the anchor is pushed down by
-        // a whole page and stops existing. Wait for two consecutive measurements to agree before
-        // comparing, so the assertion is not reading a half-applied layout.
+        // restore did not happen, the viewport keeps its content offset and the anchor ends up a page
+        // further down (or drops out of the tree entirely).
+        //
+        // Measurement rule (T34-QA), because this is where the old form was wrong in both directions:
+        //  - one *cheap* read per poll: `element(app, top.identifier)` is a single-element query, while
+        //    enumerating rows costs one accessibility snapshot per element and stalls the app's main
+        //    thread — the thread the restore loop itself runs on (see `postRows`);
+        //  - the settle is three consecutive agreeing measurements **at least 0.75 s apart**, i.e.
+        //    ≥1.5 s of stillness, not two reads that can be 250 ms apart while a layout is paused;
+        //  - agreement is not the assertion. The value is compared with the frame captured before the
+        //    insert, so a stable-but-wrong position still fails — with the residual in the message.
         var settled: CGRect?
-        _ = waitUntil(timeout: 20) {
+        var agreements = 0
+        _ = waitUntil(timeout: 30, poll: 0.75) {
             let row = element(app, top.identifier)
-            guard row.exists else { return false }
-            if let settled, abs(settled.minY - row.frame.minY) <= 2 { return true }
-            settled = row.frame
-            return false
+            guard row.exists else {
+                settled = nil
+                agreements = 0
+                return false
+            }
+            let frame = row.frame
+            if let settled, abs(settled.minY - frame.minY) <= 0.5 {
+                agreements += 1
+            } else {
+                agreements = 0
+            }
+            settled = frame
+            return agreements >= 2
         }
+
         let after = element(app, top.identifier)
-        XCTAssertTrue(after.exists,
-                      "the anchored post \(top.identifier) left the screen: the list jumped"
-                      + " by the height of the inserted page")
-        XCTAssertEqual(after.frame.minY, before.minY, accuracy: 2,
-                       "the anchored post moved from y=\(before.minY) to y=\(after.frame.minY)")
+        if after.exists {
+            let moved = after.frame.minY - before.minY
+            XCTAssertEqual(after.frame.minY, before.minY, accuracy: 2,
+                           "the anchored post \(top.identifier) moved \(String(format: "%.1f", moved)) pt "
+                           + "from y=\(String(format: "%.1f", before.minY)) across a page insert "
+                           + "(the pane holds \(loadedPosts(app)) posts; rows on screen: "
+                           + "\(describeRows(app)))")
+        } else {
+            XCTFail("the anchored post \(top.identifier) left the screen across a page insert: "
+                    + "the pane holds \(loadedPosts(app)) posts and the rows in the tree are "
+                    + "\(describeRows(app))")
+        }
 
         // And the page really was inserted: the reader can now reach posts that were not loaded
         // before. Without this the frame comparison above would pass on a no-op.
@@ -414,16 +440,57 @@ final class T34ChannelPostListUITests: XCTestCase {
 
         // The socket must deliver it: no pull-to-refresh, no relaunch.
         let row = element(app, "post.\(postID)")
-        XCTAssertTrue(row.waitForExistence(timeout: 45),
-                      "a posted message must appear over the socket without a reload:\n"
-                      + "\(app.debugDescription)")
+        if !row.waitForExistence(timeout: 45) {
+            // Do not report a guess (T34-QA). "No socket row" has two very different causes and this
+            // test can tell them apart with two probes:
+            //   1. is the socket delivering *anything* now? — a second post, 20 s;
+            //   2. can the pane draw the measured post at all? — a fresh launch fetches the server's
+            //      page, so if the row appears there, the data was never the problem.
+            // (1) no + (2) yes => the loss is socket delivery, and nothing refetches on reconnect
+            // (`SocketTeamEventSource` builds `SocketClient` with **no** `resync` closure), so the
+            // miss is permanent until the app is relaunched. That is a product defect, and this
+            // message is how a red run says so instead of "flaky".
+            let probeText = "t34 ui live probe \(UUID().uuidString.prefix(8))"
+            let probeID = try post(probeText, channelID: channel.id)
+            let probeArrived = probeID.map {
+                element(app, "post.\($0)").waitForExistence(timeout: 20)
+            } ?? false
+            if let probeID { try? delete(probeID, token: token) }
+            let fresh = launchAndOpen(channelName: channel.name)
+            let afterRelaunch = element(fresh, "post.\(postID)").waitForExistence(timeout: 40)
+            try? delete(postID, token: token)
+            XCTFail("the measured post \(postID) never arrived over the socket in 45 s. "
+                    + "A second post made afterwards \(probeArrived ? "did" : "did not") arrive "
+                    + "within 20 s, and after a relaunch the pane "
+                    + (afterRelaunch ? "does" : "does not") + " show the measured post — "
+                    + (afterRelaunch
+                       ? "the server has it and the pane renders it from the server's own page, so "
+                         + "the loss is in socket delivery (no resync on reconnect)"
+                       : "so the pane cannot render it even from the server's page"))
+            return
+        }
         // T34-AV-F2: the row element itself carries **no** accessibility label — the text is published
         // by the markdown blocks inside it (`post.<id>.body.block<n>`). So `row.label.contains(...)`
         // was always false here and the assertion only ever passed on its `staticTexts` fallback.
         // Read the blocks the renderer actually draws.
+        //
+        // Wait for the *content*, not just the row (T34-QA). The row element is in the tree as soon as
+        // the list has a model for it; the markdown blocks are published by a later layout pass. On
+        // iOS 26 the first read after `row.exists` came back empty — measured, not assumed:
+        // `build/logs/t34f-iph17-socket1.log`, "the new row publishes no body block" while the row was
+        // present (the same run then read `''`). A sleep would hide that; a wait for the published text
+        // is the condition the test actually means ("the message is readable on screen").
+        // The poll reads the first body block only: one single-element query per poll, not a tree walk.
+        let firstBlock = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "post.\(postID).body.block"))
+            .firstMatch
+        let bodyArrived = waitUntil(timeout: 20) { firstBlock.exists && !firstBlock.label.isEmpty }
         let body = bodyText(app, postID: postID)
         XCTAssertFalse(body.isEmpty,
-                       "the new row publishes no body block:\n\(row.debugDescription)")
+                       "the new row publishes no body block within 20 s of the row appearing"
+                       + " (body blocks read as empty):\n\(row.debugDescription)")
+        XCTAssertTrue(bodyArrived,
+                      "the new row's body does not carry the message text, got '\(body)'")
         XCTAssertTrue(body.contains(String(message.prefix(20))),
                       "the new row's body does not carry the message text, got '\(body)'")
         attach(app, "t34-socket-post-arrived")
@@ -528,10 +595,39 @@ final class T34ChannelPostListUITests: XCTestCase {
         signIn(app)
 
         // Open the channel the way a person does: the sidebar row for it.
+        //
+        // The sidebar is a lazy collection view: only cells near the viewport are in the accessibility
+        // tree, and this throwaway server now holds 40 channels for `perfprobe` (38 team channels,
+        // measured 2026-10-27 with the probe recorded in the T34-QA note). On a fresh launch the
+        // realised window started at "T35 Composer" (content offset -1932 pt) and held 15 channel
+        // rows; `#t34-*` was not among them, and two `swipeUp`s reached it — it is below the window,
+        // not above. Measured: `build/logs/t34q-run1.log` (red, before this change) and
+        // `build/logs/t34q-sidebar-probe.log` (green, 8 `swipeDown`s did not find it, 2 `swipeUp`s
+        // did). Asserting that a 40-channel sidebar fits one screen is a test bug, not a product
+        // defect: a person scrolls. So scroll, bounded, until the row exists — then assert.
         let channel = try? self.channel(named: channelName)
         let identifier = "channelSidebar.channel.\(channel?.id ?? "")"
         let row = element(app, identifier)
-        XCTAssertTrue(row.waitForExistence(timeout: 40),
+        if !row.waitForExistence(timeout: 10) {
+            let sidebar = element(app, "nativeTeamSidebar").collectionViews.firstMatch
+            XCTAssertTrue(sidebar.exists,
+                          "the channel sidebar must mount:\n\(app.debugDescription)")
+            // Direction is measured, not assumed: on this server the `t34-*` rows sit **below** the
+            // realised window, so scroll towards the end of the list first (`swipeUp` moves the
+            // content up the list) and only then back the other way; both bounded. Measured:
+            // `build/logs/t34q-sidebar-probe.log` — eight `swipeDown`s did not find the row, two
+            // `swipeUp`s did.
+            var revealed = row.exists
+            for _ in 0..<5 where !revealed {
+                sidebar.swipeUp(velocity: .fast)
+                revealed = row.waitForExistence(timeout: 1)
+            }
+            for _ in 0..<5 where !revealed {
+                sidebar.swipeDown(velocity: .fast)
+                revealed = row.waitForExistence(timeout: 1)
+            }
+        }
+        XCTAssertTrue(row.waitForExistence(timeout: 20),
                       "the sidebar must list #\(channelName):\n\(app.debugDescription)")
         row.tap()
         return app
@@ -732,31 +828,73 @@ final class T34ChannelPostListUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
-    private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
+    /// Poll a condition until it holds. One poll every `poll` seconds by default — not 4 Hz: each
+    /// evaluation is at least one accessibility snapshot, and snapshots are served on the app's main
+    /// thread (T34-QA, see `postRows`). A condition that needs a tighter cadence can ask for it.
+    private func waitUntil(timeout: TimeInterval, poll: TimeInterval = 0.5,
+                           _ condition: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if condition() { return true }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+            RunLoop.current.run(until: Date().addingTimeInterval(poll))
         }
         return condition()
+    }
+
+    /// Every node of the app's accessibility tree, from **one** snapshot request, in tree order.
+    ///
+    /// This is the fix for the query storm (T34-QA). `allElementsBoundByIndex`, `count` and
+    /// `element(boundBy:)` each resolve an element with its own snapshot round trip: measured on this
+    /// host at **0.32 s per element** (`build/logs/t34q-run1.log`, `Find the Any (Element at index)`
+    /// 0..27 inside one `postRows` call) — ~20 s for a 60-row page, and the stack in the crash reports
+    /// is exactly that path (`-[XACRuntimeUtility attributesForElement:attributes:error:]` under
+    /// `-[XCElementSnapshot children]`). `XCUIElement.snapshot()` fetches the whole tree in one round
+    /// trip; walking it here costs nothing on the app's main thread.
+    private func snapshotNodes(_ app: XCUIApplication) -> [XCUIElementSnapshot] {
+        guard let root = try? app.snapshot() else { return [] }
+        var out: [XCUIElementSnapshot] = []
+        var queue: [XCUIElementSnapshot] = [root]
+        var index = 0
+        while index < queue.count {
+            let node = queue[index]
+            index += 1
+            out.append(node)
+            queue.append(contentsOf: node.children)
+        }
+        return out
     }
 
     /// Every rendered post row (`post.<id>`), with the frame it occupies right now.
     ///
     /// Row identifiers are `post.<id>`; the row's own children are `post.<id>.body` and friends, so
-    /// exactly one dot separates a row from its parts. One pass of the tree, because a `frame` read per
-    /// element is a separate query and this list is long.
+    /// the filter keeps exactly one dot and the children never enter the result.
     private func postRows(_ app: XCUIApplication) -> [(identifier: String, frame: CGRect)] {
-        let query = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier BEGINSWITH 'post.'"))
-        return (0..<query.count).compactMap { index in
-            let candidate = query.element(boundBy: index)
-            let identifier = candidate.identifier
-            guard identifier.components(separatedBy: ".").count == 2 else { return nil }
-            let frame = candidate.frame
-            guard frame.height > 0 else { return nil }
-            return (identifier, frame)
+        snapshotNodes(app).compactMap { node in
+            let identifier = node.identifier
+            guard identifier.hasPrefix("post."), !identifier.dropFirst(5).contains("."),
+                  node.frame.height > 0 else { return nil }
+            return (identifier, node.frame)
         }
+    }
+
+    /// The first row in the tree, if any — one *single-element* query, because this is polled (a
+    /// whole-tree snapshot per poll would be the very cost this file is trying to remove).
+    private func firstPostRow(_ app: XCUIApplication) -> String? {
+        let candidate = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier MATCHES %@", "^post\\.[^.]+$"))
+            .firstMatch
+        return candidate.exists ? candidate.identifier : nil
+    }
+
+    /// The rows on screen as `id@y`, cheapest form. Used in failure messages so the next reader sees
+    /// where the list actually was instead of a guess about why it moved.
+    private func describeRows(_ app: XCUIApplication, limit: Int = 8) -> String {
+        let rows = postRows(app).sorted { $0.frame.minY < $1.frame.minY }
+        guard !rows.isEmpty else { return "none" }
+        let shown = rows.prefix(limit).map {
+            "\($0.identifier)@\(String(format: "%.1f", $0.frame.minY))"
+        }
+        return shown.joined(separator: ", ") + (rows.count > limit ? " (+\(rows.count - limit) more)" : "")
     }
 
     /// The topmost post row that starts at or below the list's top edge — the row a person reads first.
@@ -773,12 +911,12 @@ final class T34ChannelPostListUITests: XCTestCase {
     /// The row element is `post.<id>` and carries no accessibility label of its own (T34-AV-F2): the
     /// text is published by `MarkdownView` on `post.<id>.body.block<n>` — and a quoted block nests its
     /// own children under `.quote.block<n>`, which is why this matches the prefix rather than one name.
+    /// One tree snapshot for all blocks, in tree order (see `snapshotNodes`).
     private func bodyText(_ app: XCUIApplication, postID: String) -> String {
-        let query = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "post.\(postID).body.block"))
-        guard query.count > 0 else { return "" }
-        return (0..<query.count)
-            .map { query.element(boundBy: $0).label }
+        let prefix = "post.\(postID).body.block"
+        return snapshotNodes(app)
+            .filter { $0.identifier.hasPrefix(prefix) }
+            .map(\.label)
             .filter { !$0.isEmpty }
             .joined(separator: " ")
     }
