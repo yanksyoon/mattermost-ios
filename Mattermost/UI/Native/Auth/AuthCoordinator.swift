@@ -82,6 +82,14 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
     private let cookieClearing: SessionCookieClearing
     private let makeSession: (ServerConfig, @escaping (CertificatePrompt) -> Void) throws -> AuthSession
 
+    /// How the **webview-held** session for a server is read (see `WebSessionAdoption.swift`).
+    ///
+    /// A seam, not a convenience: the production reader is bound to one server's isolated
+    /// `WKWebsiteDataStore`, which is a container-scoped store a test cannot populate from another
+    /// process, and the restore path's whole claim — "a login done in the web view is a session here"
+    /// — is only testable if that read can be scripted. Production default: the server's own store.
+    private let makeCookieReader: (UUID) -> SessionCookieReading
+
     /// One live session per server, kept for the app lifetime: the transport's `onUnauthorized`
     /// callback belongs to *that* object, so re-creating it would orphan a live 401 path.
     private var sessions: [UUID: AuthSession] = [:]
@@ -96,13 +104,17 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
     ///   - makeSession: a seam so tests can supply an `AuthSession` backed by a fake transport.
     ///     Production builds use the convenience `AuthSession` initialiser, whose transport
     ///     shares `certTrust` with the webview (T28 criterion 4).
+    ///   - cookieReader: a seam so tests can script the webview-held session; production reads the
+    ///     server's own `WKWebsiteDataStore`.
     init(vault: SecureVault = SecureVault(),
          certTrust: CertTrust = CertTrust(),
          cookieClearing: SessionCookieClearing? = nil,
+         cookieReader: ((UUID) -> SessionCookieReading)? = nil,
          makeSession: ((ServerConfig, @escaping (CertificatePrompt) -> Void) throws -> AuthSession)? = nil) {
         self.vault = vault
         self.certTrust = certTrust
         self.cookieClearing = cookieClearing ?? WebKitSessionCookieClearing()
+        self.makeCookieReader = cookieReader ?? { serverID in WebKitSessionCookieReader(serverID: serverID) }
         if let makeSession {
             self.makeSession = makeSession
         } else {
@@ -182,10 +194,40 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
 
     // MARK: - Session restore (launch / foreground)
 
+    /// Adopt a session that exists **only** in the webview's cookie store.
+    ///
+    /// The shell's primary sign-in path is the web view: SSO/SAML runs there and the server answers
+    /// with an `HttpOnly` `MMAUTHTOKEN`. The native transport reads the vault, not WebKit's cookie
+    /// jar, so without this the app boots "signed out" for a user who is plainly signed in — and
+    /// every native surface sits on its loading state because its requests are unauthenticated.
+    ///
+    /// Best effort by design: a missing/expired cookie is not an error, it just means this server
+    /// really is signed out.
+    ///
+    /// - Returns: the session the webview's cookie was adopted as, or `nil` when there was no usable
+    ///   cookie. Callers get the session because this **is** the sign-in on this path: a caller that
+    ///   only got `true` would have to re-read `phase(for:)` to learn who signed in.
+    private func adoptExistingWebSessionIfPresent(_ server: ServerConfig) async -> AuthSession.Session? {
+        do {
+            let adopted = try await adoptWebSession(server, using: makeCookieReader(server.id))
+            MMLog.info("MMAuth", "adopted the webview session for \(server.name)")
+            return adopted
+        } catch {
+            MMLog.info("MMAuth", "no webview session to adopt for \(server.name): \(error)")
+            return nil
+        }
+    }
+
     /// Restore one server's stored session.
     ///
-    /// - Returns: the restored session, or `nil` when the server rejected the stored token or there
-    ///   was none.
+    /// The order of the four outcomes is the contract:
+    /// 1. the vault's token is accepted → `.signedIn`;
+    /// 2. the vault's token was **rejected** → the expiry transition (and only that: a dead login
+    ///    must not be resurrected from the webview's copy of it);
+    /// 3. the vault held **no** token but the webview holds one → adopt it (the Path A login);
+    /// 4. neither → `.signedOut`.
+    ///
+    /// - Returns: the session this server resolved to, or `nil` when it resolved signed out/expired.
     /// - Throws: transport failures only, so an offline launch keeps the optimistic gate instead of
     ///   dropping the user on a login screen (the `AuthSession` contract).
     @discardableResult
@@ -199,16 +241,32 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
             let restored = try await session.restore()
             if let restored {
                 setPhase(.signedIn(username: restored.username, userID: restored.userID), for: server.id)
-            } else if session.needsReauth {
+                return restored
+            }
+            if session.needsReauth {
                 // No stored token, or the server rejected it (AuthSession has already cleared the
                 // vault copy and flagged re-auth). The expiry transition clears the webview's copy
                 // too, before the phase moves, so a consumer that sees `.expired` knows the device
                 // holds no credential for this server at all.
+                //
+                // Deliberately *before* the webview adoption below: a rejected token means this
+                // login is dead server-side, and `requireReauth` is already clearing the cookie copy.
+                // Adopting from that store would race the clear and could leave the shell signed in
+                // on the credential the server just refused.
                 await requireReauth(server)
-            } else {
-                setPhase(.signedOut, for: server.id)
+                return nil
             }
-            return restored
+            if let adopted = await adoptExistingWebSessionIfPresent(server) {
+                // The vault held **no** token, yet the webview does: the sign-in happened in the
+                // web view (Path A's normal path — the SPA's own login, or the SSO/SAML hand-off),
+                // and this is where the native stack learns about it. `adoptWebSession` has already
+                // verified the cookie with `GET /users/me`, persisted it to the vault and set the
+                // phase, so the native transport, the socket and every pane are authenticated from
+                // here on — and the next launch restores from the vault, not from a cookie.
+                return adopted
+            }
+            setPhase(.signedOut, for: server.id)
+            return nil
         } catch {
             // Offline / timeout / untrusted certificate: the launch keeps whatever the vault says.
             MMLog.info("MMAuth", "session restore for \(server.name) could not reach the server; keeping the stored session")
