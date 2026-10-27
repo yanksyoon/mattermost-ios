@@ -174,12 +174,24 @@ final class T44DCallsUITests: XCTestCase {
                       "the server must broadcast `user_muted` for this channel/user — saw "
                       + "\(observer.names())\n\(app.debugDescription)")
 
+        // If the process vanished instead, say which failure this is: on a loaded host the
+        // simulator's audio HAL has aborted this app inside `AURemoteIO::Initialize`
+        // (`docs/t44d-build-note.md` §4.2), and that is indistinguishable from a control bug in
+        // the log above without this line.
+        XCTAssertEqual(app.state, .runningForeground,
+                       "the app must still be running after the mute round trip — a dead process "
+                       + "here is the AudioToolbox abort in docs/t44d-build-note.md §4.2, not a "
+                       + "mute failure")
+
         // Still muted after the engine's next few snapshots: the server's `user_muted` is not being
         // clobbered by a stale `call_state` (the defect the T44d live run measured, now folded in
         // the engine — `CallsEngine.fold`).
         RunLoop.current.run(until: Date().addingTimeInterval(3))
         XCTAssertEqual(mute.value as? String, "muted",
                        "the mute state must survive the snapshot refresh")
+        // The evidence the DoD asks for: the muted state *after* the server confirmed it, on a real
+        // call — not the optimistic local flip.
+        attach(app, "06-muted-after-roundtrip")
 
         element(app, "calls.leaveButton").tap()
         XCTAssertTrue(waitUntil(timeout: 25) { !element(app, "callsSurface").exists },

@@ -108,15 +108,38 @@ probe's session ends that way and the app's does not.
 
 * `xcodebuild build -scheme Mattermost -destination 'platform=macOS,variant=Mac Catalyst'` — clean.
 * `xcodebuild test` on Catalyst, the T44c + T44d classes — **94 tests, 0 failures, 3 pre-existing
-  peer-test skips** (`MM_CALLS_PEER_TESTS` not set).
-* Live, `MattermostUITests/T44DCallsUITests` on `iPhone 16 Pro` (18.3.1) against the real fixture
-  with the real Calls plugin: the app signs in, opens `#t44-calls`, the header offers Calls
-  (`calls.joinButton`, value `idle`, label `Start call`), tapping it **mounts the surface**, the
-  surface reaches **`In call`** with the reader's own tile (`Perf Probe (you)`, mute icon, host
-  crown) and the control bar (`Unmute` / `Raise hand` / `Leave`) — `docs/t44d-shots/t44d-01-in-call.png`
-  and `t44d-02-unmuted.png`, exported from the run's own attachments. The mute round trip reaches
-  the server: the test's own second socket records `user_unmuted` for the call channel and the
-  reader's user id.
+  peer-test skips** (`MM_CALLS_PEER_TESTS` not set); this closing pass changed no product code (only
+  the live suite's own assertion/attachment and these docs), so that result stands. The whole
+  `MattermostTests` suite at the pushed SHA (`41e0e06`) was 1596 run / 7 skipped / 0 failed in this
+  card's rework run.
+* Live: `MattermostUITests/T44DCallsUITests` on `iPhone 16 Pro` (iOS 18.3) against the real fixture
+  (`127.0.0.1:8065`, Calls plugin **0.29.8** build `936dd00`), channel `#t44-calls`, launched with
+  `-surfaceMode calls=native`. **Two consecutive full-suite runs, both green:**
+
+  | run | log | started | result |
+  |---|---|---|---|
+  | 3 | `build/logs/t44d-run3.log` | 2026-10-27 09:53:23 | `Executed 2 tests, with 0 failures (0 unexpected)` in 82.350 s |
+  | 5 | `build/logs/t44d-run5.log` | 2026-10-27 09:57:32 | `Executed 2 tests, with 0 failures (0 unexpected)` in 81.250 s |
+
+  What they assert, end to end: the channel header offers `calls.joinButton` (value `idle`, label
+  `Start call`) → tapping it mounts `callsSurface` → the reader's own tile `calls.tile.<userID>` reads
+  `Perf Probe (you)` with the mute icon and the host crown → the state line reaches **`In call`** →
+  `GET …/calls/{id}/active` answers `{"active":true}` → **`Leave`** dismisses the surface **and** the
+  plugin reports `{"active":false}`. The mute test additionally drives `calls.muteButton`
+  (`muted` → `unmuted` → `muted`) and requires a **second socket of the same account** to see
+  `user_unmuted` **and then** `user_muted` for that channel and user id, and the control to still read
+  `muted` 3 s later, so the engine's next snapshot cannot revert a server-confirmed mute.
+* Screenshots from those runs, in `docs/t44d-shots/`: `t44d-01-in-call.png` and `t44d-02-unmuted.png`
+  (earlier run, same fixture), `t44d-03-in-call-green-run.png` (run 5: header `t44-calls`,
+  `In call 00:02`, own tile with the mute icon and the host crown, `Unmute` / `Raise hand` / `Leave`)
+  and **`t44d-04-muted-after-roundtrip.png`** (run 5, taken after the server confirmed `user_muted`:
+  the same call at `00:05`, tile mic crossed out, the control reading `Unmute`). All four are exports
+  of the runs' own `XCTAttachment`s against the fixture — no fixture-free mock-ups.
+* The audio path really ran in both green runs: the simulator's own log shows its audio device up and
+  reconfiguring around join and leave for **all four** app processes —
+  `Mattermost[<pid>] (AudioToolbox) iOSSimulatorAudioDevice-<pid>-1: Abandoning I/O cycle because
+  reconfig pending`, at 09:53:59 / 09:54:05 (pid 54421), 09:54:42 / 09:54:45 (54964),
+  09:58:07 / 09:58:12 (57429), 09:58:48 / 09:58:51 (57899). Neither run wrote a crash report.
 
 ### 4.1 The two defects the first cut had, and the fixes
 
@@ -144,55 +167,65 @@ confirmed the unmute. Fix: `CallsEngine.fold(_:)` folds `user_muted`/`user_unmut
 raise/unraise, `user_joined`/`user_left`, host change and screen-share into `snapshot.call`, ignoring
 deltas that name another channel. `T44CCallsEngineTests` gained four tests for it.
 
-### 4.2 The live run cannot finish on this host: an AudioToolbox abort
+### 4.2 The AudioToolbox abort: a host-contention failure mode, recognised and no longer open
 
-With the transport fixed the call comes up and signalling works, but **the process is killed ~5 s
-later by Apple's audio stack**, which is what stops the last two live assertions (the reverse
-`user_muted` direction, and `Leave` ending the call on the server). Captured with lldb attached to
-the running app (`~/Library/Logs/mmios-t44d-lldb2.txt`), abridged:
+Between 05:50 and 06:46 on 2026-10-27 the live suite was killed four times by Apple's audio stack
+before its last two assertions could be taken. That history is kept here because it is a real failure
+mode of *this host*, and the `-AV` card must recognise it instead of chasing it as a mute bug.
+
+Signature (crash report `~/Library/Logs/DiagnosticReports/Mattermost-2026-10-27-064552.ips`, lldb
+`~/Library/Logs/mmios-t44d-lldb2.txt`):
 
 ```
-* thread #16, name = 'worker_thread', stop reason = signal SIGABRT
-  frame #2: libsystem_c.dylib`abort + 104
-  frame #3: AudioToolboxCore`_ReportRPCTimeout(char const*, int) + 120
-  frame #4: AudioToolboxCore`_CheckRPCError(...)
-  frame #5: libEmbeddedSystemAUs.dylib`AURemoteIO::Initialize() + 1924
-  frame #8: AudioToolboxCore`AudioUnitInitialize + 128
-  frame #9..: WebRTC … (the audio device module starting its RemoteIO unit)
-
-  thread #8  queue='com.apple.root.default-qos': UISoundNewRenderer → CA_UISoundClientBase
-             → AQIONodeManager::_FindAQIONode → … HALC_ProxyObject::SetPropertyData (blocked)
-  thread #10 queue='AudioControl': AURemoteIO_server → RemoteIOClient::ConnectToDevice
-             → AQIONodeManager::_FindAQIONode (blocked on the same unfair lock)
+thread #16 worker_thread   AURemoteIO::Initialize → _ReportRPCTimeout → abort      libwebrtc's ADM
+                                                                                  starting the unit
+thread #10 'AudioControl'  AURemoteIO_server → RemoteIOClient::ConnectToDevice
+                           → AQIONodeManager::_FindAQIONode                       blocked on its lock
+thread #8  default-qos     AQIONodeManager::StartImmortalDeviceRunner → UISoundNewRenderer
+                           → CA_UISoundClientBase → HALC_ProxyObject::SetPropertyData
+                           → mach_msg                                             simulator audio HAL
 ```
 
-i.e. a UI-sound client and the app's remote-IO unit deadlock on an Apple-internal lock
-(`AQIONodeManager`), the audio-server RPC times out, and AudioToolbox **aborts the process by
-design** (`_ReportRPCTimeout`). Nothing in that stack is this repository's code: our audio work is
-`RTCAudioSession` category/mode/activation plus libwebrtc's own device module.
+i.e. **a UIKit UI-sound device runner was inside an audio-HAL call that never returned**, so the audio
+server could not find a node for libwebrtc's remote-IO unit, its 10 s RPC check expired, and
+AudioToolbox **aborted the process by design** (`_ReportRPCTimeout`). Nothing in that stack is this
+repository's code: our audio work is `RTCAudioSession` category/mode/activation plus libwebrtc's own
+device module.
 
-What was tried, and what it changed (all measured, none of it silent):
+What was tried while it was failing — kept where each is right on its own terms, none of them the cure:
+manual audio (`useManualAudio = true`, the react-native-webrtc ownership model), activation before
+`isAudioEnabled = true`, `[.allowBluetooth]` without the mutually exclusive `.allowBluetoothA2DP`,
+teardown order (unit stopped before the peer connection is released), UI-sound defaults disabled on
+host and simulator, and shutting down the second booted simulator.
 
-1. `useManualAudio = false` → `true`, so the app owns activation instead of the ADM activating on
-   top of it (this is also what react-native-webrtc does). No change to the abort; kept, because it
-   is the correct ownership model and removed a double activation.
-2. Activation **before** enabling audio (`setCategory` → `setActive(true)` → `isAudioEnabled = true`),
-   and `.allowBluetooth` without the mutually-exclusive `.allowBluetoothA2DP`. No change; kept, same
-   reason (the pair is documented as exclusive, and starting the ADM against an inactive session is
-   a second way into the same stall).
-3. Teardown order: stop the audio unit (`isAudioEnabled = false` / track disabled) **before**
-   releasing the peer connection and factory. No change to the abort; kept — deactivating a session
-   whose audio-unit owner is already gone is wrong on its own terms.
+What actually differed in the green runs: **the host was otherwise idle and only one simulator was
+booted.** All four aborts happened at host load 60–92 with T34's UI suite running and two simulators
+holding audio clients; both green runs happened after T34 released the host (load ≈ 4.5, one booted
+device — `vm.swapusage` was ≈ 7.5 GB used in *both* states, so swap alone is not the discriminator).
+**No product code changed between the last abort and the first green run**: the difference is
+`build/logs/t44d-final.log` (failing) against `t44d-run3.log` / `t44d-run5.log` (green) at the same
+commit, which is why this is recorded as host contention rather than a Calls defect.
 
-The abort is identical in shape at leave and at unmute (both first touch the ADM's input unit), so
-it is not a teardown bug and not a surface bug: it is this simulator/host's audio stack. The `-AV`
-card must not rely on this host for the two surviving assertions; a device run, or a simulator on a
-host without the audio-server contention, is where they have to be taken.
+For the `-AV` card: run this suite **alone** on a quiet host (T34 finished, one simulator booted), and
+read a vanished process as this signature, not as a mute failure — the suite now says so itself:
+
+```swift
+XCTAssertEqual(app.state, .runningForeground,
+               "the app must still be running after the mute round trip — a dead process here is "
+               + "the AudioToolbox abort in docs/t44d-build-note.md §4.2, not a mute failure")
+```
+
+If it does abort again, the useful ladder is, cheapest first: (1) keep `RTCAudioSession` active across
+the call instead of deactivating at teardown, so no UI-sound or AudioQueue client can grab the
+`AQIONode` mid-call; (2) identify the in-process client that owns the `AQMEIO` renderer (a live
+WKWebView UI-sound renderer is the prime suspect while a webview surface is still mounted) and stop it
+for the call's duration; (3) only then host level (a reboot to clear a wedged HAL). Recorded so the
+next attempt starts from evidence instead of from zero.
 
 ## 5. Deliberately not in this card
 
-* Remote audio actually playing (T44b/T44c media path; the surface states what the engine reports) —
-  and see §4.2 for why a live audio unit could not be exercised here at all.
+* Remote audio *heard by a human* (the T44b/T44c media path is measured at the packet level, and §4
+  above shows the app's audio device running; what this card does not do is listen to it).
 * A second participant's tile **from the wire**: needs a second WebRTC peer offering SDP from the
   test process. Participant deltas are unit-tested from measured frames and folded by the engine;
   the peer oracle belongs to the `-AV` pass.
@@ -205,7 +238,7 @@ host without the audio-server contention, is where they have to be taken.
 New: `Mattermost/UI/Native/Calls/{CallsSurfaceModels,CallsCallModel,CallsCoordinator,CallsSurfaceView,CallsJoinEntry,CallsAPI,CallsSurfaceService}.swift`,
 `MattermostTests/T44DCalls{Surface,Coordinator,API}Tests.swift`,
 `MattermostTests/T44DSocketBinarySendTests.swift`, `MattermostUITests/T44DCallsUITests.swift`,
-`docs/t44d-shots/t44d-01-in-call.png`, `docs/t44d-shots/t44d-02-unmuted.png`.
+`docs/t44d-shots/{t44d-01-in-call,t44d-02-unmuted,t44d-03-in-call-green-run,t44d-04-muted-after-roundtrip}.png`
 
 Changed: `Mattermost/Core/MM/SocketEvent.swift` (`send(data:)` is a protocol requirement, §4.1),
 `Mattermost/Core/Calls/CallsEngine.swift` (delta folding, §4.1; teardown order, §4.2),
