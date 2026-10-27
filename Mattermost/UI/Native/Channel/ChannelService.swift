@@ -54,6 +54,12 @@ protocol ChannelServing: AnyObject {
     /// The image bytes for one custom emoji (`GET /emoji/{id}/image`).
     func emojiImage(emojiID: String) async throws -> Data
 
+    /// `GET /users/{user_id}/image` — one user's profile picture.
+    ///
+    /// Defaults to a failure, like `emojiImage`: a service that cannot fetch avatars still draws the
+    /// initials, and nothing silently pretends a picture exists.
+    func userImage(userID: String) async throws -> Data
+
     /// `POST /reactions` — add one reaction (S16/T37).
     ///
     /// Defaults to a failure: a service that has not implemented the write path still *draws*
@@ -77,6 +83,7 @@ extension ChannelServing {
     func fileDownloadRequest(fileID: String) throws -> URLRequest { throw MMError.notSignedIn }
     func customEmoji(page: Int, perPage: Int) async throws -> [MMEmoji] { [] }
     func emojiImage(emojiID: String) async throws -> Data { throw MMError.notFound }
+    func userImage(userID: String) async throws -> Data { throw MMError.notFound }
     func addReaction(postID: String, emojiName: String, userID: String) async throws -> MMReaction {
         throw MMError.notFound
     }
@@ -153,6 +160,10 @@ final class SessionChannelService: ChannelServing {
 
     func emojiImage(emojiID: String) async throws -> Data {
         try await client().emojiImage(emojiID: emojiID)
+    }
+
+    func userImage(userID: String) async throws -> Data {
+        try await client().userImage(userID: userID)
     }
 
     /// S16/T37: the write half. The alias the caller passes is already canonical (`thumbsup` → `+1`),

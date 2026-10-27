@@ -35,6 +35,8 @@ final class ChannelPaneCoordinator: ObservableObject {
     /// Most-recently-activated channel ids per server, newest last.
     private var recent: [UUID: [String]] = [:]
     private var imageStores: [UUID: ChannelImageStore] = [:]
+    /// One avatar cache per server: a face is a fact about the server, not about a channel.
+    private var avatarStores: [UUID: AvatarImageStore] = [:]
     private var emojiCatalogues: [UUID: EmojiCatalogue] = [:]
     /// T38: per-server attachment download state (shares the app's one `DownloadWorker` journal).
     private var attachmentDownloadsStores: [UUID: AttachmentDownloads] = [:]
@@ -90,6 +92,14 @@ final class ChannelPaneCoordinator: ObservableObject {
         if let existing = imageStores[server.id] { return existing }
         let store = ChannelImageStore(service: service(for: server))
         imageStores[server.id] = store
+        return store
+    }
+
+    /// Profile pictures for one server (one cache per server, shared by every pane's rows).
+    func avatarStore(for server: ServerConfig) -> AvatarImageStore {
+        if let existing = avatarStores[server.id] { return existing }
+        let store = AvatarImageStore(service: service(for: server))
+        avatarStores[server.id] = store
         return store
     }
 

@@ -54,6 +54,11 @@ extension APIClient {
     ///
     /// A thumbnail endpoint answers 404 for an image too small to have one, so the caller can ask for
     /// the original bytes with `thumbnail: false` — the row then scales them down itself.
+    /// `GET /users/{user_id}/image` — the profile picture as the server stores it.
+    func userImage(userID: String) async throws -> Data {
+        try await getData(path: "/users/\(userID)/image")
+    }
+
     func fileBytes(fileID: String, thumbnail: Bool) async throws -> Data {
         try await getData(path: "/files/\(fileID)\(thumbnail ? "/thumbnail" : "")")
     }
