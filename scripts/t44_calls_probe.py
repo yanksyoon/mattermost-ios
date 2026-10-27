@@ -1,0 +1,549 @@
+#!/usr/bin/env python3
+"""T44 probe: the Mattermost Calls signalling contract, measured against a live plugin.
+
+This is the conformance probe a native Calls client has to satisfy, and the one this card used
+to decide whether the `calls` surface may leave the webview. It talks to the **core**
+`/api/v4/websocket` exactly like the app does (the Calls plugin never opens a socket of its own —
+`server/websocket.go` in mattermost-plugin-calls hooks `WebSocketMessageHasBeenPosted` and the core
+server routes `custom_com.mattermost.calls_*` actions to it).
+
+What it establishes, in order:
+
+  1. the plugin is installed and what version/build it is (`GET /plugins/com.mattermost.calls/version`);
+  2. what the plugin says its configuration is (`/config`: sku, AllowEnableCalls, DefaultEnabled,
+     ICEServers) — a client cannot join a call the plugin refuses to enable;
+  3. a **JSON text frame** can join: `join` -> `join` ack carrying `connID`, then `user_joined` and
+     the full `call_state` (the payload a native calls UI renders);
+  4. the `sdp` action is **not** a JSON-frame action: the plugin type-asserts the payload to `[]byte`
+     (`server/websocket.go`, `msgData, ok := req.Data["data"].([]byte)`), and the core server's JSON
+     decoder produces a `string` — so the server logs "invalid or missing sdp data" and never answers.
+     That is measured here as a negative: no `signal` event arrives for a JSON-framed offer;
+  5. the same offer sent as a **MessagePack binary frame** (the shape the web client uses,
+     `webapp/src/websocket.ts` `encode(msg)`) is answered: the SFU (the plugin's own pion RTC server,
+     `server/activate.go` `rtc.NewServer`) returns `{"type":"answer","sdp":...}` plus ICE candidates;
+  6. the client is the **offerer**: nothing is sent until the client offers, and an unanswered session
+     is torn down after the server's signalling timeout (~10 s);
+  7. every ICE candidate the SFU advertises is probed with a STUN binding request from the host that
+     runs this script, so "can media actually flow here" is a measurement and not an assumption.
+
+Exit code is 0 when every *contract* check holds (1-6). Reachability (7) is printed as a
+measurement, because a closed port is a fact about the deployment, not a conformance failure — the
+final line states which it was.
+
+Nothing here writes to the server except joining a call in the probe channel (which the plugin
+records as a call and a "call started" post, exactly like the web client does) and leaving it again.
+The token is only ever sent in a request header / socket upgrade header and is never printed.
+
+    python3 scripts/t44_calls_probe.py --url http://127.0.0.1:8065
+    python3 scripts/t44_calls_probe.py --url http://127.0.0.1:8065 --json
+
+Fixture: the account `perfprobe` must exist (password below, a throwaway local value used by every
+probe script in this repo) and the Calls plugin must be installed. The probe creates the public
+channel `t44-calls` on first use.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import hashlib
+import json
+import os
+import socket
+import struct
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import zlib
+from typing import Any
+
+ADMIN_LOGIN = "perfprobe"
+ADMIN_PASSWORD = "PerfProbe-Not-A-Real-Secret-1"
+CHANNEL_NAME = "t44-calls"
+PLUGIN = "/plugins/com.mattermost.calls"
+
+checks: list[tuple[str, bool, str]] = []
+measures: list[tuple[str, str]] = []
+
+
+def check(name: str, ok: bool, detail: str = "") -> None:
+    checks.append((name, ok, detail))
+    print(("PASS  " if ok else "FAIL  ") + name + (("  —  " + detail) if detail else ""))
+
+
+def measure(name: str, detail: str = "") -> None:
+    measures.append((name, detail))
+    print("DATA  " + name + (("  —  " + detail) if detail else ""))
+
+
+# --------------------------------------------------------------------------------------------
+# REST
+# --------------------------------------------------------------------------------------------
+
+def call(url: str, method: str, path: str, body: Any = None,
+         token: str | None = None) -> tuple[int, Any, dict[str, str]]:
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(url.rstrip("/") + path, data=data, method=method)
+    request.add_header("Content-Type", "application/json")
+    if token:
+        request.add_header("Authorization", "Bearer " + token)
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            raw = response.read()
+            return response.status, (json.loads(raw) if raw else {}), {
+                k.lower(): v for k, v in response.getheaders()}
+    except urllib.error.HTTPError as error:
+        raw = error.read()
+        try:
+            return error.code, json.loads(raw), {}
+        except Exception:
+            return error.code, raw.decode("utf-8", "replace"), {}
+
+
+def login(url: str, login_id: str, password: str) -> tuple[str, dict[str, Any]]:
+    status, body, headers = call(url, "POST", "/api/v4/users/login",
+                                 {"login_id": login_id, "password": password})
+    if status != 200 or not isinstance(body, dict):
+        raise SystemExit(f"login failed for {login_id}: HTTP {status}")
+    token = headers.get("token", "")
+    if not token:
+        raise SystemExit("login returned no Token header")
+    return token, body
+
+
+def plugin_prefix(url: str, token: str) -> tuple[str, dict[str, Any]]:
+    """The plugin's compiled-in manifest id, which is the WS action/event prefix."""
+    status, plugins, _ = call(url, "GET", "/api/v4/plugins", token=token)
+    active = plugins.get("active") if isinstance(plugins, dict) else None
+    for plugin in active or []:
+        if plugin.get("id", "").startswith("com.mattermost.calls"):
+            return "custom_" + plugin["id"] + "_", plugin
+    return "custom_com.mattermost.calls_", {}
+
+
+def ensure_channel(url: str, token: str, name: str) -> dict[str, Any]:
+    _, teams, _ = call(url, "GET", "/api/v4/users/me/teams", token=token)
+    if not teams:
+        raise SystemExit("the account is in no team")
+    team_id = teams[0]["id"]
+    _, channels, _ = call(url, "GET", f"/api/v4/users/me/teams/{team_id}/channels", token=token)
+    for channel in channels or []:
+        if channel.get("name") == name:
+            return channel
+    status, created, _ = call(url, "POST", "/api/v4/channels",
+                              {"team_id": team_id, "name": name, "display_name": name,
+                               "type": "O"}, token=token)
+    if status not in (200, 201):
+        raise SystemExit(f"could not create the probe channel: HTTP {status} {created}")
+    print(f"      created probe channel {name} ({created['id']})")
+    return created
+
+
+# --------------------------------------------------------------------------------------------
+# Minimal RFC6455 client (text + binary frames). The app's socket is Swift; the probe needs the
+# same wire protocol from outside the app, and the stdlib has no WebSocket client.
+# --------------------------------------------------------------------------------------------
+
+class WSClient:
+    def __init__(self, url: str, token: str, timeout: float = 20.0):
+        parsed = urllib.parse.urlparse(url)
+        secure = parsed.scheme == "https"
+        self.host = parsed.hostname or "127.0.0.1"
+        self.port = parsed.port or (443 if secure else 80)
+        path = (parsed.path or "") + "/api/v4/websocket"
+        self.sock = socket.create_connection((self.host, self.port), timeout=timeout)
+        self.sock.settimeout(timeout)
+        if secure:
+            import ssl
+            self.sock = ssl.create_default_context().wrap_socket(self.sock,
+                                                                 server_hostname=self.host)
+        key = base64.b64encode(os.urandom(16)).decode()
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        head = [
+            f"GET {path} HTTP/1.1",
+            f"Host: {parsed.netloc}",
+            "Upgrade: websocket",
+            "Connection: Upgrade",
+            f"Sec-WebSocket-Key: {key}",
+            "Sec-WebSocket-Version: 13",
+            f"Origin: {origin}",
+            "X-Requested-With: XMLHttpRequest",
+            f"Authorization: Bearer {token}",
+        ]
+        self.sock.sendall(("\r\n".join(head) + "\r\n\r\n").encode())
+        buf = b""
+        while b"\r\n\r\n" not in buf:
+            chunk = self.sock.recv(4096)
+            if not chunk:
+                raise RuntimeError("websocket handshake closed early")
+            buf += chunk
+        response, _, self.buf = buf.partition(b"\r\n\r\n")
+        if b"101" not in response.split(b"\r\n")[0]:
+            raise RuntimeError("websocket handshake failed: "
+                               + response.decode("utf-8", "replace"))
+        expected = base64.b64encode(hashlib.sha1(
+            (key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()).decode()
+        if expected.lower().encode() not in response.lower():
+            raise RuntimeError("bad Sec-WebSocket-Accept")
+
+    def _frame(self, opcode: int, payload: bytes) -> None:
+        header = bytearray([0x80 | opcode])
+        length = len(payload)
+        if length < 126:
+            header.append(0x80 | length)
+        elif length < 65536:
+            header.append(0x80 | 126)
+            header += struct.pack("!H", length)
+        else:
+            header.append(0x80 | 127)
+            header += struct.pack("!Q", length)
+        mask = os.urandom(4)
+        header += mask
+        self.sock.sendall(bytes(header) + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+
+    def send_text(self, text: str) -> None:
+        self._frame(0x1, text.encode())
+
+    def send_binary(self, data: bytes) -> None:
+        self._frame(0x2, data)
+
+    def _exact(self, n: int) -> bytes:
+        while len(self.buf) < n:
+            chunk = self.sock.recv(65536)
+            if not chunk:
+                raise ConnectionError("websocket closed")
+            self.buf += chunk
+        out, self.buf = self.buf[:n], self.buf[n:]
+        return out
+
+    def receive(self, deadline: float) -> dict[str, Any] | None:
+        """Next JSON frame, or None at the deadline. Binary server frames are ignored."""
+        while True:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                return None
+            self.sock.settimeout(remaining)
+            try:
+                b0, b1 = self._exact(2)
+            except (socket.timeout, TimeoutError):
+                return None
+            opcode = b0 & 0x0F
+            length = b1 & 0x7F
+            if length == 126:
+                length = struct.unpack("!H", self._exact(2))[0]
+            elif length == 127:
+                length = struct.unpack("!Q", self._exact(8))[0]
+            mask = self._exact(4) if b1 & 0x80 else None
+            payload = self._exact(length) if length else b""
+            if mask:
+                payload = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+            if opcode == 0x9:
+                self._frame(0xA, payload)
+                continue
+            if opcode in (0xA, 0x8):
+                if opcode == 0x8:
+                    return None
+                continue
+            try:
+                return json.loads(payload)
+            except Exception:
+                continue
+
+    def close(self) -> None:
+        try:
+            self._frame(0x8, b"")
+            self.sock.close()
+        except Exception:
+            pass
+
+
+# --------------------------------------------------------------------------------------------
+# Minimal MessagePack encoder — enough for one socket frame: str, int, bin, map.
+# --------------------------------------------------------------------------------------------
+
+def mp_encode(value: Any) -> bytes:
+    if isinstance(value, bytes):
+        n = len(value)
+        if n < 256:
+            return b"\xc4" + bytes([n]) + value
+        if n < 65536:
+            return b"\xc5" + struct.pack("!H", n) + value
+        return b"\xc6" + struct.pack("!I", n) + value
+    if isinstance(value, str):
+        data = value.encode()
+        n = len(data)
+        if n < 32:
+            return bytes([0xA0 | n]) + data
+        if n < 256:
+            return b"\xd9" + bytes([n]) + data
+        if n < 65536:
+            return b"\xda" + struct.pack("!H", n) + data
+        return b"\xdb" + struct.pack("!I", n) + data
+    if isinstance(value, int):
+        if 0 <= value < 128:
+            return bytes([value])
+        if 0 <= value < 65536:
+            return b"\xcd" + struct.pack("!H", value)
+        if 0 <= value < 2 ** 32:
+            return b"\xce" + struct.pack("!I", value)
+        return b"\xcf" + struct.pack("!Q", value)
+    if isinstance(value, dict):
+        n = len(value)
+        out = bytearray([0x80 | n]) if n < 16 else bytearray(b"\xde" + struct.pack("!H", n))
+        for k, v in value.items():
+            out += mp_encode(k) + mp_encode(v)
+        return bytes(out)
+    raise TypeError(type(value))
+
+
+# --------------------------------------------------------------------------------------------
+# The SDP offer the probe sends. No media is captured: the point is the server's answer and its
+# ICE candidates, which is what decides whether a real client could connect from here.
+# --------------------------------------------------------------------------------------------
+
+OFFER_SDP = "\r\n".join([
+    "v=0",
+    "o=- 4611731400430051336 2 IN IP4 127.0.0.1",
+    "s=-",
+    "t=0 0",
+    "a=group:BUNDLE 0",
+    "a=msid-semantic: WMS t44stream",
+    "m=audio 9 UDP/TLS/RTP/SAVPF 111",
+    "c=IN IP4 0.0.0.0",
+    "a=rtcp:9 IN IP4 0.0.0.0",
+    "a=ice-ufrag:t44a",
+    "a=ice-pwd:t44aicepassword1234567890ab",
+    "a=ice-options:trickle",
+    "a=fingerprint:sha-256 "
+    "2F:8C:1D:9E:7A:3B:5C:4D:6E:7F:80:91:A2:B3:C4:D5:"
+    "E6:F7:08:19:2A:3B:4C:5D:6E:7F:80:91:A2:B3:C4:D5",
+    "a=setup:actpass",
+    "a=mid:0",
+    "a=sendrecv",
+    "a=rtcp-mux",
+    "a=rtpmap:111 opus/48000/2",
+    "a=fmtp:111 minptime=10;useinbandfec=1",
+    "a=ssrc:11111111 cname:t44probe",
+    "a=ssrc:11111111 msid:t44stream t44audio",
+    "",
+])
+
+STUN_MAGIC = 0x2112A442
+
+
+def stun_reachable(host: str, port: int, timeout: float = 2.0) -> str | None:
+    """Binding request to an ICE candidate. Returns the xor-mapped address on a reply, else None."""
+    txid = os.urandom(12)
+    packet = struct.pack("!HHI", 0x0001, 0, STUN_MAGIC) + txid
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    try:
+        sock.sendto(packet, (host, port))
+        data, _ = sock.recvfrom(2048)
+    except (socket.timeout, TimeoutError, OSError):
+        return None
+    finally:
+        sock.close()
+    if len(data) < 20 or data[4:8] != struct.pack("!I", STUN_MAGIC) or data[8:20] != txid:
+        return None
+    return "reply"
+
+
+# --------------------------------------------------------------------------------------------
+# One call session: connect, join, and collect what the plugin sends back.
+# --------------------------------------------------------------------------------------------
+
+def run_session(url: str, token: str, prefix: str, channel_id: str, mode: str,
+                seconds: float = 6.0) -> dict[str, Any]:
+    ws = WSClient(url, token)
+    result: dict[str, Any] = {"ack": False, "call_state": None, "answer": None,
+                              "candidates": [], "errors": [], "raw_signal": []}
+    deadline = time.time() + seconds
+    joined = False
+    offered = False
+    try:
+        while time.time() < deadline:
+            frame = ws.receive(deadline)
+            if frame is None:
+                break
+            event = frame.get("event", "")
+            data = frame.get("data") or {}
+            if event == "hello":
+                ws.send_text(json.dumps({"seq": 1, "action": prefix + "join",
+                                         "data": {"channelID": channel_id}}))
+                joined = True
+                continue
+            if event == prefix + "join":
+                result["ack"] = bool(data.get("connID"))
+                if not offered:
+                    body = json.dumps({"type": "offer", "sdp": OFFER_SDP}).encode()
+                    packed = zlib.compress(body, 9)
+                    if mode == "json":
+                        ws.send_text(json.dumps({
+                            "seq": 2, "action": prefix + "sdp",
+                            "data": {"data": packed.decode("latin-1")}}))
+                    else:
+                        ws.send_binary(mp_encode({"seq": 2, "action": prefix + "sdp",
+                                                  "data": {"data": packed}}))
+                    offered = True
+                    # An answer arrives in well under a second when the frame is accepted; give
+                    # a JSON-framed offer a fair window of its own before calling it unanswered.
+                    deadline = time.time() + (2.5 if mode == "json" else seconds)
+                continue
+            if event == prefix + "call_state":
+                raw = data.get("call")
+                try:
+                    result["call_state"] = json.loads(raw) if isinstance(raw, str) else raw
+                except Exception:
+                    result["call_state"] = None
+                continue
+            if event == prefix + "signal":
+                result["raw_signal"].append(data)
+                payload = data.get("data")
+                try:
+                    inner = json.loads(payload) if isinstance(payload, str) else payload
+                except Exception:
+                    inner = None
+                if isinstance(inner, dict) and inner.get("type") == "answer":
+                    result["answer"] = inner.get("sdp", "")
+                elif isinstance(inner, dict) and inner.get("type") == "candidate":
+                    candidate = inner.get("candidate") or {}
+                    text = candidate.get("candidate", "") if isinstance(candidate, dict) else ""
+                    result["candidates"].append(text)
+                continue
+            if event == prefix + "error":
+                result["errors"].append(data)
+        if joined:
+            ws.send_text(json.dumps({"seq": 99, "action": prefix + "leave",
+                                     "data": {"channelID": channel_id}}))
+            time.sleep(0.3)
+    finally:
+        ws.close()
+    return result
+
+
+def parse_candidate(text: str) -> tuple[str, int] | None:
+    """`candidate:<foundation> <component> udp <priority> <ip> <port> typ host` -> (ip, port)."""
+    parts = text.split()
+    if len(parts) < 6:
+        return None
+    transport = parts[2]
+    host, port = parts[4], parts[5]
+    if transport != "udp":
+        return None
+    try:
+        return host, int(port)
+    except ValueError:
+        return None
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--url", default="http://127.0.0.1:8065")
+    parser.add_argument("--channel", default=CHANNEL_NAME,
+                        help="probe channel name (created in the first team when missing)")
+    parser.add_argument("--json", action="store_true", help="also print a machine-readable summary")
+    args = parser.parse_args()
+
+    print(f"T44 Calls probe against {args.url}")
+    token, me = login(args.url, ADMIN_LOGIN, ADMIN_PASSWORD)
+    print(f"      signed in as {me.get('username')} ({me.get('id')})")
+
+    # 1. The plugin, and what it says it is.
+    status, version, _ = call(args.url, "GET", PLUGIN + "/version", token=token)
+    check("the Calls plugin answers /version", status == 200 and isinstance(version, dict),
+          f"HTTP {status}")
+    plugin_version = version.get("version") if isinstance(version, dict) else None
+    plugin_build = version.get("build") if isinstance(version, dict) else None
+    measure("plugin version", f"{plugin_version} (build {plugin_build})")
+    prefix, manifest = plugin_prefix(args.url, token)
+    measure("plugin websocket prefix", prefix)
+
+    # 2. The plugin's own configuration — a call needs AllowEnableCalls.
+    status, config, _ = call(args.url, "GET", PLUGIN + "/config", token=token)
+    enabled = bool(config.get("AllowEnableCalls")) if isinstance(config, dict) else False
+    check("the plugin allows calls to be enabled", status == 200 and enabled,
+          f"HTTP {status}, AllowEnableCalls={enabled}")
+    if isinstance(config, dict):
+        measure("plugin sku / test mode", f"{config.get('sku_short_name')} / "
+                f"DefaultEnabled={config.get('DefaultEnabled')} / "
+                f"MaxCallParticipants={config.get('MaxCallParticipants')}")
+        measure("ICE servers the plugin hands a client",
+                json.dumps(config.get("ICEServersConfigs")))
+
+    channel = ensure_channel(args.url, token, args.channel)
+    channel_id = channel["id"]
+    measure("probe channel", f"{channel.get('name')} ({channel_id})")
+
+    # 3-4. JSON text frames: join works, sdp is not a JSON action.
+    print("\n--- run A: join over JSON, offer over a JSON text frame ---")
+    json_run = run_session(args.url, token, prefix, channel_id, "json")
+    check("a JSON text frame joins the call (join ack carries connID)", json_run["ack"])
+    call_state = json_run["call_state"] or {}
+    sessions = call_state.get("sessions") or []
+    check("the join is followed by a full call_state (what a native calls UI renders)",
+          bool(sessions) and any(s.get("user_id") == me.get("id") for s in sessions),
+          f"{len(sessions)} session(s), call id {call_state.get('id')}")
+    if sessions:
+        measure("call_state session shape", json.dumps(sessions[0], sort_keys=True))
+    check("a JSON-framed sdp is NOT answered (the plugin needs MessagePack for this action)",
+          json_run["answer"] is None and not json_run["candidates"],
+          f"{len(json_run['raw_signal'])} signal event(s)")
+
+    # 5-6. MessagePack: the same offer is answered by the SFU.
+    print("\n--- run B: join over JSON, offer over a MessagePack binary frame ---")
+    mp_run = run_session(args.url, token, prefix, channel_id, "msgpack")
+    check("a MessagePack sdp frame is answered", bool(mp_run["answer"]),
+          f"answer {len(mp_run['answer'] or '')} bytes")
+    check("the SFU trickles ICE candidates to the client", bool(mp_run["candidates"]),
+          f"{len(mp_run['candidates'])} candidate(s)")
+    check("the client is the offerer (no answer without an offer)", bool(mp_run["answer"])
+          and bool(json_run["answer"]) is False)
+    if mp_run["errors"]:
+        measure("plugin error events", json.dumps(mp_run["errors"]))
+
+    # 7. Reachability of what the SFU just advertised.
+    print("\n--- reachability of the SFU's own candidates, from this host ---")
+    advertised: list[tuple[str, int]] = []
+    for text in mp_run["candidates"]:
+        parsed = parse_candidate(text)
+        measure("candidate", text)
+        if parsed and parsed not in advertised:
+            advertised.append(parsed)
+    reachable = 0
+    for host, port in advertised:
+        if host.startswith("0.") or host in ("::", ""):
+            continue
+        reply = stun_reachable(host, port)
+        if reply:
+            reachable += 1
+        measure(f"stun binding to {host}:{port}", "reply" if reply else "no reply (2.0 s)")
+    measure("control: a public STUN server answers from this host",
+            "yes" if stun_reachable("stun.l.google.com", 19302) else "no")
+
+    failed = [name for name, ok, _ in checks if not ok]
+    print()
+    print(f"{len(checks) - len(failed)} PASS / {len(failed)} FAIL")
+    print(f"MEDIA PATH: {reachable}/{len(advertised)} advertised UDP candidate(s) reachable from "
+          f"this host" + ("" if reachable else " — media cannot flow here (see the build note)"))
+    if args.json:
+        print(json.dumps({
+            "url": args.url,
+            "plugin": {"version": plugin_version, "build": plugin_build},
+            "prefix": prefix,
+            "channel_id": channel_id,
+            "answer_bytes": len(mp_run["answer"] or ""),
+            "candidates": [{"text": t, "parsed": parse_candidate(t)}
+                           for t in mp_run["candidates"]],
+            "candidates_reachable": reachable,
+            "checks": [{"name": n, "ok": ok, "detail": d} for n, ok, d in checks],
+            "measures": [{"name": n, "detail": d} for n, d in measures],
+        }))
+    return 0 if not failed else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

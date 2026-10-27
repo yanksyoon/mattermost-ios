@@ -1,0 +1,34 @@
+T44 Calls probe against http://127.0.0.1:8065
+      signed in as perfprobe (jruqqzxtobg7tn4wehwmwjjo5c)
+PASS  the Calls plugin answers /version  —  HTTP 200
+DATA  plugin version  —  0.29.8 (build 936dd00d3e456c843b846740aa76601d07e6a25a)
+DATA  plugin websocket prefix  —  custom_com.mattermost.calls_
+PASS  the plugin allows calls to be enabled  —  HTTP 200, AllowEnableCalls=True
+DATA  plugin sku / test mode  —  starter / DefaultEnabled=False / MaxCallParticipants=0
+DATA  ICE servers the plugin hands a client  —  [{"urls": ["stun:stun.global.calls.mattermost.com:3478"]}]
+DATA  probe channel  —  t44-calls (wikybttr8tnfzkxge9rk7aipph)
+
+--- run A: join over JSON, offer over a JSON text frame ---
+PASS  a JSON text frame joins the call (join ack carries connID)
+PASS  the join is followed by a full call_state (what a native calls UI renders)  —  1 session(s), call id xw4cicsujffezkdn67bowzq9to
+DATA  call_state session shape  —  {"raised_hand": 0, "session_id": "1rjq1mg7xtdyukqtaizjc5n3dc", "unmuted": false, "user_id": "jruqqzxtobg7tn4wehwmwjjo5c"}
+PASS  a JSON-framed sdp is NOT answered (the plugin needs MessagePack for this action)  —  0 signal event(s)
+
+--- run B: join over JSON, offer over a MessagePack binary frame ---
+PASS  a MessagePack sdp frame is answered  —  answer 481 bytes
+PASS  the SFU trickles ICE candidates to the client  —  5 candidate(s)
+PASS  the client is the offerer (no answer without an offer)
+
+--- reachability of the SFU's own candidates, from this host ---
+DATA  candidate  —  candidate:2878742611 1 udp 2130706431 127.0.0.1 8443 typ host
+DATA  candidate  —  candidate:774415737 1 udp 2130706431 64.251.85.226 8443 typ host
+DATA  candidate  —  candidate:375738803 1 tcp 1671430143 127.0.0.1 8443 typ host tcptype passive
+DATA  candidate  —  candidate:2480657561 1 tcp 1671430143 64.251.85.226 8443 typ host tcptype passive
+DATA  candidate  —  candidate:1244823927 1 udp 1694498815 209.35.187.178 61506 typ srflx raddr 0.0.0.0 rport 51601
+DATA  stun binding to 127.0.0.1:8443  —  no reply (2.0 s)
+DATA  stun binding to 64.251.85.226:8443  —  no reply (2.0 s)
+DATA  stun binding to 209.35.187.178:61506  —  no reply (2.0 s)
+DATA  control: a public STUN server answers from this host  —  yes
+
+8 PASS / 0 FAIL
+MEDIA PATH: 0/3 advertised UDP candidate(s) reachable from this host — media cannot flow here (see the build note)

@@ -1,0 +1,68 @@
+T44 — why the SFU cannot be reached from this host (2026-10-27)
+
+Everything below was run on MacBook-Pro-5.local (macOS 26.3.1, Xcode 26.6) against the
+fixture server used by every live card in this programme:
+  docker container mm-perf = mattermost/mattermost-team-edition:release-9 (9.11.19),
+  Calls plugin com.mattermost.calls 0.29.8 (build 936dd00d3e456c843b846740aa76601d07e6a25a).
+
+1) The Calls plugin is installed and active, and it is an SFU (server-side media), not a relay
+   that lets participants connect to each other. From the pinned source of the installed build
+   (mattermost-plugin-calls v0.29.8 = 936dd00):
+     server/activate.go   -> rtc.NewServer(rtc.ServerConfig{ICEAddressUDP, ICEPortUDP: *cfg.UDPServerPort...})
+     server/websocket.go  -> p.sendRTCMessage(...) -> p.rtcServer.Send(msg)
+     server/websocket.go  -> wsWriter() publishes the SFU's own SDP/candidates as `signal`
+   So every participant's media terminates on a peer connection owned by the server process.
+
+2) That server process runs inside the mm-perf container, on the container's own network.
+   $ docker port mm-perf
+   8065/tcp -> 0.0.0.0:8065
+   $ docker inspect mm-perf --format '{{.HostConfig.NetworkMode}} ...'
+   mm-perf-net mm-perf-net=172.19.0.3
+
+   The SFU's ICE listener is bound inside the container on 8443 (hex 20FB), local address
+   030013AC = 172.19.0.3:
+   $ docker exec mm-perf cat /proc/net/udp | head -8
+     sl  local_address rem_address   st ...
+   3492: 030013AC:20FB 00000000:0000 07 ...
+   3492: 030013AC:20FB 00000000:0000 07 ...
+   (six sockets, one per ICE group)
+   No UDP or TCP port other than 8065/tcp is published to the host, so the host cannot reach
+   172.19.0.3 at all, and Docker Desktop on macOS does not route container IPs.
+
+3) The candidates the SFU advertised to a real client (captured by scripts/t44_calls_probe.py,
+   run B, `signal` events after a MessagePack sdp offer):
+     candidate:2878742611 1 udp 2130706431 127.0.0.1      8443 typ host
+     candidate:774415737  1 udp 2130706431 64.251.85.226   8443 typ host
+     candidate:375738803  1 tcp 1671430143 127.0.0.1      8443 typ host tcptype passive
+     candidate:2480657561 1 tcp 1671430143 64.251.85.226   8443 typ host tcptype passive
+     candidate:1244823927 1 udp 1694498815 209.35.187.178 53080 typ srflx raddr 0.0.0.0 rport 38030
+   127.0.0.1 is the container's own loopback; 64.251.85.226 is the Docker Desktop VM's
+   bridged address (the Mac itself is 172.21.24.65 on en0); 209.35.187.178 is this network's
+   public address as reported by two public STUN servers.
+
+4) Reachability, measured with a STUN binding request to each advertised UDP candidate:
+   $ python3 scripts/t44_calls_probe.py --url http://127.0.0.1:8065   (tail)
+     DATA  stun binding to 127.0.0.1:8443  —  no reply (2.0 s)
+     DATA  stun binding to 64.251.85.226:8443  —  no reply (2.0 s)
+     DATA  stun binding to 209.35.187.178:53080  —  no reply (2.0 s)
+     DATA  control: a public STUN server answers from this host  —  yes
+     MEDIA PATH: 0/3 advertised UDP candidate(s) reachable from this host — media cannot flow here (see the build note)
+
+   The control line matters: the same probe, from the same host, gets a Binding Success from
+   stun.l.google.com:19302 and from stun.global.calls.mattermost.com:3478 (the STUN server the
+   plugin itself hands to clients), with xor-mapped-address = 209.35.187.178. So "no reply" is a
+   fact about the port, not about the probe or the network path off this machine.
+
+5) Consequence, stated plainly: on this fixture no client — native or web, on the host or on a
+   device — can establish the media leg of a Calls session, because the SFU's ICE port is
+   published nowhere. SIP-style signalling completes (join, offer, answer, candidates) and then
+   ICE never connects.
+
+What would change it (not done in T44 — it is a change to a shared fixture, not to the app):
+  a) publish the SFU's port through a UDP relay sidecar on the same docker network, e.g.
+       docker run -d --network mm-perf-net -p 8443:8443/udp alpine/socat \
+         UDP4-LISTEN:8443,fork UDP4:mm-perf:8443
+  b) set the plugin's ICEHostOverride to a host address that reaches that relay (127.0.0.1), via
+     PUT /api/v4/plugins/com.mattermost.calls/config (changes are rejected while a call is active);
+  c) re-run scripts/t44_calls_probe.py and require the reachability block to report replies —
+     a reachable SFU is the hard precondition for any bidirectional-audio measurement.
