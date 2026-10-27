@@ -325,7 +325,8 @@ is not equal to ("[Mattermost.Surface.auth]") — T31-AV approved `.auth` and no
 `("native") is not equal to ("web")` twice (`build/logs/t44d-av-flip-red-oldtests.log`: 46 run,
 4 failed). With the four updated the whole suite is green: **1603 run, 7 skipped, 0 failed, `** TEST
 SUCCEEDED **`** (`build/logs/t44d-av-units-rebased.log` — the commit as pushed, rebased onto
-`389516d`). The first post-flip attempt had fixed only the two registry lists and not the two
+`389516d`; re-run on the remote tip after T34's `f02467f` landed: **1614 run, 7 skipped, 0 failed**,
+`build/logs/t44d-av-units-tip.log`). The first post-flip attempt had fixed only the two registry lists and not the two
 `.calls`-as-example cases, and showed exactly those two failures
 (`build/logs/t44d-av-units-postflip.log`: 1596 run, 2 failed). **Reachability caveat**, measured in source:
 the entry point (`CallsJoinEntry`) is drawn by `NativeChannelPaneView`, so it only appears when the
