@@ -1,0 +1,335 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -scheme ProbeVendored -destination "platform=macOS,variant=Mac Catalyst" -derivedDataPath ./dd-catalyst build
+
+Resolve Package Graph
+2026-10-24 18:08:13.667 xcodebuild[29278:1345261] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  ProbeVendored: /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, variant:Mac Catalyst, id:00006000-000C410402D2801E, name:My Mac }
+{ platform:macOS, arch:x86_64, variant:Mac Catalyst, id:00006000-000C410402D2801E, name:My Mac }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (2 targets)
+    Target 'ProbeVendored' in project 'ProbeVendored'
+        ➜ Explicit dependency on target 'ProbeVendored' in project 'ProbeVendored'
+    Target 'ProbeVendored' in project 'ProbeVendored' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: f73859bc1c8efc958318c5e2ed910030
+Build description path: /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/XCBuildData/f73859bc1c8efc958318c5e2ed910030.xcbuilddata
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -o /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ExplicitPrecompiledModules
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-maccatalyst
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-maccatalyst
+
+CreateBuildDirectory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/PackageFrameworks
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    builtin-create-build-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/PackageFrameworks
+
+ProcessXCFramework /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/Vendor/WebRTC.xcframework /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/WebRTC.framework ios macabi
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    builtin-process-xcframework --xcframework /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/Vendor/WebRTC.xcframework --platform ios --environment macabi --target-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/ProbeVendored.modulemap (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/ProbeVendored.modulemap
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/ProbeVendored.DependencyStaticMetadataFileList (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/ProbeVendored.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/ProbeVendored.DependencyMetadataFileList (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/ProbeVendored.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored_const_extract_protocols.json (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.SwiftConstValuesFileList (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored-OutputFileMap.json (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored-OutputFileMap.json
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.LinkFileList (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.LinkFileList
+
+WriteAuxiliaryFile /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.SwiftFileList (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    write-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.SwiftFileList
+
+Copy /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/GeneratedModuleMaps-maccatalyst/ProbeVendored.modulemap /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/ProbeVendored.modulemap (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/ProbeVendored.modulemap /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/GeneratedModuleMaps-maccatalyst
+
+SwiftDriver ProbeVendored normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ProbeVendored -Onone @/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-ios17.0-macabi -g -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/SubFrameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Session.modulevalidation -package-name probe_vendored -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored_const_extract_protocols.json -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/include -Xcc -isystem -Xcc /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/usr/include -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored-Swift.h -working-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_Builtin_stdbool-AOQ1NMZRPKXFSXA4HHHD0L61P.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/ptrcheck-4S4KLQX3107Y4OS05V7QORVMG.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/ptrauth-9P2ZWX9M4ZTUWS2XJCB8L6LJC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/DeveloperToolsSupport-344CH9HJ7URU24WSD4N91GX70.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_Builtin_float-60LANHTK96ELRD3AQOFG8GPC0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_Builtin_stdarg-CI8U0POBD0P9CZ0416TJ78G23.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_SwiftConcurrencyShims-1L6TAZDV525AFZRV3MKDZQRT5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_AvailabilityInternal-RTIGWH5Z2TA8YV89VUT5WBGP.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/SwiftShims-2NG7LD562RNWP7GWGDZATDJ0I.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_Builtin_stddef-4Y3D2CP9XXXI6299LBS1XI4R3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_DarwinFoundation1-AQB0UTZEAP2RCASZPLIRK6TP3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_Builtin_limits-9HRQ037NUF7R0O3JEHPH8QJN1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_DarwinFoundation2-45PUGW5WHE8J4WQ1BLZJGKOA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/sys_types-APMRMYVAEP3OO82GM6D3X9JKZ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_Builtin_tgmath-3P3J2T1F38IYTSGOYGUKLJPA9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_Builtin_stdint-DF66TRND7XFEFSL9EM9L0RFEE.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_Builtin_stdatomic-8ZJ64H5Z79FZAUGQ4FKMJOFYO.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_DarwinFoundation3-A8FBMUC8XYDNML1P7E17VTPMU.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/libDER-EUEYOO4GEUASXMXPOXZB2KC28.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/OpenGL-M43QJBTXQL2M7MZJZCG9WJ5L.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_Builtin_intrinsics-2TD57TMRNXJ0JB2P0F3H74KOH.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/_Builtin_inttypes-9K5ROZO20TR738Z6OS1YSUXRK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Darwin-AUSYVEGT394G79YEXK36GTWVM.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/simd-EHBHUOJUQMNNZIJWXRZ84WS8M.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CUPS-3KATAVQ9XIZE4UNED4J80JU2A.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/libkern-1CYTRQ9XPWBCOR8JL2UIEGOSQ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/launch-EMJUAPIDO83FDTKAGRR75A1DB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/MachO-746CA81HS489DDXEM9LDXJPS1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/ObjectiveC-5XDPZQ7ZLGGQBX070IGSJBQ2W.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Spatial-DCVS0QWBVFQ7MTNV9O2YM9TY3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/os_object-E8EU6LSTPVM2Z3FFN7X2OKXZA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/os_workgroup-56BZ0NJH7F5YVOKU5J24CVG6R.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Dispatch-3G9HTBXV5KD870J5EYWH8TVVM.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/XPC-6R0OZTFO76LZ9MTDS0FTAGLQ8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/dnssd-4WZW20YA3511IWC5J01VQAXQK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreFoundation-D5RZN6YSITX497H7EXTBTA4KX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/os-ACFSH9H6YXXZL952G6H652JKR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/ColorSync-DHYP2ZSBGELS40FIOPQAJBRY8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreAudioTypes-CG9JHV4OOBPVK1CXXAU3NZRHT.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CFNetwork-9EWE40A8QC82RQ9S6XVRBCUI8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Security-7OHCV2BVO0Z4XN6PJ19V260NA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/IOKit-4ZXBKD6VVZ3JYSGMB1PN0HSW3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/DiskArbitration-3M2S3JH5C76CHCK3NO8SPKM66.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreGraphics-1M25IUJSGPXVPVZ10JU4943XH.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreServices-6HR1DI0RRGFUK5Q66KJ1144K4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreText-67R1QINIUDO8Y4HX3SJQJ7BKB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/ImageIO-8BCNYHM1PULBX658Q7NR2H3DK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Foundation-8J50JY5HQIA3XH2NXCZ5G3TW5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/UIUtilities-9PE6VGKCHACHIH00MI3AUZ024.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/UniformTypeIdentifiers-4UNFW11Q3DRMUUZY4H2E76KXK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreTransferable-E5TQN447SK9G6P98JMGZPW9V9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/OSLog-BTT9XW997LM4LGBC9TZ1X2Q3E.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/UserNotifications-B6UZEVK4SXC0VSREL70XV6BH0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/ApplicationServices-CTBOX6L41YIOFHPVUM8LYBHZ3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreMIDI-3FGY15XZ14O2TKXP5XNWM3MSO.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/IOSurface-AHIIUKVX3EH9W0LTPL34HEA8G.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreAudio-747P40DOWWGPMB8SCKSJ35HEH.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/FileProvider-2ATZVKVUJJ69EJNGONO021VPV.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Accessibility-8BP8ZPBGGJ5GNFB9SAW7DH21M.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreData-CZO7E09O1IZIW7M8KIW89XX32.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Symbols-3WE56F0B7F8UIFF2B5BFIXHRX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Network-BP7PD5IG7JCYFQ5AQT8HGA2QO.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/DataDetection-6AVN3D6DQ0J8DLR46V7PFDJY4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Metal-EPRIL55B5T7E4BEP89QZ5CE97.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/AudioToolbox-E9QRD4R1QI8BO06X41JC2UXOG.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/AVRouting-C1IUPJAAIFFO1HNC5HOXA8M43.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/AudioUnit-5545SHR2JX30UBJBV3X2J6691.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreVideo-8V6RZG5531CH0ONMSDCUXAQCI.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreImage-7Q3RRAKL5CXBYMD7AUXFRYCIQ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/CoreMedia-6911SY2PV5EUKHMFVHS4N2KZ4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/QuartzCore-7PRRRMJJ7A49PHPVHDFJAFHZJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/SwiftUICore-91B06S44E5IZBOC2C1EWZBS70.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/MediaToolbox-6UD1V2SC9S7NVM6J0C9IX532A.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/AVFAudio-4ZDDH57YEGY3EEPRS2G99D0Q9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/AppKit-AKP50T8NMTWU706PK1865LICX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/AVFoundation-EQLC8WV85SF2O1S1TLPEIVQHB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/UIKit-4QG2H1HS2RIWYBG3I52IMIBPE.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules/WebRTC-3U1HB03J46JY25NWXDWO5V4Y2.pcm
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ ProbeVendored (in target 'ProbeVendored' from project 'ProbeVendored')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/Sources/ProbeVendored/ProbeVendored.swift (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    
+
+SwiftCompile normal arm64 Compiling\ ProbeVendored.swift /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/Sources/ProbeVendored/ProbeVendored.swift (in target 'ProbeVendored' from project 'ProbeVendored')
+SwiftCompile normal arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/Sources/ProbeVendored/ProbeVendored.swift (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for ProbeVendored (in target 'ProbeVendored' from project 'ProbeVendored')
+
+SwiftDriver\ Compilation\ Requirements ProbeVendored normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ProbeVendored -Onone @/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-ios17.0-macabi -g -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/SubFrameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Session.modulevalidation -package-name probe_vendored -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored_const_extract_protocols.json -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/include -Xcc -isystem -Xcc /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/usr/include -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored-Swift.h -working-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+SwiftMergeGeneratedHeaders /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/GeneratedModuleMaps-maccatalyst/ProbeVendored-Swift.h /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored-Swift.h (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    builtin-swiftHeaderTool -arch arm64 /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored-Swift.h -o /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/GeneratedModuleMaps-maccatalyst/ProbeVendored-Swift.h
+
+Copy /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.swiftmodule/arm64-apple-ios-macabi.swiftdoc /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.swiftdoc (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.swiftdoc /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.swiftmodule/arm64-apple-ios-macabi.swiftdoc
+
+Copy /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.swiftmodule/arm64-apple-ios-macabi.abi.json /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.abi.json (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.abi.json /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.swiftmodule/arm64-apple-ios-macabi.abi.json
+
+Copy /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.swiftmodule/arm64-apple-ios-macabi.swiftmodule /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.swiftmodule (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.swiftmodule /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.swiftmodule/arm64-apple-ios-macabi.swiftmodule
+
+Copy /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.swiftmodule/Project/arm64-apple-ios-macabi.swiftsourceinfo /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.swiftsourceinfo (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.swiftsourceinfo /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.swiftmodule/Project/arm64-apple-ios-macabi.swiftsourceinfo
+
+SwiftDriverJobDiscovery normal arm64 Compiling ProbeVendored.swift (in target 'ProbeVendored' from project 'ProbeVendored')
+
+SwiftDriver\ Compilation ProbeVendored normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ProbeVendored -Onone @/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-ios17.0-macabi -g -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks -Fsystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/SubFrameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -parse-as-library -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/ModuleCache.noindex/Session.modulevalidation -package-name probe_vendored -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored_const_extract_protocols.json -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/include -Xcc -isystem -Xcc /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/usr/include -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored-Swift.h -working-directory /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/.swiftpm/xcode -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.o normal (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-macabi -r -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -O0 -F/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-maccatalyst -F/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/SubFrameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/SubFrameworks -filelist /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.LinkFileList -nostdlib -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored_lto.o -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx -L/System/iOSSupport/usr/lib/swift -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.swiftmodule @/Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored-linker-args.resp -o /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.o
+
+ExtractAppIntentsMetadata (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name ProbeVendored --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk --xcode-version 17F113 --platform-family macOS --deployment-target 14.0 --bundle-identifier probe-vendored.ProbeVendored --output /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.appintents --target-triple arm64-apple-ios17.0-macabi --binary-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.o --dependency-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored_dependency_info.dat --stringsdata-file /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.SwiftFileList --metadata-file-list /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/ProbeVendored.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/ProbeVendored.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Intermediates.noindex/ProbeVendored.build/Debug-maccatalyst/ProbeVendored.build/Objects-normal/arm64/ProbeVendored.SwiftConstValuesFileList --force --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-24 18:08:23.841 appintentsmetadataprocessor[29393:1345855] Starting appintentsmetadataprocessor export
+2026-10-24 18:08:23.849 appintentsmetadataprocessor[29393:1345855] Extracted no relevant App Intents symbols, skipping writing output
+
+RegisterExecutionPolicyException /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.o (in target 'ProbeVendored' from project 'ProbeVendored')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored
+    builtin-RegisterExecutionPolicyException /Users/yangsooyoon/.hermes/profiles/mmios-architect/cache/scratch/t44a/probe-vendored/dd-catalyst/Build/Products/Debug-maccatalyst/ProbeVendored.o
+
+** BUILD SUCCEEDED **
+
