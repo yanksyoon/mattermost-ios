@@ -30,14 +30,27 @@ struct SystemCallsAudioSession: CallsAudioSessionControlling {
         session.lockForConfiguration()
         defer { session.unlockForConfiguration() }
 
-        // Not manual: the engine starts and stops audio with the call, and libwebrtc's ADM needs to
-        // be free to activate while the track exists.
-        session.useManualAudio = false
-        session.isAudioEnabled = true
+        // **Manual** audio: the app owns activation, and libwebrtc's ADM only starts/stops its audio
+        // unit through `isAudioEnabled`. Measured necessity (T44d live run, simulator 18.3.1): with
+        // `useManualAudio = false` the ADM activates the session itself on top of this call, and the
+        // RemoteIO unit it then initialises can deadlock against another in-process AudioToolbox
+        // client — `AQIONodeManager` was held by a UIKit UI-sound renderer while
+        // `AURemoteIO::Initialize` waited, the RPC timed out and AudioToolbox **aborted the app**
+        // (`AudioToolboxCore::_ReportRPCTimeout` → `abort`). Manual audio is also what
+        // react-native-webrtc does on iOS, i.e. what the upstream mobile client runs.
+        session.useManualAudio = true
 
-        let options: AVAudioSession.CategoryOptions = [.allowBluetooth, .allowBluetoothA2DP]
+        // Category and activation **before** audio is enabled: `isAudioEnabled = true` makes the ADM
+        // start its audio unit immediately, and starting it against a session that is not yet active
+        // is a second way to land in that audio-server stall.
+        //
+        // `.allowBluetooth` only: a voice call wants HFP. `.allowBluetoothA2DP` is output-only and
+        // Apple documents the pair as mutually exclusive; asking for both can make the system retry
+        // the route/unit setup.
+        let options: AVAudioSession.CategoryOptions = [.allowBluetooth]
         try session.setCategory(.playAndRecord, mode: .voiceChat, options: options)
         try session.setActive(true)
+        session.isAudioEnabled = true
         MMLog.info("MMCalls", "audio session: playAndRecord/voiceChat, active="
             + "\(session.isActive), input=\(session.inputAvailable)")
     }
@@ -46,6 +59,9 @@ struct SystemCallsAudioSession: CallsAudioSessionControlling {
         let session = RTCAudioSession.sharedInstance()
         session.lockForConfiguration()
         defer { session.unlockForConfiguration() }
+        // Order matters with manual audio: stop the ADM's audio unit first (`isAudioEnabled = false`),
+        // then hand the session back. Deactivating while the unit still runs is what races another
+        // AudioToolbox client for `AQIONodeManager` (see `activateForCall`).
         session.isAudioEnabled = false
         do {
             try session.setActive(false)

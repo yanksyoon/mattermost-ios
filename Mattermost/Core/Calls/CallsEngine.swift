@@ -248,8 +248,13 @@ actor CallsEngine {
         eventTask = nil
         offerTask?.cancel()
         offerTask = nil
-        teardownMediaEngine()
+        // Stop the audio unit **before** releasing the peer connection/factory. The ADM belongs to the
+        // factory; deactivating the session afterwards tears down an audio unit whose owner is already
+        // gone, which is one half of the AudioToolbox deadlock measured in
+        // `SystemCallsAudioSession.activateForCall`.
+        audioTrack?.isEnabled = false
         audioSession.deactivate()
+        teardownMediaEngine()
         if !snapshot.state.isTerminal { snapshot.state = .ended }
         signalling.stop()
     }
@@ -322,10 +327,82 @@ actor CallsEngine {
 
         case .muteChanged, .voiceChanged, .handChanged, .screenShareChanged, .userJoined,
              .userLeft, .hostChanged, .callStarted, .unhandled:
-            // Call-state deltas: a surface card renders them; the engine only needs the fact that
-            // they are flowing. `call_state` is the authoritative snapshot.
-            break
+            // Participation deltas are folded into the call this engine publishes, so
+            // `snapshot.call` is genuinely authoritative (see `fold(_:)`).
+            fold(event)
         }
+    }
+
+    /// Fold one participation delta into `snapshot.call`.
+    ///
+    /// T44c left these to the surface ("a surface card renders them"), and the live T44d run showed
+    /// why that is wrong: the plugin sends the **delta** for a control, and not always a fresh
+    /// `call_state` with it (measured 0.29.8 — `user_unmuted` arrived alone). The surface's own rule
+    /// is "the snapshot wins", so a stale `snapshot.call` reverted a confirmed unmute within one poll
+    /// interval — the mute control snapped back to `muted` 3 s after the server had broadcast
+    /// `user_unmuted`. The same staleness would drop a second participant's tile whose `user_joined`
+    /// the surface had folded. The engine owns the call state, so it folds the deltas.
+    ///
+    /// A delta for another channel is ignored: a client can be a member of two channels with a live
+    /// call, and folding one call's participants into the other's tiles would be worse than stale.
+    private func fold(_ event: CallsEvent) {
+        guard var call = snapshot.call, !call.channelID.isEmpty else { return }
+        switch event {
+        case let .muteChanged(channelID, userID, sessionID, unmuted):
+            guard channelID == call.channelID else { return }
+            mutate(&call, sessionID: sessionID, userID: userID) { $0.unmuted = unmuted }
+
+        case let .handChanged(channelID, userID, sessionID, raised):
+            guard channelID == call.channelID else { return }
+            // The event carries raise/unraise only; the ordering timestamp travels in `call_state`.
+            // Stand in with this client's clock, which is what the surface does, so the participant
+            // ordering stays total until the next `call_state` lands with the plugin's value.
+            let stamp = raised ? Int64((Date().timeIntervalSince1970 * 1000).rounded()) : 0
+            mutate(&call, sessionID: sessionID, userID: userID) { $0.raisedHandAt = stamp }
+
+        case let .userJoined(channelID, userID, sessionID):
+            guard channelID == call.channelID, !sessionID.isEmpty else { return }
+            if !call.sessions.contains(where: { $0.sessionID == sessionID }) {
+                call.sessions.append(CallsSession(sessionID: sessionID, userID: userID))
+            }
+
+        case let .userLeft(channelID, _, sessionID):
+            guard channelID == call.channelID, !sessionID.isEmpty else { return }
+            call.sessions.removeAll { $0.sessionID == sessionID }
+
+        case let .hostChanged(channelID, hostID):
+            guard channelID == call.channelID, !hostID.isEmpty else { return }
+            call.hostID = hostID
+
+        case let .screenShareChanged(channelID, _, sessionID, sharing):
+            guard channelID == call.channelID else { return }
+            if sharing {
+                call.screenSharingSessionID = sessionID
+            } else if call.screenSharingSessionID == sessionID {
+                call.screenSharingSessionID = ""
+            }
+
+        case .voiceChanged, .callStarted, .unhandled:
+            return
+
+        default:
+            return
+        }
+        snapshot.call = call
+    }
+
+    /// Apply a mutation to the session a delta names, matching on `session_id` first and falling back
+    /// to the user (a client's own session is the one case where the id can lag the first event).
+    private func mutate(_ call: inout CallsCall, sessionID: String, userID: String,
+                        _ body: (inout CallsSession) -> Void) {
+        if !sessionID.isEmpty,
+           let index = call.sessions.firstIndex(where: { $0.sessionID == sessionID }) {
+            body(&call.sessions[index])
+            return
+        }
+        let mine = call.sessions.indices.filter { call.sessions[$0].userID == userID }
+        guard mine.count == 1, let index = mine.first else { return }
+        body(&call.sessions[index])
     }
 
     private func handle(_ signal: CallsSignal) async {
@@ -734,6 +811,20 @@ actor CallsEngine {
 }
 
 // MARK: - Small helpers
+
+extension CallsEngine {
+    /// Whether this build can put a camera into a call: **it cannot**.
+    ///
+    /// T44c modelled `video_on`/`video_off` in `CallsProtocol.Action` and version-gates them
+    /// (`CallsPluginVersion.supportsVideo`), but never sends them and never creates a video track or
+    /// an `RTCCameraVideoCapturer` — its own hand-off records "camera stays webview-only". The
+    /// plugin this programme tests against (0.29.8) has no video actions at all.
+    ///
+    /// This constant is the one place the surface reads that fact (`CallsVideoCapability
+    /// .forBuild(plugin:engineCapturesVideo:)`), so the camera control is **absent** rather than
+    /// present-and-inert, and flips on by itself the day an engine that captures video lands.
+    static let capturesVideo = false
+}
 
 enum CallsEngineError: Error, Equatable, CustomStringConvertible {
     case noLocalDescription

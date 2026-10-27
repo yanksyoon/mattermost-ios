@@ -32,6 +32,13 @@ protocol SocketTransport: AnyObject {
     var events: AsyncStream<SocketTransportEvent> { get }
     func resume()
     func send(text: String) async throws
+    /// The binary path. It **must** be a protocol requirement, not only an extension method:
+    /// `SocketClient` holds its transport as `SocketTransport?`, so a member that exists solely in
+    /// an extension is statically dispatched and the default below would run for *every* conformer —
+    /// including `WebSocketTransport`, whose implementation would never be reached (this is exactly
+    /// the live `offer: binaryFramesUnsupported` failure T44d found). The throwing body stays as a
+    /// default so a text-only test fake does not have to implement it.
+    func send(data: Data) async throws
     func close()
 }
 

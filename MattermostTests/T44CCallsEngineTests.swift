@@ -307,6 +307,107 @@ final class T44CCallsEngineTests: XCTestCase {
         await engine.stop()
     }
 
+    /// A confirmed `user_unmuted` must survive the next snapshot read.
+    ///
+    /// The live T44d run measured the opposite: the plugin broadcast `user_unmuted`, the control
+    /// showed "unmuted", and 3 s later it read "muted" again because `CallsEngine` ignored the delta
+    /// and the surface's "the snapshot wins" rule re-applied a stale `call_state`. The engine now
+    /// folds the delta, so the snapshot carries the unmute.
+    func testAConfirmedUnmuteSurvivesTheNextSnapshot() async throws {
+        let (signalling, engine) = await startedEngine()
+        signalling.push(.callState(channelID: "chan1",
+                                   call: call(sessions: [CallsSession(sessionID: "s1", userID: "me",
+                                                                      unmuted: false)])))
+        let muted = await waitUntil(timeout: 2) {
+            await engine.currentSnapshot().call?.session(forUser: "me")?.unmuted == false
+        }
+        XCTAssertTrue(muted, "the call state must land before the delta is tested")
+
+        signalling.push(.muteChanged(channelID: "chan1", userID: "me", sessionID: "s1", unmuted: true))
+
+        let folded = await waitUntil(timeout: 2) {
+            await engine.currentSnapshot().call?.session(forUser: "me")?.unmuted == true
+        }
+        XCTAssertTrue(folded, "the engine must fold `user_unmuted` into the call it publishes")
+        await engine.stop()
+    }
+
+    /// A delta that names another channel's call must not touch this one.
+    func testADeltaForAnotherChannelIsNotFolded() async throws {
+        let (signalling, engine) = await startedEngine()
+        signalling.push(.callState(channelID: "chan1",
+                                   call: call(sessions: [CallsSession(sessionID: "s1", userID: "me",
+                                                                      unmuted: false)])))
+        let landed = await waitUntil(timeout: 2) {
+            await engine.currentSnapshot().call?.session(forUser: "me")?.unmuted == false
+        }
+        XCTAssertTrue(landed, "the call state must land before the delta is tested")
+
+        signalling.push(.muteChanged(channelID: "chan2", userID: "me", sessionID: "s1", unmuted: true))
+        signalling.push(.userJoined(channelID: "chan2", userID: "stranger", sessionID: "s9"))
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        let snapshot = await engine.currentSnapshot()
+        XCTAssertEqual(snapshot.call?.session(forUser: "me")?.unmuted, false)
+        XCTAssertNil(snapshot.call?.session(forUser: "stranger"),
+                     "another channel's participant must not become a tile in this call")
+        await engine.stop()
+    }
+
+    /// A second participant appears and leaves: the tiles follow the deltas, not only `call_state`.
+    func testUserJoinedAndLeftMoveTheSessions() async throws {
+        let (signalling, engine) = await startedEngine()
+        signalling.push(.callState(channelID: "chan1",
+                                   call: call(sessions: [CallsSession(sessionID: "s1", userID: "me")])))
+        let landed = await waitUntil(timeout: 2) {
+            await engine.currentSnapshot().call?.sessions.count == 1
+        }
+        XCTAssertTrue(landed, "the call state must land before the deltas are tested")
+
+        signalling.push(.userJoined(channelID: "chan1", userID: "buddy", sessionID: "s2"))
+        let joined = await waitUntil(timeout: 2) {
+            await engine.currentSnapshot().call?.session(forUser: "buddy") != nil
+        }
+        XCTAssertTrue(joined, "a `user_joined` must become a session in the engine's call state")
+
+        signalling.push(.userLeft(channelID: "chan1", userID: "buddy", sessionID: "s2"))
+        let left = await waitUntil(timeout: 2) {
+            await engine.currentSnapshot().call?.session(forUser: "buddy") == nil
+        }
+        XCTAssertTrue(left)
+        await engine.stop()
+    }
+
+    /// Raise/lower and a host change are deltas too, and the surface reads both from the snapshot.
+    func testRaisedHandAndHostChangeAreFolded() async throws {
+        let (signalling, engine) = await startedEngine()
+        signalling.push(.callState(channelID: "chan1",
+                                   call: call(sessions: [CallsSession(sessionID: "s1", userID: "me")])))
+        let landed = await waitUntil(timeout: 2) {
+            await engine.currentSnapshot().call?.session(forUser: "me") != nil
+        }
+        XCTAssertTrue(landed)
+
+        signalling.push(.handChanged(channelID: "chan1", userID: "me", sessionID: "s1", raised: true))
+        let raised = await waitUntil(timeout: 2) {
+            await engine.currentSnapshot().call?.session(forUser: "me")?.raisedHand == true
+        }
+        XCTAssertTrue(raised, "`user_raise_hand` must reach the engine's call state")
+
+        signalling.push(.handChanged(channelID: "chan1", userID: "me", sessionID: "s1", raised: false))
+        let lowered = await waitUntil(timeout: 2) {
+            await engine.currentSnapshot().call?.session(forUser: "me")?.raisedHand == false
+        }
+        XCTAssertTrue(lowered)
+
+        signalling.push(.hostChanged(channelID: "chan1", hostID: "me"))
+        let hosted = await waitUntil(timeout: 2) {
+            await engine.currentSnapshot().call?.hostID == "me"
+        }
+        XCTAssertTrue(hosted)
+        await engine.stop()
+    }
+
     func testStopLeavesClosesAndGivesTheAudioSessionBack() async throws {
         let signalling = FakeCallsSignalling()
         let audio = FakeCallsAudioSession()
@@ -382,6 +483,24 @@ final class T44CCallsEngineTests: XCTestCase {
                           "peer-negotiation test: needs a second RTCPeerConnectionFactory, which "
                           + "blocks in CoreAudio on this host. Re-run with MM_CALLS_PEER_TESTS=1 on a "
                           + "host with audio (docs/t44c-calls-engine.md §6).")
+    }
+
+    /// An engine started against a fake signalling layer, plus the fake (so a test can push events).
+    private func startedEngine() async -> (FakeCallsSignalling, CallsEngine) {
+        let signalling = FakeCallsSignalling()
+        let engine = CallsEngine(signalling: signalling,
+                                 permissions: FakeCallsPermissions(result: .granted),
+                                 audioSession: FakeCallsAudioSession(),
+                                 timings: timings)
+        signalling.push(.joinAck(connID: "abc"))
+        _ = await engine.start(channelID: "chan1")
+        return (signalling, engine)
+    }
+
+    /// A `call_state` payload for folding tests: one call on `chan1` with the given sessions.
+    private func call(sessions: [CallsSession]) -> CallsCall {
+        CallsCall(id: "call1", channelID: "chan1", startAt: 1_793_000_000_000,
+                  hostID: "me", sessions: sessions)
     }
 
     private func waitUntil(timeout: TimeInterval,
