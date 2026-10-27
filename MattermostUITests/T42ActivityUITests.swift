@@ -157,7 +157,18 @@ final class T42ActivityUITests: XCTestCase {
 
     // MARK: - 4. A row opens what it belongs to
 
+    /// The card's second criterion is *"jumping from a mention lands on the **exact post** in the
+    /// **right channel**"*, so this asserts both halves rather than \"a channel header exists\" (which
+    /// was true of whatever the shell happened to show, T42-AV F3):
+    ///
+    ///  * the right channel — the header renders the server's own `display_name` for `#t42-activity`
+    ///    (not the URL slug the shell is handed first), so it is read from the server here and compared;
+    ///  * the exact post — T39's marking bar (`postFocus.<postID>`) is **absent before** the tap and
+    ///    **present after** it, so the timeline landed on that post and not merely on its channel.
+    ///
+    /// The pre-tap assertions are what make the post-tap ones non-vacuous.
     func testTappingARowOpensItsChannel() throws {
+        let target = try channel()
         let mention = try seedMention(marker: "jump")
         let app = launchApp()
         openMentions(app)
@@ -165,10 +176,30 @@ final class T42ActivityUITests: XCTestCase {
         let row = element(app, "activity.row.\(mention.id)")
         XCTAssertTrue(row.waitForExistence(timeout: 30),
                       "the seeded mention must be listed:\n\(app.debugDescription)")
+
+        // Before the tap the mentions pane is on screen and no channel header is — otherwise
+        // "the header exists" after the tap would prove nothing about the tap.
+        let focus = element(app, "postFocus.\(mention.id)")
+        XCTAssertFalse(element(app, "nativeChannelTitle").exists,
+                       "the mentions pane must not already show a channel header before the tap:\n"
+                       + app.debugDescription)
+        XCTAssertFalse(focus.exists,
+                       "the timeline must not already be focused on the mention's post before the tap")
+
         row.tap()
 
-        XCTAssertTrue(element(app, "nativeChannelTitle").waitForExistence(timeout: 30),
+        // Which channel: the header's label is the server's `display_name` for that channel.
+        let title = element(app, "nativeChannelTitle")
+        XCTAssertTrue(title.waitForExistence(timeout: 40),
                       "tapping a mention must open its channel:\n\(app.debugDescription)")
+        XCTAssertTrue(waitUntil(timeout: 20) { title.label == target.displayName },
+                      "the jump must open the mention's own channel; the header reads "
+                      + "\"\(title.label)\", expected \"\(target.displayName)\"")
+
+        // Which post: T39's marking bar on the row the jump landed on.
+        XCTAssertTrue(focus.waitForExistence(timeout: 40),
+                      "the jump must land on the exact post, not merely open a channel:\n"
+                      + app.debugDescription)
         attach(app, "t42-mentions-opened-channel")
     }
 
@@ -230,13 +261,15 @@ final class T42ActivityUITests: XCTestCase {
 
     private func stamp() -> Int { Int(Date().timeIntervalSince1970 * 1000) }
 
-    private func channel() throws -> String {
+    /// The fixture channel's identity from the server: the id the API needs, and the `display_name`
+    /// the header renders (the shell starts with the URL slug and the model replaces it a beat later).
+    private func channel() throws -> (id: String, displayName: String) {
         let body = try getJSON("/api/v4/teams/\(teamID!)/channels/name/\(channelName)")
             as? [String: Any] ?? [:]
         guard let id = body["id"] as? String else {
             throw XCTSkip("#\(channelName) is missing — run scripts/t42_activity_seed.py")
         }
-        return id
+        return (id: id, displayName: body["display_name"] as? String ?? channelName)
     }
 
     private func buddySession() throws -> (token: String, userID: String) {
@@ -257,7 +290,7 @@ final class T42ActivityUITests: XCTestCase {
     }
 
     private func seedPost(message: String, as session: String? = nil) throws -> Post {
-        let channelID = try channel()
+        let channelID = try channel().id
         let body = try sendJSON("POST", "/api/v4/posts",
                                 body: ["channel_id": channelID, "message": message],
                                 as: session ?? token) as? [String: Any] ?? [:]
@@ -271,7 +304,7 @@ final class T42ActivityUITests: XCTestCase {
     private func channelMentionCount() throws -> Int {
         let rows = try getJSON("/api/v4/users/\(userID!)/teams/\(teamID!)/channels/members")
             as? [[String: Any]] ?? []
-        let channelID = (try? channel()) ?? ""
+        let channelID = (try? channel().id) ?? ""
         let row = rows.first { ($0["channel_id"] as? String) == channelID }
         return Int(row?["mention_count"] as? Int ?? -1)
     }
