@@ -629,6 +629,21 @@ struct MattermostApp: App {
         teamSidebarCoordinator.onSocketResync = { [weak channelPaneCoordinator] serverID in
             Task { await channelPaneCoordinator?.resync(serverID: serverID) }
         }
+        // T34-R5 follow-up: the delivery watchdog (`SocketClient.StallWatchdog`) has to know whether
+        // anybody is looking at data this socket feeds, because a socket that is open, pingable and
+        // silent is only a *fault* when a reader is staring at the stale window it should be updating.
+        // The shell answers with the facts it owns: the app is in the foreground, the location names a
+        // channel on **this** server, the native pane is the one rendering it, and that pane holds a
+        // loaded window for it. Anything else answers `false`, which keeps the watchdog from spending a
+        // page fetch on an idle-but-healthy socket — the limit the card asks for.
+        teamSidebarCoordinator.isSurfaceVisible = { [weak nativeNavigation, weak channelPaneCoordinator] serverID in
+            guard UIApplication.shared.applicationState == .active else { return false }
+            guard let nativeNavigation, nativeNavigation.acceptsNativeRouting else { return false }
+            let location = nativeNavigation.location
+            guard location.serverID == serverID,
+                  let channelID = location.channelID, !channelID.isEmpty else { return false }
+            return channelPaneCoordinator?.hasLoadedWindow(serverID: serverID, channelID: channelID) ?? false
+        }
         // T30 reserved this seam for S08: with a channel list loaded, a deep link's channel *name*
         // and a tapped mention's channel *id* resolve to the same `NativeLocation`.
         nativeNavigation.directory = channelSidebarCoordinator

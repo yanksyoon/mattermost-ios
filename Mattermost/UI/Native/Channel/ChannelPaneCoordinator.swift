@@ -61,6 +61,17 @@ final class ChannelPaneCoordinator: ObservableObject {
         models[serverID]?[channelID]
     }
 
+    /// Whether this server holds a **loaded** window for that channel right now.
+    ///
+    /// The socket's delivery watchdog (`SocketClient.StallWatchdog`) asks this before it treats a
+    /// silent-but-open socket as a wedge: if the channel on screen has a window, a frame the server
+    /// published is missing from something somebody is reading; if it has none, silence is just quiet.
+    /// A `.loading` or `.failed` model answers `false` — its own load is the fetch, and a window that
+    /// never loaded has nothing a refetch could put right.
+    func hasLoadedWindow(serverID: UUID, channelID: String) -> Bool {
+        models[serverID]?[channelID]?.phase == .loaded
+    }
+
     func bind(auth: AuthCoordinator?,
               navigation: NativeNavigation?,
               serverStore: ServerStore?) {

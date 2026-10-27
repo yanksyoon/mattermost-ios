@@ -118,7 +118,10 @@ final class T34SocketResyncTests: XCTestCase {
         let source = SocketTeamEventSource(
             transportFactory: { url, headers, _ in factory.make(url, headers) },
             clock: TestSocketClock(autoRelease: true),
-            heartbeatInterval: nil)
+            heartbeatInterval: nil,
+            // This file pins the reconnect path. The delivery watchdog has its own file and its own
+            // stepped clock (`T34SocketStallWatchdogTests`); an auto-releasing clock here would spin it.
+            stallWatchdog: nil)
         let server = server()
 
         let pane = ChannelPaneCoordinator()
@@ -238,7 +241,8 @@ final class T34SocketResyncTests: XCTestCase {
         let source = SocketTeamEventSource(
             transportFactory: { url, headers, _ in factory.make(url, headers) },
             clock: TestSocketClock(autoRelease: true),
-            heartbeatInterval: nil)
+            heartbeatInterval: nil,
+            stallWatchdog: nil)
 
         let recorder = ResyncRecorder()
         let stream = await source.events(for: server, token: "tok")

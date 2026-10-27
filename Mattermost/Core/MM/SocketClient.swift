@@ -14,9 +14,24 @@ import Foundation
 ///
 /// Everything that makes the client hard to test is injected:
 ///  - `transportFactory` produces a fresh transport per connection attempt;
-///  - `clock` owns every sleep (backoff and heartbeat);
+///  - `clock` owns every sleep (backoff, heartbeat and the delivery watchdog);
 ///  - `random` drives jitter, so a test can assert exact delays;
-///  - `resync` is a caller-supplied closure invoked **once** per reconnect.
+///  - `resync` is a caller-supplied closure invoked **once** per reconnect *and* once per confirmed
+///    delivery stall (see `StallWatchdog`), with the reason that made it fire;
+///  - `isSurfaceVisible` is the caller's answer to "is anybody looking at data this socket feeds?",
+///    which is the only thing that can tell an idle-but-healthy socket from a wedged one.
+///
+/// ## Two ways a gap happens, one repair
+///
+/// A WebSocket can lose frames in two ways the client can observe:
+///  1. **the connection drops** — the run loop reconnects and `handleOpen` reports `.reconnected`;
+///  2. **the connection stays up and stops delivering** — the server still answers the heartbeat
+///     (`ping` → pong) and never closes, so nothing is reported at all. That is what the delivery
+///     watchdog exists for: absence of server events is the only observable, and only a visible
+///     surface makes it a fault.
+///
+/// Mattermost does not replay what it published while a frame was lost, so both are repaired the same
+/// way: the caller refetches. Nothing in this file knows what a refetch means.
 actor SocketClient {
 
     struct Backoff: Equatable, Sendable {
@@ -41,14 +56,51 @@ actor SocketClient {
         case closed
     }
 
-    /// Why a resync was requested. The caller refetches only what the reason implies.
+    /// Why a resync was requested. The caller refetches only what the reason implies — today the two
+    /// reasons imply the same repair (a gap is a gap), and the reason exists so a log, a diagnostic and
+    /// a future caller can tell a dropout from a stall.
     ///
-    /// There is exactly one reason today, on purpose: a heartbeat timeout also recycles the
-    /// connection, and the reconnect that follows reports `.reconnected`. Asking for a resync at
-    /// the timeout *as well* would refetch twice for one dropout (T28-AV finding F5).
-    enum ResyncReason: String, Sendable {
+    /// A heartbeat timeout deliberately reports **nothing** of its own: it recycles the connection and
+    /// the reconnect that follows reports `.reconnected`. Asking for a resync at the timeout as well
+    /// would refetch twice for one dropout (T28-AV finding F5).
+    enum ResyncReason: String, Sendable, Equatable {
         /// The socket dropped and came back: anything could have changed while it was down.
         case reconnected
+        /// The socket stayed open and kept answering the heartbeat but delivered no server event for
+        /// the watchdog's window while a surface was visible (`StallWatchdog`). Nothing was reported by
+        /// the transport because nothing happened to it: the frames simply did not arrive.
+        case stalled
+    }
+
+    /// The idle-delivery watchdog: how an **open, pingable, silent** socket is noticed.
+    ///
+    /// A reconnect announces itself. A socket that keeps its TCP/WebSocket connection, still answers
+    /// `ping` with a pong, and stops delivering server events announces nothing — `handleOpen` does not
+    /// run again, so no resync fires and every frame the server publishes stays invisible. The only
+    /// observable left is the *absence* of server events, and it is only a fault while somebody is
+    /// looking at a surface that socket feeds. That is what this measures, and why the caller supplies
+    /// `isSurfaceVisible`: the socket cannot know what is on screen, and must not guess.
+    ///
+    /// The numbers, and why:
+    ///  * `threshold` **150 s** — five heartbeat intervals. A pong proves the socket is *pingable*, not
+    ///    that it is *delivering* (that distinction is the whole card), so the window cannot be shorter
+    ///    than the cadence that gives "silence" its meaning. It must also be long enough that an
+    ///    ordinary quiet channel is not read as a fault — two minutes with nothing said is normal — and
+    ///    short enough that a reader never sits in front of a stale window for more than about three
+    ///    minutes (detection is at most `threshold + checkInterval`).
+    ///  * `checkInterval` **30 s** — one heartbeat cadence: the same timer granularity the socket already
+    ///    pays for, and it bounds detection latency at 3 min.
+    ///  * `quietMultiplier` **4** — the wait doubles after each fire that is followed by more silence
+    ///    (150 s → 300 s → 600 s, capped at 4× = 10 min) and any delivered server event resets it. A
+    ///    socket silent for an hour is *not* more likely to be wedged than one silent for three
+    ///    minutes, so an idle-but-visible pane does not pay a full warm-window sweep every 2.5 minutes
+    ///    forever: at the cap it is ≤12 small requests per 10 minutes. The cost is a worst-case recovery
+    ///    latency of 10 minutes on a wedge that begins after a long quiet spell — stated in
+    ///    `docs/t34-socket-stall-watchdog-build-note.md` rather than hidden.
+    struct StallWatchdog: Equatable, Sendable {
+        var threshold: TimeInterval = 150
+        var checkInterval: TimeInterval = 30
+        var quietMultiplier: Double = 4
     }
 
     struct Configuration: Sendable {
@@ -65,6 +117,11 @@ actor SocketClient {
         /// backoff ladder. A server that accepts the upgrade and closes immediately never reaches
         /// it, so repeated kills keep escalating instead of hammering at the base delay.
         var stableSessionInterval: TimeInterval = 5
+
+        /// The idle-delivery watchdog. `nil` disables it — the default, because a client built without
+        /// an `isSurfaceVisible` predicate cannot judge visibility and must not pretend to. The caller
+        /// that *can* answer (`SocketTeamEventSource`, from the app) turns it on by passing both.
+        var stallWatchdog: StallWatchdog?
 
         /// Handshake headers. `origin` matters: the server rejects an upgrade without it.
         /// The bearer token rides here **and** in the in-band `authentication_challenge` frame;
@@ -87,6 +144,9 @@ actor SocketClient {
     private let transportFactory: (URL, [String: String]) -> SocketTransport
     private let clock: SocketClock
     private let resync: (@Sendable (ResyncReason) async -> Void)?
+    /// The caller's answer to "is anybody looking at data this socket feeds right now?". `nil` means
+    /// nobody can tell, which is why the watchdog does not start without it.
+    private let isSurfaceVisible: (@Sendable () async -> Bool)?
     private let random: () -> Double
     /// Monotonic-ish wall clock used only to measure how long a connection stayed up. Injected so
     /// the open-then-killed ladder is testable without sleeping.
@@ -95,8 +155,17 @@ actor SocketClient {
     private(set) var state: State = .idle
     /// Delays actually slept through, in order — the observable backoff sequence.
     private(set) var retryDelays: [TimeInterval] = []
-    /// How many times a reconnect triggered a resync.
+    /// How many times the client asked for a resync: once per reconnect, plus once per delivery stall
+    /// the watchdog confirmed.
     private(set) var resyncCount = 0
+    /// The `.stalled` subset of `resyncCount` — how many gaps were found by silence rather than by a
+    /// dropped connection. The two are counted apart because they are repaired the same way but mean
+    /// different things about the connection.
+    private(set) var stallResyncCount = 0
+    /// Pong replies the server answered. The heartbeat's liveness proof, and deliberately **not**
+    /// delivery: a socket can answer every ping and carry no event, which is the state the watchdog
+    /// exists for.
+    private(set) var pongCount = 0
     /// Events delivered to subscribers (after duplicate suppression).
     private(set) var deliveredEventCount = 0
     /// Events dropped as duplicates — an event identity that cannot legitimately recur, seen
@@ -106,12 +175,18 @@ actor SocketClient {
     private var subscribers: [UUID: AsyncStream<SocketEvent>.Continuation] = [:]
     private var runTask: Task<Void, Never>?
     private var heartbeatTask: Task<Void, Never>?
+    private var stallWatchdogTask: Task<Void, Never>?
     private var currentTransport: SocketTransport?
     private var stopped = false
     private var hasOpenedOnce = false
     private var serverSequence = 0
     private var responseSequence = 1
     private var missedPongs = 0
+    /// When the last **server event** was delivered — never a pong, never a `seq_reply`. The delivery
+    /// watchdog's clock.
+    private var lastServerEventAt: Date
+    /// How much longer than `StallWatchdog.threshold` to wait, after a fire that silence followed.
+    private var stallQuietMultiplier: Double = 1
     /// Bounded, order-preserving record of delivered event identities for cross-reconnect dedupe.
     private var recentKeys: [String] = []
     private let dedupeWindow = 512
@@ -121,13 +196,16 @@ actor SocketClient {
          clock: SocketClock = SystemSocketClock(),
          random: @escaping () -> Double = { Double.random(in: 0..<1) },
          now: @escaping @Sendable () -> Date = { Date() },
-         resync: (@Sendable (ResyncReason) async -> Void)? = nil) {
+         resync: (@Sendable (ResyncReason) async -> Void)? = nil,
+         isSurfaceVisible: (@Sendable () async -> Bool)? = nil) {
         self.configuration = configuration
         self.transportFactory = transportFactory
         self.clock = clock
         self.random = random
         self.now = now
         self.resync = resync
+        self.isSurfaceVisible = isSurfaceVisible
+        self.lastServerEventAt = now()
     }
 
     // MARK: - Lifecycle
@@ -146,6 +224,8 @@ actor SocketClient {
         stopped = true
         heartbeatTask?.cancel()
         heartbeatTask = nil
+        stallWatchdogTask?.cancel()
+        stallWatchdogTask = nil
         currentTransport?.close()
         currentTransport = nil
         runTask?.cancel()
@@ -263,6 +343,7 @@ actor SocketClient {
             }
 
             stopHeartbeat()
+            stopStallWatchdog()
             currentTransport = nil
             if stopped { break }
             state = .closed
@@ -287,6 +368,10 @@ actor SocketClient {
         state = .open
         missedPongs = 0
         serverSequence = 0
+        // The watchdog's window starts at the open, not after the refetch: the reconnect's own resync can
+        // take a moment, and the silence it repairs must not be counted twice.
+        lastServerEventAt = now()
+        stallQuietMultiplier = 1
         MMLog.debug("MMSocket", "socket open")
 
         // In-band auth (plus the Authorization header when the factory was given a token); the
@@ -303,6 +388,7 @@ actor SocketClient {
             await resync?(.reconnected)
         }
         startHeartbeat()
+        startStallWatchdog()
     }
 
     // MARK: - Inbound frames
@@ -320,6 +406,10 @@ actor SocketClient {
                     + "\(frame.errorMessage ?? "no message")")
             } else if frame.data?["text"]?.stringValue == "pong" {
                 missedPongs = 0
+                // Evidence for the log and for tests, and **not** a delivery: the watchdog's clock is
+                // deliberately untouched here. A socket that answers pings and carries no event is
+                // exactly the state it is looking for.
+                pongCount += 1
             }
             return
         }
@@ -349,6 +439,10 @@ actor SocketClient {
         }
 
         deliveredEventCount += 1
+        // A delivered server event is the watchdog's clock: this is the one thing that proves the
+        // socket is still *carrying* events (a pong above proved only that it is pingable).
+        lastServerEventAt = now()
+        stallQuietMultiplier = 1
         for continuation in subscribers.values { continuation.yield(event) }
     }
 
@@ -389,6 +483,61 @@ actor SocketClient {
         }
         missedPongs += 1
         await send(action: "ping", data: nil)
+        return true
+    }
+
+    // MARK: - Delivery watchdog
+
+    /// Start the idle-delivery watchdog for this connection.
+    ///
+    /// Not started when the caller configured no watchdog *or* supplied no `isSurfaceVisible`: without
+    /// an answer to "is anyone looking?", a silent socket is indistinguishable from an idle one, and a
+    /// timer that can only guess is worse than none. `SocketTeamEventSource` logs that state when it
+    /// builds such a client, because it is the shape that shipped silently once already.
+    private func startStallWatchdog() {
+        guard let watchdog = configuration.stallWatchdog,
+              isSurfaceVisible != nil,
+              stallWatchdogTask == nil else { return }
+        let clock = self.clock
+        stallWatchdogTask = Task { [weak self] in
+            while !Task.isCancelled {
+                await clock.sleep(for: watchdog.checkInterval)
+                if Task.isCancelled { return }
+                guard let self else { return }
+                let keepGoing = await self.stallWatchdogTick(watchdog)
+                if !keepGoing { return }
+            }
+        }
+    }
+
+    private func stopStallWatchdog() {
+        stallWatchdogTask?.cancel()
+        stallWatchdogTask = nil
+    }
+
+    /// One check. Returns `false` when the loop should end (the connection is gone).
+    ///
+    /// Three conditions, all required: the connection is open, no server event has been delivered for
+    /// the window, and a surface is visible. The visibility check comes **last** and on purpose — it is
+    /// an app-level question (a hop), and it only has to be asked when the silence already looks wrong.
+    private func stallWatchdogTick(_ watchdog: StallWatchdog) async -> Bool {
+        guard state == .open, let isSurfaceVisible else { return false }
+        let threshold = watchdog.threshold * stallQuietMultiplier
+        guard now().timeIntervalSince(lastServerEventAt) >= threshold else { return true }
+        // Nothing on screen: an idle-but-healthy socket is not a fault, and a backgrounded app must not
+        // spend a page fetch proving it. Nothing is marked, so the next tick asks again.
+        guard await isSurfaceVisible() else { return true }
+
+        // Re-arm *before* asking for the resync: a refetch that fails or is slow must not put the
+        // watchdog into a fire-every-tick loop, and a socket that stays silent is re-checked at the
+        // doubled wait rather than at the base one.
+        lastServerEventAt = now()
+        stallQuietMultiplier = min(stallQuietMultiplier * 2, max(1, watchdog.quietMultiplier))
+        stallResyncCount += 1
+        resyncCount += 1
+        MMLog.info("MMSocket", "no server event for \(Int(threshold))s on an open socket "
+            + "(\(pongCount) pongs answered); treating it as a delivery gap and requesting a resync")
+        await resync?(.stalled)
         return true
     }
 }
