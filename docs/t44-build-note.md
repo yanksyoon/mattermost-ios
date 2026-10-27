@@ -300,6 +300,11 @@ looks for it (`docs/dual-render.md` §4) and is these four facts, in order of we
 
 1. **Screen share would regress** (§3.2). The webview gives ReplayKit-free screen share today for
    free; a native surface needs a second app-extension target that this programme has not built.
+   *Two amendments.* (a) T44c has since linked the engine, which changes the shape of this reason
+   without removing it: the extension target is still not built. (b) Measured by T44-AV-R (§3.3),
+   the pinned path has **no Calls entry point at iPhone width at all** — so on iPhone "we keep
+   today's behaviour" means "there is no Calls UI", not "screen share keeps working". The parity
+   claim in this reason is true on iPad and empty on iPhone.
 2. **The media path cannot be verified here** (§4.2), so the card's own "bidirectional audio on a
    real server" criterion is unmeetable as things stand — for this card and for any successor
    card until the fixture publishes the SFU's ICE port. *(T44b has since published it and measured
@@ -314,8 +319,10 @@ looks for it (`docs/dual-render.md` §4) and is these four facts, in order of we
    card" the T44a spike explicitly recommended splitting.
 
 What is **not** claimed: that native Calls is impossible or that memory makes it pointless. The
-engine is cheap (11.6–15.2 MB against a 460–562 MB webview) and the signalling is now
-conformance-tested. The blocker is verification and parity, not feasibility.
+engine is cheap — on the *same metric* as the webview baseline: ~4.4 MB `phys_footprint` against
+460–562 MB `phys_footprint` (§5; the earlier "11.6–15.2 MB against a 460–562 MB webview" compared
+peak RSS with footprint and is withdrawn). The signalling is conformance-tested. The blocker is
+verification and parity, not feasibility.
 
 ## 7. What changed in the tree
 
