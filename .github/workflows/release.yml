@@ -29,8 +29,65 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Cheap gate, on Linux, in seconds — see docs/releasing.md "Stage 0".
+  #
+  # Before this job existed the tip check lived inside the *release* job, so a push that
+  # was already superseded still ran both macOS test legs and the package build before
+  # discovering it had nothing to do (run 40339556034 burned ~8 macOS minutes and was
+  # cancelled by hand; run 40341709601 never started at all). A cancelled run renders
+  # red, which is how a working pipeline came to look broken (gap G1, card t_4ae44452).
+  #
+  # The decision itself lives in scripts/ci_plan.py so it can be tested; this job only
+  # gathers the three facts. It also carries the docs-only policy (gap G2): a push whose
+  # every changed path is documentation skips the test legs but still gets its release
+  # and its downloadable app, because the owner asked for a release per push.
+  guard:
+    name: guard (tip + change scope)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      is_tip: ${{ steps.plan.outputs.is_tip }}
+      docs_only: ${{ steps.plan.outputs.docs_only }}
+      run_tests: ${{ steps.plan.outputs.run_tests }}
+      reason: ${{ steps.plan.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the changed-file range needs the pushed-from commit
+
+      - name: Prove the decision logic
+        run: python3 scripts/ci_plan.py --self-test
+
+      - name: Decide whether this push is worth macOS minutes
+        id: plan
+        env:
+          BASE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          HEAD_SHA=$(git rev-parse HEAD)
+          # A tip check that cannot reach the remote must fail this job: "I cannot tell"
+          # is never "yes, run" (and never "nothing to do" either).
+          TIP=$(git ls-remote origin refs/heads/main | cut -f1)
+          CHANGED=$(mktemp)
+          if [ -n "${BASE:-}" ] \
+             && [ "${BASE}" != "0000000000000000000000000000000000000000" ] \
+             && git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            git diff --name-only "$BASE" "$HEAD_SHA" > "$CHANGED" || : > "$CHANGED"
+          else
+            # No usable event.before (dispatch, force-push, first push): fall back to the
+            # commit's own diff, and let ci_plan.py answer "test everything" if that is
+            # empty too.
+            git diff --name-only "$HEAD_SHA^" "$HEAD_SHA" > "$CHANGED" 2>/dev/null || : > "$CHANGED"
+          fi
+          echo "changed files:"; sed 's/^/  /' "$CHANGED"
+          python3 scripts/ci_plan.py --head "$HEAD_SHA" --tip "$TIP" \
+            --changed-files "$CHANGED" --format github-env \
+            --summary-file "$GITHUB_STEP_SUMMARY" | tee -a "$GITHUB_OUTPUT"
+
   test:
     name: test (${{ matrix.name }})
+    needs: guard
+    if: needs.guard.outputs.run_tests == 'true'
     runs-on: macos-26
     timeout-minutes: 60
     strategy:
@@ -55,6 +112,10 @@ jobs:
           python3 scripts/release_notes.py --self-test
           python3 scripts/ci_simulator.py --self-test
           python3 scripts/verify-pushed.py --self-test
+          # The guard's decision and the post-upload check: both are pure logic against
+          # a stub, so they are proven on every source push rather than trusted.
+          python3 scripts/ci_plan.py --self-test
+          python3 scripts/verify_release_asset.py --self-test
           # Replays the shipped "Publish the release" step body against a throwaway
           # bare origin + stub gh: 8 scenarios plus the negative control (a4b6467's
           # body must reproduce the silent green). bash + git + python3 only.
@@ -130,8 +191,20 @@ jobs:
 
   release:
     name: tag and publish
-    needs: test
+    needs: [guard, test]
+    # `always()` so a *skipped* test leg (docs-only push, gap G2) does not skip the
+    # release: the owner asked for a release per push. A red test leg still blocks it,
+    # and a superseded run is gated out here before it touches anything.
+    if: >-
+      always() && needs.guard.outputs.is_tip == 'true'
+      && (needs.test.result == 'success' || needs.test.result == 'skipped')
     runs-on: ubuntu-latest
+    # The package job builds an app only for a commit that actually has a release to
+    # attach it to. `published=false` is the honest answer for a run that was the tip
+    # when it started and was superseded before this job ran: instead of spending six
+    # macOS minutes on a zip with nowhere to go, the package job is skipped.
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -142,15 +215,22 @@ jobs:
         run: |
           python3 scripts/release_version.py --self-test
           python3 scripts/release_notes.py --self-test
+          # The check the package job will run after it uploads, proven here too.
+          python3 scripts/verify_release_asset.py --self-test
           # The step body below is replayed verbatim by the self-test, on this runner.
           bash scripts/release_publish_selftest.sh
 
       - name: Publish the release
+        id: publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # Default is "no release for this commit": every path that publishes overrides
+          # it. A caller (the package job) reads this, so an unset output can never be
+          # mistaken for a published release.
+          echo "published=false" >> "${GITHUB_OUTPUT:-/dev/null}"
           git fetch --tags --force --quiet
           SHA=$(git rev-parse HEAD)
           SHORT=$(git rev-parse --short=8 HEAD)
@@ -201,6 +281,7 @@ jobs:
             fi
             if gh release view "$EXISTING" --repo "$REPO" >/dev/null 2>&1; then
               echo "already published: $EXISTING at $SHORT - nothing to do"
+              echo "published=true" >> "${GITHUB_OUTPUT:-/dev/null}"
               exit 0
             fi
             # A tag without a release is an incomplete earlier attempt: finish it.
@@ -236,6 +317,7 @@ jobs:
               # A concurrent run may have won the race; that is success, not failure.
               if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
                 echo "release $TAG already exists (concurrent run won); treating as success"
+                echo "published=true" >> "${GITHUB_OUTPUT:-/dev/null}"
                 exit 0
               fi
               echo "::error::could not create release $TAG"
@@ -245,11 +327,17 @@ jobs:
           # Verify the side effect instead of trusting the command's exit code.
           gh release view "$TAG" --repo "$REPO" --json tagName,isDraft,url \
             --jq '"published \(.tagName) -> \(.url)"'
+          echo "published=true" >> "${GITHUB_OUTPUT:-/dev/null}"
           echo "RELEASE CREATED: $TAG at $SHORT"
 
   package:
     name: package Mattermost.app
-    needs: [test, release]
+    needs: [guard, test, release]
+    # Build only for a commit that has a release to attach the app to. `published` is
+    # false for a run that was the tip when it started but was superseded before the
+    # release job ran, so the six macOS minutes are not spent on a zip with nowhere to
+    # go — and the job can no longer be green having attached nothing.
+    if: always() && needs.release.outputs.published == 'true'
     runs-on: macos-26
     timeout-minutes: 40
     steps:
@@ -380,13 +468,33 @@ jobs:
           set -euo pipefail
           TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
           if [ -z "$TAG" ]; then
-            echo "HEAD $(git rev-parse --short=8 HEAD) is not tagged (superseded run);"
-            echo "leaving the zip as a workflow artifact only."
-            exit 0
+            # Belt and braces: the guard job skips this job on a superseded run, so this
+            # only fires if the tag check and the guard ever disagree.
+            echo "::error::HEAD $(git rev-parse --short=8 HEAD) carries no release tag, so the built zip has no release to attach to."
+            exit 1
           fi
+          echo "local zip: $ZIP ($(stat -f%z "$ZIP" 2>/dev/null || stat -c%s "$ZIP") bytes)"
           gh release upload "$TAG" "$ZIP" --clobber --repo "$REPO"
-          echo "attached $NAME to $TAG"
-          gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[] | "\(.name)  \(.size) bytes"'
+          echo "uploaded $NAME to $TAG"
+
+      # Gap G3: nothing used to check the upload. `gh release view ... --jq .assets` was
+      # printed and nothing compared it to anything, so a release with source archives
+      # only, a 0-byte asset, or an asset of a different commit all passed. This step
+      # fails the job instead of publishing a download nobody checked.
+      - name: Verify the uploaded asset (gap G3)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG=$(git describe --tags --exact-match HEAD)
+          SHA=$(git rev-parse HEAD)
+          LOCAL_SIZE=$(stat -f%z "$ZIP" 2>/dev/null || stat -c%s "$ZIP")
+          python3 scripts/verify_release_asset.py \
+            --repo "${{ github.repository }}" \
+            --tag "$TAG" \
+            --sha "$SHA" \
+            --asset "$NAME.zip" \
+            --size "$LOCAL_SIZE"
 
       - name: Upload as artifact
         uses: actions/upload-artifact@v4

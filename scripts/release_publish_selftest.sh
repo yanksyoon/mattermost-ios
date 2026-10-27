@@ -86,6 +86,7 @@ remote_tag_at() { [ "$(git -C "$WORK/$1/origin.git" rev-parse -q --verify "refs/
 remote_absent() { [ -z "$(git -C "$WORK/$1/origin.git" rev-parse -q --verify "refs/tags/$2" 2>/dev/null)" ]; }
 calls_log() { cat "$WORK/$1/ghstate/log/calls.log" 2>/dev/null; }
 call_count_is() { [ "$(grep -c -e "$2" "$WORK/$1/ghstate/log/calls.log" 2>/dev/null | tr -d ' ')" = "$3" ]; }
+gh_output_has() { grep -q -e "$2" "$WORK/$1/gh_output" 2>/dev/null; }
 
 show_log() { # scenario dir
   say "  --- $1 log ---"
@@ -138,11 +139,15 @@ run_step() { # $1 = scenario dir, $2 = extra PATH prefix ('' for none), rest = V
   shift 2
   base="$WORK/$name"
   mkdir -p "$base/ghstate"
+  rm -f "$base/gh_output"
   (
     cd "$base/work" || exit 99
     # `env` so extra VAR=value pairs arrive as assignments, not as a command name.
+    # GITHUB_OUTPUT is where the step reports whether a release now exists for this
+    # commit; the package job reads it, so the scenarios assert it below.
     env PATH="${extra:+$extra:}$HELPER/fakebin:$PATH" \
       GH_STATE="$base/ghstate" ORIGIN="$base/origin.git" REPO=fake/repo GH_TOKEN=fake \
+      GITHUB_OUTPUT="$base/gh_output" \
       REAL_GIT="$REAL_GIT" "$@" \
       bash "$STEP_BODY" > "$base/out.log" 2>&1
     echo $? > "$base/rc"
@@ -169,6 +174,8 @@ expect_absent "the body carries no retry loop (the 1e64fbf regression)" \
   file_has "$STEP_BODY" "for attempt in"
 expect_absent "the body does not push refs itself (git tag / git push)" \
   file_has "$STEP_BODY" "^[[:space:]]*git \(push\|tag\) "
+expect "the body states, before the tip check, that no release exists yet" \
+  file_has "$STEP_BODY" "published=false"
 say "  (body: $(wc -l < "$STEP_BODY" | tr -d ' ') lines)"
 
 # --- S1: tip of main, no tag -> a release ------------------------------------------
@@ -182,6 +189,7 @@ expect "S1 created the tag on the remote at HEAD" remote_tag_at s1 v0.5.0 "$S1_S
 expect "S1 created exactly one release" release_count_is s1 1
 expect "S1 reported RELEASE CREATED: v0.5.0" log_has s1 "RELEASE CREATED: v0.5.0"
 expect "S1 verified the side effect with gh release view" call_count_is s1 "release view" 1
+expect "S1 tells the package job a release exists (published=true)" gh_output_has s1 "published=true"
 show_log s1
 
 # --- S2: the Releases API rejects the create ---------------------------------------
@@ -195,6 +203,8 @@ expect "S2 printed ::error::could not create release v0.5.0" \
 expect_absent "S2 did not report success" log_has s2 "RELEASE CREATED"
 expect "S2 created no release" release_count_is s2 0
 expect "S2 left no tag on the remote" remote_absent s2 v0.5.0
+expect "S2 does not tell the package job a release exists" \
+  gh_output_has s2 "published=false"
 show_log s2
 
 # --- S3: re-run of the same tip -> green no-op ------------------------------------
@@ -209,6 +219,7 @@ expect "S3 second run exits 0" rc_is s3 0
 expect "S3 second run took the already-published path" log_has s3 "already published: v0.5.0"
 expect "S3 exactly one release exists" release_count_is s3 1
 expect "S3 exactly one release create across both runs" call_count_is s3 "release create" 1
+expect "S3 re-run still reports published=true (the release exists)" gh_output_has s3 "published=true"
 show_log s3
 
 # --- S4: tag on the remote but no release -> finish it -----------------------------
@@ -222,6 +233,7 @@ expect "S4 completed the release instead of cutting a new tag" log_has s4 "has n
 expect "S4 used --verify-tag (it did not move the tag)" \
   grep_file "$WORK/s4/ghstate/log/calls.log" "--verify-tag"
 expect "S4 created the release" release_count_is s4 1
+expect "S4 reports published=true" gh_output_has s4 "published=true"
 show_log s4
 
 # --- S5: not the tip -> exit 0 and touch nothing -----------------------------------
@@ -240,6 +252,8 @@ expect "S5 exits 0" rc_is s5 0
 expect "S5 said it was superseded" log_has s5 "is not the tip of main"
 expect "S5 created no tag" remote_absent s5 v0.5.0
 expect "S5 created no release" release_count_is s5 0
+expect "S5 reports published=false, so the package job is skipped" \
+  gh_output_has s5 "published=false"
 show_log s5
 
 # --- S6: a release tag that exists only in the runner's checkout -------------------
@@ -253,6 +267,7 @@ expect "S6 exits 1" rc_is s6 1
 expect_absent "S6 did not claim 'already published'" log_has s6 "already published"
 expect "S6 created no release" release_count_is s6 0
 expect "S6 put no tag on the remote" remote_absent s6 v0.5.0
+expect "S6 reports published=false" gh_output_has s6 "published=false"
 show_log s6
 
 # --- S7: a non-bare (pre-release) tag at HEAD -------------------------------------
@@ -269,6 +284,7 @@ expect "S7 says why it refused (::error::SKIP with no release tag on HEAD)" \
   log_has s7 "::error::SKIP with no release tag on HEAD"
 expect "S7 created no release" release_count_is s7 0
 expect "S7 put no tag on the remote" remote_absent s7 v0.5.0
+expect "S7 reports published=false" gh_output_has s7 "published=false"
 show_log s7
 
 # --- S8: the tip check cannot reach the remote ------------------------------------
@@ -280,6 +296,7 @@ say "== S8 git ls-remote fails at the tip check =="
 expect_absent "S8 does not green the job" rc_is s8 0
 expect "S8 surfaced git's failure (128)" rc_is s8 128
 expect "S8 created no release" release_count_is s8 0
+expect "S8 reports published=false" gh_output_has s8 "published=false"
 show_log s8
 
 # =====================================================================================
