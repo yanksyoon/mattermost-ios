@@ -191,3 +191,31 @@ Rule that follows: **never point a test run's derived data into `~/Documents`** 
 `scripts/qa-test.py`, or `-derivedDataPath ~/Library/Developer/Xcode/DerivedData/…` for raw
 `xcodebuild`. A `build/…` path is fine for plain `xcodebuild build`, but any run in which a test
 may fail will hang there.
+
+## 7. Harness: enumerating a long list one element at a time kills the UI-test host (T34-QA)
+
+Second harness failure, different from §6 and unrelated to TCC. On a long post list the **app
+process is lost** with `EXC_BAD_ACCESS (SIGSEGV, KERN_INVALID_ADDRESS at 0x0)` on its main thread:
+
+```
+-[XCTAccessibilityFramework attributesForElement:attributes:error:]
+  -> -[XCElementSnapshot children] -> __XCTPerformOnMainRunLoop_block_invoke
+```
+
+Crash reports: `~/Library/Logs/DiagnosticReports/Mattermost-2026-10-25-210015.ips` and
+`-210758.ips` (both `SIGSEGV`, signal/subtype checked in the file). It fired while the test was
+snapshotting the post list after a page insert (120 rows), and every later test in the suite then
+failed as a cascade — which reads like "three product failures" and is not.
+
+Cause, measured rather than inferred: `query.count`, `element(boundBy:)` and
+`allElementsBoundByIndex` each resolve **one element per accessibility round trip** — 0.29-0.32 s
+each on this host (`build/logs/t34f-ipad-head.log`, indices 0-45 in one call;
+`build/logs/t34q-run1.log`, 98 such queries in one 7-test run). The snapshot work is served on the
+app's main thread, which is the thread the list's own layout/scroll-restore runs on.
+
+Rule that follows: **ask the accessibility tree one question per snapshot, not one per element.**
+`XCUIElement.snapshot()` returns the whole tree in a single round trip; walk it in the test
+(`T34-ChannelPostListUITests.snapshotNodes`). Under that rule the same suite shows 0 per-element
+queries (`grep -c 'Element at index' build/logs/t34q-final1.log` → 0) and two consecutive full-suite
+runs without losing the process. When a run *does* lose the host, count it as one harness failure -
+not as N test failures — and check the crash reports before believing the test names.
