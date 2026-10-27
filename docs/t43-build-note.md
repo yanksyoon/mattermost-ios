@@ -49,7 +49,25 @@ New directory `Mattermost/UI/Native/Notification/` (6 files, all target members 
 | `MentionNotificationPolicy.swift` | The decision `posted` → deliver/drop, from the server's own inputs: account `notify_props.desktop ∈ {all, mention, none}`, channel `notify_props.desktop`, `ignore_channel_mentions ∈ {all, root, never}`, `desktop_sound`, DM/GM rules, own post, deleted, system post, and a whole-token key match **including** `@channel`/`@all`/`@here` when `notify_props.channel == "true"`. | server `app/notification.go` `sendNotification`; mobile v2.45.0 `app/utils/notification/index.ts`. |
 | `MentionLedger.swift` | **One** per-server high-water mark (`watermarkTs` + `watermarkPostID`) and one 500-id ring, shared by both inputs; `merge` unions the ring instead of replacing it, so a socket event that lands while a poll is in flight is not lost. Persisted under the **same** key T14 used. | the dedupe T14 already shipped, now owned by both inputs. |
 | `NativeNotificationFeed.swift` | The native input: consumes the rail's `posted` events, applies the policy, builds the *same* `MentionNotification` the bridge builds, delivers through `NotificationWorker.presentMention`, coalesces one badge read per burst, keeps a bounded diagnostic ring (`lastRecord`). | mobile v2.45.0 `app/actions/websocket/posts.ts` (`posted` handling). |
-| `NotificationInputSection.swift` | The Settings read-out (a section, not a screen): which input is live, servers with a live socket, `delivered · suppressed` from the socket, `accepted · refused` from the webview, and the last mention's post/channel/outcome. | — (diagnostic surface for the `-AV` gate). |
+| `NotificationInputSection.swift` | The Settings read-out (a section, not a screen): which input is live, web-view panes mounted, servers with a live socket, `delivered · suppressed` from the socket, `accepted · refused` from the webview, and the last mention's post/channel/outcome. | — (diagnostic surface for the `-AV` gate). |
+
+### 3a. Dual-render: who is the input when the webview is mounted
+
+`NotificationInputRouting` also tracks **which servers' panes are the web app** (`WebViewContainer`
+reports mount/unmount). A mounted webview makes the **page** that server's input and silences the socket.
+
+This was not the first design, and the first design was wrong in a way only a live run could show. With
+the socket as the input and the webview mounted, a mention reached `NotificationWorker`, whose
+`visibleChannel` answers `.unknown` for a webview pane (the shell cannot see inside it), so the
+conservative T8 rule suppressed it — while the gate refused the page's own report at the same time.
+Measured on the first dual-render run: `delivered=0 suppressed=1 mentions=1` — **zero banners**, not two.
+The rule is therefore a measurement: the side that can see the screen is the input, and the other one is
+silent. It also means the flip is safe — the native socket takes over exactly when the pane is native.
+
+The unit test `testAMountedWebPaneSilencesTheSocketAndLetsThePageDeliver` drives the real
+`WebViewContainer.Coordinator` through both panes; the live test
+`testDualRenderKeepsOneSourceAndNeverRefusesThePage` mounts the real web app next to the live socket and
+asserts the socket delivered nothing and the page was never refused.
 
 Changed:
 
@@ -72,8 +90,11 @@ Fixtures and probes (both idempotent, both exit 0):
 ## 4. Decisions
 
 1. **One source, chosen at the process boundary.** `NotificationInputRouting` is the single place both
-   inputs ask "am I the input?"; the webview is refused only while *that server's* socket is live, so a
-   server whose socket is down still gets its banners from the page.
+   inputs ask "am I the input?" — the answer is per server, from two measurements the shell already has:
+   *which pane is mounted* (a webview means the page is the input, because only it can see the screen) and
+   *which sockets are live* (a native pane with a dead socket still falls back to the page, so a mention is
+   never silently lost). Both rules are one-line predicates on one value type, so they are unit-tested
+   rather than argued about.
 2. **The flip is not taken here.** The shipped default stays `.bridge`, exactly as the card requires
    (`-AV` is the architect's adversarial validation, not this card's). `-notificationPath socket` proves
    the native input today, and the Settings section is the read-out that validation will judge.
@@ -93,18 +114,21 @@ Fixtures and probes (both idempotent, both exit 0):
 
 | What | Command | Result |
 | --- | --- | --- |
-| T43 unit tests (rules) | `xcodebuild test … -only-testing:MattermostTests/T43NotificationInputTests` | **35 / 35**, `build/logs/t43-units1.log` |
-| T43 unit tests (the path, with the real worker + session store, only the server faked) | `… -only-testing:MattermostTests/T43NativeNotificationFeedTests` | **20 / 20**, `build/logs/t43-units4.log` |
-| Whole Catalyst suite (no regression in T8/T14/T42 or the bridge) | `xcodebuild test … -only-testing:MattermostTests` (Mac Catalyst) | **1480 run / 4 skipped / 0 failed**, `build/logs/t43-catalyst-full2.log` |
-| Live UI, native input + default | `TEST_RUNNER_MM_AUTH_* python3 scripts/qa-test.py --platform ios --sim id=146D23D9… --only-testing MattermostUITests/T43NotificationUITests` | **2 run / 0 skipped / 0 failed**, `build/logs/t43-live4.log` |
-| Live UI, T43 + T42 together (the shared mentions models did not regress) | same runner, both suites | **6 run / 0 skipped / 0 failed**, `build/logs/t43-live5.log` |
-| Screenshot | exported from `t43-live5`'s attachments | `docs/t43-shots/t43-native-mention.png` |
+| T43 unit tests (rules) | `xcodebuild test … -only-testing:MattermostTests/T43NotificationInputTests` | **37 / 37**, `build/logs/t43-units5.log` |
+| T43 unit tests (the path, with the real worker + session store, only the server faked) | `… -only-testing:MattermostTests/T43NativeNotificationFeedTests` | **21 / 21**, `build/logs/t43-units5.log` |
+| Whole Catalyst suite (no regression in T8/T14/T42 or the bridge) | `xcodebuild test … -only-testing:MattermostTests` (Mac Catalyst) | **1483 run / 4 skipped / 0 failed**, `build/logs/t43-catalyst-full3.log` |
+| Live UI, native pane + default + dual-render | `TEST_RUNNER_MM_AUTH_* python3 scripts/qa-test.py --platform ios --sim id=146D23D9… --only-testing MattermostUITests/T43NotificationUITests` | **3 run / 0 skipped / 0 failed**, `build/logs/t43-live9.log` |
+| Live UI, T43 + T42 together (the shared mentions models did not regress) | same runner, both suites | **7 run / 0 skipped / 0 failed**, `build/logs/t43-live10.log` |
+| Screenshots | exported from `t43-live10`'s attachments | `docs/t43-shots/t43-native-mention.png`, `docs/t43-shots/t43-dual-render.png` |
 
-The screenshot is the card's claim in one frame: an iOS banner **“Local Mattermost: T43 notify — @t43buddy:
-… @perfprobe you were named”** sitting above the read-out **“From the socket: 1 delivered · 0 suppressed”**,
-**“From the web view: 0 accepted · 0 refused”**, **“Last mention delivered … delivered”**.
+The first screenshot is the card's claim in one frame: an iOS banner **“Local Mattermost: T43 notify —
+@t43buddy: … @perfprobe you were named”** sitting above the read-out **“From the socket: 1 delivered ·
+0 suppressed”**, **“From the web view: 0 accepted · 0 refused”**, **“Last mention delivered … delivered”**.
+The second is the dual-render run: **“Web view panes mounted: 0”** is what the native run shows and the
+dual-render shot shows the web app mounted with **1 live socket, 0 delivered, 0 refused** and the footer
+explaining that the page is the input.
 
-What the two live tests actually assert (they skip, never fail, without a server):
+What the three live tests actually assert (they skip, never fail, without a server):
 
 1. `testASocketMentionReachesTheShellOnce` — launch with `-notificationPath socket`; the read-out says the
    input is **Native socket** and **1** server has a live socket (so the banner cannot be a poller); the
@@ -114,6 +138,10 @@ What the two live tests actually assert (they skip, never fail, without a server
 2. `testTheDefaultStillUsesTheWebViewInput` — launch with no flag; the read-out says **Web view bridge**;
    a fresh mention produces nothing on the socket path for 12 s and the counter stays 0 (the native input is
    inert until the flip).
+3. `testDualRenderKeepsOneSourceAndNeverRefusesThePage` — the pane host stays on the web app
+   (`app.webViews` non-empty) **and** the rail's socket is live (`liveSockets` 1, `webPanes` 1); a fresh
+   mention delivers nothing through the socket, records no delivery, and the page is never refused
+   (`refused` 0, `accepted` ≤ 1). This is the test that caught the zero-banner bug in §3a.
 
 Unit tests worth naming, because they are the card's bullet points:
 
@@ -171,7 +199,7 @@ Modified: `Mattermost/Core/{NotificationWorker,MentionPoller}.swift`,
 `Mattermost/UI/Native/Sidebar/TeamSidebarCoordinator.swift`,
 `Mattermost/UI/Native/Activity/ActivityModels.swift`, `docs/parity.md`.
 
-Identifiers the UI test drives: `notificationPath.mode`, `notificationPath.liveSockets`,
-`notificationPath.socket` (`delivered=… suppressed=… mentions=… posts=…`),
+Identifiers the UI test drives: `notificationPath.mode`, `notificationPath.webPanes`,
+`notificationPath.liveSockets`, `notificationPath.socket` (`delivered=… suppressed=… mentions=… posts=…`),
 `notificationPath.bridge` (`accepted=… refused=…`), `notificationPath.lastMention`
 (`post=… channel=… outcome=…`), inside `settingsView` (opened from `settingsToolbarButton`).
