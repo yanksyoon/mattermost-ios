@@ -10,6 +10,8 @@
 //        (docs/t35-build-note.md §5).
 // Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §12; no
 // upstream source copied. The SwiftUI decomposition is this repo's own (component-map.md §3).
+
+import GameController
 //
 // Why `UITextView` and not `TextField(axis: .vertical)`:
 //  - the autocomplete is anchored at the **caret**, and SwiftUI's text views do not expose one before
@@ -34,6 +36,8 @@ struct ComposerTextView: UIViewRepresentable {
     var placeholder: String
     var onEdit: (String, NSRange) -> Void
     var onSelection: (NSRange) -> Void
+    /// Return sends; Shift+Return is a newline (see `ComposerReturnPolicy`).
+    var onReturn: (Bool) -> Void
 
     func makeUIView(context: Context) -> UITextView {
         let view = UITextView()
@@ -76,6 +80,31 @@ struct ComposerTextView: UIViewRepresentable {
 
         func textViewDidChangeSelection(_ textView: UITextView) {
             parent.onSelection(textView.selectedRange)
+        }
+
+        /// Return reaches a `UITextView` as a `"\n"` insertion, not as a key press, so this is where
+        /// the send/newline decision has to be made. Refusing the change keeps the text intact while
+        /// the message is sent.
+        func textView(_ textView: UITextView,
+                      shouldChangeTextIn range: NSRange,
+                      replacementText text: String) -> Bool {
+            guard text == "\n" else { return true }
+            let action = ComposerReturnPolicy.action(isReturnKey: true,
+                                                     shiftPressed: Self.shiftIsPressed)
+            guard action == .send else { return action == .newline }
+            parent.onReturn(true)
+            return false
+        }
+
+        /// A hardware shift, where the platform can report one.
+        ///
+        /// `NSEvent` is not available to Mac Catalyst, so the modifier comes from GameController's
+        /// view of the attached keyboard. No keyboard (or no permission to see it) reads as "not
+        /// shifted", which makes Return send — the same as the on-screen key.
+        static var shiftIsPressed: Bool {
+            guard let input = GCKeyboard.coalesced?.keyboardInput else { return false }
+            return input.button(forKeyCode: .leftShift)?.isPressed == true
+                || input.button(forKeyCode: .rightShift)?.isPressed == true
         }
     }
 }
@@ -173,6 +202,13 @@ struct ComposerView: View {
                                      onSelection: { range in
                                          selection = range
                                          model.caretMoved(to: NSMaxRange(range))
+                                     },
+                                     onReturn: { _ in
+                                         // Same entry point as the send button: one send path, so a
+                                         // Return and a click cannot disagree about draft, uploads or
+                                         // the editing mode.
+                                         guard model.canSend else { return }
+                                         Task { await model.send() }
                                      })
                         .frame(minHeight: 34, maxHeight: 140)
                 }

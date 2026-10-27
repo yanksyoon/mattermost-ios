@@ -390,3 +390,21 @@ final class T35ComposerModelsTests: XCTestCase {
                                                  isPending: false, canReply: false))
     }
 }
+
+/// Enter sends, Shift+Enter is a newline — the rule the composer's text view asks before it lets a
+/// `"\n"` through.
+final class ComposerReturnPolicyTests: XCTestCase {
+
+    func testReturnSends() {
+        XCTAssertEqual(ComposerReturnPolicy.action(isReturnKey: true, shiftPressed: false), .send)
+    }
+
+    func testShiftReturnInsertsANewline() {
+        XCTAssertEqual(ComposerReturnPolicy.action(isReturnKey: true, shiftPressed: true), .newline)
+    }
+
+    func testAnyOtherKeyIsLeftToTheTextSystem() {
+        XCTAssertEqual(ComposerReturnPolicy.action(isReturnKey: false, shiftPressed: false), .passThrough)
+        XCTAssertEqual(ComposerReturnPolicy.action(isReturnKey: false, shiftPressed: true), .passThrough)
+    }
+}
