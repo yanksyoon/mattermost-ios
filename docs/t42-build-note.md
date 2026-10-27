@@ -45,7 +45,9 @@ every expectation held, exit 0**:
    `post.create_at > last_viewed_at`.
 5. **A reply's read state is not the channel's.** Marking the channel read left the seeded thread's
    `unread_mentions` at 1; only `PUT /users/me/teams/{t}/threads/{id}/read/{ts}` cleared it. So a reply
-   row's dot comes from `GET …/threads?unread=true`, and its swipe action is "Mark thread read".
+   row's dot comes from `GET …/threads?unread=true`, and its swipe action is "Mark thread read". The
+   consequence for the two totals is §6's: a thread read moves the row and the header, but **not** the
+   channel's `mention_count`, so the badge can keep counting a mention the feed already draws as read.
 6. **`POST /channels/members/{me}/mark_read` takes a bare array.** The wrapped body
    `{"channel_ids": [...]}` is a 400; the answer is `{status: "OK", last_viewed_at_times: {...}}` — note
    the **uppercase** `"OK"`, which the Swift model keeps as an opaque string and never branches on.
@@ -55,13 +57,19 @@ every expectation held, exit 0**:
 8. **The badge has one arithmetic.** `SessionStore.serverBadgeInput(mentionCounts:messageCounts:)` is
    now the only place per-team counters become `(mentions, isUnread)`; `MentionPoller` (T35) was changed
    to call it through `applyServerCounters` instead of summing inline, and the feed calls the same one.
-   Two callers, one badge.
+   Two callers, one badge — which is one *arithmetic*, not necessarily one *number*: the badge counts the
+   server's per-channel `mention_count`, while the pane's header counts the rows still unread, and the two
+   differ by design (§6).
 
 ## 3. Units
 
 **46 T42 tests, 0 failures** (`build/logs/t42-units2.log`, `** TEST SUCCEEDED **`), and the whole
 Catalyst unit bundle with them: **1,425 run / 4 skipped / 0 failures**
-(`build/logs/t42-units3.log`, `** TEST SUCCEEDED **`) — the 1,379 of T41 plus these 46:
+(`build/logs/t42-units3.log`, `** TEST SUCCEEDED **`) — the 1,379 of T41 plus these 46. Re-derived by
+T42-R on 2026-10-27 against the same tree: **1,425 run / 4 skipped / 0 failures**
+(`build/logs/t42r-catalyst1.log`, `** TEST SUCCEEDED **`, 61.4 s), the four skips being the same
+non-T42 ones (CertTrust/Keychain, `MentionPollerTests` live opt-in, SelfSignedTrust ×2) — no T42 test
+skipped:
 
 * `MattermostTests/T42ActivityTests.swift` (42) — keys (upstream order, the first-name flag and its
   case-sensitivity, the broadcast keys being excluded from the search terms and from matching),
@@ -91,13 +99,27 @@ Catalyst unit bundle with them: **1,425 run / 4 skipped / 0 failures**
 | `testTheMentionsTabListsMyMentionsFromTheServer` | the seeded mention's row exists and reads **unread**; a post that names nobody is **not** a row |
 | `testMarkAllReadClearsTheDotsAndReachesTheServer` | the row is unread before; after tapping mark-all-read the server's `mention_count` for the channel is 0 **and** the row's label flips to "read" |
 | `testAMentionArrivesWhileTheFeedIsOpen` | a mention posted by the buddy *after* the feed loaded appears with no tap and no refresh — only the socket can do that |
-| `testTappingARowOpensItsChannel` | tapping a row opens its channel (`nativeChannelTitle`) |
+| `testTappingARowOpensItsChannel` | tapping a row opens **its** channel — the header reads the server's own `display_name` — and lands on the **exact post** (`postFocus.<postID>` absent before the tap, present after) |
 
 Each test seeds its own fresh mentions through a second account (`t42buddy`), so test order cannot make
 one pass or fail by accident. **A finding worth keeping**: posting in a channel moves the *author's*
 read cursor to that post, so a control post authored by me reads my own earlier mention back to "read" —
 the first run's `unread` assertion was measuring nothing until the control post was authored by the
 buddy (`docs/t42-build-note.md` §5 F1).
+
+**The jump test was too weak until T42-R** (T42-AV F3): it asserted only that *a* `nativeChannelTitle`
+existed after the tap, which is also true of the channel the shell was already showing — no channel
+identity and no "exact post". It now reads `display_name` for `#t42-activity` from
+`GET /teams/{team}/channels/name/t42-activity` and asserts the header equals it, and asserts T39's
+marking bar `postFocus.<postID>` (`ChannelView.swift`) is **absent before** the tap and **present after**
+it, so the pre-tap half keeps the post-tap half from being vacuous. Both new assertions bind: with the
+comparison and the pre-tap expectation inverted the test fails twice and prints the real header,
+`"T42 activity"` (`build/logs/t42r-mutant1.log`, `RESULT: FAIL`, 2 failures — the mutation is not
+committed).
+
+Re-run by T42-R on 2026-10-27 after that change: **4 run / 0 skipped / 0 failed** on iPhone 16 Pro,
+iOS 18.3.1 (`id=81A7F251-8B31-4945-8783-5A264C14B8D5`), `build/logs/t42r-ui1.log`,
+`** TEST SUCCEEDED **` (61.2 s of tests; the jump test now 16.6 s, it took the extra measurements).
 
 Fixtures: `scripts/t42_activity_seed.py` (the `t42-activity` channel, the `t42buddy` account, four fresh
 mentions — three roots and one thread reply — and one post that names nobody, left unread) and
@@ -132,9 +154,36 @@ Screenshots: `docs/t42-shots/` (four PNGs exported from that run's own attachmen
 
 ## 6. Limits that stay
 
-* The window is the server's **one** search window (60 by default, up to three pages when a server says
-  `has_next`). A database-backed server answers one window per query and does not page, so a very busy
-  account sees the newest 60 mentions and no "load more".
+* **Mentions only — not "replies and unread threads"** (T42-AV F4). The card's scope says "mentions,
+  replies, unread threads", but the window is a mentions-only `POST /posts/search` over the reader's own
+  keys, so a reply or an unread thread that names nobody does not appear at all. Measured on the fixture
+  with a buddy reply that names nobody: absent from the window while the server reported **12 unread
+  threads / 11 unread mentions**. The reply rows the feed *can* mark unread are only the ones that name
+  my keys. Upstream's Recent-mentions screen behaves the same, so this is the port rather than a loss —
+  but the scope line should be read as "the mentions inbox", not "everything unread".
+* The window is the server's **one** search window: the client asks for 60 and follows `has_next` up to
+  three pages when a server says it has more, while a database-backed server answers one window per
+  query and never pages. So a very busy account sees "the newest 60 mentions" and no "load more".
+  Measured (T42-AV F5a): `per_page: 200` answers **the same 89 rows** as the default 60 on this backend,
+  so `per_page` is **not honoured** — "the newest 60" is the size of the *request*, not the server's own
+  window, and there is no client-side guarantee that a mention older than that exists in the answer.
+* **Archived channels are in the window** (T42-AV F5b). The client's body sets
+  `include_deleted_channels: true`, so mentions posted in an *archived* channel are listed — **95 rows
+  against 89** for the same body without the flag in one run. They resolve and render like any other row
+  (tapping one was not exercised). Until T42-R the docs never said they were there; the flag is kept
+  because dropping it would silently hide mentions a reader can still see in the server's own client.
+* **The header's unread count and the badge are two different numbers, on purpose** (T42-AV F1). The
+  header counts the rows the reader has not caught up with — root rows older than the channel cursor,
+  plus every reply row whose thread still reports `unread_mentions` — while the badge is the server's
+  per-channel `mention_count` summed by `SessionStore.serverBadgeInput`. Measured on the fixture: feed
+  unread **17** (6 channel-cursor rows + 11 thread-cursor rows) against a badge of **7**; an earlier run
+  10 against 5. §2.5 says why (a thread read does not move the channel counter); nothing here makes the
+  two agree, and the feed deliberately does not re-derive its own header from the badge.
+* **Marking one reply read changes no badge number** (T42-AV F2). `markRead(replyRow)` clears that row's
+  dot and lowers the header count (measured **13 → 12**) but leaves `SessionStore.totalMentions` and the
+  server's own mention total at **2 → 2**, because 9.11.19 recomputes a channel's `mention_count` on a
+  *channel* read, not on a *thread* read. "Marking read updates the counts and the app badge" therefore
+  holds for **mark-all-read** and for **root rows**; for a single reply row it is the feed's count only.
 * Read state is per **channel** for a root post — Mattermost has no "read up to this post" route, so the
   root row's action marks the whole channel read (the swipe label says exactly that). A reply is read by
   its thread, which is precise.
