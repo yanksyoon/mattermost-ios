@@ -1,0 +1,241 @@
+t_19ab2cbc — evidence: mutations, the freeze check, and the negative control
+=============================================================================
+Tree: worktree at origin/main 3ef8697 (the T44d fix), MattermostTests/T44DCallsCoordinatorTests.swift
+converted to no wall-clock waits. Simulator: iPhone 16 Pro 81A7F251-8B31-4945-8783-5A264C14B8D5.
+Runner: scripts/qa-test.py, derived data ~/Library/Developer/Xcode/DerivedData/mmios-t19ab2.
+
+Everything quoted below is raw harness output, appended in the order it was produced. Read the
+comment blocks (lines starting with "##") for what each block is; the harnesses printed their own
+summary lines.
+
+## 1. Class, converted, green: 21 tests, 0 failures, 0.078 s
+   (build/logs/t19ab2-class-3.log)
+
+Executed 21 tests, with 0 failures (0 unexpected) in 0.078 (0.100) seconds
+** TEST SUCCEEDED **
+
+## 2. Mutation sweep (build/mutants/run_mutants.py). Each mutant edits product files, runs the
+##    class, then reverts. NOTE: the M1 row in this first sweep shows only one of its two intended
+##    tests red, because the tile test at that point could not see a missing rebuild: the batched
+##    profile fetch rebuilt the tiles itself. The test was strengthened (a second `call_state` for
+##    already-cached profiles) and M1 re-run — see block 3. Blocks 4-10 are unchanged from this run.
+
+## 3. M1 re-run after strengthening the tile test: both intended tests red, synchronously
+##    (build/mutants/m1-rerun.log)
+
+"red": ["testCallStateDrawsTheTilesAndResolvesNames" (0.255 s),
+        "testParticipantDeltasUpdateTheTiles" (0.004 s)], "passed": 19
+
+## 4. The committed marker-triggered harness cannot hit this class any more (negative control).
+##    scripts/qa-freeze-host.sh waited 12.1 s for the marker to be flushed, by which time the class
+##    (0.13 s) was over and the host had exited: the freeze landed on nothing.
+
+### harness run
+14:56:15.965784000 waiting for: testASnapshotTakenBeforeTheEndCannotReopenTheCall]' started.
+14:56:28.064395000 STOP pid=7072
+scripts/qa-freeze-host.sh: line 40: kill: (7072) - No such process
+scripts/qa-freeze-host.sh: line 43: kill: (7072) - No such process
+14:56:32.649690000 CONT pid=7072 after 4.5s
+(the class itself, same run: Executed 21 tests, with 0 failures in 0.120 (0.130) seconds)
+
+## 5. scripts/qa-freeze-host-window.py (committed with this card): -test-iterations 100 widens the
+##    class window, and the run only counts when a test's own reported duration >= the freeze —
+##    i.e. when the log proves the freeze landed inside the class.
+
+[freeze-window-1] lag=0.00s stop=14:59:30 cont=14:59:35 Executed 2100 tests, with 0 failures
+                 red=[] frozen=['testASnapshotTakenBeforeTheEndCannotReopenTheCall (4.53s)']
+ACCEPT: green with the host stopped for 4.5s inside the class
+
+## 6. Same check, the development copy of the harness (build/mutants/freeze_check.py), its first
+##    accepted run — 4.64 s of the 4.5 s freeze visible in one test's duration
+
+[t19ab2-freeze1] lag=0.00s stop=14:49:35 cont=14:49:40 Executed 2100 tests, with 0 failures
+                 red=[] frozen=['testASnapshotTakenBeforeTheEndCannotReopenTheCall (4.64s)']
+ACCEPT: green with the host stopped for 4.5s inside the class — t19ab2-freeze1
+
+## 7. Whole MattermostTests, twice in a row on this tree
+##    (docs/t19ab2cbc-full-units-1-2026-10-27.log, docs/t19ab2cbc-full-units-2-2026-10-27.log)
+
+1631 run, 6 skipped, 0 failed — 37.6 s
+1631 run, 6 skipped, 0 failed — 38.0 s
+
+## RAW HARNESS OUTPUT BELOW
+
+
+
+=== M1-call-state-and-mute-folds
+  red: ['testParticipantDeltasUpdateTheTiles']
+  must_red not red: ['testCallStateDrawsTheTilesAndResolvesNames']
+
+=== M2-control-writes
+  red: ['testMuteIsOptimisticAndReachesTheEngine', 'testRaiseHandReachesTheEngineAndMarksTheTile']
+  all intended tests red
+
+=== M3-microphone-fold
+  red: ['testDeniedMicrophoneStillJoinsAndExplainsItself', 'testEngineSnapshotReachesThePhaseAndMicrophoneWithoutAPoll', 'testMuteIsOptimisticAndReachesTheEngine', 'testRaiseHandReachesTheEngineAndMarksTheTile']
+  all intended tests red
+
+=== M4-leave-does-not-signal-the-end
+  red: ['testAuthPhaseChangedDropsTheCallAndRememberedFacts', 'testLeavingStopsTheEngineOnce']
+  all intended tests red
+
+=== M5-sign-out-does-not-stop-the-engine
+  red: ['testAuthPhaseChangedDropsTheCallAndRememberedFacts']
+  all intended tests red
+
+=== M6-engine-pump-not-started
+  red: ['testEngineSnapshotReachesThePhaseAndMicrophoneWithoutAPoll']
+  all intended tests red
+
+=== M7-bridge-drops-every-frame
+  red: ['testCallEndFromTheSocketReachesTheModelAndReleasesTheCoordinator', 'testParticipantDeltasFromTheSocketReachTheTiles']
+  all intended tests red
+
+=== SUMMARY
+[
+  {
+    "mutant": "M1-call-state-and-mute-folds",
+    "must_red": [
+      "testCallStateDrawsTheTilesAndResolvesNames",
+      "testParticipantDeltasUpdateTheTiles"
+    ],
+    "red": [
+      "testParticipantDeltasUpdateTheTiles"
+    ],
+    "passed": 20,
+    "missing": [
+      "testCallStateDrawsTheTilesAndResolvesNames"
+    ],
+    "timings": {
+      "testParticipantDeltasUpdateTheTiles": 0.695
+    }
+  },
+  {
+    "mutant": "M2-control-writes",
+    "must_red": [
+      "testMuteIsOptimisticAndReachesTheEngine",
+      "testRaiseHandReachesTheEngineAndMarksTheTile"
+    ],
+    "red": [
+      "testMuteIsOptimisticAndReachesTheEngine",
+      "testRaiseHandReachesTheEngineAndMarksTheTile"
+    ],
+    "passed": 19,
+    "missing": [],
+    "timings": {
+      "testMuteIsOptimisticAndReachesTheEngine": 0.071,
+      "testRaiseHandReachesTheEngineAndMarksTheTile": 0.002
+    }
+  },
+  {
+    "mutant": "M3-microphone-fold",
+    "must_red": [
+      "testDeniedMicrophoneStillJoinsAndExplainsItself"
+    ],
+    "red": [
+      "testDeniedMicrophoneStillJoinsAndExplainsItself",
+      "testEngineSnapshotReachesThePhaseAndMicrophoneWithoutAPoll",
+      "testMuteIsOptimisticAndReachesTheEngine",
+      "testRaiseHandReachesTheEngineAndMarksTheTile"
+    ],
+    "passed": 17,
+    "missing": [],
+    "timings": {
+      "testDeniedMicrophoneStillJoinsAndExplainsItself": 0.045,
+      "testEngineSnapshotReachesThePhaseAndMicrophoneWithoutAPoll": 0.003,
+      "testMuteIsOptimisticAndReachesTheEngine": 0.005,
+      "testRaiseHandReachesTheEngineAndMarksTheTile": 0.003
+    }
+  },
+  {
+    "mutant": "M4-leave-does-not-signal-the-end",
+    "must_red": [
+      "testLeavingStopsTheEngineOnce"
+    ],
+    "red": [
+      "testAuthPhaseChangedDropsTheCallAndRememberedFacts",
+      "testLeavingStopsTheEngineOnce"
+    ],
+    "passed": 19,
+    "missing": [],
+    "timings": {
+      "testAuthPhaseChangedDropsTheCallAndRememberedFacts": 30.088,
+      "testLeavingStopsTheEngineOnce": 0.005
+    }
+  },
+  {
+    "mutant": "M5-sign-out-does-not-stop-the-engine",
+    "must_red": [
+      "testAuthPhaseChangedDropsTheCallAndRememberedFacts"
+    ],
+    "red": [
+      "testAuthPhaseChangedDropsTheCallAndRememberedFacts"
+    ],
+    "passed": 20,
+    "missing": [],
+    "timings": {
+      "testAuthPhaseChangedDropsTheCallAndRememberedFacts": 30.066
+    }
+  },
+  {
+    "mutant": "M6-engine-pump-not-started",
+    "must_red": [
+      "testEngineSnapshotReachesThePhaseAndMicrophoneWithoutAPoll"
+    ],
+    "red": [
+      "testEngineSnapshotReachesThePhaseAndMicrophoneWithoutAPoll"
+    ],
+    "passed": 20,
+    "missing": [],
+    "timings": {
+      "testEngineSnapshotReachesThePhaseAndMicrophoneWithoutAPoll": 30.088
+    }
+  },
+  {
+    "mutant": "M7-bridge-drops-every-frame",
+    "must_red": [
+      "testParticipantDeltasFromTheSocketReachTheTiles",
+      "testCallEndFromTheSocketReachesTheModelAndReleasesTheCoordinator"
+    ],
+    "red": [
+      "testCallEndFromTheSocketReachesTheModelAndReleasesTheCoordinator",
+      "testParticipantDeltasFromTheSocketReachTheTiles"
+    ],
+    "passed": 19,
+    "missing": [],
+    "timings": {
+      "testCallEndFromTheSocketReachesTheModelAndReleasesTheCoordinator": 30.062,
+      "testParticipantDeltasFromTheSocketReachTheTiles": 120.161
+    }
+  }
+]
+EXIT:0
+
+=== M1-call-state-and-mute-folds
+  red: ['testCallStateDrawsTheTilesAndResolvesNames', 'testParticipantDeltasUpdateTheTiles']
+  all intended tests red
+
+=== SUMMARY
+[
+  {
+    "mutant": "M1-call-state-and-mute-folds",
+    "must_red": [
+      "testCallStateDrawsTheTilesAndResolvesNames",
+      "testParticipantDeltasUpdateTheTiles"
+    ],
+    "red": [
+      "testCallStateDrawsTheTilesAndResolvesNames",
+      "testParticipantDeltasUpdateTheTiles"
+    ],
+    "passed": 19,
+    "missing": [],
+    "timings": {
+      "testCallStateDrawsTheTilesAndResolvesNames": 0.255,
+      "testParticipantDeltasUpdateTheTiles": 0.004
+    }
+  }
+]
+[freeze-window-1] lag=0.00s stop=14:59:30 cont=14:59:35 Executed 2100 tests, with 0 failures red=[] frozen=['testASnapshotTakenBeforeTheEndCannotReopenTheCall (4.53s)']
+
+ACCEPT: green with the host stopped for 4.5s inside the class — freeze-window-1: ['testASnapshotTakenBeforeTheEndCannotReopenTheCall (4.53s)']
+EXIT:0

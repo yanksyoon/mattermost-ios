@@ -151,6 +151,24 @@ final class T44DCallsSurfaceTests: XCTestCase {
         XCTAssertEqual(phase("new", true), .connected)
     }
 
+    /// A terminal phase is final: the engine snapshot that was already in flight when the plugin's
+    /// `call_end` folded must not re-open a call that is over (t_21828c93 — this re-opening is what
+    /// made the end-of-call assertion miss `.ended` for its whole budget on a loaded host).
+    func testATerminalPhaseIsFinal() {
+        XCTAssertEqual(CallsSurfacePhase.fold(.ended, .joining), .ended)
+        XCTAssertEqual(CallsSurfacePhase.fold(.ended, .connected), .ended)
+        XCTAssertEqual(CallsSurfacePhase.fold(.ended, .reconnecting), .ended)
+        XCTAssertEqual(CallsSurfacePhase.fold(.failed("no mic"), .joining), .failed("no mic"))
+        XCTAssertEqual(CallsSurfacePhase.fold(.failed("no mic"), .connected), .failed("no mic"))
+
+        // …and live phases still move: the rule is about terminal phases, not about freezing the model.
+        XCTAssertEqual(CallsSurfacePhase.fold(.joining, .connecting), .connecting)
+        XCTAssertEqual(CallsSurfacePhase.fold(.connecting, .connected), .connected)
+        XCTAssertEqual(CallsSurfacePhase.fold(.connected, .reconnecting), .reconnecting)
+        XCTAssertEqual(CallsSurfacePhase.fold(.reconnecting, .connected), .connected)
+        XCTAssertEqual(CallsSurfacePhase.fold(.connected, .ended), .ended)
+    }
+
     func testPhaseStatusTextIsTheHeaderLine() {
         XCTAssertEqual(CallsSurfacePhase.connecting.statusText, "Connecting…")
         XCTAssertEqual(CallsSurfacePhase.connected.statusText, "In call")

@@ -117,8 +117,17 @@ final class ScriptedSocketTransport: SocketTransport, @unchecked Sendable {
     private var frames: [String] = []
     private var closes = 0
     private var finished = false
+    private var pongSeq = 1
+    private var pongs = 0
+    /// Answer every `ping` the client writes with the protocol's pong reply.
+    ///
+    /// This is the "open and pingable, delivering nothing" shape the delivery watchdog exists for
+    /// (`SocketClient.StallWatchdog`): the socket proves it is alive on every heartbeat and carries no
+    /// server event. Set it before the client starts.
+    var answersPingsWithPong = false
 
-    init() {
+    init(answersPingsWithPong: Bool = false) {
+        self.answersPingsWithPong = answersPingsWithPong
         let (stream, continuation) = AsyncStream.makeStream(of: SocketTransportEvent.self,
                                                             bufferingPolicy: .bufferingNewest(256))
         self.events = stream
@@ -172,7 +181,23 @@ final class ScriptedSocketTransport: SocketTransport, @unchecked Sendable {
     func send(text: String) async throws {
         lock.lock()
         frames.append(text)
+        var reply: String?
+        if answersPingsWithPong, text.contains("\"action\":\"ping\"") {
+            pongs += 1
+            reply = Self.reply(seq: pongSeq, text: "pong")
+            pongSeq += 1
+        }
         lock.unlock()
+        // Answered outside the lock (`push` takes it again): the pong travels back through the same
+        // event stream a real socket's would.
+        if let reply { push(.text(reply)) }
+    }
+
+    /// How many pong replies this transport answered — the proof that "pingable" was exercised.
+    var pongsAnswered: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return pongs
     }
 
     func close() {

@@ -59,6 +59,17 @@ protocol TeamEventSourcing: AnyObject {
     /// The handler must return promptly: it is awaited on the socket's open path, before the receive
     /// loop reads the next frame. A refetch therefore belongs in a task of its own.
     func setResyncHandler(_ handler: @escaping @Sendable (UUID) async -> Void)
+
+    /// Whether **at least one live surface this server's socket feeds is on screen right now** — the
+    /// delivery watchdog's gate (`SocketClient.StallWatchdog`).
+    ///
+    /// A socket that stays open, keeps answering the heartbeat and stops delivering has nothing to
+    /// report, so the only observable is the absence of server events. `SocketClient` cannot tell a
+    /// wedged socket from an idle one — an idle-but-healthy socket with nothing on screen must **not**
+    /// refetch, and a backgrounded app must not spend page requests proving it is connected. The source
+    /// holds no view, so the app answers here; `false` while uninstalled (and that state is logged when
+    /// a client is built, because a seam nothing passes is exactly what shipped silently in T34-R5).
+    func setSurfaceVisibilityHandler(_ handler: @escaping @Sendable (UUID) async -> Bool)
 }
 
 extension TeamEventSourcing {
@@ -68,6 +79,8 @@ extension TeamEventSourcing {
     }
 
     func setResyncHandler(_ handler: @escaping @Sendable (UUID) async -> Void) {}
+
+    func setSurfaceVisibilityHandler(_ handler: @escaping @Sendable (UUID) async -> Bool) {}
 }
 
 /// Production source: `SocketClient` per server, with the shared `CertTrust` the webview uses (so a
@@ -88,6 +101,12 @@ final class SocketTeamEventSource: TeamEventSourcing {
     /// Read at *call* time, not captured when a client is built: the coordinator installs it in `init`,
     /// but a handler installed after the first connection must still receive the next reconnect.
     private var resyncHandler: (@Sendable (UUID) async -> Void)?
+    /// The watchdog's visibility gate, also read at call time. `nil` keeps the watchdog off — see
+    /// `setSurfaceVisibilityHandler`.
+    private var surfaceVisibilityHandler: (@Sendable (UUID) async -> Bool)?
+
+    /// How many gaps were found by *silence* rather than by a dropped connection (diagnostics/tests).
+    private(set) var stallResyncCount = 0
 
     /// The heartbeat interval, `nil` to disable it.
     ///
@@ -97,16 +116,31 @@ final class SocketTeamEventSource: TeamEventSourcing {
     /// heartbeat itself is pinned by `SocketClientTests`.
     private let heartbeatInterval: TimeInterval?
 
+    /// The idle-delivery watchdog each client is built with, `nil` to build clients without one.
+    ///
+    /// On by default in production. The seam exists for the tests that pin the *reconnect* path: they run
+    /// on a clock whose sleeps return at once, so a watchdog loop would spin, and this card's own tests
+    /// (`T34SocketStallWatchdogTests`) are the ones that should pay for a stepped clock instead.
+    private let stallWatchdog: SocketClient.StallWatchdog?
+
+    /// The wall clock a client measures silence and session length with. Injected for the same reason
+    /// `clock` is: a test that steps time has to step this too, or "no event for 150 s" cannot happen.
+    private let now: @Sendable () -> Date
+
     init(certTrust: CertTrust = CertTrust(),
          onUntrustedCertificate: ((CertificatePrompt) -> Void)? = nil,
          transportFactory: TransportFactory? = nil,
          clock: SocketClock = SystemSocketClock(),
-         heartbeatInterval: TimeInterval? = 30) {
+         heartbeatInterval: TimeInterval? = 30,
+         stallWatchdog: SocketClient.StallWatchdog? = SocketClient.StallWatchdog(),
+         now: @escaping @Sendable () -> Date = { Date() }) {
         self.certTrust = certTrust
         self.onUntrustedCertificate = onUntrustedCertificate
         self.transportFactory = transportFactory
         self.clock = clock
         self.heartbeatInterval = heartbeatInterval
+        self.stallWatchdog = stallWatchdog
+        self.now = now
     }
 
     var openConnectionCount: Int { clients.count }
@@ -115,13 +149,28 @@ final class SocketTeamEventSource: TeamEventSourcing {
         resyncHandler = handler
     }
 
+    func setSurfaceVisibilityHandler(_ handler: @escaping @Sendable (UUID) async -> Bool) {
+        surfaceVisibilityHandler = handler
+    }
+
     func events(for server: ServerConfig, token: String) async -> AsyncStream<SocketEvent>? {
         if let existing = clients[server.id] { return await existing.subscribe() }
         guard let base = MMBaseURL(server.url), let url = base.websocket() else { return nil }
+        // No visibility handler ⇒ no way to tell a wedge from an idle socket ⇒ no watchdog, and say so:
+        // a seam nothing installed is the failure mode this project keeps paying for.
+        let watchdog: SocketClient.StallWatchdog?
+        if surfaceVisibilityHandler == nil {
+            watchdog = nil
+            MMLog.info("MMSocket", "delivery watchdog off for \(server.id.uuidString.prefix(8)): "
+                + "no surface-visibility handler installed")
+        } else {
+            watchdog = stallWatchdog
+        }
         let configuration = SocketClient.Configuration(url: url,
                                                        token: token,
                                                        origin: base.origin,
-                                                       pingInterval: heartbeatInterval)
+                                                       pingInterval: heartbeatInterval,
+                                                       stallWatchdog: watchdog)
         let certTrust = self.certTrust
         let onUntrustedCertificate = self.onUntrustedCertificate
         let injectedFactory = self.transportFactory
@@ -136,29 +185,42 @@ final class SocketTeamEventSource: TeamEventSourcing {
                                           onUntrustedCertificate: onUntrustedCertificate)
             },
             clock: clock,
+            now: now,
             resync: { [weak self] reason in
                 await self?.socketResynced(serverID: server.id, reason: reason)
+            },
+            isSurfaceVisible: { [weak self] in
+                await self?.surfaceIsVisible(serverID: server.id) ?? false
             })
         clients[server.id] = client
         await client.start()
         return await client.subscribe()
     }
 
-    /// One reconnect. `SocketClient` calls this once per reconnect, after the in-band authentication
-    /// challenge, before it starts the heartbeat — so it goes through the app's handler, which is
-    /// synchronous by design (`TeamSidebarCoordinator.socketResynced`) and cannot hold the receive loop
-    /// up on a page request.
+    /// Read at call time, so an app that wires this after the first connection still gets a gate.
+    private func surfaceIsVisible(serverID: UUID) async -> Bool {
+        guard let surfaceVisibilityHandler else { return false }
+        return await surfaceVisibilityHandler(serverID)
+    }
+
+    /// One gap: a reconnect, or a delivery stall the watchdog confirmed.
+    ///
+    /// `SocketClient` calls this after the in-band authentication challenge (a reconnect) or on the
+    /// watchdog's tick (a stall) — never on its receive loop, so it goes through the app's handler, which
+    /// is synchronous by design (`TeamSidebarCoordinator.socketResynced`) and cannot hold the socket up on
+    /// a page request.
     ///
     /// No handler installed is logged rather than ignored: it is exactly the state this class shipped
     /// in (a `SocketClient` built without `resync`), and a silent gap is what made T34's flake read as
     /// "the socket never delivered the frame" for two rounds.
     private func socketResynced(serverID: UUID, reason: SocketClient.ResyncReason) async {
+        if reason == .stalled { stallResyncCount += 1 }
         guard let resyncHandler else {
-            MMLog.info("MMSocket", "reconnected (\(reason.rawValue)) with no resync handler; "
-                + "frames published while the socket was down are not refetched")
+            MMLog.info("MMSocket", "delivery gap (\(reason.rawValue)) with no resync handler; "
+                + "frames lost across it are not refetched")
             return
         }
-        MMLog.info("MMSocket", "reconnected (\(reason.rawValue)); requesting a resync")
+        MMLog.info("MMSocket", "delivery gap (\(reason.rawValue)); requesting a resync")
         await resyncHandler(serverID)
     }
 
@@ -226,7 +288,19 @@ final class TeamSidebarCoordinator: ObservableObject {
     /// Synchronous on purpose: this is called from `SocketClient`'s open path (before the receive loop
     /// continues), so the refetch itself is the caller's task. `MattermostApp` wires it to the channel
     /// pane; a pane that is not wired here keeps its current window until the next appearance.
+    ///
+    /// Since the delivery watchdog (this card's follow-up) the same closure carries the *other* observed
+    /// kind of gap — an open, pingable socket that stopped delivering — so a pane cannot tell (and does
+    /// not need to) whether its window was repaired after a dropout or after a stall.
     var onSocketResync: ((UUID) -> Void)?
+
+    /// Whether a live surface this server's socket feeds is on screen right now.
+    ///
+    /// The rail hands this to the socket (`TeamEventSourcing.setSurfaceVisibilityHandler`) and never
+    /// answers it itself: "on screen" is the app's fact, exactly like `NotificationWorker.visibleChannel`.
+    /// `nil` — or a `false` answer — keeps the delivery watchdog from firing, which is the right default:
+    /// an idle-but-healthy socket with nothing on screen must not refetch.
+    var isSurfaceVisible: ((UUID) -> Bool)?
 
     private let events: TeamEventSourcing
     /// How long post activity is coalesced before the counters are refetched. A burst of ten posts
@@ -272,6 +346,17 @@ final class TeamSidebarCoordinator: ObservableObject {
         self.events.setResyncHandler { [weak self] serverID in
             await self?.socketResynced(serverID)
         }
+        // The delivery watchdog's gate: the socket asks this before it treats silence as a gap, and the
+        // answer is whatever `isSurfaceVisible` says (the app installs it in `bindShellStores`). Read at
+        // call time, so the order of "socket connects" and "app wires visibility" does not matter.
+        self.events.setSurfaceVisibilityHandler { [weak self] serverID in
+            await self?.visibleSurface(for: serverID) ?? false
+        }
+    }
+
+    /// One answer to "is a live surface for this server on screen?", for the socket's watchdog.
+    private func visibleSurface(for serverID: UUID) -> Bool {
+        isSurfaceVisible?(serverID) ?? false
     }
 
     // MARK: Wiring

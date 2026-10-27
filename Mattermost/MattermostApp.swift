@@ -414,6 +414,13 @@ struct MattermostApp: App {
                     // `AuthCoordinator.Phase.expired` → the sign-in surface with its banner). An
                     // unreachable server leaves the stored session alone, so an offline launch is not
                     // a login prompt.
+                    //
+                    // A server whose login lives **only** in the webview (the SPA's own sign-in, or
+                    // SSO/SAML) is adopted inside `restore` — see `adoptExistingWebSessionIfPresent`.
+                    // The DEBUG cookie seam below runs first so a run can start in exactly that state.
+                    #if DEBUG
+                    await seedWebviewSessionCookieIfRequested()
+                    #endif
                     await authCoordinator.restoreAll(serverStore.servers)
                 }
                 .task { runShellSnapshotIfRequested() }
@@ -629,6 +636,21 @@ struct MattermostApp: App {
         teamSidebarCoordinator.onSocketResync = { [weak channelPaneCoordinator] serverID in
             Task { await channelPaneCoordinator?.resync(serverID: serverID) }
         }
+        // T34-R5 follow-up: the delivery watchdog (`SocketClient.StallWatchdog`) has to know whether
+        // anybody is looking at data this socket feeds, because a socket that is open, pingable and
+        // silent is only a *fault* when a reader is staring at the stale window it should be updating.
+        // The shell answers with the facts it owns: the app is in the foreground, the location names a
+        // channel on **this** server, the native pane is the one rendering it, and that pane holds a
+        // loaded window for it. Anything else answers `false`, which keeps the watchdog from spending a
+        // page fetch on an idle-but-healthy socket — the limit the card asks for.
+        teamSidebarCoordinator.isSurfaceVisible = { [weak nativeNavigation, weak channelPaneCoordinator] serverID in
+            guard UIApplication.shared.applicationState == .active else { return false }
+            guard let nativeNavigation, nativeNavigation.acceptsNativeRouting else { return false }
+            let location = nativeNavigation.location
+            guard location.serverID == serverID,
+                  let channelID = location.channelID, !channelID.isEmpty else { return false }
+            return channelPaneCoordinator?.hasLoadedWindow(serverID: serverID, channelID: channelID) ?? false
+        }
         // T30 reserved this seam for S08: with a channel list loaded, a deep link's channel *name*
         // and a tapped mention's channel *id* resolve to the same `NativeLocation`.
         nativeNavigation.directory = channelSidebarCoordinator
@@ -678,6 +700,40 @@ struct MattermostApp: App {
     }
 
     #if DEBUG
+    /// `-uiTestSeedWebSessionCookie <token>`: plant an `MMAUTHTOKEN` in the **seeded** server's
+    /// isolated website-data store — the copy a *webview* sign-in leaves behind — so a run can start
+    /// in the one state this card is about: the webview is signed in and the vault holds nothing.
+    ///
+    /// Why a seam instead of a real web login in the test: `WKWebsiteDataStore(forIdentifier:)` is
+    /// container-scoped, so an XCUITest runner writing it would populate a *different* container's
+    /// store than the app reads. Driving the SPA's login form in the webview instead would make the
+    /// evidence depend on the web app's markup, which is exactly the thing this shell does not own.
+    ///
+    /// Debug-only and inert in Release, exactly like `-uiTestSeedStoredToken` (which writes the same
+    /// kind of credential into the vault). It never logs the value, and it writes nothing unless both
+    /// the argument and a seeded server are present.
+    @MainActor
+    private func seedWebviewSessionCookieIfRequested() async {
+        let args = ProcessInfo.processInfo.arguments
+        guard let idx = args.firstIndex(of: "-uiTestSeedWebSessionCookie"),
+              args.indices.contains(idx + 1),
+              !args[idx + 1].isEmpty,
+              let server = serverStore.servers.last,
+              let host = server.url.host, !host.isEmpty,
+              let cookie = HTTPCookie(properties: [
+                  .name: SessionCookiePolicy.authCookieName,
+                  .value: args[idx + 1],
+                  .domain: host,
+                  .path: "/",
+                  .expires: Date().addingTimeInterval(3600),
+              ])
+        else { return }
+        // The store `ViewStore.ensureStore(for:)` gives the server's webview, so the reader the
+        // auth coordinator uses at launch reads exactly what a webview login would have written.
+        await WKWebsiteDataStore(forIdentifier: server.id).httpCookieStore.setCookie(cookie)
+        Logger.info("T31", "uiTest: planted a webview session cookie for \(server.name)")
+    }
+
     /// `-uiTestOpenDeepLink <url>`: hand a URL to the same `DeepLinkRouter` entry `onOpenURL` uses.
     ///
     /// XCUITest cannot deliver a system `mattermost://` open on this toolchain (there is no
@@ -792,11 +848,14 @@ struct MattermostApp: App {
         shellSnapshotTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 5_000_000_000)
 
-            // A native pane has no web content, and this probe used to return before writing anything
-            // when no store had committed — every native run looked like a silent failure. Capture the
-            // window and the shell state first, unconditionally.
+            // A native pane has no web content, and this probe used to return before writing
+            // anything when no store had committed — which made every native run look like a
+            // silent failure. Capture the window and the surface map first, unconditionally.
             let earlyWindows = UIApplication.shared.connectedScenes
                 .compactMap { ($0 as? UIWindowScene)?.windows }.joined()
+            let surfacesLine = Surface.allCases
+                .map { "\($0.rawValue):\(surfaceModeResolver.resolvedMode(for: $0).rawValue)" }
+                .joined(separator: ",")
             if let window = earlyWindows.first(where: \.isKeyWindow) ?? earlyWindows.first {
                 let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
                 let image = renderer.image { _ in
@@ -804,12 +863,6 @@ struct MattermostApp: App {
                 }
                 try? image.pngData()?.write(to: URL(fileURLWithPath: path + ".window.png"))
             }
-            let shellState = """
-            location=\(String(describing: nativeNavigation.location))
-            surfaces=\(Surface.allCases.map { "\($0.rawValue):\(surfaceModeResolver.resolvedMode(for: $0).rawValue)" }.joined(separator: ","))
-            sidebar=\(serverStore.servers.map { channelSidebarCoordinator.diagnosticSummary(for: $0) }.joined(separator: " | "))
-            auth=\(serverStore.servers.map { "\($0.name):\(String(describing: authCoordinator.phase(for: $0))):token=\(authCoordinator.hasStoredToken(for: $0))" }.joined(separator: ","))
-            """
 
             var target: WebViewStore?
             for _ in 0..<60 {
@@ -823,15 +876,18 @@ struct MattermostApp: App {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
             guard let store = target else {
-                // The pane is native: there is no page to snapshot, but the shell's route is the
-                // evidence this run exists to produce.
-                try? ("url=nil (native pane)\n" + shellState)
-                    .write(to: URL(fileURLWithPath: path + ".txt"), atomically: true, encoding: .utf8)
+                let nativeDiag = """
+                url=nil (no committed webview: the pane is native)
+                debugAffordances=\(SurfaceModeResolver.debugAffordancesEnabled)
+                arguments=\(ProcessInfo.processInfo.arguments.joined(separator: " "))
+                location=\(String(describing: nativeNavigation.location))
+                surfaces=\(surfacesLine)
+                sidebar=\(serverStore.servers.map { channelSidebarCoordinator.diagnosticSummary(for: $0) }.joined(separator: " | "))
+                auth=\(serverStore.servers.map { "\($0.name):\(String(describing: authCoordinator.phase(for: $0))):token=\(authCoordinator.hasStoredToken(for: $0))" }.joined(separator: ","))
+                """
+                try? nativeDiag.write(to: URL(fileURLWithPath: path + ".txt"), atomically: true, encoding: .utf8)
                 return
             }
-
-            try? shellState.write(to: URL(fileURLWithPath: path + ".shell.txt"),
-                                  atomically: true, encoding: .utf8)
 
             // Wait for the SPA to paint: poll until the DOM has meaningful text (≤30s).
             var pageInfo: PageInfo = PageInfo()
@@ -883,23 +939,6 @@ struct MattermostApp: App {
                 mainWrapperHtml: mw ? mw.innerHTML.slice(0, 400) : null,
                 appBarKids: appBar ? [...appBar.children].map(describe) : null,
                 modals: document.querySelectorAll('.modal, .Modal, [role=dialog]').length,
-                modalEls: [...document.querySelectorAll('.modal, .Modal, [role=dialog]')].map(describe).slice(0, 4),
-                imgCount: document.querySelectorAll('img').length,
-                avatars: [...document.querySelectorAll('img')].slice(0, 25).map(i => ({
-                    src: (i.currentSrc || i.src || '').replace(location.origin, '').slice(0, 100),
-                    w: i.naturalWidth, h: i.naturalHeight,
-                    cls: (i.className || '').toString().slice(0, 40)
-                })),
-                imageRequests: performance.getEntriesByType('resource')
-                    .filter(r => (r.name.indexOf('/image') !== -1
-                                  || r.name.indexOf('avatar') !== -1
-                                  || r.name.indexOf('profile') !== -1))
-                    .slice(-15)
-                    .map(r => r.name.replace(location.origin, '') + ' size=' + r.transferSize
-                              + ' d=' + Math.round(r.duration) + ' ' + r.initiatorType),
-                threadEntries: [...document.querySelectorAll('a, button, li')]
-                    .filter(e => /thread/i.test(e.textContent || ''))
-                    .slice(0, 6).map(describe),
                 loadingish: [...document.querySelectorAll('[class*=load], [class*=Load], [class*=skeleton]')].map(describe).slice(0, 6),
                 errors: (window.__mmErrorLog || []).slice(0, 30),
                 online: navigator.onLine,
@@ -942,8 +981,22 @@ struct MattermostApp: App {
             title=\(store.title ?? "nil")
             bodyTextLength=\(pageInfo.bodyTextLength)
             sample=\(String(pageInfo.sample.prefix(400)))
+            debugAffordances=\(SurfaceModeResolver.debugAffordancesEnabled)
+            arguments=\(ProcessInfo.processInfo.arguments.joined(separator: " "))
+            surfaces=\(Surface.allCases.map { "\($0.rawValue):\(surfaceModeResolver.resolvedMode(for: $0).rawValue)" }.joined(separator: ","))
             """
             try? diag.write(to: URL(fileURLWithPath: path + ".txt"), atomically: true, encoding: .utf8)
+
+            // Window snapshot first: with a native pane there is no web content to snapshot, and the
+            // window is the only evidence of what the native branch actually draws.
+            let scenes = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.windows }.joined()
+            if let window = scenes.first(where: \.isKeyWindow) ?? scenes.first {
+                let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
+                let image = renderer.image { _ in
+                    window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+                }
+                try? image.pngData()?.write(to: URL(fileURLWithPath: path + ".window.png"))
+            }
 
             // 1. Web-content snapshot — the ground truth for "the chat UI renders".
             let snapshot = await store.webView.snapshotImage()
