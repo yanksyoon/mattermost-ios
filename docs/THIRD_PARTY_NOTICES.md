@@ -842,3 +842,34 @@ does not duplicate those reasons.
 writer, the event decoder, the engine and the audio-session owner are this repository's own code,
 written against the wire contract measured from `mattermost-plugin-calls` v0.29.8 (Apache-2.0 for the
 plugin's client-side sources; the server sources were read as behaviour only, never ported).
+
+## 22. T44d native Calls surface — upstream read set (Apache-2.0, mobile @ `162f2560…`; nothing copied)
+
+`Mattermost/UI/Native/Calls/` (`CallsSurfaceModels.swift`, `CallsCallModel.swift`,
+`CallsCoordinator.swift`, `CallsSurfaceView.swift`, `CallsJoinEntry.swift`, `CallsAPI.swift`,
+`CallsSurfaceService.swift`) reimplements **what a call surface draws and in what order**: the
+expanded view, the participant tiles (avatar, mute/voice state, raised hand, host marker), the
+control bar (mute, raise hand, leave), and the states a call really has. It is a SwiftUI
+reimplementation from the behaviour of the Apache-2.0 **`mattermost-mobile` v2.45.0** client; no
+upstream file is copied or transpiled, and every file carries the upstream path it derives from in
+its own header, so this section is the repo-level entry those headers point at.
+
+The pin is `mattermost/mattermost-mobile` @ `162f2560d0e1df073220f7701d5a67cc17c8abeb` (v2.45.0),
+**Apache-2.0** — the same pin as §20. Only these files were read, for rules and layout, never for
+code:
+
+| Upstream path | Used for |
+|---|---|
+| `app/products/calls/screens/call_screen.tsx` | the surface's shape: header (channel + state + elapsed timer), the participant list, the control bar; which controls exist at all |
+| `app/products/calls/components/call_status_timer.tsx`, `…/elapsed_timer.tsx` | the two timers the header renders, and that a call with no `start_at` reads zero rather than a negative clock |
+| `app/products/calls/components/participants_list.tsx`, `…/participant.tsx`, `…/participant_card.tsx` | the tile: avatar, name with the reader's own `(you)`, muted/unmuted icon, raised hand, host marker; and the ordering upstream sorts participants into |
+| `app/products/calls/components/current_call_bar.tsx` | the "a call is running in this channel" affordance the channel header's entry point replaces |
+| `app/products/calls/native_call_mappings.ts` (with `…/native_call.ts`) | the mapping from the plugin's session objects to what the screen shows — the vocabulary of a participant, a session, a muted state |
+| `app/products/calls/utils.ts` | duration/label formatting rules (seconds → `mm:ss`/`hh:mm:ss`) and the "no microphone" copy |
+
+**Explicitly not read, not ported:** the plugin's own AGPL-3.0/commercial `calls-common` sources
+(§4). The signalling, the calls plugin's wire actions and the media path are this repository's own
+code against the measured 0.29.8 contract (§21); this card's surface reads only the Apache-2.0
+mobile client's structure. Screen share is **not implemented** here — it needs the ReplayKit
+broadcast extension of T44e — and the camera control is absent, so neither has an upstream file in
+this read set.

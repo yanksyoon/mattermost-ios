@@ -38,6 +38,20 @@ protocol TeamEventSourcing: AnyObject {
     func close(serverID: UUID) async
     /// Test-observable: how many live connections this source holds.
     var openConnectionCount: Int { get }
+    /// T44d: the same connection, as the Calls port's transport.
+    ///
+    /// The Calls engine needs to *send* on the socket (`join`, msgpack `sdp`, `ice`, `mute`), so a
+    /// stream is not enough. Returning the one client keeps the app's invariant — one WebSocket per
+    /// server — instead of giving Calls a second connection. `nil` when the server's URL is not
+    /// usable; a source that has never opened a connection creates it here (idempotent).
+    func transport(for server: ServerConfig, token: String) async -> (any CallsSocketTransport)?
+}
+
+extension TeamEventSourcing {
+    /// Default for the test fakes: a fake that does not model sending simply has no transport.
+    func transport(for server: ServerConfig, token: String) async -> (any CallsSocketTransport)? {
+        nil
+    }
 }
 
 /// Production source: `SocketClient` per server, with the shared `CertTrust` the webview uses (so a
@@ -81,6 +95,14 @@ final class SocketTeamEventSource: TeamEventSourcing {
     func close(serverID: UUID) async {
         guard let client = clients.removeValue(forKey: serverID) else { return }
         await client.stop()
+    }
+
+    func transport(for server: ServerConfig, token: String) async -> (any CallsSocketTransport)? {
+        if let existing = clients[server.id] { return existing }
+        // No connection yet: create it through the one factory (never a second code path, never a
+        // second client for this server).
+        _ = await events(for: server, token: token)
+        return clients[server.id]
     }
 }
 
@@ -287,6 +309,21 @@ final class TeamSidebarCoordinator: ObservableObject {
     /// How many live socket pumps this coordinator holds. Must be 0 or 1 per server, whatever the
     /// user does to the rail.
     var subscriptionCount: Int { pumps.count }
+
+    /// T44d: the server's **one** socket, as the Calls port's transport.
+    ///
+    /// Handing the same client to Calls is what keeps "one WebSocket per server" true while a call
+    /// is live: the engine sends `join`/`sdp`/`ice`/`mute` on it and the surface reads participant
+    /// deltas from a second subscriber on it. Returns `nil` when the server has no usable token —
+    /// there is nothing to authenticate the socket with.
+    func callsTransport(for server: ServerConfig) async -> (any CallsSocketTransport)? {
+        guard let auth,
+              let session = try? auth.session(for: server),
+              let token = session.currentToken, !token.isEmpty else {
+            return nil
+        }
+        return await events.transport(for: server, token: token)
+    }
 
     func scope(for serverID: UUID) -> TeamSocketScope? { scopes[serverID] }
 

@@ -72,6 +72,10 @@ struct MattermostApp: App {
     /// the badge hand-off. Owned here for the same reason every coordinator above is: it is fed by the
     /// rail's single socket, which no view can subscribe to, and it must outlive a view re-creation.
     @StateObject private var notificationFeed: NativeNotificationFeed
+    /// T44d: the calls surface's owner — the "is there a call here" fact the channel header renders,
+    /// and the one live call's model. App-scoped because a rotation, a channel switch or a sheet must
+    /// not drop a call, and because the transport it uses is the rail's single socket per server.
+    @StateObject private var callsCoordinator: CallsCoordinator
 
     /// T43: keeps `NotificationInputRouting.shared` on the store's mode when the debug switch changes at
     /// runtime (the Settings row) without a relaunch.
@@ -194,6 +198,8 @@ struct MattermostApp: App {
         // store seams are bound in `bindShellStores()`.
         _notificationPath = StateObject(wrappedValue: NotificationPathStore())
         _notificationFeed = StateObject(wrappedValue: NativeNotificationFeed())
+        // T44d: the calls surface's owner, bound in `bindShellStores()` like the rest.
+        _callsCoordinator = StateObject(wrappedValue: CallsCoordinator())
         #if DEBUG
         // UI-test seam: `-uiTestAssumeSignedIn` makes the native shell render as if the seeded
         // server had a session, so its panes can be exercised against a stub server that has no
@@ -339,6 +345,7 @@ struct MattermostApp: App {
                 // input is live) and the native input's own read-out (last mention, delivered/dropped).
                 .environmentObject(notificationPath)
                 .environmentObject(notificationFeed)
+                .environmentObject(callsCoordinator)
                 // T31: the SSO hand-off mounts the server's existing webview inside a sheet, so the
                 // store owner has to be reachable from the environment too (the pane's web branch
                 // still receives it as a parameter).
@@ -548,6 +555,13 @@ struct MattermostApp: App {
         // (per call, so a service built before the session restored is not permanently signed out), is fed
         // by the rail's single socket below, and shares **one** high-water mark with the T14 poller.
         notificationFeed.bind(serverStore: serverStore, sessionStore: sessionStore)
+        // T44d: the calls surface resolves its service from the same session, sends and reads on the
+        // rail's **one** socket per server (never a second connection), and is fed by the rail below.
+        callsCoordinator.bind(auth: authCoordinator, serverStore: serverStore)
+        callsCoordinator.transportProvider = { [weak teamSidebarCoordinator] server in
+            guard let teamSidebarCoordinator else { return nil }
+            return await teamSidebarCoordinator.callsTransport(for: server)
+        }
         notificationFeed.serviceFactory = { [weak authCoordinator] server in
             SessionActivityService {
                 guard let authCoordinator,
@@ -578,7 +592,8 @@ struct MattermostApp: App {
                                                 weak threadCoordinator, weak searchCoordinator,
                                                 weak channelInfoCoordinator,
                                                 weak profileCoordinator,
-                                                weak activityCoordinator] serverID, event in
+                                                weak activityCoordinator,
+                                                weak callsCoordinator] serverID, event in
             // T33's list debounces its own refresh; T34's open channels apply the event directly (a
             // posted message must appear without a refetch — that is what a socket is for).
             Task { await channelPaneCoordinator?.handle(event, serverID: serverID) }
@@ -595,6 +610,10 @@ struct MattermostApp: App {
             // T42: an open mentions feed inserts a mention that arrives while it is on screen, and follows
             // read state that moved in another client of mine.
             Task { @MainActor in activityCoordinator?.handle(event, serverID: serverID) }
+            // T44d: a Calls frame names a channel, not a team — it is accepted by the scope (`.plugin`)
+            // and lands here so the header's join button can react to `call_state` / `call_end`. The
+            // REST check on pane appearance is what makes the button appear in the first place.
+            Task { @MainActor in callsCoordinator?.handle(event, serverID: serverID) }
             guard let channelSidebarCoordinator else { return }
             Task { await channelSidebarCoordinator.handle(event, serverID: serverID) }
         }
@@ -640,6 +659,9 @@ struct MattermostApp: App {
             activityCoordinator.authPhaseChanged(serverID)
             // …and the mention input's cached profile keys and channel rows (T43).
             notificationFeed.authPhaseChanged(serverID)
+            // …and any live call on that server, plus the "is there a call here" facts and the
+            // plugin build remembered for it (T44d): a new session must re-ask the server.
+            callsCoordinator.authPhaseChanged(serverID)
         }
     }
 

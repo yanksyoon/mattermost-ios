@@ -224,38 +224,63 @@ final class T44CCallsEventTests: XCTestCase {
     func testUserEventsNameTheParticipantAndSession() throws {
         let joined = try XCTUnwrap(CallsEvent(
             name: prefix + "user_joined",
-            data: callsRaw(#"{"user_id":"u3","session_id":"s3"}"#)))
-        XCTAssertEqual(joined, .userJoined(userID: "u3", sessionID: "s3"))
+            data: callsRaw(#"{"channelID":"chan1","user_id":"u3","session_id":"s3"}"#)))
+        XCTAssertEqual(joined, .userJoined(channelID: "chan1", userID: "u3", sessionID: "s3"))
 
         let left = try XCTUnwrap(CallsEvent(
             name: prefix + "user_left",
-            data: callsRaw(#"{"user_id":"u3","session_id":"s3"}"#)))
-        XCTAssertEqual(left, .userLeft(userID: "u3", sessionID: "s3"))
+            data: callsRaw(#"{"channelID":"chan1","user_id":"u3","session_id":"s3"}"#)))
+        XCTAssertEqual(left, .userLeft(channelID: "chan1", userID: "u3", sessionID: "s3"))
 
         let muted = try XCTUnwrap(CallsEvent(
             name: prefix + "user_muted",
-            data: callsRaw(#"{"user_id":"u3","session_id":"s3"}"#)))
-        XCTAssertEqual(muted, .muteChanged(userID: "u3", sessionID: "s3", unmuted: false))
+            data: callsRaw(#"{"channelID":"chan1","user_id":"u3","session_id":"s3"}"#)))
+        XCTAssertEqual(muted, .muteChanged(channelID: "chan1", userID: "u3", sessionID: "s3",
+                                           unmuted: false))
 
         let unmuted = try XCTUnwrap(CallsEvent(
             name: prefix + "user_unmuted",
-            data: callsRaw(#"{"user_id":"u3","session_id":"s3"}"#)))
-        XCTAssertEqual(unmuted, .muteChanged(userID: "u3", sessionID: "s3", unmuted: true))
+            data: callsRaw(#"{"channelID":"chan1","user_id":"u3","session_id":"s3"}"#)))
+        XCTAssertEqual(unmuted, .muteChanged(channelID: "chan1", userID: "u3", sessionID: "s3",
+                                             unmuted: true))
 
         let voice = try XCTUnwrap(CallsEvent(
             name: prefix + "user_voice_on",
-            data: callsRaw(#"{"userID":"u3","sessionID":"s3"}"#)))
-        XCTAssertEqual(voice, .voiceChanged(userID: "u3", sessionID: "s3", speaking: true))
+            data: callsRaw(#"{"channelID":"chan1","userID":"u3","sessionID":"s3"}"#)))
+        XCTAssertEqual(voice, .voiceChanged(channelID: "chan1", userID: "u3", sessionID: "s3",
+                                            speaking: true))
 
+        // The measured name, and the measured payload verbatim (T44d probe against 0.29.8): the
+        // plugin publishes `user_raise_hand` with a camel-case `channelID`/`userID` and a
+        // millisecond `raised_hand`.
         let hand = try XCTUnwrap(CallsEvent(
-            name: prefix + "user_raised_hand",
-            data: callsRaw(#"{"user_id":"u3","session_id":"s3"}"#)))
-        XCTAssertEqual(hand, .handChanged(userID: "u3", sessionID: "s3", raised: true))
+            name: prefix + "user_raise_hand",
+            data: callsRaw(#"{"channelID":"chan1","raised_hand":1793095877275,"session_id":"s3","userID":"u3"}"#)))
+        XCTAssertEqual(hand, .handChanged(channelID: "chan1", userID: "u3", sessionID: "s3",
+                                          raised: true))
+
+        let unraised = try XCTUnwrap(CallsEvent(
+            name: prefix + "user_unraise_hand",
+            data: callsRaw(#"{"channelID":"chan1","raised_hand":0,"session_id":"s3","userID":"u3"}"#)))
+        XCTAssertEqual(unraised, .handChanged(channelID: "chan1", userID: "u3", sessionID: "s3",
+                                              raised: false))
 
         let screen = try XCTUnwrap(CallsEvent(
             name: prefix + "user_screen_on",
-            data: callsRaw(#"{"user_id":"u3","session_id":"s3"}"#)))
-        XCTAssertEqual(screen, .screenShareChanged(userID: "u3", sessionID: "s3", sharing: true))
+            data: callsRaw(#"{"channelID":"chan1","user_id":"u3","session_id":"s3"}"#)))
+        XCTAssertEqual(screen, .screenShareChanged(channelID: "chan1", userID: "u3",
+                                                   sessionID: "s3", sharing: true))
+    }
+
+    /// `user_raised_hand` is **not** what 0.29.8 sends (`user_raise_hand` is), but `CallsProtocol`
+    /// accepts it as an alias: a build that used the past-tense name must not have its hand events
+    /// silently become `unhandled`, which is the failure mode that looks like "the feature works".
+    func testPastTenseHandEventNameIsAcceptedAsAnAlias() throws {
+        let event = try XCTUnwrap(CallsEvent(
+            name: prefix + "user_raised_hand",
+            data: callsRaw(#"{"channelID":"chan1","user_id":"u3","session_id":"s3"}"#)))
+        XCTAssertEqual(event, .handChanged(channelID: "chan1", userID: "u3", sessionID: "s3",
+                                           raised: true))
     }
 
     /// `user_*` events always name a user; one that does not is not decodable into a participant.

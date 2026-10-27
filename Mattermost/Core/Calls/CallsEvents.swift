@@ -54,17 +54,21 @@ enum CallsEvent: Equatable, Sendable {
     /// The host changed (`call_host_changed`).
     case hostChanged(channelID: String, hostID: String)
     /// A participant's session appeared (`user_connected` / `user_joined`).
-    case userJoined(userID: String, sessionID: String)
+    ///
+    /// Every participation delta carries the channel it belongs to (`channelID` in the measured
+    /// payload, T44d) — kept because a client can be a member of several channels with a live call
+    /// and must not fold another call's participants into the one it is drawing.
+    case userJoined(channelID: String, userID: String, sessionID: String)
     /// A participant's session disappeared (`user_left` / `user_disconnected`).
-    case userLeft(userID: String, sessionID: String)
+    case userLeft(channelID: String, userID: String, sessionID: String)
     /// A participant muted or unmuted (`user_muted` / `user_unmuted`).
-    case muteChanged(userID: String, sessionID: String, unmuted: Bool)
+    case muteChanged(channelID: String, userID: String, sessionID: String, unmuted: Bool)
     /// A participant's voice stream started or stopped (`user_voice_on` / `user_voice_off`).
-    case voiceChanged(userID: String, sessionID: String, speaking: Bool)
-    /// A hand was raised or lowered (`user_raised_hand` / `user_unraised_hand`).
-    case handChanged(userID: String, sessionID: String, raised: Bool)
+    case voiceChanged(channelID: String, userID: String, sessionID: String, speaking: Bool)
+    /// A hand was raised or lowered (`user_raise_hand` / `user_unraise_hand` — measured names).
+    case handChanged(channelID: String, userID: String, sessionID: String, raised: Bool)
     /// A screen share started or stopped (`user_screen_on` / `user_screen_off`).
-    case screenShareChanged(userID: String, sessionID: String, sharing: Bool)
+    case screenShareChanged(channelID: String, userID: String, sessionID: String, sharing: Bool)
     /// The plugin reported an error for this session (`error`).
     case error(String)
     /// A plugin event this build does not model. Kept (not dropped) so a newer server cannot make
@@ -137,35 +141,41 @@ enum CallsEvent: Equatable, Sendable {
 
         case CallsProtocol.Event.userConnected.rawValue, CallsProtocol.Event.userJoined.rawValue:
             guard let userID = Self.userID(from: data) else { return nil }
-            self = .userJoined(userID: userID, sessionID: Self.sessionID(from: data))
+            self = .userJoined(channelID: Self.channelID(from: data), userID: userID,
+                               sessionID: Self.sessionID(from: data))
 
         case CallsProtocol.Event.userLeft.rawValue, CallsProtocol.Event.userDisconnected.rawValue:
             guard let userID = Self.userID(from: data) else { return nil }
-            self = .userLeft(userID: userID, sessionID: Self.sessionID(from: data))
+            self = .userLeft(channelID: Self.channelID(from: data), userID: userID,
+                             sessionID: Self.sessionID(from: data))
 
         case CallsProtocol.Event.userMuted.rawValue, CallsProtocol.Event.userUnmuted.rawValue:
             guard let userID = Self.userID(from: data) else { return nil }
-            self = .muteChanged(userID: userID,
+            self = .muteChanged(channelID: Self.channelID(from: data),
+                                userID: userID,
                                 sessionID: Self.sessionID(from: data),
                                 unmuted: name == CallsProtocol.Event.userUnmuted.rawValue)
 
         case CallsProtocol.Event.userVoiceOn.rawValue, CallsProtocol.Event.userVoiceOff.rawValue:
             guard let userID = Self.userID(from: data) else { return nil }
-            self = .voiceChanged(userID: userID,
+            self = .voiceChanged(channelID: Self.channelID(from: data),
+                                 userID: userID,
                                  sessionID: Self.sessionID(from: data),
                                  speaking: name == CallsProtocol.Event.userVoiceOn.rawValue)
 
         case CallsProtocol.Event.userRaisedHand.rawValue,
              CallsProtocol.Event.userUnraisedHand.rawValue:
             guard let userID = Self.userID(from: data) else { return nil }
-            self = .handChanged(userID: userID,
+            self = .handChanged(channelID: Self.channelID(from: data),
+                                userID: userID,
                                 sessionID: Self.sessionID(from: data),
                                 raised: name == CallsProtocol.Event.userRaisedHand.rawValue)
 
         case CallsProtocol.Event.userScreenOn.rawValue,
              CallsProtocol.Event.userScreenOff.rawValue:
             guard let userID = Self.userID(from: data) else { return nil }
-            self = .screenShareChanged(userID: userID,
+            self = .screenShareChanged(channelID: Self.channelID(from: data),
+                                       userID: userID,
                                        sessionID: Self.sessionID(from: data),
                                        sharing: name == CallsProtocol.Event.userScreenOn.rawValue)
 
@@ -213,6 +223,17 @@ enum CallsEvent: Equatable, Sendable {
 
     static func sessionID(from data: MMRawJSON?) -> String {
         data?["session_id"]?.stringValue ?? data?["sessionID"]?.stringValue ?? ""
+    }
+
+    /// The channel a participation delta belongs to.
+    ///
+    /// Measured on 0.29.8: `{"channelID": "...", "session_id": "...", "userID": "...",
+    /// "raised_hand": 1793095877275}` — the camel-case `channelID`, while the session is snake-case.
+    /// Both spellings are accepted because the 1.x line has used `channel_id` in `call_state`.
+    /// `""` means the frame did not say, and callers treat that as "applies to whatever is open"
+    /// rather than dropping a real delta.
+    static func channelID(from data: MMRawJSON?) -> String {
+        data?["channelID"]?.stringValue ?? data?["channel_id"]?.stringValue ?? ""
     }
 
     /// A payload that may be a JSON **string** (the escaping `signal` and `call_state` use) or the

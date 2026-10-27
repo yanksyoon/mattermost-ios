@@ -872,6 +872,14 @@ struct ChannelPaneContent: View {
                 .accessibilityLabel("Pinned messages")
                 .accessibilityIdentifier("nativeChannelPinnedButton")
             }
+            // T44d (S33): the Calls entry point. Gated on the `calls` surface exactly like every
+            // other header affordance: while `calls` renders web the webview owns Calls (and its own
+            // button), so a second native one beside it would be two answers to the same tap.
+            if resolver.resolvedMode(for: .calls) == .native {
+                CallsJoinEntry(server: server,
+                               channelID: channelID,
+                               channelName: channelName ?? model?.title)
+            }
             Button {
                 navigation.openThreads(navigation.location.request)
             } label: {

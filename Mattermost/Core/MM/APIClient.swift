@@ -125,6 +125,17 @@ final class APIClient: @unchecked Sendable {
         return response.body
     }
 
+    /// Typed GET for a **plugin** route — a path outside `/api/v4` (`/plugins/<id>/…`).
+    ///
+    /// Same transport, same token, same 401→re-auth funnel, same TLS decision as every other call;
+    /// only the URL join differs (a plugin mounts at the server root, not under the API prefix).
+    /// No ETag: a plugin's answer can change without a validator, and these two routes are cheap.
+    func getPlugin<T: Decodable>(_ type: T.Type, path: String) async throws -> T {
+        let response = try await perform(method: .get, path: path, query: [], body: nil,
+                                         requiresAuth: true, useETag: false, outsideAPIV4: true)
+        return try decode(type, from: response)
+    }
+
     /// An authenticated `URLRequest` for one file's bytes — the seam the **download** path transfers
     /// (S18/T38).
     ///
@@ -288,8 +299,9 @@ final class APIClient: @unchecked Sendable {
                          explicitToken: String? = nil,
                          contentType: String? = nil,
                          timeout: TimeInterval? = nil,
+                         outsideAPIV4: Bool = false,
                          onProgress: (@Sendable (Int64, Int64) -> Void)? = nil) async throws -> APIResponse {
-        guard let url = baseURL.apiV4(path, query: query) else {
+        guard let url = outsideAPIV4 ? baseURL.absolute(path) : baseURL.apiV4(path, query: query) else {
             throw MMError.invalidURL(path)
         }
         var headers: [String: String] = ["Accept": "application/json"]

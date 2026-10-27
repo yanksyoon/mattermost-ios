@@ -48,6 +48,23 @@ struct MMBaseURL: Equatable, Sendable {
         return components.url
     }
 
+    /// `https://host[:port][base]/<path>` — a server path **outside** `/api/v4`.
+    ///
+    /// Plugin REST routes live at `/plugins/<plugin id>/…`, not under `/api/v4` (measured: Calls
+    /// 0.29.8 answers `GET /plugins/com.mattermost.calls/version` and 404s the same path under
+    /// `/api/v4`). Same base-path join as `apiV4`, so a server deployed under a sub-path works.
+    func absolute(_ path: String) -> URL? {
+        var components = URLComponents()
+        components.scheme = serverURL.scheme?.lowercased()
+        components.host = serverURL.host
+        components.port = serverURL.port
+        var fullPath = basePath
+        let trimmed = path.hasPrefix("/") ? String(path.dropFirst()) : path
+        if !trimmed.isEmpty { fullPath += "/" + trimmed }
+        components.path = fullPath
+        return components.url
+    }
+
     /// The WebSocket v4 endpoint for this server: `ws(s)://host[:port][base]/api/v4/websocket`.
     ///
     /// `reliable` adds the `connection_id` / `sequence_number` query parameters the server's

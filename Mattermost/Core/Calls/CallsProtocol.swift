@@ -95,16 +95,35 @@ enum CallsProtocol {
         case userVoiceOff = "user_voice_off"
         case userScreenOn = "user_screen_on"
         case userScreenOff = "user_screen_off"
-        case userRaisedHand = "user_raised_hand"
-        case userUnraisedHand = "user_unraised_hand"
+        /// Measured on the fixture (0.29.8, T44d): the plugin publishes **`user_raise_hand`**, not
+        /// `user_raised_hand`, and carries `raised_hand` as a **unix-millisecond timestamp** (`0` =
+        /// lowered), not a bool. `canonicalEventName(_:)` accepts both spellings so a build that
+        /// uses the other one still reaches the decoder.
+        case userRaisedHand = "user_raise_hand"
+        case userUnraisedHand = "user_unraise_hand"
         case error
     }
 
+    /// Spellings that mean the same event as one of `Event`'s cases.
+    ///
+    /// The Calls plugin has published the hand events under two names across the builds this
+    /// programme measures (`user_raise_hand` on 0.29.8; the past-tense form is what the T44c
+    /// decoder assumed before it was measured). Normalising here keeps one model: the surface and
+    /// the engine branch on `Event.userRaisedHand` only.
+    static func canonicalEventName(_ raw: String) -> String {
+        switch raw {
+        case "user_raised_hand": return Event.userRaisedHand.rawValue
+        case "user_unraised_hand": return Event.userUnraisedHand.rawValue
+        default: return raw
+        }
+    }
+
     /// The event name a plugin frame carries, stripped of the prefix — or `nil` when the frame is
-    /// not a Calls frame at all.
+    /// not a Calls frame at all. Alternative spellings are normalised to the canonical one here, so
+    /// every downstream switch sees exactly one name per event.
     static func eventName(from wireName: String) -> String? {
         guard wireName.hasPrefix(prefix) else { return nil }
-        return String(wireName.dropFirst(prefix.count))
+        return canonicalEventName(String(wireName.dropFirst(prefix.count)))
     }
 }
 

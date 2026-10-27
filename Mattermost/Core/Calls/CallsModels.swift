@@ -19,13 +19,42 @@ struct CallsSession: Equatable, Sendable {
     var sessionID: String
     var userID: String
     var unmuted: Bool
-    var raisedHand: Bool
+    /// When the hand went up, as **unix milliseconds** — `0` means lowered.
+    ///
+    /// Measured on the fixture (`call_state` verbatim, T44d): the plugin sends
+    /// `"raised_hand": 1793094724582` / `"raised_hand": 0`, not a bool. Decoding that with
+    /// `boolValue` (what T44c did) yields `nil` for every real payload, so every hand read as
+    /// lowered. The *timestamp* is also the ordering key upstream uses between two raised hands
+    /// (`sortSessions`), so it is the model's field and `raisedHand` is derived from it.
+    var raisedHandAt: Int64
 
-    init(sessionID: String, userID: String, unmuted: Bool = false, raisedHand: Bool = false) {
+    /// Whether the hand is up. The wire's "true" is any non-zero timestamp; a bool-shaped payload
+    /// (`true`) is stored as `1` by `timestamp(from:)`.
+    var raisedHand: Bool { raisedHandAt > 0 }
+
+    init(sessionID: String, userID: String, unmuted: Bool = false, raisedHandAt: Int64 = 0) {
         self.sessionID = sessionID
         self.userID = userID
         self.unmuted = unmuted
-        self.raisedHand = raisedHand
+        self.raisedHandAt = raisedHandAt
+    }
+
+    /// Bool-shaped convenience (tests, and any caller that only knows "raised").
+    init(sessionID: String, userID: String, unmuted: Bool = false, raisedHand: Bool) {
+        self.init(sessionID: sessionID, userID: userID, unmuted: unmuted,
+                  raisedHandAt: raisedHand ? 1 : 0)
+    }
+
+    /// `raised_hand` in either of the shapes a Calls build has used: a unix-millisecond number
+    /// (`0` = down, measured) or a bool (`true` = up, the shape T44c's fixtures used).
+    static func timestamp(from value: JSONValue?) -> Int64 {
+        guard let value else { return 0 }
+        switch value {
+        case .bool(let raised): return raised ? 1 : 0
+        case .number(let number): return number > 0 ? Int64(number) : 0
+        case .string(let text): return Int64(text).flatMap { $0 > 0 ? $0 : 0 } ?? 0
+        default: return 0
+        }
     }
 }
 
@@ -101,7 +130,7 @@ struct CallsCall: Equatable, Sendable {
             return CallsSession(sessionID: sessionID,
                                 userID: userID,
                                 unmuted: fields["unmuted"]?.boolValue ?? false,
-                                raisedHand: fields["raised_hand"]?.boolValue ?? false)
+                                raisedHandAt: CallsSession.timestamp(from: fields["raised_hand"]))
         }
     }
 
