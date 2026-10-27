@@ -170,6 +170,33 @@ against this fixture.** Signalling completes, ICE never connects. A "bidirection
 criterion is therefore not measurable here by anyone, in any implementation, and an unmeasurable
 criterion cannot be approved.
 
+> **Amended 2026-10-27 by T44b (`t_7b826839`) — see `docs/t44b-calls-media-path.md`.** Two of the
+> statements above are wrong, and the third is now fixed on the fixture:
+>
+> 1. The reachability measurement could not have answered the question. The SFU demultiplexes every
+>    session with a ufrag mux (`webrtc.NewICEUDPMux`) that routes by the STUN `USERNAME` attribute, so
+>    a **bare** binding request is dropped whether the port is open or shut — with the port published
+>    and the agent answering, the old check still printed `0/3`. And it ran *after* `leave`, when the
+>    SFU has already torn the ICE agent down. `scripts/t44_calls_probe.py` now sends a credentialed
+>    binding request (`USERNAME`, `MESSAGE-INTEGRITY`, `PRIORITY`, `ICE-CONTROLLING`, `FINGERPRINT`)
+>    from inside the live session — the way a real ICE agent does — and a binding *error* counts as a
+>    reply, because it means an agent saw the packet.
+> 2. The port is published now: `docker run -d --name mm-calls-udp --network mm-perf-net -p
+>    127.0.0.1:8443:8443/udp alpine/socat:latest UDP4-LISTEN:8443,fork,reuseaddr UDP4:mm-perf:8443`
+>    (revert: `docker rm -f mm-calls-udp`). Probe with the relay: `MEDIA PATH: 1/3`, with
+>    `binding success … message-integrity=True mapped=172.19.0.4:<port>`; without it, `0/3`.
+> 3. `ICEHostOverride=127.0.0.1` is **not** part of the fix on this build — with it set (and the
+>    plugin restarted) the SFU stops answering the relayed path entirely. It is cleared on the
+>    fixture and documented there.
+>
+> And the criterion is now measured, not just unblocked: `scripts/t44b_rtp_spike.js` drives two
+> sessions of the fixture account in a browser on the server's origin, each sending synthetic opus;
+> `getStats()` shows `outbound-rtp` +405/+404 packets and `inbound-rtp` +179/+213 packets with
+> **+388,800 decoded samples** and non-zero `totalAudioEnergy` on **both** sides, over the selected
+> pair `127.0.0.1:8443/udp`. Bidirectional audio is measurable on this host as of T44b. The receive
+> side is lossy (~50% of the forwarded packets, `packetsLost=0` while ~55% of samples are
+> concealment) — carried into T44c as an open question, with the isolation experiment named there.
+
 ## 5. Three corrections to the T44a spike (each measured, none of them cosmetic)
 
 1. **"A native client may use plain JSON" is wrong for the `sdp` action.** The spike (§4.2) read the
@@ -206,7 +233,9 @@ looks for it (`docs/dual-render.md` §4) and is these four facts, in order of we
    free; a native surface needs a second app-extension target that this programme has not built.
 2. **The media path cannot be verified here** (§4.2), so the card's own "bidirectional audio on a
    real server" criterion is unmeetable as things stand — for this card and for any successor
-   card until the fixture publishes the SFU's ICE port.
+   card until the fixture publishes the SFU's ICE port. *(T44b has since published it and measured
+   bidirectional opus — `docs/t44b-calls-media-path.md` — so this reason no longer holds; the pin
+   keeps the remaining three.)*
 3. **The licence position is not recorded.** The Calls plugin's source is AGPL-3.0-or-commercial
    (plus a source-available enterprise licence); `mattermost-mobile` (Apache-2.0) is the clean
    reference, and the spike already says a native client must be an independent implementation of

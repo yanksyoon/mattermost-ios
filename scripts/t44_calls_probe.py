@@ -23,8 +23,14 @@ What it establishes, in order:
      `server/activate.go` `rtc.NewServer`) returns `{"type":"answer","sdp":...}` plus ICE candidates;
   6. the client is the **offerer**: nothing is sent until the client offers, and an unanswered session
      is torn down after the server's signalling timeout (~10 s);
-  7. every ICE candidate the SFU advertises is probed with a STUN binding request from the host that
-     runs this script, so "can media actually flow here" is a measurement and not an assumption.
+  7. every UDP candidate the SFU advertises is probed **from this host, with ICE credentials**, by
+     sending the same credentialed binding request a client's ICE agent would send, so "can media
+     actually flow here" is a measurement and not an assumption. A bare, unauthenticated STUN
+     binding request cannot answer that question: the SFU demultiplexes every session on one UDP
+     port with a ufrag mux (`webrtc.NewICEUDPMux`), which routes a datagram to an ICE agent by the
+     `USERNAME` attribute — no `USERNAME`, no agent, no reply, whether the port is open or shut.
+     That is why the check below carries `USERNAME`/`MESSAGE-INTEGRITY`/`PRIORITY`, and why it is run
+     while the session is still joined (the SFU tears the agent down on `leave`).
 
 Exit code is 0 when every *contract* check holds (1-6). Reachability (7) is printed as a
 measurement, because a closed port is a fact about the deployment, not a conformance failure — the
@@ -46,9 +52,12 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import hashlib
+import hmac
 import json
 import os
+import re
 import socket
 import struct
 import sys
@@ -334,7 +343,7 @@ STUN_MAGIC = 0x2112A442
 
 
 def stun_reachable(host: str, port: int, timeout: float = 2.0) -> str | None:
-    """Binding request to an ICE candidate. Returns the xor-mapped address on a reply, else None."""
+    """Bare binding request (no ICE attributes). Only a plain STUN server answers this."""
     txid = os.urandom(12)
     packet = struct.pack("!HHI", 0x0001, 0, STUN_MAGIC) + txid
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -351,12 +360,110 @@ def stun_reachable(host: str, port: int, timeout: float = 2.0) -> str | None:
     return "reply"
 
 
+# --- ICE connectivity check: the only binding request a ufrag mux can answer -------------------
+
+BINDING_SUCCESS = 0x0101
+BINDING_ERROR = 0x0111
+ATTR_USERNAME = 0x0006
+ATTR_MESSAGE_INTEGRITY = 0x0008
+ATTR_ERROR_CODE = 0x0009
+ATTR_XOR_MAPPED_ADDRESS = 0x0020
+ATTR_PRIORITY = 0x0024
+ATTR_FINGERPRINT = 0x8028
+ATTR_ICE_CONTROLLING = 0x802A
+FINGERPRINT_XOR = 0x5354554E
+
+
+def _stun_attr(kind: int, value: bytes) -> bytes:
+    pad = (4 - len(value) % 4) % 4
+    return struct.pack("!HH", kind, len(value)) + value + b"\x00" * pad
+
+
+def build_ice_binding_request(local_ufrag: str, remote_ufrag: str, remote_pwd: str,
+                              priority: int = 1845501695) -> bytes:
+    """A controlling-agent binding request (RFC 8445 §7.2.2, RFC 5389 §15.4)."""
+    txid = os.urandom(12)
+    tiebreaker = int.from_bytes(os.urandom(8), "big")
+    attrs = b"".join([
+        _stun_attr(ATTR_USERNAME, f"{remote_ufrag}:{local_ufrag}".encode()),
+        _stun_attr(ATTR_PRIORITY, struct.pack("!I", priority)),
+        _stun_attr(ATTR_ICE_CONTROLLING, struct.pack("!Q", tiebreaker)),
+    ])
+    # MESSAGE-INTEGRITY: HMAC-SHA1 keyed with the *receiving* peer's password, over the message with
+    # the header length already counting the MESSAGE-INTEGRITY attribute (RFC 5389 §15.4).
+    header = (struct.pack("!HH", 0x0001, len(attrs) + 24) + struct.pack("!I", STUN_MAGIC) + txid)
+    mac = hmac.new(remote_pwd.encode(), header + attrs, hashlib.sha1).digest()
+    attrs += _stun_attr(ATTR_MESSAGE_INTEGRITY, mac)
+    header = (struct.pack("!HH", 0x0001, len(attrs) + 8) + struct.pack("!I", STUN_MAGIC) + txid)
+    crc = (binascii.crc32(header + attrs) & 0xFFFFFFFF) ^ FINGERPRINT_XOR
+    attrs += _stun_attr(ATTR_FINGERPRINT, struct.pack("!I", crc))
+    return header + attrs
+
+
+def parse_stun_reply(data: bytes, txid: bytes) -> dict[str, Any] | None:
+    if len(data) < 20 or data[4:8] != struct.pack("!I", STUN_MAGIC) or data[8:20] != txid:
+        return None
+    parsed: dict[str, Any] = {"type": struct.unpack("!H", data[0:2])[0] & 0x3FFF, "attrs": []}
+    offset = 20
+    while offset + 4 <= len(data):
+        atype, alen = struct.unpack("!HH", data[offset:offset + 4])
+        value = data[offset + 4:offset + 4 + alen]
+        parsed["attrs"].append(atype)
+        if atype == ATTR_ERROR_CODE and alen >= 4:
+            parsed["error"] = (value[2] & 0x07) * 100 + value[3]
+        if atype == ATTR_XOR_MAPPED_ADDRESS and alen >= 8:
+            port = struct.unpack("!H", value[2:4])[0] ^ (STUN_MAGIC >> 16)
+            ip = bytes(b ^ c for b, c in zip(value[4:8], struct.pack("!I", STUN_MAGIC)))
+            parsed["mapped"] = f"{socket.inet_ntoa(ip)}:{port}"
+        offset += 4 + alen + ((4 - alen % 4) % 4)
+    return parsed
+
+
+def ice_check(host: str, port: int, local_ufrag: str, remote_ufrag: str, remote_pwd: str,
+              timeout: float = 2.0) -> dict[str, Any]:
+    """Credentialed binding request to a candidate. A reply means an ICE agent saw the packet."""
+    packet = build_ice_binding_request(local_ufrag, remote_ufrag, remote_pwd)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    started = time.time()
+    try:
+        sock.sendto(packet, (host, port))
+        data, _ = sock.recvfrom(2048)
+    except (socket.timeout, TimeoutError, OSError) as exc:
+        return {"target": f"{host}:{port}", "reply": False, "why": type(exc).__name__}
+    finally:
+        sock.close()
+    elapsed = round((time.time() - started) * 1000)
+    parsed = parse_stun_reply(data, packet[8:20])
+    if parsed is None:
+        return {"target": f"{host}:{port}", "reply": False,
+                "why": f"{len(data)} bytes, not a STUN reply to our transaction"}
+    kind = parsed["type"]
+    return {
+        "target": f"{host}:{port}",
+        "reply": True,
+        "stun_type": "binding success" if kind == BINDING_SUCCESS else
+                     ("binding error" if kind == BINDING_ERROR else f"0x{kind:04x}"),
+        "authenticated": ATTR_MESSAGE_INTEGRITY in parsed["attrs"],
+        "mapped": parsed.get("mapped"),
+        "error": parsed.get("error"),
+        "ms": elapsed,
+    }
+
+
+def sdp_credentials(sdp: str) -> tuple[str | None, str | None]:
+    """ICE short-term credentials out of an SDP (session or media level)."""
+    ufrag = re.search(r"^a=ice-ufrag:(\S+)", sdp, re.MULTILINE)
+    pwd = re.search(r"^a=ice-pwd:(\S+)", sdp, re.MULTILINE)
+    return (ufrag.group(1) if ufrag else None, pwd.group(1) if pwd else None)
+
+
 # --------------------------------------------------------------------------------------------
 # One call session: connect, join, and collect what the plugin sends back.
 # --------------------------------------------------------------------------------------------
 
 def run_session(url: str, token: str, prefix: str, channel_id: str, mode: str,
-                seconds: float = 6.0) -> dict[str, Any]:
+                seconds: float = 6.0, hook: Any = None) -> dict[str, Any]:
     ws = WSClient(url, token)
     result: dict[str, Any] = {"ack": False, "call_state": None, "answer": None,
                               "candidates": [], "errors": [], "raw_signal": []}
@@ -415,6 +522,10 @@ def run_session(url: str, token: str, prefix: str, channel_id: str, mode: str,
                 continue
             if event == prefix + "error":
                 result["errors"].append(data)
+        if hook is not None:
+            # Run while the session is still joined: the SFU tears its ICE agent down on leave, so
+            # anything that talks to the media port (an ICE connectivity check) has to happen here.
+            hook(result)
         if joined:
             ws.send_text(json.dumps({"seq": 99, "action": prefix + "leave",
                                      "data": {"channelID": channel_id}}))
@@ -505,23 +616,42 @@ def main() -> int:
     if mp_run["errors"]:
         measure("plugin error events", json.dumps(mp_run["errors"]))
 
-    # 7. Reachability of what the SFU just advertised.
+    # 7. Reachability of what the SFU just advertised — measured with ICE credentials, while the
+    # session is still joined (the SFU drops the ICE agent on `leave`, so a check after run_session
+    # returns would be measuring nothing but the mux's silence).
     print("\n--- reachability of the SFU's own candidates, from this host ---")
     advertised: list[tuple[str, int]] = []
-    for text in mp_run["candidates"]:
-        parsed = parse_candidate(text)
-        measure("candidate", text)
-        if parsed and parsed not in advertised:
-            advertised.append(parsed)
-    reachable = 0
-    for host, port in advertised:
-        if host.startswith("0.") or host in ("::", ""):
-            continue
-        reply = stun_reachable(host, port)
-        if reply:
-            reachable += 1
-        measure(f"stun binding to {host}:{port}", "reply" if reply else "no reply (2.0 s)")
-    measure("control: a public STUN server answers from this host",
+    reach_results: list[dict[str, Any]] = []
+
+    def probe_candidates(result: dict[str, Any]) -> None:
+        answer = result.get("answer") or ""
+        remote_ufrag, remote_pwd = sdp_credentials(answer)
+        local_ufrag, _ = sdp_credentials(OFFER_SDP)
+        local_ufrag = local_ufrag or "t44a"
+        for text in result["candidates"]:
+            parsed = parse_candidate(text)
+            measure("candidate", text)
+            if parsed and parsed not in advertised:
+                advertised.append(parsed)
+        if not remote_ufrag or not remote_pwd:
+            measure("ICE credentials", "the answer carried none — cannot run a connectivity check")
+            return
+        measure("ICE credentials", f"server ufrag {remote_ufrag}, client ufrag {local_ufrag}")
+        for host, port in advertised:
+            if host.startswith("0.") or host in ("::", ""):
+                continue
+            outcome = ice_check(host, port, local_ufrag, remote_ufrag, remote_pwd)
+            reach_results.append(outcome)
+            if outcome["reply"]:
+                measure(f"ice check to {host}:{port}",
+                        f"{outcome['stun_type']} in {outcome['ms']} ms, "
+                        f"message-integrity={outcome['authenticated']}, mapped={outcome['mapped']}")
+            else:
+                measure(f"ice check to {host}:{port}", f"no reply ({outcome['why']})")
+
+    run_session(args.url, token, prefix, channel_id, "msgpack", seconds=5.0, hook=probe_candidates)
+    reachable = sum(1 for r in reach_results if r["reply"])
+    measure("control: a public STUN server answers a bare binding request from this host",
             "yes" if stun_reachable("stun.l.google.com", 19302) else "no")
 
     failed = [name for name, ok, _ in checks if not ok]
