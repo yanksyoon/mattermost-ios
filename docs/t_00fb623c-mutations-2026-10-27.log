@@ -1,0 +1,294 @@
+### MS1-binary-frame-dropped  MISSING ['testBinaryFrameReachesTheTransportThatImplementsSendData']
+mutation: sendBinaryFrame encodes but never writes: a binary action silently reaches nothing
+target: MattermostTests/T44DSocketBinarySendTests
+must red: testBinaryFrameReachesTheTransportThatImplementsSendData
+red: testTextOnlyTransportStillFailsLoudly
+
+### MS2-binary-error-swallowed  PASS
+mutation: a transport with no binary path is answered with a silent no-op instead of a loud throw
+target: MattermostTests/T44DSocketBinarySendTests
+must red: testTextOnlyTransportStillFailsLoudly
+red: testTextOnlyTransportStillFailsLoudly
+
+### MS3-frame-logged-with-token  MISSING ['testSocketAuthenticationFrameCarriesTheTokenButNoLogLineDoes']
+mutation: the sent-frame debug line interpolates the whole frame, so the socket token lands in a log
+target: MattermostTests/TokenLoggingTests
+must red: testSocketAuthenticationFrameCarriesTheTokenButNoLogLineDoes
+red: (none)
+
+### MS4-no-resync-on-reconnect  PASS
+mutation: a reconnect opens the socket and never asks anyone to refetch
+target: MattermostTests/T34SocketResyncTests
+must red: testAPostMadeWhileTheSocketWasDownAppearsAfterTheReconnect
+red: testAHandlerInstalledAfterTheConnectionStillReceivesTheReconnect, testAPostMadeWhileTheSocketWasDownAppearsAfterTheReconnect
+
+### MS5-watchdog-without-visibility  MISSING ['testAClientWithoutAVisibilityPredicateNeverStartsWithAWatchdog']
+mutation: the delivery watchdog starts even when the caller cannot answer 'is a surface visible?'
+target: MattermostTests/T34SocketStallWatchdogTests
+must red: testAClientWithoutAVisibilityPredicateNeverStartsWithAWatchdog
+red: (none)
+
+### MS6-watchdog-ignores-visibility  PASS
+mutation: silence on a backgrounded app is treated as a delivery gap and refetched
+target: MattermostTests/T34SocketStallWatchdogTests
+must red: testAQuietSocketWithNothingOnScreenDoesNotRefetch
+red: testAQuietSocketWithNothingOnScreenDoesNotRefetch
+
+### MS7-watchdog-window-not-restarted  MISSING ['testAReconnectDoesNotDoubleFireAndRestartsTheWatchdogsWindow']
+mutation: a reconnect does not restart the watchdog window, so the old silence fires again at once
+target: MattermostTests/T34SocketStallWatchdogTests
+must red: testAReconnectDoesNotDoubleFireAndRestartsTheWatchdogsWindow
+red: (none)
+
+### MS8-delivery-does-not-reset-silence  PASS
+mutation: an event that arrives does not count as delivery, so a busy socket looks silent
+target: MattermostTests/T34SocketStallWatchdogTests
+must red: testASocketThatKeepsDeliveringIsNeverTreatedAsStalled
+red: testASocketThatKeepsDeliveringIsNeverTreatedAsStalled
+
+### ML1-live-at-stream-creation  MISSING ['testAStreamIsNotALiveSocket']
+mutation: the rail reports the socket live as soon as the stream object exists (the T43-R defect)
+target: MattermostTests/T43RSocketLivenessTests
+must red: testAStreamIsNotALiveSocket
+red: (none)
+
+### ML2-live-on-every-event  PASS
+mutation: every event re-reports liveness, so a second event is counted twice
+target: MattermostTests/T43RSocketLivenessTests
+must red: testASecondEventDoesNotReportLivenessTwice
+red: testASecondEventDoesNotReportLivenessTwice
+
+### ML3-liveness-never-withdrawn  PASS
+mutation: a finished pump leaves the server marked live, so the read-out keeps promising a socket
+target: MattermostTests/T43RSocketLivenessTests
+must red: testAFinishedPumpWithdrawsLiveness
+red: testAFinishedPumpWithdrawsLiveness
+
+### MT1-slow-load-wins  PASS
+mutation: the rail's load has no generation guard, so a slow answer overwrites a newer switch
+target: MattermostTests/T32TeamSidebarTests
+must red: testASlowLoadCannotOverwriteANewerOne
+red: testASlowLoadCannotOverwriteANewerOne
+
+### MT2-post-activity-does-not-refresh  PASS
+mutation: a socket post does not refetch the rail's counters, so a badge never moves
+target: MattermostTests/T32TeamSidebarTests
+must red: testPostActivityRefreshesTheTeamsCounters
+red: testPostActivityRefreshesTheTeamsCounters
+
+### MT3-previous-team-events-still-admitted  MISSING ['testAfterASwitchThePreviousTeamsEventsAreRefused']
+mutation: the scope keeps the previous team, so a switch leaves the old team's events flowing
+target: MattermostTests/T32TeamSidebarTests
+must red: testAfterASwitchThePreviousTeamsEventsAreRefused
+red: testSwitchingTeamsClearsTheChannelAndThePushStack
+
+### MT4-socket-survives-sign-out  PASS
+mutation: sign-out forgets the rail but never closes the server's socket
+target: MattermostTests/T32TeamSidebarTests
+must red: testSignOutClosesTheSocketAndForgetsTheRail
+red: testSignOutClosesTheSocketAndForgetsTheRail
+
+### MT5-reaction-refused  PASS
+mutation: reactions are refused by the scope again (the T37-AV F1 defect): no pill can ever draw
+target: MattermostTests/T37SocketReactionRoutingTests
+must red: testASocketReactionReachesTheOpenPanesRowThroughTheRail
+red: testASocketReactionReachesTheOpenPanesRowThroughTheRail, testAnUnattributableReactionIsAcceptedAndEachPaneFiltersByPost, testTheSameGateAdmitsAReactionForTheThreadPanesServer, testTheScopeAttributesAReactionByItsChannel
+
+### MT6-reaction-only-on-the-open-channel  PASS
+mutation: a reaction is admitted only for the open channel, so the thread pane's server gets none
+target: MattermostTests/T37SocketReactionRoutingTests
+must red: testTheSameGateAdmitsAReactionForTheThreadPanesServer
+red: testTheSameGateAdmitsAReactionForTheThreadPanesServer, testTheScopeAttributesAReactionByItsChannel
+
+### MA1-expiry-keeps-the-cookie  PASS
+mutation: the webview cookie survives an expiry, so the pane escape hatch is still signed in
+target: MattermostTests/T31AuthCoordinatorTests
+must red: testA401FromANonRestoreCallClearsBothCopiesBeforeTheBanner
+red: testA401FromANonRestoreCallClearsBothCopiesBeforeTheBanner, testAReportedUnauthorizedExpiresTheSessionAndClearsBothCopies, testASessionExpiryClearsTheWebviewCookieAsWellAsTheVault
+
+### MA2-stale-401-raises-a-banner  PASS
+mutation: a 401 for an already signed-out server raises 'your session expired' anyway
+target: MattermostTests/T31AuthCoordinatorTests
+must red: testAStale401ReportForASignedOutServerRaisesNoBanner
+red: testAStale401ReportForASignedOutServerRaisesNoBanner
+
+### MV1-request-does-not-pend  PASS
+mutation: a pending anchor is remembered but never offered to the view
+target: MattermostTests/T34ChannelViewRestoreWiringTests
+must red: testTheListTurnsAPendingAnchorIntoARestoreAndConsumesIt
+red: testASecondRequestRestoresAgainAfterTheFirstWasConsumed, testTheListTurnsAPendingAnchorIntoARestoreAndConsumesIt
+
+### MV2-consume-is-a-noop  PASS
+mutation: the view cannot consume the anchor, so the same restore is applied again and again
+target: MattermostTests/T34ChannelViewRestoreWiringTests
+must red: testTheListTurnsAPendingAnchorIntoARestoreAndConsumesIt, testASecondRequestRestoresAgainAfterTheFirstWasConsumed
+red: testASecondRequestRestoresAgainAfterTheFirstWasConsumed, testTheListTurnsAPendingAnchorIntoARestoreAndConsumesIt
+
+### MV3-report-ignored  PASS
+mutation: the view's restore report is dropped, so nothing can tell a restore ran
+target: MattermostTests/T34ChannelViewRestoreWiringTests
+must red: testTheListTurnsAPendingAnchorIntoARestoreAndConsumesIt, testASecondRequestRestoresAgainAfterTheFirstWasConsumed
+red: testASecondRequestRestoresAgainAfterTheFirstWasConsumed, testTheListTurnsAPendingAnchorIntoARestoreAndConsumesIt
+
+### MCP1-send-while-sending  PASS
+mutation: a second send is admitted while the first is in flight
+target: MattermostTests/T35ComposerViewModelTests
+must red: testASecondSendIsRefusedWhileTheFirstIsInFlight
+red: testASecondSendIsRefusedWhileTheFirstIsInFlight
+
+### MCP2-mentions-unfiltered  PASS
+mutation: every mentioned user is offered, including people who are not in the channel
+target: MattermostTests/T35ComposerViewModelTests
+must red: testMentionsAreFilteredToTheChannelsMembers
+red: testMentionsAreFilteredToTheChannelsMembers
+
+### MCP3-member-list-failure-hides-people  PASS
+mutation: a failed member list is treated as 'nobody is a member', so every name disappears
+target: MattermostTests/T35ComposerViewModelTests
+must red: testAFailedMemberListDoesNotHideAnyone
+red: testAFailedMemberListDoesNotHideAnyone
+
+### MCP4-stale-answer-applied  PASS
+mutation: a superseded autocomplete answer overwrites the newer term's list
+target: MattermostTests/T35ComposerViewModelTests
+must red: testAStaleAutocompleteAnswerIsDropped
+red: testAStaleAutocompleteAnswerIsDropped
+
+### MCP5-channel-insertion-without-tilde  PASS
+mutation: a picked channel is inserted without the `~` the server needs to link it
+target: MattermostTests/T35ComposerViewModelTests
+must red: testChannelsComeFromTheTeamSearchAndInsertATilde
+red: testChannelsComeFromTheTeamSearchAndInsertATilde
+
+### MCP6-custom-emoji-dropped  MISSING ['testEmojiComeFromTheBuiltInTableAndTheServersCatalogue']
+mutation: the server's own emoji catalogue is ignored, so `:` only offers the built-in table
+target: MattermostTests/T35ComposerViewModelTests
+must red: testEmojiComeFromTheBuiltInTableAndTheServersCatalogue
+red: (none)
+
+### MCP7-no-draft-write  PASS
+mutation: typing never writes the draft, so a relaunch loses what was typed
+target: MattermostTests/T35ComposerViewModelTests
+must red: testTheDraftIsWrittenOnTypingAndRestoredByANewComposer, testEveryKeystrokeIsOnDiskWithoutWaitingForATimer
+red: testEveryKeystrokeIsOnDiskWithoutWaitingForATimer, testTheDraftIsWrittenOnTypingAndRestoredByANewComposer
+
+### MCP8-draft-row-survives-a-send  MISSING ['testASuccessfulSendClearsTheDraftRow']
+mutation: a sent message leaves its draft behind, so the next visit reopens the sent text
+target: MattermostTests/T35ComposerViewModelTests
+must red: testASuccessfulSendClearsTheDraftRow
+red: (none)
+
+### MCP9-upload-never-completes  MISSING ['testSendIsBlockedWhileAnUploadIsStillInFlight']
+mutation: a finished upload never becomes `.uploaded`, so the send stays blocked and the id is lost
+target: MattermostTests/T35ComposerViewModelTests
+must red: testAnAttachmentUploadsWithProgressFromTheTransport, testAnUploadedAttachmentLetsAnEmptyMessageBeSentAndRidesAlong, testSendIsBlockedWhileAnUploadIsStillInFlight
+red: testAnAttachmentUploadsWithProgressFromTheTransport, testAnUploadedAttachmentLetsAnEmptyMessageBeSentAndRidesAlong, testCancellingAnUploadReallyStopsItAndOffersRetry
+
+### MCP10-fake-progress  PASS
+mutation: the tray reports a made-up fraction instead of the transport's byte count
+target: MattermostTests/T35ComposerViewModelTests
+must red: testUploadProgressComesFromTheTransportsByteCount
+red: testUploadProgressComesFromTheTransportsByteCount
+
+### MCP11-retry-forgets-the-bytes  PASS
+mutation: a cancelled upload cannot be retried: the composer drops the bytes it kept for exactly that
+target: MattermostTests/T35ComposerViewModelTests
+must red: testCancellingAnUploadReallyStopsItAndOffersRetry
+red: testCancellingAnUploadReallyStopsItAndOffersRetry
+
+### MCP12-remove-keeps-the-row  PASS
+mutation: removing an attachment cancels it but leaves the row in the tray
+target: MattermostTests/T35ComposerViewModelTests
+must red: testRemovingAnAttachmentCancelsItAndDropsItFromTheDraft
+red: testRemovingAnAttachmentCancelsItAndDropsItFromTheDraft
+
+### MCP13-failure-not-reported  PASS
+mutation: a failed upload is swallowed: the row keeps spinning and never offers Retry
+target: MattermostTests/T35ComposerViewModelTests
+must red: testAFailedUploadIsReportedOnItsRow
+red: testAFailedUploadIsReportedOnItsRow
+
+### MC1-reoffer-not-answered  MISSING ['testAServerReOfferIsAnswered']
+mutation: a server re-offer is ignored, so the call has no answer to send
+target: MattermostTests/T44CCallsEngineTests
+must red: testAServerReOfferIsAnswered
+red: (none)
+
+### MC2-deltas-not-folded  PASS
+mutation: participation deltas are not folded into the published call, so the surface reverts them
+target: MattermostTests/T44CCallsEngineTests
+must red: testAConfirmedUnmuteSurvivesTheNextSnapshot, testUserJoinedAndLeftMoveTheSessions, testRaisedHandAndHostChangeAreFolded
+red: testAConfirmedUnmuteSurvivesTheNextSnapshot, testRaisedHandAndHostChangeAreFolded, testUserJoinedAndLeftMoveTheSessions
+
+### MC3-other-channels-deltas-folded  PASS
+mutation: a delta for another channel's call is folded into this one
+target: MattermostTests/T44CCallsEngineTests
+must red: testADeltaForAnotherChannelIsNotFolded
+red: testADeltaForAnotherChannelIsNotFolded
+
+### MC4-call-end-ignored  PASS
+mutation: call_end leaves the engine marked live
+target: MattermostTests/T44CCallsEngineTests
+must red: testCallEndMovesTheEngineToEnded
+red: testCallEndMovesTheEngineToEnded
+
+### MS1-binary-frame-dropped  PASS
+mutation: sendBinaryFrame encodes but never writes: a binary action silently reaches nothing
+target: MattermostTests/T44DSocketBinarySendTests
+must red: testBinaryFrameReachesTheTransportThatImplementsSendData
+red: testBinaryFrameReachesTheTransportThatImplementsSendData, testTextOnlyTransportStillFailsLoudly
+
+### MS3-frame-logged-with-token  MISSING ['testSocketAuthenticationFrameCarriesTheTokenButNoLogLineDoes']
+mutation: the sent-frame debug line interpolates the whole frame, so the socket token lands in a log
+target: MattermostTests/TokenLoggingTests
+must red: testSocketAuthenticationFrameCarriesTheTokenButNoLogLineDoes
+red: (none)
+
+### MS5-watchdog-without-visibility  PASS
+mutation: the delivery watchdog starts even when the caller cannot answer 'is a surface visible?'
+target: MattermostTests/T34SocketStallWatchdogTests
+must red: testAClientWithoutAVisibilityPredicateNeverStartsWithAWatchdog
+red: testAClientWithoutAVisibilityPredicateNeverStartsWithAWatchdog
+
+### MS7-watchdog-window-not-restarted  PASS
+mutation: a reconnect does not restart the watchdog window, so the old silence fires again at once
+target: MattermostTests/T34SocketStallWatchdogTests
+must red: testAReconnectDoesNotDoubleFireAndRestartsTheWatchdogsWindow
+red: testAReconnectDoesNotDoubleFireAndRestartsTheWatchdogsWindow
+
+### ML1-live-at-stream-creation  PASS
+mutation: the rail reports the socket live as soon as the stream object exists (the T43-R defect)
+target: MattermostTests/T43RSocketLivenessTests
+must red: testAStreamIsNotALiveSocket
+red: testAFinishedPumpWithdrawsLiveness, testASecondEventDoesNotReportLivenessTwice, testAStreamIsNotALiveSocket, testLivenessIsReportedWhenTheServersHelloArrives
+
+### MT3-scope-accepts-everything  PASS
+mutation: the scope stops filtering: every team's events reach the surface that is on screen
+target: MattermostTests/T32TeamSidebarTests
+must red: testAfterASwitchThePreviousTeamsEventsAreRefused
+red: testAfterASwitchThePreviousTeamsEventsAreRefused
+
+### MCP6-custom-emoji-dropped  PASS
+mutation: the server's own emoji catalogue is ignored, so `:` only offers the built-in table
+target: MattermostTests/T35ComposerViewModelTests
+must red: testEmojiComeFromTheBuiltInTableAndTheServersCatalogue
+red: testEmojiComeFromTheBuiltInTableAndTheServersCatalogue
+
+### MCP8-draft-row-survives-a-send  MISSING ['testASuccessfulSendClearsTheDraftRow']
+mutation: a sent message leaves its draft behind, so the next visit reopens the sent text
+target: MattermostTests/T35ComposerViewModelTests
+must red: testASuccessfulSendClearsTheDraftRow
+red: testClearingTheTextDeletesTheDraftRow
+
+### MCP9-upload-never-completes  PASS
+mutation: a finished upload never becomes `.uploaded`, so the send stays blocked and the id is lost
+target: MattermostTests/T35ComposerViewModelTests
+must red: testAnAttachmentUploadsWithProgressFromTheTransport, testAnUploadedAttachmentLetsAnEmptyMessageBeSentAndRidesAlong, testSendIsBlockedWhileAnUploadIsStillInFlight
+red: testAnAttachmentUploadsWithProgressFromTheTransport, testAnUploadedAttachmentLetsAnEmptyMessageBeSentAndRidesAlong, testCancellingAnUploadReallyStopsItAndOffersRetry, testSendIsBlockedWhileAnUploadIsStillInFlight, testUploadProgressComesFromTheTransportsByteCount
+
+### MS3-socket-never-authenticates  PASS
+mutation: the socket opens and never writes the authentication challenge, so the token reaches no frame
+target: MattermostTests/TokenLoggingTests
+must red: testSocketAuthenticationFrameCarriesTheTokenButNoLogLineDoes
+red: testSocketAuthenticationFrameCarriesTheTokenButNoLogLineDoes
+

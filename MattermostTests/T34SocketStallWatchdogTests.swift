@@ -462,6 +462,11 @@ final class T34SocketStallWatchdogTests: XCTestCase {
         }
         XCTAssertEqual(harness.rail.socketResyncCount, 0)
 
+        // Virtual time moves on *before* the drop: without this, "the open restarted the window" is
+        // indistinguishable from "the window was never consumed" — the reconnect would be inside the
+        // first open's window either way, and the assertion below could not fail (mutation MS7).
+        now.advance(watchdog.threshold - 5)
+
         first.close()
         await awaitSignal("the reconnect", signal: harness.factory.createdSignal) { $0 == 2 }
         second.push(.opened)
@@ -552,8 +557,14 @@ final class T34SocketStallWatchdogTests: XCTestCase {
             $0.contains("authentication_challenge")
         }
 
+        // Absence check (pile b): "no watchdog loop was created" has no event, and the challenge
+        // above only proves `handleOpen` got as far as writing the frame — the watchdog is started a
+        // statement later. A short settle is the fence: a loop that *was* started parks on the clock
+        // within it (mutation MS5 reds exactly here).
+        try? await Task.sleep(nanoseconds: 50_000_000)
         XCTAssertEqual(clock.parked(watchdog.checkInterval), 0,
                        "no visibility answer ⇒ no watchdog loop at all")
+
         clock.advance(watchdog.threshold * 4)
         // Absence window: no loop exists to publish "I did not fire".
         try? await Task.sleep(nanoseconds: 100_000_000)

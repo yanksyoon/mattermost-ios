@@ -561,6 +561,23 @@ final class T35ComposerViewModelTests: XCTestCase {
         await awaitSignal("the emoji list", signal: suggestionsSignal()) { $0 }
         XCTAssertEqual(model.suggestions.first?.value, "tada")
         XCTAssertEqual(model.suggestions.first?.insertion, ":tada:")
+
+        // The second half of the name: the server's own catalogue is offered too. The page is a stub,
+        // so a row here can only come from `identifiers` — a built-in table cannot produce it.
+        let catalogue = EmojiCatalogue(loadPage: { _, _ in [MMEmoji(id: "e1", name: "t34parrot")] },
+                                       loadImage: { _ in Data() })
+        await catalogue.loadNamesIfNeeded()
+        let withCatalogue = ComposerViewModel(channelID: channelID, service: service, drafts: drafts,
+                                              sink: sink, teamID: "team-1", myUserID: "u1",
+                                              emojiCatalogue: catalogue,
+                                              autocompleteDebounce: .zero)
+        let custom = TestSignal<Bool>()
+        mirrors.append(mirrorPublished(withCatalogue.$suggestions, into: custom) { list in
+            list.contains { $0.value == "t34parrot" }
+        })
+        withCatalogue.textChanged(":parrot", caret: 7)
+        await awaitSignal("the custom emoji from the server catalogue", signal: custom) { $0 }
+        XCTAssertEqual(withCatalogue.suggestions.first?.insertion, ":t34parrot:")
     }
 
     func testChoosingASuggestionRewritesTheTriggerAndReturnsTheCaret() {
