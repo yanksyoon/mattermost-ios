@@ -179,11 +179,10 @@ struct ChannelPostListView: View {
                         rowView(item)
                             .id(item.id)
                     }
-                    if model.hasMore {
-                        ProgressView()
-                            .padding(.vertical, 12)
-                            .accessibilityHidden(true)
-                    }
+                    // No bottom spinner. `hasMore` is *older* history, and this row sat at the end of
+                    // the list whenever any history existed — a permanent spinner that promised newer
+                    // messages and never resolved. Paging state belongs to `loadEarlierSentinel` at the
+                    // top; the bottom of the timeline is simply the newest post.
                 }
                 .padding(.bottom, 12)
             }
@@ -572,6 +571,9 @@ struct ChannelPaneContent: View {
 
     @State private var model: ChannelViewModel?
     @State private var imageStore: ChannelImageStore?
+    /// Profile pictures for this server's authors, created beside the list (§ the same rule as
+    /// `imageStore`: one cache per server, shared by every row that draws a face).
+    @State private var avatarStore: AvatarImageStore?
     @State private var emoji: EmojiCatalogue?
     /// T37: the recently-used emoji, resolved once per server pane (see the coordinator's cache).
     @State private var emojiRecents: EmojiRecentsStore?
@@ -652,10 +654,13 @@ struct ChannelPaneContent: View {
         }
         // The model is created on first appearance and re-used from the coordinator afterwards, so a
         // rotation, a push and a return all keep the same window and scroll position.
+        // Every avatar in this pane reads the one store, so a face is fetched once per user.
+        .environment(\.avatarImages, avatarStore)
         .task(id: channelID) {
             let resolved = panes.model(for: server, channelID: channelID, channelName: channelName)
             model = resolved
             imageStore = panes.imageStore(for: server)
+            avatarStore = panes.avatarStore(for: server)
             let catalogue = panes.emojiCatalogue(for: server)
             emoji = catalogue
             // T37: the picker's recent row and the reaction write record into one store, so a react
