@@ -126,15 +126,101 @@ scripts/qa-freeze-host.sh build/logs/freeze-target.log \
 usually lands one or two tests after the marker — which is why both freeze runs hit
 `testDeniedMicrophone…`.)
 
-## 5. What this does not fix
+## 5. What this card left open (closed by §6)
 
-* The class still contains three-second `waitUntil` polls that measure the host the same way
+* The class still contained three-second `waitUntil` polls that measured the host the same way
   (`testDeniedMicrophoneStillJoinsAndExplainsItself`, `testMuteIsOptimistic…`,
   `testRaiseHandReachesTheEngine…`, `testCallStateDrawsTheTiles…`, `testParticipantDeltas…`): on the
   fixed tree `t44d-freeze4` reds `testDeniedMicrophone…` at 5.1 s while the three converted tests
-  pass, so the exposure is unchanged for those. Converting them needs signals from the *engine*
-  side (they wait for snapshot-driven values), which is a larger change than this card. Filed as
-  its own card so it is not lost: **t_19ab2cbc** (with the full list of the remaining waits and
-  `scripts/qa-freeze-host.sh` to check them against).
+  pass. Filed as its own card, **t_19ab2cbc**, and converted there — see §6.
 * No live/UI run was needed: the change is unit-visible only (the model's phase rule), and the
   surface's rendered states are pinned by `T44DCallsSurfaceTests`.
+
+## 6. t_19ab2cbc — the remaining polls, converted (2026-10-27)
+
+Every `waitUntil` in `T44DCallsCoordinatorTests` is gone; the class has no wall clock in it at all
+and runs in **0.13 s** instead of ~15 s. What replaced each wait, by kind:
+
+| test | was | is now |
+|---|---|---|
+| `testCallStateDrawsTheTilesAndResolvesNames` | `waitUntil("two tiles")` | frame decoded with `CallsEvent(name:data:)` (what the bridge calls) and folded by `CallsCallModel.handle` (what the pump calls); assertions synchronous. A **second** `call_state` for already-cached profiles is folded too, so dropping the fold's own `rebuildParticipants()` reds it — the profile fetch's rebuild would otherwise hide that |
+| `testParticipantDeltasUpdateTheTiles` | five polls (tile, unmute, join, speaking, leave) | the same five frames through `handle`, each asserted before the next arrives |
+| `testMuteIsOptimisticAndReachesTheEngine` | `waitUntil("connected with a microphone")` | `await model.applySnapshot()` once, then `phase`/`microphone`/`controls` asserted synchronously |
+| `testRaiseHandReachesTheEngineAndMarksTheTile` | same | same |
+| `testDeniedMicrophoneStillJoinsAndExplainsItself` | same, `.denied` | same |
+| `testLeavingStopsTheEngineOnce` | `waitUntil("released")` | nothing: `leave()` is awaited and calls `onEnded` synchronously, so `coordinator.surface == nil` is true on the next line |
+| `testAuthPhaseChangedDropsTheCallAndRememberedFacts` | `waitUntil("engine stopped")` | the model's own `onEnded` signal (chained so the coordinator still gets it), fired *after* `engine.stop()`; 30 s hang detector |
+
+Two end-to-end tests keep the whole wire (fake socket → `CallsEventBridge` → pump → model) and wait
+on the model's own signals — `@Published` values for the deltas and `onEnded` for the end — with the
+same 30 s hang detector. That is where the pump/bridge wiring stays pinned:
+
+* `testParticipantDeltasFromTheSocketReachTheTiles` (new) — the five deltas of the synchronous test
+  through the socket, waiting on `$participants` / `$isMuted`.
+* `testEngineSnapshotReachesThePhaseAndMicrophoneWithoutAPoll` (new) — nothing drives
+  `applySnapshot`; the engine pump does, and the test waits on `$phase`. This is the only test that
+  reds when `startEnginePump()` is removed, so the three synchronous snapshot tests stay cheap
+  without leaving the pump unpinned.
+
+Two supporting changes in the fixture:
+
+* `FakeCallsEngine.connect(microphone:)` — one actor hop for "connected, with a microphone answer".
+  `setState` then `setSnapshot` are two `await`s, and the model's engine pump (0.4 s) can tick
+  between them and read a connected state with the *previous* microphone answer, which the real
+  engine never reports (it asks for the microphone before it connects). That race is what the first
+  version of the new E2E test hit; `setSnapshot` is otherwise unused now and is gone.
+* `import Combine`, for the `@Published` subscriptions above.
+
+### Red cases (mutations)
+
+Each mutation was applied to the product files, the class run, and the files reverted
+(`build/mutants/run_mutants.py`, evidence in `docs/t19ab2cbc-mutations-2026-10-27.log`):
+
+| mutation | red |
+|---|---|
+| M1 `.callState` rebuild dropped + `isMuted` fold in `.muteChanged` dropped | `testCallStateDrawsTheTilesAndResolvesNames` (0.26 s), `testParticipantDeltasUpdateTheTiles` (0.004 s) |
+| M2 `await engine.setMuted/setHandRaised` dropped | `testMuteIsOptimistic…`, `testRaiseHandReachesTheEngine…` |
+| M3 `microphone = snapshot.microphonePermission` dropped | `testDeniedMicrophone…`, `testMuteIsOptimistic…`, `testRaiseHand…`, `testEngineSnapshot…` |
+| M4 `onEnded?()` dropped from `leave()` | `testLeavingStopsTheEngineOnce`, `testAuthPhaseChanged…` |
+| M5 sign-out's detached `live.leave()` dropped | `testAuthPhaseChanged…` only |
+| M6 `startEnginePump()` dropped from `start()` | `testEngineSnapshotReachesThePhaseAndMicrophoneWithoutAPoll` only |
+| M7 the bridge yields no frames | `testParticipantDeltasFromTheSocketReachTheTiles` (120 s = 4 × its hang detector), `testCallEndFromTheSocket…` (30 s) |
+
+Every mutation reds the intended test **and no other test reds by accident**: the two "only" rows
+(M5, M6) are the isolation pins, and the synchronous tests red in milliseconds because there is no
+budget left to burn.
+
+### The freeze check, and why `qa-freeze-host.sh` needed a sibling
+
+The committed marker-triggered harness cannot prove anything about this class any more, and that is
+measurable rather than theoretical: with the marker
+`"testASnapshotTakenBeforeTheEndCannotReopenTheCall]' started."`, `scripts/qa-freeze-host.sh` waited
+**12.1 s** for the line to be flushed, then found the host already gone (`kill: (7072) - No such
+process`) — the class had finished in 0.13 s. The freeze landed on nothing.
+
+`scripts/qa-freeze-host-window.py` makes the check honest again in two ways (see its docstring):
+`-test-iterations N` widens the class's window to N × 0.13 s, and a run only counts when the log
+proves the freeze landed inside the class — some test's own reported duration ≥ the freeze, because
+a stopped process cannot finish a test while it is stopped.
+
+Measured (this tree, `t19ab2-…`):
+
+```
+Executed 2100 tests, with 0 failures   # the class × 100 iterations
+frozen: testASnapshotTakenBeforeTheEndCannotReopenTheCall (4.64 s)
+```
+
+That is the acceptance in §1's terms: the host was stopped for 4.5 s **while a test was running**,
+and the class was green. Before this card the same freeze redded `testDeniedMicrophone…` at 5.1 s.
+
+### Acceptance on the committed tree
+
+Whole `MattermostTests`, twice in a row, same simulator and derived data
+(`docs/t19ab2cbc-full-units-1-2026-10-27.log`, `…-2-…log`):
+
+* **1631 run, 6 skipped, 0 failed** — 37.6 s
+* **1631 run, 6 skipped, 0 failed** — 38.0 s
+
+(1631 = the parent's 1629 + the two new end-to-end tests.) The calls class alone: **21 tests, 0
+failures, 0.078 s**.
+
