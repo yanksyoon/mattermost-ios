@@ -101,6 +101,65 @@ universal and renamed the artifact: the real asset on `v0.6.0` is
 `Mattermost-macOS-v0.6.0.zip`, 13,402,755 bytes, `lipo -archs` = `x86_64 arm64`. Both
 documents are corrected.
 
+## Proof — the run that closed these gaps
+
+`bf0c8b7` ran as **`40428577380`** with the new workflow (all five jobs green):
+
+| job | result | timing (UTC) |
+|---|---|---|
+| guard (tip + change scope) | success | 00:47:06 → 00:47:17 — **11 s** |
+| test (catalyst) | success | 00:47:20 → 00:50:54 |
+| test (ios-simulator) | success | 00:47:20 → 00:58:59 |
+| tag and publish | success | 00:59:02 → 00:59:17 |
+| package Mattermost.app | success | 00:59:19 → 01:04:14 |
+
+The guard's own output, verbatim from the job log:
+
+```
+changed files:
+  .github/workflows/release.yml
+  docs/installing.md
+  docs/rel-pipeline-note.md
+  docs/releasing.md
+  scripts/ci_plan.py
+  scripts/release_publish_selftest.sh
+  scripts/verify_release_asset.py
+is_tip=true
+docs_only=false
+run_tests=true
+reason=tip of main; 7 file(s) changed, 4 of them not documentation
+```
+
+A workflow change is not documentation, so the full pipeline ran — which is the rule
+working, not a coincidence. The release job printed
+`RELEASE CREATED: v0.7.0 at bf0c8b7f`, and the new post-upload check (G3) passed
+against the real API in the package job:
+
+```
+verify-release-asset: tag=v0.7.0 asset=Mattermost-macOS-v0.7.0.zip
+  [PASS] RELEASE    v0.7.0 is published
+  [PASS] ASSET      Mattermost-macOS-v0.7.0.zip 13402754 bytes matches the built zip
+  [PASS] TAG COMMIT v0.7.0 -> bf0c8b7f (the built commit)
+VERIFY: PASS — the release carries this job's asset, at this job's commit.
+```
+
+The same check against the previous release, run locally to prove it is not just
+agreeing with whatever it is told (`v0.6.0`, asset `13,402,755` bytes):
+
+```
+$ python3 scripts/verify_release_asset.py --repo yanksyoon/mattermost-ios --tag v0.6.0 \
+    --sha 7685cd002479... --asset Mattermost-macOS-v0.6.0.zip --size 13402755
+VERIFY: PASS
+$ ... --size 1                       -> [FAIL] ASSET ... 13402755 bytes on the release, 1 locally
+$ ... --sha 75796c1a...              -> [FAIL] TAG COMMIT v0.6.0 -> 7685cd00, built 75796c1a
+```
+
+The G1/G2 demonstration — two documentation commits pushed back-to-back, one superseded
+run and one tip run — is recorded with its run ids on board card `t_4ae44452`. The
+behaviour it shows is the one documented above: the superseded run ends **green in
+seconds** with every macOS job `skipped`, and the tip run skips only the *test* legs
+while still cutting a release and attaching the app.
+
 ## Residual limitation, stated so it is not assumed away
 
 The guard decides at *run* time. A run that was the tip when it started and is
