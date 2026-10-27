@@ -51,6 +51,23 @@ All runs: `scripts/qa-test.py --platform ios --sim id=495B0295-5421-4667-92FD-DA
 Mutation C is the "regression *inside* the restore" case the card named: with it, the live anchor test
 would still pass on this host (the OS keeps the row) and the unit pin fails loudly.
 
+The whole unit target, at three SHAs and in a clean worktree (`/tmp/mm-t34pin-base`, its own derived
+data, same simulator):
+
+| label | code under test | verdict |
+| --- | --- | --- |
+| `t34pin-base-full` | `9f95902` — no change from this card | **1596 run, 6 skipped, 0 failed** |
+| `t34pin-resynccommit-full` | `389516d` — another card's socket-resync commit | **1603 run, 6 skipped, 0 failed** |
+| `t34pin-minecommit-full` | **this card's commit `f02467f`** | **1614 run, 6 skipped, 0 failed** |
+
+(The same target on the *shared* working tree showed one failure twice —
+`T44DCallsCoordinatorTests.testCallEndedEndsTheSurfaceAndReleasesTheCoordinator`, "timed out waiting for
+ended", `t34pin-units-full{,2}.log` — which does not reproduce at any committed SHA above, nor when my
+two hosted tests are run alongside that class (19/19, `t34pin-t44d-with-hosting.log`). At the time the
+shared tree also carried another card's **uncommitted** edits to `Mattermost/MattermostApp.swift` and
+`UI/Native/Auth/AuthCoordinator.swift`; the failure is attributed to that in-progress state, reported
+to the board, and not touched here.)
+
 ## 4. Evidence — live, on the simulator QA used
 
 Simulator `DC3E9FB7-E4A0-4B24-8DBB-7960A059EC7A` (iPad Pro 11-inch M5, **iOS 26.0**), server
@@ -62,6 +79,8 @@ Simulator `DC3E9FB7-E4A0-4B24-8DBB-7960A059EC7A` (iPad Pro 11-inch M5, **iOS 26.
 | `t34pin-live1` | **skipped (no verdict)** | run without `TEST_RUNNER_MM_AUTH_*`; the suite skips itself with `set TEST_RUNNER_MM_AUTH_SERVER / _LOGIN / _PASSWORD`. Recorded so a skip is never read as a pass. |
 | `t34pin-live2` | **pass, 181 s** | the anchor test with the new report assertion |
 | `t34pin-live3` | **pass, 165 s** | same, plus the report printed/attached: see below |
+| `t34pin-live-mutationA2` | **fail, 187 s** | the restore call deleted again (reverted): `no reader-restore ran across the page insert, so the anchored row only looks still because iOS kept it there (restore report: none recorded)` + `the restore report is malformed: none recorded`. The **frame comparison still passed** — QA's finding reproduced end to end, now caught |
+| `t34pin-live-at-f02467f` | **pass, 159 s** | the same test at the committed SHA, from a clean worktree — the green is not an artefact of the shared tree |
 
 The report the live run published (`build/logs/t34pin-live3.log`):
 
@@ -103,9 +122,9 @@ anything.
 * **The report's own honesty under a gutted loop**: mutation C proves the runner tests catch a loop
   that computes but does not apply; a loop that applied a *wrong* correction would fail the residual
   assertions on the fake surface, not on the live list (§6 first bullet).
-* The concurrent-worker note: at the time of writing, `Mattermost/MattermostApp.swift` carried another
-  card's **uncommitted, syntactically broken** edit in this shared working tree
-  (`error: insufficient indentation of line in multi-line string literal`, line 828), which blocked a
-  build of the *live mutation A* run. The unit/hosted mutation A run (§3) and the live positive run (§4)
-  were built before that edit landed. The live negative case is therefore **not** recorded here; it is
-  the unit/hosted mutation A that carries the acceptance criterion.
+* **Live mutation A had to be re-run after a build block.** The first attempt (`t34pin-live-mutationA`,
+  8 s) did not run: the shared working tree carried another card's uncommitted, syntactically broken
+  edit to `Mattermost/MattermostApp.swift` (`error: insufficient indentation of line in multi-line
+  string literal`), so the build failed. It was re-run once that edit compiled
+  (`t34pin-live-mutationA2`, §4) — recorded because a build failure and a test failure are not the same
+  thing, and only the second one is evidence.
