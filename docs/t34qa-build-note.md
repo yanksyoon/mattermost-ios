@@ -28,9 +28,17 @@ before it complains. Two things in it were wrong or incomplete, both measured he
   `Find the Any (Element at index N)` every **0.32 s** for indices 0…27 inside a single `postRows`
   call (98 such queries in one 7-test run; `build/logs/t34f-ipad-head.log` shows 0.29 s each on a
   60-row list). The comment claimed the query storm was fixed; the log says it was not.
-* **The suite could not open its channel.** `build/logs/t34q-run1.log` (first attempt, before the
-  sidebar fix) shows all seven tests failing at `launchAndOpen` with a tree that held 15 realised
-  channel rows starting at "T35 Composer" and no `#t34-*` row at all.
+* **The suite could not open its channel.** A red run (the first attempt this morning) had all seven
+  tests fail at `launchAndOpen` with "the sidebar must list #t34-showcase" and a tree that held 15
+  realised channel rows starting at "T35 Composer" — no `#t34-*` row at all. That run was killed when
+  the fix was started and its log was **overwritten** by the re-run under the same label (its partial
+  xcresult, `…/TestResults/t34q-run1-e8f971.xcresult`, has no `Info.plist` and cannot be read). The
+  underlying condition is not lost, because it is measurable in every surviving run: the row is
+  absent on a fresh launch, the 10 s `waitForExistence` fails, and the scroll loop finds it —
+  **7 of 7 launches in each of** `build/logs/t34q-final1.log`, `t34q-final3.log`, `t34q-final4.log`
+  (`grep -c 'Waiting 10.0s for "channelSidebar.channel' ` → 7, one `Swipe up "Sidebar" CollectionView`
+  per launch in the same files), and `t34q-sidebar-probe.log` shows the row needed 2 `swipeUp`s after
+  8 `swipeDown`s failed to reach it.
 
 ## 2. Decision — the anchor settle window
 
@@ -96,16 +104,18 @@ and Docker both went down mid-run. That run has no verdict, and none is invented
 
 ## 5. The new red — the sidebar outgrew one screen
 
-`perfprobe` is a member of **40** channels in team `perf` (38 team channels; measured with the probe
-in §7). The sidebar is a lazy `UICollectionView`: a launch realised 15 rows starting at "T35 Composer"
-(content offset −1932 pt) and `#t34-showcase` was not in the tree, so `channelSidebar.channel.<id>`
-never existed and six of seven tests failed before touching a post.
+`perfprobe` is a member of **40** channels in team `perf` (38 team channels; measured over the REST
+API on 2026-10-27: `GET /api/v4/users/me/teams/{team}/channels` → 40,
+`GET /api/v4/teams/{team}/channels` → 38, `t34-fold`/`t34-showcase` present and `delete_at = 0`). The
+sidebar is a lazy `UICollectionView`: a launch realised 15 rows starting at "T35 Composer" (content
+offset −1932 pt) and `#t34-showcase` was not in the tree, so `channelSidebar.channel.<id>` never
+existed and the test failed before touching a post (before the fix, six of seven tests failed this way).
 
 This is a test assumption breaking on environment drift, not a product defect — a person scrolls.
-`launchAndOpen` now scrolls the sidebar, bounded (5 down, 5 up) and only when the row is missing.
-Direction is measured, not guessed: in `build/logs/t34q-sidebar-probe.log`, eight `swipeDown`s did not
-find the row and two `swipeUp`s did (it is **below** the realised window), which is why up comes
-first. Cost when the row is hidden: ~8–10 s per launch; zero when it is visible.
+`launchAndOpen` now scrolls the sidebar, bounded (5 down the list, 5 back) and only when the row is
+missing. Direction is measured, not guessed: in `build/logs/t34q-sidebar-probe.log`, eight
+`swipeDown`s did not find the row and two `swipeUp`s did (it is **below** the realised window), which
+is why up comes first. Cost when the row is hidden: ~8–10 s per launch; zero when it is visible.
 
 ## 6. Runs (all on this host, all real output)
 
