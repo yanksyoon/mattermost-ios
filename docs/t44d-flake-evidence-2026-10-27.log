@@ -1,0 +1,225 @@
+T44d flake evidence (kanban t_21828c93) — collected 2026-10-27.
+Every block below is a verbatim excerpt; '...' marks a gap between excerpts. The qa-test.py
+verdict for the run precedes the log excerpt. Full logs: build/logs/<label>.log (gitignored);
+the two acceptance runs are committed whole as docs/t44d-flake-full-units-{1,2}-2026-10-27.log.
+
+====================================================================================================
+HEAD BASELINE — the red this card was filed from (1619 run / 1 failed)
+====================================================================================================
+--- docs/t31harvest-head-baseline-full-units-2026-10-27.log
+ 7736: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testAuthPhaseChangedDropsTheCallAndRememberedFacts]' passed (0.013 seconds).
+ 7737: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator]' started.
+ 7738: /Users/yangsooyoon/.hermes/profiles/mmios-ios/cache/scratch/t31-head/MattermostTests/T44DCallsCoordinatorTests.swift:364: error: -[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator] : failed - timed out waiting for ended
+ 7739: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator]' failed (3.436 seconds).
+ 7740: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallStateDrawsTheTilesAndResolvesNames]' started.
+...
+ 7978: 	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-t31clean/TestResults/head-full-units-3493f0.xcresult
+ 7979: 
+ 7980: Failing tests:
+ 7981: 	T44DCallsCoordinatorTests.testCallEndedEndsTheSurfaceAndReleasesTheCoordinator()
+ 7982: 
+
+====================================================================================================
+PRISTINE origin/main 6119179, whole suite, idle host — PASS (t44d-flake-repro)
+====================================================================================================
+--- build/logs/t44d-flake-repro.log
+ 8947: Test Suite 'MattermostTests.xctest' passed at 2026-10-27 13:16:19.656.
+ 8948: 	 Executed 1626 tests, with 6 tests skipped and 0 failures (0 unexpected) in 38.205 (39.312) seconds
+ 8949: Test Suite 'All tests' passed at 2026-10-27 13:16:19.657.
+ 8950: 	 Executed 1626 tests, with 6 tests skipped and 0 failures (0 unexpected) in 38.205 (39.314) seconds
+ 8951: 2026-10-27 13:16:20.279 xcodebuild[32730:14882522] [MT] IDETestOperationsObserverDebug: 47.784 elapsed -- Testing started completed.
+
+====================================================================================================
+PRISTINE origin/main 6119179, whole suite, host at ~2.4x CPU oversubscription — PASS (t44d-flake-repro-load)
+====================================================================================================
+[qa-test] run: xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination platform=iOS Simulator,id=81A7F251-8B31-4945-8783-5A264C14B8D5 -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake/TestResults/t44d-flake-repro-load-2122fb.xcresult -only-testing MattermostTests
+
+========================================================================
+run        : t44d-flake-repro-load
+outcome    : finished (xcodebuild rc=0, 64s)
+tests      : 1626 run, 6 skipped, 0 failed
+log        : /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/build/logs/t44d-flake-repro-load.log
+xcresult   : /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake/TestResults/t44d-flake-repro-load-2122fb.xcresult
+RESULT: PASS
+--- build/logs/t44d-flake-repro-load.log
+ 5017: Test Suite 'MattermostTests.xctest' passed at 2026-10-27 13:18:43.547.
+ 5018: 	 Executed 1626 tests, with 6 tests skipped and 0 failures (0 unexpected) in 38.244 (39.718) seconds
+ 5019: Test Suite 'All tests' passed at 2026-10-27 13:18:43.548.
+ 5020: 	 Executed 1626 tests, with 6 tests skipped and 0 failures (0 unexpected) in 38.244 (39.719) seconds
+ 5021: 2026-10-27 13:18:44.085 xcodebuild[35272:14906650] [MT] IDETestOperationsObserverDebug: 50.947 elapsed -- Testing started completed.
+
+====================================================================================================
+REPRODUCTION — two whole-suite runs at once against ONE simulator; this half went red (t44d-samedev-b)
+====================================================================================================
+[qa-test] run: xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination platform=iOS Simulator,id=81A7F251-8B31-4945-8783-5A264C14B8D5 -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake2 -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake2/TestResults/t44d-samedev-b-3aaf26.xcresult -only-testing MattermostTests
+
+========================================================================
+run        : t44d-samedev-b
+outcome    : finished (xcodebuild rc=65, 149s)
+tests      : 876 run, 3 skipped, 1 failed
+failed     : testCallEndedEndsTheSurfaceAndReleasesTheCoordinator
+  /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:364: error: -[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator] : failed - timed out waiting for ended
+log        : /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/build/logs/t44d-samedev-b.log
+xcresult   : /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake2/TestResults/t44d-samedev-b-3aaf26.xcresult
+RESULT: FAIL
+--- build/logs/t44d-samedev-b.log
+ 4860: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testAuthPhaseChangedDropsTheCallAndRememberedFacts]' started.
+ 4861: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testAuthPhaseChangedDropsTheCallAndRememberedFacts]' passed (0.014 seconds).
+ 4862: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator]' started.
+ 4863: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:364: error: -[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator] : failed - timed out waiting for ended
+ 4864: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator]' failed (3.688 seconds).
+ 4865: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallStateDrawsTheTilesAndResolvesNames]' started.
+ 4866: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallStateDrawsTheTilesAndResolvesNames]' passed (0.013 seconds).
+
+====================================================================================================
+REPRODUCTION — the other half of the same pair; its failing-test list names the same Calls test (t44d-samedev-a)
+====================================================================================================
+[qa-test] run: xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination platform=iOS Simulator,id=81A7F251-8B31-4945-8783-5A264C14B8D5 -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake/TestResults/t44d-samedev-a-8814d5.xcresult -only-testing MattermostTests
+
+========================================================================
+run        : t44d-samedev-a
+outcome    : finished (xcodebuild rc=65, 131s)
+tests      : 18 run, 3 skipped, 0 failed
+log        : /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/build/logs/t44d-samedev-a.log
+xcresult   : /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake/TestResults/t44d-samedev-a-8814d5.xcresult
+RESULT: FAIL
+--- build/logs/t44d-samedev-a.log
+ 5019: Test session results, code coverage, and logs:
+ 5020: 	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake/TestResults/t44d-samedev-a-8814d5.xcresult
+ 5021: 
+ 5022: Failing tests:
+ 5023: 	SocketClientTests.testPongClearsTheMissedPongCount()
+ 5024: 	T44DCallsCoordinatorTests.testCallEndedEndsTheSurfaceAndReleasesTheCoordinator()
+ 5025: 
+ 5026: ** TEST FAILED **
+ 5027: 
+
+====================================================================================================
+MECHANISM — the same 3 s budget on an UNRELATED poll, with the test host SIGSTOPed for 4.5 s (t44d-freeze2)
+====================================================================================================
+[qa-test] run: xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination platform=iOS Simulator,id=81A7F251-8B31-4945-8783-5A264C14B8D5 -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake/TestResults/t44d-freeze2-737dd5.xcresult -only-testing MattermostTests
+
+========================================================================
+run        : t44d-freeze2
+outcome    : finished (xcodebuild rc=65, 82s)
+tests      : 1626 run, 6 skipped, 1 failed
+failed     : testDeniedMicrophoneStillJoinsAndExplainsItself
+  /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:433: error: -[MattermostTests.T44DCallsCoordinatorTests testDeniedMicrophoneStillJoinsAndExplainsItself] : failed - timed out waiting for connected without a mic
+log        : /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/build/logs/t44d-freeze2.log
+xcresult   : /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake/TestResults/t44d-freeze2-737dd5.xcresult
+RESULT: FAIL
+--- build/logs/t44d-freeze2.log
+ 4870: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallStateDrawsTheTilesAndResolvesNames]' passed (0.013 seconds).
+ 4871: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testDeniedMicrophoneStillJoinsAndExplainsItself]' started.
+ 4872: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:433: error: -[MattermostTests.T44DCallsCoordinatorTests testDeniedMicrophoneStillJoinsAndExplainsItself] : failed - timed out waiting for connected without a mic
+ 4873: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testDeniedMicrophoneStillJoinsAndExplainsItself]' failed (5.075 seconds).
+ 4874: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testLeavingStopsTheEngineOnce]' started.
+
+====================================================================================================
+MEASURED LATENCY — instrumented whole-suite run, healthy path frame-push -> phase fold (t44d-diag-d)
+====================================================================================================
+--- build/t44d-flake/t44d-diag-d.log
+ 4802: Test Case '-[MattermostTests.T44DCallsAPITests testActiveCallProbeUsesTheChannelsOwnRoute]' started.
+ 4803: Test Case '-[MattermostTests.T44DCallsAPITests testActiveCallProbeUsesTheChannelsOwnRoute]' passed (0.001 seconds).
+ 4804: Test Case '-[MattermostTests.T44DCallsAPITests testMissingPluginSurfacesAsNotFound]' started.
+ 4805: Test Case '-[MattermostTests.T44DCallsAPITests testMissingPluginSurfacesAsNotFound]' passed (0.001 seconds).
+ 4806: Test Case '-[MattermostTests.T44DCallsAPITests testNonSemanticVersionIsAMalformedResponse]' started.
+ 4807: Test Case '-[MattermostTests.T44DCallsAPITests testNonSemanticVersionIsAMalformedResponse]' passed (0.002 seconds).
+ 4808: Test Case '-[MattermostTests.T44DCallsAPITests testPluginVersionRequestGoesToTheServerRootAndParses]' started.
+ 4809: Test Case '-[MattermostTests.T44DCallsAPITests testPluginVersionRequestGoesToTheServerRootAndParses]' passed (0.001 seconds).
+ 4810: Test Suite 'T44DCallsAPITests' passed at 2026-10-27 13:44:10.305.
+ 4811: 	 Executed 5 tests, with 0 failures (0 unexpected) in 0.006 (0.010) seconds
+ 4812: Test Suite 'T44DCallsCoordinatorTests' started at 2026-10-27 13:44:10.306.
+ 4813: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testAuthPhaseChangedDropsTheCallAndRememberedFacts]' started.
+ 4814: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testAuthPhaseChangedDropsTheCallAndRememberedFacts]' passed (0.016 seconds).
+ 4815: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator]' started.
+ 4816: T44D-DIAG elapsed=10.339667ms phase=ended ticks=1
+ 4817:    0.000 ms  bridge.enter
+ 4818:    0.003 ms  bridge.subscribed
+ 4819:    0.013 ms  bridge.task.started
+ 4820:    0.035 ms  model.start phase=idle
+ 4821:    0.058 ms  pump.task.started
+ 4822:    0.064 ms  model.engine.started
+ 4823:    0.078 ms  transport.push custom_com.mattermost.calls_call_end
+ 4824:    0.156 ms  bridge.raw
+ 4825:    0.201 ms  foldPhase joining from joining
+ 4826:    2.871 ms  bridge.yield callEnded(channelID: "chan1")
+ 4827:    2.927 ms  pump.event callEnded(channelID: "chan1")
+ 4828:    2.938 ms  foldPhase ended from joining
+ 4829: T44D-DIAG end
+ 4830: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator]' passed (0.012 seconds).
+
+====================================================================================================
+MUTATION M1 — the `call_end` fold removed: the clock-free rule reds instantly, the wire test reds at its hang detector (t44d-mut1b-no-fold)
+====================================================================================================
+--- build/logs/t44d-mut1b-no-fold.log
+  242: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator]' started.
+  243: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:377: error: -[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator] : XCTAssertEqual failed: ("joining") is not equal to ("ended")
+  244: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:378: error: -[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator] : XCTAssertNil failed: "Mattermost.CallsCallModel" - a call that ended is not offered by the header any more
+...
+  247: 2026-10-27 13:59:13.748914-0500 Mattermost[60757:15199181] [MMAuth] os_log_type_t(rawValue: 1).MMAuth: no webview session to adopt for Local Mattermost: notSignedIn @ Logger.swift.info(_:_:):66
+  248: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:403: error: -[MattermostTests.T44DCallsCoordinatorTests testCallEndFromTheSocketReachesTheModelAndReleasesTheCoordinator] : Asynchronous wait failed: Exceeded timeout of 30 seconds, with unfulfilled expectations: "the model folded call_end".
+  249: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:407: error: -[MattermostTests.T44DCallsCoordinatorTests testCallEndFromTheSocketReachesTheModelAndReleasesTheCoordinator] : XCTAssertEqual failed: ("joining") is not equal to ("ended")
+
+====================================================================================================
+MUTATION M2 — the event bridge cut out of `startCall`: only the wire test reds; both clock-free tests stay green (t44d-mut2b-no-bridge)
+====================================================================================================
+--- build/logs/t44d-mut2b-no-bridge.log
+  236: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator]' started.
+  237: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndedEndsTheSurfaceAndReleasesTheCoordinator]' passed (0.001 seconds).
+  238: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndFromTheSocketReachesTheModelAndReleasesTheCoordinator]' started.
+  239: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:403: error: -[MattermostTests.T44DCallsCoordinatorTests testCallEndFromTheSocketReachesTheModelAndReleasesTheCoordinator] : Asynchronous wait failed: Exceeded timeout of 30 seconds, with unfulfilled expectations: "the model folded call_end".
+  240: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:407: error: -[MattermostTests.T44DCallsCoordinatorTests testCallEndFromTheSocketReachesTheModelAndReleasesTheCoordinator] : XCTAssertEqual failed: ("joining") is not equal to ("ended")
+
+====================================================================================================
+MUTATION M3 — the terminal-phase rule removed: the resurrection is reproduced deterministically (t44d-mut3-no-terminal-rule)
+====================================================================================================
+--- build/logs/t44d-mut3-no-terminal-rule.log
+  228: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:434: error: -[MattermostTests.T44DCallsCoordinatorTests testASnapshotTakenBeforeTheEndCannotReopenTheCall] : XCTAssertEqual failed: ("joining") is not equal to ("ended") - a call that ended is not re-opened by a stale snapshot
+...
+  275: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsSurfaceTests.swift:158: error: -[MattermostTests.T44DCallsSurfaceTests testATerminalPhaseIsFinal] : XCTAssertEqual failed: ("joining") is not equal to ("ended")
+  276: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsSurfaceTests.swift:159: error: -[MattermostTests.T44DCallsSurfaceTests testATerminalPhaseIsFinal] : XCTAssertEqual failed: ("connected") is not equal to ("ended")
+  277: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsSurfaceTests.swift:160: error: -[MattermostTests.T44DCallsSurfaceTests testATerminalPhaseIsFinal] : XCTAssertEqual failed: ("reconnecting") is not equal to ("ended")
+  278: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsSurfaceTests.swift:161: error: -[MattermostTests.T44DCallsSurfaceTests testATerminalPhaseIsFinal] : XCTAssertEqual failed: ("joining") is not equal to ("failed("no mic")")
+  279: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsSurfaceTests.swift:162: error: -[MattermostTests.T44DCallsSurfaceTests testATerminalPhaseIsFinal] : XCTAssertEqual failed: ("connected") is not equal to ("failed("no mic")")
+
+====================================================================================================
+FREEZE (committed harness `scripts/qa-freeze-host.sh`, 4.5 s): the converted tests stay green, the remaining polling test reds (t44d-freeze4)
+====================================================================================================
+[qa-test] run: xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination platform=iOS Simulator,id=81A7F251-8B31-4945-8783-5A264C14B8D5 -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake/TestResults/t44d-freeze4-c01cae.xcresult -only-testing MattermostTests/T44DCallsCoordinatorTests -only-testing MattermostTests/T44DCallsSurfaceTests
+
+========================================================================
+run        : t44d-freeze4
+outcome    : finished (xcodebuild rc=65, 36s)
+tests      : 34 run, 0 skipped, 1 failed
+failed     : testDeniedMicrophoneStillJoinsAndExplainsItself
+  /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:494: error: -[MattermostTests.T44DCallsCoordinatorTests testDeniedMicrophoneStillJoinsAndExplainsItself] : failed - timed out waiting for connected without a mic
+log        : /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/build/logs/t44d-freeze4.log
+xcresult   : /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t44d-flake/TestResults/t44d-freeze4-c01cae.xcresult
+RESULT: FAIL
+--- build/logs/t44d-freeze4.log
+  117: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndFromTheSocketReachesTheModelAndReleasesTheCoordinator]' started.
+  118: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallEndFromTheSocketReachesTheModelAndReleasesTheCoordinator]' passed (0.006 seconds).
+  119: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testCallStateDrawsTheTilesAndResolvesNames]' started.
+...
+  121: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testDeniedMicrophoneStillJoinsAndExplainsItself]' started.
+  122: /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_21828c93/repro/MattermostTests/T44DCallsCoordinatorTests.swift:494: error: -[MattermostTests.T44DCallsCoordinatorTests testDeniedMicrophoneStillJoinsAndExplainsItself] : failed - timed out waiting for connected without a mic
+  123: Test Case '-[MattermostTests.T44DCallsCoordinatorTests testDeniedMicrophoneStillJoinsAndExplainsItself]' failed (5.125 seconds).
+
+====================================================================================================
+FIXED TREE — the two affected classes (t44d-fix-final-class)
+====================================================================================================
+--- build/logs/t44d-fix-final-class.log
+  186: Test Suite 'MattermostTests.xctest' passed at 2026-10-27 14:08:07.621.
+  187: 	 Executed 34 tests, with 0 failures (0 unexpected) in 1.419 (1.434) seconds
+  188: Test Suite 'Selected tests' passed at 2026-10-27 14:08:07.621.
+  189: 	 Executed 34 tests, with 0 failures (0 unexpected) in 1.419 (1.435) seconds
+  190: 2026-10-27 14:08:08.008 xcodebuild[64917:15260348] [MT] IDETestOperationsObserverDebug: 4.373 elapsed -- Testing started completed.
+
+====================================================================================================
+FREEZE WINDOW — watcher output for t44d-freeze2 (STOP/CONT timestamps)
+====================================================================================================
+13:48:39.757018000 waiting for: testAuthPhaseChangedDropsTheCallAndRememberedFacts]' passed
+13:49:30.196586000 STOP pid=51577
+13:49:34.769384000 CONT pid=51577 after 4.5s
+

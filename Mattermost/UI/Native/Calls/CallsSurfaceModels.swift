@@ -235,6 +235,19 @@ enum CallsSurfacePhase: Equatable, Sendable {
         }
     }
 
+    /// The phase that holds on screen when `next` is reported while `current` is the live one.
+    ///
+    /// A terminal phase is final. The two inputs that move this value are independent — an engine
+    /// snapshot is polled every 0.4 s and a `call_end` frame arrives on the socket — so a snapshot
+    /// taken just before the end can land just after it. Letting it through re-opens a call that is
+    /// over as "Joining…": measured in t_21828c93, where `.ended` reverted to `.joining` one
+    /// main-actor turn after the fold, and the end-of-call test's poll then never observed `.ended`.
+    /// A snapshot that was in flight when the call ended cannot be newer news than the end.
+    static func fold(_ current: CallsSurfacePhase,
+                     _ next: CallsSurfacePhase) -> CallsSurfacePhase {
+        current.isTerminal ? current : next
+    }
+
     /// Map the engine's state machine onto the screen's.
     ///
     /// `wasConnected` and `connectionState` are what make **reconnecting** observable: the engine

@@ -214,7 +214,10 @@ final class CallsCallModel: ObservableObject, Identifiable {
     }
 
     /// Read the engine's snapshot once and fold it into the screen state.
-    private func applySnapshot() async {
+    ///
+    /// Not `private`, like `handle`: this is the model's other input, and the test target drives it
+    /// directly to pin what a snapshot may and may not do (see `CallsSurfacePhase.fold`).
+    func applySnapshot() async {
         let snapshot = await engine.currentSnapshot()
         microphone = snapshot.microphonePermission
         if let reported = snapshot.call, reported != call {
@@ -237,9 +240,10 @@ final class CallsCallModel: ObservableObject, Identifiable {
 
     private func foldPhase(_ next: CallsSurfacePhase) {
         if next == .connected { wasConnected = true }
-        guard next != phase else { return }
-        phase = next
-        if next.isTerminal {
+        let folded = CallsSurfacePhase.fold(phase, next)
+        guard folded != phase else { return }
+        phase = folded
+        if folded.isTerminal {
             stopPumps()
             onEnded?()
         }
@@ -247,7 +251,13 @@ final class CallsCallModel: ObservableObject, Identifiable {
 
     // MARK: - Socket deltas
 
-    private func handle(_ event: CallsEvent) async {
+    /// Fold one frame the socket delivered.
+    ///
+    /// `startEventPump` is the only caller in the app; the method is deliberately not `private`,
+    /// because it *is* the surface's frame rules and the test target drives it directly (the same
+    /// shape `GlobalThreadsViewModel.handle` has). That lets a rule be pinned with no task, no
+    /// stream and no wall-clock budget between the call and the assertions.
+    func handle(_ event: CallsEvent) async {
         switch event {
         case .callState(let channelID, let reported):
             guard channelID.isEmpty || channelID == self.channelID else { return }
