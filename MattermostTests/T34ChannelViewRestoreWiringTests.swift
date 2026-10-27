@@ -49,11 +49,18 @@ final class T34ChannelViewRestoreWiringTests: XCTestCase {
         XCTAssertEqual(model.pendingScrollRestore?.postID, anchorID,
                        "the anchor is a request until the view acts on it")
 
-        let consumed = await waitUntil(timeout: 10) { model.pendingScrollRestore == nil }
-        XCTAssertTrue(consumed,
-                      "the list never consumed the pending anchor: no restore ran "
-                      + "(last report: \(model.lastScrollRestore?.summary ?? "none")). "
-                      + "Restore wiring in ChannelPostListView.restoreReader / .onChange(pendingScrollRestore)")
+        // The view's own writes are the signals: it records the report and then consumes the anchor, so
+        // both are mirrored from the model's publishers instead of polled (kanban t_00fb623c).
+        let reports = TestSignal<String>()
+        let reportMirror = mirrorPublished(model.$lastScrollRestore, into: reports) { $0?.postID ?? "" }
+        defer { reportMirror.cancel() }
+        let consumed = TestSignal<Bool>()
+        let pendingMirror = mirrorPublished(model.$pendingScrollRestore, into: consumed) { $0 == nil }
+        defer { pendingMirror.cancel() }
+
+        await awaitSignal("the list to perform the restore (ChannelPostListView.restoreReader / "
+                          + ".onChange(pendingScrollRestore))", signal: reports) { $0 == anchorID }
+        await awaitSignal("the list to consume the pending anchor", signal: consumed) { $0 }
 
         let report = try XCTUnwrap(model.lastScrollRestore,
                                    "no ScrollRestoreReport was published — the restore did not run")
@@ -80,15 +87,27 @@ final class T34ChannelViewRestoreWiringTests: XCTestCase {
 
         let anchorID = try XCTUnwrap(model.loadedPostIDs.first)
         model.requestScrollRestore(.init(postID: anchorID, offsetFromTop: 0))
-        let firstConsumed = await waitUntil(timeout: 10) { model.pendingScrollRestore == nil }
-        XCTAssertTrue(firstConsumed, "the first restore never ran")
+        let firstReports = TestSignal<String>()
+        let firstMirror = mirrorPublished(model.$lastScrollRestore, into: firstReports) { $0?.postID ?? "" }
+        await awaitSignal("the first restore to run", signal: firstReports) { $0 == anchorID }
+        firstMirror.cancel()
         let first = try XCTUnwrap(model.lastScrollRestore)
 
         model.requestScrollRestore(.init(postID: anchorID, offsetFromTop: 24))
-        let secondConsumed = await waitUntil(timeout: 10) {
-            model.pendingScrollRestore == nil && model.lastScrollRestore != first
+        // A second report *for the new offset* is the signal that the second restore ran; the pending
+        // anchor going back to nil is the second half (the view records, then consumes).
+        let secondReports = TestSignal<Double>()
+        let secondMirror = mirrorPublished(model.$lastScrollRestore, into: secondReports) {
+            Double($0?.recordedOffsetFromTop ?? -1)
         }
-        XCTAssertTrue(secondConsumed, "the second restore never ran")
+        defer { secondMirror.cancel() }
+        let consumed = TestSignal<Bool>()
+        let pendingMirror = mirrorPublished(model.$pendingScrollRestore, into: consumed) { $0 == nil }
+        defer { pendingMirror.cancel() }
+
+        await awaitSignal("the second restore to run", signal: secondReports) { $0 == 24 }
+        XCTAssertNotEqual(model.lastScrollRestore, first, "the report was replaced")
+        await awaitSignal("the second anchor to be consumed", signal: consumed) { $0 }
         XCTAssertEqual(model.lastScrollRestore?.recordedOffsetFromTop, 24)
     }
 
@@ -121,16 +140,6 @@ final class T34ChannelViewRestoreWiringTests: XCTestCase {
         window?.isHidden = true
         window?.rootViewController = nil
         window = nil
-    }
-
-    private func waitUntil(timeout: TimeInterval,
-                           _ condition: @MainActor () -> Bool) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if condition() { return true }
-            try? await Task.sleep(for: .milliseconds(50))
-        }
-        return condition()
     }
 
     // MARK: - Fixtures

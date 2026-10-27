@@ -60,18 +60,6 @@ final class T43RSocketLivenessTests: XCTestCase {
         return coordinator
     }
 
-    /// Poll until `condition` holds (the pump runs in its own task, so the test cannot await it directly).
-    private func waitUntil(_ description: String,
-                           timeout: TimeInterval = 5,
-                           _ condition: () -> Bool) async {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if condition() { return }
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
-        XCTFail("timed out waiting for: \(description)")
-    }
-
     // MARK: - The rule
 
     func testAStreamIsNotALiveSocket() async {
@@ -82,7 +70,9 @@ final class T43RSocketLivenessTests: XCTestCase {
         coordinator.onSocketStateChange = { _, live in states.append(live) }
 
         await coordinator.activate(server)
-        await waitUntil("the pump subscribes") { events.connectCount == 1 }
+        await awaitSignal("the pump subscribes", signal: events.connectSignal) { $0 == 1 }
+        // Absence check (pile b): "no report was made" has no event. Yielding only lets pending tasks
+        // run; it is not a deadline for a value to arrive in.
         for _ in 0..<100 { await Task.yield() }
 
         XCTAssertEqual(events.connectCount, 1, "the pump exists")
@@ -97,17 +87,21 @@ final class T43RSocketLivenessTests: XCTestCase {
         let events = T43RScriptedSocket()
         let coordinator = self.coordinator(events, navigation: navigation([server]))
         var states: [Bool] = []
-        coordinator.onSocketStateChange = { _, live in states.append(live) }
+        let live = TestSignal<Bool>()
+        coordinator.onSocketStateChange = { _, isLive in
+            states.append(isLive)
+            live.send(isLive)
+        }
 
         await coordinator.activate(server)
         // Subscribe first: an event emitted before the fake has a continuation would be dropped by the
         // fake, not by the code under test (the first draft of this file measured exactly that).
-        await waitUntil("the pump subscribes") { events.connectCount == 1 }
+        await awaitSignal("the pump subscribes", signal: events.connectSignal) { $0 == 1 }
         XCTAssertEqual(states, [])
 
         events.emit(.hello(SocketHello(connectionID: "conn-1", serverVersion: "9.11.19")),
                     serverID: server.id)
-        await waitUntil("the hello is consumed and the socket reported live") { states == [true] }
+        await awaitSignal("the hello is consumed and the socket reported live", signal: live) { $0 }
         XCTAssertEqual(states, [true], "one report, on the server's first event")
     }
 
@@ -116,19 +110,25 @@ final class T43RSocketLivenessTests: XCTestCase {
         let events = T43RScriptedSocket()
         let coordinator = self.coordinator(events, navigation: navigation([server]))
         var states: [Bool] = []
-        coordinator.onSocketStateChange = { _, live in states.append(live) }
+        let live = TestSignal<Bool>()
+        coordinator.onSocketStateChange = { _, isLive in
+            states.append(isLive)
+            live.send(isLive)
+        }
+        // Every event the pump hands on, in order — the signal form of
+        // `deliveredEventCount + refusedEventCount` (which is a poll of two counters).
+        let consumed = SignalCounter()
+        coordinator.onServerEvent = { _, _ in consumed.bump() }
 
         await coordinator.activate(server)
-        await waitUntil("the pump subscribes") { events.connectCount == 1 }
+        await awaitSignal("the pump subscribes", signal: events.connectSignal) { $0 == 1 }
         events.emit(.hello(SocketHello(connectionID: "conn-1", serverVersion: "9.11.19")),
                     serverID: server.id)
-        await waitUntil("the hello is consumed") { states == [true] }
+        await awaitSignal("the hello is consumed", signal: live) { $0 }
         events.emit(.posted(MMPost(id: "p1", createAt: 1, deleteAt: 0, userId: "u1",
                                    channelId: "c1", message: "hi", type: "")),
                     serverID: server.id)
-        await waitUntil("both events are consumed") {
-            coordinator.deliveredEventCount + coordinator.refusedEventCount >= 2
-        }
+        await awaitSignal("both events are consumed", signal: consumed.signal) { $0 >= 2 }
 
         XCTAssertEqual(states, [true], "liveness is a state, not a per-event counter")
     }
@@ -138,16 +138,20 @@ final class T43RSocketLivenessTests: XCTestCase {
         let events = T43RScriptedSocket()
         let coordinator = self.coordinator(events, navigation: navigation([server]))
         var states: [Bool] = []
-        coordinator.onSocketStateChange = { _, live in states.append(live) }
+        let live = TestSignal<Bool>()
+        coordinator.onSocketStateChange = { _, isLive in
+            states.append(isLive)
+            live.send(isLive)
+        }
 
         await coordinator.activate(server)
-        await waitUntil("the pump subscribes") { events.connectCount == 1 }
+        await awaitSignal("the pump subscribes", signal: events.connectSignal) { $0 == 1 }
         events.emit(.hello(SocketHello(connectionID: "conn-1", serverVersion: "9.11.19")),
                     serverID: server.id)
-        await waitUntil("live first") { states == [true] }
+        await awaitSignal("live first", signal: live) { $0 }
 
         await events.close(serverID: server.id)
-        await waitUntil("the pump ends and liveness is withdrawn") { states == [true, false] }
+        await awaitSignal("the pump ends and liveness is withdrawn", signal: live) { !$0 }
         XCTAssertEqual(states, [true, false])
     }
 }
@@ -186,9 +190,13 @@ private final class T43RScriptedSocket: TeamEventSourcing {
     private(set) var connectCount = 0
     private(set) var openConnectionCount = 0
     private var continuations: [UUID: AsyncStream<SocketEvent>.Continuation] = [:]
+    /// Fires with the running count of `events(for:token:)` calls — the pump's subscription as a
+    /// signal instead of a poll of `connectCount`.
+    let connectSignal = TestSignal<Int>()
 
     func events(for server: ServerConfig, token: String) async -> AsyncStream<SocketEvent>? {
         connectCount += 1
+        connectSignal.send(connectCount)
         let (stream, continuation) = AsyncStream.makeStream(of: SocketEvent.self,
                                                             bufferingPolicy: .bufferingNewest(64))
         if continuations[server.id] == nil { openConnectionCount += 1 }

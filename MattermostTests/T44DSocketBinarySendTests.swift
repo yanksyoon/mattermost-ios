@@ -23,6 +23,11 @@ final class T44DSocketBinarySendTests: XCTestCase {
         private var binaryFrames: [Data] = []
         private var textFrames: [String] = []
 
+        /// Every text frame the client writes, so "the open was handled" is a signal (the auth
+        /// challenge) rather than a poll of `client.state`. `SocketClient.handleOpen()` sets
+        /// `state = .open` *before* it writes the challenge, so the frame proves the open landed.
+        let textSignal = TestSignal<String>()
+
         init() {
             let (stream, continuation) = AsyncStream.makeStream(of: SocketTransportEvent.self,
                                                                 bufferingPolicy: .bufferingNewest(64))
@@ -43,8 +48,10 @@ final class T44DSocketBinarySendTests: XCTestCase {
         func resume() {}
 
         func send(text: String) async throws {
-            lock.lock(); defer { lock.unlock() }
+            lock.lock()
             textFrames.append(text)
+            lock.unlock()
+            textSignal.send(text)
         }
 
         func send(data: Data) async throws {
@@ -94,7 +101,9 @@ final class T44DSocketBinarySendTests: XCTestCase {
         let transport = BinaryCapableTransport()
         let harness = await makeHarness(transport: transport)
         transport.push(.opened)
-        await waitUntil("socket open") { await harness.client.state == .open }
+        await awaitSignal("the authentication challenge", signal: transport.textSignal) {
+            $0.contains("authentication_challenge")
+        }
 
         let frame = Data([0x81, 0xa4, 0x74, 0x65, 0x73, 0x74])  // msgpack-ish bytes; contents are opaque
         // The open path already wrote the auth challenge as *text*; only frames written after this
@@ -115,7 +124,9 @@ final class T44DSocketBinarySendTests: XCTestCase {
         let transport = ScriptedSocketTransport()  // does not implement send(data:)
         let harness = await makeHarness(transport: transport)
         transport.push(.opened)
-        await waitUntil("socket open") { await harness.client.state == .open }
+        await awaitSignal("the authentication challenge", signal: transport.sentSignal) {
+            $0.contains("authentication_challenge")
+        }
 
         do {
             try await harness.client.sendBinaryFrame(Data([0x00]))

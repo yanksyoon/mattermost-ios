@@ -824,6 +824,16 @@ final class T31AuthCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.authState(for: server), .signedIn)
         notifications.removeAll()
 
+        // `setPhase` writes the phase and *then* calls `onChange`, so the notification is the signal
+        // that the transition landed — no poll of `phase(for:)` (kanban t_00fb623c). Installed after
+        // the sign-in on purpose: the earlier `.signedIn` notification would otherwise satisfy it.
+        let phaseChanges = TestSignal<UUID>()
+        let serverID = server.id
+        coordinator.onChange = { changedID in
+            notifications.append(changedID)
+            phaseChanges.send(changedID)
+        }
+
         // A screen's first GET, on the client the coordinator injected — not a restore.
         do {
             _ = try await client.get(MMUser.self, path: "/users/me", useETag: false)
@@ -832,7 +842,8 @@ final class T31AuthCoordinatorTests: XCTestCase {
             XCTAssertEqual(error as? MMError, .unauthorized(message: "Session expired"))
         }
 
-        try await waitUntil("the expiry transition") { coordinator.phase(for: server.id) == .expired }
+        await awaitSignal("the expiry transition", signal: phaseChanges) { $0 == serverID }
+        XCTAssertEqual(coordinator.phase(for: server.id), .expired)
         XCTAssertNil(vault.getSecret(key: .authToken, serverURL: serverURL))
         XCTAssertEqual(cookies.cleared.map(\.serverID), [server.id],
                        "one 401 → one cookie clear (the sink and the call site both notice)")
@@ -970,17 +981,6 @@ final class T31AuthCoordinatorTests: XCTestCase {
         return (coordinator, try XCTUnwrap(created, "the coordinator did not build a session"))
     }
 
-    /// Poll `condition` until it holds; XCTest has no async expectation for a main-actor object.
-    private func waitUntil(_ what: String,
-                           timeout: TimeInterval = 3,
-                           _ condition: () -> Bool) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if condition() { return }
-            try await Task.sleep(nanoseconds: 20_000_000)
-        }
-        XCTFail("timed out waiting for \(what)")
-    }
 }
 
 // MARK: - Error copy (every branch the AV finding named)

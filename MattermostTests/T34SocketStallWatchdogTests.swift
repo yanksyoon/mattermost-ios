@@ -36,6 +36,14 @@ final class T34SocketStallWatchdogTests: XCTestCase {
     /// loops on one clock and which of them parks first is up to the scheduler, so "release the next
     /// sleep" could advance the wrong loop and make the test assert about the wrong thing.
     final class SteppedSocketClock: SocketClock, @unchecked Sendable {
+        /// One park, as a signal value: which duration, and how many times *that* duration has parked.
+        /// The ordinal is what makes "the second 30 s sleep" awaitable — a bare duration would let the
+        /// second wait match the first park (kanban t_00fb623c).
+        struct Park: Sendable, Equatable {
+            let seconds: TimeInterval
+            let ordinal: Int
+        }
+
         private struct Waiter {
             let id: UUID
             let seconds: TimeInterval
@@ -46,6 +54,10 @@ final class T34SocketStallWatchdogTests: XCTestCase {
         private let lock = NSLock()
         private var waiters: [Waiter] = []
         private var current: Date
+        private var parkCounts: [TimeInterval: Int] = [:]
+
+        /// Fires for every sleep that reaches its park, with its ordinal.
+        let parkSignal = TestSignal<Park>()
 
         init(_ start: Date = Date(timeIntervalSince1970: 1_800_000_000)) {
             self.current = start
@@ -100,7 +112,10 @@ final class T34SocketStallWatchdogTests: XCTestCase {
                         return
                     }
                     waiters[index].continuation = continuation
+                    parkCounts[seconds, default: 0] += 1
+                    let ordinal = parkCounts[seconds] ?? 0
                     lock.unlock()
+                    parkSignal.send(Park(seconds: seconds, ordinal: ordinal))
                 }
             } onCancel: {
                 self.release(id: id)
@@ -250,6 +265,10 @@ final class T34SocketStallWatchdogTests: XCTestCase {
         let factory: ScriptedTransportFactory
         let server: ServerConfig
         let transport: ScriptedSocketTransport
+        /// Events the rail forwarded to the pane, bumped *after* the pane handled each one.
+        let delivered: SignalCounter
+        /// Refetches the rail asked the pane for, bumped after `pane.resync` returned.
+        let resynced: SignalCounter
     }
 
     private func makeHarness(pages: [MMPostList],
@@ -278,43 +297,49 @@ final class T34SocketStallWatchdogTests: XCTestCase {
                                          makeService: { _ in FakeTeamSidebarService() },
                                          tokenProvider: { _ in "tok-socket" })
         // The app's own wirings (`MattermostApp.bindShellStores`): a delivered event reaches the pane, a
-        // gap makes the pane refetch, and the watchdog's visibility gate is answered by the shell.
+        // gap makes the pane refetch, and the watchdog's visibility gate is answered by the shell. The
+        // counters are the test's observation point — bumped after the pane finished, so "the refetch
+        // landed" is a signal, not a poll of `model.post(id:)` or `rail.socketResyncCount`.
+        let delivered = SignalCounter()
+        let resynced = SignalCounter()
         rail.onTeamEvent = { [weak pane] serverID, event in
-            Task { await pane?.handle(event, serverID: serverID) }
+            Task {
+                await pane?.handle(event, serverID: serverID)
+                delivered.bump()
+            }
         }
         rail.onSocketResync = { [weak pane] serverID in
-            Task { await pane?.resync(serverID: serverID) }
+            Task {
+                await pane?.resync(serverID: serverID)
+                resynced.bump()
+            }
         }
         rail.isSurfaceVisible = { _ in visible }
         await rail.activate(server)
         return AppHarness(rail: rail, pane: pane, source: source, channelService: channelService,
                           factory: factory, server: server,
-                          transport: transports.isEmpty ? ScriptedSocketTransport() : transports[0])
+                          transport: transports.isEmpty ? ScriptedSocketTransport() : transports[0],
+                          delivered: delivered, resynced: resynced)
     }
 
-    private func waitUntil(_ what: String,
-                           timeout: TimeInterval = 10,
-                           file: StaticString = #filePath,
-                           line: UInt = #line,
-                           _ condition: @MainActor () -> Bool) async {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if condition() { return }
-            try? await Task.sleep(nanoseconds: 20_000_000)
-        }
-        XCTFail("timed out after \(Int(timeout))s waiting for \(what)", file: file, line: line)
-    }
+    /// How many times each duration has been stepped in this test, so `step` waits for the *next* park of
+    /// that duration and not one that already happened.
+    private var steppedParks: [TimeInterval: Int] = [:]
 
     /// Release one parked sleep of `seconds` on a `SteppedSocketClock`, waiting until it is parked.
+    ///
+    /// The wait is a signal (`parkSignal`), not a poll: the clock records each park with its ordinal, so
+    /// the second 30 s sleep is awaitable even though the first one is already history.
     private func step(_ clock: SteppedSocketClock, _ seconds: TimeInterval,
                       file: StaticString = #filePath, line: UInt = #line) async {
-        await waitUntil("a \(Int(seconds))s sleep to park", timeout: 5, file: file, line: line) {
-            clock.parked(seconds) > 0
-        }
+        let ordinal = (steppedParks[seconds] ?? 0) + 1
+        steppedParks[seconds] = ordinal
+        let parked = await clock.parkSignal.wait(until: {
+            $0.seconds == seconds && $0.ordinal >= ordinal
+        })
+        XCTAssertTrue(parked, "no parked \(Int(seconds))s sleep to release", file: file, line: line)
         let released = clock.release(seconds)
         XCTAssertTrue(released, "no parked \(Int(seconds))s sleep to release", file: file, line: line)
-        // Let the released loop run to its next await before the next step or assertion.
-        try? await Task.sleep(nanoseconds: 30_000_000)
     }
 
     // MARK: - The card's scenario
@@ -340,10 +365,10 @@ final class T34SocketStallWatchdogTests: XCTestCase {
         XCTAssertEqual(model.loadedPostIDs, ["a"], "the pane starts on the newest page")
         XCTAssertEqual(harness.channelService.firstPageRequests, 1)
 
-        await waitUntil("the first connection") { harness.factory.created.count == 1 }
+        await awaitSignal("the first connection", signal: harness.factory.createdSignal) { $0 == 1 }
         transport.push(.opened)
-        await waitUntil("the authentication challenge") {
-            transport.sent.contains { $0.contains("authentication_challenge") }
+        await awaitSignal("the authentication challenge", signal: transport.sentSignal) {
+            $0.contains("authentication_challenge")
         }
         XCTAssertEqual(harness.rail.socketResyncCount, 0, "a first connect is not a gap")
 
@@ -351,16 +376,19 @@ final class T34SocketStallWatchdogTests: XCTestCase {
         // the first pong was consumed (the heartbeat recycles on one missed pong), so this pair proves
         // the socket is *pingable* while delivering nothing — the distinction the watchdog exists for.
         await step(clock, heartbeatInterval)
-        await waitUntil("the first ping") { transport.pongsAnswered == 1 }
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        await awaitSignal("the first ping", signal: transport.pongSignal) { $0 == 1 }
         await step(clock, heartbeatInterval)
-        await waitUntil("the second ping") { transport.pongsAnswered == 2 }
+        // `heartbeatTick` recycles when `missedPongs >= maxMissedPongs` and only otherwise writes the
+        // ping, so a *second* answered ping is itself the proof that the first pong was folded before
+        // the next tick was released — no settle for it (kanban t_00fb623c).
+        await awaitSignal("the second ping", signal: transport.pongSignal) { $0 == 2 }
         XCTAssertEqual(harness.factory.created.count, 1, "the pong was consumed, so no recycle happened")
         XCTAssertEqual(harness.rail.socketResyncCount, 0, "a pong is liveness, not delivery")
 
         // No server event for the window while the channel is on screen ⇒ a gap, repaired.
         await step(clock, watchdog.checkInterval)
-        await waitUntil("the stalled delivery to be repaired") { model.post(id: "b") != nil }
+        await awaitSignal("the stalled delivery to be repaired", signal: harness.resynced.signal) { $0 == 1 }
+        XCTAssertNotNil(model.post(id: "b"), "the refetch is what puts the lost post on screen")
 
         XCTAssertEqual(model.loadedPostIDs, ["b", "a"], "the window is the server's, in its order")
         XCTAssertEqual(harness.channelService.firstPageRequests, 2, "one load plus exactly one stall sweep")
@@ -388,13 +416,15 @@ final class T34SocketStallWatchdogTests: XCTestCase {
                                         visible: false)
         let model = try XCTUnwrap(harness.pane.activeModel(serverID: harness.server.id, channelID: channelID))
 
-        await waitUntil("the first connection") { harness.factory.created.count == 1 }
+        await awaitSignal("the first connection", signal: harness.factory.createdSignal) { $0 == 1 }
         transport.push(.opened)
-        await waitUntil("the authentication challenge") {
-            transport.sent.contains { $0.contains("authentication_challenge") }
+        await awaitSignal("the authentication challenge", signal: transport.sentSignal) {
+            $0.contains("authentication_challenge")
         }
 
-        // Well past the window: 30 s of heartbeat plus three checks.
+        // Well past the window: 30 s of heartbeat plus three checks. The 150 ms at the end is a fixed
+        // *absence* window (pile b): there is no event for "the watchdog did not fire", so a bounded
+        // settle is the only way to give a wrong fire the chance to happen.
         await step(clock, heartbeatInterval)
         for _ in 0..<3 { await step(clock, watchdog.checkInterval) }
         try? await Task.sleep(nanoseconds: 150_000_000)
@@ -425,21 +455,21 @@ final class T34SocketStallWatchdogTests: XCTestCase {
                                         visible: true)
         let model = try XCTUnwrap(harness.pane.activeModel(serverID: harness.server.id, channelID: channelID))
 
-        await waitUntil("the first connection") { harness.factory.created.count == 1 }
+        await awaitSignal("the first connection", signal: harness.factory.createdSignal) { $0 == 1 }
         first.push(.opened)
-        await waitUntil("the authentication challenge") {
-            first.sent.contains { $0.contains("authentication_challenge") }
+        await awaitSignal("the authentication challenge", signal: first.sentSignal) {
+            $0.contains("authentication_challenge")
         }
         XCTAssertEqual(harness.rail.socketResyncCount, 0)
 
         first.close()
-        await waitUntil("the reconnect") { harness.factory.created.count == 2 }
+        await awaitSignal("the reconnect", signal: harness.factory.createdSignal) { $0 == 2 }
         second.push(.opened)
-        await waitUntil("the reconnect's own resync") { harness.rail.socketResyncCount == 1 }
+        await awaitSignal("the reconnect's own resync", signal: harness.resynced.signal) { $0 == 1 }
         XCTAssertEqual(harness.channelService.firstPageRequests, 2, "one load plus the reconnect sweep")
         XCTAssertEqual(harness.source.stallResyncCount, 0)
 
-        // Below the window since the open: the watchdog must stay quiet.
+        // Below the window since the open: the watchdog must stay quiet. Absence, so a fixed settle.
         now.advance(watchdog.threshold - 10)
         try? await Task.sleep(nanoseconds: 150_000_000)
         XCTAssertEqual(harness.rail.socketResyncCount, 1, "the open reset the watchdog's clock")
@@ -447,7 +477,7 @@ final class T34SocketStallWatchdogTests: XCTestCase {
 
         // Past the window, still silent: that *is* the wedge again, and it is repaired again.
         now.advance(20)
-        await waitUntil("the stall after the reconnect") { harness.rail.socketResyncCount == 2 }
+        await awaitSignal("the stall after the reconnect", signal: harness.resynced.signal) { $0 == 2 }
         XCTAssertEqual(harness.source.stallResyncCount, 1)
         XCTAssertEqual(harness.pane.resyncCount, 2)
         XCTAssertEqual(harness.channelService.firstPageRequests, 3)
@@ -467,20 +497,25 @@ final class T34SocketStallWatchdogTests: XCTestCase {
                                         visible: true)
         let model = try XCTUnwrap(harness.pane.activeModel(serverID: harness.server.id, channelID: channelID))
 
-        await waitUntil("the first connection") { harness.factory.created.count == 1 }
+        await awaitSignal("the first connection", signal: harness.factory.createdSignal) { $0 == 1 }
         transport.push(.opened)
-        await waitUntil("the authentication challenge") {
-            transport.sent.contains { $0.contains("authentication_challenge") }
+        await awaitSignal("the authentication challenge", signal: transport.sentSignal) {
+            $0.contains("authentication_challenge")
         }
 
         // Four events, each a little under the window apart: 120 virtual seconds of a *live* socket.
+        // Each post is awaited as the pane's delivery signal, so "it arrived" is not a poll.
         for index in 0..<4 {
             now.advance(watchdog.threshold - 10)
             let id = "live-\(index)"
             transport.pushEvent("posted", seq: index + 1,
                                 data: ["post": try Self.postJSON(post(id, at: 3_000 + Int64(index)))])
-            await waitUntil("the delivered post \(id)") { model.post(id: id) != nil }
+            await awaitSignal("the delivered post \(id)", signal: harness.delivered.signal) {
+                $0 == index + 1
+            }
+            XCTAssertNotNil(model.post(id: id), "the socket's frame reached the window")
         }
+        // Absence window: no event exists for "the watchdog did not fire".
         try? await Task.sleep(nanoseconds: 150_000_000)
 
         XCTAssertEqual(harness.rail.socketResyncCount, 0, "events are delivery: no gap")
@@ -511,15 +546,16 @@ final class T34SocketStallWatchdogTests: XCTestCase {
             now: clock.provider,
             resync: { reason in await recorder.record(reason) })
         await client.start()
-        await waitUntil("the transport") { factory.created.count == 1 }
+        await awaitSignal("the transport", signal: factory.createdSignal) { $0 == 1 }
         transport.push(.opened)
-        await waitUntil("the authentication challenge") {
-            transport.sent.contains { $0.contains("authentication_challenge") }
+        await awaitSignal("the authentication challenge", signal: transport.sentSignal) {
+            $0.contains("authentication_challenge")
         }
 
         XCTAssertEqual(clock.parked(watchdog.checkInterval), 0,
                        "no visibility answer ⇒ no watchdog loop at all")
         clock.advance(watchdog.threshold * 4)
+        // Absence window: no loop exists to publish "I did not fire".
         try? await Task.sleep(nanoseconds: 100_000_000)
         XCTAssertEqual(recorder.reasons, [])
         let delivered = await client.deliveredEventCount

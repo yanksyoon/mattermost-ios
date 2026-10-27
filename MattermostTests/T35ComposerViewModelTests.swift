@@ -11,6 +11,7 @@
 // Behaviour reference: mattermost/mattermost-mobile @ v2.45.0 (`app/components/post_draft/`,
 // `app/screens/edit_post/`); licence Apache-2.0, see docs/THIRD_PARTY_NOTICES.md §12.
 
+import Combine
 import XCTest
 @testable import Mattermost
 
@@ -50,6 +51,11 @@ final class T35ComposerViewModelTests: XCTestCase {
         private(set) var uploadedChannelIDs: [String] = []
         private(set) var uploadedFilenames: [String] = []
         private(set) var uploadAttempts = 0
+        /// The terms the composer asked about, as signals: a test awaits "the first request left" or "the
+        /// newer term's answer" instead of polling `userTerms` / `channelTerms` (kanban t_00fb623c).
+        let userTermSignal = TestSignal<String>()
+        /// `"term|teamID"`, so the value is a plain `String` (tuples are not generic arguments).
+        let channelTermSignal = TestSignal<String>()
 
         func createPost(_ body: ComposerPostBody) async throws -> MMPost {
             createBodies.append(body)
@@ -103,12 +109,14 @@ final class T35ComposerViewModelTests: XCTestCase {
 
         func users(term: String, channelID: String, teamID: String?, limit: Int) async throws -> [MMUser] {
             userTerms.append(term)
+            userTermSignal.send(term)
             if let delay = userDelays[term] { try? await Task.sleep(for: delay) }
             return userResults[term] ?? []
         }
 
         func channels(term: String, teamID: String, limit: Int) async throws -> [MMChannel] {
             channelTerms.append((term, teamID))
+            channelTermSignal.send("\(term)|\(teamID)")
             return channelResults
         }
 
@@ -139,18 +147,79 @@ final class T35ComposerViewModelTests: XCTestCase {
         func post(withPendingID pendingID: String) -> MMPost? { landed[pendingID] }
     }
 
+    /// The in-memory draft store behind a signal, so "the keystroke is on disk" is a value the store
+    /// recorded rather than a poll of `drafts.load(...)` (kanban t_00fb623c).
+    ///
+    /// Behaviour is the product store's — every call is delegated to it — so the draft rules under test
+    /// still run against the real implementation; only the observation is added.
+    @MainActor
+    final class SignallingDraftStore: ComposerDraftStoring {
+        private let inner = InMemoryComposerDraftStore()
+        /// Each write, as the draft that landed (`nil` for a delete).
+        let writeSignal = TestSignal<ComposerDraft?>()
+
+        var count: Int { inner.count }
+
+        func load(channelID: String, rootID: String) async -> ComposerDraft? {
+            await inner.load(channelID: channelID, rootID: rootID)
+        }
+
+        func save(_ draft: ComposerDraft) async {
+            await inner.save(draft)
+            writeSignal.send(draft.isEmpty ? nil : draft)
+        }
+
+        func delete(channelID: String, rootID: String) async {
+            await inner.delete(channelID: channelID, rootID: rootID)
+            writeSignal.send(nil)
+        }
+
+        func allDrafts(limit: Int) async -> [ComposerDraft] { await inner.allDrafts(limit: limit) }
+
+        func clear() async { await inner.clear() }
+    }
+
     private var service: FakeComposerService!
     private var sink: RecordingSink!
-    private var drafts: InMemoryComposerDraftStore!
+    private var drafts: SignallingDraftStore!
     private var model: ComposerViewModel!
+    /// Live subscriptions that mirror the model's publishers into signals; kept for the test's lifetime.
+    private var mirrors: [AnyCancellable] = []
 
     override func setUp() async throws {
         service = FakeComposerService()
         sink = RecordingSink()
-        drafts = InMemoryComposerDraftStore()
+        drafts = SignallingDraftStore()
+        mirrors.removeAll()
         model = ComposerViewModel(channelID: channelID, service: service, drafts: drafts,
                                   sink: sink, teamID: "team-1", myUserID: "u1",
                                   autocompleteDebounce: .zero)
+    }
+
+    // MARK: - Signals
+
+    /// The first attachment's state, as the model publishes it — so "the upload finished" / "uploading" /
+    /// "failed" are awaited values instead of a poll of `model.attachments` (kanban t_00fb623c).
+    private func attachmentStates() -> TestSignal<ComposerAttachment.State?> {
+        let signal = TestSignal<ComposerAttachment.State?>()
+        mirrors.append(mirrorPublished(model.$attachments, into: signal) { $0.first?.state })
+        return signal
+    }
+
+    /// Whether the suggestion list has anything in it, as the model publishes it.
+    private func suggestionsSignal() -> TestSignal<Bool> {
+        let signal = TestSignal<Bool>()
+        mirrors.append(mirrorPublished(model.$suggestions, into: signal) { !$0.isEmpty })
+        return signal
+    }
+
+    /// The suggestion values for one kind, in the order the model published them.
+    private func suggestionValues(_ kind: ComposerSuggestion.Kind) -> TestSignal<[String]> {
+        let signal = TestSignal<[String]>()
+        mirrors.append(mirrorPublished(model.$suggestions, into: signal) { suggestions in
+            suggestions.filter { $0.kind == kind }.map(\.value)
+        })
+        return signal
     }
 
     private func serverPost(id: String, message: String, rootID: String = "",
@@ -195,8 +264,10 @@ final class T35ComposerViewModelTests: XCTestCase {
         service.createDelay = .milliseconds(80)
 
         model.textChanged("hello", caret: 5)
+        let sending = TestSignal<Bool>()
+        mirrors.append(mirrorPublished(model.$phase, into: sending) { $0 == .sending })
         let first = Task { await self.model.send() }
-        await waitUntil("the create to be in flight") { self.model.phase == .sending }
+        await awaitSignal("the create to be in flight", signal: sending) { $0 }
         await model.send()          // must be a no-op: `canSend` is false while sending
         await first.value
 
@@ -279,9 +350,11 @@ final class T35ComposerViewModelTests: XCTestCase {
 
     func testTheDraftIsWrittenOnTypingAndRestoredByANewComposer() async {
         model.textChanged("half a thought", caret: 14)
-        await waitUntil("the debounced draft write") {
-            await self.drafts.load(channelID: self.channelID, rootID: "") != nil
+        await awaitSignal("the debounced draft write", signal: drafts.writeSignal) {
+            $0?.message == "half a thought"
         }
+        let stored = await drafts.load(channelID: channelID, rootID: "")
+        XCTAssertEqual(stored?.message, "half a thought", "the draft is on the store")
 
         // A relaunch: a brand-new model over the same store.
         let reopened = ComposerViewModel(channelID: channelID, service: service, drafts: drafts,
@@ -298,16 +371,14 @@ final class T35ComposerViewModelTests: XCTestCase {
     /// text is on disk as soon as the keystroke has been handled, with no timer in between.
     func testEveryKeystrokeIsOnDiskWithoutWaitingForATimer() async {
         model.textChanged("k", caret: 1)
-        await waitUntil("the first keystroke's write") {
-            await self.drafts.load(channelID: self.channelID, rootID: "")?.message == "k"
-        }
+        await awaitSignal("the first keystroke's write", signal: drafts.writeSignal) { $0?.message == "k" }
         // A burst: each change is in the store as soon as its write lands, the last one included.
         for length in 2...12 {
             let text = String("keep me and".prefix(length))
             model.textChanged(text, caret: length)
         }
-        await waitUntil("the last keystroke's write") {
-            await self.drafts.load(channelID: self.channelID, rootID: "")?.message == "keep me and"
+        await awaitSignal("the last keystroke's write", signal: drafts.writeSignal) {
+            $0?.message == "keep me and"
         }
         // A relaunch reads exactly what was typed, from a brand-new model over the same store.
         let reopened = ComposerViewModel(channelID: channelID, service: service, drafts: drafts,
@@ -360,10 +431,10 @@ final class T35ComposerViewModelTests: XCTestCase {
         model.textChanged("gone", caret: 4)
         await model.saveDraftNow()
         await model.send()
-        // The clear is fire-and-forget on success; give it a turn to land.
-        await waitUntil("the draft row to be deleted") {
-            await self.drafts.load(channelID: self.channelID, rootID: "") == nil
-        }
+        // The clear is fire-and-forget on success: the store's own delete is the signal that it landed.
+        await awaitSignal("the draft row to be deleted", signal: drafts.writeSignal) { $0 == nil }
+        let cleared = await drafts.load(channelID: channelID, rootID: "")
+        XCTAssertNil(cleared, "the draft row is gone")
     }
 
     // MARK: - Edit and delete
@@ -442,7 +513,7 @@ final class T35ComposerViewModelTests: XCTestCase {
         service.members = ComposerMembership.MemberList(ids: ["u1"], isComplete: true)
 
         model.textChanged("@ki", caret: 3)
-        await waitUntil("the mention list") { !self.model.suggestions.isEmpty }
+        await awaitSignal("the mention list", signal: suggestionsSignal()) { $0 }
         XCTAssertEqual(model.suggestions.filter { $0.kind == .user }.map(\.value), ["kim"])
         XCTAssertEqual(service.userTerms, ["ki"])
     }
@@ -452,7 +523,7 @@ final class T35ComposerViewModelTests: XCTestCase {
         service.memberListError = MMError.timeout
 
         model.textChanged("@ki", caret: 3)
-        await waitUntil("the mention list") { !self.model.suggestions.isEmpty }
+        await awaitSignal("the mention list", signal: suggestionsSignal()) { $0 }
         XCTAssertEqual(model.suggestions.filter { $0.kind == .user }.map(\.value), ["kimbo"])
     }
 
@@ -465,12 +536,13 @@ final class T35ComposerViewModelTests: XCTestCase {
         service.userDelays["ki"] = .milliseconds(120)
 
         model.textChanged("@ki", caret: 3)
-        await waitUntil("the first request to leave") { self.service.userTerms == ["ki"] }
+        await awaitSignal("the first request to leave", signal: service.userTermSignal) { $0 == "ki" }
         model.textChanged("@kim", caret: 4)
-        await waitUntil("the newer term's answer") {
-            self.model.suggestions.contains { $0.value == "kimb" }
+        await awaitSignal("the newer term's answer", signal: suggestionValues(.user)) {
+            $0.contains("kimb")
         }
-        // Give the superseded answer time to land, then confirm it changed nothing.
+        // Absence window (pile b): the superseded answer arrives late, and there is no event for
+        // "nothing changed" — a bounded settle is the only way to give the wrong write a chance.
         try? await Task.sleep(for: .milliseconds(250))
         XCTAssertEqual(model.suggestions.filter { $0.kind == .user }.map(\.value), ["kimb"])
     }
@@ -478,9 +550,7 @@ final class T35ComposerViewModelTests: XCTestCase {
     func testChannelsComeFromTheTeamSearchAndInsertATilde() async {
         service.channelResults = [MMChannel(id: "c9", name: "town square", displayName: "Town Square")]
         model.textChanged("see #town", caret: 9)
-        await waitUntil("the channel list") {
-            self.model.suggestions.contains { $0.kind == .channel }
-        }
+        await awaitSignal("the channel list", signal: suggestionValues(.channel)) { !$0.isEmpty }
         let channel = model.suggestions.first { $0.kind == .channel }
         XCTAssertEqual(channel?.insertion, "~town-square")
         XCTAssertEqual(service.channelTerms.first?.teamID, "team-1")
@@ -488,7 +558,7 @@ final class T35ComposerViewModelTests: XCTestCase {
 
     func testEmojiComeFromTheBuiltInTableAndTheServersCatalogue() async {
         model.textChanged(":tad", caret: 4)
-        await waitUntil("the emoji list") { !self.model.suggestions.isEmpty }
+        await awaitSignal("the emoji list", signal: suggestionsSignal()) { $0 }
         XCTAssertEqual(model.suggestions.first?.value, "tada")
         XCTAssertEqual(model.suggestions.first?.insertion, ":tada:")
     }
@@ -507,8 +577,12 @@ final class T35ComposerViewModelTests: XCTestCase {
     // MARK: - 5. Uploads
 
     func testAnAttachmentUploadsWithProgressFromTheTransport() async {
+        let states = attachmentStates()
         model.add(ComposerUpload(filename: "a.png", mimeType: "image/png", data: Data([1, 2, 3])))
-        await waitUntil("the upload to finish") { self.model.attachments.first?.isUploaded == true }
+        await awaitSignal("the upload to finish", signal: states) {
+            if case .uploaded = $0 { return true }
+            return false
+        }
 
         let attachment = model.attachments[0]
         XCTAssertEqual(attachment.fileID, "file-1")
@@ -522,27 +596,33 @@ final class T35ComposerViewModelTests: XCTestCase {
 
     func testUploadProgressComesFromTheTransportsByteCount() async {
         service.uploadDelay = .milliseconds(200)
+        let states = attachmentStates()
         model.add(ComposerUpload(filename: "a.png", mimeType: "image/png", data: Data([1, 2, 3])))
         // The transport reported 1 of 3 bytes; the row must show a fraction, not a spinner that
         // guesses. 1/3 is what the fake sent, so the number on screen is the number the stack gave.
-        await waitUntil("a progress report on the attachment") {
-            if case .uploading(let progress) = self.model.attachments.first?.state {
-                return progress > 0
-            }
+        await awaitSignal("a progress report on the attachment", signal: states) {
+            if case .uploading(let progress) = $0 { return progress > 0 }
             return false
         }
-        if case .uploading(let progress) = model.attachments[0].state {
+        if case .uploading(let progress) = states.recorded.last {
             XCTAssertEqual(progress, 1.0 / 3.0, accuracy: 0.001)
         } else {
-            XCTFail("expected the attachment to be uploading, was \(model.attachments[0].state)")
+            XCTFail("expected the attachment to be uploading, was \(String(describing: states.recorded.last))")
         }
-        await waitUntil("the upload to finish") { self.model.attachments.first?.isUploaded == true }
+        await awaitSignal("the upload to finish", signal: states) {
+            if case .uploaded = $0 { return true }
+            return false
+        }
     }
 
     func testAnUploadedAttachmentLetsAnEmptyMessageBeSentAndRidesAlong() async {
         service.createResults = [.success(serverPost(id: "p1", message: ""))]
+        let states = attachmentStates()
         model.add(ComposerUpload(filename: "a.png", mimeType: "image/png", data: Data([1, 2, 3])))
-        await waitUntil("the upload to finish") { self.model.attachments.first?.isUploaded == true }
+        await awaitSignal("the upload to finish", signal: states) {
+            if case .uploaded = $0 { return true }
+            return false
+        }
         XCTAssertTrue(model.canSend)
 
         await model.send()
@@ -551,18 +631,26 @@ final class T35ComposerViewModelTests: XCTestCase {
 
     func testSendIsBlockedWhileAnUploadIsStillInFlight() async {
         service.uploadDelay = .milliseconds(150)
+        let states = attachmentStates()
         model.add(ComposerUpload(filename: "a.png", mimeType: "image/png", data: Data([1])))
         model.textChanged("hi", caret: 2)
         XCTAssertFalse(model.canSend, "a message must not reference a file the server does not have yet")
-        await waitUntil("the upload to finish") { self.model.attachments.first?.isUploaded == true }
+        await awaitSignal("the upload to finish", signal: states) {
+            if case .uploaded = $0 { return true }
+            return false
+        }
         XCTAssertTrue(model.canSend)
     }
 
     func testCancellingAnUploadReallyStopsItAndOffersRetry() async {
         service.uploadDelay = .seconds(10)
+        let states = attachmentStates()
         model.add(ComposerUpload(filename: "a.png", mimeType: "image/png", data: Data([1])))
         let id = model.attachments[0].id
-        await waitUntil("the upload to start") { self.model.attachments[0].isUploading }
+        await awaitSignal("the upload to start", signal: states) {
+            if case .uploading = $0 { return true }
+            return false
+        }
 
         model.cancelUpload(id: id)
         XCTAssertEqual(model.attachments[0].state, .failed("Upload cancelled"))
@@ -571,16 +659,20 @@ final class T35ComposerViewModelTests: XCTestCase {
         // Retry re-sends the bytes the composer kept, without going back to the picker.
         service.uploadDelay = .zero
         model.retryUpload(id: id)
-        await waitUntil("the retried upload") { self.model.attachments[0].isUploaded }
+        await awaitSignal("the retried upload", signal: states) {
+            if case .uploaded = $0 { return true }
+            return false
+        }
         XCTAssertEqual(service.uploadAttempts, 2)
         XCTAssertEqual(service.uploadedFilenames, ["a.png", "a.png"])
     }
 
     func testAFailedUploadIsReportedOnItsRow() async {
         service.uploadResult = .failure(MMError.timeout)
+        let states = attachmentStates()
         model.add(ComposerUpload(filename: "a.png", mimeType: "image/png", data: Data([1])))
-        await waitUntil("the upload to fail") {
-            if case .failed = self.model.attachments.first?.state { return true }
+        await awaitSignal("the upload to fail", signal: states) {
+            if case .failed = $0 { return true }
             return false
         }
         XCTAssertEqual(model.attachments.first?.state,
@@ -591,9 +683,13 @@ final class T35ComposerViewModelTests: XCTestCase {
 
     func testRemovingAnAttachmentCancelsItAndDropsItFromTheDraft() async {
         service.uploadDelay = .seconds(10)
+        let states = attachmentStates()
         model.add(ComposerUpload(filename: "a.png", mimeType: "image/png", data: Data([1])))
         let id = model.attachments[0].id
-        await waitUntil("the upload to start") { self.model.attachments[0].isUploading }
+        await awaitSignal("the upload to start", signal: states) {
+            if case .uploading = $0 { return true }
+            return false
+        }
 
         model.removeAttachment(id: id)
         XCTAssertTrue(model.attachments.isEmpty)

@@ -109,6 +109,11 @@ final class T34SocketResyncTests: XCTestCase {
         let channelService: FakeChannelService
         let factory: ScriptedTransportFactory
         let server: ServerConfig
+        /// Events the rail forwarded to the pane, each *after* the pane finished handling it — the
+        /// signal form of "the model now holds what the socket delivered" (no poll of the model).
+        let delivered: SignalCounter
+        /// Refetches the rail asked the pane for, after the pane's `resync` returned.
+        let resynced: SignalCounter
     }
 
     private func makeHarness(pages: [MMPostList],
@@ -129,37 +134,33 @@ final class T34SocketResyncTests: XCTestCase {
         pane.bind(auth: nil, navigation: nil, serverStore: nil)
         await pane.activate(server: server, channelID: channelID, channelName: "Town Square")
 
+        let delivered = SignalCounter()
+        let resynced = SignalCounter()
         let rail = TeamSidebarCoordinator(events: source,
                                           unreadRefreshDelay: 0,
                                           makeService: { _ in FakeTeamSidebarService() },
                                           tokenProvider: { _ in "tok-socket" })
         // The app's own two wirings (`MattermostApp.bindShellStores`): a delivered event reaches the pane,
         // and a reconnect makes the pane refetch. Reproduced here rather than called directly, because the
-        // direction of both closures is part of what regressed.
+        // direction of both closures is part of what regressed. The counter is the test's observation
+        // point: it is bumped *after* the pane has handled the value, so awaiting it replaces polling
+        // `model.post(id:)` on a clock.
         rail.onTeamEvent = { [weak pane] serverID, event in
-            Task { await pane?.handle(event, serverID: serverID) }
+            Task {
+                await pane?.handle(event, serverID: serverID)
+                delivered.bump()
+            }
         }
         rail.onSocketResync = { [weak pane] serverID in
-            Task { await pane?.resync(serverID: serverID) }
+            Task {
+                await pane?.resync(serverID: serverID)
+                resynced.bump()
+            }
         }
         await rail.activate(server)
         return AppHarness(rail: rail, pane: pane, channelService: channelService,
-                          factory: factory, server: server)
-    }
-
-    /// Poll on the main actor until `condition` holds (the socket hops between its actor and this one, so
-    /// nothing here is a fixed sleep on a wall-clock guess).
-    private func waitUntil(_ what: String,
-                           timeout: TimeInterval = 10,
-                           file: StaticString = #filePath,
-                           line: UInt = #line,
-                           _ condition: @MainActor () -> Bool) async {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if condition() { return }
-            try? await Task.sleep(nanoseconds: 20_000_000)
-        }
-        XCTFail("timed out after \(Int(timeout))s waiting for \(what)", file: file, line: line)
+                          factory: factory, server: server,
+                          delivered: delivered, resynced: resynced)
     }
 
     // MARK: - The card's scenario
@@ -180,20 +181,24 @@ final class T34SocketResyncTests: XCTestCase {
         XCTAssertEqual(model.loadedPostIDs, ["a"], "the pane starts on the newest page")
 
         // The socket comes up, then dies while the reader is looking at the channel.
-        await waitUntil("the first connection") { harness.factory.created.count == 1 }
+        await awaitSignal("the first connection", signal: harness.factory.createdSignal) { $0 == 1 }
         first.push(.opened)
-        await waitUntil("the authentication challenge on the first connection") {
-            first.sent.contains { $0.contains("authentication_challenge") }
-        }
+        await awaitSignal("the authentication challenge on the first connection",
+                          signal: first.sentSignal) { $0.contains("authentication_challenge") }
         XCTAssertEqual(harness.rail.socketResyncCount, 0, "a first connect is not a reconnect")
         first.close()
 
         // Nothing is pushed on the second connection: the server published `b` while the socket was down
         // and does not replay it. Only a refetch can produce the row.
-        await waitUntil("the reconnect") { harness.factory.created.count == 2 }
+        await awaitSignal("the reconnect", signal: harness.factory.createdSignal) { $0 == 2 }
         second.push(.opened)
 
-        await waitUntil("the lost post to appear without a relaunch") { model.post(id: "b") != nil }
+        // The refetch, not a clock: the counter is bumped after `pane.resync` returned, and the pane's
+        // refetch is what puts `b` in the window.
+        await awaitSignal("the reconnect's refetch to reach the pane", signal: harness.resynced.signal) {
+            $0 == 1
+        }
+        XCTAssertNotNil(model.post(id: "b"), "the lost post must appear without a relaunch")
 
         XCTAssertEqual(model.loadedPostIDs, ["b", "a"], "the window is the server's, in its order")
         XCTAssertEqual(harness.channelService.firstPageRequests, 2,
@@ -216,15 +221,18 @@ final class T34SocketResyncTests: XCTestCase {
         let model = try XCTUnwrap(harness.pane.activeModel(serverID: harness.server.id, channelID: channelID))
         XCTAssertEqual(harness.channelService.firstPageRequests, 1)
 
-        await waitUntil("the first connection") { harness.factory.created.count == 1 }
+        await awaitSignal("the first connection", signal: harness.factory.createdSignal) { $0 == 1 }
         first.push(.opened)
-        await waitUntil("the authentication challenge") {
-            first.sent.contains { $0.contains("authentication_challenge") }
+        await awaitSignal("the authentication challenge", signal: first.sentSignal) {
+            $0.contains("authentication_challenge")
         }
         // A live frame still travels the ordinary path: this is the control that proves the pump is up, so
         // "no refetch" below means "no refetch", not "nothing happened at all".
         first.pushEvent("posted", seq: 1, data: ["post": try Self.postJSON(x)])
-        await waitUntil("the delivered post") { model.post(id: "x") != nil }
+        await awaitSignal("the delivered post to reach the pane", signal: harness.delivered.signal) {
+            $0 == 1
+        }
+        XCTAssertNotNil(model.post(id: "x"), "the delivered post is in the window")
 
         XCTAssertEqual(harness.channelService.firstPageRequests, 1, "a first connect is not a gap")
         XCTAssertEqual(harness.rail.socketResyncCount, 0)
@@ -247,26 +255,33 @@ final class T34SocketResyncTests: XCTestCase {
         let recorder = ResyncRecorder()
         let stream = await source.events(for: server, token: "tok")
         XCTAssertNotNil(stream)
-        await waitUntil("the first connection") { factory.created.count == 1 }
+        await awaitSignal("the first connection", signal: factory.createdSignal) { $0 == 1 }
         first.push(.opened)
-        await waitUntil("the challenge") { first.sent.contains { $0.contains("authentication_challenge") } }
+        await awaitSignal("the challenge", signal: first.sentSignal) {
+            $0.contains("authentication_challenge")
+        }
 
         // Installed *after* the client exists.
         source.setResyncHandler { serverID in await recorder.record(serverID) }
 
         first.close()
-        await waitUntil("the reconnect") { factory.created.count == 2 }
+        await awaitSignal("the reconnect", signal: factory.createdSignal) { $0 == 2 }
         second.push(.opened)
-        await waitUntil("the resync handler to run") { recorder.ids.count == 1 }
+        await awaitSignal("the resync handler to run", signal: recorder.recorded.signal) { $0 == 1 }
         XCTAssertEqual(recorder.ids, [server.id])
     }
 
-    /// Records the server ids the source reports a reconnect for. Main-actor, so the test can read it from
-    /// its polling condition; the handler hops here the same way the coordinator does.
+    /// Records the server ids the source reports a reconnect for. Main-actor, so the test can read it
+    /// from its await point; the handler hops here the same way the coordinator does.
     @MainActor
     final class ResyncRecorder {
         private(set) var ids: [UUID] = []
-        func record(_ id: UUID) { ids.append(id) }
+        /// One value per recorded server id — the signal that replaces polling `ids.count`.
+        let recorded = SignalCounter()
+        func record(_ id: UUID) {
+            ids.append(id)
+            recorded.bump()
+        }
     }
 
     // MARK: - The merge rule

@@ -143,12 +143,13 @@ final class TokenLoggingTests: XCTestCase {
             clock: TestSocketClock(autoRelease: true),
             random: { 0.5 })
         await client.start()
-        await waitUntil("transport") { factory.created.count == 1 }
+        await awaitSignal("the transport", signal: factory.createdSignal) { $0 == 1 }
         transport.push(.opened)
-        await waitUntil("challenge sent") {
-            transport.sent.contains { $0.contains("authentication_challenge") }
+        // `handleOpen()` sets `state = .open` *before* it writes the challenge, so the frame is the
+        // signal that the open was handled — no poll of the actor's state (kanban t_00fb623c).
+        await awaitSignal("the authentication challenge", signal: transport.sentSignal) {
+            $0.contains("authentication_challenge")
         }
-        await waitUntil("open") { await client.state == .open }
 
         XCTAssertTrue(transport.sent.contains { $0.contains(token) },
                       "the token must be sent in the challenge frame")

@@ -156,13 +156,18 @@ final class T37SocketReactionRoutingTests: XCTestCase {
                                                                      message: "react to me")])])
         let panes = ChannelPaneCoordinator()
         panes.serviceFactory = { _ in channelService }
-        // The one line of app wiring this test exists to exercise.
+        // The one line of app wiring this test exists to exercise. The counter is bumped after the pane
+        // finished handling the event, so "the row grew its pill" is a signal, not a poll of the model.
+        let delivered = SignalCounter()
         rail.onTeamEvent = { serverID, event in
-            Task { await panes.handle(event, serverID: serverID) }
+            Task {
+                await panes.handle(event, serverID: serverID)
+                delivered.bump()
+            }
         }
 
         await rail.activate(server)
-        await waitUntil("the rail subscribes its one socket") { events.isSubscribed }
+        await awaitSignal("the rail subscribes its one socket", signal: events.subscribedSignal) { $0 == 1 }
 
         // The reader is looking at channel c1 of team perf — that is what the scope is built from.
         _ = navigation.openChannel(NativeChannelRequest(serverID: server.id,
@@ -180,18 +185,29 @@ final class T37SocketReactionRoutingTests: XCTestCase {
         events.emit(.reactionAdded(MMReaction(userId: "u2", postId: "p1", emojiName: "tada",
                                               createAt: 5_000, channelId: "c1")),
                     serverID: server.id)
-        await waitUntil("the foreign reaction reaches the open pane's row") {
-            self.pillNames(model, postID: "p1") == ["tada"]
-        }
+        await awaitSignal("the foreign reaction reaches the open pane's row",
+                          signal: delivered.signal) { $0 == 1 }
+        XCTAssertEqual(pillNames(model, postID: "p1"), ["tada"],
+                       "the foreign reaction must draw its pill")
         XCTAssertEqual(rail.refusedEventCount, 0,
                        "the reaction must be delivered, not refused — that refusal was the defect")
 
         // The control the AV card used: another team's channel is still refused by the scope, so the
         // fix cannot be "accept everything the socket says".
+        //
+        // A refusal publishes nothing (the scope's answer *is* the absence of a delivery), so the wait is
+        // a **fence**: an accepted but inert removal for a post this window does not hold is emitted
+        // right after it. The pump consumes the stream in order, so the fence's delivery proves the
+        // refused event was already handled, and the counter read next is settled.
         events.emit(.reactionAdded(MMReaction(userId: "u3", postId: "p1", emojiName: "smile",
                                               createAt: 5_100, channelId: "other-team-channel")),
                     serverID: server.id)
-        await waitUntil("the other team's reaction is refused") { rail.refusedEventCount == 1 }
+        events.emit(.reactionRemoved(MMReaction(userId: "u3", postId: "not-in-this-window",
+                                                emojiName: "tada", createAt: 5_150, channelId: "c1")),
+                    serverID: server.id)
+        await awaitSignal("the fence after the other team's reaction",
+                          signal: delivered.signal) { $0 == 2 }
+        XCTAssertEqual(rail.refusedEventCount, 1, "another team's reaction is refused")
         XCTAssertEqual(pillNames(model, postID: "p1"), ["tada"],
                        "the surface on screen must not draw another team's reaction")
 
@@ -199,9 +215,8 @@ final class T37SocketReactionRoutingTests: XCTestCase {
         events.emit(.reactionRemoved(MMReaction(userId: "u2", postId: "p1", emojiName: "tada",
                                                 createAt: 5_200, channelId: "c1")),
                     serverID: server.id)
-        await waitUntil("the foreign removal clears the pill") {
-            self.pillNames(model, postID: "p1").isEmpty
-        }
+        await awaitSignal("the foreign removal reaches the pane", signal: delivered.signal) { $0 == 3 }
+        XCTAssertTrue(pillNames(model, postID: "p1").isEmpty, "the pill is cleared")
     }
 
     /// The thread pane hangs off the same gate (`MattermostApp` feeds the same `onTeamEvent` into
@@ -223,16 +238,6 @@ final class T37SocketReactionRoutingTests: XCTestCase {
             if case .post(let row) = item, row.id == postID { return row }
             return nil
         }.first?.reactions.map(\.emojiName) ?? []
-    }
-
-    private func waitUntil(_ what: String, timeout: TimeInterval = 5,
-                           _ condition: () -> Bool) async {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if condition() { return }
-            try? await Task.sleep(nanoseconds: 20_000_000)
-        }
-        XCTAssertTrue(condition(), "timed out waiting until \(what)")
     }
 
     private func makeNavigation(_ servers: [ServerConfig]) -> NativeNavigation {
@@ -271,8 +276,13 @@ private final class T37RFakeTeamEventSource: TeamEventSourcing {
     private(set) var isSubscribed = false
     private(set) var openConnectionCount = 0
     private var continuations: [UUID: AsyncStream<SocketEvent>.Continuation] = [:]
+    /// Fires with the running count of `events(for:token:)` calls — the subscription as a signal.
+    let subscribedSignal = TestSignal<Int>()
+    private var subscriptions = 0
 
     func events(for server: ServerConfig, token: String) async -> AsyncStream<SocketEvent>? {
+        subscriptions += 1
+        subscribedSignal.send(subscriptions)
         let (stream, continuation) = AsyncStream.makeStream(of: SocketEvent.self,
                                                            bufferingPolicy: .bufferingNewest(64))
         if continuations[server.id] == nil { openConnectionCount += 1 }

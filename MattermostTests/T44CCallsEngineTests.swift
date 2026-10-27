@@ -31,6 +31,29 @@ final class T44CCallsEngineTests: XCTestCase {
                                              pollInterval: 0.01,
                                              permissionTimeout: 2)
 
+    /// One engine publication: the snapshot, and how many events the engine had folded when it fired.
+    ///
+    /// The ordinal is what lets a test assert an **absence** safely ("buddy is no longer a session"):
+    /// `TestSignal` remembers every value, so a bare `session(forUser:) == nil` predicate would be
+    /// satisfied by a snapshot from *before* the join. Awaiting the fold that should have removed it
+    /// anchors the read to the right event, and replaces polling `currentSnapshot()` on a clock
+    /// (kanban t_00fb623c).
+    struct Publication: Sendable {
+        let ordinal: Int
+        let snapshot: CallsEngineSnapshot
+    }
+
+    /// Subscribe to the engine's own publication point. Install it *after* `startedEngine()` (the
+    /// join ack is folded during `start()`) and before the events under test are pushed.
+    private func observe(_ engine: CallsEngine) async -> TestSignal<Publication> {
+        let signal = TestSignal<Publication>()
+        let counter = SignalCounter()
+        await engine.observeSnapshots { snapshot in
+            signal.send(Publication(ordinal: counter.bump(), snapshot: snapshot))
+        }
+        return signal
+    }
+
     // MARK: - Start
 
     func testStartAsksForTheMicThenJoinsThenOffers() async throws {
@@ -196,9 +219,7 @@ final class T44CCallsEngineTests: XCTestCase {
         let reOffer = try await peer.reOffer()
         signalling.push(.signal(CallsSignal(connID: "abc", payload: .description(reOffer))))
 
-        let answered = await waitUntil(timeout: 5) {
-            signalling.descriptions.contains { $0.kind == .answer }
-        }
+        let answered = await signalling.descriptionSignal.wait(until: { $0 == "answer" }, timeout: 5)
         XCTAssertTrue(answered, "the engine must answer the SFU's re-offer")
 
         let ourAnswer = try XCTUnwrap(signalling.descriptions.last { $0.kind == .answer })
@@ -224,16 +245,16 @@ final class T44CCallsEngineTests: XCTestCase {
                                  timings: timings)
         signalling.push(.joinAck(connID: "abc"))
         _ = await engine.start(channelID: "chan1")
+        let published = await observe(engine)
         let offer = try XCTUnwrap(signalling.descriptions.first)
 
         // A candidate for a session we have no remote description for yet.
         signalling.push(.signal(CallsSignal(connID: "abc", payload: .candidate(
             CallsIceCandidate(candidate: "candidate:1 1 udp 1 10.0.0.1 5000 typ host",
                               sdpMid: "0", sdpMLineIndex: 0)))))
-        let received = await waitUntil(timeout: 3) {
-            (await engine.currentSnapshot()).candidatesReceived == 1
+        await awaitSignal("the queued candidate to be counted", signal: published) {
+            $0.snapshot.candidatesReceived == 1
         }
-        XCTAssertTrue(received)
 
         let peer = PeerFixture()
         let answer = try await peer.answer(to: offer)
@@ -262,9 +283,10 @@ final class T44CCallsEngineTests: XCTestCase {
 
         _ = await engine.start(channelID: "chan1")
 
-        let anyCandidate = await waitUntil(timeout: 2) { !signalling.candidates.isEmpty }
+        let anyCandidate = await signalling.candidateSentSignal.wait(until: { _ in true }, timeout: 2)
         // Gathering on a loopback-only host can legitimately produce nothing; that is not a failure,
-        // so the assertion is on the *order* when there is something to order.
+        // so the assertion is on the *order* when there is something to order. The 2 s is therefore a
+        // bounded observation window on a signal, not a budget for a value that must arrive.
         if anyCandidate {
             let firstCandidateIndex = try XCTUnwrap(signalling.order.firstIndex { $0 == "ice" })
             let offerIndex = try XCTUnwrap(signalling.order.firstIndex { $0 == "sdp:offer" })
@@ -315,37 +337,44 @@ final class T44CCallsEngineTests: XCTestCase {
     /// folds the delta, so the snapshot carries the unmute.
     func testAConfirmedUnmuteSurvivesTheNextSnapshot() async throws {
         let (signalling, engine) = await startedEngine()
+        let published = await observe(engine)
         signalling.push(.callState(channelID: "chan1",
                                    call: call(sessions: [CallsSession(sessionID: "s1", userID: "me",
                                                                       unmuted: false)])))
-        let muted = await waitUntil(timeout: 2) {
-            await engine.currentSnapshot().call?.session(forUser: "me")?.unmuted == false
+        await awaitSignal("the call state to land", signal: published) {
+            $0.snapshot.call?.session(forUser: "me")?.unmuted == false
         }
-        XCTAssertTrue(muted, "the call state must land before the delta is tested")
+        // Every publication after this point is numbered from here, so the *third* event's snapshot is
+        // `base + 2` whether or not the join ack was folded after the observer was installed.
+        let base = published.recorded.last?.ordinal ?? 0
 
         signalling.push(.muteChanged(channelID: "chan1", userID: "me", sessionID: "s1", unmuted: true))
 
-        let folded = await waitUntil(timeout: 2) {
-            await engine.currentSnapshot().call?.session(forUser: "me")?.unmuted == true
+        await awaitSignal("the engine to fold `user_unmuted`", signal: published) {
+            $0.ordinal > base && $0.snapshot.call?.session(forUser: "me")?.unmuted == true
         }
-        XCTAssertTrue(folded, "the engine must fold `user_unmuted` into the call it publishes")
         await engine.stop()
     }
 
     /// A delta that names another channel's call must not touch this one.
     func testADeltaForAnotherChannelIsNotFolded() async throws {
         let (signalling, engine) = await startedEngine()
+        let published = await observe(engine)
         signalling.push(.callState(channelID: "chan1",
                                    call: call(sessions: [CallsSession(sessionID: "s1", userID: "me",
                                                                       unmuted: false)])))
-        let landed = await waitUntil(timeout: 2) {
-            await engine.currentSnapshot().call?.session(forUser: "me")?.unmuted == false
+        await awaitSignal("the call state to land", signal: published) {
+            $0.snapshot.call?.session(forUser: "me")?.unmuted == false
         }
-        XCTAssertTrue(landed, "the call state must land before the delta is tested")
+        let base = published.recorded.last?.ordinal ?? 0
 
         signalling.push(.muteChanged(channelID: "chan2", userID: "me", sessionID: "s1", unmuted: true))
         signalling.push(.userJoined(channelID: "chan2", userID: "stranger", sessionID: "s9"))
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Both events are folds, and every fold publishes: awaiting `base + 2` is the fence that proves
+        // neither touched this call (no settle on the clock).
+        await awaitSignal("both foreign-channel deltas to be folded", signal: published) {
+            $0.ordinal >= base + 2
+        }
 
         let snapshot = await engine.currentSnapshot()
         XCTAssertEqual(snapshot.call?.session(forUser: "me")?.unmuted, false)
@@ -357,54 +386,52 @@ final class T44CCallsEngineTests: XCTestCase {
     /// A second participant appears and leaves: the tiles follow the deltas, not only `call_state`.
     func testUserJoinedAndLeftMoveTheSessions() async throws {
         let (signalling, engine) = await startedEngine()
+        let published = await observe(engine)
         signalling.push(.callState(channelID: "chan1",
                                    call: call(sessions: [CallsSession(sessionID: "s1", userID: "me")])))
-        let landed = await waitUntil(timeout: 2) {
-            await engine.currentSnapshot().call?.sessions.count == 1
+        await awaitSignal("the call state to land", signal: published) {
+            $0.snapshot.call?.sessions.count == 1
         }
-        XCTAssertTrue(landed, "the call state must land before the deltas are tested")
+        let base = published.recorded.last?.ordinal ?? 0
 
         signalling.push(.userJoined(channelID: "chan1", userID: "buddy", sessionID: "s2"))
-        let joined = await waitUntil(timeout: 2) {
-            await engine.currentSnapshot().call?.session(forUser: "buddy") != nil
+        await awaitSignal("`user_joined` to add a session", signal: published) {
+            $0.snapshot.call?.session(forUser: "buddy") != nil
         }
-        XCTAssertTrue(joined, "a `user_joined` must become a session in the engine's call state")
 
         signalling.push(.userLeft(channelID: "chan1", userID: "buddy", sessionID: "s2"))
-        let left = await waitUntil(timeout: 2) {
-            await engine.currentSnapshot().call?.session(forUser: "buddy") == nil
-        }
-        XCTAssertTrue(left)
+        // The absence is anchored to the fold that should remove it: `base + 2` is `user_left`.
+        await awaitSignal("`user_left` to drop the session", signal: published) { $0.ordinal >= base + 2 }
+        let afterLeave = await engine.currentSnapshot()
+        XCTAssertNil(afterLeave.call?.session(forUser: "buddy"))
         await engine.stop()
     }
 
     /// Raise/lower and a host change are deltas too, and the surface reads both from the snapshot.
     func testRaisedHandAndHostChangeAreFolded() async throws {
         let (signalling, engine) = await startedEngine()
+        let published = await observe(engine)
         signalling.push(.callState(channelID: "chan1",
                                    call: call(sessions: [CallsSession(sessionID: "s1", userID: "me")])))
-        let landed = await waitUntil(timeout: 2) {
-            await engine.currentSnapshot().call?.session(forUser: "me") != nil
+        await awaitSignal("the call state to land", signal: published) {
+            $0.snapshot.call?.session(forUser: "me") != nil
         }
-        XCTAssertTrue(landed)
+        let base = published.recorded.last?.ordinal ?? 0
 
         signalling.push(.handChanged(channelID: "chan1", userID: "me", sessionID: "s1", raised: true))
-        let raised = await waitUntil(timeout: 2) {
-            await engine.currentSnapshot().call?.session(forUser: "me")?.raisedHand == true
+        await awaitSignal("`user_raise_hand` to reach the call state", signal: published) {
+            $0.snapshot.call?.session(forUser: "me")?.raisedHand == true
         }
-        XCTAssertTrue(raised, "`user_raise_hand` must reach the engine's call state")
 
         signalling.push(.handChanged(channelID: "chan1", userID: "me", sessionID: "s1", raised: false))
-        let lowered = await waitUntil(timeout: 2) {
-            await engine.currentSnapshot().call?.session(forUser: "me")?.raisedHand == false
+        await awaitSignal("`user_lower_hand` to be folded", signal: published) {
+            $0.ordinal >= base + 2 && $0.snapshot.call?.session(forUser: "me")?.raisedHand == false
         }
-        XCTAssertTrue(lowered)
 
         signalling.push(.hostChanged(channelID: "chan1", hostID: "me"))
-        let hosted = await waitUntil(timeout: 2) {
-            await engine.currentSnapshot().call?.hostID == "me"
+        await awaitSignal("the host change to be folded", signal: published) {
+            $0.snapshot.call?.hostID == "me"
         }
-        XCTAssertTrue(hosted)
         await engine.stop()
     }
 
@@ -437,12 +464,12 @@ final class T44CCallsEngineTests: XCTestCase {
                                  timings: timings)
         signalling.push(.joinAck(connID: "abc"))
         _ = await engine.start(channelID: "chan1")
+        let published = await observe(engine)
 
         signalling.push(.callEnded(channelID: "chan1"))
-        let ended = await waitUntil(timeout: 3) {
-            (await engine.currentSnapshot()).state == .ended
+        await awaitSignal("the engine to move to .ended", signal: published) {
+            $0.snapshot.state == .ended
         }
-        XCTAssertTrue(ended)
         await engine.stop()
     }
 
@@ -502,16 +529,6 @@ final class T44CCallsEngineTests: XCTestCase {
         CallsCall(id: "call1", channelID: "chan1", startAt: 1_793_000_000_000,
                   hostID: "me", sessions: sessions)
     }
-
-    private func waitUntil(timeout: TimeInterval,
-                           _ condition: @escaping () async -> Bool) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if await condition() { return true }
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
-        return await condition()
-    }
 }
 
 // MARK: - Fakes
@@ -547,6 +564,12 @@ final class FakeCallsSignalling: CallsSignalling, @unchecked Sendable {
     var mutes: [(String, Bool)] { locked { mutesStorage } }
     var hands: [(String, Bool)] { locked { handsStorage } }
 
+    /// Frames the engine wrote, as running counts — a test awaits these instead of polling
+    /// `descriptions` / `candidates` on a clock (kanban t_00fb623c).
+    let descriptionSignal = TestSignal<String>()
+    let candidateSentSignal = TestSignal<Int>()
+    private var candidatesSent = 0
+
     func start() {}
     func stop() {}
 
@@ -565,11 +588,16 @@ final class FakeCallsSignalling: CallsSignalling, @unchecked Sendable {
             descriptionsStorage.append(description)
             orderStorage.append("sdp:\(description.kind.rawValue)")
         }
+        descriptionSignal.send(description.kind.rawValue)
     }
 
     func send(candidate: CallsIceCandidate) async throws {
         if let sendError { throw sendError }
-        locked { candidatesStorage.append(candidate); orderStorage.append("ice") }
+        let count: Int = locked { candidatesStorage.append(candidate); orderStorage.append("ice")
+            candidatesSent += 1
+            return candidatesSent
+        }
+        candidateSentSignal.send(count)
     }
 
     func setMuted(_ muted: Bool, channelID: String) async throws {

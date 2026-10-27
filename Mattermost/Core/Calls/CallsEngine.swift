@@ -166,6 +166,25 @@ actor CallsEngine {
 
     var state: CallsEngineState { snapshot.state }
 
+    /// The snapshot after every event the engine folds — the seam a surface (and a test) awaits
+    /// instead of polling `currentSnapshot()` on a clock (kanban t_00fb623c).
+    ///
+    /// The engine is an actor with no published state of its own: without this, "the `call_state`
+    /// landed" can only be observed by reading the snapshot until it changes, and a host freeze
+    /// between two reads reds the test even though the engine did nothing wrong. Called from inside
+    /// the actor, so the value handed out is consistent with the fold that produced it.
+    private var snapshotObserver: (@Sendable (CallsEngineSnapshot) -> Void)?
+
+    /// Install the observer. Call before `start()`: an event that arrives with no observer installed
+    /// is not replayed (the current snapshot is still readable through `currentSnapshot`).
+    func observeSnapshots(_ observer: @escaping @Sendable (CallsEngineSnapshot) -> Void) {
+        snapshotObserver = observer
+    }
+
+    private func publishSnapshot() {
+        snapshotObserver?(snapshot)
+    }
+
     // MARK: - Lifecycle
 
     /// Ask for the microphone, join the call, and offer. Returns the state it reached — a caller
@@ -331,6 +350,7 @@ actor CallsEngine {
             // `snapshot.call` is genuinely authoritative (see `fold(_:)`).
             fold(event)
         }
+        publishSnapshot()
     }
 
     /// Fold one participation delta into `snapshot.call`.

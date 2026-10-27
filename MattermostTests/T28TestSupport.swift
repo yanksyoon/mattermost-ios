@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import XCTest
 @testable import Mattermost
@@ -211,6 +212,9 @@ final class ScriptedSocketTransport: SocketTransport, @unchecked Sendable {
     let sentCountSignal = TestSignal<Int>()
     /// Every close the client asked for, with the running count.
     let closeSignal = TestSignal<Int>()
+    /// Every pong this transport answered, with the running count — so "the second ping was answered"
+    /// is a signal instead of a poll of `pongsAnswered`.
+    let pongSignal = TestSignal<Int>()
 
     let events: AsyncStream<SocketTransportEvent>
     private let continuation: AsyncStream<SocketTransportEvent>.Continuation
@@ -284,14 +288,17 @@ final class ScriptedSocketTransport: SocketTransport, @unchecked Sendable {
         frames.append(text)
         let count = frames.count
         var reply: String?
+        var answeredPongs = 0
         if answersPingsWithPong, text.contains("\"action\":\"ping\"") {
             pongs += 1
+            answeredPongs = pongs
             reply = Self.reply(seq: pongSeq, text: "pong")
             pongSeq += 1
         }
         lock.unlock()
         sentSignal.send(text)
         sentCountSignal.send(count)
+        if answeredPongs > 0 { pongSignal.send(answeredPongs) }
         // Answered outside the lock (`push` takes it again): the pong travels back through the same
         // event stream a real socket's would.
         if let reply { push(.text(reply)) }
@@ -533,6 +540,33 @@ final class EventBox: @unchecked Sendable {
     }
 }
 
+/// A counter that publishes its running value as a signal — the "Nth delivery" form of `TestSignal`,
+/// for a wiring closure that has no value of its own to report (kanban t_00fb623c).
+///
+/// A test that awaits `counter.signal` with `until: { $0 >= 2 }` is waiting for the *second* event the
+/// closure saw, which is what a poll of `someArray.count` used to express on a clock.
+final class SignalCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    let signal = TestSignal<Int>()
+
+    var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    @discardableResult
+    func bump() -> Int {
+        lock.lock()
+        value += 1
+        let current = value
+        lock.unlock()
+        signal.send(current)
+        return current
+    }
+}
+
 // MARK: - Small assertion helpers
 
 extension APIResponse {
@@ -551,22 +585,6 @@ extension APIResponse {
 }
 
 extension XCTestCase {
-    /// Poll until `condition` holds (bounded). Used instead of `sleep` so tests stay fast and do
-    /// not fail on a slow CI host unless the condition genuinely never becomes true. The closure is
-    /// `async` so a test can await actor state.
-    func waitUntil(_ description: String,
-                   timeout: TimeInterval = 5,
-                   file: StaticString = #filePath,
-                   line: UInt = #line,
-                   _ condition: () async -> Bool) async {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if await condition() { return }
-            try? await Task.sleep(nanoseconds: 5_000_000)
-        }
-        XCTFail("timed out waiting for \(description)", file: file, line: line)
-    }
-
     /// Await a value a fake recorded, with the 30 s hang detector. No clock, no latency budget:
     /// `TestSignal` returns as soon as the value exists, so a busy host cannot make this miss.
     func awaitSignal<Value>(_ what: String,
@@ -586,5 +604,31 @@ extension XCTestCase {
             return nil
         }
         return components.queryItems?.first { $0.name == name }?.value
+    }
+
+    /// Mirror an `@Published` value into a signal, so a test can await the value a view model
+    /// publishes instead of polling the property on a clock (kanban t_00fb623c).
+    ///
+    /// Two things this does *not* hide:
+    ///  * `@Published` fires in **willSet**, so the emitted value is the new one while the property
+    ///    still reads the old one for an instant. Assert against `signal.recorded.last` (the value the
+    ///    view would render next), not against a re-read of the property after the await.
+    ///  * it is a *live* subscription: `sink` receives the current value immediately, so subscribe
+    ///    **after** the action under test when the "before" value would satisfy the predicate.
+    ///
+    /// Keep the returned cancellable alive for the length of the test (assign it to a local).
+    @discardableResult
+    func mirrorPublished<Value, Mapped: Sendable>(
+        _ publisher: Published<Value>.Publisher,
+        into signal: TestSignal<Mapped>,
+        _ transform: @escaping (Value) -> Mapped) -> AnyCancellable {
+        publisher.sink { signal.send(transform($0)) }
+    }
+
+    /// `mirrorPublished` when the published value is itself `Sendable`.
+    @discardableResult
+    func mirrorPublished<Value: Sendable>(_ publisher: Published<Value>.Publisher,
+                                          into signal: TestSignal<Value>) -> AnyCancellable {
+        mirrorPublished(publisher, into: signal) { $0 }
     }
 }

@@ -454,13 +454,16 @@ final class T32TeamSidebarTests: XCTestCase {
         let model = TeamSwitchViewModel(server: server(), service: service)
 
         let slow = Task { await model.load(ifNeeded: true) }
-        await waitUntil("the slow load started") { service.loadCount == 1 }
+        await awaitSignal("the slow load started", signal: service.loadSignal) { $0 == 1 }
         let fast = Task { await model.reload() }
-        await waitUntil("the newer load finished") { model.phase == .loaded && model.entries.count == 1 }
+        // The reload's own completion is the signal: the task finishes when the newer answer has been
+        // applied, so there is nothing to poll (kanban t_00fb623c).
+        await fast.value
+        XCTAssertEqual(model.phase, .loaded)
+        XCTAssertEqual(model.entries.count, 1)
 
         gate.open()
         await slow.value
-        await fast.value
 
         XCTAssertEqual(model.entries.map(\.id), ["new"],
                        "a load that resolves after a newer one must be discarded, not applied")
@@ -604,7 +607,7 @@ final class T32TeamSidebarTests: XCTestCase {
         XCTAssertEqual(navigation.location.teamID, "perf")
         XCTAssertEqual(coordinator.scope(for: server.id)?.teamID, "perf")
         XCTAssertEqual(coordinator.subscriptionCount, 1, "ten switches, one socket")
-        await waitUntil("the single subscription is opened") { events.connectCount == 1 }
+        await awaitSignal("the single subscription is opened", signal: events.subscribedSignal) { $0 == 1 }
         XCTAssertEqual(events.connectCount, 1, "the connection is opened once per server, not per switch")
     }
 
@@ -638,8 +641,12 @@ final class T32TeamSidebarTests: XCTestCase {
         coordinator.onTeamEvent = { _, event in
             if case .posted(let post) = event { delivered.append(post.channelId) }
         }
+        // Every event the pump consumed, in order — the signal form of
+        // `deliveredEventCount + refusedEventCount` (a poll of two counters).
+        let consumed = SignalCounter()
+        coordinator.onServerEvent = { _, _ in consumed.bump() }
         await coordinator.activate(server)
-        await waitUntil("the socket subscribed") { events.isSubscribed }
+        await awaitSignal("the socket subscribed", signal: events.subscribedSignal) { $0 == 1 }
 
         // Perf's channel is open, then the user switches to Operations and opens its channel.
         _ = navigation.openChannel(NativeChannelRequest(serverID: server.id,
@@ -654,9 +661,7 @@ final class T32TeamSidebarTests: XCTestCase {
         events.emit(.posted(post(channelID: "perf-feed", id: "p1")), serverID: server.id)
         events.emit(.posted(post(channelID: "ops-town", id: "p2")), serverID: server.id)
 
-        await waitUntil("both events are handled") {
-            coordinator.deliveredEventCount + coordinator.refusedEventCount == 2
-        }
+        await awaitSignal("both events are handled", signal: consumed.signal) { $0 == 2 }
         XCTAssertEqual(delivered, ["ops-town"],
                        "the previous team's post must not reach the surface that is on screen")
         XCTAssertEqual(coordinator.refusedEventCount, 1)
@@ -670,16 +675,28 @@ final class T32TeamSidebarTests: XCTestCase {
         let events = FakeTeamEventSource()
         let coordinator = makeCoordinator(service, events: events, navigation: navigation)
         await coordinator.activate(server)
-        await waitUntil("the socket subscribed") { events.isSubscribed }
+        await awaitSignal("the socket subscribed", signal: events.subscribedSignal) { $0 == 1 }
         XCTAssertEqual(service.unreadCount, 0)
 
         service.nextUnreads = [unread("perf"), unread("ops", mentions: 3)]
+        // The rail's model, before the debounced refetch: the badge is mirrored, so the assertion below
+        // reads the value the view would render instead of polling `model.entries` (kanban t_00fb623c).
+        let model = coordinator.model(for: server)
+        let badges = TestSignal<[String: Int?]>()
+        let mirror = mirrorPublished(model.$entries, into: badges) { entries in
+            Dictionary(uniqueKeysWithValues: entries.map { entry -> (String, Int?) in
+                if case .count(let count) = entry.badge { return (entry.id, count) }
+                return (entry.id, nil)
+            })
+        }
+        defer { mirror.cancel() }
+
         events.emit(.posted(post(channelID: "anywhere", id: "p9")), serverID: server.id)
 
-        await waitUntil("the counters are refetched") { service.unreadCount == 1 }
-        await waitUntil("the badge reflects the server") {
-            coordinator.model(for: server).entries.first { $0.id == "ops" }?.badge == .count(3)
-        }
+        await awaitSignal("the counters are refetched", signal: service.unreadSignal) { $0 == 1 }
+        await awaitSignal("the badge reflects the server", signal: badges) { $0["ops"] == 3 }
+        XCTAssertEqual(badges.recorded.last?["ops"], 3,
+                       "the rail shows the server's count, not a local increment")
     }
 
     func testSignOutClosesTheSocketAndForgetsTheRail() async {
@@ -690,7 +707,7 @@ final class T32TeamSidebarTests: XCTestCase {
         let events = FakeTeamEventSource()
         let coordinator = makeCoordinator(service, events: events, navigation: navigation)
         await coordinator.activate(server)
-        await waitUntil("the socket subscribed") { events.isSubscribed }
+        await awaitSignal("the socket subscribed", signal: events.subscribedSignal) { $0 == 1 }
         XCTAssertEqual(events.openConnectionCount, 1)
 
         await coordinator.deactivate(server.id)
@@ -748,9 +765,14 @@ private final class FakeTeamSidebarService: TeamSidebarServing {
     private(set) var loadCount = 0
     private(set) var unreadCount = 0
     private(set) var iconRequests: [(String, Int64)] = []
+    /// The service's own call counts as signals, so a test awaits "the load started" or "the counters
+    /// were refetched" instead of polling `loadCount`/`unreadCount` (kanban t_00fb623c).
+    let loadSignal = TestSignal<Int>()
+    let unreadSignal = TestSignal<Int>()
 
     func load() async throws -> TeamSidebarData {
         loadCount += 1
+        loadSignal.send(loadCount)
         if !behaviours.isEmpty {
             switch behaviours.removeFirst() {
             case .immediate(let data):
@@ -768,6 +790,7 @@ private final class FakeTeamSidebarService: TeamSidebarServing {
 
     func unreads() async throws -> [MMTeamUnread] {
         unreadCount += 1
+        unreadSignal.send(unreadCount)
         if let nextUnreadsError { throw nextUnreadsError }
         return nextUnreads.isEmpty ? nextData.unreads : nextUnreads
     }
@@ -785,9 +808,12 @@ private final class FakeTeamEventSource: TeamEventSourcing {
     private(set) var openConnectionCount = 0
     private(set) var isSubscribed = false
     private var continuations: [UUID: AsyncStream<SocketEvent>.Continuation] = [:]
+    /// The subscription as a signal: fires with the running count of `events(for:token:)` calls.
+    let subscribedSignal = TestSignal<Int>()
 
     func events(for server: ServerConfig, token: String) async -> AsyncStream<SocketEvent>? {
         connectCount += 1
+        subscribedSignal.send(connectCount)
         let (stream, continuation) = AsyncStream.makeStream(of: SocketEvent.self,
                                                             bufferingPolicy: .bufferingNewest(64))
         if continuations[server.id] == nil { openConnectionCount += 1 }
