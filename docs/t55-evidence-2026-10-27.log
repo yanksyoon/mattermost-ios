@@ -1,0 +1,466 @@
+T55-AV-R evidence extract — generated from build/logs/t55/*.log
+Full logs (gitignored): build/logs/t55/. Host: macOS 26.3.1, Xcode 26.6 (17F113).
+Server: Mattermost 9.11.19 (16643067630) at 127.0.0.1:8065. Audit target: 634afd9.
+
+==============================================================================
+RUN t55-live-all — first attempt: UI-test runner failed to initialise (AX timeout), 0 tests
+log /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/logs/t55/t55-live-all.log
+==============================================================================
+  ** TEST FAILED **
+
+==============================================================================
+RUN t55-live-a — T36 + T37 live, 14 tests
+log /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/logs/t55/t55-live-a.log
+==============================================================================
+  Test Case '-[MattermostUITests.T36ThreadsUITests testFollowPersistsAndTheFollowedThreadsListPages]' passed (44.018 seconds).
+  Test Case '-[MattermostUITests.T36ThreadsUITests testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies]' passed (29.313 seconds).
+  Test Case '-[MattermostUITests.T36ThreadsUITests testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply]' passed (28.570 seconds).
+  Test Case '-[MattermostUITests.T36ThreadsUITests testTheUnreadThreadStateIsTheServers]' passed (38.604 seconds).
+  Executed 4 tests, with 0 failures (0 unexpected) in 140.505 (140.513) seconds
+  Test Case '-[MattermostUITests.T37ReactionsUITests testAliasSpellingsAreOnePillAndOneRemoveClearsEveryRowIHold]' passed (22.524 seconds).
+  MattermostUITests/T37-ReactionsUITests.swift:241: error: -[MattermostUITests.T37ReactionsUITests testBurstOfTapsConvergesAndNeverDrifts] : XCTAssertTrue failed - after 7 rapid taps the pill must settle on the server's count (last sample: pill="" server=1 mine=false)
+  MattermostUITests/T37-ReactionsUITests.swift:245: error: -[MattermostUITests.T37ReactionsUITests testBurstOfTapsConvergesAndNeverDrifts] : XCTAssertEqual failed: ("") is not equal to ("smile 1") - the pill must show the server's count, not a drifted one
+  MattermostUITests/T37-ReactionsUITests.swift:247: error: -[MattermostUITests.T37ReactionsUITests testBurstOfTapsConvergesAndNeverDrifts] : XCTAssertTrue failed - 7 taps (odd) must leave my reaction on the server
+  MattermostUITests/T37-ReactionsUITests.swift:248: error: -[MattermostUITests.T37ReactionsUITests testBurstOfTapsConvergesAndNeverDrifts] : XCTAssertEqual failed: ("0") is not equal to ("1") - my reaction must exist exactly once — a duplicate row is the drift the card forbids
+  MattermostUITests/T37-ReactionsUITests.swift:254: error: -[MattermostUITests.T37ReactionsUITests testBurstOfTapsConvergesAndNeverDrifts] : Failed to get matching snapshot: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"post.y6wo8j4p6pyapgm75sif85tpqc.reaction.smile" IN identifiers'`, given input App element pid: 53781
+  Test Case '-[MattermostUITests.T37ReactionsUITests testBurstOfTapsConvergesAndNeverDrifts]' failed (70.633 seconds).
+  MattermostUITests/T37-ReactionsUITests.swift:734: error: -[MattermostUITests.T37ReactionsUITests testComposerPickerInsertsThePickedEmoji] : Failed to get matching snapshots: Lost connection to the application (pid 54694). (Underlying Error: Couldn’t communicate with a helper application. Try your operation again. If that fails, quit and relaunch the application and try again. connection to service …
+  Test Case '-[MattermostUITests.T37ReactionsUITests testComposerPickerInsertsThePickedEmoji]' failed (46.062 seconds).
+  Test Case '-[MattermostUITests.T37ReactionsUITests testForeignPostArrivesButItsReactionDoesNot]' passed (17.167 seconds).
+  Test Case '-[MattermostUITests.T37ReactionsUITests testForeignReactionArrivesOverTheSocketOnce]' passed (19.649 seconds).
+  Test Case '-[MattermostUITests.T37ReactionsUITests testReactorSheetNamesBothReadersIncludingMe]' passed (23.101 seconds).
+  MattermostUITests/T37-ReactionsUITests.swift:391: error: -[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch] : XCTAssertTrue failed - the relaunched app must reach the shell:
+  MattermostUITests/T37-ReactionsUITests.swift:741: error: -[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch] : XCTAssertTrue failed - the sidebar must list channel psw97y5zqpfnpembwxraizuije:
+  MattermostUITests/T37-ReactionsUITests.swift:743: error: -[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch] : Failed to tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" IN identifiers'`, given input App el …
+  Test Case '-[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch]' failed (159.766 seconds).
+  Test Case '-[MattermostUITests.T37ReactionsUITests testServerCustomEmojiIsOfferedAndWritten]' passed (28.007 seconds).
+  Test Case '-[MattermostUITests.T37ReactionsUITests testTappingAPillWritesTheReactionToTheServerAndTappingAgainRemovesIt]' passed (19.606 seconds).
+  Test Case '-[MattermostUITests.T37ReactionsUITests testThePickerFromTheRowMenuAddsTheReactionTheServerStores]' passed (24.076 seconds).
+  Executed 10 tests, with 9 failures (0 unexpected) in 430.590 (430.601) seconds
+  Executed 14 tests, with 9 failures (0 unexpected) in 571.095 (571.117) seconds
+  Executed 14 tests, with 9 failures (0 unexpected) in 571.095 (571.119) seconds
+  ** TEST FAILED **
+
+==============================================================================
+RUN t55-live-a-retry — the three T37 failures re-run alone
+log /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/logs/t55/t55-live-a-retry.log
+==============================================================================
+  Test Case '-[MattermostUITests.T37ReactionsUITests testBurstOfTapsConvergesAndNeverDrifts]' passed (46.441 seconds).
+  Test Case '-[MattermostUITests.T37ReactionsUITests testComposerPickerInsertsThePickedEmoji]' passed (39.310 seconds).
+  MattermostUITests/T37-ReactionsUITests.swift:391: error: -[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch] : XCTAssertTrue failed - the relaunched app must reach the shell:
+  MattermostUITests/T37-ReactionsUITests.swift:741: error: -[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch] : XCTAssertTrue failed - the sidebar must list channel psw97y5zqpfnpembwxraizuije:
+  MattermostUITests/T37-ReactionsUITests.swift:743: error: -[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch] : Failed to tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" IN identifiers'`, given input App el …
+  Test Case '-[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch]' failed (162.029 seconds).
+  Executed 3 tests, with 3 failures (0 unexpected) in 247.780 (247.787) seconds
+  Executed 3 tests, with 3 failures (0 unexpected) in 247.780 (247.788) seconds
+  Executed 3 tests, with 3 failures (0 unexpected) in 247.780 (247.789) seconds
+  ** TEST FAILED **
+
+==============================================================================
+RUN t55-live-b — T38 + T39 + T40 live; T39 skipped on a 401
+log /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/logs/t55/t55-live-b.log
+==============================================================================
+  Test Case '-[MattermostUITests.T38AttachmentsUITests testAnHTMLAttachmentIsRefusedAndItsScriptNeverRuns]' passed (20.849 seconds).
+  Test Case '-[MattermostUITests.T38AttachmentsUITests testATenImagePostDrawsEveryThumbnailAndTheGalleryPagesThroughAllOfThem]' passed (56.497 seconds).
+  Test Case '-[MattermostUITests.T38AttachmentsUITests testSavingAGalleryImageShowsItInTheDownloadsScreen]' passed (26.798 seconds).
+  Test Case '-[MattermostUITests.T38AttachmentsUITests testTheFileRowsNameTheirTypeAndEachOpensOnlyItsOwnReader]' passed (43.108 seconds).
+  Executed 4 tests, with 0 failures (0 unexpected) in 147.251 (147.257) seconds
+  MattermostUITests/T39JumpUITests.swift:317: -[MattermostUITests.T39JumpUITests testJumpToAnOldResultInAChannelNeverOpenedFetchesByIDAndMarksTheGap] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39JumpUITests testJumpToAnOldResultInAChannelNeverOpenedFetchesByIDAndMarksTheGap]' skipped (0.097 seconds).
+  MattermostUITests/T39JumpUITests.swift:317: -[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds]' skipped (0.061 seconds).
+  MattermostUITests/T39JumpUITests.swift:317: -[MattermostUITests.T39JumpUITests testT55OnDateOffsetOnAFixtureDayThatSeparates] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39JumpUITests testT55OnDateOffsetOnAFixtureDayThatSeparates]' skipped (0.062 seconds).
+  Executed 3 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.220 (0.222) seconds
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList]' skipped (0.061 seconds).
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost]' skipped (0.066 seconds).
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testUnpinFromThePinnedSheetRemovesTheRowAndThePin] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testUnpinFromThePinnedSheetRemovesTheRowAndThePin]' skipped (0.065 seconds).
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testUnsaveFromTheSavedTabRemovesTheRowAndThePreference] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testUnsaveFromTheSavedTabRemovesTheRowAndThePreference]' skipped (0.060 seconds).
+  Executed 4 tests, with 4 tests skipped and 0 failures (0 unexpected) in 0.252 (0.255) seconds
+  Test Case '-[MattermostUITests.T40ChannelInfoUITests testAddingAndRemovingAMemberReachesTheServer]' passed (34.288 seconds).
+  Test Case '-[MattermostUITests.T40ChannelInfoUITests testAnAccountWithoutThePermissionIsOfferedNoAdminAction]' passed (19.651 seconds).
+  Test Case '-[MattermostUITests.T40ChannelInfoUITests testArchivingAndUnarchivingAChannelReachesTheServer]' passed (36.201 seconds).
+  Test Case '-[MattermostUITests.T40ChannelInfoUITests testBrowsingAndJoiningAPublicChannelNavigatesIntoIt]' passed (35.855 seconds).
+  Test Case '-[MattermostUITests.T40ChannelInfoUITests testInfoScreenRendersTheServersHeaderPurposeAndMembers]' passed (23.057 seconds).
+  Test Case '-[MattermostUITests.T40ChannelInfoUITests testLeavingAPublicChannelRemovesTheMembershipAndTheRow]' passed (25.008 seconds).
+  Test Case '-[MattermostUITests.T40ChannelInfoUITests testPurposeAndHeaderPersistOnTheServer]' passed (28.037 seconds).
+  Test Case '-[MattermostUITests.T40ChannelInfoUITests testTheOpenInfoScreenFollowsRenameAndMembershipEvents]' passed (30.633 seconds).
+  Executed 8 tests, with 0 failures (0 unexpected) in 232.729 (232.740) seconds
+  Executed 19 tests, with 7 tests skipped and 0 failures (0 unexpected) in 380.453 (380.477) seconds
+  Executed 19 tests, with 7 tests skipped and 0 failures (0 unexpected) in 380.453 (380.479) seconds
+  ** TEST SUCCEEDED **
+
+==============================================================================
+RUN t55-live-t39 — T39 alone, first attempt (skipped)
+log /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/logs/t55/t55-live-t39.log
+==============================================================================
+  MattermostUITests/T39JumpUITests.swift:317: -[MattermostUITests.T39JumpUITests testJumpToAnOldResultInAChannelNeverOpenedFetchesByIDAndMarksTheGap] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39JumpUITests testJumpToAnOldResultInAChannelNeverOpenedFetchesByIDAndMarksTheGap]' skipped (0.282 seconds).
+  MattermostUITests/T39JumpUITests.swift:317: -[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds]' skipped (0.056 seconds).
+  MattermostUITests/T39JumpUITests.swift:317: -[MattermostUITests.T39JumpUITests testT55OnDateOffsetOnAFixtureDayThatSeparates] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39JumpUITests testT55OnDateOffsetOnAFixtureDayThatSeparates]' skipped (0.063 seconds).
+  Executed 3 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.402 (0.404) seconds
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList]' skipped (0.057 seconds).
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost]' skipped (0.085 seconds).
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testUnpinFromThePinnedSheetRemovesTheRowAndThePin] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testUnpinFromThePinnedSheetRemovesTheRowAndThePin]' skipped (0.073 seconds).
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testUnsaveFromTheSavedTabRemovesTheRowAndThePreference] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testUnsaveFromTheSavedTabRemovesTheRowAndThePreference]' skipped (0.065 seconds).
+  Executed 4 tests, with 4 tests skipped and 0 failures (0 unexpected) in 0.281 (0.282) seconds
+  Executed 7 tests, with 7 tests skipped and 0 failures (0 unexpected) in 0.682 (0.688) seconds
+  Executed 7 tests, with 7 tests skipped and 0 failures (0 unexpected) in 0.682 (0.689) seconds
+  ** TEST SUCCEEDED **
+
+==============================================================================
+RUN t55-live-t39b — T39 alone, second attempt with the status in the skip message
+log /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/logs/t55/t55-live-t39b.log
+==============================================================================
+  MattermostUITests/T39JumpUITests.swift:319: -[MattermostUITests.T39JumpUITests testJumpToAnOldResultInAChannelNeverOpenedFetchesByIDAndMarksTheGap] : Test skipped - could not sign in as perfprobe on the live server (status 401 {"id":"api.context.session_expired.app_error","message":"Invalid or expired session, please login again.","detailed_error":"","request_id":"xr6eq8ohmfy98czeh5puyn5h1o","stat …
+  Test Case '-[MattermostUITests.T39JumpUITests testJumpToAnOldResultInAChannelNeverOpenedFetchesByIDAndMarksTheGap]' skipped (0.238 seconds).
+  MattermostUITests/T39JumpUITests.swift:319: -[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds] : Test skipped - could not sign in as perfprobe on the live server (status 401 {"id":"api.context.session_expired.app_error","message":"Invalid or expired session, please login again.","detailed_error":"","request_id":"xpmunhj75f84bnchs64ga3twer","status_code":401})
+  Test Case '-[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds]' skipped (0.057 seconds).
+  MattermostUITests/T39JumpUITests.swift:319: -[MattermostUITests.T39JumpUITests testT55OnDateOffsetOnAFixtureDayThatSeparates] : Test skipped - could not sign in as perfprobe on the live server (status 401 {"id":"api.context.session_expired.app_error","message":"Invalid or expired session, please login again.","detailed_error":"","request_id":"njgyf6aqitby3gcjjrjy7p3p8h","status_code":401})
+  Test Case '-[MattermostUITests.T39JumpUITests testT55OnDateOffsetOnAFixtureDayThatSeparates]' skipped (0.058 seconds).
+  Executed 3 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.353 (0.355) seconds
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList]' skipped (0.045 seconds).
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost]' skipped (0.051 seconds).
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testUnpinFromThePinnedSheetRemovesTheRowAndThePin] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testUnpinFromThePinnedSheetRemovesTheRowAndThePin]' skipped (0.050 seconds).
+  MattermostUITests/T39SearchUITests.swift:329: -[MattermostUITests.T39SearchUITests testUnsaveFromTheSavedTabRemovesTheRowAndThePreference] : Test skipped - could not sign in as perfprobe on the live server
+  Test Case '-[MattermostUITests.T39SearchUITests testUnsaveFromTheSavedTabRemovesTheRowAndThePreference]' skipped (0.051 seconds).
+  Executed 4 tests, with 4 tests skipped and 0 failures (0 unexpected) in 0.197 (0.199) seconds
+  Executed 7 tests, with 7 tests skipped and 0 failures (0 unexpected) in 0.550 (0.555) seconds
+  Executed 7 tests, with 7 tests skipped and 0 failures (0 unexpected) in 0.550 (0.556) seconds
+  ** TEST SUCCEEDED **
+
+==============================================================================
+RUN t55-live-t39c — T39 alone with the cookie-free REST session
+log /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/logs/t55/t55-live-t39c.log
+==============================================================================
+  Test Case '-[MattermostUITests.T39JumpUITests testJumpToAnOldResultInAChannelNeverOpenedFetchesByIDAndMarksTheGap]' passed (51.922 seconds).
+  Test Case '-[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds]' passed (39.639 seconds).
+  Test Case '-[MattermostUITests.T39JumpUITests testT55OnDateOffsetOnAFixtureDayThatSeparates]' passed (39.979 seconds).
+  Executed 3 tests, with 0 failures (0 unexpected) in 131.540 (131.544) seconds
+  MattermostUITests/T39SearchUITests.swift:249: error: -[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList] : XCTAssertTrue failed - neither the toolbar nor a tab opens search:
+  MattermostUITests/T39SearchUITests.swift:251: error: -[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList] : Failed to tap "Search" Button: No matches found for Descendants matching type TabBar from input {(
+  Test Case '-[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList]' failed (56.297 seconds).
+  MattermostUITests/T39SearchUITests.swift:231: error: -[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost] : Targeted element TextField, {{24.0, 223.3}, {354.0, 34.0}}, identifier: 'loginIDField', placeholderValue: 'Email or username', value: Email or username, Keyboard Focused is no longer valid after interruption handling. This can happen with UI that auto-dis …
+  Test Case '-[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost]' failed (27.916 seconds).
+  Test Case '-[MattermostUITests.T39SearchUITests testUnpinFromThePinnedSheetRemovesTheRowAndThePin]' passed (32.929 seconds).
+  Test Case '-[MattermostUITests.T39SearchUITests testUnsaveFromTheSavedTabRemovesTheRowAndThePreference]' passed (38.950 seconds).
+  Executed 4 tests, with 3 failures (0 unexpected) in 156.092 (156.098) seconds
+  Executed 7 tests, with 3 failures (0 unexpected) in 287.631 (287.646) seconds
+  Executed 7 tests, with 3 failures (0 unexpected) in 287.631 (287.647) seconds
+  ** TEST FAILED **
+
+==============================================================================
+RUN t55-retry-isolated — the two T39Search failures + the T37 relaunch test, re-run alone
+log /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/logs/t55/t55-retry-isolated.log
+==============================================================================
+  MattermostUITests/T37-ReactionsUITests.swift:391: error: -[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch] : XCTAssertTrue failed - the relaunched app must reach the shell:
+  MattermostUITests/T37-ReactionsUITests.swift:741: error: -[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch] : XCTAssertTrue failed - the sidebar must list channel psw97y5zqpfnpembwxraizuije:
+  MattermostUITests/T37-ReactionsUITests.swift:743: error: -[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch] : Failed to tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" IN identifiers'`, given input App el …
+  Test Case '-[MattermostUITests.T37ReactionsUITests testRecentsSurviveRelaunch]' failed (165.853 seconds).
+  Executed 1 test, with 3 failures (0 unexpected) in 165.853 (165.855) seconds
+  Test Case '-[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList]' passed (43.135 seconds).
+  Test Case '-[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost]' passed (48.408 seconds).
+  Executed 2 tests, with 0 failures (0 unexpected) in 91.543 (91.547) seconds
+  Executed 3 tests, with 3 failures (0 unexpected) in 257.396 (257.405) seconds
+  Executed 3 tests, with 3 failures (0 unexpected) in 257.396 (257.406) seconds
+  ** TEST FAILED **
+
+==============================================================================
+RUN t55-units-baseline — the five unit classes, unmutated
+log /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/logs/t55/t55-units-baseline.log
+==============================================================================
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testADeleteOnTheSocketTurnsTheReplyIntoATombstone]' passed (0.021 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAFailedLoadKeepsItsCopyAndARetryRecovers]' passed (0.020 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAFailedMarkReadDoesNotTurnTheThreadIntoAnErrorScreen]' passed (0.016 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAFailedSendTakesTheOptimisticRowAway]' passed (0.003 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAFollowedThreadStartsWithTheBellsFilledAndItsUnreadCounters]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAFollowTheServerRefusesIsRevertedAndSaysNothingItCannotBackUp]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAnEmptyRootIdentifierFailsInsteadOfRequestingTheServer]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testANonChronologicalServerOrderIsDrawnChronologically]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAnUnfollowedThreadIsNotFollowingEvenThoughItsRepliesLoad]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAPendingReplyIsShownAtOnceAndReplacedByTheServersPost]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAPostUnderAnotherRootIsIgnored]' passed (0.018 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAReplyArrivingOnTheSocketLandsOnceAtIndexWithoutARefetch]' passed (0.006 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testATeamWideReadClearsThisThreadToo]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAThreadOpenedWithoutAChannelLearnsItFromTheRoot]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAThreadWhoseRootWasDeletedSaysSoAndDrawsNoEmptyPane]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testFollowChangedUpdatesTheBellAndClearsTheBadgeOnUnfollow]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testFollowingWritesToTheServerAndReReadsTheRow]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testLoadDrawsTheRootOnceAndItsRepliesInOrder]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testLoadEarlierPrependsTheOlderReplyPage]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testLoadEarlierStopsWhenThePageBringsNothingNew]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testMarkingReadMovesTheBadgeAndRecordsThatItWasDone]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testReadChangedClearsThisThreadsCounters]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testRepliesInTheSameMillisecondAreOrderedById]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testTheRootIsNeverDuplicatedEvenThoughTheEndpointReturnsItAmongTheReplies]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testThreadUpdatedForAnotherThreadIsIgnored]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testThreadUpdatedPatchesTheCountAndFollowState]' passed (0.001 seconds).
+  Executed 26 tests, with 0 failures (0 unexpected) in 0.110 (0.145) seconds
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testAnUnattributableReactionIsAcceptedAndEachPaneFiltersByPost]' passed (0.006 seconds).
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testAReactionFrameWithoutAChannelStillDecodes]' passed (0.005 seconds).
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testAReactionIsAcceptedBeforeAnyTeamIsSelected]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testASocketReactionReachesTheOpenPanesRowThroughTheRail]' passed (0.042 seconds).
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testTheMeasuredReactionFrameCarriesItsChannelIntoTheEvent]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testTheSameGateAdmitsAReactionForTheThreadPanesServer]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testTheScopeAttributesAReactionByItsChannel]' passed (0.001 seconds).
+  Executed 7 tests, with 0 failures (0 unexpected) in 0.058 (0.061) seconds
+  Test Case '-[MattermostTests.T38PreviewFetchLimitTests testAFileAtOrUnderTheLimitIsFetched]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T38PreviewFetchLimitTests testAnImageIsNeverRefusedByTheFetchLimit]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T38PreviewFetchLimitTests testAnUnknownSizeIsNotARefusal]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T38PreviewFetchLimitTests testAPDFPastTheFetchLimitIsRefusedToo]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T38PreviewFetchLimitTests testATextFilePastTheFetchLimitIsRefusedBeforeAnyBytesAreFetched]' passed (0.001 seconds).
+  Executed 5 tests, with 0 failures (0 unexpected) in 0.004 (0.006) seconds
+  Test Case '-[MattermostTests.T39SearchTests testAFetchedOldPostIsSeparatedFromTheNewestPageByAGap]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAFullPageWithoutHasNextKeepsAsking]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAJumpTargetIsAChannelForARootAndAThreadForAReply]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAPageAppendsNewPostsAndDeduplicatesRepeats]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAPinnedListFailureIsASentence]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAPinnedRowCarriesNoChannelLabelButALoadedSavedRowDoes]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testARecentSearchCanBeRemovedAndTheListClearedThroughTheStore]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testASearchRunsAgainstTheCurrentTeamAndRecordsTheQuery]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAServerFailuresEndsAsASentenceNotAnEmptyList]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testChannelLabelsCoverPublicDirectAndUnknown]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testCJKTermsMatchWithoutWordBoundaries]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testClearingASearchForgetsTheResultSetButNotTheHistory]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testEachDocumentedModifierIsParsedComposedAndSentVerbatim]' passed (0.003 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testFocusExplainsADeletedPost]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testFocusFetchesAPostTheWindowDoesNotHoldAndMarksIt]' passed (0.003 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testFocusOnAFetchedReplyOpensItsThread]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testFocusOnAPostInTheWindowDoesNotFetch]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testFocusRefusesAPostFromAnotherChannel]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testHighlightTermsDropModifiersAndNegationsAndSortLongestFirst]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testLoadMoreAppendsTheNextPageAndStopsWhenTheServerIsDone]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testMalformedQueriesProduceReadableSentencesInsteadOfRequests]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testMatchingRespectsWordBoundariesCaseAndPrefixes]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testNegationPrefixesAreParsedAndDoNotBecomeSearchTerms]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testOverlappingTermsResolveToTheEarliestLongestMatch]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testQuotedPhrasesArePreservedAndSmartQuotesAreNormalised]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testRecentSearchesAreDedupedNewestFirstAndCapped]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testResultCopyNamesTheCountAndTheQuery]' passed (0.004 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testServerMatchesWinUnlessTheQueryHasAPhrase]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testSocketPostEditedPatchesARowInPlace]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testSocketPreferenceChangesPatchTheSavedList]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testSubmitRefusesAMalformedQueryWithoutCallingTheServer]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheComposedQueryDefaultsToTheDevicesOffsetInSeconds]' passed (0.004 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheDatabaseBackendWindowIsReportedExhausted]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheDateGrammarIsTheDocumentedOne]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheDefaultsKeyIsScopedToServerAndTeam]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheMarkdownRendererMarksTheMatchedCharacters]' passed (0.005 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheRequestBodyCarriesEveryDocumentedField]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheRowCarriesItsChannelLabelAndItsHighlightTerms]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheSavedListLoadsTheServersPostsWithTheirAuthors]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheSavedRowNamesTheChannelItCameFrom]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheStoreRoundTripsThroughItsKey]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheWindowNoteOnlyAppearsAtTheMeasuredCap]' passed (0.005 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testUnpinningRemovesTheRowInPlaceWithoutARefetch]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testUnsavingWritesThePreferenceAndDropsTheRow]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testWildcardsAreAcceptedOnlyAtTheEndOfAWord]' passed (0.001 seconds).
+  Executed 45 tests, with 0 failures (0 unexpected) in 0.067 (0.080) seconds
+  Test Case '-[MattermostTests.T40ChannelInfoTests testAddMembersIsOptimisticAndConfirmedByTheServer]' passed (0.012 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testAddMembersWithoutThePermissionPerformsNoWrite]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testAdminFallbackComesFromTheRolesStringWhenSchemeAdminIsAbsent]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testAdminPermissionsOfferEveryActionOnAPublicChannel]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testAFailedAddRollsTheOptimisticRowBack]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testAnUnknownChannelTypeIsTreatedAsPublic]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testAPermissiveRoleNamedUserStillGrantsItsPermissions]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testArchiveCopyNamesTheChannelType]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testArchivedChannelLosesManagementAndOffersUnarchiveToATeamAdmin]' passed (0.000 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testArchiveFlipsTheScreenIntoTheArchivedState]' passed (0.003 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testBrowseSplitsJoinedFromOthersAndFiltersByTerm]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testChannelDeletedEventShowsTheArchivedState]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testChannelUpdatedEventRetitlesAndRegates]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testDefaultChannelCannotBeLeftOrManagedExceptByAGuest]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testDirectAndGroupMessagesOfferNoAdminActions]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testDirectMessagePatchCarriesOnlyTheHeader]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testFieldLimitsAreTheServersOwn]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testInitialsAreGraphemeSafe]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testJoinAddsTheMemberAndAnswersTheChannelToOpen]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testJoinWithoutThePermissionPerformsNoWrite]' passed (0.009 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testLeaveIsACloseForDirectAndGroupMessages]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testLeavingADirectMessageClosesItInsteadOfRemovingTheMembership]' passed (0.003 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testLeavingAPublicChannelRemovesTheMembership]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testLoadDerivesCapabilitiesMembersAndCount]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testLoadSurfacesAChannelFailureAsARetryableState]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testMemberRowsSortByDisplayNameAndCarryTheAdminBadge]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testMissingProfileFallsBackToTheUserID]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testMyOwnRemoveEventClosesTheScreen]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testNoChannelOffersNothing]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testPagingAsksForTheNextPageOnlyWhenAFullPageCameBack]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testPermissionLookupFailureLeavesTheScreenReadOnly]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testPermissionUnionIsTheRolesOwnIds]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testPickerOpensOnAListAndSearchesWhenGivenATerm]' passed (0.003 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testPickerSelectionSurvivesATermChange]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testPlainMemberIsOfferedOnlyTheMemberList]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testPrivateChannelUsesItsOwnPermissionIds]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testPurposeOnlyEditSendsOnlyThePurpose]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testRemoveMemberOptimisticallyRemovesAndRestoresOnFailure]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testRemoveMemberWithoutThePermissionPerformsNoWrite]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testRemovingMyselfIsALeave]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testRoleNameGrantsNothingWithoutPermissions]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testRoleNamesUnionAllThreeSourcesAndDeduplicate]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testSaveAppliesTheServersAnswer]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testSaveRefusesWithoutTheSettingsPermission]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testStatusChangeEventUpdatesAnExistingRowOnly]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testTappingAChannelIAmAlreadyInDoesNotJoin]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testUnarchiveNeedsManageTeam]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testUnchangedDraftSendsNoPatch]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T40ChannelInfoTests testUserAddedEventAddsTheMemberExactlyOnce]' passed (0.574 seconds).
+  Executed 49 tests, with 0 failures (0 unexpected) in 0.641 (0.669) seconds
+  Executed 132 tests, with 0 failures (0 unexpected) in 0.880 (0.973) seconds
+  Executed 132 tests, with 0 failures (0 unexpected) in 0.880 (0.973) seconds
+  ** TEST SUCCEEDED **
+
+==============================================================================
+RUN t55-mutants — the same classes + four live tests under the mutations
+log /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build/logs/t55/t55-mutants.log
+==============================================================================
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testADeleteOnTheSocketTurnsTheReplyIntoATombstone]' passed (0.017 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAFailedLoadKeepsItsCopyAndARetryRecovers]' passed (0.022 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAFailedMarkReadDoesNotTurnTheThreadIntoAnErrorScreen]' passed (0.034 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAFailedSendTakesTheOptimisticRowAway]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAFollowedThreadStartsWithTheBellsFilledAndItsUnreadCounters]' passed (0.003 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAFollowTheServerRefusesIsRevertedAndSaysNothingItCannotBackUp]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAnEmptyRootIdentifierFailsInsteadOfRequestingTheServer]' passed (0.003 seconds).
+  MattermostTests/T36ThreadViewModelTests.swift:70: error: -[MattermostTests.T36ThreadViewModelTests testANonChronologicalServerOrderIsDrawnChronologically] : XCTAssertEqual failed: ("["r868", "r838", "r897"]") is not equal to ("["r838", "r868", "r897"]") - the chain is a chronology, not the server's `order` array
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testANonChronologicalServerOrderIsDrawnChronologically]' failed (0.380 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAnUnfollowedThreadIsNotFollowingEvenThoughItsRepliesLoad]' passed (0.024 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAPendingReplyIsShownAtOnceAndReplacedByTheServersPost]' passed (0.020 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAPostUnderAnotherRootIsIgnored]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAReplyArrivingOnTheSocketLandsOnceAtIndexWithoutARefetch]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testATeamWideReadClearsThisThreadToo]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAThreadOpenedWithoutAChannelLearnsItFromTheRoot]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testAThreadWhoseRootWasDeletedSaysSoAndDrawsNoEmptyPane]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testFollowChangedUpdatesTheBellAndClearsTheBadgeOnUnfollow]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testFollowingWritesToTheServerAndReReadsTheRow]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testLoadDrawsTheRootOnceAndItsRepliesInOrder]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testLoadEarlierPrependsTheOlderReplyPage]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testLoadEarlierStopsWhenThePageBringsNothingNew]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testMarkingReadMovesTheBadgeAndRecordsThatItWasDone]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testReadChangedClearsThisThreadsCounters]' passed (0.001 seconds).
+  MattermostTests/T36ThreadViewModelTests.swift:89: error: -[MattermostTests.T36ThreadViewModelTests testRepliesInTheSameMillisecondAreOrderedById] : XCTAssertEqual failed: ("["rb", "ra"]") is not equal to ("["ra", "rb"]")
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testRepliesInTheSameMillisecondAreOrderedById]' failed (0.002 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testTheRootIsNeverDuplicatedEvenThoughTheEndpointReturnsItAmongTheReplies]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testThreadUpdatedForAnotherThreadIsIgnored]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T36ThreadViewModelTests testThreadUpdatedPatchesTheCountAndFollowState]' passed (0.001 seconds).
+  Executed 26 tests, with 2 failures (0 unexpected) in 0.529 (0.552) seconds
+  MattermostTests/T37SocketReactionRoutingTests.swift:114: error: -[MattermostTests.T37SocketReactionRoutingTests testAnUnattributableReactionIsAcceptedAndEachPaneFiltersByPost] : XCTAssertTrue failed
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testAnUnattributableReactionIsAcceptedAndEachPaneFiltersByPost]' failed (0.004 seconds).
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testAReactionFrameWithoutAChannelStillDecodes]' passed (0.005 seconds).
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testAReactionIsAcceptedBeforeAnyTeamIsSelected]' passed (0.001 seconds).
+  MattermostTests/T37SocketReactionRoutingTests.swift:188: error: -[MattermostTests.T37SocketReactionRoutingTests testASocketReactionReachesTheOpenPanesRowThroughTheRail] : XCTAssertTrue failed - timed out after 30s waiting for the foreign reaction reaches the open pane's row
+  MattermostTests/T37SocketReactionRoutingTests.swift:190: error: -[MattermostTests.T37SocketReactionRoutingTests testASocketReactionReachesTheOpenPanesRowThroughTheRail] : XCTAssertEqual failed: ("[]") is not equal to ("["tada"]") - the foreign reaction must draw its pill
+  MattermostTests/T37SocketReactionRoutingTests.swift:192: error: -[MattermostTests.T37SocketReactionRoutingTests testASocketReactionReachesTheOpenPanesRowThroughTheRail] : XCTAssertEqual failed: ("1") is not equal to ("0") - the reaction must be delivered, not refused — that refusal was the defect
+  MattermostTests/T37SocketReactionRoutingTests.swift:208: error: -[MattermostTests.T37SocketReactionRoutingTests testASocketReactionReachesTheOpenPanesRowThroughTheRail] : XCTAssertTrue failed - timed out after 30s waiting for the fence after the other team's reaction
+  MattermostTests/T37SocketReactionRoutingTests.swift:210: error: -[MattermostTests.T37SocketReactionRoutingTests testASocketReactionReachesTheOpenPanesRowThroughTheRail] : XCTAssertEqual failed: ("3") is not equal to ("1") - another team's reaction is refused
+  MattermostTests/T37SocketReactionRoutingTests.swift:211: error: -[MattermostTests.T37SocketReactionRoutingTests testASocketReactionReachesTheOpenPanesRowThroughTheRail] : XCTAssertEqual failed: ("[]") is not equal to ("["tada"]") - the surface on screen must not draw another team's reaction
+  MattermostTests/T37SocketReactionRoutingTests.swift:218: error: -[MattermostTests.T37SocketReactionRoutingTests testASocketReactionReachesTheOpenPanesRowThroughTheRail] : XCTAssertTrue failed - timed out after 30s waiting for the foreign removal reaches the pane
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testASocketReactionReachesTheOpenPanesRowThroughTheRail]' failed (90.365 seconds).
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testTheMeasuredReactionFrameCarriesItsChannelIntoTheEvent]' passed (0.007 seconds).
+  MattermostTests/T37SocketReactionRoutingTests.swift:229: error: -[MattermostTests.T37SocketReactionRoutingTests testTheSameGateAdmitsAReactionForTheThreadPanesServer] : XCTAssertTrue failed - a thread pane on a channel of the active team receives its reactions
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testTheSameGateAdmitsAReactionForTheThreadPanesServer]' failed (0.004 seconds).
+  MattermostTests/T37SocketReactionRoutingTests.swift:92: error: -[MattermostTests.T37SocketReactionRoutingTests testTheScopeAttributesAReactionByItsChannel] : XCTAssertTrue failed - a reaction in the channel on screen belongs to the team on screen
+  MattermostTests/T37SocketReactionRoutingTests.swift:95: error: -[MattermostTests.T37SocketReactionRoutingTests testTheScopeAttributesAReactionByItsChannel] : XCTAssertTrue failed - a reaction in another channel of the active team must arrive too
+  MattermostTests/T37SocketReactionRoutingTests.swift:98: error: -[MattermostTests.T37SocketReactionRoutingTests testTheScopeAttributesAReactionByItsChannel] : XCTAssertTrue failed - a removal is attributed exactly like an add
+  Test Case '-[MattermostTests.T37SocketReactionRoutingTests testTheScopeAttributesAReactionByItsChannel]' failed (0.011 seconds).
+  Executed 7 tests, with 12 failures (0 unexpected) in 90.398 (90.418) seconds
+  Test Case '-[MattermostTests.T38PreviewFetchLimitTests testAFileAtOrUnderTheLimitIsFetched]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T38PreviewFetchLimitTests testAnImageIsNeverRefusedByTheFetchLimit]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T38PreviewFetchLimitTests testAnUnknownSizeIsNotARefusal]' passed (0.000 seconds).
+  MattermostTests/T38AttachmentTests.swift:564: error: -[MattermostTests.T38PreviewFetchLimitTests testAPDFPastTheFetchLimitIsRefusedToo] : XCTAssertEqual failed: ("fetch") is not equal to ("tooLarge(limit: 4194304000)")
+  Test Case '-[MattermostTests.T38PreviewFetchLimitTests testAPDFPastTheFetchLimitIsRefusedToo]' failed (0.006 seconds).
+  Test Case '-[MattermostTests.T38PreviewFetchLimitTests testATextFilePastTheFetchLimitIsRefusedBeforeAnyBytesAreFetched]' passed (0.001 seconds).
+  Executed 5 tests, with 1 failure (0 unexpected) in 0.010 (0.015) seconds
+  Test Case '-[MattermostTests.T39SearchTests testAFetchedOldPostIsSeparatedFromTheNewestPageByAGap]' passed (0.010 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAFullPageWithoutHasNextKeepsAsking]' passed (0.012 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAJumpTargetIsAChannelForARootAndAThreadForAReply]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAPageAppendsNewPostsAndDeduplicatesRepeats]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAPinnedListFailureIsASentence]' passed (0.013 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAPinnedRowCarriesNoChannelLabelButALoadedSavedRowDoes]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testARecentSearchCanBeRemovedAndTheListClearedThroughTheStore]' passed (0.003 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testASearchRunsAgainstTheCurrentTeamAndRecordsTheQuery]' passed (0.005 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testAServerFailuresEndsAsASentenceNotAnEmptyList]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testChannelLabelsCoverPublicDirectAndUnknown]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testCJKTermsMatchWithoutWordBoundaries]' passed (0.003 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testClearingASearchForgetsTheResultSetButNotTheHistory]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testEachDocumentedModifierIsParsedComposedAndSentVerbatim]' passed (0.011 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testFocusExplainsADeletedPost]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testFocusFetchesAPostTheWindowDoesNotHoldAndMarksIt]' passed (0.004 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testFocusOnAFetchedReplyOpensItsThread]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testFocusOnAPostInTheWindowDoesNotFetch]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testFocusRefusesAPostFromAnotherChannel]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testHighlightTermsDropModifiersAndNegationsAndSortLongestFirst]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testLoadMoreAppendsTheNextPageAndStopsWhenTheServerIsDone]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testMalformedQueriesProduceReadableSentencesInsteadOfRequests]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testMatchingRespectsWordBoundariesCaseAndPrefixes]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testNegationPrefixesAreParsedAndDoNotBecomeSearchTerms]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testOverlappingTermsResolveToTheEarliestLongestMatch]' passed (0.005 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testQuotedPhrasesArePreservedAndSmartQuotesAreNormalised]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testRecentSearchesAreDedupedNewestFirstAndCapped]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testResultCopyNamesTheCountAndTheQuery]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testServerMatchesWinUnlessTheQueryHasAPhrase]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testSocketPostEditedPatchesARowInPlace]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testSocketPreferenceChangesPatchTheSavedList]' passed (0.002 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testSubmitRefusesAMalformedQueryWithoutCallingTheServer]' passed (0.001 seconds).
+  MattermostTests/T39SearchTests.swift:191: error: -[MattermostTests.T39SearchTests testTheComposedQueryDefaultsToTheDevicesOffsetInSeconds] : XCTAssertEqual failed: ("-300") is not equal to ("-18000")
+  Test Case '-[MattermostTests.T39SearchTests testTheComposedQueryDefaultsToTheDevicesOffsetInSeconds]' failed (0.002 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheDatabaseBackendWindowIsReportedExhausted]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheDateGrammarIsTheDocumentedOne]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheDefaultsKeyIsScopedToServerAndTeam]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheMarkdownRendererMarksTheMatchedCharacters]' passed (0.007 seconds).
+  MattermostTests/T39SearchTests.swift:177: error: -[MattermostTests.T39SearchTests testTheRequestBodyCarriesEveryDocumentedField] : XCTAssertEqual failed: ("Optional(-420)") is not equal to ("Optional(-25200)") - seconds east of UTC — -420 would be the minutes encoding the server reads as 7 minutes west, i.e. a UTC day for every `on:`
+  Test Case '-[MattermostTests.T39SearchTests testTheRequestBodyCarriesEveryDocumentedField]' failed (0.005 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheRowCarriesItsChannelLabelAndItsHighlightTerms]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheSavedListLoadsTheServersPostsWithTheirAuthors]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheSavedRowNamesTheChannelItCameFrom]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheStoreRoundTripsThroughItsKey]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testTheWindowNoteOnlyAppearsAtTheMeasuredCap]' passed (0.005 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testUnpinningRemovesTheRowInPlaceWithoutARefetch]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testUnsavingWritesThePreferenceAndDropsTheRow]' passed (0.001 seconds).
+  Test Case '-[MattermostTests.T39SearchTests testWildcardsAreAcceptedOnlyAtTheEndOfAWord]' passed (0.001 seconds).
+  Executed 45 tests, with 2 failures (0 unexpected) in 0.115 (0.147) seconds
+  Executed 83 tests, with 17 failures (0 unexpected) in 91.052 (91.133) seconds
+  Executed 83 tests, with 17 failures (0 unexpected) in 91.052 (91.134) seconds
+  MattermostUITests/T37-ReactionsUITests.swift:472: error: -[MattermostUITests.T37ReactionsUITests testForeignReactionArrivesOverTheSocketOnce] : XCTAssertTrue failed - the other reader's reaction must arrive over the socket:
+  MattermostUITests/T37-ReactionsUITests.swift:475: error: -[MattermostUITests.T37ReactionsUITests testForeignReactionArrivesOverTheSocketOnce] : Failed to get matching snapshot: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"post.tqj73yu9ptbuz87t6ndhepkmkh.reaction.tada" IN identifiers'`, given input App element pid: 83134
+  Test Case '-[MattermostUITests.T37ReactionsUITests testForeignReactionArrivesOverTheSocketOnce]' failed (49.977 seconds).
+  Executed 1 test, with 2 failures (0 unexpected) in 49.977 (49.979) seconds
+  MattermostUITests/T39JumpUITests.swift:197: error: -[MattermostUITests.T39JumpUITests testT55OnDateOffsetOnAFixtureDayThatSeparates] : XCTAssertEqual failed: ("3") is not equal to ("1") - the screen shows 3 for in:t34-showcase on:2026-10-26; seconds reads 1, minutes reads 3. Summary: 3 results for “in:t34-showcase on:2026-10-26”
+  Test Case '-[MattermostUITests.T39JumpUITests testT55OnDateOffsetOnAFixtureDayThatSeparates]' failed (43.208 seconds).
+  Executed 1 test, with 1 failure (0 unexpected) in 43.208 (43.210) seconds
+  MattermostUITests/T40ChannelInfoUITests.swift:224: error: -[MattermostUITests.T40ChannelInfoUITests testAddingAndRemovingAMemberReachesTheServer] : XCTAssertTrue failed - one row tap must enable the Add button; it says "Add 0 members"
+  MattermostUITests/T40ChannelInfoUITests.swift:227: error: -[MattermostUITests.T40ChannelInfoUITests testAddingAndRemovingAMemberReachesTheServer] : XCTAssertTrue failed - the Add button must count the selection, not stay at zero: "Add 0 members"
+  MattermostUITests/T40ChannelInfoUITests.swift:231: error: -[MattermostUITests.T40ChannelInfoUITests testAddingAndRemovingAMemberReachesTheServer] : XCTAssertTrue failed - the add must reach the server (the app is not the oracle)
+  MattermostUITests/T40ChannelInfoUITests.swift:233: error: -[MattermostUITests.T40ChannelInfoUITests testAddingAndRemovingAMemberReachesTheServer] : XCTAssertTrue failed - the picker must close once the add landed:
+  MattermostUITests/T40ChannelInfoUITests.swift:239: error: -[MattermostUITests.T40ChannelInfoUITests testAddingAndRemovingAMemberReachesTheServer] : XCTAssertTrue failed - the member list must show the added member:
+  MattermostUITests/T40ChannelInfoUITests.swift:1104: error: -[MattermostUITests.T40ChannelInfoUITests testAddingAndRemovingAMemberReachesTheServer] : Failed to get matching snapshot: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelMemberRow.4uceu7iojbb87qo6r6mtbyojae" IN identifiers'`, given input App element pid: 84043
+  Test Case '-[MattermostUITests.T40ChannelInfoUITests testAddingAndRemovingAMemberReachesTheServer]' failed (96.923 seconds).
+  MattermostUITests/T40ChannelInfoUITests.swift:289: error: -[MattermostUITests.T40ChannelInfoUITests testPurposeAndHeaderPersistOnTheServer] : XCTAssertTrue failed - the Save row must enable once the draft differs from the server's copy
+  MattermostUITests/T40ChannelInfoUITests.swift:294: error: -[MattermostUITests.T40ChannelInfoUITests testPurposeAndHeaderPersistOnTheServer] : XCTAssertTrue failed - the purpose must reach the server
+  MattermostUITests/T40ChannelInfoUITests.swift:300: error: -[MattermostUITests.T40ChannelInfoUITests testPurposeAndHeaderPersistOnTheServer] : XCTAssertTrue failed - the header must reach the server too
+  Test Case '-[MattermostUITests.T40ChannelInfoUITests testPurposeAndHeaderPersistOnTheServer]' failed (59.158 seconds).
+  Executed 2 tests, with 9 failures (0 unexpected) in 156.081 (156.084) seconds
+  Executed 4 tests, with 12 failures (0 unexpected) in 249.266 (249.278) seconds
+  Executed 4 tests, with 12 failures (0 unexpected) in 249.266 (249.287) seconds
+  ** TEST FAILED **
+
+==============================================================================
+MUTANT assertion counts per class (t55-mutants.log)
+==============================================================================
+  T36ThreadViewModelTests: 2 assertion failure(s) in 2 test case(s): testANonChronologicalServerOrderIsDrawnChronologically, testRepliesInTheSameMillisecondAreOrderedById
+  T37SocketReactionRoutingTests: 12 assertion failure(s) in 4 test case(s): testASocketReactionReachesTheOpenPanesRowThroughTheRail, testAnUnattributableReactionIsAcceptedAndEachPaneFiltersByPost, testTheSameGateAdmitsAReactionForTheThreadPanesServer, testTheScopeAttributesAReactionByItsChannel
+  T38PreviewFetchLimitTests: 1 assertion failure(s) in 1 test case(s): testAPDFPastTheFetchLimitIsRefusedToo
+  T39SearchTests: 2 assertion failure(s) in 2 test case(s): testTheComposedQueryDefaultsToTheDevicesOffsetInSeconds, testTheRequestBodyCarriesEveryDocumentedField
+
