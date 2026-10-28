@@ -235,10 +235,17 @@ final class T95ShellLayoutUITests: XCTestCase {
         }, "the empty detail must say so instead of rendering a blank pane:\n" + app.debugDescription)
 
         // The sidebar column is on screen and lists the team's channels — that is the split view
-        // being a split view, not just an empty detail stretched over the window.
-        let row = revealSidebarRow(app, identifier: "channelSidebar.channel.\(townHall.id)")
-        XCTAssertTrue(row.waitForExistence(timeout: 40),
-                      "the split view's sidebar column must list #\(townHall.name):\n"
+        // being a *split* view, not an empty detail stretched over the window. The column's own team
+        // row names the team; any channel row proves the list is populated. (Deliberately not "the
+        // town hall row": this fixture's team has ~40 channels, and scrolling the *detail* column
+        // with `app.swipeUp()` would never reach it — the landing claim does not need that row.)
+        XCTAssertTrue(element(app, "sidebarCurrentTeam").waitForExistence(timeout: 30),
+                      "the split view's sidebar column must be on screen and name the team:\n"
+                      + app.debugDescription)
+        let channelRows = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "channelSidebar.channel."))
+        XCTAssertTrue(waitUntil(timeout: 30) { channelRows.count > 0 },
+                      "the split view's sidebar column must list the team's channels:\n"
                       + app.debugDescription)
 
         // The regular layout has no tab bar (deviation D-1 in the decision doc: our split view uses

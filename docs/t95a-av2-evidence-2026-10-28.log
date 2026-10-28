@@ -1,0 +1,121 @@
+T95-A-AV-R evidence — 2026-10-28 (card t_c81a4bad)
+
+Everything below is raw output from a throwaway instrumentation run; the instrumentation was
+reverted before any commit (`git checkout -- Mattermost/`). It exists so §1 of
+docs/t95a-av2-build-note.md can be re-checked instead of believed.
+
+How the instrumentation was produced (throwaway, NOT part of the deliverable):
+
+  1. A file-writing probe helper appended to Mattermost/UI/Native/Sidebar/ChannelSidebarCoordinator.swift:
+
+       /// THROWAWAY (T95-A-AV-R diagnosis only): append a line to a file the host can read.
+       func t95probeFile(_ line: String) {
+           let path = "/tmp/t95probe-parent.log"      // …-main.log in the second run
+           guard let data = (line + "\n").data(using: .utf8) else { return }
+           if let handle = FileHandle(forWritingAtPath: path) {
+               handle.seekToEndOfFile(); handle.write(data); handle.closeFile()
+           } else {
+               try? data.write(to: URL(fileURLWithPath: path))
+           }
+       }
+
+  2. Three call sites in applyLaunchDestinationIfNeeded(for:model:), at the top and at each guard:
+
+       t95probeFile("T95PROBE decide enter opensDest=\(location.opensADestination) … groups=\(model.groups.count) phase=\(String(describing: model.phase))")
+       guard !location.opensADestination else { t95probeFile("T95PROBE decide STOP opensDest"); return }
+       if let current = location.serverID, current != server.id { t95probeFile("… STOP otherServer"); return }
+       guard let teamID = model.teamID ?? location.teamID else { t95probeFile("… STOP noTeam"); return }
+       // …and at the request guard / after openChannel:
+       … else { t95probeFile("… STOP noRequest"); return }
+       t95probeFile("… OPEN request=… outcome=…")
+
+  3. On main only, one extra line at the top of the `model.$groups` sink in `model(for:)`:
+
+       t95probeFile("T95PROBE sink groups=\(groups.count) self=\(self != nil) model=\(model != nil)")
+
+  4. Probe test (also throwaway): launched the shell with
+     `-uiTestResetPersistedState -uiTestForgetSession <url> -uiTestSeedServer <url> …`,
+     signed in, then sampled tab bar / nativeChannelPane / `channelSidebar.channel.*` rows every
+     250 ms for 75–90 s and printed every state change as `PROBE t=…`.
+
+  Commands (fixture credentials come from the environment, never from a file):
+     python3 bin/run_uitest.py --worktree <wt> --label t95av2-probe-parent6 \
+       --only-testing MattermostUITests/T95ProbeUITests --sim id=614CEE50-… \
+       --derived-data ~/Library/Developer/Xcode/DerivedData/t95av2-parent
+     (bin/run_uitest.py wraps scripts/qa-test.py and sets TEST_RUNNER_MM_AUTH_* from the one password
+      literal in scripts/*.py that actually logs in — several are stale on this fixture)
+
+--------------------------------------------------------------------------------
+§A  PARENT bbe0aa1 — /tmp/t95probe-parent.log, run t95av2-probe-parent6 (12 lines, verbatim)
+--------------------------------------------------------------------------------
+T95PROBE decide enter opensDest=false locServer=Optional(F1CB0E29-649A-48BA-866D-943A8EB22628) server=F1CB0E29-649A-48BA-866D-943A8EB22628 modelTeam=nil locTeam=nil groups=0
+T95PROBE decide STOP noTeam
+T95PROBE decide enter opensDest=false locServer=Optional(F1CB0E29-649A-48BA-866D-943A8EB22628) server=F1CB0E29-649A-48BA-866D-943A8EB22628 modelTeam=nil locTeam=nil groups=0
+T95PROBE decide STOP noTeam
+T95PROBE decide enter opensDest=false locServer=Optional(F1CB0E29-649A-48BA-866D-943A8EB22628) server=F1CB0E29-649A-48BA-866D-943A8EB22628 modelTeam=nil locTeam=nil groups=0
+T95PROBE decide STOP noTeam
+T95PROBE decide enter opensDest=false locServer=Optional(F1CB0E29-649A-48BA-866D-943A8EB22628) server=F1CB0E29-649A-48BA-866D-943A8EB22628 modelTeam=nil locTeam=nil groups=0
+T95PROBE decide STOP noTeam
+T95PROBE decide enter opensDest=false locServer=Optional(F1CB0E29-649A-48BA-866D-943A8EB22628) server=F1CB0E29-649A-48BA-866D-943A8EB22628 modelTeam=Optional("ocz148uck3r88dcjikj497bosh") locTeam=nil groups=0
+T95PROBE decide STOP noRequest
+T95PROBE decide enter opensDest=false locServer=Optional(F1CB0E29-649A-48BA-866D-943A8EB22628) server=F1CB0E29-649A-48BA-866D-943A8EB22628 modelTeam=Optional("ocz148uck3r88dcjikj497bosh") locTeam=Optional("ocz148uck3r88dcjikj497bosh") groups=0
+T95PROBE decide STOP noRequest
+
+Reading: six decide calls in the whole run, every one with `groups=0`. The channel list is on screen
+11 rows at t=1.26 s in the same run (probe output below), so the directory *is* loaded — the decide
+just never sees it. The parent's town-hall branch needs `hasTownHall` / `fallbackChannelID`, both
+derived from `entries` (i.e. `groups`), so it answers `nil` at every launch decide: `STOP noRequest`.
+
+Same run's probe output (timing of the directory vs. the pane):
+
+  Test Case '… testProbeWhenTheLatePushLands' started.
+  PROBE launchAndSignIn returned after 1793171614.06
+  PROBE t=0.00 tabs=1 pane=false rows=0 shell=true empty=false
+  PROBE t=1.14 tabs=1 pane=false rows=11 shell=true empty=false
+  PROBE SUMMARY tabBarFirst=Optional(0.0003…) rowsFirst=Optional(1.46…) paneFirst=nil
+
+And the earlier, uninstrumented parent run (t95av2-probe-parent2) ended the same way after 75 s:
+
+  PROBE SUMMARY tabBarFirst=Optional(0.00027…) rowsFirst=Optional(1.464…) paneFirst=nil
+
+--------------------------------------------------------------------------------
+§B  MAIN (5f55bf6) — /tmp/t95probe-main.log, run t95av2-green-iphone-1 (18 lines, verbatim)
+--------------------------------------------------------------------------------
+T95PROBE sink groups=0 self=true model=true
+T95PROBE decide enter opensDest=false modelTeam=nil locTeam=nil groups=0 phase=idle
+T95PROBE decide STOP noTeam
+T95PROBE decide enter opensDest=false modelTeam=nil locTeam=nil groups=0 phase=idle
+T95PROBE decide STOP noTeam
+T95PROBE sink groups=0 self=true model=true
+T95PROBE decide enter opensDest=false modelTeam=nil locTeam=nil groups=0 phase=idle
+T95PROBE decide STOP noTeam
+T95PROBE decide enter opensDest=false modelTeam=nil locTeam=nil groups=0 phase=idle
+T95PROBE decide STOP noTeam
+T95PROBE sink groups=0 self=true model=true
+T95PROBE decide enter opensDest=false modelTeam=Optional("ocz148uck3r88dcjikj497bosh") locTeam=nil groups=0 phase=idle
+T95PROBE sink groups=2 self=true model=true
+T95PROBE decide enter opensDest=false modelTeam=Optional("ocz148uck3r88dcjikj497bosh") locTeam=Optional("ocz148uck3r88dcjikj497bosh") groups=0 phase=loaded
+T95PROBE sink groups=2 self=true model=true
+T95PROBE decide enter opensDest=false modelTeam=Optional("ocz148uck3r88dcjikj497bosh") locTeam=Optional("ocz148uck3r88dcjikj497bosh") groups=2 phase=loaded
+T95PROBE decide enter opensDest=true modelTeam=Optional("ocz148uck3r88dcjikj497bosh") locTeam=Optional("ocz148uck3r88dcjikj497bosh") groups=2 phase=loaded
+T95PROBE decide STOP opensDest
+
+Reading: `sink groups=2` is immediately followed by `decide enter … groups=0` — `@Published`
+publishes in **willSet**, so the decide triggered by the directory arriving reads the *previous*
+(empty) value. A second decide, entered from the location-change path, does read `groups=2`; with
+nothing saved `LaunchDestination.request` returns `nil` there by design (`-> none`), which is why
+main is green. The reinstated-fallback mutant (§1 of the build note) hooks exactly that second decide
+and reds the new assertion at 0.1 s.
+
+--------------------------------------------------------------------------------
+§C  What is NOT evidence here
+--------------------------------------------------------------------------------
+* The 2026-10-27 AV pass (t_3a33a5ff) reported the parent UI test green twice and concluded the push
+  "lands outside the 5 s window". §A shows the push does not land at all on that tree: the decide
+  never reads a loaded directory. The parent commit is therefore not a red fixture for the UI test;
+  the reinstated fallback is (build note §1).
+* SwiftUI behaviour recorded while hunting the D1 mutation (build note §2): a `NavigationStack`
+  placed inside the tab, with or without `.toolbar(.visible, for: .tabBar)` on the pushed
+  destination, still hides the tab bar on iOS 18.3 — both mutants stayed green. Only a destination
+  that itself carries a tab container renders a tab bar next to the pane, and that one reds
+  `app.tabBars.count == 0`.
