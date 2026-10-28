@@ -161,6 +161,26 @@ promise and this is where it fails.
 The decisive numbers for that card: `ScrollView {{64.0, 0.0}, {338.0, 874.0}}` vs
 `NavigationBar {{0.0, 56.3}, {402.0, 96.0}}` in the same tree, and the screenshot above.
 
+### §4 outcome (2026-10-28, `t_560103f6` — appended, the decision above stands)
+
+**Landed: the bar draws material on the compact layout.** `RootView.CompactToolbarMaterial` sets
+`.toolbarBackground(Color(.systemGroupedBackground), for: .navigationBar)` + `.toolbarBackground(.visible,
+for: .navigationBar)` when the layout is compact **and** the pane resolves native
+(`paintsCompactChrome`), on the stack's root content and on the `navigationDestination` content. The
+card's option 1, scoped as it asked; option 2 was rejected because a `.safeAreaInset` moves the content
+top and would have moved the pinned caption off the 166.3 this record settles. The webview pane (the
+shipping configuration) is deliberately not painted and is measured unchanged: before/after differs in
+1046 of 3,162,132 pixels, all of them the status-bar clock.
+
+Measured on the same 402 × 94 pt strip of the bar, list at rest vs scrolled until rows sit behind it
+(the new T33 test, `build/logs/t8g/`): **66.66 % of the strip's pixels changed before → 0.00 % after**;
+the bar frame is unchanged (`{{0.0, 56.3}, {402.0, 96.0}}`), the pinned caption is still at **y = 166.3**,
+and the shell's element/row counts are identical before and after (154 elements / 41 rows). The regular
+iPad layout is unchanged by measurement: a before/after iPad screenshot pair differs in 134 of 4,036,560
+pixels, all of them in the status-bar clock's digits. Note of record: **`docs/t560103f6-shell-chrome-material.md`**;
+the fixture had to be re-seeded (347 rows / 11 categories) because this host's throwaway database no
+longer held it — §1 of that note.
+
 ---
 
 ## 5. What this card changed

@@ -90,6 +90,52 @@ struct RootView: View {
         }
     }
 
+    /// T8g §4 — the compact shell's bar draws **material**, so a list can never render its rows among
+    /// the toolbar's own controls.
+    ///
+    /// Measured before this change (card `t_560103f6`, T33's chrome test on the 347-channel fixture,
+    /// `build/logs/t8g/before-shots/t8g-02-sidebar-scrolled.png`): the bar is
+    /// `{{0.0, 56.3}, {402.0, 96.0}}` while `channelSidebar.scroll` is `{{64.0, 0.0}, {338.0, 874.0}}`
+    /// — the list runs the full window height and scrolls *under* the bar. iOS 18's scroll-edge
+    /// effect never fires for a scroll view nested in the `TabView`'s tab content, so the bar kept its
+    /// transparent (scroll-edge) appearance permanently: scrolling the list moved **66.7 %** of the
+    /// bar strip's pixels, and the screenshot has a channel row drawn straight through
+    /// "Local Mattermost".
+    ///
+    /// The fix paints the bar with the surface the compact sidebar is itself drawn on
+    /// (`Color(.systemGroupedBackground)`, `ChannelSidebarView.body`), so the bar is opaque and the
+    /// same 402 × 94 pt strip reads **0.0 %** differing between the list at rest and scrolled. Three
+    /// properties this must keep:
+    ///  * it is scoped to `.compact`, so the regular/iPad layout's `NavigationSplitView` column keeps
+    ///    its own native bar appearance (acceptance 2 — measured as an unchanged iPad screenshot);
+    ///  * it applies only while the **native** pane is on screen (`applies`). The webview pane is the
+    ///    shipping configuration and is not what this card measured: its page is inset below the bar by
+    ///    WKWebView's own content-inset adjustment, so an opaque bar would only restyle the strip over
+    ///    the page's background (measured: `build/logs/t8g/web-mode-*.png`). Native chrome is painted;
+    ///    the webview keeps the bar it has;
+    ///  * it adds no accessibility identifier and no element per row (T8e/T8f's per-row cost stays 1);
+    ///    `toolbarBackground` paints, it does not build a view in the content.
+    private struct CompactToolbarMaterial: ViewModifier {
+        /// `compact layout && native pane` — computed by the caller, which is where both facts live.
+        let applies: Bool
+
+        func body(content: Content) -> some View {
+            if applies {
+                content
+                    .toolbarBackground(Color(.systemGroupedBackground), for: .navigationBar)
+                    .toolbarBackground(.visible, for: .navigationBar)
+            } else {
+                content
+            }
+        }
+    }
+
+    /// Whether the shell's compact bar should be painted: compact width **and** the pane resolving
+    /// native (the shell the card measured).
+    private var paintsCompactChrome: Bool {
+        horizontalSizeClass == .compact && paneMode == .native
+    }
+
     var body: some View {
         NavigationStack(path: panePath) {
             ZStack {
@@ -121,6 +167,10 @@ struct RootView: View {
                             shellToolbarItems
                         }
                     }
+                    // T8g §4: a pushed native pane gets its own bar, so the shell's material is
+                    // declared here too — otherwise the chrome would be opaque on the list and
+                    // transparent one push away.
+                    .modifier(CompactToolbarMaterial(applies: paintsCompactChrome))
                     .sheet(isPresented: $isPresentingServerForm) {
                         ServerFormView(serverStore: serverStore, viewStore: viewStore, editing: editingServer)
                     }
@@ -168,6 +218,8 @@ struct RootView: View {
                     shellToolbarItems
                 }
             }
+            // T8g §4 — the compact shell's bar material (see `CompactToolbarMaterial`).
+            .modifier(CompactToolbarMaterial(applies: paintsCompactChrome))
             .sheet(isPresented: $isPresentingServerForm) {
                 ServerFormView(serverStore: serverStore, viewStore: viewStore, editing: editingServer)
             }

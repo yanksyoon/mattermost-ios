@@ -381,7 +381,14 @@ Note of record: `docs/t8g-sticky-header-decision.md`. What it binds:
 * **T8f §4.2's "sticky headers do not stick" is retracted** — a window error (it searched `0 < y < 60`;
   the list runs under the nav bar, so its pin point is 166.3). No code change; the code comment and
   the T8f note carry the correction.
-* **Still required and open: the shell's toolbar draws no material over scrolled content** — rows pass
-  behind the toolbar buttons and the status bar (T8f §4.3 and the same run's screenshot). It is a shell
-  promise (`MainPage / shell chrome` row), so it is filed as a shell-chrome card, not a channel-list
-  one. Until it lands, a scrolled phone sidebar has two texts drawn on each other. Card: **`t_560103f6`**.
+* **The shell's toolbar draws material over scrolled content — closed by `t_560103f6`.** The T8f §4.3
+  defect (rows passing behind the toolbar buttons and the status bar; two texts on each other) is fixed
+  on the compact **native** pane by `RootView.CompactToolbarMaterial`: `.toolbarBackground` with the
+  sidebar's own surface, scoped to `horizontalSizeClass == .compact && paneMode == .native` (the webview
+  pane is the shipping configuration and is measured unchanged: 1046 of 3,162,132 pixels differ between
+  before/after, all of them the status-bar clock). Measured on the same 402 × 94 pt bar strip, list at
+  rest vs scrolled: **66.66 % of its pixels changed before → 0.00 % after**; bar frame unchanged, pinned
+  caption still at y = 166.3, element/row counts identical (154 / 41); the regular/iPad layout differs by
+  134 of 4,036,560 pixels between the before/after screenshots — the status-bar clock only. A new T33
+  test (`testTheChromeCoversTheListAsItScrollsUnderIt`) fails on the unfixed tree and passes after, so
+  the regression is caught by the suite. Note of record: `docs/t560103f6-shell-chrome-material.md`.

@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// T33 — the native channel sidebar against a **real** Mattermost server, with the browser's numbers
 /// standing in for nothing: every expectation is read back from the server through its own API.
@@ -504,6 +505,131 @@ final class T33ChannelSidebarUITests: XCTestCase {
         attachShot(app, named: "t33-13-external-view")
     }
 
+    // MARK: - 9. The shell's chrome covers a scrolled list (T8g §4)
+
+    /// T8g §4: over a scrolled phone sidebar **no list row may be drawn among the toolbar's own
+    /// controls**. The bar is the shell's (`RootView`'s `NavigationStack` toolbar) and until this
+    /// card it drew no material at all, while the list scrolls *under* it.
+    ///
+    /// The assertion is the invariant rather than a taste: an opaque bar's own pixels **do not
+    /// change when the list under it scrolls**. The test reads the bar's rect, captures two
+    /// screenshots (list at rest, list scrolled far enough that rows sit behind the bar) and
+    /// requires the strip to be the same image. A transparent bar fails this loudly, because the
+    /// rows' glyphs move through the strip.
+    ///
+    /// What it deliberately does not do: add an accessibility identifier, or an element to a row
+    /// (T8e/T8f's per-row cost stays 1). It reads the bar's frame, two screenshots, and — for the
+    /// cost check — the shell's element/row counts.
+    func testTheChromeCoversTheListAsItScrollsUnderIt() throws {
+        // The material is scoped to the compact layout (T8g acceptance 2: the regular/iPad layout's
+        // `NavigationSplitView` column keeps its native bar). On an iPad this test therefore records
+        // what that layout looks like — in landscape, where the split view actually shows the sidebar
+        // column — and skips the compact invariant. Two runs of this test on an iPad (before/after a
+        // change to the compact chrome) are then a screenshot diff for acceptance 2.
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        if isPad { XCUIDevice.shared.orientation = .landscapeLeft }
+
+        let app = launchAndSignIn()
+        if isPad {
+            XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+                          "the shell must mount on the regular layout too:\n\(app.debugDescription)")
+            // One settle so the sidebar's first load is on screen, not a spinner.
+            _ = waitUntil(timeout: 10) { element(app, "channelSidebar.category.channels").exists }
+            attachShot(app, named: "t8g-03-regular-layout")
+            throw XCTSkip("the regular/iPad layout draws no compact chrome; the chrome material is "
+                          + "scoped to `.compact` (T8g acceptance 2) — screenshot recorded instead")
+        }
+        let pane = element(app, "nativeTeamSidebar")
+        XCTAssertTrue(pane.waitForExistence(timeout: 40),
+                      "the native sidebar must mount:\n\(app.debugDescription)")
+
+        let rows = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "channelSidebar.channel."))
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 30),
+                      "the list must draw rows before this measures chrome:\n\(app.debugDescription)")
+
+        let bar = app.navigationBars.firstMatch
+        XCTAssertTrue(bar.waitForExistence(timeout: 15),
+                      "the compact shell draws a navigation bar:\n\(app.debugDescription)")
+        let barFrame = bar.frame
+        XCTAssertGreaterThan(barFrame.height, 20, "the bar's frame is the chrome this card is about")
+
+        // The bar's own pixels, minus its bottom 2 pt: iOS 18 draws a hairline separator there once
+        // content is scrolled under a bar, and that is presentation the assertion should not
+        // confuse with a row showing through.
+        let strip = CGRect(x: barFrame.minX, y: barFrame.minY,
+                           width: barFrame.width, height: max(1, barFrame.height - 2))
+        guard let atRest = pixelStrip(app, strip) else {
+            return XCTFail("could not read the bar's pixels from a screenshot")
+        }
+        attachShot(app, named: "t8g-01-sidebar-at-rest")
+
+        // Scroll until rows are behind the bar. The precondition is read from the tree, so a run
+        // that never got there fails for the honest reason: it would be measuring nothing.
+        let list = ShellSettle.channelSidebarScroll(app)
+        XCTAssertTrue(list.exists, "the list's scroll surface must exist:\n\(app.debugDescription)")
+        var behind = 0
+        for _ in 0..<8 {
+            list.swipeUp(velocity: .fast)
+            // Let the swipe settle: the frames and the screenshot must describe one state.
+            Thread.sleep(forTimeInterval: 0.8)
+            behind = rows.allElementsBoundByIndex.filter { row in
+                let frame = row.frame
+                return frame.minY < strip.maxY && frame.maxY > strip.minY
+            }.count
+            if behind > 0 { break }
+        }
+        XCTAssertGreaterThan(behind, 0,
+                             "the list must be scrolled far enough that rows sit behind the bar, or "
+                             + "nothing about the chrome is being measured")
+
+        guard let scrolled = pixelStrip(app, strip) else {
+            return XCTFail("could not read the bar's pixels from a screenshot")
+        }
+        attachShot(app, named: "t8g-02-sidebar-scrolled")
+
+        let fraction = fractionDiffering(atRest, scrolled)
+        print("T8G chrome: bar=\(barFrame) strip=\(strip) rowsBehind=\(behind) "
+              + "differingPixels=\(String(format: "%.2f", fraction * 100))%")
+        XCTAssertLessThan(fraction, 0.02,
+                          "the bar's own pixels changed when the list scrolled under it "
+                          + "(\(String(format: "%.1f", fraction * 100)) % of the "
+                          + "\(Int(strip.width)) × \(Int(strip.height)) pt strip differ; "
+                          + "\(behind) row(s) behind the bar) — the chrome is drawing no material, "
+                          + "so row text is drawn among the toolbar's controls (T8g §4)")
+
+        // The pinned section caption must still be **visible and pinned** below the chrome: T8g's
+        // measurement has it at y = 166.3 (14 pt below the bar's 152.3 bottom edge), and the material
+        // must not be allowed to swallow it. This is a preservation guard, not the falsifier: it
+        // passed before the fix too (the caption was legible; the rows above it were not).
+        let captions = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "channelSidebar.category."))
+            .allElementsBoundByIndex
+        let pinned = captions.first { caption in
+            let y = caption.frame.minY
+            return y >= barFrame.maxY - 1 && y <= barFrame.maxY + 40
+        }
+        print("T8G chrome: captions=" + captions.map {
+            "\($0.identifier)@\(String(format: "%.1f", $0.frame.minY))"
+        }.joined(separator: ", "))
+        XCTAssertNotNil(pinned,
+                        "a section caption must be pinned just below the chrome (bar bottom "
+                        + "\(barFrame.maxY)); captions drawn: "
+                        + captions.map { "\($0.identifier)@\($0.frame.minY)" }.joined(separator: ", "))
+
+        // The per-row accessibility cost is not this card's to change (T8e/T8f: one element per
+        // row, and the drawn-shell snapshot's element count does not regress).
+        let elements = app.descendants(matching: .any).allElementsBoundByIndex.count
+        let drawnRows = rows.allElementsBoundByIndex.count
+        let perRow = drawnRows > 0 ? Double(elements - drawnRows) / Double(drawnRows) : 0
+        print("T8G chrome: descendants=\(elements) rows=\(drawnRows) "
+              + "elementsMinusRows=\(elements - drawnRows) perRow="
+              + String(format: "%.2f", perRow))
+        XCTAssertGreaterThan(drawnRows, 20,
+                             "a scrolled 347-channel list realises a large window; \(drawnRows) rows "
+                             + "is too few to be the drawn shell")
+    }
+
     // MARK: - Launch + sign-in
 
     private func launchAndSignIn() -> XCUIApplication {
@@ -828,6 +954,55 @@ final class T33ChannelSidebarUITests: XCTestCase {
     }
 
     // MARK: - Element helpers
+
+    /// One screenshot region, downsampled to **one sample per point**, RGBA.
+    ///
+    /// Used by T8g §4's chrome check: a bar's material is measured, not eyeballed, so the comparison
+    /// has to be over the same pixels twice. Downsampling to points keeps the arrays small and makes
+    /// the comparison resolution-independent (the simulator renders at @3x).
+    private struct PixelStrip {
+        let width: Int
+        let height: Int
+        let bytes: [UInt8]
+    }
+
+    private func pixelStrip(_ app: XCUIApplication, _ rect: CGRect) -> PixelStrip? {
+        let image = app.screenshot().image
+        guard let cg = image.cgImage else { return nil }
+        let scale = CGFloat(cg.width) / app.frame.width
+        let crop = CGRect(x: rect.minX * scale, y: rect.minY * scale,
+                          width: rect.width * scale, height: rect.height * scale).integral
+        guard crop.width >= 1, crop.height >= 1, let region = cg.cropping(to: crop) else { return nil }
+        let width = max(1, Int(rect.width.rounded()))
+        let height = max(1, Int(rect.height.rounded()))
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        let drew = bytes.withUnsafeMutableBytes { raw -> Bool in
+            guard let context = CGContext(data: raw.baseAddress, width: width, height: height,
+                                          bitsPerComponent: 8, bytesPerRow: width * 4,
+                                          space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            context.interpolationQuality = .high
+            context.draw(region, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        return drew ? PixelStrip(width: width, height: height, bytes: bytes) : nil
+    }
+
+    /// Fraction of samples that differ by more than 8/255 in any channel — a tolerance that ignores
+    /// compositing noise and sees text, glyphs and a change of surface colour.
+    private func fractionDiffering(_ a: PixelStrip, _ b: PixelStrip) -> Double {
+        guard a.width == b.width, a.height == b.height, a.bytes.count == b.bytes.count,
+              !a.bytes.isEmpty else { return 1 }
+        var differing = 0
+        for i in stride(from: 0, to: a.bytes.count, by: 4) {
+            let dr = abs(Int(a.bytes[i]) - Int(b.bytes[i]))
+            let dg = abs(Int(a.bytes[i + 1]) - Int(b.bytes[i + 1]))
+            let db = abs(Int(a.bytes[i + 2]) - Int(b.bytes[i + 2]))
+            if max(dr, max(dg, db)) > 8 { differing += 1 }
+        }
+        return Double(differing) / Double(a.width * a.height)
+    }
 
     /// Any element type: SwiftUI puts these identifiers on labels, buttons, cells and collections
     /// depending on the container, so a type-specific query could silently never match.
