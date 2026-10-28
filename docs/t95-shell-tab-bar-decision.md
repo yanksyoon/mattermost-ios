@@ -140,7 +140,7 @@ would touch — `TabManager` → mounted scenes — already maps the navigation 
 
 ## 6. Implementation cards filed (assignee `mmios-ios`)
 
-**A — launch policy parity + the comments that call parity a bug.** Product code:
+**A — `t_2e160986` — launch policy parity + the comments that call parity a bug.** Product code:
 `LaunchDestination` loses the town-hall/first-channel branch (delete `townHallNames`,
 `townHallAvailable`, `fallbackChannelID`, and their call sites in `ChannelSidebarCoordinator`);
 `LastChannelLaunchTests` drops the town-hall cases and gains "nothing saved → no request" and
@@ -151,7 +151,7 @@ New UI test: a compact launch with nothing saved shows the tab bar (no `nativeCh
 a channel replaces the bar with `Back`, and `Back` brings the bar back — that is the parity
 assertion, and it falsifies a future "keep the tab bar" regression in the right direction.
 
-**B — the suites that relied on the implicit town-hall push** (child of A, so they land in order).
+**B — `t_a1842f6c` — the suites that relied on the implicit town-hall push** (child of A, so they land in order).
 Every suite that launches the native shell and waits on a channel pane without opening a channel
 now opens one (T34 is the known case; audit T33/T36/T40/T42/T47/T48 the same way), and every suite
 that taps a tab uses one settle helper — "tab bar, or `Back` then tab bar" — instead of a bare
