@@ -356,13 +356,32 @@ Note of record: `docs/t8f-sidebar-list-swap.md`. What it binds:
   same traits, one element per row. **One identifier is new** — `channelSidebar.scroll` on the list's
   scroll view — and `ShellSettle.channelSidebarScroll(app)` is the one reader of it. Five suites
   moved off `collectionViews.firstMatch` (`T33`'s `revealRow`, `T34`, `T45`, `T4d`, `T39Search`).
-* **Two `List` behaviours are lost**, recorded rather than hidden: **sticky section headers do not
-  stick** (`pinnedViews: [.sectionHeaders]` is set and measured not to work — a parity loss against
-  upstream's iOS category list), and the shell's toolbar draws no background material over scrolled
-  content (the `List` case is unmeasured). Row separators and the grouped/upper-cased phone chrome are
-  re-drawn; `selection:` was never used, so nothing was dropped there.
+* **One `List` behaviour is lost, one was mis-recorded**: the shell's toolbar draws no background
+  material over scrolled content (the `List` case is unmeasured — decided **required** and filed as a
+  shell-chrome card, T8g §4). The claim that **sticky section headers do not stick** is **retracted**
+  (T8g): they pin at y = 166.3, unmoved across 498.4 pt of scroll, and upstream's category list does
+  not pin them at all — `docs/t8g-sticky-header-decision.md`. Row separators and the grouped/upper-cased
+  phone chrome are re-drawn; `selection:` was never used, so nothing was dropped there.
 * **Suites:** units **1725 / 8 skipped / 0 failed**; `T32` + `T33` stub **11/11** three times; the
   measurement batch **8 / 1 skipped / 0 failed**; `T33ChannelSidebarUITests` (live, 347 channels)
   **8 run / 2 skipped / 4 failed** against base `2d2b903`'s **8 / 2 / 6 failed** — the app-loss class
   (three `QUARANTINED DUE TO HIGH LOGGING VOLUME` lines and a fresh `.ips` in the run's window), not
   worse than base, and one test better.
+
+### T8g — sidebar category headers: the retraction, and the surface's one real gap (2026-10-28, `t_af56f51a`)
+
+Note of record: `docs/t8g-sticky-header-decision.md`. What it binds:
+
+* **The T33 row above owes no stickiness promise, and needs none.** Upstream's channel list
+  (`mattermost-mobile` @ `162f2560` v2.45.0) is a `FlashList` over a flat item array whose category
+  header is an ordinary item (`categories.tsx:115–127`, `:237`; `flatten_categories.ts:68`) — the
+  headers scroll away with their rows and there is no section pinning to match. Our compact list pins
+  them (`pinnedViews: [.sectionHeaders]` working, y = 386.0 at rest → 166.3 pinned, unchanged across
+  498.4 pt of scroll); that is a platform extra, not a deviation.
+* **T8f §4.2's "sticky headers do not stick" is retracted** — a window error (it searched `0 < y < 60`;
+  the list runs under the nav bar, so its pin point is 166.3). No code change; the code comment and
+  the T8f note carry the correction.
+* **Still required and open: the shell's toolbar draws no material over scrolled content** — rows pass
+  behind the toolbar buttons and the status bar (T8f §4.3 and the same run's screenshot). It is a shell
+  promise (`MainPage / shell chrome` row), so it is filed as a shell-chrome card, not a channel-list
+  one. Until it lands, a scrolled phone sidebar has two texts drawn on each other. Card: **`t_560103f6`**.

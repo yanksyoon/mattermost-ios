@@ -222,6 +222,10 @@ It is **not** done in this card, for reasons the swap has to answer first:
 2. `List` here also provides the iOS sidebar's platform behaviours: separators, sticky section headers
    on the regular/iPad layout, `.listStyle(.sidebar)` selection. Losing them is a visual/parity change,
    not an accessibility one, and `docs/parity.md` has no row that would call it a defect.
+   *(Correction, T8g `t_af56f51a`: `ScrollView` + `LazyVStack(pinnedViews: [.sectionHeaders])` pins the
+   headers too — measured y = 386.0 in flow → 166.3 pinned, unmoved over 498.4 pt of scroll in T8f's
+   own run — and upstream's category list does not pin headers at all, so this bullet was never a
+   reason to keep the `List`. `docs/t8g-sticky-header-decision.md`.)*
 3. The post list already does the right thing (it is a `ScrollView` + lazy stack: post rows cost 1
    element of wrapper), so the precedent exists in this app — this is about the sidebar, not the idiom.
 

@@ -30,11 +30,11 @@ T8e made every row **one** element and measured that a row still cost **7**: `Ce
    still exactly one element with the same identifier, label, value and traits. One identifier is
    **new** — `channelSidebar.scroll`, on the list's scroll view — because the suites must scroll
    something, and the thing they used to scroll (the `List`'s `UICollectionView`) no longer exists.
-5. **Two `List` behaviours are lost, and they are recorded rather than glossed** (§4): **sticky
-   section headers do not stick** (`pinnedViews: [.sectionHeaders]` is set, and measured not to
-   work), and the shell's toolbar draws **no background material over scrolled content** (the `List`
-   case is unmeasured — see §4.3). Row separators and the grouped/uppercase phone chrome *are*
-   reproduced.
+5. **One `List` behaviour is lost, one was mis-recorded** (§4): the shell's toolbar draws **no
+   background material over scrolled content** (the `List` case is unmeasured — see §4.3). The claim
+   that **sticky section headers do not stick** is **retracted** — they do, and §4.2 carries the
+   correction with the measurement (T8g, `docs/t8g-sticky-header-decision.md`). Row separators and the
+   grouped/uppercase phone chrome *are* reproduced.
 
 ---
 
@@ -173,10 +173,20 @@ tab bar's own two (`conversation` 167, `bookmark` 5). The channel list contribut
   that routes through `NativeNavigation`, and `.isSelected` rides the row's accessibility traits
   (T8e). Verified: `grep selection: ChannelSidebarView.swift` is empty.
 
-### 4.2 Lost: sticky section headers
+### 4.2 Retracted: "sticky section headers do not stick" — **they do stick**
 
-`pinnedViews: [.sectionHeaders]` is set, and **it does not stick**. Measured in the T33 live run's own
-serialised trees (`build/logs/t_a3d1c600/live-shots/*.txt`) at a scrolled position:
+> **Correction (T8g, card `t_af56f51a`, 2026-10-28).** The paragraph below is **wrong** and is kept
+> only because this note is a record. The headers **do** pin: across the same run's 62 trees that hold
+> channel rows, `channelSidebar.category.channels` is at **y = 386.0** in the 25 trees where the list is
+> at rest (in flow) and at **y = 166.3** in the 37 trees where it is scrolled, **unchanged across
+> 498.4 pt of scrolling** (first channel row −314.3 … −812.7), with no third value. 166.3 is 14 pt
+> below the navigation bar's bottom edge (152.3) — the list scrolls *under* the bar, so that is the pin
+> point, not 0–60. The header at 166.3 is in the tree this section quotes, annotated "in flow".
+> Full evidence, and the upstream side (v2.45.0 does **not** pin its category headers at all): 
+> `docs/t8g-sticky-header-decision.md`. No behaviour loss; nothing to fix.
+
+The original recording, quoted for the record:
+
 
 ```
 ScrollView   {{64.0, 0.0}, {338.0, 874.0}}   channelSidebar.scroll
@@ -199,6 +209,11 @@ Recorded here, with the code comment saying so, rather than left in a comment cl
 that measurement contradicts. Filed as **`t_af56f51a`** against the architect (parity decision +
 fix), together with §4.3.
 
+**End of the retracted paragraph.** Everything in it is wrong — the window (`0 < y < 60`) misses the
+pin point (166.3), the tree above shows the header at 166.3 with the first row at −812.7, the
+screenshot shows `⌄ CHANNELS` at ≈172 pt, and upstream's `category_list` does **not** stick its
+headers. Verdict in `docs/t8g-sticky-header-decision.md`; T8g closed it with no code change.
+
 ### 4.3 Lost/observed: the toolbar has no material over scrolled content
 
 The list is a `ScrollView` at `{{64.0, 0.0}, {338.0, 874.0}}` — it runs the full height of the
@@ -213,6 +228,10 @@ takes its own screenshot, and there is no other pre-change phone frame of a *scr
 in the repo (the `docs/t33-shots/*` frames are the iPad layout). What is certain is what the after
 build draws. If the shell wants the bar to occlude content, that is a shell change
 (`.toolbarBackground`), not a channel-list one — recorded so it is not rediscovered as a list bug.
+
+**T8g: this one is required.** It is a legibility defect (two texts drawn on each other, and upstream
+keeps the list below a fixed opaque header). Filed as `t_560103f6` for `mmios-ios` — a shell-chrome
+card, with the fix in the shell's toolbar/inset, not here. Card and reasoning: T8g §4.
 
 ---
 
@@ -258,8 +277,8 @@ card's −21 % per snapshot is not enough to change its fate, and the card never
 
 * **Not claimed:** that the app-loss class is gone, or that a whole-suite (121 UI test) run is
   faster. One 8-test batch and four suites were run.
-* **Sticky headers are lost** (§4.2) — a real parity loss against upstream's iOS category list, and
-  the obvious next card if a reader reports it.
+* **Sticky headers are not lost** (§4.2) — **retracted** by T8g: they pin (y = 166.3, unmoved over
+  498.4 pt of scroll), and upstream does not pin them at all. `docs/t8g-sticky-header-decision.md`.
 * **Real-device VoiceOver is unmeasured** (no device; the simulator has none). The claim here is
   about the serialised tree and its byte cost, not about how it sounds.
 * **The realised window is larger** (26–36 rows vs 7–21). That is why the per-tree *median* rose even

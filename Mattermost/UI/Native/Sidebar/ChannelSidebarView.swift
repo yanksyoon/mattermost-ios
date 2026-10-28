@@ -75,12 +75,14 @@ struct NativeChannelSidebarContent: View {
         //    `revealRow` has to scroll). The realised window is *larger* than the `List`'s was
         //    (measured: 26–36 rows per tree against 7–21), which is why one snapshot of this screen
         //    can hold more rows than before;
-        //  - **sticky section headers** — **not reproduced.** They are requested with
-        //    `pinnedViews: [.sectionHeaders]`, but measured on the drawn shell they do not stick:
-        //    in the T33 live run's scrolled frames the top of the list is a channel row while the
-        //    enclosing category's header is above the viewport, and no header element in any of
-        //    that run's serialised trees sits at the top of the scroll view. Recorded as a known
-        //    loss in `docs/t8f-sidebar-list-swap.md` §4;
+        //  - **sticky section headers** — **reproduced, and measured.** `pinnedViews: [.sectionHeaders]`
+        //    is set and the headers do pin: in T8f's own T33 live run the `channelSidebar.category.channels`
+        //    element sits at y = 386.0 while the list is at rest (in flow) and at y = 166.3 in every
+        //    scrolled tree — 14 pt below the navigation bar's bottom edge — unmoved across 498.4 pt of
+        //    scroll. (T8f §4.2 read this as "does not stick" because it searched for a header at y 0-60;
+        //    the list scrolls *under* the bar, so the pin point is below it. Retracted in T8g,
+        //    `docs/t8g-sticky-header-decision.md`.) Upstream's flat list does not pin them at all, so
+        //    this is an extra of the phone chrome, not a parity requirement;
         //  - **the grouped row chrome** (`.listStyle(.sidebar)` on a phone: rows on a grouped
         //    surface, inset separators, uppercase secondary header) — re-drawn by
         //    `channelSidebarRowSurface()` / `channelSidebarSectionHeaderSurface()` below;
