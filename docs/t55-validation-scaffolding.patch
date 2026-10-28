@@ -1,0 +1,115 @@
+diff --git a/MattermostUITests/T39JumpUITests.swift b/MattermostUITests/T39JumpUITests.swift
+index ae8b910..421dbe1 100644
+--- a/MattermostUITests/T39JumpUITests.swift
++++ b/MattermostUITests/T39JumpUITests.swift
+@@ -160,6 +160,45 @@ final class T39JumpUITests: XCTestCase {
+                        + "reads \(minuteCount) (the UTC day). Summary: \(label)")
+     }
+ 
++    // MARK: - T55 re-validation: the same question on a day the fixture separates
++
++    /// T39-R's live proof uses the *newest* post's day. As the fixture grows that day fills with posts
++    /// created after 00:00 local, and the two encodings answer the SAME set — measured by
++    /// T55's `tz_separation_probe.py` on 2026-10-27 (seconds 2, minutes 2) while 2026-10-26 still
++    /// separates them (seconds 1, minutes 3). The shipped test then self-skips ("the fixture no longer
++    /// separates the two offsets"), so it cannot witness F1 any more.
++    ///
++    /// This is the adversarial re-derivation: a fixed day the fixture does separate, the same server
++    /// oracle, and the screen's own count compared against it. It is validation-only — it lives in the
++    /// audit worktree and is not committed to main.
++    func testT55OnDateOffsetOnAFixtureDayThatSeparates() throws {
++        let secondsOffset = TimeZone.current.secondsFromGMT()
++        try XCTSkipUnless(secondsOffset != 0 && secondsOffset % 3600 == 0,
++                          "this host's offset \(secondsOffset)s cannot separate seconds from minutes")
++        let minutesOffset = secondsOffset / 60
++        let day = "2026-10-26"
++        let terms = "in:t34-showcase on:\(day)"
++
++        let secondsCount = try searchIDs(terms: terms, timeZoneOffsetSeconds: secondsOffset).count
++        let minuteCount = try searchIDs(terms: terms, timeZoneOffsetSeconds: minutesOffset).count
++        try XCTSkipUnless(secondsCount != minuteCount,
++                          "the fixture no longer separates \(terms): both \(secondsCount)")
++
++        let app = launchApp()
++        openSearch(app)
++        type(terms, into: "searchField", in: app)
++        element(app, "searchSubmit").tap()
++
++        let summary = element(app, "searchSummary")
++        XCTAssertTrue(summary.waitForExistence(timeout: 40), "no summary:\n\(app.debugDescription)")
++        let label = summary.label
++        let shown = Int(label.prefix(while: { $0.isNumber })) ?? -1
++        attach(app, "t55-ondate-fixed-day")
++        XCTAssertEqual(shown, secondsCount,
++                       "the screen shows \(shown) for \(terms); seconds reads \(secondsCount), "
++                       + "minutes reads \(minuteCount). Summary: \(label)")
++    }
++
+     // MARK: - Launch
+ 
+     private func launchApp() -> XCUIApplication {
+@@ -275,7 +314,9 @@ final class T39JumpUITests: XCTestCase {
+               let token = http.value(forHTTPHeaderField: "Token"),
+               let user = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let id = user["id"] as? String else {
+-            throw XCTSkip("could not sign in as \(login) on the live server")
++            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
++            let body = String(data: data.prefix(200), encoding: .utf8) ?? ""
++            throw XCTSkip("could not sign in as \(login) on the live server (status \(code) \(body))")
+         }
+         return (token, id)
+     }
+@@ -385,12 +426,24 @@ final class T39JumpUITests: XCTestCase {
+         return json
+     }
+ 
++    /// T55 re-validation: `URLSession.shared` keeps an `MMAUTHTOKEN` cookie from any earlier sign-in of
++    /// this runner process, and Mattermost answers a login that carries a dead session with 401
++    /// `api.context.session_expired` — measured on 2026-10-27, which is why every T39 test skipped.
++    /// T36-R and T40-R already use a cookie-free session for exactly this reason; this is that session.
++    private static let restSession: URLSession = {
++        let configuration = URLSessionConfiguration.ephemeral
++        configuration.httpCookieStorage = nil
++        configuration.httpShouldSetCookies = false
++        configuration.httpCookieAcceptPolicy = .never
++        return URLSession(configuration: configuration)
++    }()
++
+     private func synchronous(_ request: URLRequest) throws -> (Data, URLResponse) {
+         var payload: Data?
+         var response: URLResponse?
+         var failure: Error?
+         let semaphore = DispatchSemaphore(value: 0)
+-        URLSession.shared.dataTask(with: request) { data, urlResponse, error in
++        Self.restSession.dataTask(with: request) { data, urlResponse, error in
+             payload = data
+             response = urlResponse
+             failure = error
+diff --git a/MattermostUITests/T39SearchUITests.swift b/MattermostUITests/T39SearchUITests.swift
+index 4822d76..a8e958f 100644
+--- a/MattermostUITests/T39SearchUITests.swift
++++ b/MattermostUITests/T39SearchUITests.swift
+@@ -459,11 +459,22 @@ final class T39SearchUITests: XCTestCase {
+         return json
+     }
+ 
++    /// T55 re-validation: cookie-free, for the same measured reason as T39JumpUITests.restSession —
++    /// a stale `MMAUTHTOKEN` in `URLSession.shared`'s jar makes `POST /users/login` answer 401
++    /// `api.context.session_expired`, and every test then skips instead of measuring.
++    private static let restSession: URLSession = {
++        let configuration = URLSessionConfiguration.ephemeral
++        configuration.httpCookieStorage = nil
++        configuration.httpShouldSetCookies = false
++        configuration.httpCookieAcceptPolicy = .never
++        return URLSession(configuration: configuration)
++    }()
++
+     private func synchronous(_ request: URLRequest) throws -> (Data, URLResponse) {
+         let semaphore = DispatchSemaphore(value: 0)
+         var result: (Data, URLResponse)?
+         var failure: Error?
+-        URLSession.shared.dataTask(with: request) { data, response, error in
++        Self.restSession.dataTask(with: request) { data, response, error in
+             if let error { failure = error }
+             if let data, let response { result = (data, response) }
+             semaphore.signal()
