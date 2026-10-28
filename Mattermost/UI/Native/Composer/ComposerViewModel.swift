@@ -29,6 +29,16 @@
 import Foundation
 import Combine
 
+/// Where a thread composer's replies always go: the thread's root post and the label that names it.
+///
+/// The two are deliberately separate: `rootID` is what every request carries as `root_id` (a thread
+/// nests exactly one level, so it is the thread's root and never a reply's id), while `authorLabel`
+/// is only the banner's wording ("Replying to Ana") and may name a person whose *reply* was tapped.
+struct ComposerThreadAnchor: Equatable {
+    let rootID: String
+    let authorLabel: String
+}
+
 /// The list the composer writes into. Implemented by `ChannelViewModel` (the pane owns the rows).
 @MainActor
 protocol ComposerPostSink: AnyObject {
@@ -44,6 +54,22 @@ protocol ComposerPostSink: AnyObject {
     func tombstonePost(id: String)
     /// Did a post with this client id already arrive (over the socket) even though the request failed?
     func post(withPendingID pendingID: String) -> MMPost?
+
+    /// The thread this sink draws, or `nil` when it is a channel timeline.
+    ///
+    /// This is the composer's one signal that it is a **thread** composer, and it is load-bearing:
+    /// a thread composer exists only to reply to one root — `ThreadCoordinator` caches one per
+    /// (channel, thread root) and hands the *same* instance back after a send, re-attaching the sink
+    /// but never re-arming reply mode — so a composer that resolved to `.newPost` here would post the
+    /// reader's next message to the channel while the pane still reads "Replying to …"
+    /// (kanban t_56159748). See `ComposerViewModel.leaveTransientMode`.
+    var threadAnchor: ComposerThreadAnchor? { get }
+}
+
+extension ComposerPostSink {
+    /// A channel timeline is not a thread: the default is what makes the channel composer's one-shot
+    /// reply lifecycle the default behaviour.
+    var threadAnchor: ComposerThreadAnchor? { nil }
 }
 
 /// One composer per (channel, thread root).
@@ -121,6 +147,14 @@ final class ComposerViewModel: ObservableObject {
 
     /// Who the composer writes as (the pane asks, so "edit" is only offered on my own post).
     var authorID: String? { myUserID }
+
+    /// The thread this composer replies into, when its sink is a thread pane's list (`nil` for a
+    /// channel composer). Read by `leaveTransientMode`/`cancelMode` and by the view, which offers no
+    /// "cancel reply" where it could only mean "become a channel post".
+    var threadAnchor: ComposerThreadAnchor? { sink?.threadAnchor }
+
+    /// True for the composer `ThreadCoordinator` caches per (channel, thread root).
+    var isThreadComposer: Bool { threadAnchor != nil }
 
     // MARK: Collaborators
 
@@ -627,14 +661,36 @@ final class ComposerViewModel: ObservableObject {
         uploadData.removeAll()
         suggestions = []
         activeTrigger = nil
-        if !keepMode {
-            mode = .newPost
-            replyTarget = nil
-        }
+        if !keepMode { leaveTransientMode() }
         isPreviewing = false
         didRestoreDraft = false
         Task { await self.drafts.delete(channelID: self.channelID, rootID: draftRoot) }
         if let note { show(note: note) }
+    }
+
+    /// Where the composer goes once a command has landed.
+    ///
+    /// Two lifecycles, and they are not the same:
+    ///
+    ///  - a **channel** composer's reply is one message: it drops back to `.newPost`, so the next
+    ///    message is an ordinary channel post. That is upstream's `post_draft` behaviour and the
+    ///    negative case T35 pins.
+    ///  - a **thread** composer is a long-lived, cached instance whose whole purpose is replying to
+    ///    one root (`ThreadCoordinator.composers[server][channelID/rootID]`, reused through
+    ///    `attach(sink:)`, which never re-arms reply mode). Leaving `.reply` here — or `.editing`,
+    ///    after an edit made in the thread pane — would make the next send a top-level **channel**
+    ///    post while the pane still reads "Replying to …". That is the data loss kanban t_56159748
+    ///    reports ("I replied to a thread but the message was sent to the channel"), so the thread
+    ///    branch is an invariant, not a preference: the mode a thread composer lands in is always
+    ///    reply mode on its sink's root.
+    private func leaveTransientMode() {
+        guard let anchor = threadAnchor else {
+            mode = .newPost
+            replyTarget = nil
+            return
+        }
+        mode = .reply(rootID: anchor.rootID)
+        if replyTarget == nil { replyTarget = anchor.authorLabel }
     }
 
     private func show(note: String) {
@@ -664,6 +720,11 @@ final class ComposerViewModel: ObservableObject {
     }
 
     /// Reply mode: the next send carries `root_id`.
+    ///
+    /// `post` is the post whose id becomes `root_id`, so in a thread pane it must be the thread's
+    /// **root**, never the tapped reply (Mattermost nests one level only; a nested `root_id` errors or
+    /// orphans the post). `authorLabel` is the banner's wording and may name the tapped row's author —
+    /// see `ComposerThreadAnchor`. `ThreadViewModel.replyTarget(from:)` decides the pair.
     func beginReply(to post: MMPost, authorLabel: String) {
         mode = .reply(rootID: post.id)
         replyTarget = authorLabel
@@ -677,10 +738,22 @@ final class ComposerViewModel: ObservableObject {
 
     /// Leave edit / reply mode. The text is dropped when switching *modes* (a thread's draft is not
     /// the channel's), which is why the current draft is written first.
+    ///
+    /// A thread composer has no `.newPost` to go back to — that would be a channel post, the exact
+    /// loss t_56159748 reports — so its "leave" is reply mode on the thread's root anchor: the state a
+    /// thread's reply box is always in. In practice this is reached from edit mode only; the view does
+    /// not offer "cancel reply" there (see `ComposerView.modeBanner`).
     func cancelMode() async {
-        await saveDraftNow()
-        mode = .newPost
-        replyTarget = nil
+        // An edit has no draft row (the post itself is the record): writing here would put the edited
+        // post's text in the *channel's* draft, since `.editing` has no draft root.
+        if !mode.isEditing { await saveDraftNow() }
+        if let anchor = threadAnchor {
+            mode = .reply(rootID: anchor.rootID)
+            replyTarget = anchor.authorLabel
+        } else {
+            mode = .newPost
+            replyTarget = nil
+        }
         originalFileIDs = []
         text = ""
         caret = 0
