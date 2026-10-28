@@ -552,8 +552,9 @@ final class NativeNavigationTests: XCTestCase {
         XCTAssertTrue(makeNavigation(serverStore: store, mode: "shell=native").acceptsNativeRouting)
         XCTAssertTrue(makeNavigation(serverStore: store, mode: "channelView=native").acceptsNativeRouting)
         XCTAssertFalse(makeNavigation(serverStore: store, mode: "channelView=web").acceptsNativeRouting)
-        XCTAssertFalse(makeNavigation(serverStore: store, mode: nil).acceptsNativeRouting,
-                       "the shipping default is the webview")
+        XCTAssertTrue(makeNavigation(serverStore: store, mode: nil).acceptsNativeRouting,
+                      "since the 2026-10-27 flip the shipping default is the native pane, so routing "
+                      + "is native with no flag at all")
     }
 
     /// T30-AV F4: the appearance pass (`RootView.activate`) must not populate the model while the
@@ -565,7 +566,9 @@ final class NativeNavigationTests: XCTestCase {
         let second = server("Second", host: "two.example")
         let store = makeServerStore([first, second])
         store.switchTo(id: first.id)
-        let navigation = makeNavigation(serverStore: store, mode: nil)
+        // Explicitly the webview pane: the shipping default is native since the 2026-10-27 flip,
+        // so "web mode" has to be asked for with the debug tier the way a user asks for it.
+        let navigation = makeNavigation(serverStore: store, mode: "channelView=web")
 
         XCTAssertFalse(navigation.acceptsNativeRouting)
         XCTAssertFalse(navigation.activateIfRouting(serverID: first.id),
@@ -628,12 +631,14 @@ final class NativeNavigationTests: XCTestCase {
     }
 
     /// The same router, same link, pane resolving `web`: today's behaviour, bit for bit (the SPA
-    /// push the pre-T30 tests assert).
+    /// push the pre-T30 tests assert). The flip made the native pane the default, so the web pane is
+    /// asked for explicitly here — the claim is about the web branch, not about the default.
     func testDeepLinkRouterKeepsTheWebPathWhenThePaneIsWeb() {
         let serverConfig = server()
         let store = makeServerStore([serverConfig])
         let viewStore = ViewStore()
-        let navigation = makeNavigation(serverStore: store, viewStore: viewStore, mode: nil)
+        let navigation = makeNavigation(serverStore: store, viewStore: viewStore,
+                                        mode: "channelView=web")
         let bridge = RecordingBridge()
         viewStore.ensureStore(for: serverConfig).bridge.delegate = bridge
 
@@ -676,7 +681,8 @@ final class NativeNavigationTests: XCTestCase {
         let serverConfig = server()
         let store = makeServerStore([serverConfig])
         let viewStore = ViewStore()
-        let navigation = makeNavigation(serverStore: store, viewStore: viewStore, mode: nil)
+        let navigation = makeNavigation(serverStore: store, viewStore: viewStore,
+                                        mode: "channelView=web")
         let bridge = RecordingBridge()
         viewStore.ensureStore(for: serverConfig).bridge.delegate = bridge
         let worker = NotificationWorker(scheduling: SilentScheduling(), preferences: preferences())

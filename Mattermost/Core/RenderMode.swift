@@ -14,12 +14,18 @@ public enum Surface: String, CaseIterable, Codable, Identifiable, Sendable {
     /// sign-in form, the MFA step and the expiry banner are the native S01/S02/S03 cards — native by
     /// default since the T31-AV approval (T31-R).
     case auth
-    /// Left channel/team sidebar.
+    /// Left channel/team sidebar — the T32 team rail plus the T33 channel list. Native by default
+    /// since the owner approved the surface on 2026-10-27 (`t_c93b8337`, scope A): T33-AV2 passed
+    /// with findings and explicitly deferred the flip, so the sign-off is the owner's.
     case sidebar
     /// The main channel view: channel header + post list. This is the surface the single
-    /// per-server WKWebView pane maps to in the current Path A shell.
+    /// per-server WKWebView pane maps to in the current Path A shell, and — since the 2026-10-27
+    /// owner decision (`t_c93b8337`, scope A) — the one pane-owning surface: its native card
+    /// replaces the per-server webview instead of being painted over it.
     case channelView
-    /// The message composer (new post).
+    /// The message composer (new post). Native by default with the 2026-10-27 workspace flip: the
+    /// pane the flip approves draws the composer *inside* it, so a `web` composer there would be a
+    /// dead placeholder over a released webview (see the ledger entry below).
     case composer
     /// Threads ("view thread" / replies).
     case threads
@@ -78,23 +84,32 @@ public enum SurfaceDefaults {
 
     /// Surfaces whose native screen card has passed its `-AV` adversarial validation.
     ///
-    /// **Approval ledger** (each entry is one `-AV` sign-off, and the doc row it cites):
+    /// **Approval ledger** (each entry is one `-AV` sign-off — plus, for the workspace surfaces, the
+    /// owner's explicit product decision that a `-AV` verdict deliberately deferred, or the
+    /// pane-ownership requirement that decision created — and the doc row it cites):
     ///
     /// | Surface | Approved by | Evidence |
     /// |---|---|---|
     /// | `.auth` | T31-AV (`t_c57a7551`, verdict `PASS-WITH-FINDINGS`, F8 = approve) | `docs/t31r-patch-note.md` §5; findings F1–F4 repaired by T31-R before the flip was treated as final |
-    /// | `.calls` | T44d-AV (`t_466e8e90`, verdict `PASS-WITH-FINDINGS`) | `docs/t44d-build-note.md` §4/§7 (`build/logs/t44d-av-live1.log`: 2/2 live tests, `** TEST SUCCEEDED **`), `docs/parity.md` T44d row; reachability caveat recorded there — the entry point only mounts inside a native pane, and `.channelView` still resolves `web` |
+    /// | `.calls` | T44d-AV (`t_466e8e90`, verdict `PASS-WITH-FINDINGS`) | `docs/t44d-build-note.md` §4/§7 (`build/logs/t44d-av-live1.log`: 2/2 live tests, `** TEST SUCCEEDED **`), `docs/parity.md` T44d row; reachability caveat recorded there — the entry point only mounts inside a native pane, and that pane is now `.channelView` (approved below) |
+    /// | `.sidebar` | T33-AV2 (`t_8c99e10a`, verdict `PASS-WITH-FINDINGS`) **+ owner decision 2026-10-27** (`t_c93b8337`, scope A; gate `t_4413b7b2`) | `docs/t33r2-build-note.md` §3/§6 — T33-AV2 closed with "the flip itself stays a separate decision", so the validator never granted it; the owner's approval, recorded on this card, is the sign-off |
+    /// | `.channelView` | T34-AV (`t_1ca87edd`, verdict `PASS-WITH-FINDINGS`; F1 repaired by `t_cf23dcd7`) + T55-AV-R (`t_6059f7ce`, no FAIL on the five repaired regions the pane hosts) **+ owner decision 2026-10-27** (`t_c93b8337`, scope A) | `docs/t34r5-build-note.md` §5 (F1 repair runs); `docs/t55-revalidation-build-note.md` §3/§6 (`.threads` PASS, reactions PASS-WITH-FINDINGS, attachments PASS, `.search` PASS-WITH-FINDINGS, `.channelInfo` PASS — the AV debt T34-AV said had to clear first) |
+    /// | `.composer` | T35-AV (`t_3042a50f`, verdict `PASS-WITH-FINDINGS`; repair `t_e7eeaa46`) — **repair, not a flip grant** — plus the pane-ownership requirement of the same 2026-10-27 scope-A decision (`t_c93b8337`): the release the flip is for asserts "composer is native" (`t_9928d203` step 4) | `docs/t35-build-note.md`; without this entry the approved pane draws the dead `"Message input — web (S14/T35)"` placeholder (`ChannelView.composerPlaceholder`) while `.channelView` is pane-owning, i.e. a read-only workspace. The composer mounts nowhere outside the pane, so the entry is pane-local |
     ///
     /// Everything not listed here defaults to `.web`, so an unapproved card can never ship its
     /// surface native. A card flips its own surface to native-by-default by appending its rawValue
     /// **after** its `-AV` card has passed, in its own clearly-labelled commit — that exact diff is
     /// what the next validator audits (`scripts/verify-dual-render-gates.sh` gate 5 fails on a
     /// non-empty registry unless `--allow-approved-registry` accompanies the approval commit).
-    public static let nativeApprovedSurfaces: Set<Surface> = [.auth, .calls]
+    public static let nativeApprovedSurfaces: Set<Surface> = [.auth, .calls, .sidebar, .channelView, .composer]
 
     /// Surfaces whose native card renders the *entire* per-server work area — every region the
-    /// one-per-server WKWebView paints (sidebar, channel header, post list, composer, RHS). Empty:
-    /// no card owns a pane yet. `paneOwningSurfaces ⊆ nativeApprovedSurfaces` is enforced by
+    /// one-per-server WKWebView paints (sidebar, channel header, post list, composer, RHS).
+    ///
+    /// `.channelView` is the only entry, and it is the stronger half of the 2026-10-27 owner
+    /// decision (`t_c93b8337`, scope A): without it the pane host would resolve native while the
+    /// webview stayed alive underneath, which is the "native shell painted over a live WKWebView"
+    /// bug class. `paneOwningSurfaces ⊆ nativeApprovedSurfaces` is enforced by
     /// `scripts/verify-dual-render-gates.sh`; appending here is an `-AV` claim, not a build flag.
     ///
     /// Pane ownership is the *third* condition of the webview release policy
@@ -102,7 +117,7 @@ public enum SurfaceDefaults {
     /// native card really replaces the webview, which is a stronger claim than "a screen card
     /// renders this region" and therefore stricter than `nativeApprovedSurfaces` — the subset
     /// check in the gate script is what keeps the two from drifting.
-    public static let paneOwningSurfaces: Set<Surface> = []
+    public static let paneOwningSurfaces: Set<Surface> = [.channelView]
 
     /// The surface whose native branch takes the webview's place — the region the single
     /// per-server `WKWebView` maps to, and therefore the surface the release policy watches.

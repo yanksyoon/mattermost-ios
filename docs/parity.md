@@ -86,11 +86,15 @@ These rows have no single desktop module to replace: they are the **native data 
 (`SurfaceDefaults.nativeApprovedSurfaces` is still empty).
 
 > **Re-baselined 2026-10-27** (`docs/parity-rebaseline-2026-10-27.md`). The sentence above
-> describes T30 and is kept as history; the registry has since grown to `.auth` and `.calls`, the
-> owner approved `.sidebar` on 2026-10-27 (flip card `t_c93b8337`, held by the human gate
-> `t_4413b7b2`), `.channelView` is **not** approved, and `paneOwningSurfaces` is still empty — so a
-> release build still renders the webview pane. The re-baseline doc holds the current S01–S40 gap
-> table and the next tranche of cards (T47–T55).
+> describes T30 and is kept as history. **Flipped 2026-10-28** (`t_c93b8337`): the registry is
+> `[.auth, .calls, .sidebar, .channelView, .composer]` and `paneOwningSurfaces` is
+> `[.channelView]`, so a
+> release build with no flags renders the workspace natively and releases the per-server webview
+> (`docs/dual-render.md` §5/§12.1, evidence `docs/tc93b-build-note.md`). Everything else (threads,
+> search, profile, activity, channel info, plugins) still renders through the webview until its own
+> flip; threads already render natively *inside* the pane. The owner's decisions of 2026-10-27 are
+> recorded on `t_c93b8337`. The re-baseline doc holds the S01–S40 gap table and the tranche of cards
+> (T47–T55).
 
 | Card | Native replacement | Status |
 |---|---|---|
@@ -169,9 +173,11 @@ These rows have no single desktop module to replace: they are the **native data 
   T31 DONE (native auth + session surface: sign-in, MFA, session restore/expiry, sign-out and the
   webview SSO hand-off; **`.auth` is native by default** since the T31-AV approval landed in T31-R —
   see `docs/t31-build-note.md` and `docs/t31r-patch-note.md`).
-  The remaining screens follow (`docs/component-map.md`). `auth` is the only surface in
-  `nativeApprovedSurfaces`; every other surface still renders the webview, and no surface owns a
-  pane (`paneOwningSurfaces` is empty), so the release path stays inert.
+  The remaining screens follow (`docs/component-map.md`). **`.auth`, `.calls`, `.sidebar`,
+  `.channelView` and `.composer` are native by default** since the 2026-10-27 owner decision and the
+  2026-10-28 flip (`t_c93b8337`); `.channelView` is the only pane-owning surface, so a release build
+  renders the workspace natively and releases the per-server webview. Every other surface still
+  renders the webview until its own flip.
 
 ## Test & validation status (T17)
 

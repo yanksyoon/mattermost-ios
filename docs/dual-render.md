@@ -3,7 +3,8 @@
 Status: **landed** (T26, 2026-10-24). Owner: `mmios-ios`. Validator: `T26-AV`.
 
 Round **R4a** (T26-R, 2026-10-24): §12 implemented. `RenderMode.paneOwningSurfaces` is the registry
-(both it and `nativeApprovedSurfaces` are empty in shipping, by design); `ViewStore` owns one
+(empty until the first `-AV` pane claim — since the 2026-10-27 workspace flip it holds
+`.channelView`, the same commit that approved that surface); `ViewStore` owns one
 `WKWebView` + one isolated persistent `WKWebsiteDataStore` per server UUID, with
 `ensureStore(for:)` (creates), `view(forServerID:)` (reads only — never resurrects a released pane),
 `release(serverID:)` (destroys, keeps `lastURLs`) and the `mayRelease` truth table;
@@ -73,11 +74,12 @@ mode, because a half-ported app in that mode is exactly the failure this card av
    not require touching the resolver — and wiring one is a reviewable decision (`§5`, gate script).
 4. **Compile-time default** — `SurfaceDefaults.defaultMode(for:)`, i.e.
    `native` **only** for a surface listed in `SurfaceDefaults.nativeApprovedSurfaces`, otherwise
-   `web`. That registry is **empty today**, so every surface is `web` and the webview is the
-   complete fallback.
+   `web`. Since the 2026-10-27 workspace flip that registry holds `.auth`, `.calls`, `.sidebar`,
+   `.channelView` and `.composer` (§5); every other surface is `web`.
 
-So a **Release build resolves from tiers 3 and 4 only**. With the registry empty and no remote
-default, a shipped binary is web everywhere and there is no runtime path to a native screen at all.
+So a **Release build resolves from tiers 3 and 4 only**. With those five approved and no remote
+default, a shipped binary renders the workspace natively (team rail, channel list, channel pane and
+composer) and still falls back to the webview for every unapproved surface.
 
 Two rules make the switch behave the way a user expects at runtime:
 
@@ -136,7 +138,7 @@ Mechanically that means exactly one edit: appending the surface to
 
 ```swift
 // Mattermost/Core/RenderMode.swift
-public static let nativeApprovedSurfaces: Set<Surface> = [.auth]
+public static let nativeApprovedSurfaces: Set<Surface> = [.auth, .calls, .sidebar, .channelView, .composer]
 ```
 
 * **The registry is an approval ledger, not a scratch list.** Each entry is one `-AV` sign-off, and
@@ -145,7 +147,23 @@ public static let nativeApprovedSurfaces: Set<Surface> = [.auth]
   | Surface | Approved by | Evidence |
   |---|---|---|
   | `.auth` | T31-AV (card `t_c57a7551`, verdict `PASS-WITH-FINDINGS`, F8 = approve the surface) | `docs/t31r-patch-note.md` §5 (flip) and its F1–F4 repairs, which landed *with* the flip |
-  | _(none yet)_ | | |
+  | `.calls` | T44d-AV (card `t_466e8e90`, verdict `PASS-WITH-FINDINGS`) | `docs/t44d-build-note.md` §4/§7 (2/2 live, `** TEST SUCCEEDED **`); reachability caveat: the entry point mounts inside a native pane, which is now `.channelView` |
+  | `.sidebar` | T33-AV2 (card `t_8c99e10a`, verdict `PASS-WITH-FINDINGS`) **+ the owner's decision of 2026-10-27** (card `t_c93b8337`, scope A; human gate `t_4413b7b2`) | `docs/t33r2-build-note.md` §3/§6 — T33-AV2 closed with "the flip itself stays a separate decision", so the validator never granted it; the owner's approval is the sign-off, and T33-R2 (`t_98c39e49`) had already closed AV2-F1–F3 |
+  | `.channelView` | T34-AV (card `t_1ca87edd`, verdict `PASS-WITH-FINDINGS`, F1 repaired by `t_cf23dcd7`) + T55-AV-R (card `t_6059f7ce`) **+ the owner's decision of 2026-10-27** (card `t_c93b8337`, scope A) | `docs/t34r5-build-note.md` §5 (F1 repair) and `docs/t55-revalidation-build-note.md` §3/§6: the five regions the pane hosts were re-validated with no FAIL — `.threads` PASS, reactions PASS-WITH-FINDINGS, attachments PASS, `.search` PASS-WITH-FINDINGS, `.channelInfo` PASS. This is the AV debt T34-AV named as the blocker |
+  | `.composer` | T35-AV (card `t_3042a50f`, verdict `PASS-WITH-FINDINGS`; repair `t_e7eeaa46`) — **a repair, not a flip grant** — plus the pane-ownership requirement the same 2026-10-27 decision created (card `t_c93b8337`): the release this flip exists for asserts "composer is native" (`t_9928d203` step 4) | `docs/t35-build-note.md`. Without this entry the approved pane draws the dead `"Message input — web (S14/T35)"` placeholder (`ChannelView.composerPlaceholder`) **while `.channelView` is pane-owning, i.e. after the webview is released** — a read-only workspace. The composer mounts only inside the pane, so the entry is pane-local |
+
+  `.sidebar` and `.channelView` are the first entries whose sign-off is a **product decision, not a
+  `-AV` verdict**: both validators passed *with findings* and both explicitly deferred the flip. The
+  owner took it on 2026-10-27 (scope A: approve both, behind one post-edit QA round), and this
+  document records the decision rather than implying a verdict it does not have. `.channelView` is
+  additionally the **only** entry in `paneOwningSurfaces` — approving the pane host without pane
+  ownership would paint the native shell over a live `WKWebView` (§12.1).
+
+  `.composer` is not a third product approval: it is the consequence of the pane-ownership claim
+  above. §12.1 defines pane ownership as "the card renders every region the webview paints
+  (sidebar, header, post list, composer, RHS)", so a pane-owning `.channelView` with a `web`
+  composer is internally inconsistent — the flip's post-edit QA round caught it as a dead input
+  over a released webview (`docs/tc93b-build-note.md` §4).
 
 * **Empty registry = web everywhere** (that was the state from T26 until T31-R). Anything not in the
   registry still defaults to the web view, so an unapproved card can never ship its surface native.
@@ -319,17 +337,18 @@ a Release build. **Chosen fix (a): the persisted tier is DEBUG-only too.**
   app therefore always resolves from tiers 3/4 — it can never land on a native stand-in, which is the
   invariant the `-AV` programme wants.
 * The cost, stated plainly: **a Debug→Release upgrade on the same install drops the player's stored
-  per-surface choice** — the surface returns to its compile-time default (`web` for every surface
-  today, because the registry is empty). Nothing else is lost: the launch flag was never persisted,
+  per-surface choice** — the surface returns to its compile-time default (native for the five
+  approved surfaces, `web` for the rest). Nothing else is lost: the launch flag was never persisted,
   and a Release build cannot create a stored choice in the first place, since the inspector and
   `setOverride`/`clearOverride`/`clearAllOverrides` do not exist there.
 * The only write path that exists in Release is **"Use web view"** in a native branch
   (`NativeShellView`'s sidebar row / auth surface → `forceWebForThisRun`). In Release it is a
   *per-run* undo (the written row
-  is not read back on the next launch). That is unreachable today — nothing can be native in a
-  Release build while the registry is empty — but it is the first thing to revisit when the first
-  surface is approved: at that point the Release escape hatch must become persistent (accepting
-  `.web` rows only), which is a deliberate design change, not a bug fix.
+  is not read back on the next launch). Since the 2026-10-27 flip this path is reachable — the
+  workspace really is native in a Release build — so its per-run scope is now a live UX behaviour
+  rather than a dormant one: the same launch returns to the webview, the next launch returns to the
+  native workspace. Making the Release escape hatch persistent (accepting `.web` rows only) is the
+  design change this paragraph has always deferred; it is carded separately and is not a bug fix.
 * Pinned by `testPersistedOverrideIsIgnoredWithoutDebugAffordances`,
   `testLaunchOverrideIsIgnoredWithoutDebugAffordances` (which build a resolver through the DEBUG-only
   `releaseSemantics(_:)` seam, i.e. exactly what a Release compile computes) and by the gate script
@@ -361,7 +380,8 @@ flag).
 
 | Test | Pins |
 |---|---|
-| `testEverySurfaceDefaultsToWeb` | empty approval registry; web fallback everywhere |
+| `testOnlyTheApprovedRegistryDefaultsToNative` | the exact approval registry (`[.auth, .calls, .sidebar, .channelView, .composer]`); every other surface falls back to `web` |
+| `testTheWorkspaceFlipApprovesBothSurfacesAndOnlyThePaneHostOwnsThePane` | the 2026-10-27 scope-A decision: `.sidebar`, `.channelView` and (from pane ownership) `.composer` native; only `.channelView` pane-owning; the rest still `web` |
 | `testNativeByDefaultRequiresApproval` | native-by-default only via `nativeApprovedSurfaces` |
 | `testLaunchArgumentOverrideWinsOverCompileTimeDefault` | tier 1 beats tier 4; unlisted surfaces keep default |
 | `testLaunchArgumentSingleTokenFormIsAccepted` | `-surfaceMode=x=y` form |
@@ -401,23 +421,18 @@ flag).
   and resolve correctly, but no view mounts them yet — their hosts arrive with their screen cards.
   Toggling e.g. `threads` therefore changes nothing on screen today, because threads are rendered
   *inside* the web app; that is exactly the state until S13 lands.
-* **Native surfaces: none.** `nativeApprovedSurfaces` is empty by design; the first entry requires a
-  passed `-AV` card (§5).
-* **A native surface still loads a full webview — the switch buys no memory today (T26-R R4).**
-  `RootView` mounts one `ContentView` per server, `ContentView.onAppear` calls
-  `WebViewStore.loadIfNeeded` unconditionally, and `WebViewStore.init` constructs the `WKWebView`
-  up front. So `-surfaceMode channelView=native` renders the stand-in **on top of a fully loaded web
-  app**: same process count, same memory, same session. The dual-render switch is a *rendering*
-  switch, not yet a resource one — the programme's motivating metric (memory per ported surface) is
-  not delivered by it. This is a known limit, not a regression: it is the conservative behaviour
-  (the webview stays warm so flipping back is instant and never re-authenticates). The follow-up
-  decision — **when and whether to evict or park the webview for a natively-rendered surface** — is
-  deliberately *not* implemented here: it needs a memory baseline for a ported surface, a policy for
-  the per-server session (evicting the `WKWebView` does not lose cookies, but it does lose the
-  in-memory page and costs a reload), and a rule for `channelView` while it is still a stand-in
-  (evicting behind a stand-in would make the "Use web view" escape hatch slow). **That decision is now
-  made — it is §12, the webview release policy.** It is recorded there and not implemented yet: until
-  its implementation card lands, every surface keeps its warm webview.
+* **Native surfaces: five.** `.auth`, `.calls`, `.sidebar`, `.channelView` and `.composer` are
+  native by default (§5); the rest require a passed `-AV` card. The workspace entries carry the
+  owner's 2026-10-27 decision because their validators deferred the flip, and `.composer` follows
+  from pane ownership (§12.1).
+* **A non-pane native surface still loads a full webview — the switch buys no memory for it
+  (T26-R R4).** Every approved surface except the pane host (`.auth`, `.calls`, `.sidebar`) renders
+  beside a fully mounted webview: same process count, same memory, same session. The exception is
+  the pane host itself — §12's release policy is now live (`paneOwningSurfaces = [.channelView]`), so
+  a native workspace releases the per-server `WKWebView` once its navigation settles. For the other
+  surfaces the dual-render switch is a *rendering* switch, not a resource one. The follow-up
+  decision — **when and whether to evict or park the webview** — is §12. It is recorded there and
+  implemented as a pane-level rule only; a per-surface eviction stays unimplemented.
 * **A mid-load surface toggle no longer strands the page (T26-R R6, was a real bug — two variants).**
   The old `ContentView.loadIfNeeded()` guarded on `store.url == nil`, so a load interrupted by
   `dismantleUIView` → `stopLoading()` (committed page, nothing in flight) was never resumed — the
@@ -449,10 +464,10 @@ flag).
 
 ## 12. Webview release policy (T26-R R4 decision)
 
-**Decided 2026-10-24 by `mmios-architect` (card `t_58d5611e`). Status: decided, not implemented.**
-Implementation: the card that carries this decision (mmios-ios, parented on T27). Validation: its
-`-AV` (mmios-qa). Until both land, every surface keeps its warm webview — this section is the
-contract they implement, not a description of today's build.
+**Decided 2026-10-24 by `mmios-architect` (card `t_58d5611e`). Status: decided and implemented**
+(T26-R R4a, 2026-10-24), **live since the 2026-10-27 workspace flip** (`t_c93b8337`: `.channelView`
+approved and pane-owning). Validation: the pane-level claim is audited by the `-AV` programme, and
+the post-flip QA round is recorded in `docs/tc93b-build-note.md`.
 
 ### 12.1 The rule
 
@@ -465,15 +480,18 @@ contract they implement, not a description of today's build.
 |---|---|---|
 | 1 | the **pane host surface** resolves `.native` (today `channelView`: the region the one-per-server webview maps to) | the only surface whose native branch takes the webview's place |
 | 2 | that surface is in `SurfaceDefaults.nativeApprovedSurfaces` (§5) | approval is the only evidence that a *real card* exists — a placeholder or skeleton can never be approved, so eviction can never hide behind one |
-| 3 | that surface is in `SurfaceDefaults.paneOwningSurfaces` (new registry, **empty today**) | the card claims it renders every region the webview paints (sidebar, header, post list, composer, RHS) — nothing in the web app is still needed |
+| 3 | that surface is in `SurfaceDefaults.paneOwningSurfaces` — since the 2026-10-27 flip, `[.channelView]` | the card claims it renders every region the webview paints (sidebar, header, post list, composer, RHS) — nothing in the web app is still needed |
 | 4 | the store has no navigation in flight (`isLoading == false`) | never kill a login/SSO mid-flight |
 
 **Registry invariant:** `paneOwningSurfaces ⊆ nativeApprovedSurfaces`, checked by
 `scripts/verify-dual-render-gates.sh`. A surface cannot be declared pane-owning before it passes
 `-AV`; the pre-approval measurement in §12.6 uses a `PERF_PROBE`-only arm instead of the registry.
 
-**Today both registries are empty**, so the policy is inert: zero behaviour change, and no
-release-affecting behaviour exists behind an `-AV`-less surface.
+**Since the 2026-10-27 flip the policy is live**: `paneOwningSurfaces = [.channelView]` and
+`.channelView` is approved, so a Release build with no flags releases the per-server webview once its
+navigation settles. The rule did not change — only which registry entries it consults. `ViewStore`
+destroys the store rather than parking it (§12.2), and the escape hatch (§8) still works: "Use web
+view" flips the pane surface to `.web` for that run and the web branch recreates the store.
 
 ### 12.2 What "release" means — destroy, not park
 
@@ -526,7 +544,7 @@ omitted when that read is `nil` (Back/Reload are webview-only chrome).
 
 | File | Change |
 |---|---|
-| `Core/RenderMode.swift` | `SurfaceDefaults.paneOwningSurfaces: Set<Surface> = []` + doc: pane ownership is an `-AV` claim |
+| `Core/RenderMode.swift` | `SurfaceDefaults.paneOwningSurfaces: Set<Surface> = [.channelView]` + doc: pane ownership is an `-AV` claim |
 | `Core/ViewStore.swift` | `release(serverID:)`, `ensureStore(for:)`, `lastURLs`, and the pure predicate `WebViewReleasePolicy.mayRelease(...)` |
 | `UI/ContentView.swift` | web branch renders the reloading state until the store exists and commits |
 | `UI/RootView.swift` | **the only** caller of `release(...)`: on `onAppear` and on `onChange` of the pane surface's resolved mode; toolbar reads the non-creating accessor |

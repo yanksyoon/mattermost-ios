@@ -270,34 +270,42 @@ final class ViewStoreTests: XCTestCase {
                        "…but it re-attaches the same persistent store, so no re-login (§12.3)")
     }
 
-    /// The acceptance criterion in its strongest form: with the shipping registries, the release
-    /// path is **unreachable** — for every surface, every resolution, either navigational state.
+    /// The release policy under the shipping registries after the 2026-10-27 flip: release is
+    /// reachable for exactly one surface — the pane host — and only when it resolves native, is
+    /// approved, is pane-owning, and has no navigation in flight.
     ///
-    /// Since T31-R the approval registry is no longer empty (`.auth` is native by default, and
-    /// `.calls` joined it at T44d-AV), but release is a *third* condition: a surface must also own
-    /// the pane, and no card does — so an approved surface still cannot destroy a webview. The loop
-    /// below proves both halves.
-    func testEmptyRegistriesMakeReleaseUnreachable() {
-        XCTAssertEqual(SurfaceDefaults.nativeApprovedSurfaces, [.auth, .calls],
-                      "the approved surfaces (T31-AV `.auth`, T44d-AV `.calls`) are not pane owners")
-        XCTAssertTrue(SurfaceDefaults.paneOwningSurfaces.isEmpty,
-                      "no card owns a pane yet: release must be inert in this build")
+    /// This replaces the pre-flip `testEmptyRegistriesMakeReleaseUnreachable`. That test asserted the
+    /// release path was inert; the owner decision (`t_c93b8337`, scope A) approved `.channelView`
+    /// **and** made it pane-owning, so destroying the per-server webview is now the point of the
+    /// flip. The four-condition rule (§12.1) is what keeps it from firing anywhere else: `.auth`,
+    /// `.calls` and `.sidebar` are approved but own no pane, so they can never evict a webview, and
+    /// the pane host itself cannot evict while a login/SSO navigation is in flight.
+    func testReleaseIsReachableOnlyThroughTheApprovedPaneOwner() {
+        XCTAssertEqual(SurfaceDefaults.nativeApprovedSurfaces,
+                      [.auth, .calls, .sidebar, .channelView, .composer],
+                      "the approved surfaces include the workspace set from the 2026-10-27 decision")
+        XCTAssertEqual(SurfaceDefaults.paneOwningSurfaces, [.channelView],
+                      "exactly one surface owns the pane, and it is the pane host")
+        XCTAssertEqual(SurfaceDefaults.paneHostSurface, .channelView)
 
         for surface in Surface.allCases {
             for resolved in SurfaceRenderMode.allCases {
                 for inFlight in [false, true] {
-                    XCTAssertFalse(WebViewReleasePolicy.shouldRelease(
+                    let expected = surface == SurfaceDefaults.paneHostSurface
+                        && resolved == .native
+                        && !inFlight
+                    XCTAssertEqual(WebViewReleasePolicy.shouldRelease(
                         paneSurfaceResolved: resolved,
                         approved: SurfaceDefaults.nativeApprovedSurfaces.contains(surface),
                         paneOwning: SurfaceDefaults.paneOwningSurfaces.contains(surface),
                         navigationInFlight: inFlight),
-                        "\(surface.rawValue) resolved \(resolved.rawValue) (inFlight=\(inFlight)) "
-                        + "must not release a webview in the shipping configuration")
+                        expected,
+                        "\(surface.rawValue) resolved \(resolved.rawValue) (inFlight=\(inFlight)): "
+                        + "only the approved pane owner, resolved native with no navigation in "
+                        + "flight, may release the per-server webview")
                 }
             }
         }
-        // And the pane host is still the surface this release is inert for.
-        XCTAssertEqual(SurfaceDefaults.paneHostSurface, .channelView)
     }
 }
 
