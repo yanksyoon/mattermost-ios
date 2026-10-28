@@ -1,0 +1,127 @@
+T39-R2 — evidence extracts (card t_c3957991)
+================================================================================
+Host: macOS 26.3.1, Xcode 26.6, iPhone 16 Pro 81A7F251-8B31-4945-8783-5A264C14B8D5 (iOS 18.3).
+Server: Mattermost 9.11.19 (BuildNumber 16643067630, docker container mm-perf) at 127.0.0.1:8065,
+ActiveSearchBackend=database. Runner offset TimeZone.current = -18000 s (EST, UTC-5).
+Tree under test: a worktree of this card's own. Runs [1]-[6] were made on origin/main 2785c37 +
+this card's files; runs in [7] on the rebased tree, origin/main 00cd217 + this commit (i.e. with T47's
+and T48's product code compiled in), which is the tree that was pushed.
+Full xcodebuild logs are gitignored: build/logs/t39r2/ (this file holds the lines that decide things).
+Runs were made with scripts/qa-test.py, derived data ~/Library/Developer/Xcode/DerivedData/t39r2
+(outside the TCC-protected folders), packages cloned from ~/Library/Developer/Xcode/DerivedData/
+mmios-t40r/SourcePackages.
+
+
+== [1] RED: the shipped helper (URLSession.shared), both suites, one invocation
+-- run t39r2-mutant-cookie — the only change against the green tree is
+-- `Self.restSession.dataTask` -> `URLSession.shared.dataTask` in both `synchronous` helpers.
+-- qa-test summary: 6 run, 6 skipped, 0 failed — RESULT: PASS. That is the trap this card is about:
+-- a suite that measured nothing reports success.
+
+MattermostUITests/T39JumpUITests.swift:346: -[MattermostUITests.T39JumpUITests testJumpToAnOldResultInAChannelNeverOpenedFetchesByIDAndMarksTheGap] : Test skipped - could not sign in as perfprobe on the live server (status 401 {"id":"api.context.session_expired.app_error","message":"Invalid or expired session, please login again.","detailed_error":"","request_id":"csnsueui8tn5ffbz6udq3s1y5w","status_code":401})
+MattermostUITests/T39JumpUITests.swift:346: -[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds] : Test skipped - could not sign in as perfprobe on the live server (status 401 {"id":"api.context.session_expired.app_error","message":"Invalid or expired session, please login again.","detailed_error":"","request_id":"6dutrf9fx7n8ixfi18mam465yo","status_code":401})
+MattermostUITests/T39SearchUITests.swift:374: -[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList] : Test skipped - could not sign in as perfprobe on the live server (status 401 {"id":"api.context.session_expired.app_error","message":"Invalid or expired session, please login again.","detailed_error":"","request_id":"ubgmbtsoiiy538ymzkt98d9r9e","status_code":401})
+MattermostUITests/T39SearchUITests.swift:374: -[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost] : Test skipped - could not sign in as perfprobe on the live server (status 401 {"id":"api.context.session_expired.app_error","message":"Invalid or expired session, please login again.","detailed_error":"","request_id":"txb6ybwbxfytpfidnwwfsmxzhe","status_code":401})
+MattermostUITests/T39SearchUITests.swift:374: -[MattermostUITests.T39SearchUITests testUnpinFromThePinnedSheetRemovesTheRowAndThePin] : Test skipped - could not sign in as perfprobe on the live server (status 401 {"id":"api.context.session_expired.app_error","message":"Invalid or expired session, please login again.","detailed_error":"","request_id":"qozu9g4izpnd3ja448kjqc145w","status_code":401})
+MattermostUITests/T39SearchUITests.swift:374: -[MattermostUITests.T39SearchUITests testUnsaveFromTheSavedTabRemovesTheRowAndThePreference] : Test skipped - could not sign in as perfprobe on the live server (status 401 {"id":"api.context.session_expired.app_error","message":"Invalid or expired session, please login again.","detailed_error":"","request_id":"hesjccdtcf81zneswpibmunenh","status_code":401})
+
+
+== [2] GREEN: the cookie-free `restSession`, both suites, one invocation
+-- run t39r2-live-e. The runner container had already signed in on every earlier run of this
+-- session (t39r2-live-a .. -d, t39r2-jump-*), which is the condition that used to make every test
+-- skip. No skip, no failure.
+
+Test Case '-[MattermostUITests.T39JumpUITests testJumpToAnOldResultInAChannelNeverOpenedFetchesByIDAndMarksTheGap]' passed (48.436 seconds).
+Test Case '-[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds]' passed (43.586 seconds).
+	 Executed 2 tests, with 0 failures (0 unexpected) in 92.021 (92.036) seconds
+Test Case '-[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList]' passed (42.203 seconds).
+Test Case '-[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost]' passed (52.636 seconds).
+Test Case '-[MattermostUITests.T39SearchUITests testUnpinFromThePinnedSheetRemovesTheRowAndThePin]' passed (43.098 seconds).
+Test Case '-[MattermostUITests.T39SearchUITests testUnsaveFromTheSavedTabRemovesTheRowAndThePreference]' passed (41.722 seconds).
+	 Executed 4 tests, with 0 failures (0 unexpected) in 179.660 (179.668) seconds
+	 Executed 6 tests, with 0 failures (0 unexpected) in 271.681 (271.707) seconds
+	 Executed 6 tests with 0 failures — T39JumpUITests 2/2, T39SearchUITests 4/4, 0 skipped
+
+
+== [3] The offset anchor: the old day vs the seeded day, at the runner's offset
+-- scripts/t39_offset_anchor_seed.py writes #t39-anchor; the two columns are the same query asked
+-- with the offset in seconds (-18000) and with it read as minutes (-300).
+
+runner offset -18000s; #t34-showcase newest post sydog9nbci84tncjmpgsgagf6a = 2026-10-27 in that offset
+  old anchor (the newest post's day)           in:t34-showcase on:2026-10-27        seconds=26 minutes= 2  SEPARATES — the test measures
+  new anchor (seeded fixture)                  in:t39-anchor on:2026-10-26          seconds= 3 minutes= 0  SEPARATES — the test measures
+
+-- The old anchor is separating again *now* only because other cards have posted 26 messages into
+-- #t34-showcase and #t36-threads today; T55-AV-R measured the same day answering 2 and 2 at -25200
+-- (build/logs/t55/t55-tz-separation.log) a few hours earlier, and the day before that 1 vs 3. That
+-- is the defect: the anchor moved with the fixture and the wall clock.
+
+== [4] The seeded day at other plausible runner offsets (fixture written for -18000s)
+
+  offset  -18000s: seconds= 3 minutes= 0 separates
+  offset  -14400s: seconds= 3 minutes= 0 separates
+  offset  -21600s: seconds= 3 minutes= 0 separates
+  offset  -25200s: seconds= 3 minutes= 0 separates
+  offset  -28800s: seconds= 3 minutes= 0 separates
+  offset       0s: seconds= 0 minutes= 0 SAME — the test would skip
+  offset    3600s: seconds= 0 minutes= 0 SAME — the test would skip
+
+-- i.e. it survives a DST change in any US zone; a UTC or eastern runner must re-run the seed with
+-- its own --tz-offset-seconds, and the test says so in its skip message.
+
+== [5] RED: the original defect, reintroduced (mutation M3 from T55: SearchGrammar.body sends /60)
+-- run t39r2-mutant-offset, `T39JumpUITests/testOnDateModifierSendsTheTimezoneOffsetInSeconds` alone.
+-- The fixture answers 3 posts at -18000 s and 0 at -300, so the app (sending minutes) shows the
+-- empty state instead of the reader's day, and the test is red:
+
+MattermostUITests/T39JumpUITests.swift:189: error: -[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds] : XCTAssertTrue failed - no summary:
+MattermostUITests/T39JumpUITests.swift:190: error: -[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds] : Failed to get matching snapshot: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"searchSummary" IN identifiers'`, given input App element pid: 26719
+
+-- The mutation was reverted (`git checkout -- Mattermost/UI/Native/Search/SearchGrammar.swift`);
+-- `git status --porcelain` in the worktree reports only the three files of this card.
+
+
+== [6] Runs that were red for reasons that are not this card (kept for honesty)
+-- The host ran three other cards' xcodebuild UI/unit suites during this round; `uptime` read load
+-- averages 12 - 273. Two runs were lost to infrastructure, not to an assertion:
+
+-- t39r2-jump-diag2 / -diag3: the test host exited during launch, 0 tests executed
+--   "Restarting after unexpected exit, crash, or test timeout" and, in the same minute,
+--   ~/Library/Logs/DiagnosticReports/AccessibilityControlsExtension-2026-10-27-204132.ips.
+--   After power-cycling the simulator the same test ran and measured.
+-- t39r2-live-c: T39SearchUITests/testSearchRenders… — mid-test the app fell back to
+--   `nativeAuthSurface` (empty login form, Log In disabled) and the test then found neither the
+--   shell toolbar nor a tab. No 401 is logged by the server for that window (docker logs --since)
+--   and the account held 500 sessions with SessionLimit unset; the same test passes in t39r2-live-e.
+-- t39r2-live-d: T39SearchUITests/testUnsaveFromTheSavedTab… — "Lost connection to the application
+--   (pid 22808)": AccessibilityControlsExtension-2026-10-27-205116.ips, again the simulator's
+--   accessibility helper, not the app.
+-- t39r2-live-a: the first run of the fixed tree — T39Jump 1/2, T39Search 2/4. Two of the three reds
+--   were real harness defects fixed in this card (see the build note §3): the compact shell pushes a
+--   channel over the tab bar, and the jump test's "newest post" constant had stopped being the
+--   newest.
+
+
+== [7] The tree being pushed: rebased onto origin/main 00cd217 (T47 + T48 product code compiled in)
+
+-- run t39r2-live-f-rebased — first attempt on the rebased tree: 5/6, the red is a snapshot race
+-- (searchSubmit had not been snapshotted yet), and it passes alone:
+
+/Users/yangsooyoon/.hermes/profiles/mmios-ios/cache/scratch/t39r2/wt/MattermostUITests/T39SearchUITests.swift:103: error: -[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList] : Failed to tap "searchSubmit" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"searchSubmit" IN identifiers'`, given input App element pid: 30186
+
+-- run t39r2-malformed-alone — the same test alone: 1 run, 0 skipped, 0 failed (61 s)
+-- The four searchSubmit taps now wait for the element (tap(_:in:)).
+
+-- run t39r2-live-g-rebased — after that fix, both suites in one invocation, 6 run / 0 skipped / 0
+-- failed:
+
+Test Case '-[MattermostUITests.T39JumpUITests testJumpToAnOldResultInAChannelNeverOpenedFetchesByIDAndMarksTheGap]' passed (59.149 seconds).
+Test Case '-[MattermostUITests.T39JumpUITests testOnDateModifierSendsTheTimezoneOffsetInSeconds]' passed (43.006 seconds).
+	 Executed 2 tests, with 0 failures (0 unexpected) in 102.155 (102.161) seconds
+Test Case '-[MattermostUITests.T39SearchUITests testAMalformedQueryExplainsItselfInsteadOfShowingAnEmptyList]' passed (43.676 seconds).
+Test Case '-[MattermostUITests.T39SearchUITests testSearchRendersTheServersMatchAndOpensItAtThePost]' passed (46.346 seconds).
+Test Case '-[MattermostUITests.T39SearchUITests testUnpinFromThePinnedSheetRemovesTheRowAndThePin]' passed (27.133 seconds).
+Test Case '-[MattermostUITests.T39SearchUITests testUnsaveFromTheSavedTabRemovesTheRowAndThePreference]' passed (39.216 seconds).
+	 Executed 4 tests, with 0 failures (0 unexpected) in 156.371 (156.374) seconds
+	 Executed 6 tests, with 0 failures (0 unexpected) in 258.526 (258.538) seconds
+

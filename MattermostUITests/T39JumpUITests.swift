@@ -13,10 +13,13 @@
 //      Go's `time.FixedZone(name, offset)`; both reference clients send `utcOffset() * 60`). T39
 //      shipped minutes, which made `on:` mean the UTC day: `in:t34-showcase on:2026-10-26` answered 3
 //      posts where the web client answered 1 (T39-AV F1). The oracle here is the server asked both
-//      ways, compared with the count the screen shows.
+//      ways, compared with the count the screen shows — on `#t39-anchor`, whose posts carry a fixed
+//      `create_at` so the anchor day is a fixture property and not the wall clock
+//      (`scripts/t39_offset_anchor_seed.py`, T39-R2).
 //
 // Run (local throwaway server; credentials come from the environment, never from this file):
 //
+//     python3 scripts/t39_offset_anchor_seed.py --url http://127.0.0.1:8065   # once per fixture
 //     TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 \
 //     TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
 //     TEST_RUNNER_MM_AUTH_PASSWORD=<fixture password> \
@@ -63,7 +66,6 @@ final class T39JumpUITests: XCTestCase {
         // "t36 follow fixture 1792995059" is the 140th-newest post of #t36-threads.
         let target = "hsafgioz4td98gijwugs631qny"
         let query = "1792995059"
-        let newest = "b4rnbrmcsffe8mshqxf17wktrr"
         let targetText = "t36 follow fixture 1792995059"
 
         // The oracle: the server still answers this query with the target post, and the target is not
@@ -80,7 +82,7 @@ final class T39JumpUITests: XCTestCase {
         let app = launchApp()
         openSearch(app)
         type(query, into: "searchField", in: app)
-        element(app, "searchSubmit").tap()
+        tap("searchSubmit", in: app)
 
         let row = revealResult(app, postID: target)
         XCTAssertTrue(row.waitForExistence(timeout: 40),
@@ -95,10 +97,29 @@ final class T39JumpUITests: XCTestCase {
         let targetRow = element(app, "post.\(target)")
         XCTAssertTrue(targetRow.exists, "the focused row must be laid out:\n\(app.debugDescription)")
 
-        // Not a plain "open the channel at its newest message": that row must be nowhere on screen.
-        XCTAssertFalse(element(app, "post.\(newest)").exists,
-                       "the channel's NEWEST post \(newest) must not be on screen — if it is, the "
-                       + "pane opened at the bottom and the focus came along by luck")
+        // Not a plain "open the channel at its newest message": the newest row must not be in the
+        // visible list.
+        //
+        // Both halves of this check are read from the server at run time, and both had to change:
+        //  * the id is `newestPage.first`, not a constant. The constant this test carried
+        //    (`b4rnbrmcsffe8mshqxf17wktrr`) was the newest when T39 was written and is now #56 of the
+        //    newest page ("t37 picker target 1793005481") — later suite runs posted into
+        //    #t36-threads — so the pane legitimately draws it just past the gap and the old
+        //    `!exists` form went red on a correct pane (measured 2026-10-27: `probe_newest.py`,
+        //    build/logs/t39r2/t39r2-jump-diag4.log, screenshot `t39jump-2-focused`);
+        //  * "visible" is "inside `channelPostList`'s frame", not "in the accessibility tree": the
+        //    pane holds the whole newest page below the gap separator, so rows that are drawn or
+        //    merely realized are all in the tree. If the pane had opened at the bottom, the newest
+        //    row would be inside the list viewport — which is the claim this assertion is for.
+        let trueNewest = try XCTUnwrap(newestPage.first,
+                                       "the channel's newest page must not be empty")
+        let newestRow = element(app, "post.\(trueNewest)")
+        let listFrame = element(app, "channelPostList").frame
+        XCTAssertFalse(newestRow.exists && listFrame.contains(newestRow.frame.origin),
+                       "the channel's newest post \(trueNewest) must not be visible — if it is, the "
+                       + "pane opened at the bottom and the focus came along by luck. "
+                       + "newest=\(newestRow.exists ? "\(newestRow.frame)" : "absent"), "
+                       + "list=\(listFrame)")
         let window = app.windows.firstMatch.frame
         XCTAssertTrue(window.contains(targetRow.frame.origin),
                       "the focused row must be inside the window, frame=\(targetRow.frame) "
@@ -124,9 +145,22 @@ final class T39JumpUITests: XCTestCase {
 
     // MARK: - 2. time_zone_offset is sent in seconds
 
+    /// The anchor is a property of the **fixture**, not of the wall clock:
+    /// `scripts/t39_offset_anchor_seed.py` writes three posts into `#t39-anchor` on `offsetAnchorDay`
+    /// with an explicit `create_at` (the server honours it for a `system_admin` account), placed
+    /// inside the reader's local day and outside the day a client sending `offset / 60` would ask
+    /// for. The original test anchored on the *newest* post's day, and as the fixture grew that day
+    /// stopped separating the two encodings — measured `in:t34-showcase on:2026-10-27` answering 2
+    /// posts both ways (T55-AV-R §3.4 F-5) — so the test skipped on its own premise and a green run
+    /// could mean nothing at all. The day is written into the posts' own `create_at`, so it does not
+    /// move; change these two constants together with the seed script.
+    private let offsetAnchorChannel = "t39-anchor"
+    private let offsetAnchorDay = "2026-10-26"
+
     /// The screen's own result count is compared with the server asked twice: once with the offset in
-    /// **seconds** (what the client must send) and once in minutes (what T39 shipped). When the two
-    /// differ, only the seconds count is correct, so the test fails if the unit ever regresses.
+    /// **seconds** (what the client must send) and once in minutes (what T39 shipped). The fixture
+    /// makes those two answers differ, so the test fails if the unit ever regresses — and it cannot
+    /// reach green without measuring.
     func testOnDateModifierSendsTheTimezoneOffsetInSeconds() throws {
         let secondsOffset = TimeZone.current.secondsFromGMT()
         // An offset that is a whole number of hours and not UTC is the case where the two encodings
@@ -136,18 +170,20 @@ final class T39JumpUITests: XCTestCase {
                           + "minutes — run in a non-UTC time zone")
         let minutesOffset = secondsOffset / 60
 
-        let anchor = try newestPostDay(inChannelNamed: "t34-showcase", offsetSeconds: secondsOffset)
-        let terms = "in:t34-showcase on:\(anchor)"
+        _ = try channelID(named: offsetAnchorChannel)
+        let terms = "in:\(offsetAnchorChannel) on:\(offsetAnchorDay)"
         let secondsCount = try searchIDs(terms: terms, timeZoneOffsetSeconds: secondsOffset).count
         let minuteCount = try searchIDs(terms: terms, timeZoneOffsetSeconds: minutesOffset).count
         try XCTSkipUnless(secondsCount != minuteCount,
-                          "the fixture no longer separates the two offsets for \(terms) "
-                          + "(both \(secondsCount)) — seed posts near the day boundary first")
+                          "the fixture does not separate the two offsets for \(terms) "
+                          + "(seconds \(secondsCount), minutes \(minuteCount)) — re-run "
+                          + "scripts/t39_offset_anchor_seed.py --tz-offset-seconds \(secondsOffset) "
+                          + "against this server; this is a fixture gap, not a measurement")
 
         let app = launchApp()
         openSearch(app)
         type(terms, into: "searchField", in: app)
-        element(app, "searchSubmit").tap()
+        tap("searchSubmit", in: app)
 
         let summary = element(app, "searchSummary")
         XCTAssertTrue(summary.waitForExistence(timeout: 40), "no summary:\n\(app.debugDescription)")
@@ -195,18 +231,46 @@ final class T39JumpUITests: XCTestCase {
     }
 
     /// The regular layout reaches search from the detail toolbar, the compact layout from a tab.
+    ///
+    /// The compact shell **pushes** a channel over the tab bar: `LaunchDestination` opens the team's
+    /// town hall as soon as the channel directory arrives, and `RootView`'s navigation stack is above
+    /// the `TabView`, so the pushed pane covers it (measured 2026-10-27 —
+    /// `build/logs/t39r2/t39r2-live-a.log`: a launch that pushed Town Square before the first tap had
+    /// neither `shellSearchButton` nor a `TabBar`). Coming back from the pane is what a reader does,
+    /// and the entry points stay the two the product offers.
     private func openSearch(_ app: XCUIApplication) {
         let toolbarButton = element(app, "shellSearchButton")
         if toolbarButton.waitForExistence(timeout: 20) {
             toolbarButton.tap()
         } else {
             let tab = app.tabBars.buttons["Search"]
+            if !tab.waitForExistence(timeout: 5) {
+                returnToSidebar(app)
+            }
             XCTAssertTrue(tab.waitForExistence(timeout: 20),
                           "neither the toolbar nor a tab opens search:\n\(app.debugDescription)")
             tab.tap()
+            if !element(app, "searchField").waitForExistence(timeout: 20) {
+                // The pane pushed again while the tab was being selected: pop and retry once.
+                returnToSidebar(app)
+                XCTAssertTrue(tab.waitForExistence(timeout: 20),
+                              "the tab must come back with the sidebar:\n\(app.debugDescription)")
+                tab.tap()
+            }
         }
         XCTAssertTrue(element(app, "searchField").waitForExistence(timeout: 30),
                       "the search screen must mount:\n\(app.debugDescription)")
+    }
+
+    /// Pop a channel the compact shell pushed over the tab bar, back to the sidebar.
+    private func returnToSidebar(_ app: XCUIApplication, maxPops: Int = 3) {
+        let back = app.navigationBars.buttons["Back"]
+        var pops = 0
+        while back.exists, pops < maxPops {
+            back.tap()
+            pops += 1
+            _ = back.waitForExistence(timeout: 2)
+        }
     }
 
     private func type(_ text: String, into identifier: String, in app: XCUIApplication) {
@@ -214,6 +278,19 @@ final class T39JumpUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 20), "\(identifier) must exist")
         field.tap()
         field.typeText(text)
+    }
+
+    /// Tap an element only once it exists.
+    ///
+    /// A bare `.tap()` on a query the app has not snapshotted yet fails as "No matches found", which
+    /// on a loaded host reds a correct screen: measured on 2026-10-27, `testAMalformedQuery…` (the
+    /// sibling suite) reded with `Failed to tap "searchSubmit" … No matches found` in a batch run and
+    /// passed alone in 61 s (`build/logs/t39r2/t39r2-live-f-rebased.log`,
+    /// `t39r2-malformed-alone.log`).
+    private func tap(_ identifier: String, in app: XCUIApplication) {
+        let target = element(app, identifier)
+        XCTAssertTrue(target.waitForExistence(timeout: 20), "\(identifier) must exist:\n\(app.debugDescription)")
+        target.tap()
     }
 
     /// A result may be below the fold of a lazy list: swipe until it exists.
@@ -275,7 +352,11 @@ final class T39JumpUITests: XCTestCase {
               let token = http.value(forHTTPHeaderField: "Token"),
               let user = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let id = user["id"] as? String else {
-            throw XCTSkip("could not sign in as \(login) on the live server")
+            // The status and the body are part of the message on purpose: a skip that cannot say why
+            // cost T55-AV-R three runs before the 401 was visible.
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            let body = String(data: data.prefix(200), encoding: .utf8) ?? ""
+            throw XCTSkip("could not sign in as \(login) on the live server (status \(code) \(body))")
         }
         return (token, id)
     }
@@ -298,7 +379,7 @@ final class T39JumpUITests: XCTestCase {
         let row = try getJSON("/api/v4/teams/\(teamID!)/channels/name/\(name)") as? [String: Any]
         guard let row, let id = row["id"] as? String else {
             throw XCTSkip("channel #\(name) is missing — run scripts/t36_thread_seed.py / "
-                          + "scripts/t34_post_seed.py")
+                          + "scripts/t34_post_seed.py / scripts/t39_offset_anchor_seed.py")
         }
         return id
     }
@@ -314,29 +395,6 @@ final class T39JumpUITests: XCTestCase {
         let url = try XCTUnwrap(components?.url)
         let page = try getJSON(url: url) as? [String: Any] ?? [:]
         return (page["order"] as? [String] ?? [])
-    }
-
-    /// `yyyy-MM-dd` for the newest post of a channel, in the reader's own offset.
-    private func newestPostDay(inChannelNamed name: String, offsetSeconds: Int) throws -> String {
-        let channelID = try channelID(named: name)
-        var components = URLComponents(url: serverURL.appendingPathComponent(
-            "api/v4/channels/\(channelID)/posts"), resolvingAgainstBaseURL: false)
-        components?.queryItems = [URLQueryItem(name: "per_page", value: "60"),
-                                  URLQueryItem(name: "collapsedThreads", value: "true")]
-        let url = try XCTUnwrap(components?.url)
-        let page = try getJSON(url: url) as? [String: Any] ?? [:]
-        let posts = page["posts"] as? [String: Any] ?? [:]
-        let newestMillis = posts.values
-            .compactMap { ($0 as? [String: Any])?["create_at"] as? Int64 }
-            .max()
-        guard let newestMillis else {
-            throw XCTSkip("channel #\(name) has no posts — run its seed script")
-        }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: offsetSeconds)
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: Date(timeIntervalSince1970: Double(newestMillis) / 1000))
     }
 
     /// The server's ids for a query, with the offset in **seconds** (the field's real unit).
@@ -385,12 +443,25 @@ final class T39JumpUITests: XCTestCase {
         return json
     }
 
+    /// T39-R2: `URLSession.shared` keeps an `MMAUTHTOKEN` cookie from any earlier sign-in of this
+    /// runner container, and Mattermost answers a `POST /users/login` that carries a dead session with
+    /// 401 `api.context.session_expired.app_error` — measured on 2026-10-27 (T55-AV-R §3.4 F-4), where
+    /// every T39 test skipped instead of measuring. T36-R and T40-R already use this session for
+    /// exactly this reason (`T40ChannelInfoUITests.swift:954-966`); this is that session.
+    private static let restSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieAcceptPolicy = .never
+        return URLSession(configuration: configuration)
+    }()
+
     private func synchronous(_ request: URLRequest) throws -> (Data, URLResponse) {
         var payload: Data?
         var response: URLResponse?
         var failure: Error?
         let semaphore = DispatchSemaphore(value: 0)
-        URLSession.shared.dataTask(with: request) { data, urlResponse, error in
+        Self.restSession.dataTask(with: request) { data, urlResponse, error in
             payload = data
             response = urlResponse
             failure = error

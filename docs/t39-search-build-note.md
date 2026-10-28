@@ -241,6 +241,16 @@ Measured with `scripts/t39_search_probe.py` against the local throwaway server o
   shows: 75 at `-25200`, 100 at `-420`, screen 75. Four captures (`t39jump-1`…`-4`) are attached to
   each run's `xcresult`. Both tests read the fixture credentials from the environment; neither file
   contains a password.
+- **T39-R2 (`t_c3957991`) — the live harness:** T55-AV-R found both suites skipping 7/7 with
+  `401 api.context.session_expired` (the REST oracle used `URLSession.shared` and inherited the
+  runner's stale `MMAUTHTOKEN`) and the offset test anchoring on a day the fixture no longer
+  separated. Both are fixed: the helpers use T40's cookie-free `restSession`, and the offset test
+  anchors on `#t39-anchor` / `2026-10-26`, seeded by `scripts/t39_offset_anchor_seed.py` with explicit
+  `create_at` values so the day is a fixture property, not the wall clock (so the sentence above that
+  describes `on:<newest post's local day>` with 75 vs 100 describes the pre-R2 form). Run together in
+  one invocation the two suites now measure **T39JumpUITests 2/2, T39SearchUITests 4/4, 0 skipped**;
+  reverting just the session reds all six back to 401 skips. See `docs/t39-r2-build-note.md` and
+  `docs/t39-r2-evidence-2026-10-27.log`.
 - **Catalyst note:** the UI-test bundle's Catalyst deployment target is macOS 26.5 while this host is
   macOS 26.3.1, so XCUITest cannot run on Catalyst here (`Cannot test target "MattermostUITests" on
   "My Mac"`). The app itself builds and the unit suite runs on Catalyst; the live UI suites run on the

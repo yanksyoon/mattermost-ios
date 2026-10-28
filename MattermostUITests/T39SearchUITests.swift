@@ -67,7 +67,7 @@ final class T39SearchUITests: XCTestCase {
         let app = launchApp()
         openSearch(app)
         type(terms, into: "searchField", in: app)
-        element(app, "searchSubmit").tap()
+        tap("searchSubmit", in: app)
 
         let row = revealResult(app, postID: postID)
         XCTAssertTrue(row.waitForExistence(timeout: 40),
@@ -100,7 +100,7 @@ final class T39SearchUITests: XCTestCase {
         let app = launchApp()
         openSearch(app)
         type("before:notadate", into: "searchField", in: app)
-        element(app, "searchSubmit").tap()
+        tap("searchSubmit", in: app)
 
         let banner = element(app, "searchValidationError")
         XCTAssertTrue(banner.waitForExistence(timeout: 20),
@@ -193,6 +193,10 @@ final class T39SearchUITests: XCTestCase {
         let channel = try channel(named: name)
 
         let teamRow = element(app, "teamSidebar.team.\(teamID!)")
+        if !teamRow.waitForExistence(timeout: 10) {
+            // The compact shell may have pushed a channel over the sidebar (see `openSearch`).
+            returnToSidebar(app)
+        }
         XCTAssertTrue(teamRow.waitForExistence(timeout: 40),
                       "the rail must list the team this test seeds:\n\(app.debugDescription)")
         if !(teamRow.value as? String ?? "").contains("Selected") {
@@ -240,18 +244,46 @@ final class T39SearchUITests: XCTestCase {
 
     /// Open the search screen. The regular (Pad/desktop) layout reaches it from the detail column's
     /// toolbar; the compact layout has it as a tab. Either entry point must land on the same screen.
+    ///
+    /// The compact shell **pushes** a channel over the tab bar: `LaunchDestination` opens the team's
+    /// town hall as soon as the channel directory arrives, and `RootView`'s navigation stack is above
+    /// the `TabView`, so the pushed pane covers it (measured 2026-10-27 —
+    /// `build/logs/t39r2/t39r2-live-a.log`: a launch that pushed Town Square before the first tap had
+    /// neither `shellSearchButton` nor a `TabBar`). Coming back from the pane is what a reader does,
+    /// and the entry points stay the two the product offers.
     private func openSearch(_ app: XCUIApplication) {
         let toolbarButton = element(app, "shellSearchButton")
         if toolbarButton.waitForExistence(timeout: 20) {
             toolbarButton.tap()
         } else {
             let tab = app.tabBars.buttons["Search"]
+            if !tab.waitForExistence(timeout: 5) {
+                returnToSidebar(app)
+            }
             XCTAssertTrue(tab.waitForExistence(timeout: 20),
                           "neither the toolbar nor a tab opens search:\n\(app.debugDescription)")
             tab.tap()
+            if !element(app, "searchField").waitForExistence(timeout: 20) {
+                // The pane pushed again while the tab was being selected: pop and retry once.
+                returnToSidebar(app)
+                XCTAssertTrue(tab.waitForExistence(timeout: 20),
+                              "the tab must come back with the sidebar:\n\(app.debugDescription)")
+                tab.tap()
+            }
         }
         XCTAssertTrue(element(app, "searchField").waitForExistence(timeout: 30),
                       "the search screen must mount:\n\(app.debugDescription)")
+    }
+
+    /// Pop a channel the compact shell pushed over the tab bar, back to the sidebar.
+    private func returnToSidebar(_ app: XCUIApplication, maxPops: Int = 3) {
+        let back = app.navigationBars.buttons["Back"]
+        var pops = 0
+        while back.exists, pops < maxPops {
+            back.tap()
+            pops += 1
+            _ = back.waitForExistence(timeout: 2)
+        }
     }
 
     private func openSaved(_ app: XCUIApplication) {
@@ -260,10 +292,19 @@ final class T39SearchUITests: XCTestCase {
             toolbarButton.tap()
         } else {
             let tab = app.tabBars.buttons["Saved"]
+            if !tab.waitForExistence(timeout: 5) {
+                returnToSidebar(app)
+            }
             XCTAssertTrue(tab.waitForExistence(timeout: 20),
                           "neither the toolbar nor a tab opens saved messages:\n"
                           + "\(app.debugDescription)")
             tab.tap()
+            if !element(app, "nativeSavedPane").waitForExistence(timeout: 20) {
+                returnToSidebar(app)
+                XCTAssertTrue(tab.waitForExistence(timeout: 20),
+                              "the tab must come back with the sidebar:\n\(app.debugDescription)")
+                tab.tap()
+            }
         }
         XCTAssertTrue(element(app, "nativeSavedPane").waitForExistence(timeout: 30),
                       "the saved screen must mount:\n\(app.debugDescription)")
@@ -274,6 +315,18 @@ final class T39SearchUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 20), "\(identifier) must exist")
         field.tap()
         field.typeText(text)
+    }
+
+    /// Tap an element only once it exists.
+    ///
+    /// A bare `.tap()` on a query the app has not snapshotted yet fails as "No matches found", which
+    /// on a loaded host reds a correct screen: measured on 2026-10-27, `testAMalformedQuery…` reded with
+    /// `Failed to tap "searchSubmit" … No matches found` in a batch run and passed alone in 61 s
+    /// (`build/logs/t39r2/t39r2-live-f-rebased.log`, `t39r2-malformed-alone.log`).
+    private func tap(_ identifier: String, in app: XCUIApplication) {
+        let target = element(app, identifier)
+        XCTAssertTrue(target.waitForExistence(timeout: 20), "\(identifier) must exist:\n\(app.debugDescription)")
+        target.tap()
     }
 
     /// A result may be below the fold of a lazy list: swipe until it exists.
@@ -326,7 +379,11 @@ final class T39SearchUITests: XCTestCase {
               let token = http.value(forHTTPHeaderField: "Token"),
               let user = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let id = user["id"] as? String else {
-            throw XCTSkip("could not sign in as \(login) on the live server")
+            // The status and the body are part of the message on purpose: a skip that cannot say why
+            // cost T55-AV-R three runs before the 401 was visible.
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            let body = String(data: data.prefix(200), encoding: .utf8) ?? ""
+            throw XCTSkip("could not sign in as \(login) on the live server (status \(code) \(body))")
         }
         return (token, id)
     }
@@ -459,11 +516,24 @@ final class T39SearchUITests: XCTestCase {
         return json
     }
 
+    /// T39-R2: `URLSession.shared` keeps an `MMAUTHTOKEN` cookie from any earlier sign-in of this
+    /// runner container, and Mattermost answers a `POST /users/login` that carries a dead session with
+    /// 401 `api.context.session_expired.app_error` — measured on 2026-10-27 (T55-AV-R §3.4 F-4), where
+    /// every T39 test skipped instead of measuring. T36-R and T40-R already use this session for
+    /// exactly this reason (`T40ChannelInfoUITests.swift:954-966`); this is that session.
+    private static let restSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieAcceptPolicy = .never
+        return URLSession(configuration: configuration)
+    }()
+
     private func synchronous(_ request: URLRequest) throws -> (Data, URLResponse) {
         let semaphore = DispatchSemaphore(value: 0)
         var result: (Data, URLResponse)?
         var failure: Error?
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        Self.restSession.dataTask(with: request) { data, response, error in
             if let error { failure = error }
             if let data, let response { result = (data, response) }
             semaphore.signal()
