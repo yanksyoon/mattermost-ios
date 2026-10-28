@@ -494,7 +494,7 @@ final class ChannelListViewModel: ObservableObject {
             guard !readChannels.isEmpty else { return .ignored }
             for channelID in readChannels { clearCounters(channelID: channelID) }
             return .counters
-        case .posted, .postDeleted, .postEdited, .preferencesChanged:
+        case .posted, .postDeleted, .postEdited, .preferencesChanged, .preferencesDeleted:
             return .refreshNeeded
         case .userAdded(let change):
             // A join. Only my own changes this list; anybody else's is ignored.

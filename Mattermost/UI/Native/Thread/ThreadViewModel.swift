@@ -444,7 +444,7 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
                 apply(readChange: change)
                 outcome = .unread
             }
-        case .hello, .typing, .statusChange, .preferencesChanged, .userUpdated,
+        case .hello, .typing, .statusChange, .preferencesChanged, .preferencesDeleted, .userUpdated,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelMemberUpdated,
              .channelUpdated, .channelRestored, .userAdded, .userRemoved,
              .channelViewed, .multipleChannelsViewed, .postUnread, .plugin, .unhandled:
@@ -686,6 +686,23 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
         } else {
             return
         }
+        rebuild()
+    }
+
+    /// T48: a pin write from the row menu (or another client's `post_edited`) moves this pane's row
+    /// without a reload. The post object is replaced whole — the row derives its badge from it.
+    func applyPin(postID: String, isPinned: Bool) {
+        if let current = root, current.id == postID {
+            guard current.isPinned != isPinned else { return }
+            var updated = current
+            updated.isPinned = isPinned
+            root = updated
+            rebuild()
+            return
+        }
+        guard var reply = repliesByID[postID], reply.isPinned != isPinned else { return }
+        reply.isPinned = isPinned
+        replaceReply(reply)
         rebuild()
     }
 

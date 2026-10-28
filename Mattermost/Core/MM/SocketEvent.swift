@@ -319,6 +319,15 @@ enum SocketEvent: Equatable, Sendable {
     case typing(SocketTyping)
     case statusChange(SocketStatusChange)
     case preferencesChanged([MMPreference])
+    /// A preference write was **deleted** (`preferences_deleted`) — the unsave direction of the same
+    /// pair.
+    ///
+    /// Measured on 9.11.19 (`scripts/t48_post_options_socket_probe.py`): `POST
+    /// /users/{id}/preferences/delete` publishes `preferences_deleted` with the same `preferences`
+    /// array shape, **not** a `preferences_changed` with a false value. Without this case the event
+    /// fell into `.unhandled`, so a post unsaved in another client stayed on the Saved screen and the
+    /// row menu kept offering Unsave.
+    case preferencesDeleted([MMPreference])
     case userUpdated(MMUser)
     case reactionAdded(MMReaction)
     case reactionRemoved(MMReaction)
@@ -410,6 +419,11 @@ enum SocketEvent: Equatable, Sendable {
             guard let raw = frame.data?["preferences"], let value = raw.arrayValue else { return nil }
             let preferences = value.compactMap { try? MMRawJSON($0).decode(MMPreference.self) }
             self = .preferencesChanged(preferences)
+        case "preferences_deleted":
+            // Measured (T48): the unsave direction is its own frame name, with the same array shape.
+            guard let raw = frame.data?["preferences"], let value = raw.arrayValue else { return nil }
+            let preferences = value.compactMap { try? MMRawJSON($0).decode(MMPreference.self) }
+            self = .preferencesDeleted(preferences)
         case "user_updated":
             guard let raw = frame.data?["user"],
                   let user = try? MMRawJSON(raw).decode(MMUser.self) else { return nil }
@@ -584,6 +598,7 @@ enum SocketEvent: Equatable, Sendable {
         case .typing: return "typing"
         case .statusChange: return "status_change"
         case .preferencesChanged: return "preferences_changed"
+        case .preferencesDeleted: return "preferences_deleted"
         case .userUpdated: return "user_updated"
         case .reactionAdded: return "reaction_added"
         case .reactionRemoved: return "reaction_removed"
@@ -623,7 +638,8 @@ enum SocketEvent: Equatable, Sendable {
             return "\(name)|\(post.id)|\(post.updateAt)|\(post.deleteAt)"
         case .userUpdated(let user):
             return "user_updated|\(user.id)|\(user.updateAt)"
-        case .typing, .channelViewed, .multipleChannelsViewed, .statusChange, .preferencesChanged,
+        case .typing, .channelViewed, .multipleChannelsViewed, .statusChange,
+             .preferencesChanged, .preferencesDeleted,
              .reactionAdded, .reactionRemoved, .sidebarCategoryUpdated,
              .channelCreated, .channelDeleted, .channelUpdated, .channelRestored,
              .userAdded, .userRemoved, .channelMemberUpdated, .postUnread,

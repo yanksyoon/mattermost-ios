@@ -59,6 +59,9 @@ struct ChannelPostListView: View {
     var attachmentDownloads: AttachmentDownloads? = nil
     /// T41: a tap on a row's author opens that account's profile. Nil keeps the avatars inert.
     var onShowProfile: ((String) -> Void)? = nil
+    /// T48: the channel's post-options state — permissions, the saved set, pin/follow patches, the
+    /// team's URL name. Nil keeps the pre-T48 sheet (the host's reply/edit/delete/react only).
+    var postOptions: PostOptionsViewModel? = nil
 
     /// True while a top visit must not page: the reader has not been away from the top since the last
     /// auto-load, so this is the same visit. Cleared once the viewport is a screen away from the top.
@@ -100,10 +103,13 @@ struct ChannelPostListView: View {
     private func sheetContent(_ sheet: ChannelListSheet) -> some View {
         switch sheet {
         case .options(let row):
-            if let actions = actions(for: row) {
+            if let actions = actions(for: row), let postOptions {
                 PostOptionsSheet(rowID: row.id,
                                  authorName: row.author.displayName,
+                                 row: row,
                                  actions: actions,
+                                 surface: .channel,
+                                 options: postOptions,
                                  onDismiss: { self.sheet = nil })
             }
         case .picker(let postID):
@@ -337,6 +343,8 @@ struct ChannelPostListView: View {
         // to a message that has no pills yet (the bar only appears once there is something in it).
         supplied.canReact = true
         supplied.onReact = { sheet = .picker(postID: row.id) }
+        // T48: the sheet is only drawable when this list has the state it derives from.
+        supplied.showsOptions = postOptions != nil
         return supplied
     }
 
@@ -587,6 +595,8 @@ struct ChannelPaneContent: View {
     /// T41: whose profile popover is open, if any. One item-bound sheet for both entries (the header's
     /// own avatar and a tapped message author), so the two cannot fight over a presentation.
     @State private var profileTarget: ProfileTarget?
+    /// T48: this channel's post-options state (permissions, saved set, team name, socket patches).
+    @State private var postOptions: PostOptionsViewModel?
 
     /// Whether the write surface renders natively (T35's `.composer` surface).
     ///
@@ -639,7 +649,8 @@ struct ChannelPaneContent: View {
                                     attachmentDownloads: attachmentDownloads,
                                     onShowProfile: profileSurfaceIsNative
                                         ? { userID in profileTarget = ProfileTarget(userID: userID) }
-                                        : nil)
+                                        : nil,
+                                    postOptions: postOptions)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -663,6 +674,17 @@ struct ChannelPaneContent: View {
             model = resolved
             imageStore = panes.imageStore(for: server)
             avatarStore = panes.avatarStore(for: server)
+            // T48: the post-options state for this channel. Created before the load so a pin applied
+            // over the socket can reach the row the moment the first page lands, and activated with
+            // both the team id and its URL name (the permalink's segment) when the route knows them.
+            let options = panes.postOptions(for: server, channelID: channelID)
+            options.onPinChange = { postID, pinned in
+                resolved.applyPin(postID: postID, isPinned: pinned)
+            }
+            options.onFollowChange = { rootID, following in
+                resolved.applyFollow(rootID: rootID, isFollowing: following)
+            }
+            postOptions = options
             let catalogue = panes.emojiCatalogue(for: server)
             emoji = catalogue
             // T37: the picker's recent row and the reaction write record into one store, so a react
@@ -684,6 +706,8 @@ struct ChannelPaneContent: View {
                                           emojiCatalogue: catalogue)
             }
             await panes.activate(server: server, channelID: channelID, channelName: channelName)
+            await options.activate(teamID: navigation.location.request.teamID ?? "",
+                                   teamName: navigation.location.request.teamName)
             // T39: land on the post the route named. After the page, because the window may already
             // hold it; `focus` fetches it when it does not (an old search result).
             if let focusPostID {
@@ -730,10 +754,6 @@ struct ChannelPaneContent: View {
         }
     }
 
-    /// The row menu's callbacks. Edit and delete are only offered on my own post; the server enforces
-    /// this too, but a menu item that always fails is not an affordance. Reply is offered only when
-    /// the composer is native: the menu item opens *this* composer in reply mode, so it must not
-    /// appear when the write surface is the webview's.
     /// T36: open a root's thread. The request carries both the post **and** the channel, so the thread
     /// pane knows the composer's channel without a second lookup, and Back returns to this
     /// conversation (`NativeNavigation` opens a thread on top of its channel for exactly that reason).
@@ -755,26 +775,38 @@ struct ChannelPaneContent: View {
         navigation.openThreads(request)
     }
 
+    /// The row menu's callbacks.
+    ///
+    /// T48 changed **who gets a menu**: the options that do not touch the composer (copy text/link,
+    /// save, pin, mark unread, follow thread) do not depend on the write surface, so the overflow
+    /// button no longer disappears with it. Reply/edit/delete still do — they open *this* composer in
+    /// reply/edit mode or delete through it — and are therefore gated on `composerIsNative` and the
+    /// composer being resolved.
     private var rowActions: (PostRowModel) -> PostRowActions? {
         { row in
-            guard composerIsNative, let composer else { return nil }
+            // Same closed rule as before: a system/deleted/pending row has nothing to act on, and the
+            // view model would refuse the write anyway.
+            guard !row.isSystem, !row.isDeleted, !row.isPending else { return nil }
             // Who may edit/delete is one pure rule (ComposerModels), not a comparison repeated here
             // — the live suite found the two copies disagreeing.
-            let menu = ComposerRowPermissions.menu(postUserID: row.post.userId,
-                                                  authorID: composer.authorID,
-                                                  isSystem: row.isSystem,
-                                                  isDeleted: row.isDeleted,
-                                                  isPending: row.isPending)
-            guard let menu else { return nil }
-            return PostRowActions(canReply: menu.reply,
-                                  canEdit: menu.edit,
-                                  canDelete: menu.delete,
+            var menu: (reply: Bool, edit: Bool, delete: Bool)?
+            if composerIsNative, let composer {
+                menu = ComposerRowPermissions.menu(postUserID: row.post.userId,
+                                                   authorID: composer.authorID,
+                                                   isSystem: row.isSystem,
+                                                   isDeleted: row.isDeleted,
+                                                   isPending: row.isPending)
+            }
+            return PostRowActions(canReply: menu?.reply ?? false,
+                                  canEdit: menu?.edit ?? false,
+                                  canDelete: menu?.delete ?? false,
                                   onReply: {
-                                      composer.beginReply(to: row.post,
-                                                          authorLabel: row.author.displayName)
+                                      composer?.beginReply(to: row.post,
+                                                           authorLabel: row.author.displayName)
                                   },
-                                  onEdit: { composer.beginEditing(row.post) },
+                                  onEdit: { composer?.beginEditing(row.post) },
                                   onDelete: {
+                                      guard let composer else { return }
                                       Task { await composer.delete(postID: row.post.id) }
                                   },
                                   // Replaced by the list, which owns the sheet (see

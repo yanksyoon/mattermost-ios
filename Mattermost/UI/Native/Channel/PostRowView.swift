@@ -24,6 +24,7 @@
 //   channelNewMessages         the unread divider
 
 import SwiftUI
+import UIKit
 
 // MARK: - Date separator
 
@@ -169,9 +170,16 @@ struct PostRowActions {
     /// for the window; a row only says *which* post it was opened for.
     var canReact: Bool = false
     var onReact: () -> Void = {}
+    /// T48: whether this host draws the post-options surface at all.
+    ///
+    /// The options that do not touch the composer — copy text, copy link, save, pin, mark unread,
+    /// follow thread — exist whether or not the write surface is native, so the overflow button must
+    /// not disappear with the composer. The sheet derives the exact rows from
+    /// `PostOptionsCapabilities`; this flag only says "there is a sheet to open".
+    var showsOptions: Bool = false
 
     /// Whether there is anything to offer at all — an empty sheet is a worse affordance than none.
-    var hasAnyAction: Bool { canReply || canEdit || canDelete || canReact }
+    var hasAnyAction: Bool { canReply || canEdit || canDelete || canReact || showsOptions }
 }
 
 /// What a reader can do with a row's reaction bar (T37). Nil is the read-only rendering the older
@@ -324,6 +332,9 @@ struct PostRowView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .accessibilityLabel("Pinned")
+                    // T48: the socket test reads the pin a *second* client set from here — the row
+                    // must move without a reload, and a label alone is not addressable.
+                    .accessibilityIdentifier("post.\(row.id).pinned")
             }
             if row.isEdited {
                 Text("(edited)")
@@ -472,14 +483,42 @@ struct PostRowView: View {
 
 /// The sheet a row's overflow button opens: what the reader can do with *this* message.
 ///
-/// One sheet per window (`ChannelPostListView` owns it), so a list of 200 rows does not build 200
-/// sheets. Buttons carry stable identifiers (`postOptions.<action>`) because a UI test cannot press
-/// a menu item it cannot name; the label is the same word, so VoiceOver reads what the test taps.
+/// One sheet per window (`ChannelPostListView`/`ThreadPostListView` own it), so a list of 200 rows
+/// does not build 200 sheets. The rows are exactly `PostOptionsCapabilities.offeredOptions` — one
+/// ordered derivation (T48/S38) — so the sheet cannot draw an option the host cannot perform, and the
+/// order is upstream's `post_options.tsx`.
+///
+/// The sheet **observes** the options model rather than taking a snapshot of the row's state, because
+/// half of what decides the rows arrives after the first draw (`GET /roles/names`, the `flagged_post`
+/// preferences) and the other half moves over the socket (a pin or a save from another client). A
+/// plain value here would freeze "Save" on a post another device already saved.
+///
+/// Buttons carry stable identifiers (`postOptions.<action>`) because a UI test cannot press a menu item
+/// it cannot name; the label is the same word, so VoiceOver reads what the test taps.
 struct PostOptionsSheet: View {
     let rowID: String
     let authorName: String
+    /// The row as it was when the sheet opened. Its id/author/message are immutable facts; the mutable
+    /// ones (pinned, saved, following) come from `options`, which is observed.
+    let row: PostRowModel
     let actions: PostRowActions
+    let surface: PostOptionsSurface
+    @ObservedObject var options: PostOptionsViewModel
     var onDismiss: () -> Void = {}
+
+    /// The option whose write is in flight (sheet-local so the list's rows can be disabled one at a
+    /// time without the model publishing mid-dismiss).
+    @State private var pending: PostOptionID?
+    /// A refused write, in the reader's words. The sheet stays open for it — a dismissed sheet with no
+    /// message is exactly the "disabled row that does nothing" this card forbids.
+    @State private var failure: String?
+    /// The string this sheet put on the pasteboard **and then read back from it**. Showing it is how a
+    /// test (and a reader) can tell the copy happened: the value is the pasteboard's, not the tap's.
+    @State private var copied: String?
+
+    private var offered: [PostOptionID] {
+        options.offeredOptions(for: row, actions: actions, surface: surface)
+    }
 
     var body: some View {
         NavigationStack {
@@ -489,25 +528,38 @@ struct PostOptionsSheet: View {
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }
                 Section {
-                    if actions.canReact {
-                        option("react", "React", "face.smiling", role: nil) {
-                            actions.onReact()
-                        }
+                    if offered.isEmpty {
+                        // Not an option — a sentence. Nothing here can be pressed, so it cannot be a
+                        // dead row.
+                        Text("Nothing can be done with this message here.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("postOptions.empty")
                     }
-                    if actions.canReply {
-                        option("reply", "Reply", "arrowshape.turn.up.left", role: nil) {
-                            actions.onReply()
-                        }
+                    ForEach(offered, id: \.rawValue) { option in
+                        row(for: option)
                     }
-                    if actions.canEdit {
-                        option("edit", "Edit", "pencil", role: nil) {
-                            actions.onEdit()
-                        }
+                }
+                if let failure {
+                    Section {
+                        Text(failure)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("postOptions.error")
                     }
-                    if actions.canDelete {
-                        option("delete", "Delete", "trash", role: .destructive) {
-                            actions.onDelete()
-                        }
+                }
+                if let copied {
+                    Section("Copied") {
+                        Text(copied)
+                            .font(.footnote.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .accessibilityIdentifier("postOptions.copied")
+                    }
+                    Section {
+                        Button("Done") { onDismiss() }
+                            .accessibilityIdentifier("postOptions.done")
                     }
                 }
             }
@@ -519,22 +571,79 @@ struct PostOptionsSheet: View {
                         .accessibilityIdentifier("postOptions.cancel")
                 }
             }
+            .accessibilityIdentifier("postOptions.\(rowID)")
         }
-        .presentationDetents([.height(320), .medium])
-        .accessibilityIdentifier("postOptions.\(rowID)")
+        .presentationDetents([.medium, .large])
     }
 
-    private func option(_ key: String, _ title: String, _ glyph: String,
-                        role: ButtonRole?, perform: @escaping () -> Void) -> some View {
-        Button(role: role) {
-            onDismiss()
-            perform()
+    private func row(for option: PostOptionID) -> some View {
+        Button(role: option.isDestructive ? .destructive : nil) {
+            Task { await press(option) }
         } label: {
-            Label(title, systemImage: glyph)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+            HStack(spacing: 10) {
+                Label(option.title, systemImage: option.glyph)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if pending == option {
+                    ProgressView().controlSize(.mini)
+                }
+            }
+            .contentShape(Rectangle())
         }
-        .accessibilityIdentifier("postOptions.\(key)")
+        .disabled(pending != nil)
+        .accessibilityIdentifier(option.identifier)
+    }
+
+    /// Route one press to whoever can perform it.
+    ///
+    /// The four host options are the pane's own closures (they open the composer, the picker, a
+    /// confirmation — no request of their own) and dismiss immediately, as they did before T48. The
+    /// rest are requests on the options model; the sheet dismisses only when the request succeeded.
+    private func press(_ option: PostOptionID) async {
+        failure = nil
+        switch option {
+        case .react:
+            onDismiss()
+            actions.onReact()
+            return
+        case .reply:
+            onDismiss()
+            actions.onReply()
+            return
+        case .edit:
+            onDismiss()
+            actions.onEdit()
+            return
+        case .delete:
+            onDismiss()
+            actions.onDelete()
+            return
+        case .copyText, .copyLink, .save, .unsave, .pin, .unpin, .markUnread,
+             .followThread, .unfollowThread:
+            break
+        }
+
+        pending = option
+        let outcome = await options.perform(option, row: row)
+        pending = nil
+        switch outcome {
+        case .copied(let text):
+            // The pasteboard is the effect: the model decided *what* the link is (from the server's own
+            // team name), this puts it where the reader can paste it. The value is shown at once and
+            // then verified on the next turn — UIPasteboard's write reaches the system pasteboard
+            // asynchronously, so an immediate read-back can answer the *previous* string.
+            UIPasteboard.general.string = text
+            copied = text
+            Task {
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                guard UIPasteboard.general.string != text else { return }
+                copied = nil
+                failure = "Could not put this on the clipboard."
+            }
+        case .performed:
+            onDismiss()
+        case .failed(let message):
+            failure = message
+        }
     }
 
     private struct HeaderRow: View {

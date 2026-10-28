@@ -118,7 +118,7 @@ struct TeamSocketScope: Equatable, Sendable {
             // team's surface reaches no model at all. Same reasoning as `threadFollowChanged` below:
             // refusing an unattributable event only makes an open pane miss its own.
             return reaction.channelId.isEmpty || isInActiveTeam(channelID: reaction.channelId)
-        case .hello, .statusChange, .preferencesChanged, .userUpdated, .plugin, .unhandled:
+        case .hello, .statusChange, .preferencesChanged, .preferencesDeleted, .userUpdated, .plugin, .unhandled:
             // Server-wide facts: presence, preferences, profile updates and protocol events belong
             // to no team (and to every team).
             //

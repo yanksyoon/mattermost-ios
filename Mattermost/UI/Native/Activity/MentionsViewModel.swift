@@ -425,7 +425,7 @@ final class MentionsViewModel: ObservableObject {
             users[user.id] = user
             rebuildRows()
             return record(.patched)
-        case .hello, .typing, .statusChange, .preferencesChanged, .reactionAdded, .reactionRemoved,
+        case .hello, .typing, .statusChange, .preferencesChanged, .preferencesDeleted, .reactionAdded, .reactionRemoved,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelRestored,
              .userAdded, .userRemoved, .channelMemberUpdated, .threadUpdated, .threadFollowChanged,
              .channelViewed, .plugin, .unhandled:

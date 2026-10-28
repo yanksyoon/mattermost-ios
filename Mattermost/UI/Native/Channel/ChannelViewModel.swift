@@ -548,13 +548,17 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
         case .threadFollowChanged(let change):
             guard var root = postsByID[change.threadID] else { return record(.ignored) }
             root.replyCount = max(change.replyCount, 0)
+            // T48: the follow flag is part of the row (the channel page sends `is_following`, and the
+            // row menu derives Follow/Unfollow from it). Before this the event moved only the reply
+            // count, so a follow pressed in another client left the menu offering "Follow Thread".
+            root.isFollowing = change.state
             replace(root)
             outcome = .patched
         case .threadReadChanged:
             // A thread's read position is the thread pane's business (and the global list's); the
             // channel timeline draws no per-thread read state.
             return record(.ignored)
-        case .hello, .typing, .statusChange, .preferencesChanged, .userUpdated,
+        case .hello, .typing, .statusChange, .preferencesChanged, .preferencesDeleted, .userUpdated,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelMemberUpdated,
              .channelUpdated, .channelRestored, .userAdded, .userRemoved,
              .postUnread, .plugin, .unhandled:
@@ -1043,6 +1047,17 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     func applyPin(postID: String, isPinned: Bool) {
         guard var post = postsByID[postID], post.isPinned != isPinned else { return }
         post.isPinned = isPinned
+        replace(post)
+        rebuild()
+    }
+
+    /// T48: the thread's follow state moved for this root — my write from the row menu, or another
+    /// client's (`thread_follow_changed`). The row draws no follow badge today, but the **menu**
+    /// derives Follow/Unfollow from `is_following`, so keeping the post honest is what makes a second
+    /// client's change move the sheet without a reload.
+    func applyFollow(rootID: String, isFollowing: Bool) {
+        guard var post = postsByID[rootID], post.isFollowing != isFollowing else { return }
+        post.isFollowing = isFollowing
         replace(post)
         rebuild()
     }

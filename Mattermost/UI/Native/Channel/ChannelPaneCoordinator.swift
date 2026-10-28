@@ -48,11 +48,16 @@ final class ChannelPaneCoordinator: ObservableObject {
     private var composers: [UUID: [String: ComposerViewModel]] = [:]
     /// T35: the per-server draft databases (one SQLite file each, opened on first use).
     private let draftStores = ComposerDraftStoreProvider()
+    /// T48: per-channel post-options state (permissions, saved set, pin/follow patches). One per
+    /// channel, kept beside the window it describes.
+    private var postOptionsModels: [UUID: [String: PostOptionsViewModel]] = [:]
 
     /// Test seam: replaces the production session-backed service (T33's `serviceFactory`).
     var serviceFactory: ((ServerConfig) -> ChannelServing)?
     /// Test seam: replaces the production composer service.
     var composerServiceFactory: ((ServerConfig) -> ComposerServing)?
+    /// Test seam: replaces the production post-options service (T48).
+    var postOptionsServiceFactory: ((ServerConfig) -> PostOptionsServing)?
     /// Test seam: replaces the production draft store.
     var draftStoreFactory: ((ServerConfig) -> ComposerDraftStoring)?
 
@@ -184,6 +189,30 @@ final class ChannelPaneCoordinator: ObservableObject {
         return draftStores.store(for: server)
     }
 
+    private func postOptionsService(for server: ServerConfig) -> PostOptionsServing {
+        if let postOptionsServiceFactory { return postOptionsServiceFactory(server) }
+        let auth = self.auth
+        return SessionPostOptionsService {
+            guard let auth, let session = try? auth.session(for: server) else { return nil }
+            return session.client
+        }
+    }
+
+    /// T48: the post-options state for one channel, created on first use.
+    ///
+    /// Per channel rather than per server: the permission union, the archived flag and the channel's
+    /// own saved rows are channel facts, and a menu opened in one channel must never decide from
+    /// another channel's state.
+    func postOptions(for server: ServerConfig, channelID: String) -> PostOptionsViewModel {
+        if let existing = postOptionsModels[server.id]?[channelID] { return existing }
+        let model = PostOptionsViewModel(channelID: channelID,
+                                         serverURL: server.url.absoluteString,
+                                         myUserID: auth?.userID(for: server.id) ?? "",
+                                         service: postOptionsService(for: server))
+        postOptionsModels[server.id, default: [:]][channelID] = model
+        return model
+    }
+
     /// The composer for one channel, created on first use and wired to that channel's list.
     ///
     /// The sink is attached here rather than in the view because the composer must be able to write
@@ -230,6 +259,12 @@ final class ChannelPaneCoordinator: ObservableObject {
     /// Delivered to every warm model for that server; each model keeps only its own channel's posts
     /// (`ChannelViewModel.accepts`), so a busy server cannot leak one channel's traffic into another.
     func handle(_ event: SocketEvent, serverID: UUID) async {
+        // T48: the post-options state is fed first and independently of the channel windows — a thread
+        // pane can be open on a channel whose timeline was never loaded (opened from the global
+        // threads list), and its menu still has to follow a pin or a save from another client.
+        for (_, options) in postOptionsModels[serverID] ?? [:] {
+            options.handle(event)
+        }
         guard let byChannel = models[serverID], !byChannel.isEmpty else { return }
         for (_, model) in byChannel {
             model.handle(event)
@@ -273,6 +308,7 @@ final class ChannelPaneCoordinator: ObservableObject {
     func deactivate(_ serverID: UUID) {
         models[serverID] = nil
         recent[serverID] = nil
+        postOptionsModels[serverID] = nil
         // The composer goes with the list: a draft is already in the store, and the store is cleared
         // below (a signed-out device keeps no half-typed messages from the previous session).
         composers[serverID] = nil

@@ -269,6 +269,19 @@ final class PostCollectionViewModel: ObservableObject {
             }
             if changed { rebuild() }
             return changed
+        case .preferencesDeleted(let preferences):
+            // Measured (T48 socket probe): unsaving publishes `preferences_deleted`, a frame of its
+            // own. Before this case existed the event was `.unhandled` and a post unsaved on another
+            // device stayed on this screen until the list was reopened.
+            guard kind == .saved else { return false }
+            let removed = preferences.filter { $0.category == APIClient.savedPostCategory }
+            guard !removed.isEmpty else { return false }
+            let before = posts.count
+            let names = Set(removed.map(\.name))
+            posts.removeAll { names.contains($0.id) }
+            guard posts.count != before else { return false }
+            rebuild()
+            return true
         case .postEdited(let post):
             guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return false }
             posts[index] = post

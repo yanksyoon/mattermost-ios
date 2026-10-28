@@ -41,6 +41,9 @@ struct ThreadPaneContent: View {
     @State private var emojiRecents: EmojiRecentsStore?
     /// T38: attachment save state (shared per server with the channel pane).
     @State private var attachmentDownloads: AttachmentDownloads?
+    /// T48: the root channel's post-options state (permissions, saved set, pin patches). Resolved once
+    /// the thread's root names its channel — a permalink does not carry one.
+    @State private var postOptions: PostOptionsViewModel?
 
     /// Whether the write surface renders natively (T35's `.composer` surface). The thread's reply box
     /// is that same surface: with it on `.web` the reader gets the webview's composer, so the native
@@ -59,7 +62,8 @@ struct ThreadPaneContent: View {
                                    emoji: emoji,
                                    rowActions: rowActions,
                                    recents: emojiRecents,
-                                   attachmentDownloads: attachmentDownloads)
+                                   attachmentDownloads: attachmentDownloads,
+                                   postOptions: postOptions)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -97,6 +101,19 @@ struct ThreadPaneContent: View {
             // an error screen). Without this call a thread's unread counter never moves after a
             // reader opened the pane, which is what left criterion 4 unobservable (T36-AV F4).
             await resolved.markRead()
+            // T48: the post-options state for the root's channel. Created after the load because a
+            // permalink reaches this pane without a channel id; the surface is `.thread`, so the sheet
+            // withholds Follow (the bell above is this screen's follow affordance — upstream's own
+            // `sourceScreen !== CHANNEL` rule).
+            if let rootChannel = resolved.root?.channelId, !rootChannel.isEmpty {
+                let options = panes.postOptions(for: server, channelID: rootChannel)
+                options.onPinChange = { postID, pinned in
+                    resolved.applyPin(postID: postID, isPinned: pinned)
+                }
+                postOptions = options
+                await options.activate(teamID: navigation.location.request.teamID ?? "",
+                                       teamName: navigation.location.request.teamName)
+            }
             // The composer needs the root's channel, which a permalink does not carry: it is created
             // after the load, not before.
             if composerIsNative, let built = threads.composer(for: server, model: resolved,
@@ -154,24 +171,30 @@ struct ThreadPaneContent: View {
 
     /// The same menu the channel timeline offers, pointed at this thread's composer: Reply stays in
     /// this thread (the root is the thread), edit/delete stay mine-only.
+    ///
+    /// T48: as in the channel pane, the overflow button no longer requires a native composer — the
+    /// options that do not touch it (copy text/link, save, pin, mark unread) are offered either way.
     private var rowActions: (PostRowModel) -> PostRowActions? {
         { row in
-            guard composerIsNative, let composer else { return nil }
-            let menu = ComposerRowPermissions.menu(postUserID: row.post.userId,
+            guard !row.isSystem, !row.isDeleted, !row.isPending else { return nil }
+            var menu: (reply: Bool, edit: Bool, delete: Bool)?
+            if composerIsNative, let composer {
+                menu = ComposerRowPermissions.menu(postUserID: row.post.userId,
                                                    authorID: composer.authorID,
                                                    isSystem: row.isSystem,
                                                    isDeleted: row.isDeleted,
                                                    isPending: row.isPending)
-            guard let menu else { return nil }
-            return PostRowActions(canReply: menu.reply,
-                                  canEdit: menu.edit,
-                                  canDelete: menu.delete,
+            }
+            return PostRowActions(canReply: menu?.reply ?? false,
+                                  canEdit: menu?.edit ?? false,
+                                  canDelete: menu?.delete ?? false,
                                   onReply: {
-                                      composer.beginReply(to: row.post,
-                                                          authorLabel: row.author.displayName)
+                                      composer?.beginReply(to: row.post,
+                                                           authorLabel: row.author.displayName)
                                   },
-                                  onEdit: { composer.beginEditing(row.post) },
+                                  onEdit: { composer?.beginEditing(row.post) },
                                   onDelete: {
+                                      guard let composer else { return }
                                       Task { await composer.delete(postID: row.post.id) }
                                   },
                                   onShowOptions: {})
@@ -227,6 +250,8 @@ struct ThreadPostListView: View {
     var recents: EmojiRecentsStore? = nil
     /// T38: the per-server attachment download state (nil leaves the section inert).
     var attachmentDownloads: AttachmentDownloads? = nil
+    /// T48: the root channel's post-options state. Nil keeps the pre-T48 sheet.
+    var postOptions: PostOptionsViewModel? = nil
 
     /// One item-bound sheet for this list (options, T37's picker and reactor list).
     @State private var sheet: ChannelListSheet?
@@ -257,10 +282,13 @@ struct ThreadPostListView: View {
     private func sheetContent(_ sheet: ChannelListSheet) -> some View {
         switch sheet {
         case .options(let row):
-            if let actions = actions(for: row) {
+            if let actions = actions(for: row), let postOptions {
                 PostOptionsSheet(rowID: row.id,
                                  authorName: row.author.displayName,
+                                 row: row,
                                  actions: actions,
+                                 surface: .thread,
+                                 options: postOptions,
                                  onDismiss: { self.sheet = nil })
             }
         case .picker(let postID):
@@ -408,6 +436,8 @@ struct ThreadPostListView: View {
         supplied.onShowOptions = { sheet = .options(row) }
         supplied.canReact = true
         supplied.onReact = { sheet = .picker(postID: row.id) }
+        // T48: the sheet is only drawable when this list has the state it derives from.
+        supplied.showsOptions = postOptions != nil
         return supplied
     }
 

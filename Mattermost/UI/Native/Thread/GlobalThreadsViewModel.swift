@@ -294,7 +294,7 @@ final class GlobalThreadsViewModel: ObservableObject {
             threads.removeAll { $0.id == post.id }
             guard threads.count != before else { return record(.ignored) }
             outcome = .removed
-        case .hello, .typing, .statusChange, .preferencesChanged, .userUpdated, .posted,
+        case .hello, .typing, .statusChange, .preferencesChanged, .preferencesDeleted, .userUpdated, .posted,
              .postEdited, .reactionAdded, .reactionRemoved, .channelViewed,
              .multipleChannelsViewed, .sidebarCategoryUpdated, .channelCreated, .channelDeleted,
              .channelUpdated, .channelRestored, .userAdded, .userRemoved,
