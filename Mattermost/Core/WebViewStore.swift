@@ -271,6 +271,91 @@ final class WebViewStore: ObservableObject {
         }
     }
 
+    // MARK: What the pane is showing, for the shell and for tests
+
+    /// The pane's page lifecycle as one value, so "did the escape hatch's pane land on a page?" is
+    /// answerable without guessing from a progress fraction.
+    ///
+    /// This exists because the UI suite cannot ask the *web content* process on this host: with the
+    /// pane rendered (a real Mattermost page on screen) the test runner still got
+    /// `kAXErrorServerNotFound` for that process, so `webApp.staticTexts` never resolved — measured
+    /// while closing `t_065c8753`. What the suite can read is the app's own truth, which is also the
+    /// honest claim: the navigation WebKit was asked for **committed** (`didCommit`) and **finished**
+    /// (`didFinish`).
+    enum PageLoadState: String {
+        /// Nothing asked for yet.
+        case idle
+        /// A navigation is in flight (provisional or committed).
+        case loading
+        /// A main-frame navigation finished: the page is there.
+        case loaded
+        /// The navigation failed; the retryable error state owns the pane.
+        case failed
+    }
+
+    var pageLoadState: PageLoadState {
+        if pageError != nil { return .failed }
+        if hasFinishedPageLoad { return .loaded }
+        return isLoading ? .loading : .idle
+    }
+
+    // MARK: The installed navigation delegate
+
+    /// A strong reference to the coordinator currently installed as this webview's delegates.
+    ///
+    /// `WKWebView.navigationDelegate` is **weak** and the *store* — not the view — owns the webview,
+    /// so the two lifetimes can part: SwiftUI can build a second `WebViewContainer` for the same
+    /// webview while it rebuilds a pane, then destroy the first one (`com.apple.SwiftUI:Invalid
+    /// Configuration` → `PlatformViewChild::destroy`, measured on the escape hatch's flip). The
+    /// webview's pending `decidePolicyForNavigationAction` then has a dead weak delegate, nobody
+    /// answers it, and the navigation never commits: blank pane at 10 %, forever (`t_065c8753`).
+    ///
+    /// Held only while a container is mounted: `WebViewContainer.makeUIView` installs it, the last
+    /// `dismantleUIView` drops it, and `ViewStore.release(_:)` / `remove(_:)` drop it too — otherwise
+    /// the coordinator (which holds the store) and the store (which holds the coordinator) would keep
+    /// each other alive after the pane is gone.
+    private(set) var installedCoordinator: AnyObject?
+
+    /// Record (or clear) the object that answers this webview's navigation/UI delegate calls.
+    func installCoordinator(_ coordinator: AnyObject?) {
+        installedCoordinator = coordinator
+    }
+
+    // MARK: How many containers are showing the webview
+
+    /// How many `WebViewContainer` instances are currently wrapping this store's webview.
+    ///
+    /// The store owns the single `WKWebView` (that ownership is what keeps the page, its session and
+    /// its scroll position across a surface toggle), so **more than one** SwiftUI `UIViewRepresentable`
+    /// can wrap the *same instance* while a pane is rebuilt. Measured on the escape hatch's surface
+    /// flip in a Release build (`t_065c8753`): two `makeUIView` calls 5 ms apart and one
+    /// `dismantleUIView` ~70 ms later, while SwiftUI logged
+    /// `Update NavigationRequestObserver tried to update multiple times per frame` and destroyed the
+    /// stale `PlatformViewChild`.
+    ///
+    /// `dismantleUIView` used to stop the page and clear the delegates unconditionally, so destroying
+    /// that *stale duplicate* killed the live pane's only navigation: no `didCommit`/`didFinish` was
+    /// ever delivered, the load's `stopLoading()` raced WebKit's not-yet-created process, and the pane
+    /// sat on a 10 % progress bar, blank, forever. Only the dismantle that leaves **no** mounted
+    /// container is the pane leaving the web branch.
+    private(set) var mountedContainers = 0
+
+    /// A `WebViewContainer` mounted this store's webview (one per `makeUIView`).
+    func noteContainerMounted() {
+        mountedContainers += 1
+    }
+
+    /// A container went away. Returns `true` when that was the **last** one — i.e. the pane really
+    /// left the web branch — so the caller may stop the page, drop the delegates and report the pane
+    /// as native. A duplicate's dismantle returns `false` and must do none of those.
+    ///
+    /// Clamped at zero: a dismantle without a matching mount (a representable built outside a mount,
+    /// e.g. in a test) is treated as "nothing is showing the pane" rather than going negative.
+    func noteContainerUnmounted() -> Bool {
+        mountedContainers = max(0, mountedContainers - 1)
+        return mountedContainers == 0
+    }
+
     /// Stop the page because the web branch is being dismantled (surface toggle, scene teardown).
     ///
     /// Records the interruption **synchronously** so the next `loadIfNeeded(_:)` resumes the page even

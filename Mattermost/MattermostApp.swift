@@ -519,6 +519,24 @@ struct MattermostApp: App {
         notificationWorker.nativeNavigation = nativeNavigation
         nativeNavigation.serverStore = serverStore
         nativeNavigation.viewStore = viewStore
+        // T93B follow-up (`t_065c8753`): the escape hatch hands the pane back to the webview, so the
+        // store that branch renders has to exist **before** the branch mounts. Creating it from inside
+        // the mount publishes store membership (`storeGeneration`) in the very SwiftUI transaction that
+        // swaps `SurfaceHost`'s branch; the enclosing `NavigationStack` then rebuilds its content
+        // mid-flip, installs a second `WebViewContainer` for the one webview and destroys the first —
+        // and the escape hatch's page ends up blank even though it loaded (`didFinish` fired). This
+        // hook runs in the button's own turn instead, so the flip's first body pass already has the
+        // store and nothing publishes during the swap.
+        let wiredServerStore = serverStore
+        let wiredViewStore = viewStore
+        surfaceModeResolver.willForceWeb = { surface in
+            guard surface == SurfaceDefaults.paneHostSurface else { return }
+            let activeID = wiredViewStore.primaryServerID ?? wiredServerStore.initialServer?.id
+            guard let activeID,
+                  let server = wiredServerStore.servers.first(where: { $0.id == activeID })
+            else { return }
+            _ = wiredViewStore.ensureStore(for: server)
+        }
         // T31: the shell's auth gate is the live coordinator (one `AuthSession` per server), and a
         // phase change — a finished sign-in, a sign-out, a 401 from any native call — re-asks the
         // shell. `-uiTestAssumeSignedIn` keeps its substituted gate: that seam exists precisely to

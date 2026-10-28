@@ -106,6 +106,9 @@ final class ViewStore: ObservableObject {
         store.stopLoading()
         store.webView.navigationDelegate = nil
         store.webView.uiDelegate = nil
+        // Break the store ↔ coordinator keep-alive a mounted container installed (`t_065c8753`):
+        // the pane is going away, so nothing needs to answer this webview any more.
+        store.installCoordinator(nil)
         if let committed = store.url ?? lastURLs[serverID] {
             lastURLs[serverID] = committed
         }
@@ -126,6 +129,7 @@ final class ViewStore: ObservableObject {
     /// Tear down a removed server: drop its webview and delete its isolated on-disk data store
     /// (desktop's `ServerManager.removeServer` also purges that server's session/config).
     func remove(serverID: UUID) {
+        stores[serverID]?.installCoordinator(nil)
         stores[serverID] = nil
         lastURLs[serverID] = nil
         if primaryServerID == serverID { primaryServerID = nil }

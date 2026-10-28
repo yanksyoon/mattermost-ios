@@ -52,6 +52,12 @@ to stay strictly inside scope A, at the cost of a native pane with no working me
 | `Mattermost.xcodeproj/xcshareddata/xcschemes/MattermostReleaseSmoke.xcscheme` | **new** — the `Mattermost` scheme cannot be tested in Release (its unit target compiles against DEBUG-only product APIs), so this scheme lists only the UI test target |
 | `docs/dual-render.md` | §3 ownership row, §4 ladder + compile-time default, §5 registry + ledger row, §8 Debug→Release cost, §10 test map, §11 summary + memory bullet, §12.1 status/release policy, file-impact table |
 | `docs/parity.md` | re-baseline blockquote + native-surfaces paragraph |
+| `Mattermost/Core/SurfaceModeResolver.swift` | `willForceWeb` pre-work hook, run before the escape hatch writes `.web` (`t_065c8753`) |
+| `Mattermost/Core/WebViewStore.swift` | `installedCoordinator` keep-alive + `mountedContainers` ref count, so a duplicate container's teardown cannot kill the live pane (`t_065c8753`) |
+| `Mattermost/UI/WebViewContainer.swift` | mount/unmount wiring for both, delegate re-assertion in `updateUIView`, duplicate dismantle is a no-op |
+| `Mattermost/Core/ViewStore.swift` | `release`/`remove` drop the installed coordinator (no retention past the pane) |
+| `Mattermost/MattermostApp.swift` | wires `willForceWeb` to `ViewStore.ensureStore(for:)` for the pane host |
+| `Mattermost/UI/RootView.swift` | `.web` transition defers its `NavigationStack` pop one turn |
 
 ## 4. Verification (all run on this host, 2026-10-28)
 
@@ -88,31 +94,116 @@ registry. Screenshots (`build/tc93b/`, from the passing `tc93b-smoke4` run):
 * `release-pane-composer.png` — `# Off-Topic`, post list with rows, and the **native** composer:
   "Message" text field, attach, emoji, formatting, send.
 * `release-escape-webview.png` — after "Use web view": the native pane is gone and a `WKWebView` is
-  mounted (see §5 for the load caveat).
+  mounted. This artifact predates the §5 fix (the pane was mounted but blank there); the current run's
+  `escape-hatch-webview-rendered.png` shows the web app's sign-in form.
 
 Test-level assertions, not just pixels: `nativeChannelPane` exists, `channelPostList` exists,
 `channelComposer` exists, `channelComposerPlaceholder` does **not** exist,
 `channelComposer.input` is a `TextView`.
 
-## 5. Known finding: the escape hatch mounts a webview that does not finish loading
+### 4.2 Re-verification after `t_065c8753` (2026-10-28, post-fix)
 
-In a Release build the hatch is present, reachable (it is the last row of the sidebar list and the
-test scrolls to it) and it does swap the native pane for a `WKWebView` — so the release policy is
-live and reversible. What it does **not** do on this host is render: the webview sits on its ~10 %
-progress bar, blank, for at least 90 s (two runs). A Debug build with `-surfaceMode channelView=web`
-against the same container and server renders server content within 30 s
-(`build/tc93b/control-webpane-debug.png`), so this is not "the server is unreachable".
+```
+xcodebuild test -scheme Mattermost -configuration Debug -only-testing:MattermostTests
+  1765 run, 8 skipped, 0 failed — TEST SUCCEEDED        (build/t065/units-full1.log)
 
-Most likely cause: the webview's `MMAUTHTOKEN` cookie is only planted in this environment by the
-DEBUG-only `-uiTestSeedWebSessionCookie` seam; the seeded session used here (`-uiTestSeedStoredToken`)
-writes the vault, and the native transport reads the vault rather than WebKit's cookie jar. That
-makes the stall a pre-existing session-handover question, not a consequence of the flip — the flip
-only changes which surface the hatch leaves, and before this card the hatch was unreachable in
-Release because no surface was pane-owning, so this is simply the first Release exercise of it.
+xcodebuild test -scheme Mattermost -configuration Debug \
+  -only-testing:MattermostUITests/MattermostUITests/testLaunchArgumentRendersNativeChannelViewWithChromeIntact
+  1 test, 0 failures — TEST SUCCEEDED, 23.3 s            (build/t065/debug-hatch2.log)
+  (the Debug escape-hatch acceptance test: native pane → "Use web view" → the stub's sign-in page)
 
-Tracked as `t_065c8753`. The smoke test records which of the two happened
-(`escape-hatch-webview-loaded` vs `escape-hatch-webview-mounting` as the attachment name) and
-deliberately does not assert the load yet.
+xcodebuild test -scheme MattermostReleaseSmoke -configuration Release \
+  -only-testing:MattermostUITests/T93BNativeByDefaultUITests
+  Executed 2 tests, 0 failures — TEST SUCCEEDED, 48.3 s   (build/t065/release-seeded6.log)
+```
+
+The Release run is on a **seeded** container (Debug seed of `127.0.0.1:8065`, Release installed over
+it), i.e. the same session hand-over the original finding used; see §5 for what the pane does now.
+
+## 5. Resolved finding: the escape hatch mounted a webview that never committed
+
+Before `t_065c8753` was closed, a Release run mounted the pane's `WKWebView` and then sat on its ~10 %
+progress bar, blank, for 90 s at a time, while a Debug build with `-surfaceMode channelView=web`
+against the same container and server rendered server content within 30 s
+(`build/tc93b/control-webpane-debug.png`). The first explanation (the `MMAUTHTOKEN` cookie is only
+planted by the DEBUG-only `-uiTestSeedWebSessionCookie` seam, so the webview had no session) was
+**wrong**: no session produces the sign-in form, which is a page. The pane was not showing a page at
+all.
+
+Two defects in the flip, both measured on this host:
+
+1. **Publishing during the branch swap.** `WebPaneHost` created the store in its own appearance, and
+   `ViewStore.ensureStore` publishes store membership (`storeGeneration`). Landing that publish in the
+   transaction that swapped `SurfaceHost`'s branch made SwiftUI's stack log
+   `Update NavigationRequestObserver tried to update multiple times per frame`
+   (`com.apple.SwiftUI:Invalid Configuration`) and re-run its root content: a **second**
+   `WebViewContainer` was installed for the one `WKWebView` the store owns, and the first was
+   dismantled (`PlatformViewChild::destroy`, two `makeUIView` calls 5 ms apart).
+2. **The duplicate's teardown killed the live pane.** `dismantleUIView` unconditionally called
+   `stopForDismantle()` → `stopLoading()` and cleared both delegates. `WKWebView.navigationDelegate`
+   is **weak**, so the delegate died with the container SwiftUI threw away: WebKit's pending
+   `decidePolicyForNavigationAction` had nobody to answer it, and the navigation then neither
+   committed, finished nor failed — the 10 % bar with no page.
+
+The fix (all in the shell, no change to the web app):
+
+* `SurfaceModeResolver.willForceWeb` — the hatch runs its pre-work in the tap's own turn, and
+  `MattermostApp.bindShellStores` creates the active server's store there
+  (`ViewStore.ensureStore(for:)`). The flip's first body pass then mounts an already-complete branch,
+  nothing publishes mid-swap, and the `Invalid Configuration` fault is gone (measured).
+* `WebViewStore.mountedContainers` / `noteContainerMounted()` / `noteContainerUnmounted()` — a
+  duplicate's dismantle is not the pane leaving the web branch, so it neither stops the page nor
+  reports the pane as native; only the dismantle that leaves **nothing** mounted does.
+* `WebViewStore.installedCoordinator` (set in `makeUIView`/`updateUIView`, cleared by the last
+  dismantle, `ViewStore.release(_:)` and `remove(_:)`) — the store now keeps its delegate alive for as
+  long as a container is mounted, and the pair cannot outlive the pane.
+* `RootView`'s `.web` transition defers its `NavigationStack` pop one turn (`navigation.path` is stack
+  state; the store creation there is now a no-op on the hatch's path and still covers the Debug
+  surface inspector).
+
+Evidence from the Release smoke, `build/t065/stream8.log` (app subsystem `com.mattermost.ios:WebView`):
+
+```
+didStartProvisionalNavigation url=http://127.0.0.1:8065/
+didCommit url=http://127.0.0.1:8065/            (+59 ms)
+didFinish url=http://127.0.0.1:8065/            (+0.94 s)
+host state: inWindow=true ... frame=(0.0, 0.0, 402.0, 874.0)
+dom probe: title=Mattermost ; ready=complete ; nodes=283 ;
+           html=FREE EDITION | Don't have an account? | Log in to your account | ... | Email or ...
+```
+
+i.e. the pane lands on the web app's **sign-in form** — a rendered page, which is the outcome this
+card's spec accepts when there is no session to hand over (`escape-hatch-webview-rendered.png`).
+Handing a *signed-in* session to the webview is a separate, pre-existing question: the Release build
+has no seam to plant the vault's token as a WebKit cookie, so a signed-in Release run still reaches
+the sign-in form rather than the channel list.
+
+The smoke test now asserts the page, not the mount: the pane publishes its page lifecycle as
+`webPane`'s accessibility value (`WebViewStore.pageLoadState` — `idle`/`loading`/`loaded`/`failed`)
+and the test waits for `loaded` within 60 s, attaching `escape-hatch-webview-rendered` /
+`escape-hatch-webview-blank`. The value is the shell's own truth (`didCommit` + `didFinish`) on
+purpose: the web **content** process is not reliably reachable from the runner on this host — with
+that page on screen the AX lookup answered `kAXErrorServerNotFound`, so asserting `webApp.staticTexts`
+measured the test infrastructure instead of the app (evidence: `build/t065/release-seeded4.log`).
+
+Verified runs after the fix (all on this host, 2026-10-28):
+
+```
+# seeded container (Debug seed of 127.0.0.1:8065 as "Local Mattermost", Release installed over it)
+xcodebuild test -scheme MattermostReleaseSmoke -configuration Release \
+  -only-testing:MattermostUITests/T93BNativeByDefaultUITests
+  Executed 2 tests, 0 failures — TEST SUCCEEDED        (build/t065/release-seeded6.log, 48.3 s)
+
+com.mattermost.ios:WebView  mounted … (containers: 2 → duplicate went away, live keeps the page)
+                            didStartProvisionalNavigation url=http://127.0.0.1:8065/
+                            didCommit  url=http://127.0.0.1:8065/   (+36 ms)
+                            didFinish  url=http://127.0.0.1:8065/   (+0.74 s)
+  attachment: escape-hatch-webview-rendered (the server's "Where would you like to view this?" page)
+
+# unseeded container (no session at all): the same pane lands on the web app's sign-in form
+  dom probe: title=Mattermost ; ready=complete ; nodes=283 ; html=FREE EDITION | … | Email or …
+  (build/t065/stream8.log)
+```
 
 ## 6. Reproducing the Release smoke
 

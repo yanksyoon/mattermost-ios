@@ -279,15 +279,35 @@ struct RootView: View {
                         navigation.activateIfRouting(serverID: active.id)
                     }
                 case .web:
-                    // T30: leaving the native shell pops any native route it pushed — otherwise a
-                    // channel pane would stay on the stack above the webview that just replaced it.
-                    navigation.path = []
-                    // Returning to the webview: the active server's store must exist for its branch
-                    // to mount (inactive scenes do the same from their own appearance). The load
-                    // itself belongs to the branch — `WebPaneHost` calls `loadIfNeeded` with the
-                    // remembered URL, which is the honest return trip of §12.4.
-                    if let active = activeServer {
-                        _ = viewStore.ensureStore(for: active)
+                    // T93B follow-up (`t_065c8753`): neither of these writes belongs *inside* this
+                    // update. `navigation.path` is `NavigationStack`-owned state and `ensureStore`
+                    // publishes store membership (`storeGeneration`); doing either in the very
+                    // transaction that swaps `SurfaceHost`'s branch made SwiftUI's stack answer
+                    // "Update NavigationRequestObserver tried to update multiple times per frame"
+                    // (`com.apple.SwiftUI:Invalid Configuration`, measured) and re-run its root
+                    // content — building a second `WebViewContainer` for the one webview and
+                    // dismantling the first.
+                    //
+                    // The store itself is created *before* the flip on the escape hatch's path
+                    // (`SurfaceModeResolver.willForceWeb` → `MattermostApp`), which is what removed the
+                    // measured fault. This deferral is the ordering rule that keeps the remaining
+                    // write — the T30 pop — out of the transition; it also covers the routes that
+                    // flip the pane without the hatch (the Debug surface inspector), where the store
+                    // is created here because `WebPaneHost`'s own appearance runs before this task.
+                    Task { @MainActor in
+                        // T30: leaving the native shell pops any native route it pushed — otherwise
+                        // a channel pane would stay on the stack above the webview that replaced it.
+                        // Guarded so a hatch tapped from the sidebar root (path already empty) does
+                        // not ask the stack to pop for nothing.
+                        if !navigation.path.isEmpty { navigation.path = [] }
+                        // Returning to the webview: the active server's store must exist for its
+                        // branch to mount (inactive scenes do the same from their own appearance).
+                        // Idempotent, so on the hatch's path this is a no-op — the hook above already
+                        // created it. The load itself belongs to the branch — `WebPaneHost` calls
+                        // `loadIfNeeded` with the remembered URL, the honest return trip of §12.4.
+                        if let active = activeServer {
+                            _ = viewStore.ensureStore(for: active)
+                        }
                     }
                 }
             }

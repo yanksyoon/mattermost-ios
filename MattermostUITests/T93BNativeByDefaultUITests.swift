@@ -134,14 +134,28 @@ final class T93BNativeByDefaultUITests: XCTestCase {
         }
         try waitForNativeSidebar(app)
 
-        let hatch = element(app, "revertToWebchannelView")
-        for _ in 0..<10 where !hatch.isHittable {
-            app.swipeUp()
+        // The hatch is a `Button` in the sidebar list's last section. The button-typed query matters:
+        // `descendants(matching: .any)` also matches a non-interactive wrapper carrying the same
+        // identifier, which is never hittable even when the row is on screen (measured with a
+        // signed-in container: the row was visible and `isHittable` was still false).
+        let hatches = app.buttons.matching(identifier: "revertToWebchannelView")
+        func hittableHatch() -> XCUIElement? {
+            hatches.allElementsBoundByIndex.first { $0.isHittable }
+        }
+        // Scrolling has to land on the sidebar's **own** scroll surface (`channelSidebar.scroll`), not
+        // on `app`: a swipe at the screen centre scrolls whatever the pane is drawing. The bound is
+        // generous because a signed-in container can hold dozens of channels.
+        let sidebar = ShellSettle.channelSidebarScroll(app)
+        for _ in 0..<40 where hittableHatch() == nil {
+            if sidebar.exists { sidebar.swipeUp() } else { app.swipeUp() }
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         }
-        XCTAssertTrue(hatch.waitForExistence(timeout: 30),
+        XCTAssertTrue(hatches.firstMatch.waitForExistence(timeout: 30),
                       "the sidebar keeps the 'Use web view' escape hatch in a native Release build")
-        XCTAssertTrue(hatch.isHittable, "the escape hatch must be reachable by scrolling the sidebar")
+        guard let hatch = hittableHatch() else {
+            attachment(app, named: "escape-hatch-unreachable")
+            return XCTFail("the escape hatch must be reachable by scrolling the sidebar")
+        }
         hatch.tap()
 
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 120),
@@ -149,19 +163,30 @@ final class T93BNativeByDefaultUITests: XCTestCase {
         XCTAssertFalse(element(app, "nativeChannelPane").exists,
                        "the webview replaces the native pane, it is not drawn on top of it")
 
-        // The WKWebView being mounted is the claim here. Its *load* is deliberately not asserted:
-        // measured on this host, the hatch's webview mounts and stays on its ~10 % progress bar for
-        // 90 s in a Release build while the same server renders in a Debug run's web pane, which
-        // points at the DEBUG-only `-uiTestSeedWebSessionCookie` seam rather than the flip. That is
-        // a pre-existing escape-hatch/session question, tracked on its own card; the flip does not
-        // change the hatch's code path, only which surface it is leaving.
-        let webApp = app.webViews.firstMatch
-        let drew = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == true"),
-            object: webApp.staticTexts["Off-Topic"])
-        let result = XCTWaiter().wait(for: [drew], timeout: 60)
+        // Mounting is not the claim — a *committed, finished* page is. This is what caught the T93B
+        // escape hatch leaving a blank pane on its ~10 % progress bar forever (`t_065c8753`): the
+        // webview was installed, WebKit asked for a navigation policy decision, the delegate SwiftUI
+        // had just torn down never answered, and nothing ever committed.
+        //
+        // The pane publishes its own page lifecycle as an accessibility value (`WebViewStore
+        // .pageLoadState`) because the *web content* process is not reliably reachable from the runner
+        // on this host — with a real page on screen the AX lookup answered `kAXErrorServerNotFound`,
+        // so asserting `webApp.staticTexts` measured the test infrastructure, not the app.
+        // `firstMatch` on purpose: a container with several servers mounts one pane per server, so the
+        // identifier is not unique across the hierarchy (XCTest refuses an ambiguous lookup).
+        let pane = app.descendants(matching: .any).matching(identifier: "webPane").firstMatch
+        XCTAssertTrue(pane.waitForExistence(timeout: 30),
+                      "the web pane must publish its page state (`webPane`)")
+        let loaded = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == %@", "loaded"),
+            object: pane)
+        let result = XCTWaiter().wait(for: [loaded], timeout: 60)
         attachment(app, named: result == .completed
-                   ? "escape-hatch-webview-loaded"
-                   : "escape-hatch-webview-mounting")
+                   ? "escape-hatch-webview-rendered"
+                   : "escape-hatch-webview-blank")
+        XCTAssertEqual(result, .completed,
+                       "the escape hatch must land on a page that committed and finished "
+                       + "(state: \(String(describing: pane.value)); nothing committed points at "
+                       + "WebViewStore.mountedContainers and installedCoordinator)")
     }
 }

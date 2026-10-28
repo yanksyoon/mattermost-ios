@@ -2,6 +2,10 @@ import XCTest
 import WebKit
 @testable import Mattermost
 
+/// Minimal delegate for `WebViewStoreTests`' retention assertion (the webview's own reference is weak,
+/// so only the store can keep a delegate alive).
+private final class DelegateStub: NSObject, WKNavigationDelegate {}
+
 @MainActor
 final class WebViewStoreTests: XCTestCase {
 
@@ -364,5 +368,78 @@ final class WebViewStoreTests: XCTestCase {
             XCTAssertTrue(WebViewStore.isWebURL(url))
             XCTAssertEqual(WebViewContainer.WebNavigationPolicy.decision(for: url), .load)
         }
+    }
+
+    // MARK: T93B follow-up — the escape hatch's pane must survive a rebuilt SwiftUI branch
+
+    /// The store owns one `WKWebView`, so SwiftUI can wrap it in **two** `WebViewContainer`s while it
+    /// rebuilds a pane (measured on the escape hatch's flip: two `makeUIView` calls 5 ms apart, one
+    /// `dismantleUIView` ~70 ms later). Only the dismantle that leaves *nothing* mounted means "the
+    /// pane left the web branch"; a duplicate's teardown must not stop the live pane's only navigation.
+    /// End-to-end: `MattermostUITests.testTheEscapeHatchReturnsTheWorkspaceToTheWebView`.
+    func testOnlyTheLastContainerDismantleCountsAsLeavingThePane() {
+        let store = WebViewStore()
+        XCTAssertEqual(store.mountedContainers, 0)
+
+        store.noteContainerMounted()
+        store.noteContainerMounted()
+        XCTAssertEqual(store.mountedContainers, 2)
+
+        XCTAssertFalse(store.noteContainerUnmounted(), "a duplicate's teardown keeps the live page")
+        XCTAssertEqual(store.mountedContainers, 1)
+        XCTAssertTrue(store.noteContainerUnmounted(), "the last dismantle is the pane leaving")
+        XCTAssertEqual(store.mountedContainers, 0)
+    }
+
+    /// A dismantle with no matching mount (a representable built outside a mount) must read as "nothing
+    /// is showing the pane" rather than go negative and swallow the *next* real teardown.
+    func testContainerCountIsClampedAtZero() {
+        let store = WebViewStore()
+        XCTAssertTrue(store.noteContainerUnmounted())
+        XCTAssertEqual(store.mountedContainers, 0)
+        store.noteContainerMounted()
+        XCTAssertTrue(store.noteContainerUnmounted(), "one real mount is still the last one")
+    }
+
+    /// `WKWebView.navigationDelegate` is **weak** and the store outlives any one container, so the
+    /// store has to hold the coordinator it installed: a delegate that dies with a container SwiftUI
+    /// threw away leaves WebKit's pending `decidePolicyForNavigationAction` unanswered, and the
+    /// navigation then neither commits nor fails — the escape hatch's blank pane stuck at 10 %
+    /// (`t_065c8753`). Cleared when the last container goes, so the pair cannot outlive the pane.
+    func testTheStoreKeepsTheDelegateItInstalledAlive() {
+        let store = WebViewStore()
+        weak var weakStub: DelegateStub?
+
+        // `var` + explicit `nil` so nothing in this scope keeps the stub alive by accident: the point
+        // is that only the store holds it. (The real delegate is also assigned to
+        // `webView.navigationDelegate`, which is weak — and that assignment is exactly why the store
+        // must hold it: when the container died, the webview's reference did too.)
+        var stub: DelegateStub? = DelegateStub()
+        weakStub = stub
+        store.installCoordinator(stub!)
+        stub = nil
+
+        XCTAssertNotNil(weakStub, "the store holds the delegate it installed")
+
+        store.installCoordinator(nil)
+        XCTAssertNil(weakStub, "cleared once the last container is gone")
+    }
+
+    /// The escape hatch's pane is only usable once its navigation **committed and finished** — that is
+    /// the state the shell publishes as `webPane`'s accessibility value, and the exact thing that was
+    /// stuck at 10 % before `t_065c8753`. `failed` must not read as usable either.
+    func testPageLoadStateIsThePanesOwnLifecycle() {
+        let store = WebViewStore()
+        XCTAssertEqual(store.pageLoadState, .idle, "a fresh store has asked for nothing")
+
+        store.isLoading = true
+        XCTAssertEqual(store.pageLoadState, .loading)
+
+        store.markPageLoadFinished()
+        store.isLoading = false
+        XCTAssertEqual(store.pageLoadState, .loaded, "didFinish is what the smoke test waits for")
+
+        store.markPageLoadFailed(NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotFindHost))
+        XCTAssertEqual(store.pageLoadState, .failed, "a failure is never 'loaded'")
     }
 }

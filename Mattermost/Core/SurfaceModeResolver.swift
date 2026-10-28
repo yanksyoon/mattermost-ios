@@ -197,9 +197,22 @@ public final class SurfaceModeResolver: ObservableObject {
     /// In a Release build the written `.web` row is not read back on the next launch, because the
     /// persisted tier is a debug affordance (`docs/dual-render.md` §3/§8).
     public func forceWebForThisRun(_ surface: Surface) {
+        // Pre-work runs first, in the caller's own turn: `willForceWeb` exists so the owner can make
+        // sure the webview the web branch renders already exists *before* the branch mounts (see the
+        // property below — creating it later made SwiftUI rebuild the pane mid-flip, `t_065c8753`).
+        willForceWeb?(surface)
         launchOverrides.removeValue(forKey: surface)
         apply(.web, for: surface)
     }
+
+    /// Runs immediately before `forceWebForThisRun(_:)` writes `.web` — i.e. in the turn that handled
+    /// the tap, not in a view-body update. That ordering is the whole point: the escape hatch hands
+    /// the work area back to the webview, and publishing store membership (`ViewStore.ensureStore`)
+    /// from *inside* the branch's appearance makes the enclosing `NavigationStack` rebuild its content
+    /// while the branch is mounting, which installs a second `WebViewContainer` for the one webview and
+    /// destroys the first (`t_065c8753`). `nil` by default; `MattermostApp.bindShellStores` wires it to
+    /// `ViewStore.ensureStore(for:)` for the pane host only.
+    public var willForceWeb: ((Surface) -> Void)?
 
     /// The one write path for a surface's stored override: the DEBUG setters and the escape hatch
     /// both route through it, so "writing the default clears the row" cannot fork.

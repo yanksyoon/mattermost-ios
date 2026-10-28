@@ -70,8 +70,8 @@ private struct WebPaneHost: View {
                         server: server,
                         isReopen: viewStore.lastURLs[server.id] != nil)
             } else {
-                // First frame of the branch, before `onAppear` has created the store: the same
-                // honest state, not a blank pane.
+                // First frame of the branch, before the store exists: the same honest state, not a
+                // blank pane.
                 WebPaneReopening(isReopen: viewStore.lastURLs[server.id] != nil)
             }
         }
@@ -81,8 +81,17 @@ private struct WebPaneHost: View {
     /// The one creation + load point of the web branch. `ensureStore` is idempotent, so a warm
     /// webview is re-attached untouched (instant, as §7 promises) and only a released pane pays
     /// the reopen.
+    ///
+    /// The hatch reaches this with the store **already created** (`SurfaceModeResolver.willForceWeb`
+    /// → `MattermostApp`), because creating it here publishes store membership while the branch is
+    /// mounting — the rebuild that costs is described on that hook (`t_065c8753`). Every other route
+    /// into the web branch (a launch whose default is `web`, a second server, a release-then-reopen)
+    /// still creates it here.
     private func resolveAndLoad() {
         let store = viewStore.ensureStore(for: server)
+        let loaded = store.url?.absoluteString ?? "-"
+        let last = viewStore.lastURLs[server.id]?.absoluteString ?? "-"
+        Logger.info("WebView", "web pane appeared (url: \(loaded), remembered: \(last))")
         store.loadIfNeeded(viewStore.lastURLs[server.id] ?? server.url)
     }
 }
@@ -105,6 +114,13 @@ private struct WebPane: View {
         ZStack {
             WebViewContainer(store: store, serverID: server.id, serverURL: server.url)
                 .ignoresSafeArea()
+                // The pane's own page state, readable by the UI suite: the web content process's
+                // accessibility tree is not always reachable from the runner (measured on the escape
+                // hatch's pane — `kAXErrorServerNotFound` while a real page was on screen), and the
+                // claim worth asserting is the shell's own — did the navigation commit and finish
+                // (`t_065c8753`).
+                .accessibilityIdentifier("webPane")
+                .accessibilityValue(store.pageLoadState.rawValue)
 
             if isReopen && store.pageError == nil && !store.hasFinishedPageLoad {
                 // §12.4: the return trip of a released pane. Opaque and covering, so the user

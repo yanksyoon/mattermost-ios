@@ -346,7 +346,12 @@ final class MattermostUITests: XCTestCase {
         XCTAssertTrue(app.buttons["serverSwitcher"].exists, "server switcher must survive")
         XCTAssertTrue(app.buttons["settingsToolbarButton"].exists)
         XCTAssertTrue(app.buttons["downloadsToolbarButton"].exists)
-        XCTAssertTrue(app.buttons["backToolbarButton"].exists)
+        // The webview's own Back/Reload belong to the *web* chrome: a native pane releases the store
+        // (T93B §12.1), so they are gone here — and the assertion below proves they come back with the
+        // pane. (This line used to assert their presence while the pane was native, which the release
+        // policy made false: `t_065c8753` found the test red on HEAD for exactly that.)
+        XCTAssertFalse(app.buttons["backToolbarButton"].exists,
+                       "a released webview must not leave its history chrome behind")
 
         // Settings still opens over the native pane.
         app.buttons["settingsToolbarButton"].tap()
@@ -364,6 +369,8 @@ final class MattermostUITests: XCTestCase {
                       "returning to web must mount the webview again")
         XCTAssertTrue(webview.buttons["Sign in"].waitForExistence(timeout: Self.webLoadWait),
                       "the returning webview must actually render the stub's sign-in page")
+        XCTAssertTrue(app.buttons["backToolbarButton"].waitForExistence(timeout: 10),
+                      "returning to web brings the webview's own chrome back")
 
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "dual-render-web-restored"

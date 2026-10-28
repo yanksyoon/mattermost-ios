@@ -39,20 +39,55 @@ struct WebViewContainer: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         context.coordinator.webView = webView
+        // One store can have more than one container for a moment (SwiftUI rebuilds the pane); the
+        // last dismantle is the one that means "the pane left the web branch" (`t_065c8753`).
+        store.noteContainerMounted()
+        // …and the store keeps this coordinator alive for as long as it is the webview's delegate:
+        // `navigationDelegate` is weak and the store outlives any one container.
+        store.installCoordinator(context.coordinator)
         // T43: the pane is the web app, so the *page* is this server's mention input (it is the only
         // input that knows which channel the reader is looking at). The native socket stays silent for
         // this server while the webview is mounted — one source, and the one that can see the screen.
         NotificationInputRouting.shared.paneKindChanged(serverID: serverID, isWeb: true)
+        Logger.info("WebView", "mounted the webview for \(serverID) "
+                    + "(containers: \(store.mountedContainers), loading: \(webView.isLoading))")
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        // No per-frame mutation needed — the store drives loading imperatively.
+        // No per-frame mutation beyond keeping this container's coordinator as the delegate.
+        //
+        // `WKWebView.navigationDelegate` is **weak**, and the store owns the webview across containers
+        // and surface toggles, so a delegate that went away with an earlier container leaves the page
+        // with nobody to answer `decidePolicyForNavigationAction` — WebKit then waits forever: no
+        // commit, no finish, no error (`t_065c8753`). Re-asserting is idempotent and cheap.
+        if (webView.navigationDelegate as AnyObject?) !== context.coordinator {
+            webView.navigationDelegate = context.coordinator
+        }
+        if (webView.uiDelegate as AnyObject?) !== context.coordinator {
+            webView.uiDelegate = context.coordinator
+        }
+        context.coordinator.webView = webView
+        store.installCoordinator(context.coordinator)
     }
 
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        // A **stale duplicate** dismantle is not the pane leaving: the store owns one webview, so a
+        // second container can wrap it while SwiftUI rebuilds the pane, and the live container has
+        // already re-installed its own coordinator as the delegate. Tearing down here would stop the
+        // live pane's only navigation and clear the delegates that deliver its `didCommit`/`didFinish`
+        // — measured as a blank pane stuck at 10 % after "Use web view" (`t_065c8753`).
+        guard coordinator.store.noteContainerUnmounted() else {
+            Logger.info("WebView",
+                        "a duplicate container went away; the live one keeps the page "
+                        + "(containers: \(coordinator.store.mountedContainers))")
+            return
+        }
         uiView.navigationDelegate = nil
         uiView.uiDelegate = nil
+        if (coordinator.store.installedCoordinator as AnyObject?) === coordinator {
+            coordinator.store.installCoordinator(nil)
+        }
         // T43: the webview is gone, so this server's pane is no longer the page — if a native pane
         // takes over, the socket is the input and must be allowed to deliver again.
         NotificationInputRouting.shared.paneKindChanged(serverID: coordinator.serverID, isWeb: false)
@@ -246,17 +281,23 @@ struct WebViewContainer: UIViewRepresentable {
             store.pageError = nil
             // A new navigation supersedes the previous page: it is no longer "finished" (T26-R R6).
             store.markPageLoadStarted()
+            let target = webView.url?.absoluteString ?? "-"
+            Logger.info("WebView", "didStartProvisionalNavigation url=\(target)")
         }
 
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
             store.isLoading = true
             // Follow the active appearance on every committed page load.
             themeSync.apply(to: webView)
+            let target = webView.url?.absoluteString ?? "-"
+            Logger.info("WebView", "didCommit url=\(target)")
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             store.isLoading = false
             store.markPageLoadFinished()
+            let target = webView.url?.absoluteString ?? "-"
+            Logger.info("WebView", "didFinish url=\(target)")
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -264,12 +305,14 @@ struct WebViewContainer: UIViewRepresentable {
             // superseding navigation) are not page failures: they leave the page resumable
             // (T26-R R6). `markPageLoadFailed` decides and logs which case this is.
             store.markPageLoadFailed(error)
+            Logger.info("WebView", "didFail error=\(error)")
         }
 
         func webView(_ webView: WKWebView,
                      didFailProvisionalNavigation navigation: WKNavigation!,
                      withError error: Error) {
             store.markPageLoadFailed(error)
+            Logger.info("WebView", "didFailProvisional error=\(error)")
         }
 
         /// TLS / server-trust challenge handling. Phase 0 pass-through is now replaced by the

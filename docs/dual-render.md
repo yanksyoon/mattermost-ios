@@ -279,6 +279,18 @@ change the default until its validator has signed off.
   `web` branch is a contract violation.
 * **No duplicate webview.** One `WebViewStore` per server (`ViewStore`), therefore one `WKWebView`
   per server regardless of how many times a surface is toggled.
+* **One webview, possibly two containers — and the store decides who tears it down.** Because the
+  store owns the instance, SwiftUI can transiently wrap it in a *second* `WebViewContainer` while it
+  rebuilds a pane (measured: two `makeUIView` calls 5 ms apart on the escape hatch's flip).
+  `WebViewStore.mountedContainers` counts mounted containers, so a duplicate's `dismantleUIView` is not
+  the pane leaving the web branch: it does not stop the page, does not report the pane as native, and
+  does not drop the delegates — only the dismantle that leaves **nothing** mounted does
+  (`testOnlyTheLastContainerDismantleCountsAsLeavingThePane`). `navigationDelegate`/`uiDelegate` are
+  **weak**, so the store also holds the coordinator it installed (`installedCoordinator`) until that
+  last dismantle, and `ViewStore.release`/`remove` drop it too so the pair cannot outlive the pane. A
+  delegate that dies with a discarded container leaves WebKit's `decidePolicyForNavigationAction`
+  unanswered, and the navigation then neither commits nor fails: that was the escape hatch's blank 10 %
+  pane (§11, `t_065c8753`).
 * **Loaded, resumed, or left alone — never stranded.** The shell calls
   `WebViewStore.loadIfNeeded(_:)` whenever a `web` branch appears (initial mount *and* re-attach):
   nothing committed → load the server URL; a page committed but with a navigation that neither
@@ -454,6 +466,24 @@ flag).
   batch configuration (79.2 s) that had failed. The UI flow skips (with the exact stub command in the
   skip message) when the `:8112` fixture is not running, because the stub lives in the gitignored
   `build/uitest-server/` — a missing fixture must not look like a regression.
+* **The escape hatch's pane mounted but never committed (`t_065c8753`, was a real bug).**
+  `paneOwningSurfaces = [.channelView]` made "Use web view" in a Release build the first exercise of a
+  flip that *re-creates* the webview (every earlier flip re-attached a warm one). Two defects came
+  together there: `WebPaneHost` created the store inside the appearance that swaps `SurfaceHost`'s
+  branch, so `ViewStore.ensureStore`'s publish landed in the same transaction and SwiftUI's
+  `NavigationStack` re-ran its root content (`Update NavigationRequestObserver tried to update multiple
+  times per frame`, `com.apple.SwiftUI:Invalid Configuration`) — installing a second
+  `WebViewContainer` for the one webview; and that duplicate's `dismantleUIView` then ran
+  `stopForDismantle()` plus dropped both delegates, which took the **weak** `navigationDelegate` down
+  with it. WebKit's `decidePolicyForNavigationAction` went unanswered: no commit, no finish, no error,
+  and the pane sat on a 10 % progress bar indefinitely. **Fixed** by the `willForceWeb` pre-work hook
+  (§7, `testForceWebForThisRunRunsItsPreWorkBeforeWritingTheMode`), the container count and delegate
+  keep-alive (§7), and by deferring `RootView`'s `NavigationStack` pop out of the transition. Verified
+  end-to-end in a Release `MattermostReleaseSmoke` run: `didStart` → `didCommit` (+59 ms) →
+  `didFinish` (+0.94 s) and the web app's sign-in form on screen; the smoke test now asserts rendered
+  page text inside the webview instead of just asserting the mount. A wrong first hypothesis is worth
+  recording: this was read as a missing `MMAUTHTOKEN` cookie (which would only ever have produced the
+  sign-in form — a page) before the logs showed nothing committing at all.
 * **The inspector and both debug tiers are DEBUG-only.** The inspector *file* is `#if DEBUG`; the
   writers of the stored tier are `#if DEBUG`; the read path decodes nothing in Release (§8).
   There is no runtime check to bypass in a shipped binary because the code is absent, and

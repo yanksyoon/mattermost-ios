@@ -355,6 +355,36 @@ final class SurfaceModeResolverTests: XCTestCase {
         XCTAssertEqual(makeResolver().resolvedMode(for: .threads), .web)
     }
 
+    /// T93B follow-up (`t_065c8753`): the escape hatch's pre-work runs **before** the mode write, in
+    /// the caller's own turn. That ordering is the fix: the pane's webview must exist when the web
+    /// branch mounts, because creating it from the branch's appearance made SwiftUI rebuild the pane
+    /// mid-flip and install a second container for the one webview.
+    func testForceWebForThisRunRunsItsPreWorkBeforeWritingTheMode() {
+        let resolver = makeResolver(arguments: ["-surfaceMode", "channelView=native"])
+        XCTAssertEqual(resolver.resolvedMode(for: .channelView), .native)
+
+        var seen: [(Surface, SurfaceRenderMode)] = []
+        resolver.willForceWeb = { surface in
+            seen.append((surface, resolver.resolvedMode(for: surface)))
+        }
+
+        resolver.forceWebForThisRun(.channelView)
+
+        XCTAssertEqual(seen.count, 1, "pre-work runs exactly once")
+        XCTAssertEqual(seen.first?.0, .channelView, "for the surface the caller asked for")
+        XCTAssertEqual(seen.first?.1, .native, "the mode is still the old one while pre-work runs")
+        XCTAssertEqual(resolver.resolvedMode(for: .channelView), .web)
+    }
+
+    /// The hook is optional: every other route into `.web` (and every test that does not wire one)
+    /// must keep working with `nil`.
+    func testForceWebForThisRunWorksWithoutAPreWorkHook() {
+        let resolver = makeResolver()
+        XCTAssertNil(resolver.willForceWeb)
+        resolver.forceWebForThisRun(.threads)
+        XCTAssertEqual(resolver.resolvedMode(for: .threads), .web)
+    }
+
     /// An explicit inspector pick is a user decision and beats a stale launch flag for that
     /// surface (a toggle that appears dead is worse than losing a debug shortcut).
     func testInspectorToggleDropsLaunchOverrideForThatSurface() {
