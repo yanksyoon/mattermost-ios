@@ -287,10 +287,27 @@ final class T39SearchUITests: XCTestCase {
     }
 
     private func type(_ text: String, into identifier: String, in app: XCUIApplication) {
-        let field = element(app, identifier)
+        let field = knownType(app, identifier)
         XCTAssertTrue(field.waitForExistence(timeout: 20), "\(identifier) must exist")
         field.tap()
         field.typeText(text)
+    }
+
+    /// The identifiers this suite touches most often, looked up **by type** where the type is known.
+    ///
+    /// Why: XCUITest's accessibility serialiser runs inside the app process and logs every element
+    /// it visits, so a `descendants(matching: .any)` identifier query on the drawn shell costs
+    /// ~1 MB of app log while a type-scoped one costs ~0.05–0.35 MB. Enough of that in a short
+    /// window quarantine the process's firehose buffer and the next snapshot taken then crashes the
+    /// app in XCTest's fault callback (`docs/t8d-build-note.md` §1/§2). The types below are not
+    /// guesses — they were read off the tree in `t8d-base-A`'s exported diagnostics
+    /// (`searchField` → `TextField`, `searchSubmit` → `Button`, `searchSummary` → `StaticText`).
+    private func knownType(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
+        switch identifier {
+        case "searchField": return app.textFields[identifier]
+        case "searchSubmit": return app.buttons[identifier]
+        default: return element(app, identifier)
+        }
     }
 
     /// Tap an element only once it exists.
@@ -300,7 +317,7 @@ final class T39SearchUITests: XCTestCase {
     /// `Failed to tap "searchSubmit" … No matches found` in a batch run and passed alone in 61 s
     /// (`build/logs/t39r2/t39r2-live-f-rebased.log`, `t39r2-malformed-alone.log`).
     private func tap(_ identifier: String, in app: XCUIApplication) {
-        let target = element(app, identifier)
+        let target = knownType(app, identifier)
         XCTAssertTrue(target.waitForExistence(timeout: 20), "\(identifier) must exist:\n\(app.debugDescription)")
         target.tap()
     }

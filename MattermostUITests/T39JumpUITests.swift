@@ -258,10 +258,26 @@ final class T39JumpUITests: XCTestCase {
     }
 
     private func type(_ text: String, into identifier: String, in app: XCUIApplication) {
-        let field = element(app, identifier)
+        let field = knownType(app, identifier)
         XCTAssertTrue(field.waitForExistence(timeout: 20), "\(identifier) must exist")
         field.tap()
         field.typeText(text)
+    }
+
+    /// Identifiers this suite touches most often, looked up **by type** where the type is known.
+    ///
+    /// A `descendants(matching: .any)` identifier query on the drawn shell costs ~1 MB of the app
+    /// process's os_log (XCUITest's serialiser runs in-process and logs every element it visits);
+    /// a type-scoped one costs ~0.05–0.35 MB. Sustained past the firehose limit the process is
+    /// quarantined and the next snapshot crashes it in XCTest's fault callback — see
+    /// `docs/t8d-build-note.md` §1/§2. The types are measured, not guessed: `searchField` →
+    /// `TextField`, `searchSubmit` → `Button` (tree read from `t8d-base-A`'s exported diagnostics).
+    private func knownType(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
+        switch identifier {
+        case "searchField": return app.textFields[identifier]
+        case "searchSubmit": return app.buttons[identifier]
+        default: return element(app, identifier)
+        }
     }
 
     /// Tap an element only once it exists.

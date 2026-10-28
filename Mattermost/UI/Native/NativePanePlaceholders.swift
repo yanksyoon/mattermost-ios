@@ -160,6 +160,12 @@ struct NativeChannelSidebarPane: View {
         HStack(spacing: 8) {
             Image(systemName: systemImage)
                 .foregroundStyle(.secondary)
+                // Decorative: an SF Symbol with no explicit label is *named by its symbol name*, so
+                // without this VoiceOver reads "person.3, Threads" (T8d measured it: the pane's rows
+                // put `Image, label: 'person.3'` in the accessibility tree). Hiding the glyph also
+                // takes one element out of every snapshot XCUITest serialises, which is the volume
+                // that puts the app process's firehose buffer into quarantine.
+                .accessibilityHidden(true)
             Text(title)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
@@ -534,6 +540,10 @@ struct NativePaneNote: View {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
                     .foregroundStyle(.secondary)
+                    // Decorative, same reason as the pane rows: an unlabelled SF Symbol is announced
+                    // by its symbol name ("number", "server.rack") and adds an element to every
+                    // snapshot the UI test's accessibility serialiser logs (T8d).
+                    .accessibilityHidden(true)
                 Text(title)
                     .font(.subheadline.weight(.semibold))
             }

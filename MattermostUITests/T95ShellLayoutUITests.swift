@@ -134,7 +134,7 @@ final class T95ShellLayoutUITests: XCTestCase {
                       "the channel directory must be on screen before this test can tell \"nothing "
                       + "was opened\" from \"nothing has arrived yet\":\n" + app.debugDescription)
 
-        let paneAt = firstMoment(within: launchWindow) { element(app, "nativeChannelPane").exists }
+        let paneAt = firstMoment(within: launchWindow) { otherElement(app, "nativeChannelPane").exists }
         XCTAssertNil(paneAt,
                      "a launch with nothing saved must NOT open a channel — LaunchDestination "
                      + "restores the last channel and nothing else, so no town hall may be pushed "
@@ -154,7 +154,7 @@ final class T95ShellLayoutUITests: XCTestCase {
                       + app.debugDescription)
         row.tap()
 
-        let pane = element(app, "nativeChannelPane")
+        let pane = otherElement(app, "nativeChannelPane")
         XCTAssertTrue(pane.waitForExistence(timeout: 40),
                       "tapping a sidebar row must push the channel pane:\n" + app.debugDescription)
         let title = element(app, "nativeChannelTitle")
@@ -191,7 +191,7 @@ final class T95ShellLayoutUITests: XCTestCase {
         back.tap()
         XCTAssertTrue(waitUntil(timeout: 30) { app.tabBars.firstMatch.exists },
                       "Back must return to the channel list with its tab bar:\n" + app.debugDescription)
-        XCTAssertFalse(element(app, "nativeChannelPane").exists,
+        XCTAssertFalse(otherElement(app, "nativeChannelPane").exists,
                        "the popped destination must not stay in the hierarchy:\n" + app.debugDescription)
         attach(app, "t95a-3-back-restores-the-bar")
     }
@@ -257,7 +257,7 @@ final class T95ShellLayoutUITests: XCTestCase {
         // And nothing opens over the detail inside the launch window, for the same reason as the
         // compact test's step 1b: the launch decides again when the directory arrives.
         let paneAt = firstMoment(within: launchWindow) {
-            element(app, "nativeChannelPane").exists || element(app, "nativeChannelTitle").exists
+            otherElement(app, "nativeChannelPane").exists || app.staticTexts["nativeChannelTitle"].exists
         }
         XCTAssertNil(paneAt,
                      "the regular layout must not invent a destination: a channel pane/title "
@@ -297,8 +297,8 @@ final class T95ShellLayoutUITests: XCTestCase {
         // "Signed in" is the shell **or** a destination pushed over it: a restored channel pane
         // removes `nativeShell` from the accessibility tree (T37-R2 F-1b), so waiting on the shell
         // alone would decide this test's outcome inside its own launch helper.
-        let shell = element(app, "nativeShell")
-        let pane = element(app, "nativeChannelPane")
+        let shell = otherElement(app, "nativeShell")
+        let pane = otherElement(app, "nativeChannelPane")
         XCTAssertTrue(waitUntil(timeout: 60) {
             !field.exists && (shell.exists || pane.exists || app.tabBars.firstMatch.exists)
         }, "signing in must reach the shell (the channel list, or a channel pane pushed over it):\n"
@@ -391,6 +391,21 @@ final class T95ShellLayoutUITests: XCTestCase {
     /// `other`, a `staticText` or a `button`, and that changes across OS versions.
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    /// The same lookup for the identifiers measured to land on an `Other` (`nativeShell`,
+    /// `nativeChannelPane`, `nativeTeamSidebar` — read off the tree in `t8d-base-A`).
+    ///
+    /// Why a typed query and not `element(_:_:)`: T8d measured XCUITest's accessibility serialiser
+    /// logging ~1 MB per any-type identifier query on the drawn shell versus ~0.09 MB for a
+    /// type-scoped one, because a typed walk fetches the element type first and the rest of the
+    /// attribute set only for the candidates. That log is emitted *inside the app process*; enough of
+    /// it in a short window puts the process's firehose buffer in quarantine, and the next `os_log`
+    /// taken during a snapshot crashes the app in XCTest's fault callback
+    /// (`docs/t8d-build-note.md` §1). The sampler below runs every 0.1 s for the whole launch
+    /// window, so it is the one place where the per-query cost dominates the run.
+    private func otherElement(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
+        app.otherElements[identifier]
     }
 
     /// Scroll the channel list until `identifier` exists (a lazy `List` builds only its viewport).

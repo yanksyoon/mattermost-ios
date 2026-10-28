@@ -128,12 +128,22 @@ struct MattermostApp: App {
         // UI-test seam: `-uiTestLogLevel <desktop level>` (error/warn/info/verbose) raises the `os_log`
         // floor for a test run.
         //
-        // Why: XCUITest captures accessibility "runtime issues" as `os_log` faults, and the simulator's
-        // tracing layer quarantines a process whose log volume is high — after which XCTest's own
-        // snapshot callback dereferences a NULL and the **test process** dies mid-suite (T40-R measured
-        // this twice: `_platform_strcmp` under `runtime_issue_os_log_fault_callback`, "quarantined due
-        // to high logging volume"). The app's ordinary logging is most of that volume, so a UI run turns
-        // it down to `error`; nothing else about the app changes, and the argument is inert in normal use.
+        // Why: the simulator's tracing layer quarantines a *process* whose log volume is high, and
+        // once quarantined the next `os_log` taken during an accessibility snapshot faults through
+        // XCTest's `runtime_issue_os_log_fault_callback`, which dereferences a NULL — SIGSEGV — in
+        // **the app under test** (`docs/t8d-build-note.md` §1: the archived reports say
+        // `Mattermost`, faulting thread 0, `_platform_strcmp` ← `runtime_issue_os_log_fault_callback`
+        // ← `__LIBTRACE_CLIENT_QUARANTINED_DUE_TO_HIGH_LOGGING_VOLUME__`, and `launchd_sim` logs
+        // `exited due to SIGSEGV` for the app; the earlier note here said "the test process", which
+        // the reports contradict — the runner can die separately but is not what this class kills).
+        //
+        // What this seam can and cannot do: T8d measured a single 8-test batch at **79.5 MB** of app
+        // log, of which **78 %** is XCUITest's own accessibility serialiser (`com.apple.dt.xctest`,
+        // running inside this process) and ~0.1 % is `Logger`. So this gate — which only filters
+        // `Logger` — is correct to keep (it is the app's desktop log-level setting anyway) but it
+        // does not address the trigger. The volume is cut where it is produced: a smaller
+        // accessibility tree (decorative glyphs hidden) and type-scoped/fewer XCUITest queries in
+        // the suites, not by turning app logging off.
         if let idx = args.firstIndex(of: "-uiTestLogLevel"), args.indices.contains(idx + 1) {
             Logger.setMinimumLevel(args[idx + 1])
         }

@@ -451,6 +451,8 @@ struct PostRowView: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
+                    // Decorative: the row above is the control and already reads as one element.
+                    .accessibilityHidden(true)
             }
             Spacer(minLength: 0)
         }

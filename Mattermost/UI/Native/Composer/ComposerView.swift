@@ -370,6 +370,12 @@ struct ComposerView: View {
                                 Image(systemName: suggestion.kind == .channel ? "number" : "person.crop.circle")
                                     .font(.system(size: 14))
                                     .foregroundStyle(.secondary)
+                                    // Decorative: the row is a button with its own label. Unhidden,
+                                    // VoiceOver announces "number, Town Square, #town-square" — the
+                                    // symbol name leaking into the reading — and every suggestion
+                                    // adds another element to the accessibility snapshot the UI
+                                    // test's serialiser logs (T8d).
+                                    .accessibilityHidden(true)
                             }
                             Text(suggestion.label)
                                 .font(.system(size: 15))

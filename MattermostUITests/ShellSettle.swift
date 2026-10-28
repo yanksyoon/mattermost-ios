@@ -114,15 +114,29 @@ enum ShellSettle {
                                 timeout: TimeInterval = 40,
                                 file: StaticString = #filePath,
                                 line: UInt = #line) -> Bool {
+        // T8d — every `.exists` here is a full accessibility snapshot, and the snapshot is not free:
+        // XCUITest's serialiser runs *inside the app process* and logs each element it visits
+        // (`com.apple.dt.xctest:Default`). Measured on `81A7F251` (run `t8d-base-A`): 79.5 MB of app
+        // log for one 8-test batch, 78% of it from that serialiser, and one any-type identifier
+        // query on a fully drawn shell costs ~1 MB. Sustained past ~600 KB/s the process's firehose
+        // buffer is quarantined, and the next `os_log` while a snapshot is being taken faults through
+        // `runtime_issue_os_log_fault_callback` and crashes the app (see `docs/t8d-build-note.md` §1).
+        //
+        // So this wait does the cheap thing: one typed query per identifier per iteration instead of
+        // three any-type ones, and it looks twice a second instead of four times. `nativeShell` and
+        // `nativeChannelPane` are `Other` elements (measured from the tree in `t8d-base-A`), and a
+        // type-scoped query costs ~10x less than `descendants(matching: .any)` because the walk
+        // fetches the element type for candidates first and the rest of the attribute set only for
+        // them. Same claim, same 40 s budget, ~an order of magnitude less log.
         let field = app.textFields["loginIDField"]
-        let shell = element(app, "nativeShell")
-        let pane = element(app, "nativeChannelPane")
+        let shell = app.otherElements["nativeShell"]
+        let pane = app.otherElements["nativeChannelPane"]
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if !field.exists, shell.exists || pane.exists || app.tabBars.firstMatch.exists {
                 return true
             }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
         XCTFail("the app must come back signed in (the channel list, its tab bar, or a pushed "
                 + "channel pane) within \(Int(timeout)) s:\n\(app.debugDescription)",
