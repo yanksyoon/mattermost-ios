@@ -19,7 +19,10 @@
 //      a killed process can outlive; a change that lands while a write is running folds into one
 //      follow-up — and flushed on demand (backgrounding), one row per (channel, thread root), in
 //      T29's store — so it survives relaunch and a team switch. (The 400 ms debounce this replaced
-//      was removed in T35's round 2: docs/t35-build-note.md §7.3.)
+//      was removed in T35's round 2: docs/t35-build-note.md §7.3.) An **edit has no draft row**: the
+//      post itself is the record, so edit mode never reads, writes or deletes one — `draftRootID` is
+//      `nil` there, which is what keeps a half-written channel message out of the edit box and in the
+//      channel (kanban t_50a0f378, docs/t50a0f378-edit-draft-key.md).
 //   4. **Autocomplete cannot race itself.** Every keystroke bumps a generation; an answer for a
 //      superseded term is dropped. The `@` list is restricted to the channel's members (server-side
 //      `in_channel_id`, plus a client check when the member list is complete).
@@ -142,8 +145,26 @@ final class ComposerViewModel: ObservableObject {
     /// The attachment ids to post.
     var uploadedFileIDs: [String] { attachments.compactMap(\.fileID) }
 
-    /// The draft key for the current mode. Editing has no draft (the post itself is the record).
-    var draftRootID: String { mode.rootID }
+    /// The draft key for the current mode, or `nil` when this mode has **no** draft row.
+    ///
+    /// The modes are not symmetric, and the asymmetry is load-bearing (kanban t_50a0f378):
+    ///
+    ///  - `.newPost` and `.reply` each own one row per channel — `""` is the **channel's** own draft,
+    ///    a thread's is keyed by its root id — so the key is a `String`.
+    ///  - `.editing` owns **none**: the post itself is the record of an edit, so there is nothing to
+    ///    save, restore or delete. Returning `""` here (as `mode.rootID` does for every non-reply
+    ///    mode) made the edit box address the *channel's* row: the first keystroke overwrote a
+    ///    half-written channel message and a landed edit deleted that row.
+    ///
+    /// `nil` makes "no draft" a thing the compiler forces every call site to handle, so no site can
+    /// accidentally address `""` again. Do not collapse this back to a defaulted `String`.
+    var draftRootID: String? {
+        switch mode {
+        case .newPost: return ""
+        case .reply(let rootID): return rootID
+        case .editing: return nil
+        }
+    }
 
     /// Who the composer writes as (the pane asks, so "edit" is only offered on my own post).
     var authorID: String? { myUserID }
@@ -182,6 +203,12 @@ final class ComposerViewModel: ObservableObject {
     /// A draft write is running; changes that arrive meanwhile collapse into one follow-up.
     private var draftWriteInFlight = false
     private var draftWriteQueued = false
+    /// The next draft write, as the change it belongs to (`DraftSnapshot`): captured when the change
+    /// happened, so a write that runs after the mode moved on still addresses the right row.
+    private var pendingDraftWrite: DraftSnapshot?
+    /// Bumped when a command resolves a draft row for good (a landed send), so a write captured
+    /// before it cannot land after the delete and resurrect the words that were just sent.
+    private var draftGeneration = 0
     private var uploadTasks: [UUID: Task<Void, Never>] = [:]
     /// The bytes of an attachment that has not been uploaded yet, so Retry can re-send the same file
     /// without going back to the picker. Dropped as soon as the server has the file.
@@ -652,6 +679,10 @@ final class ComposerViewModel: ObservableObject {
     }
 
     private func finishSuccessfully(note: String?, keepMode: Bool = false) {
+        // The row this command resolves, captured **before** the mode changes: `.reply`/`.newPost`
+        // own one, an edit owns none. Deleting unconditionally under `draftRootID` is what made a
+        // landed edit wipe the channel's draft, because `.editing`'s key used to be `""`
+        // (kanban t_50a0f378).
         let draftRoot = draftRootID
         phase = .idle
         pendingCommand = nil
@@ -664,7 +695,13 @@ final class ComposerViewModel: ObservableObject {
         if !keepMode { leaveTransientMode() }
         isPreviewing = false
         didRestoreDraft = false
-        Task { await self.drafts.delete(channelID: self.channelID, rootID: draftRoot) }
+        // A write captured before this command belongs to a state that no longer exists: it must not
+        // land after the delete below and put the words that were just sent back on disk.
+        draftGeneration += 1
+        pendingDraftWrite = nil
+        if let draftRoot {
+            Task { await self.drafts.delete(channelID: self.channelID, rootID: draftRoot) }
+        }
         if let note { show(note: note) }
     }
 
@@ -707,7 +744,16 @@ final class ComposerViewModel: ObservableObject {
     /// sent back unchanged, because `PUT /posts/{id}` replaces the list rather than merging it.
     private var originalFileIDs: [String] = []
 
-    func beginEditing(_ post: MMPost) {
+    /// Edit mode: the composer holds another post's text. The post's own file ids are preserved and
+    /// sent back unchanged, because `PUT /posts/{id}` replaces the list rather than merging it.
+    ///
+    /// `async` for one reason, and it is not cosmetic: the draft this composer is leaving must be
+    /// written **under the key it was typed for**, and `.editing` has no key (`draftRootID`). So the
+    /// flush happens *before* the mode changes — `cancelMode`'s pattern — instead of after it, where
+    /// it would either land in the channel's row (the t_50a0f378 defect) or, with the key now
+    /// `nil`, drop a channel draft whose write was still queued.
+    func beginEditing(_ post: MMPost) async {
+        await saveDraftNow()
         mode = .editing(postID: post.id)
         text = post.message
         caret = (post.message as NSString).length
@@ -744,9 +790,10 @@ final class ComposerViewModel: ObservableObject {
     /// thread's reply box is always in. In practice this is reached from edit mode only; the view does
     /// not offer "cancel reply" there (see `ComposerView.modeBanner`).
     func cancelMode() async {
-        // An edit has no draft row (the post itself is the record): writing here would put the edited
-        // post's text in the *channel's* draft, since `.editing` has no draft root.
-        if !mode.isEditing { await saveDraftNow() }
+        // An abandoned edit is not a draft: `saveDraftNow` no-ops in edit mode because `draftRootID`
+        // is `nil` there (kanban t_50a0f378). Leaving reply mode still writes the thread's draft
+        // before switching back to the channel's row.
+        await saveDraftNow()
         if let anchor = threadAnchor {
             mode = .reply(rootID: anchor.rootID)
             replyTarget = anchor.authorLabel
@@ -770,10 +817,13 @@ final class ComposerViewModel: ObservableObject {
     /// are cheap and do not clobber text the user has typed since.
     func restoreDraftIfNeeded() async {
         guard !didRestoreDraft else { return }
+        // An edit has no draft row to restore (`draftRootID` is `nil`): reading here would put the
+        // channel's half-written message into the edit box, replacing the post being edited.
+        guard let rootID = draftRootID else { return }
         didRestoreDraft = true
         isRestoringDraft = true
         defer { isRestoringDraft = false }
-        guard let draft = await drafts.load(channelID: channelID, rootID: draftRootID) else { return }
+        guard let draft = await drafts.load(channelID: channelID, rootID: rootID) else { return }
         // Only fill an empty composer: a draft that lands after the person has started typing must not
         // replace their words.
         guard text.isEmpty, attachments.isEmpty else { return }
@@ -788,28 +838,59 @@ final class ComposerViewModel: ObservableObject {
         }
     }
 
-    /// Write the draft now (backgrounding, mode switch, a failed send).
+    /// Write the draft now (backgrounding, mode switch, a failed send): whatever the composer holds
+    /// *at this moment*, under the key of the mode it is in.
     func saveDraftNow() async {
         draftLeadTask?.cancel()
         draftLeadTask = nil
         draftWriteInFlight = false
         draftWriteQueued = false
-        await writeDraftSnapshot()
+        pendingDraftWrite = captureDraftWrite()
+        await writePendingDraft()
     }
 
-    /// The one write: whatever the text is *at the moment it runs*.
+    /// A draft write, captured **when the change happened**.
     ///
+    /// The key and the text have to be captured together, at the change, and not read when the write
+    /// finally runs (kanban t_50a0f378). A pending write outlives the mode it was typed in: a
+    /// keystroke in the channel composer, then a send or an edit — and a write that resolved
+    /// `draftRootID` on execution ran *after* the edit landed, in `.newPost`, with the text already
+    /// cleared, and deleted the channel's draft row as an "empty draft". Reading the mode at
+    /// execution time was the bug; the row a change belongs to is decided when the change happens.
+    private struct DraftSnapshot {
+        /// The row this change is about; `nil` when the change happened in edit mode, which owns no
+        /// row (`ComposerViewModel.draftRootID`).
+        let rootID: String?
+        let message: String
+        let files: [ComposerStoredFile]
+        /// `draftGeneration` at capture time: a write whose row was resolved for good in the
+        /// meantime (a landed send, a clear) must not land afterwards and resurrect it.
+        let generation: Int
+    }
+
     /// T35 run 124: the draft used to be written only after `draftDebounce` of quiet, so a process
     /// death inside that window lost the text — measured against a real relaunch (the app's SQLite
     /// file had an empty `draft` table after typing and killing it, and a later run restored the
     /// first *character* only, because that was the sole write that had landed).
     ///
     /// The card's rule is "the text is never lost", so the write is now **write-through with
-    /// coalescing**, not timer-based: every change writes immediately, and a change that arrives
-    /// while a write is still running folds into exactly one follow-up write that carries the
-    /// *latest* text. There is no window in which a keystroke exists only in memory for longer than
-    /// one store round-trip, and a fast typist still cannot queue one write per keystroke.
+    /// coalescing**, not timer-based: every change schedules a write immediately, and a change that
+    /// arrives while a write is still running folds into exactly one follow-up write carrying the
+    /// *latest* snapshot. There is no window in which a keystroke exists only in memory for longer
+    /// than one store round-trip, and a fast typist still cannot queue one write per keystroke.
     private func scheduleDraftSave() {
+        pendingDraftWrite = captureDraftWrite()
+        startDraftWriter()
+    }
+
+    private func captureDraftWrite() -> DraftSnapshot {
+        DraftSnapshot(rootID: draftRootID,
+                      message: text,
+                      files: attachments.compactMap(storedFile),
+                      generation: draftGeneration)
+    }
+
+    private func startDraftWriter() {
         if draftWriteInFlight {
             draftWriteQueued = true
             return
@@ -817,24 +898,29 @@ final class ComposerViewModel: ObservableObject {
         draftWriteInFlight = true
         draftLeadTask = Task { [weak self] in
             guard let self else { return }
-            await self.writeDraftSnapshot()
+            await self.writePendingDraft()
             self.draftWriteInFlight = false
             self.draftLeadTask = nil
             if self.draftWriteQueued {
                 self.draftWriteQueued = false
-                self.scheduleDraftSave()
+                self.startDraftWriter()
             }
         }
     }
 
-    private func writeDraftSnapshot() async {
+    /// The one store write. A snapshot that addresses no row (edit mode) or whose row has been
+    /// resolved since it was captured writes nothing at all.
+    private func writePendingDraft() async {
+        guard let snapshot = pendingDraftWrite else { return }
+        pendingDraftWrite = nil
+        guard let rootID = snapshot.rootID, snapshot.generation == draftGeneration else { return }
         let draft = ComposerDraft(channelID: channelID,
-                                  rootID: draftRootID,
-                                  message: text,
-                                  files: attachments.compactMap(storedFile),
+                                  rootID: rootID,
+                                  message: snapshot.message,
+                                  files: snapshot.files,
                                   updateAt: ComposerDraft.now(now()))
         if draft.isEmpty {
-            await drafts.delete(channelID: channelID, rootID: draftRootID)
+            await drafts.delete(channelID: channelID, rootID: rootID)
         } else {
             await drafts.save(draft)
         }

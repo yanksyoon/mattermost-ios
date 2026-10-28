@@ -929,7 +929,7 @@ struct ChannelPaneContent: View {
                                       composer?.beginReply(to: row.post,
                                                            authorLabel: row.author.displayName)
                                   },
-                                  onEdit: { composer?.beginEditing(row.post) },
+                                  onEdit: { Task { await composer?.beginEditing(row.post) } },
                                   onDelete: {
                                       guard let composer else { return }
                                       Task { await composer.delete(postID: row.post.id) }
