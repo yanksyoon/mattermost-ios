@@ -248,9 +248,12 @@ something a repair claims would red — except M4, which reds less than the repa
 
 ---
 
-## 5. Validation scaffolding that is **not** in this commit
+## 5. Validation scaffolding — shipped as a patch, not applied
 
-Two edits were made to the audit worktree's UI tests to obtain the evidence, and only there:
+Two edits were made to the audit worktree's UI tests to obtain the evidence, and only there. They are
+not applied to `MattermostUITests/` in this tree — they are shipped as
+`docs/t55-validation-scaffolding.patch` (`git apply` it in a clean worktree) so `t_c3957991` can adopt
+the real fix rather than a QA worktree patch:
 
 1. `T39JumpUITests.swift` / `T39SearchUITests.swift`: `URLSession.shared` → a cookie-free ephemeral
    `restSession` (§3.4 F-4), plus the status code and body added to the sign-in skip message that produced
