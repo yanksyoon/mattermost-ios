@@ -140,6 +140,30 @@ final class ChannelScrollController: ObservableObject {
     /// `distanceFromBottom` under a point, to absorb sub-pixel layout noise.
     var isAtBottom: Bool { distanceFromBottom <= 1 }
 
+    /// How far, in points below the viewport's top edge, the **lowest** laid-out row reaches.
+    ///
+    /// This is the honest test for "the newest message is on screen". A pane can hold one row at its
+    /// top edge and 490 pt of nothing below it (measured, T635-A: `topY=-15, size=3129, viewport=490.7`)
+    /// — a row *is* visible there, and the pane is still blank. A correctly bottom-anchored pane has a
+    /// row reaching the bottom edge (within the list's 12 pt bottom padding), so the placement checks
+    /// this rather than "any row exists".
+    var lowestRowBottom: CGFloat {
+        guard let scrollView else { return -.infinity }
+        var bottom = -CGFloat.infinity
+        for (_, box) in rowViews {
+            guard let view = box.view, view.isDescendant(of: scrollView),
+                  view.bounds.height > 0 else { continue }
+            let rect = view.convert(view.bounds, to: scrollView)
+            bottom = max(bottom, rect.maxY - scrollView.bounds.origin.y)
+        }
+        return bottom
+    }
+
+    /// Height of the viewport the list is drawn into, in points. 0 until the pane has laid out (a
+    /// restored pane is pushed inside a `NavigationStack` at launch, so its frame is not real at
+    /// `onAppear` time).
+    var viewportHeight: CGFloat { scrollView?.bounds.height ?? 0 }
+
     fileprivate func attach(_ view: UIScrollView?) {
         if let view { scrollView = view }
     }
@@ -198,6 +222,61 @@ final class ChannelScrollController: ObservableObject {
 
     // MARK: Scrolling
 
+    /// Put the viewport back at the top of the content, without animation.
+    ///
+    /// T635-A uses this as the escape from a lazy layout that never materialised: the top of the
+    /// content is always inside the real layout, so forcing the viewport there makes the lazy stack
+    /// build real rows and report a real content height — after which a row-based placement works.
+    /// Returns whether it actually moved.
+    @discardableResult
+    func scrollToTop() -> Bool {
+        guard let scrollView else { return false }
+        let target = -scrollView.adjustedContentInset.top
+        guard abs(target - scrollView.contentOffset.y) > 0.01 else { return false }
+        scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: target), animated: false)
+        return true
+    }
+
+    /// T635-A instrumentation: one reading of everything a restored pane's blankness depends on.
+    ///
+    /// Lives here because the scroll view is `fileprivate` to this file; the seam that publishes it
+    /// (`ScrollGeometrySeam`, `ChannelScrollDiagnostics.swift`) is gated on `-uiTestExposeScrollGeometry`.
+    func geometry(itemCount: Int) -> ChannelScrollGeometrySample {
+        guard let scrollView else {
+            return ChannelScrollGeometrySample(attached: false, offsetY: 0, contentHeight: 0,
+                                               viewportHeight: 0, insetTop: 0, insetBottom: 0,
+                                               laidOutRows: 0, visibleRows: 0, topRowID: nil,
+                                               topRowOffset: .infinity, lowestRowBottom: -.infinity,
+                                               distanceFromBottom: 0,
+                                               itemCount: itemCount, fitsViewport: false)
+        }
+        let inset = scrollView.adjustedContentInset
+        let viewport = scrollView.bounds
+        var laidOut = 0
+        var visible = 0
+        for (_, box) in rowViews {
+            guard let view = box.view, view.isDescendant(of: scrollView),
+                  view.bounds.height > 0 else { continue }
+            laidOut += 1
+            if view.convert(view.bounds, to: scrollView).intersects(viewport) { visible += 1 }
+        }
+        let top = ScrollRestorePlan.topVisible(rows: laidOutRows())
+        return ChannelScrollGeometrySample(attached: true,
+                                           offsetY: scrollView.contentOffset.y,
+                                           contentHeight: scrollView.contentSize.height,
+                                           viewportHeight: scrollView.bounds.height,
+                                           insetTop: inset.top,
+                                           insetBottom: inset.bottom,
+                                           laidOutRows: laidOut,
+                                           visibleRows: visible,
+                                           topRowID: top?.id,
+                                           topRowOffset: top?.offsetFromTop ?? .infinity,
+                                           lowestRowBottom: lowestRowBottom,
+                                           distanceFromBottom: distanceFromBottom,
+                                           itemCount: itemCount,
+                                           fitsViewport: contentFitsViewport)
+    }
+
     /// Snap to the bottom of the content. Used to open a conversation on its newest message *after*
     /// the rows have real heights: `LazyVStack` measures lazily, so a single `scrollTo` issued when
     /// the first page lands is computed from estimated heights and can stop short.
@@ -229,6 +308,15 @@ final class ChannelScrollController: ObservableObject {
 
 /// Zero-sized view that finds the `UIScrollView` hosting this SwiftUI `ScrollView` and hands it to a
 /// `ChannelScrollController`. Place it inside the scroll content.
+///
+/// **It keeps looking.** The old form resolved once on the next main-queue turn and again on
+/// `updateUIView`. T635-A measured a restored launch in which neither found the scroll view: the pane
+/// was painted with a header, a composer and a blank list, and `attached=false` for the whole run
+/// (`size=0, viewport=0`), because a `makeUIView`-time `enclosingScrollView` is nil until SwiftUI has
+/// inserted the view — and a pane that paints nothing is a pane that receives no further
+/// `updateUIView` calls, so the one retry that existed never came. Without a handle nothing can
+/// measure the offset, so the blank pane was self-sustaining. A bounded retry (≈4 s at 16 ms) is what
+/// makes attachment independent of that race; it stops the moment the scroll view is found.
 struct ScrollViewResolver: UIViewRepresentable {
     let controller: ChannelScrollController
 
@@ -238,15 +326,30 @@ struct ScrollViewResolver: UIViewRepresentable {
         view.backgroundColor = .clear
         view.setContentHuggingPriority(.defaultLow, for: .vertical)
         // The view is only in the hierarchy once the scroll view exists, and the scroll view can be
-        // replaced on a re-mount (a channel switch rebuilds the pane), so resolve on the next turn
-        // and again whenever SwiftUI updates this representable.
-        DispatchQueue.main.async { controller.attach(view.enclosingScrollView) }
+        // replaced on a re-mount (a channel switch rebuilds the pane), so resolve on the next turn and
+        // keep resolving until it is found.
+        resolve(view, attempt: 0)
         return view
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
         if !controller.isAttached {
-            controller.attach(uiView.enclosingScrollView)
+            resolve(uiView, attempt: 0)
+        }
+    }
+
+    private func resolve(_ view: UIView, attempt: Int) {
+        DispatchQueue.main.async {
+            if let scrollView = view.enclosingScrollView {
+                controller.attach(scrollView)
+                return
+            }
+            // ~4 s: long enough for the launch push to lay the pane out, short enough to stop if the
+            // view really is not inside a scroll view (a preview, a torn-down pane).
+            guard attempt < 250 else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(16)) {
+                resolve(view, attempt: attempt + 1)
+            }
         }
     }
 }

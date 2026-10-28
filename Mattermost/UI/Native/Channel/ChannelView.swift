@@ -59,6 +59,10 @@ struct ChannelPostListView: View {
     var attachmentDownloads: AttachmentDownloads? = nil
     /// T41: a tap on a row's author opens that account's profile. Nil keeps the avatars inert.
     var onShowProfile: ((String) -> Void)? = nil
+    /// T635-A: the pane this list belongs to was opened **at a post** (a search result, a saved or
+    /// pinned message, a permalink), so its position belongs to that jump and not to the initial
+    /// placement. Set by `ChannelPaneContent` from its `focusPostID`.
+    var opensAtPost: Bool = false
     /// T48: the channel's post-options state — permissions, the saved set, pin/follow patches, the
     /// team's URL name. Nil keeps the pre-T48 sheet (the host's reply/edit/delete/react only).
     var postOptions: PostOptionsViewModel? = nil
@@ -67,6 +71,12 @@ struct ChannelPostListView: View {
     /// auto-load, so this is the same visit. Cleared once the viewport is a screen away from the top.
     @State private var mustLeaveTopBeforePaging = true
     @State private var readerIsAtBottom = true
+    /// True once this list has established its **initial** position (T635-A, card t_7cb5dd3e).
+    ///
+    /// One placement per mount, so the rule "a conversation opens at its newest message" is a property
+    /// of the pane rather than of whichever timing a launch happens to get — and so nothing moves the
+    /// screen under a reader who has since scrolled back (a sheet, a rotation, a re-appearance).
+    @State private var placedInitialPosition = false
     @StateObject private var scrollController = ChannelScrollController()
     /// The one sheet this window presents (T35's options, T37's picker and reactor list).
     ///
@@ -175,25 +185,52 @@ struct ChannelPostListView: View {
     private var list: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
+                // T635-A: the resolver is a sibling of the lazy stack, inside a zero-spacing wrapper.
+                //
+                // As the lazy stack's first child it was built only when a row near the *top* was
+                // materialised, so a pane whose viewport had been left past its own content never
+                // built it: the controller never attached, `pinToBottom()` and `pollReaderPosition()`
+                // both no-oped on `isAttached == false`, and nothing could measure or correct the
+                // offset (measured: `attached=false, size=0, viewport=0` for 45 s). A `.background` of
+                // the lazy stack is no better (measured: never attached either) — the wrapper is what
+                // makes the resolver part of the scroll content itself, and at 0×0 it adds no height.
+                VStack(spacing: 0) {
                     // Finds the UIScrollView so a restore can use a point offset (see
-                    // ChannelScrollPosition.swift). Zero-height, so it costs no layout.
+                    // ChannelScrollPosition.swift).
                     ScrollViewResolver(controller: scrollController)
                         .frame(width: 0, height: 0)
-                    loadEarlierSentinel
-                    ForEach(model.items) { item in
-                        rowView(item)
-                            .id(item.id)
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        loadEarlierSentinel
+                        ForEach(model.items) { item in
+                            rowView(item)
+                                .id(item.id)
+                        }
+                        // No bottom spinner. `hasMore` is *older* history, and this row sat at the
+                        // end of the list whenever any history existed — a permanent spinner that
+                        // promised newer messages and never resolved. Paging state belongs to
+                        // `loadEarlierSentinel` at the top; the bottom of the timeline is simply the
+                        // newest post.
                     }
-                    // No bottom spinner. `hasMore` is *older* history, and this row sat at the end of
-                    // the list whenever any history existed — a permanent spinner that promised newer
-                    // messages and never resolved. Paging state belongs to `loadEarlierSentinel` at the
-                    // top; the bottom of the timeline is simply the newest post.
+                    .padding(.bottom, 12)
                 }
-                .padding(.bottom, 12)
             }
+            // T635-A: the geometry probe sits **outside** the lazy content on purpose. A view placed
+            // inside the `LazyVStack` is not built while the viewport sits outside the content, which is
+            // precisely the state this seam has to be able to report.
             .coordinateSpace(name: "channelScroll")
             .accessibilityIdentifier("channelPostList")
+            // The probe is attached **after** the identifiers above: an overlay applied before them
+            // inherits `channelPostList` and its own `channelPostList.scrollGeometry` identifier is lost
+            // (measured: the element appeared in the tree as identifier `channelPostList`), which both
+            // hides the report from the test and makes `channelPostList` ambiguous for every swipe.
+            .overlay(alignment: .topLeading) {
+                if ChannelUITestHook.exposesScrollGeometry {
+                    ScrollGeometrySeam(controller: scrollController, itemCount: model.items.count)
+                }
+            }
+            // T635-A: the pane's initial position, established from a **row** and not from
+            // `contentSize`. See `placeInitialPosition`.
+            .task { await placeInitialPosition(proxy) }
             // T39: a jump (a tapped search result, a saved message, a pinned one) scrolls to its post.
             // The loop is deliberate: a jumped-to post that had to be *fetched* is merged into the
             // window at the same moment the scroll is asked for, and a `LazyVStack` measures a new row
@@ -221,7 +258,12 @@ struct ChannelPostListView: View {
                 // goes, so one scroll issued at that moment lands short of the end. Pin, re-measure,
                 // pin again until the bottom is actually reached.
                 guard previous == 0, current > 0 else { return }
+                ChannelScrollDiagnostics.record("items \(previous) -> \(current): pin starting")
                 Task { @MainActor in await pinToBottom() }
+            }
+            .onAppear {
+                // T635-A: the pane's own first look at the list, before any page lands.
+                ChannelScrollDiagnostics.record("list onAppear")
             }
             .onChange(of: model.items.last?.id) { previous, current in
                 // A post that arrives over the socket while the reader is looking at the newest
@@ -397,6 +439,82 @@ struct ChannelPostListView: View {
         model.toggleExpanded(postID)
     }
 
+    /// Put a freshly mounted pane at its **newest row** — once.
+    ///
+    /// T635-A (card t_7cb5dd3e). The defect this replaces: a launch that restores a channel could paint
+    /// the pane with a header, `Back`, a working composer and a post list that never materialised a
+    /// single row (85 s measured, no spinner, no error, no "No messages yet").
+    ///
+    /// Measured cause, with `-uiTestExposeScrollGeometry` on iPhone 16 Pro / iOS 18.3:
+    ///
+    /// * the list is created only once the model is `.loaded`, so its first layout already holds the
+    ///   whole first page (`items=63` at `t=0.00s`). `onChange(of: items.count)` therefore never sees a
+    ///   `0 → n` transition on this path, and `pinToBottom()` never runs on a first load at all;
+    /// * what is left to place the pane is `defaultScrollAnchor(.bottom, for: .initialOffset)`, and it
+    ///   is resolved against an **estimated** content height and a viewport that is not yet real. Two
+    ///   stuck shapes were measured, in consecutive launches: `offset=2635.3, size=3126.0,
+    ///   viewport=490.7, rows=0` — the offset is exactly `size − viewport`, so the viewport sat at the
+    ///   bottom of an estimate whose real height was 3296, i.e. below every row the layout ever built —
+    ///   and `offset=2638.3, size=3129.0, rows=1, topY=−15`, one row whose top edge was 15 pt above the
+    ///   viewport top with nothing under it. Both stayed frozen for the whole run (20 s and 45 s
+    ///   measured);
+    /// * a `LazyVStack` materialises only the rows near the viewport, so a viewport in the void builds
+    ///   nothing, the estimate is never corrected, and nothing on screen can start the recovery. The
+    ///   resolver had the same problem from the other side: it lived *inside* the lazy stack, so it was
+    ///   never built either, and the controller never attached (`attached=false, size=0, viewport=0`
+    ///   for 45 s) — no mount could even measure, let alone correct, the offset.
+    ///
+    /// So the initial position is established the way a chat client guarantees it: by naming the newest
+    /// **row**. `scrollTo(_:anchor:)` is the only primitive that forces SwiftUI to resolve (and thus
+    /// measure) a row, which is what breaks the estimate deadlock; the pin then absorbs the bottom
+    /// padding. Runs once per mount — after this the viewport belongs to the reader, which is why there
+    /// is no timer here and no "looks wrong, fix it" polling.
+    @MainActor
+    private func placeInitialPosition(_ proxy: ScrollViewProxy) async {
+        // A pane opened *at a post* (T39) is placed by its jump, and a window that already fits its
+        // viewport is showing all of itself: neither may be moved here. Everything else — a restore, a
+        // channel opened from the sidebar — gets its initial position from this one pass.
+        guard !placedInitialPosition, !model.items.isEmpty, !opensAtPost,
+              !scrollController.contentFitsViewport else { return }
+        placedInitialPosition = true
+        // The pane is pushed inside a `NavigationStack` at launch, so at `onAppear` its scroll view is
+        // not attached yet and its viewport has no height. Bounded wait on the layout (5 s at worst);
+        // this is not a retry loop and it cannot move a reader: nothing has been painted yet.
+        var waited = 0
+        while waited < 200, !(scrollController.isAttached && scrollController.viewportHeight > 1),
+              !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(25))
+            waited += 1
+        }
+        guard !Task.isCancelled else { return }
+        // Re-checked now that the viewport has a height: a window shorter than the pane is already
+        // showing all of itself and must not be scrolled anywhere.
+        if scrollController.contentFitsViewport { return }
+        ChannelScrollDiagnostics.record("place: attached=\(scrollController.isAttached) "
+                                        + "viewport=\(scrollController.viewportHeight)")
+        guard let newest = model.items.last else { return }
+        // Place, then *check the claim against the scroll view* rather than trusting the call: a
+        // `scrollTo` resolves against the layout SwiftUI currently believes in, and that layout can be
+        // an estimate whose bottom is past every real row (measured: `offset=2635.3, size=3126.0,
+        // viewport=490.7` with `rows=0` — SwiftUI agreed it was "at the bottom" and materialised
+        // nothing). When the newest row is not on screen, go back to the top of the content — always
+        // inside the real layout — let the lazy stack build real rows, and place again. Bounded rounds,
+        // once per mount.
+        for round in 0..<4 {
+            proxy.scrollTo(newest.id, anchor: .bottom)
+            try? await Task.sleep(for: .milliseconds(120))
+            let bottom = scrollController.lowestRowBottom
+            let covered = bottom >= scrollController.viewportHeight - 20
+            ChannelScrollDiagnostics.record("place[\(round)] scrollTo \(newest.id) "
+                                            + "lowestRowBottom=\(bottom) covered=\(covered)")
+            if covered { break }
+            // Nothing is laid out where the viewport is, so `scrollTo` had no real target.
+            scrollController.scrollToTop()
+            try? await Task.sleep(for: .milliseconds(150))
+        }
+        await pinToBottom()
+    }
+
     /// Reach the true bottom of a freshly loaded page.
     ///
     /// `LazyVStack` gives an unmeasured row an estimated height, so a single scroll computed when the
@@ -405,20 +523,24 @@ struct ChannelPostListView: View {
     @MainActor
     private func pinToBottom() async {
         var settled = 0
-        for _ in 0..<25 {
+        for iteration in 0..<25 {
             guard scrollController.isAttached else {
+                ChannelScrollDiagnostics.record("pin[\(iteration)] not attached")
                 try? await Task.sleep(for: .milliseconds(16))
                 continue
             }
             if scrollController.isAtBottom {
                 settled += 1
+                ChannelScrollDiagnostics.record("pin[\(iteration)] atBottom settled=\(settled)")
                 if settled >= 2 { return }
             } else {
                 settled = 0
-                scrollController.scrollToBottom()
+                let moved = scrollController.scrollToBottom()
+                ChannelScrollDiagnostics.record("pin[\(iteration)] moved=\(moved)")
             }
             try? await Task.sleep(for: .milliseconds(32))
         }
+        ChannelScrollDiagnostics.record("pin gave up after 25 iterations")
     }
 
     /// One look at where the reader is: keep the anchor honest and page when they reach the top.
@@ -650,6 +772,9 @@ struct ChannelPaneContent: View {
                                     onShowProfile: profileSurfaceIsNative
                                         ? { userID in profileTarget = ProfileTarget(userID: userID) }
                                         : nil,
+                                    // T635-A: this pane was routed at a post, so the jump owns its
+                                    // position and the initial placement must not move it.
+                                    opensAtPost: focusPostID != nil,
                                     postOptions: postOptions)
             } else {
                 ProgressView()
@@ -950,6 +1075,16 @@ enum ChannelUITestHook {
     /// exists so the *anchor* measurement can be taken across exactly one page insert.
     static var exposesLoadEarlier: Bool {
         ProcessInfo.processInfo.arguments.contains("-uiTestExposeLoadEarlier")
+    }
+
+    /// `-uiTestExposeScrollGeometry` publishes the post list's `contentOffset` / `contentSize` /
+    /// viewport / laid-out-and-visible row counts (T635-A, card t_7cb5dd3e).
+    ///
+    /// The defect this measures is a pane that reports `.loaded` with a non-empty window and paints no
+    /// row at all, which no existing element can distinguish from a pane whose rows are simply below the
+    /// fold. The seam is the difference: "a row exists somewhere" versus "a row is inside the viewport".
+    static var exposesScrollGeometry: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestExposeScrollGeometry")
     }
 }
 
