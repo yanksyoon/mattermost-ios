@@ -195,8 +195,9 @@ Raw logs: `build/logs/t95av2/*.log` in the run worktree (paths in the completion
 * `docs/t95a-av2-evidence-2026-10-28.log` — the instrumentation output behind §1 and the exact
   throwaway patch that produced it.
 
-No product file, no launch argument, no seam that opens a destination: `git diff origin/main --
-Mattermost/ MattermostTests/ Mattermost.xcodeproj/` is empty for this card.
+No product file, no launch argument, no seam that opens a destination: `git diff ecf4e7c..HEAD --
+Mattermost/ MattermostTests/ Mattermost.xcodeproj/ Project.swift` is empty for this card (measured;
+the three mutants were reverted before the commit, `git status` clean).
 
 ## 7. Verdict
 
