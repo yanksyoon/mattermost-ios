@@ -274,3 +274,38 @@ page inside the Catalyst window). Debug-only `-shellSnapshot` probe in `Mattermo
 (inert without the launch argument) provides headless render proof without Screen Recording TCC.
 The iOS regression suite (220 unit + 6 XCUITest) was re-run after these changes — see the T20 note
 and `docs/t20-full-suite-2026-10-23.log`.
+
+## QA notes — the XCUITest app-loss (T8d, 2026-10-28)
+
+The **"the app process vanished mid-batch"** class is closed as a diagnosis: it is a SIGSEGV in the
+**app under test**, at the moment the simulator's firehose layer quarantines the process for log
+volume, in XCTest's own `runtime_issue_os_log_fault_callback`
+(`_platform_strcmp` ← `runtime_issue_os_log_fault_callback` ←
+`__LIBTRACE_CLIENT_QUARANTINED_DUE_TO_HIGH_LOGGING_VOLUME__`). Stack, same-pid
+quarantine→SIGSEGV sequence (1.5 ms apart) and the reader commands: `docs/t8d-build-note.md` §1.
+
+* **It is not host contention, and not the harness killing a hung app** — the simulator's log has
+  **22 quarantine events for this app in six hours on one device** and every `SIGSEGV` exit is
+  attributed to `exc handler` in `launchd_sim`, with 0 SIGKILL and 0 jetsam in the windows QA
+  measured.
+* **It is not a VoiceOver-reachable crash**: the faulting frame is XCTest's callback, loaded into
+  the app only by the test daemon (`XCTTargetBootstrap … notify_get_state check indicated test
+  daemon not ready` — a normal launch never loads `XCTAutomationSupport`). All 17 archived SIGSEGV
+  reports have that framework loaded; no other crash class does.
+* **The trigger is the accessibility serialiser's log volume, not our logging.** One 8-test batch
+  produced **79.5 MB** of app log, 78 % of it `com.apple.dt.xctest` (XCTest's serialiser running
+  inside our process, ~6 KB per element per snapshot); our `Logger` was 0.03 %. The
+  `-uiTestLogLevel` seam therefore cannot move it, and the comment on it in `MattermostApp.swift`
+  now says so (it previously misidentified the victim as "the test process").
+* **Fixed here:** type-scoped XCUITest lookups in the hot waits (`ShellSettle.waitForSignedIn`,
+  `T95ShellLayout`'s 0.1 s launch-window sampler, `T39Search`/`T39Jump` field+submit), and four
+  decorative SF-Symbol `Image`s hidden from the accessibility tree on the pane/composer/post-row
+  paths. Batch A/B on `T95ShellLayout + T39Jump + T39Search`: **A** 8 run / 1 skipped / 1 failed
+  (the app-loss) with 1 quarantine and a 30.7 MB worst process → **B2** 8 run / 1 skipped / **0
+  failed**, 0 quarantine, 11.8 MB worst process, 52.6 MB total (−29 %).
+* **Not claimed:** that the class is gone. A whole-suite (121 UI test) run was not repeated; the
+  remaining volume is XCTest logging our ~250-element tree, and the next lever (combining list rows
+  into one element each) moves identifiers and is filed as `t_ce08486d` for the architect.
+* **Reporting gap:** a simulator `.ips` is written only sometimes (one at 03:27, none for the 05:30
+  quarantine). Record a run from `launchd_sim` exits + the `QUARANTINED DUE TO HIGH LOGGING VOLUME`
+  line (`simctl spawn <udid> log show`), not from the presence of a crash file.
