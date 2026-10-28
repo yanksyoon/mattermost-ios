@@ -138,6 +138,13 @@ cards' suites throughout (`uptime` load 12 – 273).
   covers the tab bar, so `Search` / `Saved` / `Recent mentions` are unreachable while a channel is
   open; upstream keeps the tab bar (its `TabView` is outside each tab's stack). The tests now pop
   back, which makes them honest but does not fix the UX. This card did not touch `Mattermost/`.
+* **F-2 (not carded; one occurrence, recorded)** In `t39r2-live-c` the app fell back to
+  `nativeAuthSurface` mid-test (empty login form, `Log In` disabled) after the shell had been reached,
+  which reded `testSearchRenders…`. No 401 appears in the server log for that window
+  (`docker logs --since`), the fixture account held 500 sessions with `SessionLimit` unset, and the
+  same test passes in the later runs. The sign-in path stores the token with `try?` in
+  `AuthCoordinator`, so a failed Keychain write would leave the app signed out with no error — a
+  candidate cause worth a dedicated card if it recurs.
 * The seed's default offset is the *host's*; if the runner's offset differs, pass
   `--tz-offset-seconds`. The test says so when the fixture does not separate.
 * `scripts/t39_offset_anchor_seed.py` needs a `system_admin` account (it is the same `perfprobe` the
