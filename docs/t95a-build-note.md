@@ -56,6 +56,15 @@ python3 scripts/qa-test.py --platform ios --sim id=81A7F251-8B31-4945-8783-5A264
 (`build/logs/t95a/t95a-uilayout-4.log`). The same test passed on its first attempt at 31.327 s
 (before the launch helper's "signed in" wait was widened, `build/logs/t95a/t95a-uilayout-2.log`).
 
+The run's three screenshots were exported from the `.xcresult`
+(`xcrun xcresulttool export attachments`) and inspected:
+
+| file (`build/logs/t95a/attachments-ui4/`) | what it shows |
+|---|---|
+| `t95a-1-launch-nothing-saved.png` | the channel list on the **Channels** tab, the five-tab bar (Channels / Threads / Search / Mentions / Saved) at the bottom, "Loading channels…" in the list, and **no** channel pane |
+| `t95a-2-channel-covers-the-bar.png` | `# Town Square` pushed full-height with a `Back` chevron in the navigation bar and **no** tab bar |
+| `t95a-3-back-restores-the-bar.png` | `Back` popped: the channel list with the tab bar (and no pane) |
+
 What it measures, in order:
 
 1. `-uiTestResetPersistedState` + seeded server + native surfaces, signed in through the native form:
