@@ -164,6 +164,15 @@ struct TeamIconButton: View {
         .buttonStyle(.plain)
         // The identifier carries the team id, so a test (or a future UI automation) can address one
         // team without depending on how many rows came before it.
+        // T8e: one rail icon = one element. The initials/uploaded icon and the badge were separate
+        // elements under this button; the representation keeps the id, the display name and the
+        // unread value and drops them (see `docs/t8e-a11y-tree-decision.md`).
+        .accessibilityRepresentation {
+            Button(entry.displayName, action: action)
+                .accessibilityIdentifier("teamSidebar.team.\(entry.id)")
+                .accessibilityValue(accessibilityValue)
+                .accessibilityAddTraits(entry.isSelected ? [.isSelected] : [])
+        }
         .accessibilityIdentifier("teamSidebar.team.\(entry.id)")
         .accessibilityLabel(entry.displayName)
         .accessibilityValue(accessibilityValue)
