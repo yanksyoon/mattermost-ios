@@ -1,0 +1,267 @@
+T95-A-AV-R follow-up (card t_fcbd5cc8) — evidence, 2026-10-28
+
+Everything below is raw output. The instrumentation (§C, §D) was a throwaway probe writing to the
+app's own tmp (`NSTemporaryDirectory() + "t95gone-probe.log"`), reverted before any commit
+(`git checkout -- Mattermost/`); nothing here is part of the delivered tree.
+
+How the probe was produced (throwaway, NOT part of the deliverable) — appended to
+Mattermost/UI/Native/Sidebar/ChannelSidebarCoordinator.swift:
+
+  /// THROWAWAY: append a line to a file the host can read. The app's OWN tmp, not /tmp: an iOS
+  /// simulator app cannot write /tmp (see §G).
+  func t95probeFile(_ line: String) {
+      let path = NSTemporaryDirectory() + "t95gone-probe.log"
+      let stamped = String(format: "%.3f ", Date().timeIntervalSince1970) + line
+      guard let data = (stamped + "\n").data(using: .utf8) else { return }
+      if let handle = FileHandle(forWritingAtPath: path) {
+          handle.seekToEndOfFile(); handle.write(data); handle.closeFile()
+      } else {
+          try? data.write(to: URL(fileURLWithPath: path))
+      }
+  }
+
+  // in model(for:)'s `$groups` sink:
+  t95probeFile("T95PROBE sink groups=\(groups.count) modelGroups=\(model.groups.count) saved=\(…)")
+  // before each of the three decide call sites (activate, the location-change defer, the sink):
+  t95probeFile("T95PROBE site=activate")   // …site=locationDefer…
+  // in applyLaunchDestinationIfNeeded, at entry and at every guard/exit:
+  t95probeFile("T95PROBE decide enter opensDest=… modelTeam=… groups=… phase=… saved=…")
+  t95probeFile("T95PROBE decide STOP noTeam" / "STOP otherServer" / "STOP opensDest")
+  t95probeFile("T95PROBE decide STOP noRequest entries=… saved=… decision=…")
+  t95probeFile("T95PROBE decide OPEN entries=… saved=… decision=…")
+  // in apply(_ location:), first statement:
+  t95probeFile("T95PROBE apply loc channel=… team=… pane=… opensDest=…")
+
+Read from the host at:
+  xcrun simctl get_app_container 614CEE50-8613-434D-BFBB-8F3B858F4B9A com.mattermost.ios data
+  → <container>/tmp/t95gone-probe.log
+
+--------------------------------------------------------------------------------
+§A  Fixture, server 9.11.19 at 127.0.0.1:8065 (team perf, account perfprobe)
+--------------------------------------------------------------------------------
+
+A channel the account leaves disappears from the account's channel list (the source of the sidebar's
+`available` set), and the server still answers 200 for it because perfprobe is a system admin:
+
+  login 200 token-header= True
+  user perfprobe jruqqzxtobg7tn4wehwmwjjo5c
+  team perf ocz148uck3r88dcjikj497bosh
+  create 201 fqmhi8fckjbnpgyzmndq869w7y t95gone-1793173838 O
+  member-before 200 channel_user channel_admin
+  joined-before contains probe: True | joined count 42
+  leave 200 b'{"status":"OK"}'
+  joined-after contains probe: False | joined count 41
+  get-after-leave 200 b'{"id":"fqmhi8fckjbnpgyzmndq869w7y",…
+  posts-after-leave 200 b'{"order":[…
+
+Same for a PRIVATE channel (opsbot left in it so the channel survives the leave), and for an ARCHIVED
+one — the reader is a system admin, so neither 403s:
+
+  create 201 gb16d7eynfrwxmkbasto1umqcr      (private)
+  add-bot 201
+  leave 200
+  joined-list has probe: False
+  get-as-nonmember 200
+  posts-as-nonmember 200
+
+  create 201 9s5mnnnxiigi8r4454sugdi16y      (public, then archived)
+  archive 200
+  get-as-admin 200
+  get-as-bot 200
+  posts-as-admin 200
+  joined-list has probe: False
+
+So the "pane shows an error instead of a conversation" half of the card's premise is NOT reproducible
+on this fixture (build note §4): the pane renders the left channel normally, system posts included.
+
+--------------------------------------------------------------------------------
+§B  The store the relaunch reads (host-side read of the simulator container)
+--------------------------------------------------------------------------------
+
+  container: …/data/Containers/Data/Application/EC2AA1C6-65A6-42B3-B757-44C25E617C5E
+  mm.native.lastChannel = {"teamID": "ocz148uck3r88dcjikj497bosh", "openedAt": 814869673.021657,
+                           "channelName": "t95gone-1793176842",
+                           "serverID": "7C2D4C9E-C62F-4663-A2CC-0B3C3DBB8FB7",
+                           "channelID": "dqjbyw37ftfi3ehsdi3mentxso"}
+  mm.servers.active = "7C2D4C9E-C62F-4663-A2CC-0B3C3DBB8FB7"
+  mm.servers = [{"hasSession": false, "order": 0, "lastActiveAt": 814869673.012894,
+                 "name": "Local Mattermost", "id": "7C2D4C9E-C62F-4663-A2CC-0B3C3DBB8FB7",
+                 "url": "http://127.0.0.1:8065"}]
+
+`channelID` dqjbyw37… is the channel §A's flow left; it is not in the account's list any more.
+
+--------------------------------------------------------------------------------
+§C  PRODUCT TREE — instrumented relaunch (run t95gone-probe-7-trace), verbatim
+--------------------------------------------------------------------------------
+
+The block from the first `apply` after the relaunch to the last decide (device clock,
+`Date().timeIntervalSince1970`). `saved=5ysx77f4c3radmoyirb6b5ii7e` is the channel the account left.
+
+  1793175842.923 T95PROBE apply loc channel=- team=- pane=channel opensDest=false
+  1793175842.924 T95PROBE site=locationDefer
+  1793175842.928 T95PROBE decide enter opensDest=false modelTeam=nil groups=0 phase=idle saved=5ysx77f4c3radmoyirb6b5ii7e
+  1793175842.928 T95PROBE decide STOP noTeam
+  1793175842.928 T95PROBE apply loc channel=- team=- pane=channel opensDest=false
+  1793175842.928 T95PROBE site=locationDefer
+  1793175842.928 T95PROBE decide enter opensDest=false modelTeam=nil groups=0 phase=idle saved=5ysx77f4c3radmoyirb6b5ii7e
+  1793175842.928 T95PROBE decide STOP noTeam
+  1793175842.953 T95PROBE site=activate
+  1793175842.954 T95PROBE decide enter opensDest=false modelTeam=nil groups=0 phase=idle saved=5ysx77f4c3radmoyirb6b5ii7e
+  1793175842.954 T95PROBE decide STOP noTeam
+  1793175843.210 T95PROBE site=activate
+  1793175843.210 T95PROBE decide enter opensDest=false modelTeam=nil groups=0 phase=idle saved=5ysx77f4c3radmoyirb6b5ii7e
+  1793175843.210 T95PROBE decide STOP noTeam
+  1793175843.252 T95PROBE apply loc channel=- team=xs9sxp6s8pysmnrakx31godyye pane=channel opensDest=false
+  1793175843.252 T95PROBE site=locationDefer
+  1793175843.253 T95PROBE decide enter opensDest=false modelTeam=xs9sxp6s8pysmnrakx31godyye groups=0 phase=idle saved=5ysx77f4c3radmoyirb6b5ii7e
+  1793175843.254 T95PROBE apply loc channel=5ysx77f4c3radmoyirb6b5ii7e team=ocz148uck3r88dcjikj497bosh pane=channel opensDest=true
+  1793175843.261 T95PROBE decide OPEN entries=0 saved=5ysx77f4c3radmoyirb6b5ii7e decision=entries=0 saved=5ysx77f4c3radmoyirb6b5ii7e -> opened(Mattermost.NativeLocation(serverID: Optional(2595…
+  1793175843.589 T95PROBE sink groups=2 modelGroups=0 saved=5ysx77f4c3radmoyirb6b5ii7e
+  1793175843.595 T95PROBE decide enter opensDest=false modelTeam=ocz148uck3r88dcjikj497bosh groups=0 phase=loaded saved=5ysx77f4c3radmoyirb6b5ii7e
+  1793175843.607 T95PROBE apply loc channel=5ysx77f4c3radmoyirb6b5ii7e team=ocz148uck3r88dcjikj497bosh pane=channel opensDest=true
+  1793175843.617 T95PROBE decide OPEN entries=0 saved=5ysx77f4c3radmoyirb6b5ii7e decision=entries=0 saved=5ysx77f4c3radmoyirb6b5ii7e -> opened(Mattermost.NativeLocation(serverID: Optional(2595…
+
+Reading:
+* `site=locationDefer` at .253 had `groups=0` (the directory had not arrived) and opened the saved
+  channel at .254/.261 — this is the empty-`available` trust, not the willSet read;
+* `.589 sink groups=2 modelGroups=0` is the willSet read: the publisher delivers 2 groups while the
+  model still holds 0;
+* its decide ran at .595 with `groups=0` and opened the same saved channel **again** at .607/.617;
+* between .261 (first open, `opensDest=true`) and .595 the location is already `opensDest=false` —
+  the first open did not stick.
+
+The test-side trace of the same launch (`MEASURE trace`, from the run log):
+
+  1793175844.683 MEASURE trace t=0.01 pane=true title='T95 Gone Probe' tabs=0 rows=true shell=false signIn=false
+  1793175845.290 MEASURE trace t=0.96 pane=true title='T95 Gone Probe' tabs=0 rows=false shell=false signIn=false
+  …
+  1793175874.408 MEASURE landing=pane directory rows at 0.01 s after launch; window=30.0s from the directory
+  1793175874.429 MEASURE paneAt=0.01 s after launch title='T95 Gone Probe' tabBarsNow=0
+
+--------------------------------------------------------------------------------
+§D  MUTANT M1 — the sink passes the arriving groups (throwaway), verbatim
+--------------------------------------------------------------------------------
+
+M1 diff (reverted): in `model(for:)`'s sink,
+  self.applyLaunchDestinationIfNeeded(for: server, model: model,
+                                      arrivingEntries: groups.flatMap(\.entries))
+and in the decide, `let entries = arrivingEntries ?? model.groups.flatMap(\.entries)`. Nothing else.
+
+Relaunch block of run `t95gone-mutant-sink-3-trace` (`saved=cwyytjjnhpyjueku95hwni6saa`, left):
+
+  1793176016.346 T95PROBE apply loc channel=- team=- pane=channel opensDest=false
+  1793176016.347 T95PROBE site=locationDefer
+  1793176016.351 T95PROBE decide enter opensDest=false modelTeam=nil groups=0 phase=idle saved=cwyytjjnhpyjueku95hwni6saa
+  1793176016.351 T95PROBE decide STOP noTeam
+  1793176016.351 T95PROBE apply loc channel=- team=- pane=channel opensDest=false
+  1793176016.351 T95PROBE site=locationDefer
+  1793176016.352 T95PROBE decide enter opensDest=false modelTeam=nil groups=0 phase=idle saved=cwyytjjnhpyjueku95hwni6saa
+  1793176016.352 T95PROBE decide STOP noTeam
+  1793176016.362 T95PROBE site=activate
+  1793176016.362 T95PROBE decide enter opensDest=false modelTeam=nil groups=0 phase=idle saved=cwyytjjnhpyjueku95hwni6saa
+  1793176016.363 T95PROBE decide STOP noTeam
+  1793176016.474 T95PROBE site=activate
+  1793176016.474 T95PROBE decide enter opensDest=false modelTeam=nil groups=0 phase=idle saved=cwyytjjnhpyjueku95hwni6saa
+  1793176016.474 T95PROBE decide STOP noTeam
+  1793176016.521 T95PROBE apply loc channel=- team=xs9sxp6s8pysmnrakx31godyye pane=channel opensDest=false
+  1793176016.521 T95PROBE site=locationDefer
+  1793176016.521 T95PROBE decide enter opensDest=false modelTeam=xs9sxp6s8pysmnrakx31godyye groups=0 phase=idle saved=cwyytjjnhpyjueku95hwni6saa
+  1793176016.522 T95PROBE apply loc channel=cwyytjjnhpyjueku95hwni6saa team=ocz148uck3r88dcjikj497bosh pane=channel opensDest=true
+  1793176016.528 T95PROBE decide OPEN entries=0 saved=cwyytjjnhpyjueku95hwni6saa decision=entries=0 saved=cwyytjjnhpyjueku95hwni6saa -> opened(Mattermost.NativeLocation(serverID: Optional(A0B7…
+  1793176016.682 T95PROBE sink groups=2 modelGroups=0 saved=cwyytjjnhpyjueku95hwni6saa
+  1793176016.682 T95PROBE decide enter opensDest=false modelTeam=ocz148uck3r88dcjikj497bosh groups=0 phase=loaded saved=cwyytjjnhpyjueku95hwni6saa
+  1793176016.683 T95PROBE decide STOP noRequest entries=42 saved=cwyytjjnhpyjueku95hwni6saa decision=entries=42 saved=cwyytjjnhpyjueku95hwni6saa -> none
+
+Reading: the location-change decide **still opens** the gone channel (`decide OPEN entries=0`), but the
+sink's decide — now reading the arriving value — refuses (`entries=42 … -> none`), and nothing appears
+on screen:
+
+  1793176018.375 MEASURE trace t=0.02 pane=false title='-' tabs=-1 rows=true shell=true signIn=false
+  1793176048.297 MEASURE landing=shell directory rows at 0.02 s after launch; window=30.0s from the directory
+  1793176048.363 MEASURE paneAt=nil s after launch title='-' tabBarsNow=1
+  1793176049.069 MEASURE end state title='-' pane=false
+
+Runs: mutant-sink-1, -2 (pre-trace harness) and -3 (traced) all ended `RESULT: PASS` with
+`paneAt=nil`, `tabBars=1`; product-tree runs probe-2/3/4/7 all ended RED with a pane titled with the
+left channel and `tabBars=0`.
+
+--------------------------------------------------------------------------------
+§E  CLEAN BUILD, no instrumentation — `-shellSnapshot` diagnostics (simctl launch)
+--------------------------------------------------------------------------------
+
+Store intact (dqjbyw37… left, §B), installed clean build, launched by hand so the container path is
+current:
+
+  xcrun simctl launch --terminate-running-process 614CEE50-8613-434D-BFBB-8F3B858F4B9A \
+    com.mattermost.ios -surfaceMode shell=native -surfaceMode auth=native \
+    -surfaceMode sidebar=native -AppleLanguages "(en)" -AppleLocale en_US \
+    -shellSnapshot <container>/tmp/t95gone-snap
+
+`<container>/tmp/t95gone-snap.txt` (verbatim, 80 s later):
+
+  url=nil (no committed webview: the pane is native)
+  debugAffordances=true
+  arguments=…/Mattermost.app/Mattermost -surfaceMode shell=native -surfaceMode auth=native -surfaceMode sidebar=native -AppleLanguages (en) -AppleLocale en_US -shellSnapshot …/t95gone-snap
+  location=NativeLocation(serverID: Optional(7C2D4C9E-C62F-4663-A2CC-0B3C3DBB8FB7), serverName: Optional("Local Mattermost"), teamID: Optional("ocz148uck3r88dcjikj497bosh"), teamName: Optional("perf"), channelID: Optional("dqjbyw37ftfi3ehsdi3mentxso"), channelName: Optional("t95gone-1793176842"), postID: nil, pane: Mattermost.NativePane.channel)
+  surfaces=auth:native,sidebar:native,channelView:native,composer:web,threads:web,search:web,profile:web,activity:web,settings:web,channelInfo:web,calls:native,plugins:web
+  sidebar=team=ocz148uck3r88dcjikj497bosh phase=loaded stage=loaded 0 groups service=labels ok (4) groups=2 channels=42 err=- launch=entries=0 saved=dqjbyw37ftfi3ehsdi3mentxso -> opened(Mattermost.NativeLocation(serverID: Optional(7C2D4C9E-C62F-4663-A2CC-0B3C3DBB8FB7), serverName: Optional("Local Mattermost"), teamID: Optional("ocz148uck3r88dcjikj497bosh"), teamName: Optional("perf"), channelID: Optional("dqjbyw37ftfi3ehsdi3mentxso"), channelName: Optional("t95gone-1793176842"), postID: nil, pane: Mattermost.NativePane.channel))
+  auth=Local Mattermost:signedIn(username: "perfprobe", userID: "jruqqzxtobg7tn4wehwmwjjo5c"):token=true
+
+`<container>/tmp/t95gone-snap.late.txt` (the second, post-settle write) carries the same `location=`
+and `sidebar=… launch=entries=0 saved=dqjbyw37… -> opened(…)` lines.
+`<container>/tmp/t95gone-snap.window.png` is kept in the card's artifacts: it shows the pushed pane
+(`# T95 Gone Probe`, a Back chevron, no tab bar) with `perfprobe joined the channel.` /
+`@perfprobe left the channel.` in the post list.
+
+--------------------------------------------------------------------------------
+§F  CLEAN build through the test — run t95gone-clean-4-snapshot, verbatim
+--------------------------------------------------------------------------------
+
+  Executed 1 test, with 0 failures (0 unexpected) in 103.148 (103.151) seconds
+  XCTExpectFailure: matcher accepted Assertion Failure at T95GoneChannelLaunchUITests.swift:299: XCTAssertNil failed: "0.011780023574829102" - the shell opened a channel pane 0.01 s after the relaunch, on a launch whose saved channel #t95gone-1793176842 the account had already left (stillJoined=false). title='T95 Gone Probe' tabBars=0. A saved channel that is gone must open nothing: `LaunchDestination.request` only refuses it when `available` is loaded, and the launch decides run before (and, through the `$groups` willSet read, during) the directory's arrival.
+  XCTExpectFailure: matcher accepted Assertion Failure at T95GoneChannelLaunchUITests.swift:308: XCTAssertFalse failed - the pane at launch names the channel the account has left (#t95gone-1793176842); the reader was sent back into a conversation they are no longer a member of
+  XCTExpectFailure: matcher accepted Assertion Failure at T95GoneChannelLaunchUITests.swift:312: XCTAssertGreaterThan failed: ("0") is not greater than ("0") - a launch that lands on the channel list keeps its tab bar (D1); 0 bar(s) with no channel open means the shell lost its tabs
+
+  Reason: (Known defect (card t_fcbd5cc8, measured 2026-10-28): a relaunch whose saved channel the account has already left opens that channel's pane instead of the channel list. …)
+
+Store read back after this run (host, §B flow) showed `mm.native.lastChannel` still naming the left
+channel — the relaunch re-saved what it had just opened.
+
+--------------------------------------------------------------------------------
+§G  What is NOT evidence here, and the harness iterations that produced it
+--------------------------------------------------------------------------------
+
+* `t95gone-probe-1` — setup failure, kept because it is a fact about the fixture:
+  `…:116: XCTAssertTrue failed - the freshly created channel must be a row of the sidebar …`
+  after 25 swipes. The sidebar renders only the rows in view on a 42-channel team; 15
+  `channelSidebar.channel.*` identifiers were in the dump, the probe channel's was not. The test now
+  opens through `channelSidebar.quickSwitcher` (the reader's own path to an off-screen channel).
+* `t95gone-probe-5-trace` — not evidence: the first sample ran before the relaunch handshake settled
+  and read the *terminating* process's last frame:
+    t = 23.56s     Launch com.mattermost.ios
+    1793175344.xx  MEASURE trace t=0.01 pane=true title='T95 Gone Probe' …   ← the OLD process
+    error: … Failed to get matching snapshots: Application com.mattermost.ios is not running
+  The test now waits for the old launch to be `.notRunning` and for the new one to be
+  `.runningForeground` before its clock starts; no crash report exists for the app on this host, so
+  this was a handshake, not a crash.
+* `t95gone-probe-6-trace` / `t95gone-clean-2-snapshot` — not evidence: the sampling window was keyed on
+  the channel directory alone, the pane covers the sidebar so no row ever appeared, the loop ran to its
+  240 s ceiling and the app process vanished 131 s in (the T635 symptom on this host):
+    error: … the app process died 131.3 s into the relaunch measurement (the known T635 symptom on this
+    host: the process vanishes under accessibility snapshotting), so this run measured nothing.
+  Trace: t=0.01 pane=true title='T95 Gone Probe' tabs=0 rows=false shell=false signIn=false |
+         t=122.64 pane=false title='-' tabs=-1 rows=false shell=false signIn=false
+  The window now starts at the directory *or* at the landing, whichever is first, and is bounded.
+* `t95gone-clean-1` — registered only the FIRST of the three observations: a matched expected failure
+  still stops a test whose `continueAfterFailure` is false. The measurement block raises it.
+* `t95gone-clean-3-snapshot` — `XCTAssertNotNil(rowsAt)` refused the reproducing case (a pane covering
+  the sidebar hides every row), i.e. the assertion would have made the test unable to measure the bug.
+* `/tmp` is not writable from an iOS simulator app on this runtime: the parent card's
+  `/tmp/t95probe-*.log` scheme leaves no file anywhere (searched the whole device dir and the app
+  container). The probe here writes to `NSTemporaryDirectory()`.
+* `-shellSnapshot` needs a path inside the app's own container, and the container UUID changes on every
+  reinstall `xcodebuild` performs (measured: 00FF127D… → 3238125A… → C68D7419… → 5301D261… →
+  C9C70DC3… → 662E185F… → E9414614… → 22CAF64F… → EC2AA1C6…). A path resolved before the run is stale
+  by the time the app starts, which is why §E is a `simctl launch` rather than an XCTest relaunch.
+* No APNs, no real device, no non-admin account, no iPad/regular layout: §4 of the build note lists
+  what remains unvalidated.
