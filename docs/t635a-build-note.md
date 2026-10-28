@@ -72,16 +72,26 @@ New files (nothing in `MattermostUITests/T37-ReactionsUITests.swift`, which `t_1
 | `MattermostTests/T635ScrollGeometryTests.swift` | the five readings above, pinned as unit tests (the void, the sliver, the placed pane, an offset past the end, a detached list) |
 
 **Red on the old product code** (worktree `wt-instr` = `ecf4e7c` + the instrumentation only, no fix):
-`testARestoredChannelPaneShowsItsNewestRow` failed after 69 s with
+`testARestoredChannelPaneShowsItsNewestRow` failed after 67.6 s with three failures, all of them the
+product's:
 
 ```
-a restored channel pane must paint at least one post row within 45 s (defect t_7cb5dd3e: the pane
-painted none for 85 s). Last geometry: items=62 rows=0 visible=0 offset=0.0 size=0.0 viewport=0.0
-lowestRow=… fromBottom=0.0 top=none
-at least one laid-out row must intersect the viewport: items=62 rows=0 visible=0 …
+…:91: error: a restored channel pane must paint at least one post row within 45 s (defect t_7cb5dd3e:
+                 the pane painted none for 85 s). Last geometry: items=62 rows=0 visible=0 offset=0.0
+                 size=0.0 viewport=0.0 lowestRow=-inf fromBottom=0.0 top=none
+…:105: error: at least one laid-out row must intersect the viewport: items=62 rows=0 visible=0
+                 offset=0.0 size=0.0 viewport=0.0 lowestRow=-inf fromBottom=0.0 top=none
+…:107: error: the pane must open on its newest row — the lowest row must reach the viewport's bottom edge:
+                 items=62 rows=0 visible=0 offset=0.0 size=0.0 viewport=0.0 …
 ```
 
-**Green on this tree**: `Executed 2 tests, with 0 failures` (22.5 s and 29.2 s).
+`items=62, rows=0, size=0, viewport=0` is the whole defect in one line: 62 posts in the model, no
+`UIScrollView` attached to the controller, nothing laid out, for as long as the test waited.
+
+**Green on this tree**: `Executed 2 tests, with 0 failures` — `testARestoredChannelPaneShowsItsNewestRow`
+28.2 s, `testReopeningTheChannelFromTheSidebarPaintsTheTimeline` 29.5 s (full class run, same build).
+The unit bundle on the same commit is `Executed 1730 tests, with 8 tests skipped and 0 failures`
+(`MattermostTests`, 36.7 s), which includes the five new `T635ScrollGeometryTests`.
 
 ## Criterion 3 — the `simctl`-only re-verification (no XCTest)
 
@@ -92,6 +102,12 @@ out of the container):
 ```
 bash scripts/t635a-restore-verify.sh …/dd-probe/Build/Products/Debug-iphonesimulator/Mattermost.app 5 12
 ```
+
+The state under test is a **restore**, not a fresh open: the device's plist holds
+`mm.native.lastChannel = {channelID: psw97y5zqpfnpembwxraizuije, channelName: t36-threads, team perf}`,
+no launch passes `-uiTestResetPersistedState`, the pane comes up pushed (a `Back` chevron, no sidebar), and
+the *same* procedure on the base build reproduces the card's blank pane — which a sidebar open does not
+(§Criterion 4).
 
 | launch | reading at 12 s (last sample of the launch's slice) | rows on screen | a row at the bottom edge |
 |---|---|---|---|
@@ -154,8 +170,8 @@ restore) was inoperative there too — the same defect, one tap away from the ca
   (`~/Library/Logs/DiagnosticReports/Mattermost-2026-10-28-032731.ips`, `EXC_BAD_ACCESS` /
   `KERN_INVALID_ADDRESS at 0x0`, faulting frames
   `-[XCElementSnapshot _fetchSimpleValueForKey:]` → `_os_log_fault_impl` → `_platform_strcmp`), i.e. the
-  same stack QA filed. It fired once across 6 UI-test runs and did not affect any result below — every
-  run reported its own verdict. Nothing in this change touches it.
+  same stack QA filed. It fired once across the UI-test runs in this session and did not affect any
+  verdict below — every run reported its own pass/fail. Nothing in this change touches it.
 * The 85 s blank pane is *not* re-measured on the old tree with the fix removed: the old tree cannot be
   measured by construction (the resolver never attaches, which is the defect). The old tree's evidence
   is the seam's own `attached=false, size=0, viewport=0` line, which is exactly that limitation.
