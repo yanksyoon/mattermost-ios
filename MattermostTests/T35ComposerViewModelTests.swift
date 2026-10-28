@@ -240,6 +240,12 @@ final class T35ComposerViewModelTests: XCTestCase {
                message: message)
     }
 
+    /// Let the model's fire-and-forget tasks run — the success path's draft delete is one, and a
+    /// test that asserts "no delete happened" has to give a wrong one the chance to happen.
+    private func drainMainActorTurns(_ rounds: Int = 50) async {
+        for _ in 0..<rounds { await Task.yield() }
+    }
+
     // MARK: - 1. Send, optimistically
 
     func testSendInsertsAPendingRowThenReplacesItWithTheServersPost() async {
@@ -456,7 +462,7 @@ final class T35ComposerViewModelTests: XCTestCase {
         post.fileIds = ["f1", "f2"]
         service.patchResults = [.success(serverPost(id: "p1", message: "after"))]
 
-        model.beginEditing(post)
+        await model.beginEditing(post)
         XCTAssertEqual(model.mode, .editing(postID: "p1"))
         XCTAssertEqual(model.text, "before")
         XCTAssertEqual(model.caret, 6)
@@ -476,13 +482,153 @@ final class T35ComposerViewModelTests: XCTestCase {
 
     func testAFailedEditKeepsTheEditedText() async {
         service.patchResults = [.failure(MMError.timeout)]
-        model.beginEditing(serverPost(id: "p1", message: "before"))
+        await model.beginEditing(serverPost(id: "p1", message: "before"))
         model.textChanged("after", caret: 5)
         await model.send()
         XCTAssertEqual(model.text, "after")
         XCTAssertTrue(model.canSend, "a failed edit must be retryable without retyping")
         XCTAssertEqual(model.mode, .editing(postID: "p1"))
         guard case .failed = model.phase else { return XCTFail("expected a failure phase") }
+    }
+
+    // MARK: - Edit mode owns no draft (kanban t_50a0f378)
+    //
+    // `draftRootID` used to be `mode.rootID`, which is `""` for `.editing` — and `""` is the
+    // **channel's** own draft row. So the edit box was silently reading, overwriting and deleting a
+    // half-written channel message. The falsifier the card names has two halves and both are below:
+    // typing in an edit must leave the channel's draft alone (and Cancel must restore it), and a
+    // landed edit must not delete it.
+
+    /// What makes the rest of this section structural rather than defensive: the edit box addresses
+    /// no row at all, and every mode that owns one still says which.
+    func testAnEditHasNoDraftKeyAtAll() async {
+        XCTAssertEqual(model.draftRootID, "", "a channel composer owns the channel's own row")
+        model.beginReply(to: serverPost(id: "root-1", message: "root"), authorLabel: "Ada")
+        XCTAssertEqual(model.draftRootID, "root-1")
+        await model.beginEditing(serverPost(id: "p1", message: "before"))
+        XCTAssertNil(model.draftRootID, "an edit has no draft: the post itself is the record")
+        await model.cancelMode()
+        XCTAssertEqual(model.draftRootID, "", "and leaving it goes back to the channel's row")
+
+        let (threadComposer, _) = makeThreadComposer()
+        await threadComposer.beginEditing(serverPost(id: "r1", message: "before", rootID: "root-1"))
+        XCTAssertNil(threadComposer.draftRootID, "a thread's edit box owns no row either")
+    }
+
+    /// Falsifier, half one — the write path. A reader with a half-written channel message who edits
+    /// any post used to lose it on the first keystroke in the edit box.
+    func testTypingInAnEditNeverTouchesTheChannelsDraftRow() async {
+        model.textChanged("half a thought", caret: 14)
+        await model.saveDraftNow()
+
+        await model.beginEditing(serverPost(id: "p1", message: "the post being edited"))
+        model.textChanged("the post being edited — now changed", caret: 35)
+        await model.saveDraftNow()          // what backgrounding does
+        await drainMainActorTurns()
+
+        let written = drafts.writeSignal.recorded.compactMap { $0 }
+        XCTAssertTrue(written.filter { $0.message.contains("changed") }.isEmpty,
+                      "an edit must not write the post's text into a draft row at all")
+        let channelDraft = await drafts.load(channelID: channelID, rootID: "")
+        XCTAssertEqual(channelDraft?.message, "half a thought",
+                       "the channel's unsent message is exactly what it was")
+    }
+
+    /// Falsifier, half one — end to end, and the form the card asks for: seed the draft, edit, type,
+    /// cancel, **reopen the channel**. The composer must show the original draft and never the text
+    /// of the post that was being edited.
+    func testCancellingAnEditRestoresTheChannelsOwnDraft() async {
+        model.textChanged("half a thought", caret: 14)
+        await model.beginEditing(serverPost(id: "p1", message: "the post being edited"))
+        model.textChanged("the post being edited, cut short", caret: 30)
+        await model.cancelMode()
+
+        XCTAssertEqual(model.mode, .newPost)
+        XCTAssertEqual(model.text, "half a thought", "Cancel returns to the channel's draft")
+        XCTAssertEqual(model.caret, 14)
+
+        // "Reopen the channel": a brand-new composer over the same store.
+        let reopened = ComposerViewModel(channelID: channelID, service: service, drafts: drafts,
+                                         sink: RecordingSink(), autocompleteDebounce: .zero)
+        await reopened.restoreDraftIfNeeded()
+        XCTAssertEqual(reopened.text, "half a thought")
+    }
+
+    /// The read path: the view's `.task` can land after edit mode was entered, and it must not put
+    /// the channel's half-written message into the box that holds the post being edited.
+    func testRestoringADraftNeverFillsTheEditBox() async {
+        model.textChanged("half a thought", caret: 14)
+        await model.saveDraftNow()
+
+        await model.beginEditing(serverPost(id: "p1", message: "the post being edited"))
+        await model.restoreDraftIfNeeded()
+        XCTAssertEqual(model.text, "the post being edited")
+    }
+
+    /// Falsifier, half two — the delete path. A landed edit used to resolve `draftRoot == ""` and
+    /// delete the channel's row with it.
+    func testASuccessfulEditKeepsTheChannelsDraftRow() async {
+        service.patchResults = [.success(serverPost(id: "p1", message: "after"))]
+        model.textChanged("half a thought", caret: 14)
+        await model.saveDraftNow()
+
+        await model.beginEditing(serverPost(id: "p1", message: "before"))
+        model.textChanged("after", caret: 5)
+        await model.send()
+        await drainMainActorTurns()         // the success path's delete is fire-and-forget
+
+        XCTAssertEqual(service.patchedIDs.count, 1)
+        let channelDraft = await drafts.load(channelID: channelID, rootID: "")
+        XCTAssertEqual(channelDraft?.message, "half a thought",
+                       "sending an edit must not delete the channel's unsent message")
+    }
+
+    /// The flush `beginEditing` owes the mode it is leaving: text typed a moment ago may still be
+    /// sitting in the write pipeline when the edit starts, and after the switch it has no key to be
+    /// written under. (Before this card that queued write clobbered the row instead of being
+    /// dropped — both are data loss.)
+    func testBeginEditingFlushesAChannelDraftThatWasStillQueued() async {
+        model.textChanged("typed and not yet written", caret: 26)
+        await model.beginEditing(serverPost(id: "p1", message: "before"))
+        let channelDraft = await drafts.load(channelID: channelID, rootID: "")
+        XCTAssertEqual(channelDraft?.message, "typed and not yet written")
+    }
+
+    /// The same two paths in a thread pane, which is how the defect surfaced: the thread composer
+    /// survives edit mode there (t_56159748), so its edit box could reach the contaminated key.
+    func testATypedThreadDraftSurvivesAnEditInTheThreadPane() async {
+        let (threadComposer, _) = makeThreadComposer()
+        threadComposer.textChanged("thread thought", caret: 13)
+        await threadComposer.saveDraftNow()
+
+        await threadComposer.beginEditing(serverPost(id: "r1", message: "before",
+                                                     rootID: "root-1"))
+        threadComposer.textChanged("before, changed", caret: 15)
+        await threadComposer.cancelMode()
+        await drainMainActorTurns()
+
+        let threadDraft = await drafts.load(channelID: channelID, rootID: "root-1")
+        let channelRow = await drafts.load(channelID: channelID, rootID: "")
+        XCTAssertEqual(threadDraft?.message, "thread thought")
+        XCTAssertEqual(threadComposer.text, "thread thought",
+                       "Cancel lands back on the thread's own draft")
+        XCTAssertNil(channelRow, "and never on a channel row")
+    }
+
+    func testASuccessfulEditInAThreadKeepsTheThreadsDraftRow() async {
+        let (threadComposer, _) = makeThreadComposer()
+        service.patchResults = [.success(serverPost(id: "r1", message: "after", rootID: "root-1"))]
+        threadComposer.textChanged("thread thought", caret: 13)
+        await threadComposer.saveDraftNow()
+
+        await threadComposer.beginEditing(serverPost(id: "r1", message: "before",
+                                                     rootID: "root-1"))
+        threadComposer.textChanged("after", caret: 5)
+        await threadComposer.send()
+        await drainMainActorTurns()
+
+        let threadDraft = await drafts.load(channelID: channelID, rootID: "root-1")
+        XCTAssertEqual(threadDraft?.message, "thread thought")
     }
 
     func testDeletingAsksTheListToTombstoneTheRow() async {
@@ -639,7 +785,7 @@ final class T35ComposerViewModelTests: XCTestCase {
         let (threadComposer, _) = makeThreadComposer()
         service.patchResults = [.success(serverPost(id: "r1", message: "after", rootID: "root-1"))]
 
-        threadComposer.beginEditing(serverPost(id: "r1", message: "before", rootID: "root-1"))
+        await threadComposer.beginEditing(serverPost(id: "r1", message: "before", rootID: "root-1"))
         XCTAssertEqual(threadComposer.mode, .editing(postID: "r1"))
         threadComposer.textChanged("after", caret: 5)
         await threadComposer.send()
@@ -653,8 +799,8 @@ final class T35ComposerViewModelTests: XCTestCase {
     /// draft, so the post's words do not reappear in the channel's composer.
     func testCancellingAnEditInAThreadReturnsToTheThreadsReplyMode() async {
         let (threadComposer, _) = makeThreadComposer()
-        threadComposer.beginEditing(serverPost(id: "r1", message: "someone's words",
-                                              rootID: "root-1"))
+        await threadComposer.beginEditing(serverPost(id: "r1", message: "someone's words",
+                                                    rootID: "root-1"))
         await threadComposer.cancelMode()
 
         XCTAssertEqual(threadComposer.mode, .reply(rootID: "root-1"))

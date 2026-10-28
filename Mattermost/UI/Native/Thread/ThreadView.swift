@@ -200,7 +200,7 @@ struct ThreadPaneContent: View {
                                       composer?.beginReply(to: target.root,
                                                            authorLabel: target.authorLabel)
                                   },
-                                  onEdit: { composer?.beginEditing(row.post) },
+                                  onEdit: { Task { await composer?.beginEditing(row.post) } },
                                   onDelete: {
                                       guard let composer else { return }
                                       Task { await composer.delete(postID: row.post.id) }
