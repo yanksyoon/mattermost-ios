@@ -604,6 +604,9 @@ final class T35ComposerViewModelTests: XCTestCase {
         await threadComposer.beginEditing(serverPost(id: "r1", message: "before",
                                                      rootID: "root-1"))
         threadComposer.textChanged("before, changed", caret: 15)
+        // The write runs while the box is still an edit box — the ordering that made it address the
+        // channel's `""` row.
+        await drainMainActorTurns()
         await threadComposer.cancelMode()
         await drainMainActorTurns()
 
@@ -615,9 +618,12 @@ final class T35ComposerViewModelTests: XCTestCase {
         XCTAssertNil(channelRow, "and never on a channel row")
     }
 
-    func testASuccessfulEditInAThreadKeepsTheThreadsDraftRow() async {
+    /// A landed edit leaves **every** draft row alone: the thread's own, and the channel's (which
+    /// this composer cannot even see — the defect reached it anyway, through `""`).
+    func testASuccessfulEditInAThreadKeepsTheThreadsAndTheChannelsDrafts() async {
         let (threadComposer, _) = makeThreadComposer()
         service.patchResults = [.success(serverPost(id: "r1", message: "after", rootID: "root-1"))]
+        await drafts.save(ComposerDraft(channelID: channelID, message: "channel thought", updateAt: 1))
         threadComposer.textChanged("thread thought", caret: 13)
         await threadComposer.saveDraftNow()
 
@@ -628,7 +634,10 @@ final class T35ComposerViewModelTests: XCTestCase {
         await drainMainActorTurns()
 
         let threadDraft = await drafts.load(channelID: channelID, rootID: "root-1")
+        let channelDraft = await drafts.load(channelID: channelID, rootID: "")
         XCTAssertEqual(threadDraft?.message, "thread thought")
+        XCTAssertEqual(channelDraft?.message, "channel thought",
+                       "an edit inside a thread must not delete the channel composer's draft either")
     }
 
     func testDeletingAsksTheListToTombstoneTheRow() async {
