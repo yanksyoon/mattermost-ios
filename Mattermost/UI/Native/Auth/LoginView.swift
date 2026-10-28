@@ -244,6 +244,13 @@ struct LoginView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
+            // T8e: `Label(_:systemImage:)` exposes the symbol as its own element, so VoiceOver read
+            // "person.badge.key" as a stop and every snapshot carried it. The representation keeps the
+            // button's label, identifier and style, and drops the glyph.
+            .accessibilityRepresentation {
+                Button("Sign in with SSO", action: useSSO)
+                    .accessibilityIdentifier("authSSOButton")
+            }
             .accessibilityIdentifier("authSSOButton")
 
             Button("Use the web view instead", action: useWebView)

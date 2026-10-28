@@ -72,7 +72,12 @@ struct NativeChannelSidebarPane: View {
                         // T32: the one stable read-out of "which team is current" for a UI test and
                         // for VoiceOver (the rail's icons carry their own label, but the rail is
                         // hidden when there is a single team).
-                        .accessibilityElement(children: .combine)
+                        // T8e: `.combine` left the glyph in the tree (`StaticText` + `Image('person.3')`);
+                        // the representation is one element and the glyph is gone with it.
+                        .accessibilityRepresentation {
+                            Text(teamTitle(name: location?.teamName, id: location?.teamID) ?? "")
+                                .accessibilityIdentifier("sidebarCurrentTeam")
+                        }
                         .accessibilityIdentifier("sidebarCurrentTeam")
                 }
                 Button {
@@ -103,6 +108,12 @@ struct NativeChannelSidebarPane: View {
                                     .foregroundStyle(.tint)
                             }
                         }
+                    }
+                    // T8e: one row, one element — the `#`/avatar glyph and the selected tick were
+                    // separate elements under this button.
+                    .accessibilityRepresentation {
+                        Button(channel, action: { navigation.openChannel(location.request) })
+                            .accessibilityIdentifier("nativeSidebarSelectedChannel")
                     }
                     .accessibilityIdentifier("nativeSidebarSelectedChannel")
                 } else {
@@ -207,7 +218,10 @@ struct NativeSidebarAnchorRow: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityRepresentation {
+            Text(server.name)
+                .accessibilityIdentifier("nativeSidebar")
+        }
         .accessibilityIdentifier("nativeSidebar")
     }
 }

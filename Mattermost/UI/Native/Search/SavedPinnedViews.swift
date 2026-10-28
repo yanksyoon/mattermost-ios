@@ -195,7 +195,12 @@ struct PostCollectionView: View {
                                         .font(.caption.weight(.semibold))
                                 }
                                 .foregroundStyle(.secondary)
-                                .accessibilityElement(children: .combine)
+                                // T8e: `.combine` kept the `#` glyph as its own element (VoiceOver read
+                                // "number"); the representation is the channel name alone.
+                                .accessibilityRepresentation {
+                                    Text(channel)
+                                        .accessibilityIdentifier("\(listIdentifier).channel.\(row.id)")
+                                }
                                 .accessibilityIdentifier("\(listIdentifier).channel.\(row.id)")
                             }
                             PostRowView(row: row,

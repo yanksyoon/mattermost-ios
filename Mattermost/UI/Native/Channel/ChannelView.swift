@@ -1147,14 +1147,23 @@ private struct ChannelPaneTitle: View {
     let fallback: String
 
     var body: some View {
-        Image(systemName: glyph)
-            .font(.headline)
-            .foregroundStyle(.secondary)
-            .accessibilityHidden(true)
-        Text(model.title.isEmpty ? fallback : model.title)
-            .font(.headline)
-            .lineLimit(2)
-            .accessibilityIdentifier("nativeChannelTitle")
+        HStack(spacing: 8) {
+            Image(systemName: glyph)
+                .font(.headline)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text(model.title.isEmpty ? fallback : model.title)
+                .font(.headline)
+                .lineLimit(2)
+                .accessibilityIdentifier("nativeChannelTitle")
+        }
+        // T8e: the pane header is one element. `.accessibilityHidden(true)` on the glyph did not take
+        // it out of the serialised tree (the header's `Other` carried an `Image('number')`), so the
+        // glyph is replaced here and the title keeps both its identifier and its element type.
+        .accessibilityRepresentation {
+            Text(model.title.isEmpty ? fallback : model.title)
+                .accessibilityIdentifier("nativeChannelTitle")
+        }
     }
 
     /// A direct message gets a person glyph, a group message a people glyph, a channel a `#`.

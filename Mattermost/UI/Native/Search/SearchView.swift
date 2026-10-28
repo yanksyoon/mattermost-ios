@@ -162,7 +162,12 @@ struct SearchView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(Color.orange.opacity(0.12))
-        .accessibilityElement(children: .combine)
+        // T8e: `.combine` left the warning glyph in the tree (`Image('exclamationmark.magnifyingglass')`
+        // under this element) — VoiceOver read the symbol name and every snapshot paid for it.
+        .accessibilityRepresentation {
+            Text(text)
+                .accessibilityIdentifier(identifier)
+        }
         .accessibilityIdentifier(identifier)
     }
 

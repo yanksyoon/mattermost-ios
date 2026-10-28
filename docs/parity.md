@@ -309,3 +309,34 @@ quarantine→SIGSEGV sequence (1.5 ms apart) and the reader commands: `docs/t8d-
 * **Reporting gap:** a simulator `.ips` is written only sometimes (one at 03:27, none for the 05:30
   quarantine). Record a run from `launchd_sim` exits + the `QUARANTINED DUE TO HIGH LOGGING VOLUME`
   line (`simctl spawn <udid> log show`), not from the presence of a crash file.
+
+### T8e — one row, one element: what an identifier promises (2026-10-28, `t_ce08486d`)
+
+Decision of record: `docs/t8e-a11y-tree-decision.md`. Summary of what it binds:
+
+* **An identifier is a contract on the element, not on its children.** `channelSidebar.channel.<id>`,
+  `teamSidebar.team.<id>` and `channelSidebar.category.<slug>` each resolve to exactly one element with
+  the same label/value strings the suites already assert; no test may henceforth address a descendant
+  of one of those rows.
+* **A post row is the exception and stays a container** (`post.<id>`, `.accessibilityElement(children:
+  .contain)`): five suites assert twelve descendant identifiers inside it, and its attachments and
+  reactions are separately reachable controls.
+* **The working idiom is `.accessibilityRepresentation`, not `.combine`/`.accessibilityElement(children:
+  .ignore)`.** Measured: `.combine` leaves the children in the serialised tree (why the T8d glyph sweep
+  did not move it), `.ignore` on a `Button` *wraps* it (`Other(id) → Button`, and the element type
+  changes), `.accessibilityHidden(true)` inside a button label or a combined container has no effect.
+  A representation replaces the subtree with one element.
+* **Effect, same batch as T8d's A/B:** drawn shell **232 → 197 elements per snapshot** (−15 %; 9 → 7
+  per channel row), every query that walks the shell 10–12 % cheaper per query
+  (`nativeChannelPane` 47.4 → 41.5 KB), batch total 52.5 → 50.5 MB (−3.8 %, the rest is XCTest's own
+  7.5 MB notification poll), and **zero SF-Symbol-labelled `Image` elements** left on the
+  pane/sidebar/composer/search paths (the tab bar's two `Tab` items remain).
+* **"Well under 120" is not reachable by combining rows:** 6 of the 7 elements a channel row still
+  costs are `List` scaffolding (`Cell` + five empty `Other`s). The team rail, built with
+  `ScrollView`+`VStack` in the same snapshot, costs 1 per row. The `List` swap is filed for T33 — it
+  changes `T33ChannelSidebarUITests.revealRow`'s `collectionViews.firstMatch` scroll helper, which is
+  a suite change, not an accessibility one.
+* **The `Menu` automation-type mismatch (370/batch) stays as-is:** Default level, 0.1 %, not a
+  VoiceOver defect; the app has three real `Menu { }` views, not five (the grep also matches
+  `.contextMenu` and `enum ChannelCreateMenu`). Replacing menus to please XCTest would cost a real
+  VoiceOver affordance.

@@ -145,7 +145,14 @@ struct NativeChannelSidebarContent: View {
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                 }
-                .accessibilityElement(children: .combine)
+                // T8e: `.combine` did not merge the pair — the serialised tree still had
+                // `StaticText(sidebarCurrentTeam)` with an `Image('person.3')` child, so VoiceOver
+                // read the symbol name and every snapshot paid for it. The representation is one
+                // element; the identifier and the label the suites assert are unchanged.
+                .accessibilityRepresentation {
+                    Text(title)
+                        .accessibilityIdentifier("sidebarCurrentTeam")
+                }
                 .accessibilityIdentifier("sidebarCurrentTeam")
             }
 
@@ -252,6 +259,10 @@ struct NativeChannelSidebarContent: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityRepresentation {
+                Button("Threads", action: openThreads)
+                    .accessibilityIdentifier("nativeSidebarAllThreads")
+            }
             .accessibilityIdentifier("nativeSidebarAllThreads")
         }
     }
@@ -265,6 +276,13 @@ struct NativeChannelSidebarContent: View {
     private func openThreads() {
         navigation.select(tab: .threads)
         navigation.openThreads(NativeChannelRequest(serverID: server.id, teamID: model.teamID))
+    }
+
+    /// What the footer says, as one sentence: the counts, or "All caught up", plus the stale warning
+    /// when the counts could not be refreshed (T8e — the footer is one accessibility element).
+    private var countsSentence: String {
+        let base = model.totals.accessibilityLabel ?? "All caught up"
+        return model.countsAreStale ? "\(base). Unread counts may be out of date" : base
     }
 
     private var footerSection: some View {
@@ -291,7 +309,13 @@ struct NativeChannelSidebarContent: View {
                         .accessibilityIdentifier("channelSidebar.staleCounts")
                 }
             }
-            .accessibilityElement(children: .combine)
+            // One element (T8e): the bell glyph, the counts sentence and the stale marker were three
+            // elements in every snapshot. `.combine` did not merge them (measured); the representation
+            // does, and keeps the stale warning as part of what VoiceOver reads.
+            .accessibilityRepresentation {
+                Text(countsSentence)
+                    .accessibilityIdentifier("channelSidebar.totals")
+            }
             .accessibilityIdentifier("channelSidebar.totals")
 
             if let actionError = model.actionError {
@@ -417,6 +441,15 @@ struct CategoryHeader: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // One header, one element (T8e): the disclosure chevron, the name and the mute marker were
+        // three elements — `Image('chevron.down')`, `StaticText`, `Image('bell.slash')`. The name stays
+        // the label; the mute fact moves into the value so VoiceOver still says it (a `Button`'s label
+        // children are not merged by `.combine`, measured — see `docs/t8e-a11y-tree-decision.md`).
+        .accessibilityRepresentation {
+            Button(group.displayName, action: onToggle)
+                .accessibilityIdentifier(group.identifier)
+                .accessibilityValue(group.category.muted ? "Muted" : "")
+        }
         .accessibilityIdentifier(group.identifier)
     }
 }
@@ -467,6 +500,18 @@ struct ChannelSidebarRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // One row, one accessibility element (T8e). A `Button` whose label is an `HStack` exposes its
+        // label's children as separate elements — measured: every channel row in the drawn shell was
+        // `Button + Image('number') + StaticText`, and `.accessibilityElement(children: .ignore)` on the
+        // button only *wrapped* it (`Other(id) → Button`). `.accessibilityRepresentation` replaces the
+        // row's accessibility subtree with this one button: 9 elements per row → 7, and VoiceOver gets
+        // one stop named by the channel instead of "General", "3", "unread".
+        .accessibilityRepresentation {
+            Button(entry.displayName, action: action)
+                .accessibilityIdentifier("channelSidebar.channel.\(entry.id)")
+                .accessibilityValue(entry.accessibilityValue)
+                .accessibilityAddTraits(entry.isSelected ? [.isSelected] : [])
+        }
         .accessibilityIdentifier("channelSidebar.channel.\(entry.id)")
         .accessibilityLabel(entry.displayName)
         .accessibilityValue(entry.accessibilityValue)
@@ -562,8 +607,13 @@ private struct ThreadsRailRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // PROBE (t_ce08486d): does a representation drop the `Label`'s symbol Image?
+        .accessibilityRepresentation {
+            Button("Threads", action: action)
+                .accessibilityIdentifier("nativeSidebarAllThreads")
+                .accessibilityValue(entry.accessibilityValue)
+        }
         .accessibilityIdentifier("nativeSidebarAllThreads")
-        .accessibilityValue(entry.accessibilityValue)
     }
 }
 
