@@ -35,6 +35,17 @@ import SwiftUI
 /// inside that value is only fully resolved once a channel directory exists — S08/T32-T33, see
 /// `NativeLocation`); only the presentation differs.
 ///
+/// The compact push **covers the tab bar on purpose**, and that is upstream behaviour, not a defect:
+/// `mattermost-mobile` v2.45.0 (`162f2560`) keeps a `Stack` above the `Tabs` — `app/routes/
+/// (authenticated)/_layout.tsx:61-64` declares only `(home)`, `(home)/_layout.tsx:23-36` is the tab
+/// navigator, and `channel`/`thread`/`permalink` are sibling routes pushed over it
+/// (`app/screens/navigation.ts:31-51,62-77`) — so the phone channel header carries its own back
+/// chevron. The Mobile v2 design of record says the same in "Bottom Tab Bar" → *Hiding the Bottom Tab
+/// Bar in Channels*: the bar slides off in a channel on phone and stays on tablet. Reading a tab from
+/// an open channel is therefore Back → tab, exactly as on the pinned client. A change that keeps the
+/// bar visible in a channel (per-tab stacks, a sheet, an inset pane) is an explicit **deviation card**
+/// with a stated reason, never a bug fix — see `docs/t95-shell-tab-bar-decision.md` §2.
+///
 /// Nothing here is a screen: every pane is an explicit stand-in that names the card which ships it.
 /// A blank pane would be indistinguishable from a broken one.
 struct NativeShellView: View {

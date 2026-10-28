@@ -746,10 +746,14 @@ final class NativeNavigation: ObservableObject {
 // Where the app opens.
 //
 // The shell used to land on "No channel selected": a reader had to find the channel they were in
-// yesterday, every morning. Upstream opens the last channel and falls back to the team's town hall,
-// and that is what this does — with one rule the naive version gets wrong: a saved channel that no
-// longer exists (archived, left, deleted) must not be opened blindly, because the pane would then
-// show an error instead of a conversation.
+// yesterday, every morning. Upstream restores the last **thread**, else the last **channel**, and
+// otherwise routes to the channel list with `setLoadTarget('HOME')`
+// (`mattermost-mobile` v2.45.0 = `162f2560`, `app/init/launch.ts:245-262`, `:290-294`) — there is no
+// town-hall or first-channel fallback in the pinned client. This does the last-channel half of that,
+// with one rule the naive version gets wrong: a saved channel that no longer exists (archived, left,
+// deleted) must not be opened blindly, because the pane would then show an error instead of a
+// conversation. With nothing saved the launch lands on the channel list, which is upstream's
+// `HOME` (decision record: `docs/t95-shell-tab-bar-decision.md` §3).
 
 
 /// The channel the reader was last in, on one server.
@@ -805,45 +809,36 @@ final class LastChannelStore {
 }
 
 /// Chooses what to open when the shell starts with nowhere to go.
+///
+/// Upstream's cold start restores the last **thread**, else the last **channel**, else routes to the
+/// channel list (`app/init/launch.ts:245-262`, `:290-294`). It has **no** town-hall or first-channel
+/// fallback: "nothing saved" means "show the list". Inventing a conversation there was our deviation,
+/// and on the phone layout it also raced the first tab tap — a reset launch has nothing saved, so the
+/// fabricated push landed on top of the tabs the test was about to press
+/// (`docs/t95-shell-tab-bar-decision.md` §3).
 enum LaunchDestination {
-    /// The names the default channel goes by. `town-square` is Mattermost's own default; `town-hall`
-    /// is what it is called on the server this was measured against, renamed by the admins. Matching
-    /// both beats guessing one and landing on nothing.
-    static let townHallNames = ["town-square", "town-hall"]
-    static let townHall = townHallNames[0]
-
     /// - Parameters:
     ///   - saved: the last channel, if it was on this server.
     ///   - available: the channel ids the sidebar actually knows about, when that is known. Empty
     ///     means "not loaded yet": the saved destination is then trusted, and the pane is the judge.
-    ///   - townHallAvailable: whether a channel named `townHall` is in `available`.
-    /// - Parameter fallbackChannelID: the first ordinary channel in the sidebar, used when the team
-    ///   has no town hall at all (archived, or renamed to something unrecognised). Without it the shell
-    ///   would rather show nothing than pick a conversation — which is the state this fixes.
+    ///   - teamID, teamName: the team the shell is launching into, used only to complete a saved
+    ///     record that was written before its team was known. The record's own team always wins.
+    /// - Returns: the saved channel's request when it is still in `available` (or `available` has not
+    ///   loaded), `nil` otherwise. A saved channel that is gone must not be opened blindly.
     static func request(saved: LastChannel?,
                         available: Set<String> = [],
-                        townHallAvailable: Bool = true,
-                        fallbackChannelID: String? = nil,
                         serverID: UUID,
                         teamID: String?,
                         teamName: String?) -> NativeChannelRequest? {
-        if let saved, saved.serverID == serverID, saved.channelID != nil || saved.channelName != nil {
-            let stillThere = available.isEmpty
-                || saved.channelID.map(available.contains) == true
-                || saved.channelName.map { name in available.contains(name) } == true
-            if stillThere { return saved.request }
-        }
-        guard teamID != nil else { return nil }
-        if townHallAvailable {
-            return NativeChannelRequest(serverID: serverID,
-                                        teamID: teamID,
-                                        teamName: teamName,
-                                        channelName: townHall)
-        }
-        guard let fallbackChannelID else { return nil }
-        return NativeChannelRequest(serverID: serverID,
-                                    teamID: teamID,
-                                    teamName: teamName,
-                                    channelID: fallbackChannelID)
+        guard let saved, saved.serverID == serverID,
+              saved.channelID != nil || saved.channelName != nil else { return nil }
+        let stillThere = available.isEmpty
+            || saved.channelID.map(available.contains) == true
+            || saved.channelName.map { name in available.contains(name) } == true
+        guard stillThere else { return nil }
+        var request = saved.request
+        if request.teamID == nil { request.teamID = teamID }
+        if request.teamName == nil { request.teamName = teamName }
+        return request
     }
 }

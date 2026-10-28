@@ -164,11 +164,14 @@ final class ChannelSidebarCoordinator: ObservableObject {
     }
 
     /// Open what the shell should show when it starts with nowhere to go: the conversation the reader
-    /// was last in, else the team's town hall.
+    /// was last in — and nothing else.
     ///
     /// Only when the shell has no destination of its own — a deep link, a tapped mention or a restored
-    /// route always wins over a remembered channel. A saved channel that is no longer in the list (left,
-    /// archived, deleted) falls back to the town hall rather than opening something that will error.
+    /// route always wins over a remembered channel. A saved channel that is no longer in the list
+    /// (left, archived, deleted) opens nothing rather than something that will error, and a launch
+    /// with nothing saved stays on the channel list. Upstream's cold start does the same: last thread,
+    /// else last channel, else `HOME` (`app/init/launch.ts:245-262`, `:290-294`) — there is no
+    /// town-hall fallback to reproduce (`docs/t95-shell-tab-bar-decision.md` §3).
     private func applyLaunchDestinationIfNeeded(for server: ServerConfig, model: ChannelListViewModel) {
         guard let navigation else {
             lastLaunchDecision = "no-navigation"
@@ -181,16 +184,17 @@ final class ChannelSidebarCoordinator: ObservableObject {
 
         let entries = model.groups.flatMap(\.entries)
         let available = Set(entries.map(\.id))
-        let hasTownHall = entries.contains { LaunchDestination.townHallNames.contains($0.name) }
-        let fallback = entries.first { !$0.kind.isDirect }?.id
-        lastLaunchDecision = "entries=\(entries.count) saved=\(navigation.savedChannel(for: server.id)?.channelID ?? "-") townhall=\(hasTownHall) fallback=\(fallback ?? "-")"
+        lastLaunchDecision = "entries=\(entries.count) saved=\(navigation.savedChannel(for: server.id)?.channelID ?? "-")"
         guard let request = LaunchDestination.request(saved: navigation.savedChannel(for: server.id),
                                                      available: available,
-                                                     townHallAvailable: hasTownHall,
-                                                     fallbackChannelID: fallback,
                                                      serverID: server.id,
                                                      teamID: teamID,
-                                                     teamName: location.teamName) else { return }
+                                                     teamName: location.teamName) else {
+            // Nothing saved, or the saved channel is gone: the list is the destination (upstream's
+            // `HOME`). Recorded so a diagnostic can tell "decided none" from "never decided".
+            lastLaunchDecision? += " -> none"
+            return
+        }
         let outcome = navigation.openChannel(request)
         lastLaunchDecision? += " -> \(outcome)"
     }
