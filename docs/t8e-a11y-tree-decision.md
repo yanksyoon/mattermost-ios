@@ -49,19 +49,19 @@ python3 scripts/qa-test.py --platform ios --sim id=81A7F251-8B31-4945-8783-5A264
   -- -clonedSourcePackagesDirPath ~/Library/Developer/Xcode/DerivedData/mmios-t95b/SourcePackages
 ```
 
-The app log for the run window, then four readers (copied into `build/logs/t8d/` so this note's
-commands work from this branch):
+The app log for the run window, then four readers (copied into `build/logs/t8e/` so this note's
+commands work from the main tree; the same scripts are the T8d set):
 
 ```
 xcrun simctl spawn 81A7F251-8B31-4945-8783-5A264C14B8D5 log show \
   --start '2026-10-28 05:59:05' --end '2026-10-28 06:03:10' \
   --predicate 'process == "Mattermost"' --info --debug --style syslog > base-app.log
 
-python3 build/logs/t8d/vol.py      base-app.log   # bytes by subsystem (xctest share)
-python3 build/logs/t8d/qbypred.py  base-app.log   # MB per query shape
-python3 build/logs/t8d/shapes.py   base-app.log after2-app.log   # elements per snapshot, same screen
-python3 build/logs/t8d/glyphparents.py base-app.log              # SF-Symbol-labelled Images + parents
-python3 build/logs/t8d/rowpid.py   base-app.log   # what each row kind costs, per app launch
+python3 build/logs/t8e/vol.py      base-app.log   # bytes by subsystem (xctest share)
+python3 build/logs/t8e/qbypred.py  base-app.log   # MB per query shape
+python3 build/logs/t8e/shapes.py   base-app.log after2-app.log   # elements per snapshot, same screen
+python3 build/logs/t8e/glyphparents.py base-app.log              # SF-Symbol-labelled Images + parents
+python3 build/logs/t8e/rowpid.py   base-app.log   # what each row kind costs, per app launch
 ```
 
 `elemcost.py`, `rowcensus.py`, `glyphchain.py`, `tree_show.py`, `census.py` are the other readers.
@@ -252,7 +252,30 @@ SwiftUI.AccessibilityNode:UIResponder, traits 1108101562369, but AXAutomationTyp
 
 ---
 
-## 6. Not claimed / open
+## 6. What else was run, and what it says
+
+| run | branch `wt/t_ce08486d` | base `2d2b903` |
+|---|---|---|
+| the 8-test measurement batch (T95ShellLayout + T39Jump + T39Search) | 8 run / 1 skipped / **0 failed** (169.0 s) — twice | 8 run / 1 skipped / 0 failed (173.9 s) |
+| `T42ActivityUITests` | 4 / 4 passed | — |
+| `T32SidebarIdentifiersTests` | passed (the `sidebarCurrentTeam` labels) | — |
+| `T33ChannelSidebarStubTests` | passed (row `.label` and `.value` strings) | — |
+| `T33ChannelSidebarUITests` (live, 347-channel fixture) | 8 executed / 2 skipped / **6 failed** (637 s) | 8 executed / 2 skipped / **6 failed** (508 s) |
+| `T34ChannelPostListUITests/testLoadingOlderPostsDoesNotMoveTheAnchoredPost` | failed alone (164 s) | failed (78 s, after the same cascade) |
+| `MattermostTests` (units) | **1725 run, 8 skipped, 0 failed** | — |
+
+**The T33 live failures are pre-existing and are the app-loss class, not this change.** Both trees
+fail the *same* tests at the *same* lines with the same messages — `T33-ChannelSidebarUITests.swift:855
+… com.mattermost.ios is not running`, `:850/:110 … Lost connection to the application`, and the
+`row.value` assertions that follow a relaunch. The simulator's log for the branch run has the signature
+itself: pid 37340 `QUARANTINED DUE TO HIGH LOGGING VOLUME` at 06:32:05.858, `exited due to SIGSEGV`
+1.4 ms later (the T8d class, `docs/t8d-build-note.md` §1). That suite swipes a 347-channel list, so it
+is the heaviest thing in the repo and crosses the threshold on both trees; the 10–12 % per-query cut
+this card makes is not enough to change its fate, and this card never claimed it would.
+`testLoadingOlderPosts…` (the load-earlier seam did not merge a second page in this fixture state) is
+red on the base commit too.
+
+### Not claimed / open
 
 * **Not claimed:** that the quarantine class is gone. This card moves the tree, not XCTest's own
   poll; a whole-suite run (121 UI tests) was not repeated. The remaining per-snapshot cost is the
@@ -267,6 +290,8 @@ SwiftUI.AccessibilityNode:UIResponder, traits 1108101562369, but AXAutomationTyp
 
 ## Artifacts (gitignored)
 
-`build/logs/t_ce08486d/`: `a11y-base.log`, `base-app.log` (52.5 MB), `a11y-after2.log`,
-`after2-app.log` (50.5 MB), `a11y-validate.log` (the affected suites re-run), `probe-app.log` /
-`probe2-app.log` (the two mechanism probes: `.ignore` and `.accessibilityRepresentation`).
+`build/logs/t8e/` (in the main tree, so they survive this worktree): `a11y-base.log`, `base-app.log`
+(52.5 MB), `a11y-after2.log`, `after2-app.log` (50.5 MB), `a11y-validate2.log` (the affected suites
+re-run), `base-t33.log` (the same suites on the base commit, the control), `probe-app.log` /
+`probe2-app.log` (the two mechanism probes: `.ignore` and `.accessibilityRepresentation`), and the
+readers named in §1.
