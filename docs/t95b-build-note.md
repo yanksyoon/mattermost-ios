@@ -107,7 +107,18 @@ DerivedData `~/Library/Developer/Xcode/DerivedData/mmios-t95b`, live server `htt
 | `t95b-t33-t95-2` | T33 + T95Layout | T95Layout green | host load 200-320 |
 | `t95b-pane-1` | deep link, rail, T33 stubs, T95Layout | **9/9 green** (1 iPad-only skip) | after the name-only pane branch |
 | `t95b-t33-4` | T33 live | 2 pass / 2 fail (both `Lost connection`, app crashed mid-test) | load had fallen to 23; see §5 |
-| `t95b-ui-full-3` | whole suite | see §6 | the run this note was written from |
+| `t95b-ui-full-3` | whole scheme, one invocation | **1725 unit tests: 0 failures (8 skipped). 121 UI tests: 30 assertion failures in 17 methods (3 skipped), 70 min** | the run this note is written from; see §5 |
+
+`t95b-ui-full-3`'s reds, by suite, with what each is:
+
+| suite | reds | measured cause |
+| --- | --- | --- |
+| `T33ChannelSidebarUITests` | 4 | 2 × `Lost connection` (app crashed mid-test), 1 × context-menu reorder that did not reach the server while the sibling card archived its probe channels on the same fixture, 1 × unread state not arriving |
+| `T34ChannelPostListUITests` | 3 | scroll anchoring / reader-restore assertions; the same three were red in `t95b-ui-full-2` before this card's edits |
+| `T35ComposerUITests` | 4 | 1 × `Lost connection`; 3 × composer text/mention/edit — keyboard drops under host load (the same class as batch 2) |
+| `T37` / `T40` / `T43` / `T44` / `T48` | 1 / 1 / 1 / 1 / 2 | single-test reds in suites this card did not change; `T48`'s two are menu/sheet flows, not the `openSaved` helper this card converted |
+
+The tab-reachability suites this card converted — `T39Jump`, `T39Search`, `T42Activity`, `T47CreateChannel` — are **0 red**, and so are `T32SidebarIdentifiers`, `T33ChannelSidebarStubTests`, `T36Threads`, `T95ShellLayoutUITests` and the T30/T31 web surfaces. `T40ChannelInfoUITests` is 1 red in a permission-row test, not in `returnToSidebar`.
 
 ## 5. The failures that are not this card's
 
