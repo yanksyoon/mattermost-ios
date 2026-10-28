@@ -32,6 +32,9 @@ final class T37ReactionsUITests: XCTestCase {
     private var userID: String!
     private var teamID: String!
     private var channelID: String!
+    /// The fixture channel's `display_name` from the server — what the pane header (`nativeChannelTitle`)
+    /// reads when that channel is on screen. Read in `setUp`, never hard-coded.
+    private var channelDisplayName = ""
 
     /// The second author the T36 fixture creates: its posts are the ones this app did not make.
     private let secondLogin = "t36reply"
@@ -45,6 +48,15 @@ final class T37ReactionsUITests: XCTestCase {
     private let channelName = "t36-threads"
     /// The only server custom emoji the fixture holds (40×40 PNG, `scripts/t34_post_seed.py`).
     private let customEmoji = "t34parrot"
+
+    /// Outer deadline for a **relaunch** to land on the shell (or on the sign-in it falls back to).
+    ///
+    /// T55-AV-R F-1 (`t_1f9af95a`): `terminate()` + `launch()` under host load 140-275 took 60-160 s
+    /// to reach the shell on this machine, and a fixed 40 s budget reded this test 3/3 while the app
+    /// was, in fact, restoring the session and the channel. 240 s is a load-tolerant ceiling for a
+    /// first launch after a cold terminate, not a product claim: the test's assertions are unchanged
+    /// and still name their element when they fail.
+    private let relaunchLandingTimeout: TimeInterval = 240
 
     override func setUpWithError() throws {
         let env = ProcessInfo.processInfo.environment
@@ -69,6 +81,7 @@ final class T37ReactionsUITests: XCTestCase {
             throw XCTSkip("channel #\(channelName) is missing — run scripts/t36_thread_seed.py")
         }
         channelID = try XCTUnwrap(channel["id"] as? String)
+        channelDisplayName = channel["display_name"] as? String ?? ""
         let second = try authenticate(login: secondLogin, password: secondPassword)
         secondToken = second.token
         secondUserID = second.userID
@@ -385,13 +398,50 @@ final class T37ReactionsUITests: XCTestCase {
         let relaunched = XCUIApplication()
         relaunched.launchArguments = launchArguments(resetState: false, forgetSession: false)
         relaunched.launch()
-        if relaunched.textFields["loginIDField"].waitForExistence(timeout: 10) {
-            signIn(relaunched, login: loginID, password: password)
+        // T55-AV-R F-1 (t_1f9af95a): this wait, not the recents claim, is what made this test red 3/3
+        // on this host. The old form was a single `nativeShell.waitForExistence(timeout: 40)`; under
+        // load 140-275 a relaunch after `terminate()` took 60-160 s to reach a usable surface, the
+        // budget expired first, and a snapshot later in the same failed run showed the pane — and the
+        // restored channel — already up. So the landing wait now polls every surface a relaunch can
+        // legitimately reach (`nativeShell`, the pushed `nativeChannelPane`, or `loginIDField` when the
+        // session was not restored), re-arms instead of spending one element's budget, and names what
+        // never appeared. The claim this test protects is unchanged and is not the shell: it is the
+        // recents row below, read after a relaunch WITHOUT `-uiTestResetPersistedState`.
+        switch waitForLanding(relaunched, timeout: relaunchLandingTimeout) {
+        case .shell, .pane:
+            break
+        case .signIn:
+            signIn(relaunched, login: loginID, password: password, shellTimeout: relaunchLandingTimeout)
+        case .neither:
+            if relaunched.state != .notRunning {
+                let shot = XCTAttachment(screenshot: relaunched.screenshot())
+                shot.name = "t37r2-relaunch-never-landed"
+                shot.lifetime = .keepAlways
+                add(shot)
+                let tree = XCTAttachment(string: relaunched.debugDescription)
+                tree.name = "t37r2-relaunch-never-landed-tree"
+                tree.lifetime = .keepAlways
+                add(tree)
+            }
+            XCTFail("the relaunched app reached none of `nativeShell`, `nativeChannelPane` or "
+                    + "`loginIDField` within \(Int(relaunchLandingTimeout)) s "
+                    + "(XCUIApplication state \(relaunched.state.rawValue)); nothing below this line can "
+                    + "be read from an app that never mounted")
+            return
         }
-        XCTAssertTrue(element(relaunched, "nativeShell").waitForExistence(timeout: 40),
-                      "the relaunched app must reach the shell:\n\(relaunched.debugDescription)")
-        openChannel(relaunched)
-        XCTAssertTrue(revealPost(relaunched, postID).exists, "the post must still be a row")
+        // The assertion is about the surface this test then drives, not the shell's chrome: in the
+        // failing runs the `nativeShell` container had not settled while the pane `openChannel`
+        // selects into was already in the tree (`nativeChannelPane`, title "T36 Threads").
+        XCTAssertTrue(element(relaunched, "nativeChannelPane").waitForExistence(timeout: 120),
+                      "the relaunched app must mount the channel pane it then drives:\n"
+                      + "\(relaunched.debugDescription)")
+        openChannelAfterRelaunch(relaunched)
+        attach(relaunched, "t37r2-pane-after-relaunch")
+        let paneTitle = element(relaunched, "nativeChannelTitle")
+        XCTAssertTrue(revealPost(relaunched, postID).exists,
+                      "the fixture channel's pane must be on screen after the relaunch "
+                      + "(pane title reads \"\(paneTitle.exists ? paneTitle.label : "<none>")\"):\n"
+                      + "\(relaunched.debugDescription)")
         XCTAssertTrue(openPickerFromRowMenu(relaunched, postID: postID),
                       "the row menu must open the picker")
         let recent = element(relaunched, "emojiPicker.recent.\(picked)")
@@ -681,6 +731,50 @@ final class T37ReactionsUITests: XCTestCase {
         return args
     }
 
+    /// Which signed-in surface a launch has reached: the shell container, the channel pane inside it,
+    /// or the native sign-in. A relaunch can legitimately land on any of the three.
+    ///
+    /// `pane` is not a weaker form of `shell`: measured on this host (2026-10-27), a relaunch that
+    /// restores a channel pushes that pane onto a `NavigationStack`, and in that presentation SwiftUI
+    /// exposes `nativeChannelPane` while the `nativeShell` container is **absent from the tree
+    /// entirely** (`t37r2-recents-alone.log`: an empty `nativeShell` match at 21:20:19.44 while the
+    /// same snapshot holds the pane, title "T36 Threads", composer and post list). Polling only
+    /// `nativeShell` therefore reports "the app never mounted" against an app that is showing the
+    /// screen the test is about to read.
+    private enum Landing {
+        case shell
+        case pane
+        case signIn
+        case neither
+    }
+
+    /// Poll for the surfaces a launch can reach, and report **which** one appeared.
+    ///
+    /// T55-AV-R F-1 (`t_1f9af95a`): a single `nativeShell.waitForExistence(timeout:)` cannot tell
+    /// "the shell is slow on a loaded host" from "the app never got there", and it cannot see the
+    /// sign-in branch the relaunch is allowed to take (`-uiTestForgetSession` is absent). Both
+    /// identifiers plus the pane are read every tick, so the app settling on the sign-in surface or
+    /// on a pushed pane is not charged against the shell container's budget, and `neither` names
+    /// every element the caller should have seen instead of leaving a bare `false`.
+    private func waitForLanding(_ app: XCUIApplication, timeout: TimeInterval) -> Landing {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let landing = landing(of: app) { return landing }
+            // A tick, not a blocking `waitForExistence`: the loop has to look at several surfaces,
+            // and a long snapshot wait on one of them is the budget shape this helper replaces.
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        // The tree can settle between the final tick and this line.
+        return landing(of: app) ?? .neither
+    }
+
+    private func landing(of app: XCUIApplication) -> Landing? {
+        if element(app, "nativeShell").exists { return .shell }
+        if element(app, "nativeChannelPane").exists { return .pane }
+        if app.textFields["loginIDField"].exists { return .signIn }
+        return nil
+    }
+
     /// Launch and sign in, leaving the shell up (the adopted live tests open the channel themselves).
     private func launchAndSignIn(resetState: Bool) -> XCUIApplication {
         let app = XCUIApplication()
@@ -690,7 +784,10 @@ final class T37ReactionsUITests: XCTestCase {
         return app
     }
 
-    private func signIn(_ app: XCUIApplication, login: String, password: String) {
+    /// Sign in and wait for the shell. `shellTimeout` is the relaunch path's load-tolerant budget; a
+    /// fresh test launch keeps the 45 s it has always had (measured worst case on this host: ~20 s).
+    private func signIn(_ app: XCUIApplication, login: String, password: String,
+                        shellTimeout: TimeInterval = 45) {
         let field = app.textFields["loginIDField"]
         XCTAssertTrue(field.waitForExistence(timeout: 25),
                       "the native sign-in must mount against \(serverURL.absoluteString):\n\(app.debugDescription)")
@@ -701,8 +798,8 @@ final class T37ReactionsUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 45),
-                      "signing in must reach the shell:\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: shellTimeout),
+                      "signing in must reach the shell (`nativeShell`):\n\(app.debugDescription)")
     }
 
     private func launchAndOpenChannel() -> XCUIApplication {
@@ -743,6 +840,54 @@ final class T37ReactionsUITests: XCTestCase {
         row.tap()
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 40),
                       "the channel pane must mount:\n\(app.debugDescription)")
+    }
+
+    /// Put the fixture channel on screen after a relaunch, in **either** of the two shapes a relaunch
+    /// can land in, and only on a pane that actually holds rows.
+    ///
+    /// Two shapes were measured on this host (2026-10-27, `build/logs/t37r2/`):
+    ///
+    /// 1. The sidebar (`channelSidebar.channel.*`) is in the tree — the pre-relaunch shape. `openChannel`
+    ///    taps the row, as it always has.
+    /// 2. The relaunch restores the channel *pane*, and compact layout pushes it over the sidebar inside
+    ///    a `NavigationStack`, so **no row exists to tap** and the old `openChannel` spent 20 s + 45 s
+    ///    on an element that is never there (`t37r2-recents-max.log`, before this fix).
+    ///
+    /// A restored pane is accepted, but only when it holds at least one post row: on this host the
+    /// restore also lands on a pane whose header and composer are drawn while `channelPostList` reports
+    /// seven pages of content and paints **no rows at all** for 85 s at load 5 (`t37r2-alone-b2.log`,
+    /// and the two screenshots `manual-*-relaunch*.png`). That pane is not a usable channel, so the test
+    /// falls back to the route a reader takes — `Back`, then the sidebar row — instead of reading the
+    /// recents claim off a screen that has nothing on it.
+    private func openChannelAfterRelaunch(_ app: XCUIApplication) {
+        let title = element(app, "nativeChannelTitle")
+        let row = element(app, "channelSidebar.channel.\(channelID!)")
+        let back = app.navigationBars.buttons["Back"]
+
+        // The restore painted its rows in ~2 s whenever it worked, so the grace below is a generous
+        // multiple of the observed paint, not a budget for a slow host.
+        let grace = Date().addingTimeInterval(20)
+        while Date() < grace {
+            if row.exists { openChannel(app); return }
+            if title.exists, title.label == channelDisplayName, hasAnyPostRow(app) { return }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+
+        if title.exists, title.label == channelDisplayName, hasAnyPostRow(app) { return }
+        if back.exists, back.isHittable { back.tap() }
+        openChannel(app)
+    }
+
+    /// Does the post list hold at least one row in the tree right now?
+    ///
+    /// The restored-but-empty pane measured on this host keeps `channelPostList` and its seven-page
+    /// content height but no `post.*` child, so "the pane is up" and "the channel is readable" are two
+    /// different facts and the test needs the second.
+    private func hasAnyPostRow(_ app: XCUIApplication) -> Bool {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "post."))
+            .firstMatch
+            .exists
     }
 
     /// Type into the picker's search box **by its documented identifier**.
