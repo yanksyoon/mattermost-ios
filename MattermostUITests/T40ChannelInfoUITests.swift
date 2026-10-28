@@ -805,17 +805,19 @@ final class T40ChannelInfoUITests: XCTestCase {
     ///
     /// Two shapes, both measured:
     ///  * a pushed pane (a channel opened from the sidebar, or after a browser join) — the shell's Back
-    ///    button pops it;
+    ///    button pops it, then the channel list is on screen;
     ///  * the channel tab itself, with **no push to pop**: measured right after a leave, the shell sat on
     ///    the channel tab with `backToolbarButton` *disabled*, so a back tap could never work — the way
     ///    out is the tab bar's Channels item.
+    ///
+    /// `ShellSettle.tapTab` is both shapes in one call (pop when a pane covers the bar, then tap
+    /// `Channels`), which is what a reader does; T95-B replaced the hand-rolled pair here.
     private func showSidebar(_ app: XCUIApplication) {
         if element(app, "nativeSidebar").exists { return }
-        let back = app.navigationBars.firstMatch.buttons.element(boundBy: 0)
-        if back.exists, back.isHittable { back.tap() }
-        if !element(app, "nativeSidebar").waitForExistence(timeout: 5) {
-            let channelsTab = app.tabBars.buttons["Channels"]
-            if channelsTab.exists, channelsTab.isHittable { channelsTab.tap() }
+        if !ShellSettle.tapTab(ShellSettle.Tab.channels, in: app, wait: 5) {
+            // The split layout draws no tab bar: pop whatever detail is presented, if anything.
+            let back = app.navigationBars.firstMatch.buttons.element(boundBy: 0)
+            if back.exists, back.isHittable { back.tap() }
         }
         XCTAssertTrue(element(app, "nativeSidebar").waitForExistence(timeout: 20),
                       "the shell must be back on the channel sidebar:\n\(app.debugDescription)")

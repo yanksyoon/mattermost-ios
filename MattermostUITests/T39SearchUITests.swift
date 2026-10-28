@@ -245,68 +245,42 @@ final class T39SearchUITests: XCTestCase {
     /// Open the search screen. The regular (Pad/desktop) layout reaches it from the detail column's
     /// toolbar; the compact layout has it as a tab. Either entry point must land on the same screen.
     ///
-    /// The compact shell **pushes** a channel above the tabs when the launch restores one — and the
-    /// launch restores the last channel **only** (`LaunchDestination`, after T95-A: no town-hall
+    /// The compact shell **pushes** a channel above the tabs whenever the launch restored one — and
+    /// the launch restores the last channel **only** (`LaunchDestination`, after T95-A: no town-hall
     /// fallback), so a launch with nothing saved lands on the channel list with its tab bar and a
     /// launch that restored a channel shows a pushed pane with `Back`. `RootView`'s navigation stack
     /// sits above the `TabView`, so the pushed pane covers the bar; that is upstream's own shape
     /// (`Stack` above `Tabs`; the Mobile v2 design slides the bar away in a channel), not a defect —
-    /// `docs/t95-shell-tab-bar-decision.md` §2. This helper therefore pops back first when it finds a
-    /// pane, because reaching a tab from a channel is Back → tab on the pinned client too.
+    /// `docs/t95-shell-tab-bar-decision.md` §2. `ShellSettle.tapTab` is that reader's route: pop the
+    /// pane with `Back`, then tap the tab. It is the one helper every suite uses (T95-B).
     private func openSearch(_ app: XCUIApplication) {
-        let toolbarButton = element(app, "shellSearchButton")
-        if toolbarButton.waitForExistence(timeout: 20) {
-            toolbarButton.tap()
-        } else {
-            let tab = app.tabBars.buttons["Search"]
-            if !tab.waitForExistence(timeout: 5) {
-                returnToSidebar(app)
-            }
-            XCTAssertTrue(tab.waitForExistence(timeout: 20),
+        if !ShellSettle.tapTab(ShellSettle.Tab.search, in: app, wait: 20) {
+            let toolbarButton = element(app, "shellSearchButton")
+            XCTAssertTrue(toolbarButton.waitForExistence(timeout: 20),
                           "neither the toolbar nor a tab opens search:\n\(app.debugDescription)")
-            tab.tap()
-            if !element(app, "searchField").waitForExistence(timeout: 20) {
-                // The pane pushed again while the tab was being selected: pop and retry once.
-                returnToSidebar(app)
-                XCTAssertTrue(tab.waitForExistence(timeout: 20),
-                              "the tab must come back with the sidebar:\n\(app.debugDescription)")
-                tab.tap()
-            }
+            toolbarButton.tap()
         }
         XCTAssertTrue(element(app, "searchField").waitForExistence(timeout: 30),
                       "the search screen must mount:\n\(app.debugDescription)")
     }
 
-    /// Pop a channel the compact shell pushed over the tab bar, back to the sidebar.
+    /// Pop a channel the compact shell pushed over the tab bar, back to the channel list.
+    ///
+    /// One implementation for every suite: `ShellSettle.revealTabs` (T95-B). Kept as a named local
+    /// because the call sites above read as "return to the sidebar", which is what a reader does.
     private func returnToSidebar(_ app: XCUIApplication, maxPops: Int = 3) {
-        let back = app.navigationBars.buttons["Back"]
-        var pops = 0
-        while back.exists, pops < maxPops {
-            back.tap()
-            pops += 1
-            _ = back.waitForExistence(timeout: 2)
-        }
+        ShellSettle.revealTabs(app, maxPops: maxPops)
     }
 
+    /// The Saved screen. The compact layout reaches it from a tab (after `Back`, when a channel is
+    /// pushed over the bar — `ShellSettle.tapTab`); the regular layout from the detail toolbar.
     private func openSaved(_ app: XCUIApplication) {
-        let toolbarButton = element(app, "shellSavedButton")
-        if toolbarButton.waitForExistence(timeout: 20) {
-            toolbarButton.tap()
-        } else {
-            let tab = app.tabBars.buttons["Saved"]
-            if !tab.waitForExistence(timeout: 5) {
-                returnToSidebar(app)
-            }
-            XCTAssertTrue(tab.waitForExistence(timeout: 20),
+        if !ShellSettle.tapTab(ShellSettle.Tab.saved, in: app, wait: 20) {
+            let toolbarButton = element(app, "shellSavedButton")
+            XCTAssertTrue(toolbarButton.waitForExistence(timeout: 20),
                           "neither the toolbar nor a tab opens saved messages:\n"
                           + "\(app.debugDescription)")
-            tab.tap()
-            if !element(app, "nativeSavedPane").waitForExistence(timeout: 20) {
-                returnToSidebar(app)
-                XCTAssertTrue(tab.waitForExistence(timeout: 20),
-                              "the tab must come back with the sidebar:\n\(app.debugDescription)")
-                tab.tap()
-            }
+            toolbarButton.tap()
         }
         XCTAssertTrue(element(app, "nativeSavedPane").waitForExistence(timeout: 30),
                       "the saved screen must mount:\n\(app.debugDescription)")

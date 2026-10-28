@@ -393,6 +393,12 @@ final class T35ComposerUITests: XCTestCase {
 
     /// The second launch of the draft test: no reset, no seed, no sign-in — the app has to come back
     /// with the same server row, the same session and the same draft database.
+    ///
+    /// "Back" is one of **two** shapes and the test must not decide which: with nothing changed since
+    /// the first launch the shell restores the channel the reader was last in and shows the pushed
+    /// pane (no `nativeShell` in the tree), and only a launch that restores nothing lands on the
+    /// channel list. `ShellSettle.waitForSignedIn` answers for both (T95-B; `docs/t95-shell-tab-
+    /// bar-decision.md` §3 D2).
     private func relaunchSignedIn() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-surfaceMode", "shell=native",
@@ -401,8 +407,7 @@ final class T35ComposerUITests: XCTestCase {
                                "-surfaceMode", "composer=native",
                                "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
-                      "a relaunch must come back signed in:\n\(app.debugDescription)")
+        ShellSettle.waitForSignedIn(app)
         return app
     }
 

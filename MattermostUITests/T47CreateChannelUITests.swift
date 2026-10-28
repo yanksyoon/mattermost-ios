@@ -333,13 +333,15 @@ final class T47CreateChannelUITests: XCTestCase {
 
     /// Leave the pushed channel pane and show the channel sidebar again (T40's rule: a sidebar row can
     /// only be asserted when the sidebar is the screen on show).
+    ///
+    /// On compact the channel is a push above the tab bar (`docs/t95-shell-tab-bar-decision.md` §2 D1),
+    /// so the reader's route back is `Back`, then the `Channels` tab; the split layout has no bar and
+    /// nothing to pop. `ShellSettle.tapTab` is both shapes in one call (T95-B).
     private func showSidebar(_ app: XCUIApplication) {
         if element(app, "nativeSidebar").exists { return }
-        let back = app.navigationBars.firstMatch.buttons.element(boundBy: 0)
-        if back.exists, back.isHittable { back.tap() }
-        if !element(app, "nativeSidebar").waitForExistence(timeout: 5) {
-            let channelsTab = app.tabBars.buttons["Channels"]
-            if channelsTab.exists, channelsTab.isHittable { channelsTab.tap() }
+        if !ShellSettle.tapTab(ShellSettle.Tab.channels, in: app, wait: 5) {
+            let back = app.navigationBars.firstMatch.buttons.element(boundBy: 0)
+            if back.exists, back.isHittable { back.tap() }
         }
         XCTAssertTrue(element(app, "nativeSidebar").waitForExistence(timeout: 20),
                       "the shell must be back on the channel sidebar:\n\(app.debugDescription)")

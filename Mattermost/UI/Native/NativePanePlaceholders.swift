@@ -247,6 +247,36 @@ struct NativeChannelPaneView: View {
                         .padding()
                     Spacer(minLength: 0)
                 }
+            } else if location.hasChannel {
+                // The route names a channel but carries no id for it: a deep link whose name the
+                // `NativeChannelDirectory` has not resolved yet (no session, or the moment before the
+                // channel list is read). Show the pane the link asked for — named, and honest about the
+                // wait — instead of "No channel selected", which told the reader the link had done
+                // nothing at all. T34's rewrite gated every channel branch on `channelID`, so this state
+                // fell through to the empty destination; T95-B is the first card to run T30's shipped
+                // deep-link acceptance since, and measured it red ("general" named by the URL, "No
+                // channel selected on UI Test Server" on screen).
+                VStack(spacing: 0) {
+                    header(title: location.channelDisplayName ?? "Channel", isEnabled: false)
+                    Divider()
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            NativePaneNote(
+                                systemImage: "number",
+                                title: "Resolving this channel…",
+                                body: "This link names #\(location.channelDisplayName ?? "channel"), but "
+                                    + "the shell has no id for it yet, so it cannot ask for posts. The "
+                                    + "pane opens the conversation as soon as the channel list has been "
+                                    + "read."
+                            )
+                            ProgressView()
+                                .progressViewStyle(.linear)
+                                .accessibilityIdentifier("nativeChannelResolveProgress")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                    }
+                }
             } else if location.postID != nil {
                 VStack(spacing: 0) {
                     header(title: "Channel", isEnabled: false)

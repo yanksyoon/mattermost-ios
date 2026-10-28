@@ -106,7 +106,7 @@ final class T33ChannelSidebarUITests: XCTestCase {
                       "the server's `channels` category must draw:\n\(app.debugDescription)")
 
         for channel in channels {
-            let row = element(app, "channelSidebar.channel.\(channel.id)")
+            let row = revealRow(app, "channelSidebar.channel.\(channel.id)")
             XCTAssertTrue(row.waitForExistence(timeout: 20),
                           "channel \(channel.name) is in the server's answer but not on screen:\n"
                           + "\(app.debugDescription)")
@@ -152,9 +152,18 @@ final class T33ChannelSidebarUITests: XCTestCase {
         result.tap()
 
         // Navigating is the shell's own funnel: the channel pane shows the channel the server gave.
+        // The header starts as the slug the shell was handed and `loadChannelHeader()` replaces it
+        // with the server's display name a beat later (T40's `ChannelPaneTitle`), so either spelling is
+        // the right channel; a *different* channel is not. (Read through `waitUntil`, not one snapshot:
+        // the slug spelled the assertion, the display name failed it, and which one is on screen at the
+        // instant of the read is a race the test does not own.)
         let title = element(app, "nativeChannelTitle")
         XCTAssertTrue(title.waitForExistence(timeout: 20), "the channel view must open")
-        XCTAssertEqual(title.label, target.name)
+        XCTAssertTrue(waitUntil(timeout: 20) {
+            let label = title.exists ? title.label : ""
+            return label == target.name || label == target.displayName
+        }, "the pane must show the channel whose result was tapped (#\(target.name) / "
+           + "#\(target.displayName)), got '\(title.exists ? title.label : "nil")'")
         // ...and the switcher is a gesture, so it must be gone. Without this the test would pass with
         // the sheet still covering the pane, because a presented sheet does not remove the pane
         // behind it from the accessibility tree.
@@ -176,7 +185,7 @@ final class T33ChannelSidebarUITests: XCTestCase {
         try markAllRead(channels)
 
         let app = launchAndSignIn()
-        let row = element(app, "channelSidebar.channel.\(target.id)")
+        let row = revealRow(app, "channelSidebar.channel.\(target.id)")
         XCTAssertTrue(row.waitForExistence(timeout: 40), "the channel row must be on screen:\n\(app.debugDescription)")
         XCTAssertFalse((row.value as? String ?? "").contains("Unread"),
                        "the channel was just marked read, so it cannot start bold: '\(row.value ?? "nil")'")
@@ -250,12 +259,13 @@ final class T33ChannelSidebarUITests: XCTestCase {
                        + "that, the client-side suppression below would prove nothing")
 
         let app = launchAndSignIn()
-        let row = element(app, "channelSidebar.channel.\(muted.id)")
+        let row = revealRow(app, "channelSidebar.channel.\(muted.id)")
         XCTAssertTrue(row.waitForExistence(timeout: 40), "the muted channel must still be listed:\n\(app.debugDescription)")
         let value = row.value as? String ?? ""
-        XCTAssertTrue(value.contains("Muted"), "the row must say it is muted, got '\(value)'")
-        XCTAssertFalse(value.contains("Unread"),
-                       "a muted channel must not show unread emphasis, got '\(value)'")
+        XCTAssertTrue(waitUntil(timeout: 20) { ((row.value as? String) ?? "").contains("Muted") },
+                      "the row must say it is muted, got '\(value)'")
+        XCTAssertFalse(((row.value as? String) ?? "").contains("Unread"),
+                       "a muted channel must not show unread emphasis, got '\(row.value ?? "nil")'")
 
         let totals = element(app, "channelSidebar.totals")
         XCTAssertTrue(totals.waitForExistence(timeout: 10))
@@ -307,7 +317,7 @@ final class T33ChannelSidebarUITests: XCTestCase {
 
         let app = launchAndSignIn()
         let moverID = before[1]          // second row: "Move up" is available and changes the order
-        let mover = element(app, "channelSidebar.channel.\(moverID)")
+        let mover = revealRow(app, "channelSidebar.channel.\(moverID)")
         XCTAssertTrue(mover.waitForExistence(timeout: 40), "the row must be on screen:\n\(app.debugDescription)")
 
         // The row's second action (long press / secondary click) carries the reorder; the same write a
@@ -340,8 +350,8 @@ final class T33ChannelSidebarUITests: XCTestCase {
         // Relaunch: a fresh process, a fresh load, no in-memory order to fall back on.
         app.terminate()
         let relaunched = launchAndSignIn()
-        let first = element(relaunched, "channelSidebar.channel.\(serverOrderAfterMove[0])")
-        let second = element(relaunched, "channelSidebar.channel.\(serverOrderAfterMove[1])")
+        let first = revealRow(relaunched, "channelSidebar.channel.\(serverOrderAfterMove[0])")
+        let second = revealRow(relaunched, "channelSidebar.channel.\(serverOrderAfterMove[1])")
         XCTAssertTrue(first.waitForExistence(timeout: 40) && second.waitForExistence(timeout: 40),
                       "both rows must be on screen after relaunch:\n\(relaunched.debugDescription)")
         XCTAssertLessThan(first.frame.minY, second.frame.minY,
@@ -369,22 +379,34 @@ final class T33ChannelSidebarUITests: XCTestCase {
         defer { try? restoreChannelsOrder(before) }
 
         let app = launchAndSignIn()
-        let first = element(app, "channelSidebar.channel.\(before[0])")
-        let second = element(app, "channelSidebar.channel.\(before[1])")
+        // The pair is the first two ids of the category that the list actually **draws**: a `List`
+        // builds only what is on screen, and the shared fixture's stored order can still name a channel
+        // this account no longer sees (another card leaves or archives its probe channels and the id
+        // stays in the order). Scrolling for each candidate is how a person finds the top of the list.
+        var drawn: [String] = []
+        for id in before where drawn.count < 2 {
+            if revealRow(app, "channelSidebar.channel.\(id)", maxSwipes: 6).exists { drawn.append(id) }
+        }
+        guard drawn.count == 2 else {
+            return XCTFail("the list must draw at least two of the category's channels, drew \(drawn) "
+                           + "of \(before):\n\(app.debugDescription)")
+        }
+        let first = revealRow(app, "channelSidebar.channel.\(drawn[0])")
+        let second = revealRow(app, "channelSidebar.channel.\(drawn[1])")
         XCTAssertTrue(first.waitForExistence(timeout: 40) && second.waitForExistence(timeout: 40),
                       "both rows must be on screen:\n\(app.debugDescription)")
-        XCTAssertTrue(drawnAbove(app, before[0], before[1]),
-                      "the list must start in the server's order (\(before))")
+        XCTAssertTrue(drawnAbove(app, drawn[0], drawn[1]),
+                      "the list must start in the server's order (\(drawn))")
 
         // Another client — this test, as the same user — writes the layout while the app is running.
-        try reorderChannelsFromAnotherClient(swapping: before[0], before[1])
+        let swapped = try reorderChannelsFromAnotherClient(swapping: drawn[0], drawn[1])
         let after = try channelsCategoryOrder()
-        XCTAssertEqual(Array(after.prefix(2)), [before[1], before[0]],
+        XCTAssertEqual(Array(after.prefix(2)), [swapped.1, swapped.0],
                        "the external write must land on the server, got \(after)")
 
-        XCTAssertTrue(waitUntil(timeout: 30) { drawnAbove(app, before[1], before[0]) },
+        XCTAssertTrue(waitUntil(timeout: 30) { drawnAbove(app, swapped.1, swapped.0) },
                       "a layout written by another client must reach the open list over the socket — "
-                      + "the T33-AV F3 defect left it unchanged until a relaunch")
+                      + "the T33-AV F3 defect left it unchanged until a relaunch (\(swapped))")
         XCTAssertEqual(app.state, .runningForeground, "the change must arrive without relaunching")
         XCTAssertFalse(element(app, "channelSidebar.actionError").exists)
         attachShot(app, named: "t33-11-external-layout")
@@ -411,9 +433,11 @@ final class T33ChannelSidebarUITests: XCTestCase {
         defer { try? setChannelsCategoryCollapsed(false) }
 
         let app = launchAndSignIn()
-        XCTAssertTrue(element(app, "channelSidebar.channel.\(target.id)").waitForExistence(timeout: 40),
+        XCTAssertTrue(revealRow(app, "channelSidebar.channel.\(target.id)").waitForExistence(timeout: 40),
                       "the row must be on screen before collapsing:\n\(app.debugDescription)")
-        let header = element(app, "channelSidebar.category.channels")
+        // The reveal may have scrolled the category header out of the viewport (`List` builds only what
+        // is on screen); scroll back to it before tapping.
+        let header = revealRow(app, "channelSidebar.category.channels")
         XCTAssertTrue(header.waitForExistence(timeout: 20))
         header.tap()
 
@@ -459,7 +483,7 @@ final class T33ChannelSidebarUITests: XCTestCase {
                             token: bot.token)
 
         let app = launchAndSignIn()
-        let row = element(app, "channelSidebar.channel.\(target.id)")
+        let row = revealRow(app, "channelSidebar.channel.\(target.id)")
         XCTAssertTrue(row.waitForExistence(timeout: 40),
                       "the channel row must be on screen:\n\(app.debugDescription)")
         XCTAssertTrue(waitUntil(timeout: 45) { (row.value as? String ?? "").contains("Unread") },
@@ -695,19 +719,37 @@ final class T33ChannelSidebarUITests: XCTestCase {
 
     /// Another client's write, as the app's own user: exactly the shape the defect was found with
     /// (`testAV33ALayoutChangeFromAnotherClientWhileTheAppIsOpen`).
-    private func reorderChannelsFromAnotherClient(swapping first: String, _ second: String) throws {
+    ///
+    /// **Returns the pair it actually swapped.** The fixture is shared: another card seeding `mm-perf`
+    /// adds channels to this category, so an id a test read before launching can be gone from the
+    /// category by the time the write is made. Reading the order *here* and swapping its first two is
+    /// the same measurement (an external write that moves two rows), and it keeps the assertion about
+    /// "the app follows the server" from depending on the fixture standing still.
+    @discardableResult
+    private func reorderChannelsFromAnotherClient(swapping first: String,
+                                                  _ second: String) throws -> (String, String) {
         var ids = try channelsCategoryOrder()
-        guard let a = ids.firstIndex(of: first), let b = ids.firstIndex(of: second) else {
-            return XCTFail("both channels must be in the `channels` category, got \(ids)")
+        var a = ids.firstIndex(of: first)
+        var b = ids.firstIndex(of: second)
+        if a == nil || b == nil {
+            guard ids.count >= 2 else {
+                XCTFail("the `channels` category needs at least two channels to reorder, got \(ids)")
+                return (first, second)
+            }
+            a = 0
+            b = 1
         }
-        ids.swapAt(a, b)
+        let pair = (ids[a!], ids[b!])
+        ids.swapAt(a!, b!)
         let payload = try categoriesPayload()
         var categories = (payload["categories"] as? [[String: Any]]) ?? []
         guard let index = categories.firstIndex(where: { ($0["type"] as? String) == "channels" }) else {
-            return XCTFail("the fixture has no `channels` category")
+            XCTFail("the fixture has no `channels` category")
+            return pair
         }
         categories[index]["channel_ids"] = ids
         try writeCategories(categories, because: "an external layout write")
+        return pair
     }
 
     /// True when `first` is drawn above `second` — the only honest way to read "the order on screen".
@@ -791,6 +833,33 @@ final class T33ChannelSidebarUITests: XCTestCase {
     /// depending on the container, so a type-specific query could silently never match.
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    /// Scroll the channel list until `identifier` exists.
+    ///
+    /// The sidebar is a `List`, so a row outside the viewport is **not in the accessibility tree at
+    /// all** — T34/T45 measure the same thing on this fixture (~40 channels for this account). T33-R2
+    /// ran on a 13-inch iPad, where the rows the tests name happened to be on screen; on a phone they
+    /// are not, and "the row is not in the server's answer" must not be inferred from "not on the
+    /// first screen". A person scrolls, so the test scrolls: bounded, both directions, because the
+    /// list's sort is by activity and moves between runs.
+    @discardableResult
+    private func revealRow(_ app: XCUIApplication, _ identifier: String,
+                           maxSwipes: Int = 20) -> XCUIElement {
+        let target = element(app, identifier)
+        if target.waitForExistence(timeout: 3) { return target }
+        let list = element(app, "nativeTeamSidebar").collectionViews.firstMatch
+        guard list.exists else { return target }
+        var revealed = target.exists
+        for _ in 0..<maxSwipes where !revealed {
+            list.swipeUp(velocity: .fast)
+            revealed = target.waitForExistence(timeout: 1)
+        }
+        for _ in 0..<maxSwipes where !revealed {
+            list.swipeDown(velocity: .fast)
+            revealed = target.waitForExistence(timeout: 1)
+        }
+        return target
     }
 
     private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {

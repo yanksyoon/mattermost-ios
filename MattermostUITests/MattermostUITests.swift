@@ -753,7 +753,8 @@ final class MattermostUITests: XCTestCase {
         XCTAssertTrue(pane.waitForExistence(timeout: 15),
                       "a channel deep link must push the native channel pane")
         let title = element(app, "nativeChannelTitle")
-        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(title.waitForExistence(timeout: 15),
+                      "the pushed pane must name the channel the link named:\n\(app.debugDescription)")
         XCTAssertEqual(title.label, "general",
                        "the pane must show the channel the link named, got '\(title.label)'")
 
@@ -1298,9 +1299,18 @@ final class MattermostUITests: XCTestCase {
         let expectedBadge = serverMentions == 1
             ? "1 mention"
             : (serverMentions > 99 ? "more than 99 mentions" : "\(serverMentions) mentions")
-        XCTAssertTrue((ops.value as? String ?? "").contains(expectedBadge),
-                      "ops must carry the server's own mention count (\(serverMentions)), "
-                      + "got '\(ops.value ?? "nil")'")
+        if serverMentions == 0 {
+            // The rail draws a badge only when there is something to say: no mentions, no number.
+            // (The count is read, not hard-coded — mentions accumulate in this shared fixture and a
+            // probe clearing them is a legitimate state; docs/t32r-repair-note.md §3.5.)
+            XCTAssertFalse((ops.value as? String ?? "").contains("mention"),
+                           "the server reports no mentions for ops, so the rail must not badge it, "
+                           + "got '\(ops.value ?? "nil")'")
+        } else {
+            XCTAssertTrue((ops.value as? String ?? "").contains(expectedBadge),
+                          "ops must carry the server's own mention count (\(serverMentions)), "
+                          + "got '\(ops.value ?? "nil")'")
+        }
         XCTAssertTrue((perf.value as? String ?? "").contains("Current team"),
                       "the selected team must say so, got '\(perf.value ?? "nil")'")
         attachShot(app, named: "t32-01-rail-two-teams")

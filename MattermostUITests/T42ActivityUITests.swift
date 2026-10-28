@@ -241,11 +241,12 @@ final class T42ActivityUITests: XCTestCase {
 
     /// The mentions surface, whichever chrome the layout uses: the fifth tab in the compact layout, the
     /// toolbar sheet in the split one (a Catalyst window is wide enough for the split layout).
+    ///
+    /// The compact shell pushes a channel over the tab bar when the launch restored one
+    /// (`docs/t95-shell-tab-bar-decision.md` §2 D1 — upstream's own shape), so the tab is reached the
+    /// way a reader reaches it: `Back`, then the tab. `ShellSettle.tapTab` is that route in one place.
     private func openMentions(_ app: XCUIApplication) {
-        let tab = app.tabBars.buttons["Mentions"]
-        if tab.waitForExistence(timeout: 8) {
-            tab.tap()
-        } else {
+        if !ShellSettle.tapTab(ShellSettle.Tab.activity, in: app, wait: 8) {
             let button = element(app, "shellActivityButton")
             XCTAssertTrue(button.waitForExistence(timeout: 25),
                           "the shell must offer the mentions surface:\n\(app.debugDescription)")

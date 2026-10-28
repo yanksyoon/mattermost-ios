@@ -341,22 +341,17 @@ final class T48PostOptionsUITests: XCTestCase {
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
-    /// The Saved screen. On a phone the channel is pushed over the shell's tabs, so `Back` comes first.
+    /// The Saved screen. On a phone the channel is pushed over the shell's tabs, so the bar is absent
+    /// while one is open — `ShellSettle.tapTab` takes `Back` first and then taps the tab, the reader's
+    /// own route (`docs/t95-shell-tab-bar-decision.md` §2 D1). The split layout reaches Saved from the
+    /// detail toolbar.
     private func openSaved(_ app: XCUIApplication) {
-        var toolbarButton = element(app, "shellSavedButton")
-        if !toolbarButton.waitForExistence(timeout: 10) {
-            let back = app.navigationBars.buttons["Back"]
-            if back.waitForExistence(timeout: 15) { back.tap() }
-            toolbarButton = element(app, "shellSavedButton")
-        }
-        if toolbarButton.waitForExistence(timeout: 20) {
-            toolbarButton.tap()
-        } else {
-            let tab = app.tabBars.buttons["Saved"]
-            XCTAssertTrue(tab.waitForExistence(timeout: 20),
+        if !ShellSettle.tapTab(ShellSettle.Tab.saved, in: app, wait: 5) {
+            let toolbarButton = element(app, "shellSavedButton")
+            XCTAssertTrue(toolbarButton.waitForExistence(timeout: 20),
                           "neither the toolbar nor a tab opens saved messages:\n"
                           + app.debugDescription)
-            tab.tap()
+            toolbarButton.tap()
         }
         XCTAssertTrue(element(app, "nativeSavedPane").waitForExistence(timeout: 30),
                       "the saved screen must mount:\n\(app.debugDescription)")
