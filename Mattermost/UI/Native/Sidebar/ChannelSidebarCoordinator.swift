@@ -74,6 +74,15 @@ final class ChannelSidebarCoordinator: ObservableObject {
     /// The team each server's list was last asked for, so a location change that only moved the
     /// selected channel does not reload anything.
     private var loadedTeams: [UUID: String] = [:]
+    /// Servers whose saved record's **team** has already been asked for on this launch. The ask is a
+    /// list load, not a decision: once per launch is enough, and asking again would be a loop between
+    /// the decide and the location sink it causes (see `applyLaunchDestinationIfNeeded`).
+    private var askedForSavedTeam: Set<UUID> = []
+    /// Servers whose launch destination has already been **decided** against a loaded directory
+    /// (opened, or "nothing to open"). See `applyLaunchDestinationIfNeeded`: a launch decision is a
+    /// launch decision, and re-running it on every location write is what pushes the just-saved
+    /// channel back over the list when the reader taps Back.
+    private var launchDecisionSettled: Set<UUID> = []
 
     // Observable evidence for tests and diagnostics.
     /// What the launch-destination step decided (diagnostics: the shell's dump prints it).
@@ -139,10 +148,18 @@ final class ChannelSidebarCoordinator: ObservableObject {
         // `groups`, not `phase`: the model sets `phase = .loaded` a statement before it rebuilds the
         // groups, so a phase sink sees an empty list and decides "nothing to open" (measured: it did,
         // twice). The groups arriving is the fact this needs.
+        //
+        // `sink` fires in the **willSet** of `@Published`, so inside this closure `model.groups` is
+        // still the *previous* value; the value being published is the parameter. The decide is handed
+        // that parameter (`arrivingEntries:`), never `model.groups` — measured (T95-A-AV-R, card
+        // `t_fcbd5cc8`): the directory-arrival decide read `sink groups=2 modelGroups=0`, i.e. it was
+        // one publish behind, and on that read it opened the channel the reader had left.
         model.$groups
             .sink { [weak self, weak model] groups in
                 guard !groups.isEmpty, let self, let model else { return }
-                self.applyLaunchDestinationIfNeeded(for: server, model: model)
+                self.applyLaunchDestinationIfNeeded(for: server,
+                                                    model: model,
+                                                    arrivingEntries: groups.flatMap(\.entries))
             }
             .store(in: &launchSinks)
         return model
@@ -172,7 +189,59 @@ final class ChannelSidebarCoordinator: ObservableObject {
     /// with nothing saved stays on the channel list. Upstream's cold start does the same: last thread,
     /// else last channel, else `HOME` (`app/init/launch.ts:245-262`, `:290-294`) — there is no
     /// town-hall fallback to reproduce (`docs/t95-shell-tab-bar-decision.md` §3).
-    private func applyLaunchDestinationIfNeeded(for server: ServerConfig, model: ChannelListViewModel) {
+    ///
+    /// ## The rule: the directory is the judge, and an unarrived directory is not an empty one
+    ///
+    /// (Repair for card `t_e0cef465`, measured on `t_fcbd5cc8` /
+    /// `docs/t95a-gone-channel-build-note.md`.) `LaunchDestination.request(saved:available:)` reads
+    /// `available.isEmpty` as "the list is not known yet — trust the saved record, the pane is the
+    /// judge". That reading is only safe when something else has already established that the saved
+    /// channel exists. At launch nothing has: `activate` and the location-change `defer` both called
+    /// this decide **before the first load returned** (`groups=0 phase=idle`, measured) and handed the
+    /// request function an empty `available`, which it is contractually right to trust — and the shell
+    /// opened a channel the account had already left (`launch=entries=0 saved=dqjbyw37… -> opened(…)`,
+    /// in the same diagnostics line that reports `channels=42` for the sidebar).
+    ///
+    /// So the decide answers **nothing** while the directory has not arrived, and is re-run when it
+    /// does: the `$groups` sink (with the arriving value, see `model(for:)`) and `activate` after its
+    /// own load. Two consequences, both deliberate:
+    ///
+    ///  * `available` is never empty when `LaunchDestination.request` sees it, so its
+    ///    "not loaded yet, trust the record" branch is unreachable from this coordinator — the
+    ///    function's contract and its unit tests are untouched, and they should be: the function was
+    ///    right, the value and the moment were wrong.
+    ///  * an **offline** launch (the load never returns) now lands on the channel list instead of
+    ///    restoring a channel it cannot verify. That is the honest direction: a false "gone" costs one
+    ///    tap on a row that is on screen, a false "open" strands the reader in a conversation they are
+    ///    not a member of, and behind it the pane's own error surface.
+    ///
+    /// The alternative the card allowed — let a later decide correct an earlier open — was not taken.
+    /// It still writes a location the reader never asked for, and whether that location is *rendered*
+    /// depends on mount order: under mutant M1 (sink fix only, `docs/t95a-gone-channel-build-note.md`
+    /// §2) the coordinator still applied `openChannel` for the gone channel on every run and the pane
+    /// merely failed to appear, for a reason this repo has not measured. Not opening is a fact the
+    /// shell can hold; un-opening is a race.
+    ///
+    /// ## Which directory judges the record: the record's own team's
+    ///
+    /// The sidebar holds **one team at a time**, and the team the shell lands on first is the rail's
+    /// first — sorted by the `teams_order` preference, else by display name (`TeamSidebarDerivation`),
+    /// which need not be the team the reader was in. Measured on the fixture while repairing this
+    /// (2026-10-28): the relaunch loaded `team=ops` with 8 rows while the saved record named a channel
+    /// of `perf` (42), so "not in `available`" said *nothing* about the channel — it only said the
+    /// wrong list was on screen, and a saved channel that is still there would have been refused with
+    /// it. So before judging, the decide asks the shell for the record's team **once**; the location
+    /// change reloads the list (`apply(_:)` → `load(serverID:model:teamID:)`) and this decide runs
+    /// again with that team's rows. Upstream restores team and channel together for the same reason
+    /// (`app/init/launch.ts:245-262`), and the reader lands on their own team's list even when the
+    /// channel is gone, instead of on whichever team sorted first.
+    ///
+    /// - Parameter arrivingEntries: the rows the publisher is delivering, when this decide is running
+    ///   from the `$groups` sink (inside which `model.groups` is still the previous value). `nil` means
+    ///   "read the model" — correct after an `await` on the load (`activate`), wrong inside `sink`.
+    private func applyLaunchDestinationIfNeeded(for server: ServerConfig,
+                                               model: ChannelListViewModel,
+                                               arrivingEntries: [ChannelSidebarEntry]? = nil) {
         guard let navigation else {
             lastLaunchDecision = "no-navigation"
             return
@@ -180,12 +249,63 @@ final class ChannelSidebarCoordinator: ObservableObject {
         let location = navigation.location
         guard !location.opensADestination else { return }
         if let current = location.serverID, current != server.id { return }
+
+        let saved = navigation.savedChannel(for: server.id)
+        let savedID = saved?.channelID ?? saved?.channelName ?? "-"
+
+        // A launch decision is a **launch** decision. Once this server's has been answered against a
+        // loaded directory, later location writes must not answer it again: a row tap saves the
+        // channel, the reader's Back writes the root location, the decide ran a second time and
+        // pushed the just-saved channel back over the list. Measured on the compact-layout parity
+        // suite (`T95ShellLayoutUITests` `:194`, red on `origin/main` too — 3/3 runs, the pane left in
+        // the hierarchy offscreen while the tab bar was on screen) and it is the same "a later decide
+        // re-applies an open" fragility that mutant M1 left behind
+        // (`docs/t95a-gone-channel-build-note.md` §2). Deferrals ("directory not arrived") are not
+        // decisions: the retry this method exists for stays available until it can be answered.
+        guard !launchDecisionSettled.contains(server.id) else { return }
+
+        // The record's team, when the sidebar is not on it yet (or has no team at all). Asked once per
+        // server per launch: the answer is a list load, and asking again on every decide is a loop.
+        if let savedTeam = saved?.teamID, model.teamID != savedTeam,
+           !askedForSavedTeam.contains(server.id) {
+            askedForSavedTeam.insert(server.id)
+            let entryCount = arrivingEntries?.count ?? model.groups.flatMap(\.entries).count
+            lastLaunchDecision = "entries=\(entryCount) saved=\(savedID) -> loading the saved team \(savedTeam) first"
+            _ = navigation.openChannel(NativeChannelRequest(serverID: server.id,
+                                                           teamID: savedTeam,
+                                                           teamName: saved?.teamName))
+            return
+        }
+
         guard let teamID = model.teamID ?? location.teamID else { return }
 
-        let entries = model.groups.flatMap(\.entries)
+        // The rows and the team have to be the same team's before anything is judged:
+        // `setSelection` re-derives `groups` from the **previous** team's data until the new team's
+        // load returns, and `phase` stays `.loaded` across that change, so non-empty rows can still be
+        // another team's list (measured while repairing: `team=ops channels=8` on screen while the
+        // record named a `perf` channel). `loadedTeamID == teamID` is the one signal that says "this
+        // team's directory is what is on screen" — true for the `$groups` sink too, which fires after
+        // the model has recorded the team it just loaded.
+        guard model.teamID != nil, model.loadedTeamID == model.teamID else {
+            lastLaunchDecision = "saved=\(savedID) -> deferred (this team's rows have not arrived)"
+            return
+        }
+
+        let entries = arrivingEntries ?? model.groups.flatMap(\.entries)
+        guard !entries.isEmpty else {
+            // Nothing to judge the saved record against. A loaded, genuinely empty directory is a
+            // decision ("none"); anything else is "not yet" and is re-decided when it arrives.
+            if model.phase == .loaded { launchDecisionSettled.insert(server.id) }
+            lastLaunchDecision = model.phase == .loaded
+                ? "entries=0 phase=loaded saved=\(savedID) -> none"
+                : "entries=0 phase=\(String(describing: model.phase)) saved=\(savedID) -> deferred (directory not arrived)"
+            return
+        }
+
         let available = Set(entries.map(\.id))
-        lastLaunchDecision = "entries=\(entries.count) saved=\(navigation.savedChannel(for: server.id)?.channelID ?? "-")"
-        guard let request = LaunchDestination.request(saved: navigation.savedChannel(for: server.id),
+        launchDecisionSettled.insert(server.id)
+        lastLaunchDecision = "entries=\(entries.count) saved=\(savedID)"
+        guard let request = LaunchDestination.request(saved: saved,
                                                      available: available,
                                                      serverID: server.id,
                                                      teamID: teamID,
@@ -223,6 +343,10 @@ final class ChannelSidebarCoordinator: ObservableObject {
         refreshTokens[serverID] = nil
         models[serverID] = nil
         loadedTeams[serverID] = nil
+        // A new session for this server may carry a different saved record; let the next launch
+        // decide ask for its team again, and decide again.
+        askedForSavedTeam.remove(serverID)
+        launchDecisionSettled.remove(serverID)
         teams?.setChannelTeams([:], for: serverID)
     }
 
@@ -258,6 +382,14 @@ final class ChannelSidebarCoordinator: ObservableObject {
     /// launch destination again: the team arrives asynchronously (the rail picks it), so the first
     /// attempt after the list loads can legitimately find no team yet and must not be the last word.
     private func apply(_ location: NativeLocation) {
+        // The launch decision is over the moment a **destination reaches the screen**: a row tap, a
+        // deep link, a notification tap or the decide's own open. Whatever the decide had not managed
+        // to answer by then is moot — the reader has chosen, and re-answering it later is what pushed
+        // the just-saved channel back over the list when they tapped Back
+        // (`T95ShellLayoutUITests` `:194`, `docs/t95a-gone-channel-build-note.md` §3.1 (d)).
+        if location.opensADestination, let id = location.serverID {
+            launchDecisionSettled.insert(id)
+        }
         defer {
             if !location.opensADestination, let serverStore,
                let server = serverStore.servers.first(where: { $0.id == location.serverID }) {

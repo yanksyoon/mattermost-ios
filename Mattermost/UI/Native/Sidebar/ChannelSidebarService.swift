@@ -359,8 +359,12 @@ final class ChannelListViewModel: ObservableObject {
     private var data = ChannelSidebarData()
     private var selectedChannelID: String?
     private var selectedChannelName: String?
-    /// The team whose data is in `data` (so `ifNeeded` cannot answer for the wrong team).
-    private var loadedTeamID: String?
+    /// The team whose data is in `data` (so `ifNeeded` cannot answer for the wrong team), and the team
+    /// whose rows are on screen. Read by the launch decide: `setSelection` re-derives `groups` from the
+    /// **previous** team's data until the new team's load returns, and `phase` stays `.loaded` across
+    /// that change, so "there are rows" is not yet "this team's directory has arrived". Without this
+    /// the decide could judge a saved channel against another team's list (`t_e0cef465`).
+    private(set) var loadedTeamID: String?
     /// Every load takes a number; a load that finishes after a newer one started is dropped.
     private var generation = 0
 

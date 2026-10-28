@@ -265,3 +265,137 @@ channel — the relaunch re-saved what it had just opened.
   by the time the app starts, which is why §E is a `simctl launch` rather than an XCTest relaunch.
 * No APNs, no real device, no non-admin account, no iPad/regular layout: §4 of the build note lists
   what remains unvalidated.
+
+--------------------------------------------------------------------------------
+§H  THE REPAIR (t_e0cef465) — the decide rebuilt around the directory, verbatim
+--------------------------------------------------------------------------------
+
+The repair changes one product file, `Mattermost/UI/Native/Sidebar/ChannelSidebarCoordinator.swift`
+(the launch decide + its `$groups` sink), and one test file, the falsifier below. Everything here is
+raw output; labels are the qa-test labels, whose full logs are `build/logs/<label>.log` (not committed:
+`build/` is ignored) and whose notes are build-note §3.1 and §5.
+
+* `t95gone-repair-1` — (a) "decide nothing until the directory arrives" + (b) "the sink passes the
+  arriving rows", wrapper removed. PASS, gone test 59.306 s.
+
+  1793177761.510 MEASURE trace t=0.01 pane=false title='-' tabs=-1 rows=true shell=true signIn=false
+  1793177790.950 MEASURE landing=shell directory rows at 0.01 s after launch; landing at 0.01 s; window=30.0s from the directory
+  1793177791.012 MEASURE paneAt=nil s after launch title='-' tabBarsNow=1
+  Test Case '-[MattermostUITests… testAGoneSavedChannelIsNotOpenedOnRelaunch]' passed (59.306 seconds)
+
+* `t95gone-repair-2` — the same tree plus `testASavedChannelStillInTheDirectoryIsRestoredOnRelaunch`.
+  The gone half passes again; the new green half **fails**, and that failure is the evidence for rule
+  (c):
+
+  /…/T95GoneChannelLaunchUITests.swift:376: error: … XCTAssertTrue failed - a saved channel that is
+  still in the directory must be restored on relaunch; pane=false title='nil' after 94.1 s
+  Test Case '…testASavedChannelStillInTheDirectoryIsRestoredOnRelaunch' failed (140.611 seconds)
+
+  Cause, from a hand launch over the store that run left behind (`simctl launch … -shellSnapshot`,
+  container path resolved immediately before, hand-2):
+
+  location=NativeLocation(serverID: Optional(8BF45723-8AEC-4839-B884-856324FE9415), serverName: Optional("Local Mattermost"), teamID: Optional("xs9sxp6s8pysmnrakx31godyye"), teamName: Optional("ops"), channelID: nil, channelName: nil, postID: nil, pane: Mattermost.NativePane.channel)
+  sidebar=team=xs9sxp6s8pysmnrakx31godyye phase=loaded stage=loaded 0 groups service=labels ok (4) groups=2 channels=8 err=- launch=entries=7 saved=kr9zn3k7jf84irige4cm3k8z3e -> none
+
+  The record `kr9zn3k7…` is a **Perf** channel; the shell loaded **Operations** (8 rows). "Not in
+  `available`" was true of the wrong list, so (c) — ask for the record's own team before judging —
+  is not an optimisation, it is what makes the judgement mean anything. (Note the same mechanism
+  explains §1's `team=ocz148… channels=42`: the pre-repair blind-trust open dragged the shell into the
+  saved channel's team, and the diagnostics then printed that team's rows.)
+
+* `t95gone-repair-3` — plus (c). PASS, 2 tests 90.412 s.
+
+  1793178594.498 MEASURE landing=shell directory rows at 0.00 s after launch; landing at 0.00 s; window=30.0s from the directory
+  1793178594.566 MEASURE paneAt=nil s after launch title='-' tabBarsNow=1
+  1793178622.541 MEASURE restore paneAt=0.10 title='T95 Gone Probe' final='T95 Gone Probe'
+  Executed 2 tests, with 0 failures (0 unexpected) in 90.412
+
+* `t95repair-layout-phone`, `-2` — the compact-layout parity suite on that tree: **RED** at `:194`,
+  deterministically, with the pane left in the hierarchy offscreen and the tab bar on screen:
+
+  T95ShellLayoutUITests.swift:194: error: … XCTAssertFalse failed - the popped destination must not stay in the hierarchy:
+      TabBar, 0x106a24e90, {{0.0, 791.0}, {402.0, 83.0}}, label: 'Tab Bar'
+    Other, 0x106a25c10, {{402.0, 162.3}, {402.0, 666.7}}, identifier: 'nativeChannelPane'
+
+* `t95repair-layout-main` — the **same tree with this card's product file reverted** (`git stash push --
+  …/ChannelSidebarCoordinator.swift`), i.e. `origin/main`'s decide: the same assertion fails the same way
+  (48.757 s), which is what says the red is the shell's and not the repair's — the decide re-ran on the
+  location Back writes and pushed the just-saved channel back. That failure is rule (d).
+
+  T95ShellLayoutUITests.swift:194: error: … XCTAssertFalse failed - the popped destination must not stay in the hierarchy:
+      TabBar, 0x104728380, {{0.0, 791.0}, {402.0, 83.0}}, label: 'Tab Bar'
+    Other, 0x104729100, {{402.0, 162.3}, {402.0, 666.7}}, identifier: 'nativeChannelPane'
+  Test Case '…testALaunchWithNothingSavedShowsTheTabBarAndAChannelPushCoversIt' failed (48.757 seconds)
+
+* `t95repair-layout-phone-3` — plus (d) "the launch decision is made once". PASS:
+
+  Test Case '…testALaunchWithNothingSavedShowsTheTabBarAndAChannelPushCoversIt' passed (44.407 seconds)
+  Executed 2 tests, with 1 test skipped and 0 failures (0 unexpected) in 44.704
+
+* `t95gone-repair-4` — the **final tree** (a–d), both policy halves. PASS, 83.215 s:
+
+  1793179363.200 MEASURE left #t95gone-1793179341; stillJoined=false
+  1793179396.944 MEASURE landing=shell directory rows at 0.00 s after launch; landing at 0.00 s; window=30.0s from the directory
+  1793179397.011 MEASURE paneAt=nil s after launch title='-' tabBarsNow=1
+  1793179423.518 MEASURE restore paneAt=0.16 title='T95 Gone Probe' final='T95 Gone Probe'
+  Test Case '…testAGoneSavedChannelIsNotOpenedOnRelaunch' passed (57.307 seconds)
+  Test Case '…testASavedChannelStillInTheDirectoryIsRestoredOnRelaunch' passed (25.909 seconds)
+  Executed 2 tests, with 0 failures (0 unexpected) in 83.215
+
+* `t95repair-layout-ipad-2` — the regular landing on the (a–d) tree (iPad Pro 11 `122E4BC7`). PASS:
+
+  Test Case '…testTheRegularLayoutLandsOnTheSplitViewWithAnEmptyDetail' passed (38.526 seconds)
+
+* `t95repair-units-2` — `MattermostTests/LastChannelLaunchTests`, untouched by the repair. PASS:
+
+  Executed 8 tests, with 0 failures (0 unexpected) in 0.017
+
+* `t95gone-repair-5` — plus (d)'s second half, "the rows must be the judged team's"
+  (`model.loadedTeamID == model.teamID`; `setSelection` re-derives the rows from the previous team's
+  data and `phase` stays `.loaded`, so non-empty rows can belong to another team). PASS, both halves.
+
+* `t95repair-layout-phone-4` — same tree, compact layout: the app process **vanished** ~30 s into the
+  launch window, so nothing was measured (the T635 host symptom):
+
+  Checking for crash reports corresponding to unexpected termination of com.mattermost.ios
+  Test Case '…testALaunchWithNothingSavedShowsTheTabBarAndAChannelPushCoversIt' failed (54.349 seconds)
+
+* `t95repair-layout-phone-5` — same tree, rerun: **RED** at `:194` again — with the stricter rows guard
+  the decide defers at launch, so "answered" never settles it before the reader taps the row and taps
+  Back. That is why the settle also fires when a destination reaches the screen.
+
+  T95ShellLayoutUITests.swift:194: error: … XCTAssertFalse failed - the popped destination must not stay in the hierarchy:
+
+* `t95repair-layout-phone-6` — plus that settle-on-destination rule. PASS:
+
+  Test Case '…testALaunchWithNothingSavedShowsTheTabBarAndAChannelPushCoversIt' passed (45.240 seconds)
+  Executed 2 tests, with 1 test skipped and 0 failures (0 unexpected) in 45.795
+
+* `t95gone-repair-6` — same tree: the app process died in the relaunch measurement, reported by the test
+  itself, so the run measured nothing:
+
+  the app process died 29.5 s into the relaunch measurement (the known T635 symptom on this host: the
+  process vanishes under accessibility snapshotting), so this run measured nothing.
+  Trace so far: t=0.00 pane=false … shell=true … | t=22.68 pane=false … rows=false shell=false
+
+* `t95gone-repair-7` — the **final tree** (a–d), rerun of the run above. PASS, 2 tests 85.230 s:
+
+  1793180272.223 MEASURE landing=shell directory rows at 0.01 s after launch; landing at 0.01 s; window=30.0s from the directory
+  1793180272.288 MEASURE paneAt=nil s after launch title='-' tabBarsNow=1
+  1793180299.165 MEASURE restore paneAt=0.12 title='T95 Gone Probe' final='T95 Gone Probe'
+  Test Case '…testAGoneSavedChannelIsNotOpenedOnRelaunch' passed (58.623 seconds)
+  Test Case '…testASavedChannelStillInTheDirectoryIsRestoredOnRelaunch' passed (26.606 seconds)
+  Executed 2 tests, with 0 failures (0 unexpected) in 85.230
+
+* `t95repair-layout-ipad-3` — the regular landing on the final tree. PASS:
+
+  Test Case '…testTheRegularLayoutLandsOnTheSplitViewWithAnEmptyDetail' passed
+
+* `t95repair-units-3` — `LastChannelLaunchTests` on the final tree. PASS:
+
+  Executed 8 tests, with 0 failures (0 unexpected) in 0.032 (0.049) seconds
+
+What is **not** evidence here: the `launch=` diagnostics line inside the XCTest relaunch (the container
+UUID changes on every `xcodebuild` install, §G), the offline-launch cost stated in build-note §3.1, and
+the "record names a team the account has left" cost — neither was driven.
+

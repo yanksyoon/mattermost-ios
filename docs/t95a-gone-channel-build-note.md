@@ -157,6 +157,111 @@ measurement lands). The spec it must honour:
    unmatched and **the test fails** — remove the wrapper, keep the assertions. Do not delete the test
    to make it green.
 
+### 3.1 What shipped (`t_e0cef465`, 2026-10-28)
+
+Decision, taken by `mmios-architect`: **the directory is the judge, and an unarrived directory is not
+an empty one.** The repair is four rules in `ChannelSidebarCoordinator`, in the order it needed them —
+each one was forced by a measurement, not by taste:
+
+**(a) The decide answers nothing until the directory arrives.** `applyLaunchDestinationIfNeeded`
+returns while the sidebar has no rows and no finished load (`entries.isEmpty`, `phase != .loaded`), and
+is re-run when the directory arrives (`$groups`) and after `activate`'s own `await load`. The consequence
+is the one the spec asked for: `LaunchDestination.request`'s "`available` is empty → trust the saved
+record" branch is now **unreachable from the coordinator**. The function and `LastChannelLaunchTests`
+(including `testAnUnloadedListTrustsTheSavedChannel`) are untouched — the function was right; the value
+handed to it and the moment were wrong.
+
+**(b) The sink hands the decide the value it is publishing** (`arrivingEntries:`), not `model.groups`,
+which inside a `@Published` willSet is still the previous value (measured: `sink groups=2 modelGroups=0`).
+This is the card's M1, kept.
+
+**(c) Before judging, the decide loads the record's own team — once.** The sidebar holds **one team**, and
+the first team the shell lands on is the rail's first (`teams_order` preference, else display name), which
+need not be the reader's. Found while repairing: the first attempt at the green half failed
+(`t95gone-repair-2`, `pane=false … after 94.1 s`), and a hand `simctl launch -shellSnapshot` over the
+store the test had just written said why —
+
+```
+location=… teamID: Optional("xs9sxp6s8pysmnrakx31godyye"), teamName: Optional("ops"), channelID: nil …
+sidebar=team=xs9sxp6s8pysmnrakx31godyye phase=loaded stage=loaded 0 groups service=labels ok (4) groups=2 channels=8 err=- launch=entries=7 saved=kr9zn3k7jf84irige4cm3k8z3e -> none
+```
+
+8 rows of **Operations** on screen while the record named a **Perf** channel: "not in `available`" said
+nothing about the channel, and a channel that *was* still in the directory would have been refused with
+it. This is also why the defect looked like a team-perf launch in §1: the blind-trust open dragged the
+shell into the saved channel's team, and the diagnostics then reported that team's 42 rows. The decide
+now asks the shell for the record's team once per launch (`askedForSavedTeam`) — a location change, which
+reloads that team's list — and runs again with its rows. Upstream restores team and channel together for
+the same reason (`app/init/launch.ts:245-262`).
+
+**(d) The launch decision is made once, and the rows must be the judged team's.** While repairing, the
+compact-layout parity suite went red at `T95ShellLayoutUITests:194` — 3/3 runs, and **identically on
+`origin/main` with this card's product file reverted** (`t95repair-layout-main`): after Back the shell is
+at the root with its tab bar, and a `nativeChannelPane` is still in the tree at
+`{{402.0, 162.3}, {402.0, 666.7}}`. Two things had to be true for that:
+
+* the rows the decide reads can belong to the **previous** team: `ChannelListViewModel.setSelection`
+  re-derives `groups` from the old `data` until the new team's load returns, and `phase` stays `.loaded`
+  across that change, so "there are rows" is not "this team's directory has arrived". The decide now
+  requires `model.loadedTeamID == model.teamID` (that property is now readable; it is the only signal
+  that says the rows on screen are the judged team's) and defers otherwise. Measured on `team=ops`
+  (8 rows) against a `perf` record above;
+* the decide ran again on the root location Back writes, with the record the row tap had just saved
+  still in the directory, so the channel was pushed back over the list. A launch decision is now
+  **settled** (`launchDecisionSettled`) when either of two things happens: it is answered against the
+  judged team's loaded directory (opened, or "nothing to open"), or a **destination reaches the screen**
+  (a row tap, a deep link, a notification tap) — in both cases the launch is over and re-answering it
+  later is the bug. Deferrals are not answers, so the retry the `defer` exists for still happens, and
+  `deactivate` clears the flag with the session.
+
+That is the same "a later decide re-applies an open" fragility the card warned about, in the other
+direction: the card offered "let a later decide correct an earlier open"; the measurement here is a
+later decide *re-creating* an open — reason enough to make the decision final, not to make it correctable.
+
+**Not taken:** the card's alternative, "let a later decide correct an earlier open". It still writes a
+location nobody asked for, and whether that location renders depends on mount order — under M1 (§2) the
+open was applied and not drawn, for a reason this repo has not measured; (d) is that same fragility seen
+from the other side. Not opening is a fact the shell can hold; un-opening is a race.
+
+**Costs, stated:**
+
+* an **offline** launch (the load never returns) lands on the channel list instead of restoring a channel
+  it cannot verify. That is the honest direction: a false "gone" costs one tap on a row that is on screen,
+  a false "open" strands the reader in a conversation they are not a member of.
+* a record naming a **team the account has left** moves the shell to that team once (the ask happens
+  before the rail can vouch for the team), landing on that team's list or its retry state; the rail is
+  still there to switch, and no channel is opened on a guess.
+* **regular/iPad**: the regular layout renders `location` in the detail column instead of pushing, so the
+  decide's outcome there is the same value without a stack; measured green (`t95repair-layout-ipad-2`).
+
+**Falsifier:** the `XCTExpectFailure` wrapper and its `continueAfterFailure` line are **removed**, the
+three assertions kept, and one method **added** —
+`testASavedChannelStillInTheDirectoryIsRestoredOnRelaunch` — because (a)/(c)/(d) change *when* the decide
+runs, which is exactly what the green half depends on, so §4's "keep the reader experience" is measured
+on the same fixture rather than assumed.
+
+**Runs** (final tree = all four rules; full table in §5):
+
+```
+t95gone-repair-7   PASS  Executed 2 tests, with 0 failures (0 unexpected) in 85.230
+   MEASURE landing=shell directory rows at 0.01 s after launch; landing at 0.01 s; window=30.0s from the directory
+   MEASURE paneAt=nil s after launch title='-' tabBarsNow=1
+   MEASURE restore paneAt=0.12 title='T95 Gone Probe' final='T95 Gone Probe'
+t95repair-layout-phone-6  PASS  compact 45.240 s (regular method skips on the phone)
+t95repair-layout-ipad-3   PASS  the regular landing (split view, empty detail)
+t95repair-units-3         PASS  Executed 8 tests, with 0 failures — LastChannelLaunchTests unchanged
+```
+
+Two runs failed on the way and neither is a policy result: `t95repair-layout-phone-4` lost the app
+process 30 s into the launch window and `t95gone-repair-6` lost it 29.5 s into the relaunch measurement —
+the T635 host symptom, detected and reported by the tests themselves ("so this run measured nothing").
+The same trees' reruns are `-phone-6` and `-repair-7` above.
+
+`-shellSnapshot` from inside the XCTest relaunch is still not usable (the container UUID changes on every
+`xcodebuild` install, §G of the evidence log), so the `launch=` line quoted above is from a hand
+`simctl launch` over the store the test wrote, not from the test run itself. The test run carries the
+`MEASURE` lines.
+
 ---
 
 ## 4. What this card does **not** establish
@@ -206,6 +311,27 @@ TEST_RUNNER_MM_AUTH_PASSWORD=… python3 scripts/qa-test.py --platform ios --sim
 | **`t95gone-clean-5`** | **clean** (committed file, + fixture cleanup) | **PASS**, 102 s, the same three expected failures — re-run after adding the probe channel's archive step, so the verified tree is the committed one |
 | simctl launch, store intact | **clean** | reproduced without XCTest; `-shellSnapshot` diagnostics + screenshot (§1) |
 
+### The repair (`t_e0cef465`), in the order it was built
+
+| label | tree | result |
+|---|---|---|
+| `t95gone-repair-1` | product + (a) + (b), wrapper removed | **PASS**, 59.3 s: `MEASURE paneAt=nil`, `landing=shell`, `tabBarsNow=1` |
+| `t95gone-repair-2` | + the new restore method | **FAIL (evidence, kept)**: `testASavedChannelStillInTheDirectoryIsRestoredOnRelaunch` — `pane=false title='nil' after 94.1 s`. Not a bad fix but a missing rule: the shell had settled on **Operations** (8 rows) while the record named a **Perf** channel → (c) |
+| `t95gone-repair-3` | + (c) | **PASS**, 2 tests 90.4 s: gone `paneAt=nil tabBarsNow=1`; restore `MEASURE restore paneAt=0.10 title='T95 Gone Probe'` |
+| `t95repair-layout-phone`, `-2` | + (c), compact layout | **RED** `:194` — a `nativeChannelPane` left in the tree at x=402 with the tab bar on screen (the Back re-open, (d)); `:138`/`:144`/`:184` green |
+| `t95repair-layout-main` | same tree, **this card's product file reverted** (origin/main) | **RED** identically → the red is the shell's, not this card's: the decide re-ran after Back |
+| `t95repair-layout-ipad`, `t95repair-units` | + (c) | **PASS** (regular landing, iPad Pro 11 `122E4BC7`) / **PASS** `Executed 8 tests, with 0 failures` |
+| `t95repair-layout-phone-3` | + (d) "a launch decision is made once" | **PASS**, compact 44.4 s (2 tests, 1 skipped) |
+| `t95gone-repair-4`, `t95repair-layout-ipad-2`, `t95repair-units-2` | + (d) | **PASS** — gone + restore 83.2 s (`paneAt=nil` / `restore paneAt=0.16`), regular landing, 8/8 |
+| `t95gone-repair-5` | + (d) "the rows must be the judged team's" (`loadedTeamID`) | **PASS**, both halves |
+| `t95repair-layout-phone-4` | same | **FAIL (host)**: "crash reports corresponding to unexpected termination" — the app process died ~30 s into the launch window (the T635 symptom), so nothing was measured |
+| `t95repair-layout-phone-5` | same | **RED** `:194` again — the stricter rows guard defers the decide, so "answered" no longer settles it before the reader taps Back |
+| `t95repair-layout-phone-6` | + (d) completed — "a destination on screen settles it too" | **PASS**, compact 45.2 s |
+| `t95gone-repair-6` | same | **FAIL (host, the test's own words)**: `the app process died 29.5 s into the relaunch measurement (the known T635 symptom on this host) … so this run measured nothing` |
+| **`t95gone-repair-7`** | **final tree** (a–d) | **PASS**, 2 tests 85.2 s — `MEASURE paneAt=nil s after launch title='-' tabBarsNow=1`; `MEASURE restore paneAt=0.12 title='T95 Gone Probe'` |
+| **`t95repair-layout-ipad-3`** | final tree | **PASS** — the regular landing (split view, empty detail) |
+| **`t95repair-units-3`** | final tree | **PASS**, 8/8 — `LastChannelLaunchTests` unchanged |
+
 `-shellSnapshot` note: the seam writes to the path it is given, and an iOS simulator app can only write
 inside its own container. Two consequences, both met on this card: a host path such as `/tmp/x` writes
 nothing (the parent card's `/tmp/t95probe-*.log` leaves no file on this runtime), and a
@@ -219,12 +345,15 @@ XCTest relaunch.
 ## 6. Files
 
 * `MattermostUITests/T95GoneChannelLaunchUITests.swift` — the falsifier (skips without the fixture;
-  **fails** when the expectation is unmatched, i.e. after the repair).
+  `XCTExpectFailure` **removed** by the repair, a second method added for the green half).
 * `docs/t95a-gone-channel-build-note.md` (this file).
 * `docs/t95a-gone-channel-evidence-2026-10-28.log` — every raw line quoted above, plus the probe logs
-  of the product tree and of M1.
+  of the product tree and of M1, and §H: the repair's runs.
 * `docs/t95a-gone-channel-relaunch.png` — the clean build's window screenshot of the relaunch, taken by
   the `-shellSnapshot` seam: the pushed pane for the channel the account had left.
-* No product file, no launch argument, no store format: `git diff origin/main -- Mattermost/
-  MattermostTests/ Mattermost.xcodeproj/` is empty for this card (the probe and M1 were reverted;
-  `git status` shows only the new test file).
+* The **measurement** card changed no product file: `git diff origin/main -- Mattermost/
+  MattermostTests/ Mattermost.xcodeproj/` is empty for `t_fcbd5cc8` (the probe and M1 were reverted;
+  `git status` showed only the new test file). The **repair** card (`t_e0cef465`) changes exactly one:
+  `Mattermost/UI/Native/Sidebar/ChannelSidebarCoordinator.swift` (the decide, §3.1). It changes no
+  model, no store format, no launch argument, and **not** `LaunchDestination.request` or
+  `MattermostTests/LastChannelLaunchTests.swift`.

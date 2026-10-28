@@ -24,9 +24,12 @@
 //   * two screenshots attached to the test result.
 //
 // Verdict semantics: the test asserts the **policy** (`docs/t95a-build-note.md`: a saved channel
-// that is no longer in the list opens nothing). While the willSet read is unfixed the assertion is
-// expected to fail, and the failure message carries the measurement. That is the point of this card:
-// it produces the number, it does not paper over it with a pass.
+// that is no longer in the list opens nothing). It was written as a **falsifier**: while the defect
+// existed (a launch decide that read an empty `available`) the policy assertion failed and was
+// recorded as a strict expected failure. Card `t_e0cef465` repaired the decide (it answers nothing
+// until the directory has arrived, and re-decides with the arriving rows) and removed the
+// `XCTExpectFailure` wrapper — the assertions now pass on their own, and a red run means the defect
+// came back. See `docs/t95a-gone-channel-build-note.md` §3.
 //
 // Run (local fixture; credentials come from the environment, never from this file):
 //
@@ -280,22 +283,12 @@ final class T95GoneChannelLaunchUITests: XCTestCase {
         // a saved channel that is no longer in the list opens nothing — the launch stays on the
         // channel list.
         //
-        // This is a **measured, unfixed** product defect (card t_fcbd5cc8; the repair card is
-        // `docs/t95a-gone-channel-build-note.md` §3). The expectation below is deliberate: the
-        // falsifier has to exist while the bug does, and `XCTExpectFailure` is **strict** by default —
-        // once the fix lands these assertions stop failing, the expectation goes unmatched and *this
-        // test fails*, which is the signal to delete the wrapper (not the assertions).
-        //
-        // `continueAfterFailure` is raised here (not in `setUp`) so that all three observations are
-        // recorded in one run: a matched expected failure still stops the test otherwise, and the
-        // title/tab-bar half of the claim would then never be measured.
-        continueAfterFailure = true
-        XCTExpectFailure("""
-            Known defect (card t_fcbd5cc8, measured 2026-10-28): a relaunch whose saved channel the \
-            account has already left opens that channel's pane instead of the channel list. The \
-            launch decide reads an empty `available` (the directory has not arrived, and the \
-            `$groups` willSet read is one publish behind), which `LaunchDestination.request` trusts.
-            """)
+        // These assertions were wrapped in a **strict** `XCTExpectFailure` while the defect existed
+        // (card `t_fcbd5cc8`). The repair (card `t_e0cef465`) removed it: the decide now answers
+        // nothing until the directory has arrived and re-decides with it, so the saved-and-gone
+        // channel opens nothing and these three assertions pass on their own. Do not re-wrap them to
+        // make a red run green — a red run here is the defect coming back (`docs/t95a-gone-channel-
+        // build-note.md` §3).
         XCTAssertNil(paneAt,
                      "the shell opened a channel pane \(paneAt.map { String(format: "%.2f", $0) } ?? "?") "
                      + "s after the relaunch, on a launch whose saved channel "
@@ -330,6 +323,76 @@ final class T95GoneChannelLaunchUITests: XCTestCase {
               + "pane=\(element(app, "nativeChannelPane").exists)")
         // Hygiene only: the probe channel existed for this measurement. (Deleting it does not change
         // anything measured above — the store is wiped by the next test's first launch.)
+        archiveChannel(probe.id)
+    }
+
+    // MARK: - The other half of the same policy
+
+    /// The policy has two halves and the repair touches both: the saved channel must open **nothing**
+    /// when it is gone (the test above) and must still **restore** when it is still in the directory
+    /// (`docs/t95a-build-note.md`'s green path). Card `t_e0cef465` changed *when* the coordinator
+    /// decides — it now answers nothing until the directory has arrived — which is exactly the timing
+    /// the green path depends on, so it is measured on this fixture rather than assumed.
+    func testASavedChannelStillInTheDirectoryIsRestoredOnRelaunch() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone,
+                      "the launch destination pushes a pane over the phone shell; run on an iPhone")
+
+        let stamp = Int(Date().timeIntervalSince1970)
+        probe = try createChannel(named: "t95saved-\(stamp)")
+        markEpoch("MEASURE probe channel id=\(probe.id) name=#\(probe.name)")
+
+        // A wiped store, a sign-in, and the probe channel opened the way a reader opens it: that
+        // write is the product's own `mm.native.lastChannel`.
+        let first = launchAndSignIn()
+        openViaQuickSwitcher(first, term: probe.name, channelID: probe.id)
+        let pane = element(first, "nativeChannelPane")
+        XCTAssertTrue(pane.waitForExistence(timeout: 60),
+                      "opening the probe channel must mount its pane (setup):\n" + first.debugDescription)
+        let firstTitle = element(first, "nativeChannelTitle")
+        XCTAssertTrue(waitUntil(timeout: 30) {
+            let label = firstTitle.exists ? firstTitle.label : ""
+            return label == self.probe.displayName || label == self.probe.name
+        }, "the opened pane must name the probe channel (setup), got "
+           + "'\(firstTitle.exists ? firstTitle.label : "nil")'")
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        first.terminate()
+        XCTAssertTrue(waitUntil(timeout: 60) { first.state == .notRunning },
+                      "the first launch must be terminated before the relaunch is measured; "
+                      + "state=\(first.state.rawValue)")
+
+        // The channel is **not** left this time. Relaunch with the store intact.
+        let app = XCUIApplication()
+        app.launchArguments = relaunchArguments(snapshotPath: nil)
+        app.launch()
+        XCTAssertTrue(waitUntil(timeout: 120) { app.state == .runningForeground },
+                      "the relaunch never reached a foreground process (state=\(app.state.rawValue))")
+        let startedAt = Date()
+        markEpoch("MEASURE relaunched with args=\(app.launchArguments)")
+
+        let relaunchPane = element(app, "nativeChannelPane")
+        let relaunchTitle = element(app, "nativeChannelTitle")
+        var paneAt: TimeInterval?
+        var titleSeen = "-"
+        XCTAssertTrue(waitUntil(timeout: 90) {
+            if app.state == .notRunning { return false }  // the deadline reports it, with the debug dump
+            guard relaunchPane.exists else { return false }
+            if paneAt == nil {
+                paneAt = Date().timeIntervalSince(startedAt)
+                titleSeen = relaunchTitle.exists ? relaunchTitle.label : "-"
+            }
+            // The header starts as the slug and `loadChannelHeader()` replaces it with the display
+            // name a beat later, so either spelling is the probe channel (as in the test above).
+            let title = relaunchTitle.exists ? relaunchTitle.label : "-"
+            return title == self.probe.displayName || title == self.probe.name
+        }, "a saved channel that is still in the directory must be restored on relaunch "
+           + "(docs/t95a-build-note.md's green path); pane=\(relaunchPane.exists) "
+           + "title='\(relaunchTitle.exists ? relaunchTitle.label : "nil")' "
+           + "after \(String(format: "%.1f", Date().timeIntervalSince(startedAt))) s\n"
+           + app.debugDescription)
+        markEpoch("MEASURE restore paneAt=\(paneAt.map { String(format: "%.2f", $0) } ?? "nil") "
+                  + "title='\(titleSeen)' final='\(relaunchTitle.exists ? relaunchTitle.label : "-")'")
+        attach(app, "t95saved-2-relaunch-still-joined")
+
         archiveChannel(probe.id)
     }
 
