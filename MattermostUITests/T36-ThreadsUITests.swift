@@ -252,6 +252,48 @@ final class T36ThreadsUITests: XCTestCase {
         attach(app, "t36-07-channel-reply-line")
     }
 
+    // MARK: - 2b. Two replies in a row from one thread pane (kanban t_56159748)
+
+    /// The report, live: *"I replied to a thread but the message was sent to the channel."*
+    ///
+    /// One thread pane, one cached composer, two sends without leaving the pane or re-opening the
+    /// thread — the second send used to arrive as a **top-level channel post** (the composer had
+    /// silently dropped to `.newPost` after the first). The server is the oracle: a reply carries
+    /// `root_id == rootID`, a channel post carries none, and both ids must be rows of the thread.
+    func testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let root = try post(message: "t56159748 root \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the reply-twice fixture root")
+        let rootID = try XCTUnwrap(root["id"] as? String)
+        _ = try post(message: "t56159748 seed reply \(stamp)", rootID: rootID, as: token)
+
+        let app = launchAndOpenChannel()
+        openThread(app, rootID: rootID, maxSwipes: 4)
+
+        let first = "t56159748 first reply \(stamp)"
+        try sendInThread(app, first)
+        let firstPost = try waitForPost(withMessage: first, channelID: channelID, timeout: 40)
+        XCTAssertEqual(firstPost["root_id"] as? String, rootID,
+                       "the first reply belongs to the thread")
+
+        // The same pane, the same composer: nothing was reopened, nothing re-armed.
+        let second = "t56159748 second reply \(stamp)"
+        try sendInThread(app, second)
+        let secondPost = try waitForPost(withMessage: second, channelID: channelID, timeout: 40)
+        XCTAssertEqual(secondPost["root_id"] as? String, rootID,
+                       "the second reply from the same thread pane must stay in the thread — an "
+                       + "absent root_id is the channel post this card reported")
+        attach(app, "t56159748-01-second-reply")
+
+        let threadIDs = try threadPostIDs(rootID)
+        let firstID = try XCTUnwrap(firstPost["id"] as? String)
+        let secondID = try XCTUnwrap(secondPost["id"] as? String)
+        XCTAssertTrue(threadIDs.contains(firstID) && threadIDs.contains(secondID),
+                      "both replies must be rows of the thread (server list: \(threadIDs))")
+        XCTAssertEqual(secondPost["channel_id"] as? String, channelID,
+                       "and the thread's channel is still this channel")
+    }
+
     // MARK: - 3. Follow, unfollow, and the paged followed-threads list
 
     func testFollowPersistsAndTheFollowedThreadsListPages() throws {
@@ -770,6 +812,24 @@ final class T36ThreadsUITests: XCTestCase {
 
     private func composerInput(_ app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: "channelComposer.input").firstMatch
+    }
+
+    /// Type one message into the **open thread pane's** composer and press Send, then wait for the box
+    /// to clear — the send being accepted is what the next send in the same pane depends on.
+    private func sendInThread(_ app: XCUIApplication, _ message: String) throws {
+        let input = composerInput(app)
+        XCTAssertTrue(input.waitForExistence(timeout: 30),
+                      "a native thread must offer the reply composer:\n\(app.debugDescription)")
+        input.tap()
+        input.typeText(message)
+        let send = element(app, "channelComposer.send")
+        XCTAssertTrue(send.waitForExistence(timeout: 10) && send.isEnabled,
+                      "Send must be offered once there is text:\n\(app.debugDescription)")
+        send.tap()
+        XCTAssertTrue(waitUntil(timeout: 30) {
+            let value = input.value as? String ?? ""
+            return !value.contains(message)
+        }, "the composer must clear after a successful send:\n\(app.debugDescription)")
     }
 
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {

@@ -138,6 +138,14 @@ final class T35ComposerViewModelTests: XCTestCase {
         var tombstoned: [String] = []
         /// A post that "already arrived" for these client ids (the retry-once case).
         var landed: [String: MMPost] = [:]
+        /// Set for the sink that stands in for `ThreadViewModel`: the composer's reply-mode invariant
+        /// (kanban t_56159748) keys off exactly this, so the double must be able to claim to be a
+        /// thread's list.
+        let threadAnchor: ComposerThreadAnchor?
+
+        init(threadAnchor: ComposerThreadAnchor? = nil) {
+            self.threadAnchor = threadAnchor
+        }
 
         func insertPendingPost(_ post: MMPost) { inserted.append(post) }
         func confirmPendingPost(id: String, with post: MMPost) { confirmed.append((id, post)) }
@@ -183,6 +191,9 @@ final class T35ComposerViewModelTests: XCTestCase {
     private var sink: RecordingSink!
     private var drafts: SignallingDraftStore!
     private var model: ComposerViewModel!
+    /// The thread doubles this test built (`makeThreadComposer`); held here because a composer's sink
+    /// is weak.
+    private var threadSinks: [RecordingSink] = []
     /// Live subscriptions that mirror the model's publishers into signals; kept for the test's lifetime.
     private var mirrors: [AnyCancellable] = []
 
@@ -191,6 +202,7 @@ final class T35ComposerViewModelTests: XCTestCase {
         sink = RecordingSink()
         drafts = SignallingDraftStore()
         mirrors.removeAll()
+        threadSinks.removeAll()
         model = ComposerViewModel(channelID: channelID, service: service, drafts: drafts,
                                   sink: sink, teamID: "team-1", myUserID: "u1",
                                   autocompleteDebounce: .zero)
@@ -504,6 +516,151 @@ final class T35ComposerViewModelTests: XCTestCase {
         XCTAssertEqual(sink.confirmed.count, 1)
         XCTAssertEqual(model.statusNote, "Reply sent to the thread")
         XCTAssertEqual(model.mode, .newPost)
+    }
+
+    // MARK: - Reply mode, in a thread (kanban t_56159748)
+
+    /// The composer `ThreadCoordinator` caches: one instance per (channel, thread root), armed with
+    /// `beginReply(to: root, authorLabel:)` when it is created — and never re-armed after that,
+    /// because reuse only calls `attach(sink:)`. That lifecycle is what the report exposed.
+    ///
+    /// The sink is kept here for the test's lifetime: `ComposerViewModel.sink` is weak (the list owns
+    /// the composer, not the other way round), so a double nothing else holds would leave the composer
+    /// looking exactly like a channel composer.
+    private func makeThreadComposer(rootID: String = "root-1",
+                                    authorLabel: String = "Ada Lovelace")
+        -> (composer: ComposerViewModel, sink: RecordingSink) {
+        let threadSink = RecordingSink(threadAnchor: ComposerThreadAnchor(rootID: rootID,
+                                                                          authorLabel: authorLabel))
+        threadSinks.append(threadSink)
+        let composer = ComposerViewModel(channelID: channelID, service: service, drafts: drafts,
+                                         sink: threadSink, teamID: "team-1", myUserID: "u1",
+                                         autocompleteDebounce: .zero)
+        composer.beginReply(to: serverPost(id: rootID, message: "root"), authorLabel: authorLabel)
+        return (composer, threadSink)
+    }
+
+    /// The report itself: "I replied to a thread but the message was sent to the channel."
+    ///
+    /// Reproduced from code: the first reply carried `root_id`, the second did not — the composer had
+    /// silently dropped to `.newPost` and created a top-level channel post, twice over the same pane.
+    func testASecondReplyFromTheSameThreadComposerStillCarriesTheRootID() async {
+        let (threadComposer, threadSink) = makeThreadComposer()
+        service.createResults = [.success(serverPost(id: "r1", message: "one", rootID: "root-1")),
+                                 .success(serverPost(id: "r2", message: "two", rootID: "root-1"))]
+
+        threadComposer.textChanged("one", caret: 3)
+        await threadComposer.send()
+        threadComposer.textChanged("two", caret: 3)
+        await threadComposer.send()
+
+        XCTAssertEqual(service.createBodies.count, 2)
+        XCTAssertEqual(service.createBodies.map(\.rootId), ["root-1", "root-1"],
+                       "every send from a thread pane is a reply — the second one included")
+        XCTAssertEqual(threadSink.confirmed.map(\.post.rootId), ["root-1", "root-1"])
+    }
+
+    /// The mode, not just the request body: what makes the defect recur is the composer's *state*, and
+    /// a thread composer's steady state is reply mode on its sink's root.
+    func testAThreadComposerIsStillInReplyModeAfterASend() async {
+        let (threadComposer, _) = makeThreadComposer()
+        service.createResults = [.success(serverPost(id: "r1", message: "hello", rootID: "root-1"))]
+
+        threadComposer.textChanged("hello", caret: 5)
+        await threadComposer.send()
+
+        XCTAssertEqual(threadComposer.mode, .reply(rootID: "root-1"))
+        // The banner still names who was addressed, and the draft key is the thread's, not the channel's.
+        XCTAssertEqual(threadComposer.replyTarget, "Ada Lovelace")
+        XCTAssertEqual(threadComposer.draftRootID, "root-1")
+        XCTAssertEqual(threadComposer.statusNote, "Reply sent to the thread")
+        XCTAssertTrue(threadComposer.isThreadComposer)
+    }
+
+    /// Defect 2: tapping Reply on a **reply** inside a thread used to pass that reply's own id as
+    /// `root_id`. Mattermost nests one level only, so the request must carry the thread's root; only
+    /// the banner's label names the tapped row's author.
+    func testAReplyToANestedReplyCarriesTheThreadRootID() async throws {
+        let threadService = FakeThreadService()
+        threadService.root = serverPost(id: "root", message: "root")
+        threadService.pages = [MMPostList(order: ["root", "r1"],
+                                          posts: ["root": serverPost(id: "root", message: "root"),
+                                                  "r1": serverPost(id: "r1", message: "a reply",
+                                                                   rootID: "root", at: 200)])]
+        let thread = ThreadViewModel(rootID: "root", channelID: channelID, teamID: "team-1",
+                                     service: threadService)
+        await thread.load()
+
+        // The row the reader taps is a reply, not the root.
+        let rows = thread.items.compactMap { item -> PostRowModel? in
+            if case .post(let row) = item { return row }
+            return nil
+        }
+        let tapped = try XCTUnwrap(rows.first { $0.post.id == "r1" },
+                                   "the thread pane must draw r1")
+        let target = try XCTUnwrap(thread.replyTarget(from: tapped))
+        XCTAssertEqual(target.root.id, "root", "root_id is the thread's root, never the tapped reply")
+        XCTAssertEqual(target.authorLabel, tapped.author.displayName,
+                       "the banner still addresses the person whose row was tapped")
+
+        service.createResults = [.success(serverPost(id: "r2", message: "nested", rootID: "root"))]
+        let composer = ComposerViewModel(channelID: channelID, service: service, drafts: drafts,
+                                         sink: thread, teamID: "team-1", myUserID: "u1",
+                                         autocompleteDebounce: .zero)
+        composer.beginReply(to: target.root, authorLabel: target.authorLabel)
+        composer.textChanged("nested", caret: 6)
+        await composer.send()
+
+        XCTAssertEqual(service.createBodies.first?.rootId, "root")
+        XCTAssertEqual(composer.mode, .reply(rootID: "root"))
+    }
+
+    /// The negative that keeps the fix honest: a channel composer's reply is **one** message, and the
+    /// message after it is an ordinary channel post. Fixing defect 1 must not change this.
+    func testTheChannelComposerGoesBackToChannelPostsAfterAReply() async {
+        service.createResults = [.success(serverPost(id: "r1", message: "one", rootID: "root-1")),
+                                 .success(serverPost(id: "p2", message: "two"))]
+
+        model.beginReply(to: serverPost(id: "root-1", message: "root"), authorLabel: "Ada")
+        model.textChanged("one", caret: 3)
+        await model.send()
+        XCTAssertEqual(model.mode, .newPost, "a channel reply is one message")
+
+        model.textChanged("two", caret: 3)
+        await model.send()
+        XCTAssertEqual(service.createBodies.map(\.rootId), ["root-1", nil],
+                       "the message after a channel reply is a top-level channel post")
+    }
+
+    /// The other caller the card asked about: the thread row menu's Edit is served by the *thread's*
+    /// composer too, and a landed edit used to run the same "back to newPost" step — so editing a
+    /// reply and then typing put the next message in the channel.
+    func testAThreadComposerReturnsToReplyModeAfterAnEdit() async {
+        let (threadComposer, _) = makeThreadComposer()
+        service.patchResults = [.success(serverPost(id: "r1", message: "after", rootID: "root-1"))]
+
+        threadComposer.beginEditing(serverPost(id: "r1", message: "before", rootID: "root-1"))
+        XCTAssertEqual(threadComposer.mode, .editing(postID: "r1"))
+        threadComposer.textChanged("after", caret: 5)
+        await threadComposer.send()
+
+        XCTAssertEqual(threadComposer.mode, .reply(rootID: "root-1"),
+                       "an edit inside a thread must not turn the box into a channel composer")
+        XCTAssertEqual(threadComposer.replyTarget, "Ada Lovelace")
+    }
+
+    /// Cancel, from a thread's edit banner, goes back to the thread — and an abandoned edit is not a
+    /// draft, so the post's words do not reappear in the channel's composer.
+    func testCancellingAnEditInAThreadReturnsToTheThreadsReplyMode() async {
+        let (threadComposer, _) = makeThreadComposer()
+        threadComposer.beginEditing(serverPost(id: "r1", message: "someone's words",
+                                              rootID: "root-1"))
+        await threadComposer.cancelMode()
+
+        XCTAssertEqual(threadComposer.mode, .reply(rootID: "root-1"))
+        XCTAssertEqual(threadComposer.text, "")
+        let channelDraft = await drafts.load(channelID: channelID, rootID: "")
+        XCTAssertNil(channelDraft, "an abandoned edit is not the channel's draft")
     }
 
     // MARK: - 4. Autocomplete

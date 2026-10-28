@@ -418,12 +418,17 @@ struct ComposerView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: 0)
-            Button("Cancel") {
-                Task { await model.cancelMode() }
+            // A thread composer has no "leave reply mode" that stays in the thread — its Cancel could
+            // only mean `.newPost`, i.e. a channel post while the pane reads "Replying to …"
+            // (t_56159748). It is offered only where it can go *back*: out of an edit.
+            if !model.isThreadComposer || model.mode.isEditing {
+                Button("Cancel") {
+                    Task { await model.cancelMode() }
+                }
+                .font(.footnote)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("channelComposer.cancelMode")
             }
-            .font(.footnote)
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("channelComposer.cancelMode")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)

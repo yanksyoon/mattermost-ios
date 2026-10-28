@@ -630,6 +630,24 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
 
     // MARK: - The composer's replies (S14/T35's sink, for a thread)
 
+    /// This model is a thread's sink, so the composer writing into it must never leave reply mode
+    /// (see `ComposerPostSink.threadAnchor`): the anchor is the root every reply carries as `root_id`.
+    var threadAnchor: ComposerThreadAnchor? {
+        ComposerThreadAnchor(rootID: rootID, authorLabel: rootAuthorLabel)
+    }
+
+    /// The post a reply started from `row` must carry as `root_id`, with the label the banner shows.
+    ///
+    /// A thread nests exactly one level, so whether the reader tapped the root or one of its replies
+    /// the request's `root_id` is **this thread's root** — posting the tapped reply's own id either
+    /// errors or orphans the post on the server. The label is a different thing: it names whoever was
+    /// tapped, which is why the two travel together and not as one post (kanban t_56159748).
+    func replyTarget(from row: PostRowModel) -> (root: MMPost, authorLabel: String)? {
+        let root = row.post.id == rootID ? row.post : self.root
+        guard let root else { return nil }
+        return (root, row.author.displayName)
+    }
+
     /// Show the composer's optimistic reply. Its id is the client's `pending:<uuid>` and its
     /// `pending_post_id` is that same string, which is what the server echoes back.
     func insertPendingPost(_ post: MMPost) {

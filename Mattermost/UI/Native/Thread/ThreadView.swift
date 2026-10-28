@@ -189,8 +189,16 @@ struct ThreadPaneContent: View {
                                   canEdit: menu?.edit ?? false,
                                   canDelete: menu?.delete ?? false,
                                   onReply: {
-                                      composer?.beginReply(to: row.post,
-                                                           authorLabel: row.author.displayName)
+                                      // `root_id` is the thread's ROOT, never the tapped reply's
+                                      // id: a thread nests one level, so a nested id either errors
+                                      // or orphans the post (t_56159748, defect 2). The banner
+                                      // still addresses the person whose row was tapped — the
+                                      // label and the root are different things, which is why the
+                                      // rule lives in one place (`ThreadViewModel.replyTarget`).
+                                      guard let model,
+                                            let target = model.replyTarget(from: row) else { return }
+                                      composer?.beginReply(to: target.root,
+                                                           authorLabel: target.authorLabel)
                                   },
                                   onEdit: { composer?.beginEditing(row.post) },
                                   onDelete: {
