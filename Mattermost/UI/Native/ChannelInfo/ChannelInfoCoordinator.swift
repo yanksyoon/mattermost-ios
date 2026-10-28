@@ -38,9 +38,18 @@ final class ChannelInfoCoordinator: ObservableObject {
     /// Most-recently-opened channel ids per server, newest last.
     private var recent: [UUID: [String]] = [:]
     private var browseModels: [UUID: [String: BrowseChannelsViewModel]] = [:]
+    /// T47: one create model per (server, team) and one direct-message model per (server, team).
+    ///
+    /// They live here rather than in the sidebar's `@State` because the sidebar's create menu **and** the
+    /// sheets it opens read the same permission answer: one `POST /roles/names`, one place the gate is
+    /// decided, and a re-presented sheet does not re-ask.
+    private var createModels: [UUID: [String: ChannelCreateViewModel]] = [:]
+    private var directMessageModels: [UUID: [String: NewDirectMessageViewModel]] = [:]
 
     /// Test seam: replaces the production session-backed service (T33's `serviceFactory`).
     var serviceFactory: ((ServerConfig) -> ChannelInfoServing)?
+    /// Test seam for the create surface (`ChannelCreationServing` inherits `ChannelInfoServing`).
+    var createServiceFactory: ((ServerConfig) -> ChannelCreationServing)?
 
     /// Diagnostics: how many channel models are alive (one test asserts the cache is bounded).
     var modelCount: Int { models.values.reduce(0) { $0 + $1.count } }
@@ -82,6 +91,26 @@ final class ChannelInfoCoordinator: ObservableObject {
         return model
     }
 
+    /// The create model for one team, created on first use.
+    ///
+    /// Held for the server's lifetime, like the browse model: its permission answer is what the sidebar's
+    /// create menu draws from, so throwing it away after a sheet closes would re-ask `POST /roles/names`
+    /// every time the menu opens.
+    func createModel(for server: ServerConfig, teamID: String) -> ChannelCreateViewModel {
+        if let existing = createModels[server.id]?[teamID] { return existing }
+        let model = ChannelCreateViewModel(teamID: teamID, service: createService(for: server))
+        createModels[server.id, default: [:]][teamID] = model
+        return model
+    }
+
+    /// The direct-message picker's model for one team, created on first use.
+    func directMessageModel(for server: ServerConfig, teamID: String) -> NewDirectMessageViewModel {
+        if let existing = directMessageModels[server.id]?[teamID] { return existing }
+        let model = NewDirectMessageViewModel(teamID: teamID, service: createService(for: server))
+        directMessageModels[server.id, default: [:]][teamID] = model
+        return model
+    }
+
     /// Drop one channel's model (after a leave or an archive, so a re-open re-reads the truth).
     func forget(serverID: UUID, channelID: String) {
         models[serverID]?[channelID] = nil
@@ -116,6 +145,8 @@ final class ChannelInfoCoordinator: ObservableObject {
         models[serverID] = nil
         recent[serverID] = nil
         browseModels[serverID] = nil
+        createModels[serverID] = nil
+        directMessageModels[serverID] = nil
     }
 
     func authPhaseChanged(_ serverID: UUID) {
@@ -126,6 +157,20 @@ final class ChannelInfoCoordinator: ObservableObject {
 
     private func service(for server: ServerConfig) -> ChannelInfoServing {
         if let serviceFactory { return serviceFactory(server) }
+        let auth = self.auth
+        return SessionChannelInfoService {
+            guard let auth, let session = try? auth.session(for: server) else { return nil }
+            return session.client
+        }
+    }
+
+    /// The create surface's service. Production is the **same** `SessionChannelInfoService` (one client
+    /// resolution rule); a test may replace it with a fake that also records the create request.
+    private func createService(for server: ServerConfig) -> ChannelCreationServing {
+        if let createServiceFactory { return createServiceFactory(server) }
+        if let serviceFactory, let existing = serviceFactory(server) as? ChannelCreationServing {
+            return existing
+        }
         let auth = self.auth
         return SessionChannelInfoService {
             guard let auth, let session = try? auth.session(for: server) else { return nil }

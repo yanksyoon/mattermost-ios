@@ -106,7 +106,10 @@ final class SessionChannelInfoService: ChannelInfoServing {
         self.resolve = resolve
     }
 
-    private func client() throws -> APIClient {
+    /// The server's client, resolved per call. Internal rather than private because the create surface
+    /// (`CreateChannelService.swift`) is an extension of this class in another file and must use the
+    /// **same** resolution — a second way of getting a client is a second way of being signed out.
+    func client() throws -> APIClient {
         guard let client = resolve() else { throw MMError.notSignedIn }
         return client
     }

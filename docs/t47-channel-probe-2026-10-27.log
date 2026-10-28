@@ -1,0 +1,77 @@
+signed in as perfprobe (jruqqzxtobg7tn4wehwmwjjo5c) on http://127.0.0.1:8065
+
+1. who may create what
+    admin role union (system_admin, system_user, team_admin, team_user): 271 ids
+      create_public_channel          yes
+      create_private_channel         yes
+      create_direct_channel          yes
+      list_team_channels             yes
+      join_public_channels           yes
+    member role union (system_user, team_user): 23 ids
+      create_public_channel          yes
+      create_private_channel         yes
+      create_direct_channel          yes
+      list_team_channels             yes
+
+2. create a public and a private channel
+  POST /channels type=O                                -> 201 {"id": "cx7f8epru3y88qdegx31gyzujr", "create_at": 1793144810831, "update_at": 1793144810831, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T47 Probe Public", "name": "t47probe1793144810-public", "header": "", "purpose":
+    id=cx7f8epru3y88qdegx31gyzujr team_id=ocz148uck3r88dcjikj497bosh type=O creator=jruqqzxtobg7tn4wehwmwjjo5c
+  GET /channels/{id}/stats (creator member?)           -> 200 {"channel_id": "cx7f8epru3y88qdegx31gyzujr", "member_count": 1, "guest_count": 0, "pinnedpost_count": 0, "files_count": 0}
+    in GET /users/me/teams/{tid}/channels: True  (41 channels)
+  POST /channels type=P                                -> 201 {"id": "6jeoz43ntjb3jeyzjxz4addmwe", "create_at": 1793144810926, "update_at": 1793144810926, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "P", "display_name": "T47 Probe Private", "name": "t47probe1793144810-private", "header": "", "purpose
+    id=6jeoz43ntjb3jeyzjxz4addmwe type=P
+
+3. the URL-name rule (each candidate is one create)
+  -- lower-case + hyphen + digits: 't47probe1793144810-ok-2' (len 23)
+  POST /channels name=lower-case + hyphen + digits     -> 201 {"id": "1k45fwy697nqfefehy9xo8nnuo", "create_at": 1793144810961, "update_at": 1793144810961, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T47 lower-case + hyphen + digits", "name": "t47probe1793144810-ok-2", "header": 
+  -- underscore: 't47probe1793144810_ok' (len 21)
+  POST /channels name=underscore                       -> 201 {"id": "86msonid3j8qdjgcf8o4h83s5h", "create_at": 1793144810994, "update_at": 1793144810994, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T47 underscore", "name": "t47probe1793144810_ok", "header": "", "purpose": "", "
+  -- upper case: 't47probe1793144810-UPPER' (len 24)
+  POST /channels name=upper case                       -> 400 {"id": "model.channel.is_valid.1_or_more.app_error", "message": "Name must be 1 or more lowercase alphanumeric character.", "detailed_error": "", "request_id": "rz1nq1uhxir4zcsj657r4i3i6e", "status_code": 400}
+  -- space: 't47probe1793144810 space' (len 24)
+  POST /channels name=space                            -> 400 {"id": "model.channel.is_valid.1_or_more.app_error", "message": "Name must be 1 or more lowercase alphanumeric character.", "detailed_error": "", "request_id": "3yiquzxjfiyb5dwqa6ncqn1r9w", "status_code": 400}
+  -- dot: 't47probe1793144810.dot' (len 22)
+  POST /channels name=dot                              -> 400 {"id": "model.channel.is_valid.1_or_more.app_error", "message": "Name must be 1 or more lowercase alphanumeric character.", "detailed_error": "", "request_id": "6dwo7oosof8wzfiadjzkx6g1rr", "status_code": 400}
+  -- leading hyphen: '-t47probe1793144810lead' (len 23)
+  POST /channels name=leading hyphen                   -> 400 {"id": "model.channel.is_valid.1_or_more.app_error", "message": "Name must be 1 or more lowercase alphanumeric character.", "detailed_error": "", "request_id": "jyh44rynztgebnayd5uhz8tiph", "status_code": 400}
+  -- trailing hyphen: 't47probe1793144810trail-' (len 24)
+  POST /channels name=trailing hyphen                  -> 201 {"id": "9tdh5ete8ty79d4r46u3ab6i8r", "create_at": 1793144811052, "update_at": 1793144811052, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T47 trailing hyphen", "name": "t47probe1793144810trail-", "header": "", "purpose
+  -- leading underscore: '_t47probe1793144810lead' (len 23)
+  POST /channels name=leading underscore               -> 400 {"id": "model.channel.is_valid.1_or_more.app_error", "message": "Name must be 1 or more lowercase alphanumeric character.", "detailed_error": "", "request_id": "zir97pwoajd8p8ax11uojybyqh", "status_code": 400}
+  -- empty: '' (len 0)
+  POST /channels name=empty                            -> 400 {"id": "model.channel.is_valid.1_or_more.app_error", "message": "Name must be 1 or more lowercase alphanumeric character.", "detailed_error": "", "request_id": "du7dewgop3byjjqfdi3sfyf46h", "status_code": 400}
+  -- 64 chars: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1793144810' (len 64)
+  POST /channels name=64 chars                         -> 201 {"id": "uf98mnazgtf5u88dizjbet1mfy", "create_at": 1793144811105, "update_at": 1793144811105, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T47 64 chars", "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa17
+  -- 65 chars: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1793144810' (len 65)
+  POST /channels name=65 chars                         -> 500 {"id": "app.channel.create_channel.internal_error", "message": "Unable to save channel.", "detailed_error": "", "request_id": "jadosjrcktb57g69gggc48c6fr", "status_code": 500}
+
+4. the field limits on create
+  purpose=250                                          -> 200 {"id": "cx7f8epru3y88qdegx31gyzujr", "create_at": 1793144810831, "update_at": 1793144811156, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T47 Probe Public", "name": "t47probe1793144810-public", "header": "", "purpose":
+  purpose=251                                          -> 400 {"id": "model.channel.is_valid.purpose.app_error", "message": "Invalid purpose.", "detailed_error": "", "request_id": "j436e5dhabryifns89dczboz1a", "status_code": 400}
+  create display_name=64                               -> 201 {"id": "zu5mug784fdizb9dmesydk1d8c", "create_at": 1793144811183, "update_at": 1793144811183, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "name": "t47p
+  create display_name=65                               -> 400 {"id": "model.channel.is_valid.display_name.app_error", "message": "Invalid display name.", "detailed_error": "", "request_id": "pqykqg1eaj889qgw1unej11bmy", "status_code": 400}
+  create display_name empty                            -> 400 {"id": "api.context.invalid_body_param.app_error", "message": "Invalid or missing display_name in request body.", "detailed_error": "", "request_id": "bt173cw4itf37yex8wicws8bzw", "status_code": 400}
+  create purpose=250                                   -> 201 {"id": "akpkxk4j7pygbjtu1tiez6zf6e", "create_at": 1793144811224, "update_at": 1793144811224, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T47 p250", "name": "t47probe1793144810-p250", "header": "", "purpose": "pppppppp
+  create purpose=251                                   -> 400 {"id": "model.channel.is_valid.purpose.app_error", "message": "Invalid purpose.", "detailed_error": "", "request_id": "1uexznbzjjrhbmf8iusfmdqn4a", "status_code": 400}
+  create header=1024                                   -> 201 {"id": "qf63bjbcm7bodngw3wyffpcjaa", "create_at": 1793144811262, "update_at": 1793144811262, "delete_at": 0, "team_id": "ocz148uck3r88dcjikj497bosh", "type": "O", "display_name": "T47 h1024", "name": "t47probe1793144810-h1024", "header": "hhhhhhhhhhhhhhhhhhhhh
+  create header=1025                                   -> 400 {"id": "model.channel.is_valid.header.app_error", "message": "Invalid header.", "detailed_error": "", "request_id": "r7yk91op6fdxtmanhotj74i9ee", "status_code": 400}
+
+5. duplicates
+  same name as the first channel                       -> 400 {"id": "store.sql_channel.save_channel.exists.app_error", "message": "A channel with that name already exists on the same team.", "detailed_error": "", "request_id": "53qqu14ym3d93fqzytbz38auqa", "status_code": 400}
+
+6. bad input
+  unknown team                                         -> 404 {"id": "app.channel.get_channels.not_found.app_error", "message": "No channels were found.", "detailed_error": "", "request_id": "a1njsgy4mt8wjeiy7txqyi64he", "status_code": 404}
+  unknown type X                                       -> 400 {"id": "model.channel.is_valid.type.app_error", "message": "Invalid type.", "detailed_error": "", "request_id": "a9jhfatqxjdgixda93uobsf39y", "status_code": 400}
+  type D (direct is not a create)                      -> 400 {"id": "api.channel.create_channel.direct_channel.app_error", "message": "Must use createDirectChannel API service for direct message channel creation.", "detailed_error": "", "request_id": "iyxc4to8pbb6mc69dgmgfh6due", "status_code": 400}
+
+7. cleanup (archive every probe channel)
+  archive cx7f8epru3y88qdegx31gyzujr -> 200
+  archive 6jeoz43ntjb3jeyzjxz4addmwe -> 200
+  archive 1k45fwy697nqfefehy9xo8nnuo -> 200
+  archive 86msonid3j8qdjgcf8o4h83s5h -> 200
+  archive 9tdh5ete8ty79d4r46u3ab6i8r -> 200
+  archive uf98mnazgtf5u88dizjbet1mfy -> 200
+  archive zu5mug784fdizb9dmesydk1d8c -> 200
+  archive akpkxk4j7pygbjtu1tiez6zf6e -> 200
+  archive qf63bjbcm7bodngw3wyffpcjaa -> 200
+done at 2026-10-27 18:46:51 (team perf ocz148uck3r88dcjikj497bosh)

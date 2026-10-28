@@ -207,6 +207,12 @@ at `987e5712…`; "decomposition" always follows §1 rules.
   `M app/screens/convert_gm_to_channel/`, `M app/client/rest/channels.ts`; webapp
   `W …/components/convert_gm_to_channel_modal/`, `W …/components/channel_name_form_field.tsx`.
 - Decomposition: forms as SwiftUI `Form` + per-field VMs.
+- Shipped: **create** (T47) — `ChannelInfo/CreateChannelModels.swift` (the kinds, the permission ids and the
+  menu, the display name and the URL-name rule, the request body), `CreateChannelService.swift`,
+  `CreateChannelViewModel.swift`, `CreateChannelView.swift`, plus `NewDirectMessageView.swift` for the
+  people picker; the entry point is the channel-list header's `+` (`ChannelCreateMenuButton` in
+  `ChannelSidebarView.swift`). **edit / archive** (T40) — `ChannelSettingsView.swift`. Not shipped:
+  convert-GM-to-channel (still on the parity table).
 
 ### S11 Channel view (post list) — `native` (T34) — **core, L/high risk**
 - Sources: `M app/screens/channel/` (`channel.tsx`, `channel_content.tsx`,

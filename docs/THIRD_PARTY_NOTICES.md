@@ -873,3 +873,28 @@ code against the measured 0.29.8 contract (§21); this card's surface reads only
 mobile client's structure. Screen share is **not implemented** here — it needs the ReplayKit
 broadcast extension of T44e — and the camera control is absent, so neither has an upstream file in
 this read set.
+
+## 18. T47 channel creation and the create menu — upstream read set (Apache-2.0, mobile @ `162f2560…`; webapp observed only, AGPL-3.0)
+
+`Mattermost/UI/Native/ChannelInfo/` (`CreateChannelModels.swift`, `CreateChannelService.swift`,
+`CreateChannelViewModel.swift`, `CreateChannelView.swift`, `NewDirectMessageView.swift`) reimplements the
+channel-list header's create menu and the two screens behind it: the public/private create form and the
+“create a direct message” people picker. Its hosting sides are `ChannelSidebarView` (the `+` in the
+channel-list section header, the two sheets, and the landing that routes through
+`NativeNavigation.openChannel`) and `ChannelInfoCoordinator` (one create model and one picker model per
+server and team). Nothing upstream is copied or transpiled; every file pins its own upstream header.
+
+| Upstream path (mobile @ `162f2560…` unless marked `W`) | Used for |
+|---|---|
+| `app/screens/create_or_edit_channel/` | the form: the display-name field, the URL-name field and its derivation, the public/private choice, the validation copy, and where a successful create lands |
+| `app/screens/create_direct_message/` | the picker: the team member list, the typed search, presence on the row, and the one tap that opens the conversation |
+| `app/actions/remote/channel.ts` (`createChannel`, `createDirectChannel`) | the create-or-find semantics of a DM, and the “navigate to the created channel” step |
+| `app/client/rest/channels.ts`, `app/client/rest/users.ts` | the requests: `POST /channels`, `POST /channels/direct`, `getProfilesInTeam` (`GET /users?in_team=`), `searchProfiles` (`POST /users/search`), `getStatusesByIds` |
+| `app/queries/servers/role.ts`, `app/utils/role/index.ts` | the three permission ids the menu is derived from (`create_public_channel`, `create_private_channel`, `create_direct_channel`) and the union rule |
+| `W …/components/create_channel_modal/`, `W …/components/more_direct_channels/` | **behaviour cross-check only** — what Path A's webview shows for the same two flows, watched in the running client; not ported |
+
+**Measured against the real server** (`scripts/t47_create_channel_probe.py`, run 2026-10-27 against
+Mattermost **9.11.19**, log `docs/t47-channel-probe-2026-10-27.log`; request lines in
+`docs/t47-relay-witness-2026-10-27.log`): the name rule the form encodes, the `400`/`500` split at 64/65
+characters, the required `display_name`, the `purpose`/`header` limits, the duplicate-name sentence, and the
+fact that `type: D` is refused by `POST /channels` (“Must use createDirectChannel API service…”).

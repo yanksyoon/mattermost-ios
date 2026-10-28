@@ -145,6 +145,53 @@ extension APIClient {
         return try decode(MMChannel.self, from: response)
     }
 
+    // MARK: - Creating a channel
+
+    /// `POST /channels` — create a public (`O`) or private (`P`) channel.
+    ///
+    /// Measured on 9.11.19: **201** with the created channel, `creator_id` set, and the creator added as
+    /// a member by the server (`GET /channels/{id}/stats` → `member_count: 1`), so there is no second
+    /// membership write to make. The answer is used as the truth, never an optimistic local channel: it
+    /// carries the id the router needs and the `name` the server actually stored.
+    ///
+    /// The failure shapes a caller must handle (all measured, see `CreateChannelModels.swift`):
+    /// `400 model.channel.is_valid.1_or_more.app_error` for a malformed URL name,
+    /// `400 store.sql_channel.save_channel.exists.app_error` for a duplicate,
+    /// `400 model.channel.is_valid.display_name.app_error` / `.purpose` / `.header` for the long fields,
+    /// `404 app.channel.get_channels.not_found.app_error` for an unknown team, and — the reason the
+    /// client refuses a 65-character name locally — `500 app.channel.create_channel.internal_error`.
+    func createChannel(_ body: MMChannelCreate) async throws -> MMChannel {
+        try await post(MMChannel.self, path: "/channels", body: body)
+    }
+
+    // MARK: - Team members (the "create a direct message" picker)
+
+    /// `GET /users?in_team={tid}&page=&per_page=` — the team's members, which is the direct-message
+    /// picker's opening list.
+    ///
+    /// Deliberately not `usersNotInChannel`: a conversation can be started with anybody on the team,
+    /// and that call needs a channel to exclude from.
+    func teamMembers(teamID: String, page: Int, perPage: Int) async throws -> [MMUser] {
+        let query = [URLQueryItem(name: "in_team", value: teamID),
+                     URLQueryItem(name: "page", value: String(max(0, page))),
+                     URLQueryItem(name: "per_page", value: String(max(1, perPage)))]
+        return try await get([MMUser].self, path: "/users", query: query, useETag: false)
+    }
+
+    /// `POST /users/search` with `team_id` — the picker's typed search.
+    ///
+    /// `POST /users/search` refuses an empty term (measured: `400 Invalid or missing term`), so the
+    /// picker opens on the list above and only calls this with something typed.
+    func searchTeamMembers(teamID: String, term: String, page: Int, perPage: Int) async throws -> [MMUser] {
+        try await post([MMUser].self,
+                       path: "/users/search",
+                       body: TeamMemberSearchBody(term: term,
+                                                  teamID: teamID,
+                                                  page: max(0, page),
+                                                  perPage: max(1, perPage),
+                                                  allowInactive: false))
+    }
+
     // MARK: - Channel browser
 
     /// `GET /teams/{team_id}/channels?page=&per_page=` — the team's **public** channels (joined or
@@ -254,6 +301,22 @@ extension APIClient {
             case term, page
             case teamID = "team_id"
             case notInChannelID = "not_in_channel_id"
+            case perPage = "per_page"
+            case allowInactive = "allow_inactive"
+        }
+    }
+
+    /// `UserSearch` without `not_in_channel_id` (the direct-message picker searches the whole team).
+    private struct TeamMemberSearchBody: Encodable {
+        let term: String
+        let teamID: String
+        let page: Int
+        let perPage: Int
+        let allowInactive: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case term, page
+            case teamID = "team_id"
             case perPage = "per_page"
             case allowInactive = "allow_inactive"
         }

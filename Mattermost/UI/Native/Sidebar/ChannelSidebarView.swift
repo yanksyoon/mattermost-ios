@@ -31,11 +31,21 @@ struct NativeChannelSidebarContent: View {
     /// The threads coordinator, so this row can show how many threads are unread without the pane
     /// being open. The model it hands back is the same one the Threads pane uses.
     @EnvironmentObject private var threads: ThreadCoordinator
+    /// T47: the owner of the create form's model and the direct-message picker's model. The create
+    /// **menu** and the create **form** must agree about what this reader may create, and the permission
+    /// answer is one value — so both read the same model.
+    @EnvironmentObject private var channelInfo: ChannelInfoCoordinator
 
     @State private var quickSwitcherPresented = false
     /// T40: the channel browser (S24). Presented from this list because the list is where a missing
     /// channel would be looked for.
     @State private var browseChannelsPresented = false
+    /// T47: the create menu (the `+` upstream draws in the channel list header), the create form, and the
+    /// direct-message picker.
+    @State private var createChannelPresented = false
+    @State private var newDirectMessagePresented = false
+    @State private var createModel: ChannelCreateViewModel?
+    @State private var directMessageModel: NewDirectMessageViewModel?
     /// The team's global-thread list, resolved once the sidebar knows its team. Held so the row can
     /// draw the unread count live: a thread that arrives over the socket moves the badge the same
     /// way it moves the list.
@@ -59,6 +69,14 @@ struct NativeChannelSidebarContent: View {
             let resolved = threads.globalModel(for: server, teamID: teamID)
             globalThreads = resolved
             await resolved.load(ifNeeded: true)
+            // T47: resolve the create menu's model (and its permission answer) for the team on screen.
+            // Loaded here rather than when the menu opens so the `+` is drawn only once the server has
+            // said what this reader may create — the menu never lists an action that would be refused.
+            let create = channelInfo.createModel(for: server, teamID: teamID)
+            createModel = create
+            if create.phase != .ready { await create.load() }
+            let directMessages = channelInfo.directMessageModel(for: server, teamID: teamID)
+            directMessageModel = directMessages
         }
         .sheet(isPresented: $quickSwitcherPresented) {
             QuickSwitcherView(model: model) { entry in
@@ -70,6 +88,44 @@ struct NativeChannelSidebarContent: View {
         // pinned to the shell's selected team (a browse list is always team-scoped).
         .sheet(isPresented: $browseChannelsPresented) {
             BrowseChannelsView(server: server, teamID: model.teamID ?? "")
+        }
+        // T47: the create form and the direct-message picker. Both land on the new conversation through
+        // `NativeNavigation.openChannel` — the one funnel — so the phone push and the split-view
+        // selection agree.
+        .sheet(isPresented: $createChannelPresented) {
+            if let createModel {
+                CreateChannelView(model: createModel) { channel in
+                    land(on: channel)
+                }
+            }
+        }
+        .sheet(isPresented: $newDirectMessagePresented) {
+            if let directMessageModel {
+                NewDirectMessageView(model: directMessageModel) { channel in
+                    land(on: channel)
+                }
+            }
+        }
+        // The create menu lives in the section header's `+` (`ChannelCreateMenuButton`), which observes
+        // the model itself — a `@State`-held model read here would never re-render, and the `+` would be
+        // born hidden while the permission answer was still in flight (the defect T40-R measured).
+    }
+
+    /// Land on a channel that was just created (or a DM that was just opened).
+    ///
+    /// Two steps, in this order: reload the list, then route. The reload is not decoration — the
+    /// location is resolved against the loaded channel list, and a channel the list does not know yet
+    /// would open a pane titled with the URL slug (the T40-R defect) or leave the sidebar without the
+    /// row the reader is standing in. The list comes from the server (`GET
+    /// /users/me/teams/{tid}/channels`), so the row's presence is the server's answer, not local state.
+    private func land(on channel: MMChannel) {
+        Task {
+            await model.reload()
+            navigation.openChannel(NativeChannelRequest(serverID: server.id,
+                                                        teamID: model.teamID ?? channel.teamId,
+                                                        teamName: displayedTeamName,
+                                                        channelID: channel.id,
+                                                        channelName: channel.name))
         }
     }
 
@@ -123,7 +179,17 @@ struct NativeChannelSidebarContent: View {
                 .accessibilityIdentifier("nativeSidebarBrowseChannels")
             }
         } header: {
-            Text("Workspace")
+            HStack(spacing: 6) {
+                Text("Workspace")
+                Spacer(minLength: 0)
+                // T47: the `+` upstream draws in the channel list header (S09/S10's create entry).
+                if let createModel {
+                    ChannelCreateMenuButton(model: createModel,
+                                            createChannel: $createChannelPresented,
+                                            browseChannels: $browseChannelsPresented,
+                                            directMessage: $newDirectMessagePresented)
+                }
+            }
         }
     }
 
@@ -498,5 +564,64 @@ private struct ThreadsRailRow: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("nativeSidebarAllThreads")
         .accessibilityValue(entry.accessibilityValue)
+    }
+}
+
+// MARK: - The create menu
+
+/// The channel list's `+`: upstream's create menu, in the section header where upstream draws it.
+///
+/// Its own view for one reason: it **observes** `ChannelCreateViewModel`. The permission answer arrives
+/// after the sidebar's first paint (`POST /roles/names`), and a model held in the parent's `@State` and
+/// read there would never re-render — the `+` would keep the "no permissions" shape it was born with and
+/// the create path would be unreachable while every unit test stayed green (the defect T40-R measured on
+/// three other surfaces).
+///
+/// A model that has answered and offers nothing draws no `+` at all: a create entry that opens an empty
+/// sheet is worse than no entry.
+private struct ChannelCreateMenuButton: View {
+    @ObservedObject var model: ChannelCreateViewModel
+    @Binding var createChannel: Bool
+    @Binding var browseChannels: Bool
+    @Binding var directMessage: Bool
+
+    @State private var menuPresented = false
+
+    var body: some View {
+        if !model.menuActions.isEmpty {
+            Button {
+                menuPresented = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.footnote.weight(.semibold))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Create")
+            .accessibilityIdentifier("nativeSidebarCreateMenu")
+            // An action sheet rather than a `Menu`: the three rows are ordinary buttons that keep their
+            // accessibility identifiers (a `Menu` synthesises its children into the popover, and the
+            // identifiers are the first thing to go — measured on the same class of control in T40).
+            .confirmationDialog("Create", isPresented: $menuPresented, titleVisibility: .visible) {
+                ForEach(model.menuActions, id: \.rawValue) { action in
+                    Button(action.title) {
+                        // One run-loop turn later, not in this one: the dialog is still dismissing, and
+                        // presenting the form's sheet in the same turn is dropped by UIKit
+                        // ("…which is already presenting <UIAlertController>"). Measured under a relay hop
+                        // (`docs/t47-relay-witness-2026-10-27.log`): the direct-message sheet then never
+                        // appeared at all, while the tap on the row had registered.
+                        DispatchQueue.main.async {
+                            switch action {
+                            case .createChannel: createChannel = true
+                            case .browseChannels: browseChannels = true
+                            case .createDirectMessage: directMessage = true
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier(action.identifier)
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+        }
     }
 }

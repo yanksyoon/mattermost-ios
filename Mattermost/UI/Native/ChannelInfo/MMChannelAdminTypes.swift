@@ -157,6 +157,46 @@ struct MMChannelPatch: Codable, Equatable, Sendable {
 /// a name for the paging rule the view model applies (`count == perPage` ⇒ there may be more).
 typealias MMChannelMemberPage = [MMChannelMember]
 
+/// The body of `POST /channels` — creating a public or private channel.
+///
+/// Every field is required by the server: an empty `display_name` answers
+/// `400 api.context.invalid_body_param.app_error` (measured), and a `name` that is empty or malformed
+/// answers `400 model.channel.is_valid.1_or_more.app_error`. Only `type` `O`/`P` is accepted here —
+/// `D` is refused with `api.channel.create_channel.direct_channel.app_error`, because a direct message
+/// is `POST /channels/direct`'s job.
+///
+/// The creator's membership is **the server's** to add: `POST /channels` answers 201 and
+/// `GET /channels/{id}/stats` reports `member_count: 1` (measured on 9.11.19), so the client sends no
+/// second membership write.
+struct MMChannelCreate: Encodable, Equatable, Sendable {
+    var teamID: String
+    var name: String
+    var displayName: String
+    var type: String
+    var purpose: String
+    var header: String
+
+    enum CodingKeys: String, CodingKey {
+        case name, type, purpose, header
+        case teamID = "team_id"
+        case displayName = "display_name"
+    }
+
+    init(teamID: String,
+         name: String,
+         displayName: String,
+         type: String,
+         purpose: String = "",
+         header: String = "") {
+        self.teamID = teamID
+        self.name = name
+        self.displayName = displayName
+        self.type = type
+        self.purpose = purpose
+        self.header = header
+    }
+}
+
 /// `GET /users/me` reduced to the fields a permission decision needs.
 ///
 /// Deliberately **not** `MMUser`: that model is the *rendering* user (name, nickname, avatar), it carries
