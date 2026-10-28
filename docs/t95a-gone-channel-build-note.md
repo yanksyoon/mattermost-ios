@@ -65,6 +65,13 @@ XCTExpectFailure: matcher accepted Assertion Failure at …:308: XCTAssertFalse 
 XCTExpectFailure: matcher accepted Assertion Failure at …:312: XCTAssertGreaterThan failed: ("0") is not greater than ("0") - a launch that lands on the channel list keeps its tab bar (D1) …
 ```
 
+The same three reproduce on the committed file (`t95gone-clean-5`, `Executed 1 test, with 0 failures
+(0 unexpected) in 102.495`, three matched expected failures, `paneAt=0.01 … tabBarsNow=0`), with one
+cosmetic difference worth knowing when reading the logs: the pane title at first sight is sometimes the
+channel *slug* (`title='t95gone-1793177221'`) rather than the display name — the header starts as the
+slug and `loadChannelHeader()` replaces it a beat later, so assertion 308 accepts either spelling and
+both of them are the left channel, not a different one.
+
 The window screenshot taken by `-shellSnapshot` in a clean build
 (`docs/t95a-gone-channel-relaunch.png`) shows the pushed pane: header `# T95 Gone Probe`, a `Back`
 chevron instead of the tab bar, and the channel's own system posts — `perfprobe joined the channel.`
@@ -196,6 +203,7 @@ TEST_RUNNER_MM_AUTH_PASSWORD=… python3 scripts/qa-test.py --platform ios --sim
 | `t95gone-clean-2-snapshot` | clean | **FAIL (harness)**: window start keyed on the directory only; when the pane covers the sidebar no row is ever in the tree, so the loop ran 240 s and the app died at 131 s. Window start is now the directory **or** the landing. |
 | `t95gone-clean-3-snapshot` | clean | **FAIL (harness)**: `XCTAssertNotNil(rowsAt)` refused the reproducing case (a pane covering the sidebar legitimately hides every row). Replaced by a recorded window start. |
 | **`t95gone-clean-4-snapshot`** | **clean** | **PASS**, 3/3 expected failures recorded, 103 s — the citable run (§1) |
+| **`t95gone-clean-5`** | **clean** (committed file, + fixture cleanup) | **PASS**, 102 s, the same three expected failures — re-run after adding the probe channel's archive step, so the verified tree is the committed one |
 | simctl launch, store intact | **clean** | reproduced without XCTest; `-shellSnapshot` diagnostics + screenshot (§1) |
 
 `-shellSnapshot` note: the seam writes to the path it is given, and an iOS simulator app can only write

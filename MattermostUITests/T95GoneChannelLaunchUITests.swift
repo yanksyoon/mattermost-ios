@@ -328,6 +328,9 @@ final class T95GoneChannelLaunchUITests: XCTestCase {
         }
         markEpoch("MEASURE end state title='\(element(app, "nativeChannelTitle").exists ? element(app, "nativeChannelTitle").label : "-")' "
               + "pane=\(element(app, "nativeChannelPane").exists)")
+        // Hygiene only: the probe channel existed for this measurement. (Deleting it does not change
+        // anything measured above — the store is wiped by the next test's first launch.)
+        archiveChannel(probe.id)
     }
 
     // MARK: - Fixture
@@ -381,6 +384,12 @@ final class T95GoneChannelLaunchUITests: XCTestCase {
         let (_, response) = try synchronous(path: "/api/v4/channels/\(id)/members/\(userID!)",
                                             method: "DELETE", token: token)
         return response?.statusCode ?? -1
+    }
+
+    /// Archive the probe channel again so repeated runs do not grow the shared fixture. Deliberately
+    /// after the measurement and deliberately not asserted: this is hygiene, not part of the claim.
+    private func archiveChannel(_ id: String) {
+        _ = try? synchronous(path: "/api/v4/channels/\(id)", method: "DELETE", token: token)
     }
 
     /// The account's own channel list — the server-side source of the sidebar's `available` set.
