@@ -103,11 +103,12 @@ final class T45AvatarUITests: XCTestCase {
         XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
                       "signing in must reach the shell")
 
-        // The sidebar is a lazy collection view and this server holds ~40 channels for this account,
-        // so scroll (bounded, both directions) until the row is realised — a person scrolls.
+        // The sidebar is a lazy list (a `ScrollView` + `LazyVStack` since T8f) and this server holds
+        // ~40 channels for this account, so scroll (bounded, both directions) until the row is
+        // realised — a person scrolls.
         let row = element(app, "channelSidebar.channel.\(channelID)")
         if !row.waitForExistence(timeout: 10) {
-            let sidebar = element(app, "nativeTeamSidebar").collectionViews.firstMatch
+            let sidebar = ShellSettle.channelSidebarScroll(app)
             XCTAssertTrue(sidebar.exists, "the channel sidebar must mount:\n\(app.debugDescription)")
             var revealed = row.exists
             for _ in 0..<5 where !revealed {

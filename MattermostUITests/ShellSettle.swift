@@ -100,6 +100,26 @@ enum ShellSettle {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
+    /// The channel sidebar's own scroll surface — what a suite swipes to realise a row that is
+    /// below the fold.
+    ///
+    /// T8f replaced the channel list's `List` with `ScrollView` + `LazyVStack`, so the element these
+    /// suites used to reach with `element(app, "nativeTeamSidebar").collectionViews.firstMatch` no
+    /// longer exists: the list carries `channelSidebar.scroll` on its scroll view now
+    /// (`NativeChannelSidebarContent.scrollIdentifier`). The *identifier* is what makes this
+    /// correct rather than positional — `nativeTeamSidebar` also contains the team rail's own
+    /// `ScrollView`, which sits to the left, so `scrollViews.firstMatch` can swipe the three team
+    /// icons and never the channel list.
+    ///
+    /// The legacy query is kept as a fallback so a suite run against a build from before T8f
+    /// scrolls instead of failing on "no such element"; on this tree it resolves to nothing.
+    static func channelSidebarScroll(_ app: XCUIApplication) -> XCUIElement {
+        let scroll = element(app, "channelSidebar.scroll")
+        if scroll.exists { return scroll }
+        let legacy = element(app, "nativeTeamSidebar").collectionViews.firstMatch
+        return legacy.exists ? legacy : scroll
+    }
+
     /// Wait until the app is signed in, whichever landing the launch produced.
     ///
     /// A launch with `-uiTestResetPersistedState` lands on the channel list (tab bar up); a launch

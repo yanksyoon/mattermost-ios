@@ -340,3 +340,29 @@ Decision of record: `docs/t8e-a11y-tree-decision.md`. Summary of what it binds:
   VoiceOver defect; the app has three real `Menu { }` views, not five (the grep also matches
   `.contextMenu` and `enum ChannelCreateMenu`). Replacing menus to please XCTest would cost a real
   VoiceOver affordance.
+
+### T8f — the channel sidebar's `List` is a `ScrollView` + `LazyVStack` (2026-10-28, `t_a3d1c600`)
+
+Note of record: `docs/t8f-sidebar-list-swap.md`. What it binds:
+
+* **The six wrappers per channel row are gone.** A row cost 7 snapshot elements (`Cell` + five empty
+  `Other` + the row) and costs **1** now: the drawn-shell snapshot went **197 elements for 11
+  realised rows → 127 for 26 realised rows** (17.9 → 4.9 elements per row including chrome), and
+  `elements − rows` on that screen 186 → 101.
+* **Every query that walks the shell is cheaper:** `nativeChannelPane` 41.5 → 32.8 KB (−21 %), one
+  `channelSidebar.channel.<id>` lookup 0.93 → 0.67 MB (−28 %), the batch's app log 50.5 → 45.9 MB
+  (−9.1 %, of which XCTest's own serialiser 33.13 → 29.73 MB).
+* **The identifier contract did not move** (T8e §2.3): same identifiers, same labels, same values,
+  same traits, one element per row. **One identifier is new** — `channelSidebar.scroll` on the list's
+  scroll view — and `ShellSettle.channelSidebarScroll(app)` is the one reader of it. Five suites
+  moved off `collectionViews.firstMatch` (`T33`'s `revealRow`, `T34`, `T45`, `T4d`, `T39Search`).
+* **Two `List` behaviours are lost**, recorded rather than hidden: **sticky section headers do not
+  stick** (`pinnedViews: [.sectionHeaders]` is set and measured not to work — a parity loss against
+  upstream's iOS category list), and the shell's toolbar draws no background material over scrolled
+  content (the `List` case is unmeasured). Row separators and the grouped/upper-cased phone chrome are
+  re-drawn; `selection:` was never used, so nothing was dropped there.
+* **Suites:** units **1725 / 8 skipped / 0 failed**; `T32` + `T33` stub **11/11** three times; the
+  measurement batch **8 / 1 skipped / 0 failed**; `T33ChannelSidebarUITests` (live, 347 channels)
+  **8 run / 2 skipped / 4 failed** against base `2d2b903`'s **8 / 2 / 6 failed** — the app-loss class
+  (three `QUARANTINED DUE TO HIGH LOGGING VOLUME` lines and a fresh `.ips` in the run's window), not
+  worse than base, and one test better.

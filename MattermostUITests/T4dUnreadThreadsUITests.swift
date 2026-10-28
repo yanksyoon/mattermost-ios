@@ -390,15 +390,17 @@ final class T4dUnreadThreadsUITests: XCTestCase {
 
     /// Scroll the channel list until the rail's Threads row is drawn, then return it.
     ///
-    /// A `List` only builds the rows it is showing, so "the row exists in the view's body" and "the row
-    /// is in the accessibility tree" are different claims (measured: the test saw only the rows above
-    /// its scroll position). The row sits above the categories now, so the search starts by scrolling
-    /// back up; the downward sweep keeps the helper honest if the order ever changes.
+    /// A lazy list only builds the rows it is showing, so "the row exists in the view's body" and
+    /// "the row is in the accessibility tree" are different claims (measured: the test saw only the
+    /// rows above its scroll position). The row sits above the categories now, so the search starts
+    /// by scrolling back up; the downward sweep keeps the helper honest if the order ever changes.
     @discardableResult
     private func revealThreadsRow(_ app: XCUIApplication) -> XCUIElement {
         let row = element(app, "nativeSidebarAllThreads")
         if row.waitForExistence(timeout: 25) { return row }
-        let list = app.collectionViews.firstMatch
+        // T8f: the channel list is a `ScrollView` + `LazyVStack`; `ShellSettle` knows its element
+        // (this used to be `app.collectionViews.firstMatch`, the `List`'s `UICollectionView`).
+        let list = ShellSettle.channelSidebarScroll(app)
         guard list.waitForExistence(timeout: 20) else { return row }
         for _ in 0..<6 {
             list.swipeDown(velocity: .fast)

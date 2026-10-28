@@ -210,14 +210,16 @@ final class T39SearchUITests: XCTestCase {
         return app
     }
 
-    /// Scroll the channel list until `identifier` exists (a lazy `List` builds only its viewport).
+    /// Scroll the channel list until `identifier` exists (a lazy list builds only its viewport).
     @discardableResult
     private func revealSidebarRow(_ app: XCUIApplication, identifier: String,
                                   maxSwipes: Int = 20) -> XCUIElement {
         let target = element(app, identifier)
         guard !target.exists else { return target }
         // The row may be above the viewport as well as below it: come back to the top first.
-        let list = app.collectionViews.firstMatch.exists ? app.collectionViews.firstMatch : app
+        // T8f: the channel list is a `ScrollView` + `LazyVStack` now, and `ShellSettle` names its
+        // scroll view (it used to be `app.collectionViews.firstMatch`, the `List`'s collection).
+        let list = ShellSettle.channelSidebarScroll(app)
         var swipes = 0
         while !target.exists, swipes < maxSwipes {
             list.swipeUp(velocity: .fast)

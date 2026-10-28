@@ -630,7 +630,9 @@ final class T34ChannelPostListUITests: XCTestCase {
         let identifier = "channelSidebar.channel.\(channel?.id ?? "")"
         let row = element(app, identifier)
         if !row.waitForExistence(timeout: 10) {
-            let sidebar = element(app, "nativeTeamSidebar").collectionViews.firstMatch
+            // T8f: the channel list is a `ScrollView` + `LazyVStack`; this is its scroll view (it
+            // used to be the `List`'s `collectionViews.firstMatch`).
+            let sidebar = ShellSettle.channelSidebarScroll(app)
             XCTAssertTrue(sidebar.exists,
                           "the channel sidebar must mount:\n\(app.debugDescription)")
             // Direction is measured, not assumed: on this server the `t34-*` rows sit **below** the

@@ -35,6 +35,9 @@ struct NativeChannelSidebarContent: View {
     /// **menu** and the create **form** must agree about what this reader may create, and the permission
     /// answer is one value — so both read the same model.
     @EnvironmentObject private var channelInfo: ChannelInfoCoordinator
+    /// T8f: the phone draws the channel list on the grouped background `List(.sidebar)` used; the
+    /// regular layout keeps the pane's own background.
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var quickSwitcherPresented = false
     /// T40: the channel browser (S24). Presented from this list because the list is where a missing
@@ -51,13 +54,54 @@ struct NativeChannelSidebarContent: View {
     /// way it moves the list.
     @State private var globalThreads: GlobalThreadsViewModel?
 
+    /// The channel list's scroll surface (T8f). The suites reveal a row that is beyond the fold by
+    /// swiping this element; it replaces the `List`'s `UICollectionView` that
+    /// `T33ChannelSidebarUITests.revealRow` used to grab with `collectionViews.firstMatch`
+    /// (`ShellSettle.channelSidebarScroll` is the one reader).
+    static let scrollIdentifier = "channelSidebar.scroll"
+
     var body: some View {
-        List {
-            workspaceSection
-            channelSections
-            footerSection
+        // T8f: `ScrollView` + `LazyVStack`, not `List`.
+        //
+        // Why: after T8e every row is one accessibility element, but a row in this `List` still
+        // cost **7** snapshot elements — `Cell` plus five empty `Other` wrappers around the row's
+        // own element. They are the `List`'s scaffolding, not row content: measured in the same
+        // snapshot, the team rail (built `ScrollView` + `VStack`) costs 1 per row. Removing them is
+        // the whole remaining gap to the card's "well under 120" (docs/t8f-sidebar-list-swap.md).
+        //
+        // What the `List` gave us, and where each behaviour went:
+        //  - **laziness** — kept: `LazyVStack` realises only what is near the viewport, so a row
+        //    below the fold is still absent from the tree (the suites rely on that, and it is why
+        //    `revealRow` has to scroll). The realised window is *larger* than the `List`'s was
+        //    (measured: 26–36 rows per tree against 7–21), which is why one snapshot of this screen
+        //    can hold more rows than before;
+        //  - **sticky section headers** — **not reproduced.** They are requested with
+        //    `pinnedViews: [.sectionHeaders]`, but measured on the drawn shell they do not stick:
+        //    in the T33 live run's scrolled frames the top of the list is a channel row while the
+        //    enclosing category's header is above the viewport, and no header element in any of
+        //    that run's serialised trees sits at the top of the scroll view. Recorded as a known
+        //    loss in `docs/t8f-sidebar-list-swap.md` §4;
+        //  - **the grouped row chrome** (`.listStyle(.sidebar)` on a phone: rows on a grouped
+        //    surface, inset separators, uppercase secondary header) — re-drawn by
+        //    `channelSidebarRowSurface()` / `channelSidebarSectionHeaderSurface()` below;
+        //  - **row separators** — re-drawn per row (they were the style's, not ours);
+        //  - **selection** — nothing to keep: this `List` never had a `selection:` binding. A row is
+        //    a `Button` that routes through `NativeNavigation`, and `.isSelected` rides the row's
+        //    accessibility traits (T8e), so there was no list-level selection state.
+        ScrollView(.vertical) {
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                workspaceSection
+                channelSections
+                footerSection
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 12)
         }
-        .listStyle(.sidebar)
+        .background(sizeClass == .compact ? Color(.systemGroupedBackground) : Color.clear)
+        // The sidebar's own scroll surface. A suite that has to reveal a row below the fold swipes
+        // **this** (`ShellSettle.channelSidebarScroll`); it used to reach into the `List`'s
+        // `UICollectionView`, which no longer exists.
+        .accessibilityIdentifier(NativeChannelSidebarContent.scrollIdentifier)
         // The appearance pass: point the model at the shell's current team and load it. The
         // coordinator owns the model, so a re-mount (rotation, tab switch) does not reload it.
         .task { await channels.activate(server) }
@@ -135,6 +179,8 @@ struct NativeChannelSidebarContent: View {
         Section {
             // The pane's anchor row carries `nativeSidebar` in every state (T32-R F2).
             NativeSidebarAnchorRow(server: server)
+                .channelSidebarRowContent()
+                .channelSidebarRowSurface(separator: false)
 
             if let title = teamTitle {
                 HStack(spacing: 8) {
@@ -154,6 +200,8 @@ struct NativeChannelSidebarContent: View {
                         .accessibilityIdentifier("sidebarCurrentTeam")
                 }
                 .accessibilityIdentifier("sidebarCurrentTeam")
+                .channelSidebarRowContent()
+                .channelSidebarRowSurface()
             }
 
             // The Threads entry, above the categories — upstream mounts its Threads button in the
@@ -164,26 +212,32 @@ struct NativeChannelSidebarContent: View {
             // live suite found no `nativeSidebarAllThreads` row, and the reader's report — "no place to
             // see unread threads" — is what that looks like from the outside).
             threadsEntry
+                .channelSidebarRowSurface()
 
             Button {
                 quickSwitcherPresented = true
             } label: {
                 Label("Jump to a channel…", systemImage: "magnifyingglass")
+                    .channelSidebarRowContent()
             }
             .accessibilityIdentifier("channelSidebar.quickSwitcher")
+            .channelSidebarRowSurface()
             // The desktop shortcut (cmd/ctrl-K) on a hardware keyboard; harmless where there is none.
             .keyboardShortcut("k", modifiers: .command)
-            // T40: the channel browser (S24). It sits here, beside the switcher, because a `List` renders
-            // its sections lazily — the same row at the bottom of a long channel list is not on screen and
-            // therefore not reachable without scrolling, and "find a channel I am not in" belongs with
-            // "find a channel I am in".
+
+            // T40: the channel browser (S24). It sits here, beside the switcher, because a lazy list
+            // renders its sections lazily — the same row at the bottom of a long channel list is not
+            // on screen and therefore not reachable without scrolling, and "find a channel I am not
+            // in" belongs with "find a channel I am in".
             if resolver.resolvedMode(for: .channelInfo) == .native {
                 Button {
                     browseChannelsPresented = true
                 } label: {
                     Label("Browse channels", systemImage: "magnifyingglass.circle")
+                        .channelSidebarRowContent()
                 }
                 .accessibilityIdentifier("nativeSidebarBrowseChannels")
+                .channelSidebarRowSurface()
             }
         } header: {
             HStack(spacing: 6) {
@@ -197,6 +251,7 @@ struct NativeChannelSidebarContent: View {
                                             directMessage: $newDirectMessagePresented)
                 }
             }
+            .channelSidebarSectionHeaderSurface()
         }
     }
 
@@ -205,8 +260,11 @@ struct NativeChannelSidebarContent: View {
         if model.groups.isEmpty {
             Section {
                 channelStateRow
+                    .channelSidebarRowContent()
+                    .channelSidebarRowSurface(separator: false)
             } header: {
                 Text("Channels")
+                    .channelSidebarSectionHeaderSurface()
             }
         } else {
             ForEach(model.groups) { group in
@@ -225,6 +283,9 @@ struct NativeChannelSidebarContent: View {
                             } onFavorite: {
                                 Task { await model.setFavorite(!entry.isFavorite, channelID: entry.id) }
                             }
+                            // The `List` drew a separator above every row but the first; so does
+                            // the card (`channelSidebarRowSurface`).
+                            .channelSidebarRowSurface(separator: entry.id != group.entries.first?.id)
                         }
                     }
                 } header: {
@@ -235,6 +296,7 @@ struct NativeChannelSidebarContent: View {
                                                      categoryID: group.id)
                         }
                     }
+                    .channelSidebarSectionHeaderSurface()
                 }
             }
         }
@@ -256,7 +318,7 @@ struct NativeChannelSidebarContent: View {
                     Label("Threads", systemImage: "text.bubble")
                     Spacer(minLength: 4)
                 }
-                .contentShape(Rectangle())
+                .channelSidebarRowContent()
             }
             .buttonStyle(.plain)
             .accessibilityRepresentation {
@@ -317,12 +379,19 @@ struct NativeChannelSidebarContent: View {
                     .accessibilityIdentifier("channelSidebar.totals")
             }
             .accessibilityIdentifier("channelSidebar.totals")
+            .channelSidebarRowContent()
+            .channelSidebarRowSurface(separator: false)
+            // The footer is its own group with no header of its own; the `List` gave it a gap and
+            // so does this (applied outside the surface, so the gap is the grouped background).
+            .padding(.top, 16)
 
             if let actionError = model.actionError {
                 Text(actionError)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("channelSidebar.actionError")
+                    .channelSidebarRowContent()
+                    .channelSidebarRowSurface()
             }
 
             // The T26 escape hatch has to survive every native state of this pane.
@@ -330,12 +399,18 @@ struct NativeChannelSidebarContent: View {
                 resolver.forceWebForThisRun(SurfaceDefaults.paneHostSurface)
             } label: {
                 Label("Use web view", systemImage: "safari")
+                    .channelSidebarRowContent()
             }
             .accessibilityIdentifier("revertToWeb\(SurfaceDefaults.paneHostSurface.rawValue)")
+            .channelSidebarRowSurface()
         } footer: {
             if model.groupingIsApproximate {
                 Text("Your custom categories could not be loaded, so channels are grouped by type.")
                     .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 4)
             }
         }
     }
@@ -495,9 +570,10 @@ struct ChannelSidebarRow: View {
                 badge
             }
             // A `.plain` button hit-tests its label's content shape: the name, glyph and badge take
-            // a tap, the space after the Spacer does not — while VoiceOver/XCUITest report the whole
-            // row as the control. The shape makes the touch target and the reported frame agree.
-            .contentShape(Rectangle())
+            // a tap, the space after the Spacer does not. The shape makes the touch target and the
+            // reported frame agree, and (T8f, no `List` row any more) it is also what gives the row
+            // its insets and 44 pt height.
+            .channelSidebarRowContent()
         }
         .buttonStyle(.plain)
         // One row, one accessibility element (T8e). A `Button` whose label is an `HStack` exposes its
@@ -603,8 +679,9 @@ private struct ThreadsRailRow: View {
                 }
             }
             // A `.plain` button hit-tests its label's content shape; without this the space after the
-            // Spacer would not take a tap even though the row is reported as the control.
-            .contentShape(Rectangle())
+            // Spacer would not take a tap even though the row is reported as the control. T8f: with
+            // no `List` row any more, the same modifier is what gives the row its insets and height.
+            .channelSidebarRowContent()
         }
         .buttonStyle(.plain)
         // PROBE (t_ce08486d): does a representation drop the `Label`'s symbol Image?
@@ -673,5 +750,101 @@ private struct ChannelCreateMenuButton: View {
                 Button("Cancel", role: .cancel) {}
             }
         }
+    }
+}
+
+// MARK: - Row metrics (T8f)
+//
+// These three modifiers are what `List` + `.listStyle(.sidebar)` used to draw on a phone, written
+// out because the channel list is a `ScrollView` + `LazyVStack` now
+// (`docs/t8f-sidebar-list-swap.md`):
+//
+//  * `channelSidebarRowContent` — the row's own insets (16 pt), its 44 pt minimum height and the
+//    full-width hit area. It goes **inside** a row's `Button` label, so the whole row takes a tap
+//    (a `.plain` button otherwise hit-tests only its label's content shape);
+//  * `channelSidebarRowSurface` — the surface the row is drawn on: on the phone a row of the
+//    grouped background with a hairline separator above every row but the first; on the regular
+//    (iPad) layout nothing, because `.sidebar` draws flat rows there. It is applied to the row
+//    view, outside the `Button` (or to a plain row, which needs both);
+//  * `channelSidebarSectionHeaderSurface` — the small, upper-cased, secondary caption above a
+//    group, with an opaque background of its own so a **pinned** header — when the platform pins
+//    it — hides the rows sliding under it (measured: the pinned headers are requested but do not
+//    stick; see the note).
+//
+// None of the three is an accessibility element: a `Rectangle`/`Color` carries no label, and
+// padding/frames do not move an identifier (the T8e contract is untouched — every row is still
+// exactly one element).
+
+/// The insets and hit area a row used to inherit from its `List` row.
+private struct ChannelSidebarRowContent: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+    }
+}
+
+/// The surface a row stands on — the phone's grouped background and its inset separator.
+private struct ChannelSidebarRowSurface: ViewModifier {
+    var separator: Bool
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    func body(content: Content) -> some View {
+        // `compact` is the phone: `.listStyle(.sidebar)` drew grouped rows there. The regular
+        // (iPad/Mac) sidebar drew flat rows, so nothing is painted there — the pane's own
+        // background shows through, as it did before.
+        let grouped = sizeClass == .compact
+        return content
+            .background(grouped ? Color(.secondarySystemGroupedBackground) : Color.clear)
+            .overlay(alignment: .top) {
+                if separator && grouped {
+                    Rectangle()
+                        .fill(Color(.separator))
+                        .frame(height: 0.5)
+                        .padding(.leading, 16)
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(.horizontal, grouped ? 16 : 0)
+    }
+}
+
+/// The section header: the caption above a group, on its own opaque surface while pinned.
+private struct ChannelSidebarSectionHeaderSurface: ViewModifier {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    func body(content: Content) -> some View {
+        let grouped = sizeClass == .compact
+        return content
+            .font(.footnote)
+            // `.sidebar` upper-cased the header's text. `textCase` is presentation only — a header
+            // whose accessibility label is set explicitly (`CategoryHeader`'s representation) keeps
+            // the server's own category name, exactly as the suites assert it.
+            .textCase(.uppercase)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, grouped ? 32 : 16)
+            .padding(.top, 14)
+            .padding(.bottom, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(grouped ? Color(.systemGroupedBackground) : Color(.systemBackground))
+    }
+}
+
+private extension View {
+    /// A row's insets, minimum height and full-width hit area. Applied inside a row's label.
+    func channelSidebarRowContent() -> some View {
+        modifier(ChannelSidebarRowContent())
+    }
+
+    /// The surface a row is drawn on, and (unless it is the first row of a group) its separator.
+    func channelSidebarRowSurface(separator: Bool = true) -> some View {
+        modifier(ChannelSidebarRowSurface(separator: separator))
+    }
+
+    /// The caption above a group, with the opaque background a pinned header needs.
+    func channelSidebarSectionHeaderSurface() -> some View {
+        modifier(ChannelSidebarSectionHeaderSurface())
     }
 }

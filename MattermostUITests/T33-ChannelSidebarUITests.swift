@@ -837,18 +837,21 @@ final class T33ChannelSidebarUITests: XCTestCase {
 
     /// Scroll the channel list until `identifier` exists.
     ///
-    /// The sidebar is a `List`, so a row outside the viewport is **not in the accessibility tree at
-    /// all** — T34/T45 measure the same thing on this fixture (~40 channels for this account). T33-R2
-    /// ran on a 13-inch iPad, where the rows the tests name happened to be on screen; on a phone they
-    /// are not, and "the row is not in the server's answer" must not be inferred from "not on the
-    /// first screen". A person scrolls, so the test scrolls: bounded, both directions, because the
-    /// list's sort is by activity and moves between runs.
+    /// The sidebar is a lazy list (`ScrollView` + `LazyVStack` since T8f), so a row outside the
+    /// viewport is **not in the accessibility tree at all** — T34/T45 measure the same thing on this
+    /// fixture (~40 channels for this account). T33-R2 ran on a 13-inch iPad, where the rows the
+    /// tests name happened to be on screen; on a phone they are not, and "the row is not in the
+    /// server's answer" must not be inferred from "not on the first screen". A person scrolls, so the
+    /// test scrolls: bounded, both directions, because the list's sort is by activity and moves
+    /// between runs.
     @discardableResult
     private func revealRow(_ app: XCUIApplication, _ identifier: String,
                            maxSwipes: Int = 20) -> XCUIElement {
         let target = element(app, identifier)
         if target.waitForExistence(timeout: 3) { return target }
-        let list = element(app, "nativeTeamSidebar").collectionViews.firstMatch
+        // The list's own scroll view: `ShellSettle.channelSidebarScroll` (it was the `List`'s
+        // `collectionViews.firstMatch` until T8f replaced the `List`).
+        let list = ShellSettle.channelSidebarScroll(app)
         guard list.exists else { return target }
         var revealed = target.exists
         for _ in 0..<maxSwipes where !revealed {
