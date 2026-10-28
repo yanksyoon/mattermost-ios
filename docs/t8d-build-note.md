@@ -182,13 +182,16 @@ UX change made to satisfy the test harness. Recorded as *known, not actioned* (�
 Not reported by XCTest — they are visible in the serialised tree instead, as `Image` elements whose
 label is an SF Symbol name (`build/logs/t8d/.../StandardOutputAndStandardError-com.mattermost.ios.txt`):
 
-| element in the tree | count | VoiceOver says |
+| element as it appears in the serialised tree | occurrences in run A's dumps | VoiceOver says |
 |---|---|---|
 | `Image, identifier: 'number', label: 'number'` | 518 | "number" (channel glyph) |
 | `Image, label: 'person.badge.key'` | 49 | "person badge key" |
 | `Image, label: 'server.rack'` | 45 | "server rack" |
 | `Image, label: 'person.3'` | 44 | "person three" |
 | `Image, label: 'exclamationmark.magnifyingglass'` | 2 | "exclamationmark magnifyingglass" |
+
+(counts are appearances across the batch's snapshots, not distinct views — the same glyph is
+re-serialised on every query; what matters is that it is a separate accessibility element at all)
 
 Fixed in this card (each also removes one element from every snapshot, i.e. ~6 KB of test log per
 query):
