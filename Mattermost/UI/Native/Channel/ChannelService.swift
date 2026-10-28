@@ -98,10 +98,17 @@ extension ChannelServing {
 @MainActor
 final class SessionChannelService: ChannelServing {
     private let resolve: () -> APIClient?
+    /// Profiles fetched for the rows on screen are remembered for the rest of the shell — the sidebar
+    /// needs the same people to name a DM row, and asking twice is what made a large workspace's
+    /// sidebar slow (card t_c0e42801). Optional so a test can run without one.
+    private let profiles: UserProfileCache?
     let pageSize: Int
 
-    init(pageSize: Int = 60, resolve: @escaping () -> APIClient?) {
+    init(pageSize: Int = 60,
+         profiles: UserProfileCache? = nil,
+         resolve: @escaping () -> APIClient?) {
         self.pageSize = pageSize
+        self.profiles = profiles
         self.resolve = resolve
     }
 
@@ -125,7 +132,9 @@ final class SessionChannelService: ChannelServing {
     func users(ids: [String]) async throws -> [MMUser] {
         // A profile failure must not fail the page: the rows fall back to the username carried in
         // `props` (system messages) or to "Unknown user", which is honest and still ordered.
-        (try? await client().users(ids: ids)) ?? []
+        let fetched = (try? await client().users(ids: ids)) ?? []
+        profiles?.remember(fetched)
+        return fetched
     }
 
     /// T39: one post by id, for the jump-to-message path.
