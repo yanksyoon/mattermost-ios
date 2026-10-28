@@ -119,7 +119,7 @@ final class ChannelSidebarCoordinator: ObservableObject {
         if let serviceFactory {
             service = serviceFactory(server)
         } else {
-            service = SessionChannelSidebarService { [weak self] in
+            service = SessionChannelSidebarService(profiles: UserProfileCache.shared(for: server.id)) { [weak self] in
                 guard let self, let auth = self.auth,
                       let session = try? auth.session(for: server) else { return nil }
                 return (session.client, auth.userID(for: server.id))
@@ -223,6 +223,8 @@ final class ChannelSidebarCoordinator: ObservableObject {
         refreshTokens[serverID] = nil
         models[serverID] = nil
         loadedTeams[serverID] = nil
+        // The profiles this server taught the shell are not reused by whoever signs in next.
+        UserProfileCache.forget(serverID: serverID)
         teams?.setChannelTeams([:], for: serverID)
     }
 

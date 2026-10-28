@@ -65,6 +65,19 @@ final class ResumeOnce<T: Sendable> {
     }
 }
 
+/// A box the work publishes into and the deadline reads back.
+///
+/// `@MainActor`, like everything that touches it, so the box needs no lock; both the publisher and
+/// the deadline run on the main actor.
+@MainActor
+final class LatestValue<Value> {
+    var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+}
+
 /// An optional sidebar call did not answer in time.
 struct SidebarDeadlineExceeded: Error, CustomStringConvertible {
     var description: String { "no answer within the deadline" }
@@ -73,8 +86,14 @@ struct SidebarDeadlineExceeded: Error, CustomStringConvertible {
 @MainActor
 final class SessionChannelSidebarService: ChannelSidebarServing {
     private let resolve: () -> (client: APIClient, userID: String?)?
+    /// Profiles this server has already paid for. Optional so a test can run without one; the shell
+    /// always passes the server's cache (`UserProfileCache.shared(for:)`), which is what makes the
+    /// label step free on a second load (card t_c0e42801).
+    private let profiles: UserProfileCache?
 
-    init(resolve: @escaping () -> (client: APIClient, userID: String?)?) {
+    init(profiles: UserProfileCache? = nil,
+         resolve: @escaping () -> (client: APIClient, userID: String?)?) {
+        self.profiles = profiles
         self.resolve = resolve
     }
 
@@ -83,28 +102,43 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
         return value
     }
 
-    /// Run optional work with a deadline that can **actually be abandoned**.
+    /// Run optional work under a deadline that can **actually be abandoned**, and that returns
+    /// **what the work had so far**.
     ///
-    /// `withThrowingTaskGroup` cannot do this: its scope waits for every child, so a call that ignores
-    /// cancellation holds the group open and the deadline never fires — measured, with a 10 s deadline
-    /// in place the pane still sat in `loading` for minutes. Here the work runs in its own `Task`, and
-    /// when the timer wins we simply stop listening and return `nil`; the abandoned task finishes
-    /// unwatched. That is the difference between a sidebar with unlabelled direct messages and an
-    /// empty pane, which is what a hang inside label resolution used to produce.
-    static func abandoning<T: Sendable>(after seconds: Double,
-                                        _ operation: @escaping @Sendable () async -> T?) async -> T? {
-        await withCheckedContinuation { continuation in
+    /// `withThrowingTaskGroup` cannot do the first part: its scope waits for every child, so a call
+    /// that ignores cancellation holds the group open and the deadline never fires — measured, with a
+    /// 10 s deadline in place the pane still sat in `loading` for minutes. Here the work runs in its
+    /// own `Task`, and when the timer wins we simply stop listening and resume with what has been
+    /// published; the abandoned task finishes unwatched.
+    ///
+    /// The second part is what the DM label step needs: it used to be all-or-nothing, so a deadline
+    /// that fired after 90 % of the profiles had arrived threw all of them away and every DM row in
+    /// the list degraded to "Direct message" at once (the defect in card t_c0e42801). The work
+    /// publishes after each batch into a box the deadline reads, so a lost deadline costs only the
+    /// rows still outstanding.
+    static func abandoningLatest<Value: Sendable>(
+        after seconds: Double,
+        initial: Value,
+        _ operation: @escaping @Sendable (@escaping @MainActor (Value) -> Void) async -> Value?
+    ) async -> Value {
+        // `ResumeOnce` answers with an optional (it is shared with the other deadline helpers), and
+        // both sides here always carry a value — `initial` until the work publishes — so the `??` is
+        // unreachable.
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Value?, Never>) in
             let once = ResumeOnce(continuation)
+            let latest = LatestValue(initial)
             let work = Task { @MainActor in
-                let value = await operation()
-                once.resume(value)
+                let value = await operation { published in
+                    latest.value = published
+                }
+                once.resume(value ?? latest.value)
             }
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
                 work.cancel()
-                once.resume(nil)
+                once.resume(latest.value)
             }
-        }
+        } ?? initial
     }
 
     /// Run an optional call with a deadline, so a request that never returns cannot hold the pane in
@@ -174,14 +208,25 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
         }
 
         SidebarLoadTrace.step = "direct labels…"
-        // Naming a DM or a group message costs one request per group channel, sequentially, and this
-        // is the *label* of a row: one slow channel must not hold the whole sidebar in `loading`
-        // (measured: it did — the pane sat on "Loading channels..." with this the last step entered).
-        // The deadline degrades to unlabelled rows, which the list already draws by channel name.
-        let labels = (await Self.abandoning(after: 10) {
-            await Self.resolveDirectLabels(client: client, userID: userID, channels: channels)
-        }) ?? (labels: [String: String](), terms: [String: [String]]())
-        SidebarLoadTrace.step = "labels ok (\(labels.labels.count))"
+        // Naming a DM or a group message costs one request per group channel plus the profile
+        // batches, and this is the *label* of a row: one slow channel must not hold the whole
+        // sidebar in `loading` (measured: it did — the pane sat on "Loading channels..." with this
+        // the last step entered). The deadline no longer discards the work in flight: the resolver
+        // publishes after every batch, so losing the deadline costs only the rows still outstanding
+        // (card t_c0e42801 — before this, one lost deadline degraded *every* DM row to
+        // "Direct message").
+        let directCount = channels.filter { ChannelSidebarDerivation.kind(of: $0)?.isDirect == true }.count
+        let profiles = self.profiles
+        let labels = await Self.abandoningLatest(after: 10, initial: DirectLabelMap.empty) { publish in
+            await DirectLabelResolver(client: client,
+                                      userID: userID,
+                                      profiles: profiles,
+                                      onProgress: publish).run(for: channels)
+        }
+        // `N/M`: labels resolved against direct channels. A row still unlabelled is a profile the
+        // server would not name (a deleted account, a 403), which the list draws as
+        // "Direct message" — the count makes that visible instead of silent.
+        SidebarLoadTrace.step = "labels ok (\(labels.labels.count)/\(directCount))"
         data.directLabels = labels.labels
         data.searchTerms = labels.terms
         return data
@@ -226,91 +271,32 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
     /// Turn opaque DM/GM channels into something a person can read.
     ///
     /// A DM's `name` is `<userID>__<userID>` and a GM's is a hash, so the only source of a label is
-    /// the member profiles. One batched `POST /users/ids` answers all of them; the GM member lists are
-    /// fetched concurrently because there is no "members of many channels" endpoint.
+    /// the member profiles. The work is `DirectLabelResolver`'s: cache first, then ≤100 ids per
+    /// `POST /users/ids`, published batch by batch so a deadline or a failed request costs only the
+    /// rows still outstanding.
     ///
-    /// Deliberately best-effort: a failure leaves the rows labelled "Direct message"/"Group message"
-    /// rather than failing the sidebar. The counter and category rules do not depend on names.
+    /// Deliberately best-effort: a failure leaves the rows unlabelled (the list draws
+    /// "Direct message"/"Group message") rather than failing the sidebar. The counter and category
+    /// rules do not depend on names.
     static func resolveDirectLabels(
         client: APIClient,
         userID: String?,
-        channels: [MMChannel]
-    ) async -> (labels: [String: String], terms: [String: [String]]) {
-        let directs = channels.filter {
-            ChannelSidebarDerivation.kind(of: $0)?.isDirect == true
-        }
-        guard !directs.isEmpty else { return ([:], [:]) }
-
-        // channel id → the other people in it.
-        var memberIDsByChannel: [String: [String]] = [:]
-        var groupChannels: [MMChannel] = []
-        for channel in directs {
-            switch ChannelSidebarDerivation.kind(of: channel) {
-            case .directMessage:
-                // The DM's name carries both participant ids, so no member call is needed.
-                memberIDsByChannel[channel.id] = channel.name
-                    .components(separatedBy: "__")
-                    .filter { !$0.isEmpty && $0 != userID }
-            case .groupMessage:
-                groupChannels.append(channel)
-            default:
-                break
-            }
-        }
-        // One member request per group channel, and each is a round trip on a real server: done in
-        // sequence the sidebar sat on "Loading channels..." long enough to look hung (measured — the
-        // last step entered was this loop). A batch at a time makes the wall time the slowest batch
-        // instead of the sum.
-        for batch in stride(from: 0, to: groupChannels.count, by: 8).map({
-            Array(groupChannels[$0..<min($0 + 8, groupChannels.count)])
-        }) {
-            await withTaskGroup(of: (String, [String]?).self) { group in
-                for channel in batch {
-                    group.addTask {
-                        let members = try? await client.channelMembers(channelID: channel.id)
-                        return (channel.id, members?.map(\.userId).filter { $0 != userID })
-                    }
-                }
-                for await (channelID, ids) in group {
-                    if let ids { memberIDsByChannel[channelID] = ids }
-                }
-            }
-        }
-
-        let ids = Array(Set(memberIDsByChannel.values.flatMap { $0 }))
-        guard !ids.isEmpty else { return ([:], [:]) }
-        let users = (try? await client.users(ids: ids)) ?? []
-        let byID = Dictionary(users.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-
-        var labels: [String: String] = [:]
-        var terms: [String: [String]] = [:]
-        for (channelID, ids) in memberIDsByChannel {
-            let people = ids.compactMap { byID[$0] }
-            guard !people.isEmpty else { continue }
-            labels[channelID] = people
-                .map(Self.label(for:))
-                .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-                .joined(separator: ", ")
-            terms[channelID] = people.flatMap(Self.searchTerms(for:))
-        }
-        return (labels, terms)
+        channels: [MMChannel],
+        profiles: UserProfileCache? = nil
+    ) async -> DirectLabelMap {
+        await DirectLabelResolver(client: client,
+                                  userID: userID,
+                                  profiles: profiles).run(for: channels)
     }
 
     /// The human name upstream shows for a person: nickname, else the full name, else the username.
     static func label(for user: MMUser) -> String {
-        if !user.nickname.isEmpty { return user.nickname }
-        let full = [user.firstName, user.lastName].filter { !$0.isEmpty }.joined(separator: " ")
-        if !full.isEmpty { return full }
-        return user.username
+        DirectLabelResolver.label(for: user)
     }
 
     /// Every name a quick switcher may match this person by (`@ada`, `ada`, `Ada Lovelace`).
     static func searchTerms(for user: MMUser) -> [String] {
-        var terms = [user.username, label(for: user)]
-        if !user.firstName.isEmpty { terms.append(user.firstName) }
-        let full = [user.firstName, user.lastName].filter { !$0.isEmpty }.joined(separator: " ")
-        if !full.isEmpty { terms.append(full) }
-        return terms.filter { !$0.isEmpty }
+        DirectLabelResolver.searchTerms(for: user)
     }
 }
 

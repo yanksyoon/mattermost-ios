@@ -51,9 +51,34 @@ extension APIClient {
         try await get(MMChannel.self, path: "/channels/\(id)")
     }
 
+    /// The largest id list one `POST /users/ids` may carry.
+    ///
+    /// A workspace with hundreds of direct messages produces hundreds of ids, and one request with
+    /// all of them is both the slowest step of a load and fragile (one failure loses every profile).
+    /// Callers that need more than this get several requests, merged in input order.
+    static let usersBatchSize = 100
+
     /// `POST /users/ids` (batched profile fetch; the API takes the ids in the body).
+    ///
+    /// - Chunked at `usersBatchSize`, merged: a DM sidebar on a large workspace asks for hundreds of
+    ///   ids and must not put them in one body (card t_c0e42801).
+    /// - Empty ids return `[]` without a request, and duplicate ids are sent once (the server answers
+    ///   a list, not a bag).
+    /// - Order is the caller's: each answer is appended in chunk order, so a screen that zips ids to
+    ///   profiles still lines up.
     func users(ids: [String]) async throws -> [MMUser] {
-        try await post([MMUser].self, path: "/users/ids", body: ids)
+        var seen = Set<String>()
+        let ordered = ids.filter { !$0.isEmpty && seen.insert($0).inserted }
+        guard !ordered.isEmpty else { return [] }
+        guard ordered.count > Self.usersBatchSize else {
+            return try await post([MMUser].self, path: "/users/ids", body: ordered)
+        }
+        var merged: [MMUser] = []
+        for start in stride(from: 0, to: ordered.count, by: Self.usersBatchSize) {
+            let chunk = Array(ordered[start..<min(start + Self.usersBatchSize, ordered.count)])
+            merged += try await post([MMUser].self, path: "/users/ids", body: chunk)
+        }
+        return merged
     }
 
     /// `GET /users/{id}/preferences` — the server preferences that back theme/sidebar/display.

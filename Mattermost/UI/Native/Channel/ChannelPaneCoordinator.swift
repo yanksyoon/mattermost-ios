@@ -169,7 +169,7 @@ final class ChannelPaneCoordinator: ObservableObject {
     private func service(for server: ServerConfig) -> ChannelServing {
         if let serviceFactory { return serviceFactory(server) }
         let auth = self.auth
-        return SessionChannelService {
+        return SessionChannelService(profiles: UserProfileCache.shared(for: server.id)) {
             guard let auth, let session = try? auth.session(for: server) else { return nil }
             return session.client
         }
