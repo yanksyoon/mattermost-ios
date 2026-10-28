@@ -47,6 +47,24 @@ re-ported from RN — `SettingsView` (T11), `WelcomeView` (T10), `DeepLinkRouter
 `ServerFormView`+`ServerURLValidator` (T5), `NotificationWorker`+`SessionStore` badge (T8),
 download plumbing (T7).
 
+### 1.1 Shell navigation layout — tabs, and a push that covers them (T95)
+
+The phone shell is upstream's layout, and it is **not** "a tab bar that stays on screen in a
+channel". Upstream's `Stack` wraps the `Tabs`: `app/routes/(authenticated)/_layout.tsx:61-64`
+declares only `(home)` in it, `app/routes/(authenticated)/(home)/_layout.tsx:23-36` is the `Tabs`
+navigator (channel_list / search / mentions / saved_messages / account), and `channel` / `thread` /
+`permalink` are sibling routes pushed above it (`app/screens/navigation.ts:31-51` sends tab screens
+under `(home)`, everything else to `/(authenticated)/<screen>`; `:62-77` pushes with `router.push`).
+The bottom tab bar is designed to leave the screen in a channel on phone, and to stay on tablet
+("Mobile v2 Design → Bottom Tab Bar → Hiding the Bottom Tab Bar in Channels").
+
+Mapping: **compact** = `TabView` + a `NavigationStack` above it that pushes
+`NativeDestinationPaneView` (so a pushed channel covers the bar, deliberately); **regular** =
+`NavigationSplitView` (sidebar + detail column, never a push) with Search / Saved / Recent mentions
+in the detail toolbar. Reaching a tab from an open channel means Back first — upstream's path too.
+Decision, evidence and the launch-policy consequence: `docs/t95-shell-tab-bar-decision.md`. A change
+that keeps the tab bar inside a channel is a deviation card, not a bug fix.
+
 ---
 
 ## 2. Gekidou — take as-is vs reimplement (mobile @ `162f2560`)
@@ -192,6 +210,7 @@ at `987e5712…`; "decomposition" always follows §1 rules.
   is not stored as a `Preferences` row there). Still open on this surface: drag-and-drop reorder
   (T33 writes the same `PUT` from a context menu), category create/rename/delete (S10), and the
   `custom_status` rendering on a row (T34, with the post list's status dot).
+- Shell placement (§1.1): the `Channels` tab on compact, the split view's sidebar column on regular.
 
 ### S09 Find / browse channels — `native` (T33)
 - Sources: `M app/screens/find_channels/` (`index.tsx`, `filtered_list/`, `unfiltered_list/`,
@@ -239,6 +258,7 @@ at `987e5712…`; "decomposition" always follows §1 rules.
 - Reimplement: markdown→SwiftUI rendering, windowing, WS reconcile. If latex/table parity is not
   met by release, those exotic renderers fall back to webview (inventory §4, ADR §6.6).
 - Not ported: `embedded_bindings/`, `interactive_messages/` Apps plumbing until S34 is built in.
+- Shell placement (§1.1): the `Channels` tab on compact, the split view's sidebar column on regular.
 
 ### S12 Permalink — `native` (T36)
 - Sources: `M app/screens/permalink/`, `M app/actions/remote/permalink.ts`,
@@ -318,12 +338,15 @@ at `987e5712…`; "decomposition" always follows §1 rules.
   results list reuse S12 permalink navigation for jumping to results).
 - Logic-first: search param builder (from `app/utils/search/`), flagged fetch
   (`M app/client/rest/posts.ts` `/users/{id}/posts/flagged`).
+- Shell placement (§1.1): a tab on compact, the detail toolbar's `shellSearchButton` on regular —
+  from an open channel the tab is reached by Back first, which is upstream's own path.
 
 ### S20 Saved messages — `native` (T39)
 - Sources: `M app/screens/home/saved_messages/`, `M app/client/rest/preferences.ts`
   (`grouped_saved_post_<id>`), `M app/actions/remote/preference.ts`.
 - Decomposition: `SavedMessagesView` (flagged list) + `SavedMessagesViewModel` (flag set/clear via
   preferences, WS `preference_changed`).
+- Shell placement (§1.1): a tab on compact, the detail toolbar's `shellSavedButton` on regular.
 
 ### S21 Pinned messages — `native` (T39)
 - Sources: `M app/screens/pinned_messages/`, `M app/client/rest/posts.ts` (`/channels/{id}/pinned`).
@@ -365,6 +388,8 @@ at `987e5712…`; "decomposition" always follows §1 rules.
 - Decomposition: `MentionsView` + `MentionsViewModel` (local aggregation of WS `posted` with
   mention filter + `post_unread`); in-app notification toast (`M app/screens/in_app_notification/`,
   `M app/screens/snack_bar/`) as `OverlayView` reused app-wide.
+- Shell placement (§1.1): the `Mentions` tab on compact, the detail toolbar's `shellActivityButton`
+  on regular.
 
 ### S26 Drafts + scheduled posts — `native` (T35/T36)
 - Sources: `M app/screens/global_drafts/`, `M app/screens/draft_scheduled_post_options/`,

@@ -1,0 +1,144 @@
+T95 — evidence extracts: where the bottom tab bar goes on upstream's phone layout
+================================================================================
+Card: t_95a14431 (mmios-architect). Date: 2026-10-27.
+Question: does upstream (mattermost/mattermost-mobile @ the pin) keep its bottom tab bar
+while a channel is open on a phone?
+
+Pin: v2.45.0 = commit 162f2560d0e1df073220f7701d5a67cc17c8abeb — the same commit docs/component-map.md
+pins as `M`. Verified against the GitHub API:
+
+  GET /repos/mattermost/mattermost-mobile/git/ref/tags/v2.45.0
+  -> {"ref":"refs/tags/v2.45.0","object":{"sha":"162f2560d0e1df073220f7701d5a67cc17c8abeb","type":"commit"}}
+
+Files below were fetched from raw.githubusercontent.com at that tag (not from a branch), so the
+line numbers are the pinned tree's. This file is the re-checkable half of
+docs/t95-shell-tab-bar-decision.md; read §1 first (the design of record), then §2 (the code).
+
+
+== [1] Design of record: the bottom tab bar HIDES in a channel on phone, stays on tablet
+
+Page: "Bottom Tab Bar" — space Mobile v2 Design (MSU) — public:
+  https://mattermost.atlassian.net/wiki/spaces/MSU/pages/1508376633/Bottom+Tab+Bar
+Section "Hiding the Bottom Tab Bar in Channels" (>h2 data-renderer-start-pos="1607"), verbatim:
+
+  "Once a user is within a channel, the bottom tab bar slides off the bottom to save room for the
+   channel content and the Message Input component. For Tablets, however, the bottom tab remains at
+   all times since channels are in view at the same time as the sidebar."
+
+-- read from the page's rendered HTML (the text also appears in the page's ADF JSON payload); the
+-- page title element reads "Bottom Tab Bar - Mobile v2 Design - Confluence".
+
+
+== [2] v2.45.0 code: the Stack is OUTSIDE the Tabs, and the channel is a sibling of the tab group
+
+app/routes/(authenticated)/_layout.tsx:61-64 — the authenticated stack declares the tab group and
+nothing else; every other route file in that directory is auto-registered into this same Stack:
+
+   61|            <GlobalClassificationBannerContainer hostName={bannerHostName}>
+   62|                <Stack screenOptions={stackScreenOptions}>
+   63|                    <Stack.Screen name='(home)'/>
+   64|                </Stack>
+
+app/routes/(authenticated)/(home)/_layout.tsx:23-36 — the tab navigator itself (five screens, the
+custom bar component from @screens/home/tab_bar):
+
+   23|        <Tabs
+   24|            screenOptions={{headerShown: false, lazy: true, sceneStyle: styles.card}}
+   29|            backBehavior='none'
+   30|            tabBar={(props) => (<TabBar {...props} theme={theme}/>)}
+   37-82: <Tabs.Screen> for CHANNEL_LIST / SEARCH / MENTIONS / SAVED_MESSAGES / ACCOUNT
+
+app/routes/(authenticated)/channel.tsx:4 — the channel is its own route at the (authenticated)
+level, NOT a screen inside (home):
+
+    4| export {default} from '@screens/channel';
+
+app/screens/navigation.ts:31-51 — route mapping. Tab screens go under (home); everything else,
+including CHANNEL, is a top-level (authenticated) route:
+
+    38|    if (HOME_TAB_SCREENS.has(screen)) {
+    39|        return `/(authenticated)/(home)/${screen}`;
+    40|    }
+    50|    return `/(authenticated)/${screen}`;
+
+app/constants/screens.ts:233-239 — HOME_TAB_SCREENS is exactly the five tabs, and `channel` is not
+one of them:
+
+   233| export const HOME_TAB_SCREENS = new Set<string>([CHANNEL_LIST, SEARCH, MENTIONS,
+   237|     SAVED_MESSAGES, ACCOUNT]);
+
+app/constants/screens.ts:16 — `const CHANNEL = 'channel';` (so getExpoRouterPath('channel') is
+`/(authenticated)/channel`, i.e. pushed into the stack of [2a], above the tabs).
+
+app/screens/navigation.ts:62-77 — that route is *pushed*:
+
+    62| export function navigateToScreen(screen: AvailableScreens, props?, reset = false) {
+    65|             const route = getExpoRouterPath(screen, props);
+    71|                     router.push({pathname: route, params});
+
+-- i.e. on a phone, opening a channel pushes a screen on the Stack that CONTAINS the Tabs. The tab
+-- bar is not on screen in a channel. This is the opposite of "upstream's TabView wraps the stacks".
+
+app/screens/channel/header/header.tsx:154-157 and :343 — the phone channel header carries its own
+Back affordance, which a screen presented *inside* a tab (tab bar visible) would not need:
+
+   154|    const onBackPress = useCallback(() => {
+   156|        navigateBack();
+   343|                showBackButton={!isTablet || !isTabletView}
+
+app/screens/home/tab_bar/index.tsx:58-64, 74-80, 121-130 — the pinned `tab_bar/index.tsx` is only
+the bar *component*. Its TAB_BAR_VISIBLE animation is not a channel mechanism: the only emitter in
+the tree is the header search field (app/components/navigation_header/search.tsx:56,
+`DeviceEventEmitter.emit(Events.TAB_BAR_VISIBLE, false)`), i.e. the bar slides away while a header
+search is focused.
+
+   74|        const event = DeviceEventEmitter.addListener(Events.TAB_BAR_VISIBLE, (show) => {
+   75|            setVisible(show);
+  121-130: transform translateY = visible ? 0 : (52 + insets.bottom)
+
+
+== [3] v2.45.0 launch policy: last thread, else last channel, else HOME (no town-hall fallback)
+
+app/init/launch.ts:245-262 — Launch.Normal, cold start:
+
+  246|            if (props.coldStart) {
+  247|                const lastViewedChannel = await getLastViewedChannelIdAndServer();
+  248|                const lastViewedThread = await getLastViewedThreadIdAndServer();
+  250|                if (lastViewedThread && ...) {
+  252|                    fetchAndSwitchToThread(...);
+  253|                } else if (lastViewedChannel && ...) {
+  255|                    switchToChannelById(props.serverUrl!, lastViewedChannel.channel_id);
+  256|                } else {
+  257|                    PerformanceMetricsManager.setLoadTarget('HOME');
+
+app/init/launch.ts:290-294 — and the returned route is the tab group:
+
+  290|    logInfo('Route app to Home screen');
+  291|    return {
+  292|        route: '/(authenticated)/(home)',
+
+-- There is no town hall / first-channel fallback anywhere in the launch path: with nothing saved,
+-- the app lands on the channel list with its tab bar.
+
+detox/maestro/flows/account/attach_logs.yml:61-83 (v2.45.0) — upstream's own flow depends on that:
+after `launchApp stopApp: true, clearState: false` it waits for `tab_bar.home.tab` and the comment
+says the relaunch "lands on the Home tab".
+
+
+== [4] What our app measured (T39-R2), for comparison
+
+docs/t39-r2-build-note.md §4.1 and §6 F-1; docs/t39-r2-evidence-2026-10-27.log §6:
+a launch that had pushed Town Square answered a `nativeChannelPane` under a NavigationBar holding
+`Back`, and no `TabBar` node at all; a launch that had not pushed answered
+`Home / Threads / Search / Mentions / Saved`.
+
+-- That is upstream's phone behaviour, not a defect: a channel is a pushed screen and the tab bar is
+-- gone until the reader goes Back. What was wrong was the test's assumption that the bar is always
+-- on screen (and, separately, that a launch with nothing saved opens the town hall — see [3]).
+
+== [5] Cost of checking this again
+
+Fetched: the tag ref above; the ten files quoted above from raw.githubusercontent.com at v2.45.0;
+the Confluence page HTML. No upstream tree was vendored; nothing is copied into this repo beyond
+these quoted lines (Apache-2.0, attribution per docs/THIRD_PARTY_NOTICES.md §3 applies to code
+ports, not to this evidence file).
