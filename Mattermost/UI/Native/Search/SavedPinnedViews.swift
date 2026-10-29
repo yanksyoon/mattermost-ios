@@ -51,11 +51,12 @@ struct SavedPaneContent: View {
                     Image(systemName: "bookmark")
                         .font(.system(size: 30))
                         .foregroundStyle(.secondary)
-                    Text("Saved messages are rendered by the web app")
+                    Text("Saved messages are off for this run (`search=web`)")
                         .font(.headline)
                         .multilineTextAlignment(.center)
-                    Text("The lookup surfaces (search, saved, pinned) share one dual-render switch. "
-                         + "Launch with `-surfaceMode search=native` to use the native list.")
+                    Text("Search, saved and pinned share one switch, and it resolves `web` for this "
+                         + "run. Launch with `-surfaceMode search=native`, or switch the surface in "
+                         + "the inspector, to use the native list.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)

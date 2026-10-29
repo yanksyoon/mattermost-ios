@@ -35,11 +35,11 @@ struct MentionsPaneContent: View {
                                  model: coordinator.model(for: server))
             } else {
                 note(systemImage: "bell.badge",
-                     title: "Mentions are rendered by the web app",
-                     body: "The dual-render switch still resolves the activity surface as web "
-                         + "(`activity=web`), so the native feed is off for this run. Launch with "
-                         + "`-surfaceMode activity=native`, or switch the surface in the inspector, to "
-                         + "use it.")
+                     title: "Mentions are off for this run (`activity=web`)",
+                     body: "The `activity` surface resolves `web` for this run, so the native feed is "
+                         + "off. The web app draws recent mentions only while the workspace itself "
+                         + "renders web (`Use web view`); launch with `-surfaceMode activity=native`, "
+                         + "or switch the surface in the inspector, to use the native feed.")
                     .accessibilityIdentifier("activityWebFallback")
             }
         }
