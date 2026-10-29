@@ -90,7 +90,25 @@ struct SearchView: View {
     @ObservedObject var navigation: NativeNavigation
     @ObservedObject var model: SearchViewModel
 
+    /// T5449: whether a result's author offers the profile tap.
+    ///
+    /// This list draws its own rows, so **its** surface resolution is the gate
+    /// (`ProfilePopoverPolicy.offersAuthorTap(rowHost:profileSurface:)`), and `.profile`'s own
+    /// resolution is passed through and deliberately ignored — the truth table's regression pin.
+    /// The pane itself only draws this screen while `.search` resolves native (`SearchPaneContent`), so
+    /// on `.web` the answer is a belt-and-braces `false` on a list that is already the web app's.
+    @EnvironmentObject private var resolver: SurfaceModeResolver
+
+    /// T5449: the one profile this screen may have open. A one-slot machine: a second tap re-aims it.
+    @State private var profilePopover = ProfilePopoverState()
+
     @FocusState private var fieldFocused: Bool
+
+    private var offersAuthorProfile: Bool {
+        ProfilePopoverPolicy.offersAuthorTap(
+            rowHost: resolver.resolvedMode(for: .search),
+            profileSurface: resolver.resolvedMode(for: .profile))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -108,6 +126,10 @@ struct SearchView: View {
         .task(id: teamID) {
             model.teamID = teamID
         }
+        // T5449: the result rows' author tap. One helper, and this host never chooses the presentation
+        // itself: as a compact tab (nothing above it) it is a **sheet**; inside the regular layout's
+        // lookup sheet it is a **push** on that `NavigationStack` (spec §2.2).
+        .profilePresentationHost($profilePopover, server: server, navigation: navigation)
     }
 
     // MARK: Field
@@ -301,7 +323,13 @@ struct SearchView: View {
                     .listRowSeparator(.hidden)
             }
             ForEach(model.rows) { row in
-                SearchResultRowView(row: row) { open(row) }
+                SearchResultRowView(row: row,
+                                    onOpen: { open(row) },
+                                    // T5449: gated on the callback only, so a `.profile` that resolves web
+                                    // cannot take the author tap off a natively drawn row.
+                                    onShowProfile: offersAuthorProfile
+                                        ? { userID in profilePopover.present(userID: userID) }
+                                        : nil)
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
             }
             if model.canLoadMore {
@@ -388,43 +416,69 @@ struct SearchView: View {
 
 /// One result: the channel it lives in, then the post exactly as the timeline draws it (so a result is
 /// recognisable), with the query's terms highlighted inside the body.
+///
+/// **The row is not a `Button`** (T5449, spec §3). It used to be one, with `PostRowView` inside its
+/// label — and a `Button` inside another `Button`'s label is not a reliable tap target in SwiftUI, so
+/// the author affordance (the avatar and the name, which `PostRowView` draws as real `Button`s) either
+/// never fired or fired the row's jump. The row is now the same visual `VStack` with a tap gesture and
+/// the button trait re-added for VoiceOver — the same shape `ReactionBarView` uses, and for the same
+/// reason: the inner controls have to stay reachable.
+///
+/// Accessibility: the row is **one labelled element** (the `T8e` rule: a 60-row list must not become 180
+/// VoiceOver stops), and it carries an explicit `Open profile` action. Measured on this tree
+/// (`build/logs/t5449c2-live1.log`), `.accessibilityElement(children: .combine)` here does **not**
+/// swallow the row's leaves: `PostRowView` is itself `.accessibilityElement(children: .contain)`, and
+/// an outer `.combine` does not flatten a nested container — so `post.<id>.avatar` and
+/// `post.<id>.author` stay addressable inside the row. That is what the live test taps; a coordinate
+/// inside the row is *not* equivalent, because (0.18, 0.22) of a row that draws a channel line lands in
+/// that line and opens the post.
 struct SearchResultRowView: View {
     let row: SearchResultRow
     let onOpen: () -> Void
+    /// T5449: a tap on the author's avatar or name opens that account's profile. Nil keeps both inert
+    /// (a preview, or a host whose `.search` surface resolved web — see `ProfilePopoverPolicy`).
+    var onShowProfile: ((String) -> Void)? = nil
 
     var body: some View {
-        Button(action: onOpen) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(row.channelLabel)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                    Image(systemName: "arrow.turn.down.right")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
-                }
-                PostRowView(row: row.model,
-                            isExpanded: false,
-                            imageStore: nil,
-                            emoji: nil,
-                            onToggleExpanded: {})
-                    // The highlight the renderer applies inside the body runs (MarkdownView reads this
-                    // environment value). Scoped to this row so a channel pane's own rows are never
-                    // highlighted by a search the reader has left behind.
-                    .environment(\.searchHighlightTerms, row.highlight)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Text(row.channelLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.turn.down.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
-            .contentShape(Rectangle())
+            PostRowView(row: row.model,
+                        isExpanded: false,
+                        imageStore: nil,
+                        emoji: nil,
+                        onToggleExpanded: {},
+                        onShowProfile: onShowProfile)
+                // The highlight the renderer applies inside the body runs (MarkdownView reads this
+                // environment value). Scoped to this row so a channel pane's own rows are never
+                // highlighted by a search the reader has left behind.
+                .environment(\.searchHighlightTerms, row.highlight)
         }
-        .buttonStyle(.plain)
-        // A button's label is what VoiceOver reads, and SwiftUI kept only the first child here (the
-        // channel line) — so a row would have announced "#t34-showcase" and nothing else. The row says
-        // the whole thing instead: channel, author, and the message as plain text.
+        // The whole row jumps to the message; the author's two buttons keep their own areas (a tap on
+        // them never reaches this gesture — SwiftUI hit-tests the inner control first).
+        .contentShape(Rectangle())
+        .onTapGesture { onOpen() }
+        .accessibilityAddTraits(.isButton)
+        // A combined element reads its own label, not its children's: SwiftUI kept only the first child
+        // of the old button's label (the channel line), so a row announced "#t34-showcase" and nothing
+        // else. The row says the whole thing instead: channel, author, and the message as plain text.
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(row.channelLabel), \(row.model.author.displayName): "
                             + row.model.accessibleText)
         .accessibilityHint("Opens this message")
+        // The author tap, reachable without hitting a precise pixel: the same callback the avatar and
+        // the name call, offered as a VoiceOver custom action (spec §3).
+        .accessibilityAction(named: Text("Open profile")) {
+            onShowProfile?(row.model.author.id)
+        }
         .accessibilityIdentifier("searchResult.\(row.id)")
     }
 }
