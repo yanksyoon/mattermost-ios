@@ -447,11 +447,52 @@ final class T44CCallsEngineTests: XCTestCase {
         await engine.stop()
 
         XCTAssertEqual(signalling.leaves, ["chan1"])
+        XCTAssertEqual(signalling.stops, 1)
         XCTAssertEqual(audio.activations, 1)
         XCTAssertEqual(audio.deactivations, 1)
         let snapshot = await engine.currentSnapshot()
         XCTAssertEqual(snapshot.state, .ended)
         XCTAssertFalse(snapshot.mediaEngineCreated, "the factory and connection must be released")
+    }
+
+    /// The CI hang, held open: `stop()` must finish while libwebrtc's `close()` never returns.
+    ///
+    /// Measured on both CI legs (t_01f65f1d, runs 40899137785 and 40895827104): the test thread sat
+    /// in `peerConnection.close()` for the whole 5-minute allowance — 495/495 spindump samples in
+    /// `__psynch_cvwait`, with libwebrtc's `signaling_thread` and `worker_thread` idle. `stop()`
+    /// called that close on the engine's executor, so the engine went with it: no `.ended`, no
+    /// `signalling.stop()`, and a reader would be stuck in a call the server had already ended.
+    ///
+    /// This hands the close to a scheduler that holds it (never runs it) and requires the engine's
+    /// whole teardown contract to be finished anyway. It fails on an engine that awaits the close:
+    /// there it never returns and the wait below reports after 10 s.
+    func testStopFinishesWhileLibwebrtcCloseIsHeldOpen() async throws {
+        let signalling = FakeCallsSignalling()
+        let audio = FakeCallsAudioSession()
+        let teardown = HoldingCallsMediaTeardown()
+        let engine = CallsEngine(signalling: signalling,
+                                 permissions: FakeCallsPermissions(result: .granted),
+                                 audioSession: audio,
+                                 timings: timings,
+                                 teardown: teardown)
+        signalling.push(.joinAck(connID: "abc"))
+        _ = await engine.start(channelID: "chan1")
+
+        let returned = TestSignal<Bool>()
+        Task {
+            await engine.stop()
+            returned.send(true)
+        }
+        await awaitSignal("`stop()` to finish while libwebrtc's close() is held open",
+                          signal: returned, timeout: 10)
+
+        XCTAssertEqual(teardown.held, 1, "the blocking close is handed to the teardown scheduler")
+        XCTAssertEqual(signalling.leaves, ["chan1"], "the socket side is finished before the close")
+        XCTAssertEqual(signalling.stops, 1, "the socket is stopped even though close() never returns")
+        XCTAssertEqual(audio.deactivations, 1)
+        let snapshot = await engine.currentSnapshot()
+        XCTAssertEqual(snapshot.state, .ended)
+        XCTAssertFalse(snapshot.mediaEngineCreated)
     }
 
     /// The call ended on the server (`call_end`): the engine's own state says so, so a surface does
@@ -541,6 +582,7 @@ final class FakeCallsSignalling: CallsSignalling, @unchecked Sendable {
 
     private var joinsStorage: [String] = []
     private var leavesStorage: [String] = []
+    private var stopsStorage = 0
     private var descriptionsStorage: [CallsSessionDescription] = []
     private var candidatesStorage: [CallsIceCandidate] = []
     private var mutesStorage: [(String, Bool)] = []
@@ -558,6 +600,9 @@ final class FakeCallsSignalling: CallsSignalling, @unchecked Sendable {
 
     var joins: [String] { locked { joinsStorage } }
     var leaves: [String] { locked { leavesStorage } }
+    /// How many times the engine stopped the socket — part of `stop()`'s contract, and the half the
+    /// CI hang used to skip (t_01f65f1d).
+    var stops: Int { locked { stopsStorage } }
     var descriptions: [CallsSessionDescription] { locked { descriptionsStorage } }
     var candidates: [CallsIceCandidate] { locked { candidatesStorage } }
     var order: [String] { locked { orderStorage } }
@@ -571,7 +616,7 @@ final class FakeCallsSignalling: CallsSignalling, @unchecked Sendable {
     private var candidatesSent = 0
 
     func start() {}
-    func stop() {}
+    func stop() { locked { stopsStorage += 1 } }
 
     func join(channelID: String) async throws {
         if let sendError { throw sendError }
@@ -669,6 +714,26 @@ final class FakeCallsAudioSession: CallsAudioSessionControlling, @unchecked Send
     }
 
     func currentConfiguration() -> String { "playAndRecord/voiceChat" }
+}
+
+// MARK: - A teardown that never finishes
+
+/// Holds libwebrtc's close open forever, the way the CI runner does (t_01f65f1d), without owning one:
+/// the work is accepted and never run, so a `stop()` that waits for it can never return.
+final class HoldingCallsMediaTeardown: CallsMediaTeardownScheduling, @unchecked Sendable {
+
+    private let lock = NSLock()
+    private var heldStorage: [@Sendable () -> Void] = []
+
+    /// How many teardowns were handed over — one per call, each still "in flight".
+    var held: Int {
+        lock.lock(); defer { lock.unlock() }
+        return heldStorage.count
+    }
+
+    func schedule(_ work: @escaping @Sendable () -> Void) {
+        lock.lock(); heldStorage.append(work); lock.unlock()
+    }
 }
 
 // MARK: - A second, real peer connection

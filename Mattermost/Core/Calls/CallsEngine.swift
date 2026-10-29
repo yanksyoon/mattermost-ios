@@ -147,17 +147,22 @@ actor CallsEngine {
     private var peerConnection: RTCPeerConnection?
     private var audioTrack: RTCAudioTrack?
     private var delegate: CallsPeerConnectionDelegate?
+    /// Where libwebrtc's blocking `close()` runs. Never the engine's executor (see
+    /// `teardownMediaEngine()`); injectable only so a test can hold the close open.
+    private let teardown: any CallsMediaTeardownScheduling
 
     init(signalling: any CallsSignalling,
          permissions: any CallsPermissionRequesting = SystemCallsPermissions(),
          audioSession: any CallsAudioSessionControlling = SystemCallsAudioSession(),
          policy: CallsEnginePolicy = .requireMicrophone,
-         timings: CallsEngineTimings = CallsEngineTimings()) {
+         timings: CallsEngineTimings = CallsEngineTimings(),
+         teardown: any CallsMediaTeardownScheduling = CallsMediaTeardownQueue.shared) {
         self.signalling = signalling
         self.permissions = permissions
         self.audioSession = audioSession
         self.policy = policy
         self.timings = timings
+        self.teardown = teardown
     }
 
     // MARK: - Observation
@@ -665,14 +670,41 @@ actor CallsEngine {
         MMLog.info("MMCalls", "media engine created (factory + audio track + peer connection)")
     }
 
+    /// Tear the media engine down **without** letting libwebrtc's teardown wedge the engine.
+    ///
+    /// `RTCPeerConnection.close()` blocks until libwebrtc's own threads have finished with the
+    /// connection, and on a host where that never happens it blocks *forever*. Measured on this
+    /// programme's CI runners (t_01f65f1d, runs 40899137785/40895827104): an XCTest spindump of the
+    /// hung process samples `peerConnection.close()` 495/495 times inside `__psynch_cvwait`, with
+    /// libwebrtc's `signaling_thread` and `worker_thread` idle — and because it was called here, on
+    /// the engine's executor, the wedge was the whole engine: `stop()` never returned, the snapshot
+    /// never became `.ended`, `signalling.stop()` never ran and the audio session was handed back
+    /// only because it is deactivated before this call. A reader on such a host would sit in a call
+    /// that is over, forever.
+    ///
+    /// So the blocking half runs on its own queue, is not awaited, and the engine is finished as
+    /// soon as it has dropped its references. `audioTrack.isEnabled` stays on the actor: it is the
+    /// ordering the caller depends on (stop the audio unit while its factory is alive) and the
+    /// spindump shows it returning — the wedge is `close()` alone.
     private func teardownMediaEngine() {
         audioTrack?.isEnabled = false
-        peerConnection?.close()
+
+        let connection = peerConnection
+        let factory = factory
         peerConnection = nil
         audioTrack = nil
         delegate = nil
-        factory = nil
+        self.factory = nil
         snapshot.mediaEngineCreated = false
+        guard connection != nil || factory != nil else { return }
+
+        teardown.schedule {
+            connection?.close()
+            // The factory owns the audio device module the connection just used; keeping it alive
+            // until this block ends means a `close()` that never returns leaks one thread and one
+            // factory rather than wedging every later call's teardown.
+            withExtendedLifetime(factory) {}
+        }
     }
 
     // MARK: - Delegate callbacks (already hopped onto the actor)
@@ -844,6 +876,63 @@ extension CallsEngine {
     /// .forBuild(plugin:engineCapturesVideo:)`), so the camera control is **absent** rather than
     /// present-and-inert, and flips on by itself the day an engine that captures video lands.
     static let capturesVideo = false
+}
+
+// MARK: - Media-engine teardown
+
+/// Where the engine runs libwebrtc's **blocking** teardown.
+///
+/// It exists as a seam for one measured reason: `RTCPeerConnection.close()` can block forever
+/// (t_01f65f1d — spindump of the hung CI process, 495/495 samples in `__psynch_cvwait`), so a test
+/// has to be able to hold that close open and prove the engine still finishes `stop()`. Production
+/// uses `CallsMediaTeardownQueue`.
+protocol CallsMediaTeardownScheduling: Sendable {
+    /// Run `work` somewhere that is neither the engine's executor nor the caller's thread, and do
+    /// **not** wait for it.
+    func schedule(_ work: @escaping @Sendable () -> Void)
+}
+
+/// The production teardown queue: concurrent, so one `close()` that never returns cannot queue every
+/// later call's teardown behind it, and a wedge is *reported* after `warnAfter` instead of being silent.
+///
+/// libwebrtc offers no cancellation for a blocking `close()` (and cancelling its threads is not
+/// something to do), so the only honest options are "don't await it" and "say so".
+final class CallsMediaTeardownQueue: CallsMediaTeardownScheduling, @unchecked Sendable {
+
+    static let shared = CallsMediaTeardownQueue()
+
+    /// How long a close may run before it is reported. 10 s is ~30× the measured close on a healthy
+    /// host (3–14 ms after the last "trickled" line) and far below the 300 s test allowance.
+    static let warnAfter: TimeInterval = 10
+
+    private static let queue = DispatchQueue(label: "org.mattermost.calls.media-teardown",
+                                             qos: .userInitiated,
+                                             attributes: .concurrent)
+
+    /// `schedule` runs on the caller's thread, so the flag needs a lock rather than isolation.
+    private final class Completion: @unchecked Sendable {
+        private let lock = NSLock()
+        private var finished = false
+        func finish() { lock.lock(); finished = true; lock.unlock() }
+        var isFinished: Bool { lock.lock(); defer { lock.unlock() }; return finished }
+    }
+
+    func schedule(_ work: @escaping @Sendable () -> Void) {
+        let started = Date()
+        let completion = Completion()
+        Self.queue.async {
+            work()
+            completion.finish()
+            let waited = Date().timeIntervalSince(started)
+            if waited > Self.warnAfter {
+                MMLog.error("MMCalls", String(format: "libwebrtc close took %.1fs (off the engine; the call already ended)", waited))
+            }
+        }
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + Self.warnAfter) {
+            guard !completion.isFinished else { return }
+            MMLog.error("MMCalls", "libwebrtc close() has not returned after \(Int(Self.warnAfter))s; the engine is not blocked by it (t_01f65f1d)")
+        }
+    }
 }
 
 enum CallsEngineError: Error, Equatable, CustomStringConvertible {

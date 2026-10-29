@@ -286,3 +286,10 @@ neither reaches the annotation, and nothing in the step says the failure was a *
   tests from one that skipped them (a green run with no `test-log-*` artifact never ran them).
 * `python3 scripts/qa-test.py …` for every local run in §5; logs in `build/logs/red-t44c-*.log`,
   xcresults under `~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/`.
+
+## 9. Follow-up
+
+The stack this note asked for was captured on the next red (`-collect-test-diagnostics on-failure` +
+the uploaded `.xcresult`) and names the blocked frame: `CallsEngine.stop()` → `teardownMediaEngine()`
+on the engine's executor → `peerConnection.close()`, 495/495 samples in `__psynch_cvwait`. The fix and
+its measurements are in `docs/t44c-calls-ci-red-fix.md` (card t_01f65f1d).
