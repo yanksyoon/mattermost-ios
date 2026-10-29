@@ -249,8 +249,8 @@ only, and the reviewer must not accept any change to the first two rows.
 * `docs/dual-render.md`: §2 "the 12 switch keys" → 11; §4 table (drop the `threads` row, add the
   sub-region rule as §4's second paragraph — the retired-surfaces amendment); §10 test-map row for the
   catalogue test (Eleven) + the new retired-key pins; §11's known-limit bullet (this card has already
-  replaced its stale "toggling `threads` changes nothing" claim with the measured four-case state,
-  commit `7f88650` — keep it in step with the code once the case is gone).
+  replaced its stale "toggling `threads` changes nothing" claim with the measured four-case state —
+  this card's docs commit on `main` — keep it in step with the code once the case is gone).
 * `docs/parity.md`: T36 status cell — the retirement sentence placed there by this card stays.
 * `docs/component-map.md` §5: S13 keeps its row (the *screen* is unchanged); no edit expected — verify.
 
