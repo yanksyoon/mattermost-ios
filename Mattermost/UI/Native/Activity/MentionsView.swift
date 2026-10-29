@@ -76,6 +76,23 @@ struct ActivityFeedView: View {
     @ObservedObject var navigation: NativeNavigation
     @ObservedObject var model: MentionsViewModel
 
+    /// T5449: whether a mention's author offers the profile tap.
+    ///
+    /// This feed draws its own rows, so **`.activity`'s** resolution is the gate
+    /// (`ProfilePopoverPolicy.offersAuthorTap(rowHost:profileSurface:)`); `.profile`'s own answer is
+    /// passed through and ignored (the truth table's regression pin). `MentionsPaneContent` only mounts
+    /// this feed while `.activity` resolves native, so a `.web` answer here is belt-and-braces.
+    @EnvironmentObject private var resolver: SurfaceModeResolver
+
+    /// T5449: the one profile this feed may have open (a one-slot machine — a second tap re-aims it).
+    @State private var profilePopover = ProfilePopoverState()
+
+    private var offersAuthorProfile: Bool {
+        ProfilePopoverPolicy.offersAuthorTap(
+            rowHost: resolver.resolvedMode(for: .activity),
+            profileSurface: resolver.resolvedMode(for: .profile))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -91,6 +108,9 @@ struct ActivityFeedView: View {
         .task {
             await model.load(ifNeeded: false)
         }
+        // T5449: the rows' author tap. The container decides how it presents (spec §2.2): a sheet from
+        // the compact tab, a push inside the regular layout's lookup sheet.
+        .profilePresentationHost($profilePopover, server: server, navigation: navigation)
     }
 
     // MARK: Header
@@ -204,7 +224,12 @@ struct ActivityFeedView: View {
                                 isNew: row.postID == model.insertedRowID,
                                 isMarking: model.isMarking,
                                 onOpen: { open(row) },
-                                onMarkRead: { Task { await model.markRead(row) } })
+                                onMarkRead: { Task { await model.markRead(row) } },
+                                // T5449: gated on the callback only, so `.profile` resolving web cannot
+                                // take the tap off a row drawn natively.
+                                onShowProfile: offersAuthorProfile
+                                    ? { userID in profilePopover.present(userID: userID) }
+                                    : nil)
                     .accessibilityIdentifier("activity.row.\(row.postID)")
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button {
@@ -301,6 +326,19 @@ struct ActivitySubtitleLine: View {
 
 /// One mention: the channel it came from, then the post exactly as the timeline draws it, with the unread
 /// dot the reader's cursor implies.
+///
+/// **The row is not a `Button`** (T5449, spec §3): it used to be one with `PostRowView` inside its label,
+/// so the author's avatar and name were buttons inside a button's label — not a reliable target in
+/// SwiftUI, and the profile tap never fired. A plain `VStack` with a tap gesture and the button trait
+/// re-added for VoiceOver keeps both: the row still jumps (everywhere but the author's own two buttons),
+/// and the author opens their profile (`ReactionBarView` records the same reasoning).
+///
+/// One labelled element per row (T8e), with an explicit `Open profile` action. Measured on this tree
+/// (`build/logs/t5449c2-live1.log`), `.accessibilityElement(children: .combine)` does not swallow the
+/// row's leaves: `PostRowView` is itself `.contain` and an outer `.combine` does not flatten a nested
+/// container, so `post.<id>.avatar`/`.author` stay addressable inside the row and are what the live
+/// test taps. A coordinate inside the row is not equivalent — on a row that draws a channel line,
+/// (0.18, 0.22) lands in that line and opens the post instead.
 struct ActivityRowView: View {
     let row: ActivityRow
     /// True for the row a live socket event just added.
@@ -308,52 +346,59 @@ struct ActivityRowView: View {
     let isMarking: Bool
     var onOpen: () -> Void
     var onMarkRead: () -> Void
+    /// T5449: a tap on the author's avatar or name opens that account's profile. Nil keeps both inert
+    /// (a preview, or a host whose `.activity` surface resolved web — see `ProfilePopoverPolicy`).
+    var onShowProfile: ((String) -> Void)? = nil
 
     var body: some View {
-        Button(action: onOpen) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(row.isUnread ? Color.accentColor : Color.clear)
-                        .frame(width: 7, height: 7)
-                        .accessibilityHidden(true)
-                    Text(row.channelLabel)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    if row.isThreadRow {
-                        Label("thread", systemImage: "text.bubble")
-                            .labelStyle(.iconOnly)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .accessibilityLabel("thread reply")
-                    }
-                    Spacer(minLength: 0)
-                    if isNew {
-                        Text("New")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.tint)
-                    }
-                    Image(systemName: "arrow.turn.down.right")
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(row.isUnread ? Color.accentColor : Color.clear)
+                    .frame(width: 7, height: 7)
+                    .accessibilityHidden(true)
+                Text(row.channelLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                if row.isThreadRow {
+                    Label("thread", systemImage: "text.bubble")
+                        .labelStyle(.iconOnly)
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
+                        .accessibilityLabel("thread reply")
                 }
-                PostRowView(row: row.model,
-                            isExpanded: false,
-                            imageStore: nil,
-                            emoji: nil,
-                            onToggleExpanded: {})
+                Spacer(minLength: 0)
+                if isNew {
+                    Text("New")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tint)
+                }
+                Image(systemName: "arrow.turn.down.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
-            .contentShape(Rectangle())
+            PostRowView(row: row.model,
+                        isExpanded: false,
+                        imageStore: nil,
+                        emoji: nil,
+                        onToggleExpanded: {},
+                        onShowProfile: onShowProfile)
         }
-        .buttonStyle(.plain)
-        // A button's label is what VoiceOver reads, and SwiftUI keeps only the first child of a
-        // multi-child label — so the row says the whole thing itself (channel, unread state, author and
-        // message), the same reason `SearchResultRowView` does.
+        .contentShape(Rectangle())
+        .onTapGesture { onOpen() }
+        .accessibilityAddTraits(.isButton)
+        // One combined element rather than three: SwiftUI keeps only the first child of a multi-child
+        // label, so the row says the whole thing itself (channel, unread state, author and message) —
+        // the same reason `SearchResultRowView` does.
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
         .accessibilityAction(named: Text(row.isThreadRow ? "Mark thread read" : "Mark channel read")) {
             onMarkRead()
+        }
+        // T5449: the author tap as a VoiceOver action — the same callback the avatar and the name call.
+        .accessibilityAction(named: Text("Open profile")) {
+            onShowProfile?(row.model.author.id)
         }
     }
 

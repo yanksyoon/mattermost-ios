@@ -40,7 +40,11 @@ import UIKit
 
 /// Which account a host wants the profile sheet for. A one-field item so `.sheet(item:)` can key on
 /// it (a `String` cannot be an `Identifiable` item without a wrapper).
-struct ProfileTarget: Identifiable, Equatable {
+///
+/// `Hashable` is what `.navigationDestination(item:)` requires (T5449 C2's push form,
+/// `ProfilePresentationHost`), and it is the right identity: two states aiming at the same account are
+/// the same destination, so a re-aim replaces rather than stacks.
+struct ProfileTarget: Identifiable, Hashable {
     let userID: String
     var id: String { userID }
 }

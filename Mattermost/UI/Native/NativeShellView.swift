@@ -196,6 +196,12 @@ struct NativeShellView: View {
                             .accessibilityIdentifier("\(which.rawValue)SheetClose")
                     }
                 }
+                // T5449 (spec §2.2): a profile opened from inside *these* hosts is **pushed on this
+                // sheet's stack**, not presented as a second sheet over it — T40 measured a nested sheet
+                // whose confirmation action never ran, and `ProfileView.swift`'s header states the rule.
+                // `ProfilePresentationHost` reads this value in the three panes; the compact layout's
+                // tabs (no stack above them) deliberately keep the default `.sheet`.
+                .environment(\.profilePresentation, .push)
             }
         }
     }
