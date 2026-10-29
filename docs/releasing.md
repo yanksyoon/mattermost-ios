@@ -93,7 +93,15 @@ against, so CI runs the real toolchain rather than a stand-in.
    `-test-timeouts-enabled YES` so a hung harness reports instead of eating the
    timeout, and `CODE_SIGNING_ALLOWED=NO` so no signing identity is needed.
 5. Fails unless the log contains `** TEST SUCCEEDED **`, and uploads the full log as
-   an artifact either way.
+   an artifact either way. The failure branch emits **one** `::error::` line, and that line
+   carries the diagnosis rather than a fixed sentence: the first entry of xcodebuild's
+   `Failing tests:` block, else the test name recovered from an `exceeded execution time
+   allowance` line (with the allowance that blew), else the old generic
+   `TEST SUCCEEDED not found in the <leg> log`. That line is the check-run annotation a
+   reader sees on the run — `gh api repos/.../check-runs/<id>/annotations` — and before
+   t_f427b00b it named nothing, so a 5-minute hang was filed as "TEST SUCCEEDED not found".
+   `scripts/test_annotation_selftest.sh` replays the shipped block against log fixtures on
+   every source push (see **Self-testing** below).
 
 The UI bundle is excluded on purpose: `MattermostUITests` drives a **live Mattermost
 server** at `127.0.0.1:8065`, which CI does not provide. Those runs stay local and are
@@ -198,7 +206,13 @@ Seven properties worth knowing, because each one was a deliberate choice:
   `ci_plan.py` covers the guard's decision (29 checks over 13 cases, including "cannot
   tell" and "a prose file under `.github/` is not documentation") and
   `verify_release_asset.py` covers the post-upload check (12 checks over 11 cases, one
-  per way an upload can be wrong).
+  per way an upload can be wrong). `test_annotation_selftest.sh` covers the *Unit tests*
+  step's own verdict: it replays the shipped failure branch and the shipped summary below
+  it against five log fixtures cut from the real logs of run 40899137785 (red: timeout,
+  assertion, timeout-without-a-`Failing tests:`-block, and a red with no test name at all)
+  and 40906839823 (green), asserting the exact `::error::` text in each case (15 checks),
+  with the pre-fix fixed-sentence body as the negative control — it must still produce the
+  generic annotation, or the checks are green by construction.
 - **Skipped is not red.** A superseded push ends as one green Linux job with the macOS
   jobs `skipped`, and the run page carries the guard's one-line reason. The old
   behaviour — a full 13-minute run that exited 0 having done nothing — was worse than

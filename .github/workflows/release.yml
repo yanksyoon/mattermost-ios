@@ -120,6 +120,10 @@ jobs:
           # bare origin + stub gh: 8 scenarios plus the negative control (a4b6467's
           # body must reproduce the silent green). bash + git + python3 only.
           bash scripts/release_publish_selftest.sh
+          # Replays the shipped tail of the "Unit tests" step against log fixtures: a red
+          # leg must annotate the *name* of the failing test (t_f427b00b), and the pre-fix
+          # fixed-sentence body must still reproduce the generic annotation.
+          bash scripts/test_annotation_selftest.sh
 
       - name: Resolve packages
         run: xcodebuild -resolvePackageDependencies -project Mattermost.xcodeproj -scheme Mattermost
@@ -171,12 +175,46 @@ jobs:
           tail -60 "$LOG"
           echo "xcodebuild exit: $RC"
           if ! grep -qE "\*\* TEST SUCCEEDED \*\*" "$LOG"; then
-            echo "::error::TEST SUCCEEDED not found in the ${{ matrix.name }} log"
-            # Name the failure before the noise: a timed-out test reports neither an `error:`
-            # line nor "FAIL" (t_d398053f §7), so the old grep printed only unrelated noise and
-            # the annotation never said which test hung.
-            sed -n '/^Failing tests:/,/^$/p' "$LOG" | head -20 || true
-            grep -E "exceeded execution time allowance" "$LOG" | head -5 || true
+            # Name the failure *inside the annotation*, not only in the step log: the check-run
+            # annotation is the sentence a human reads first, and a fixed "TEST SUCCEEDED not
+            # found" once sat above a 5-minute test hang whose name was ~80 lines further down
+            # the step log (t_f427b00b; finding 3 of t_5bf7a812). Preference order for the name:
+            # the first entry of xcodebuild's own "Failing tests:" block, then the
+            # execution-time-allowance line (a timed-out test reports neither an `error:` line nor
+            # "FAIL" — t_d398053f §7), then the old generic sentence as the fallback.
+            FAILING_TESTS=$(sed -n '/^Failing tests:/,/^$/p' "$LOG" | head -20 || true)
+            TIMEOUT_LINES=$(grep -E "exceeded execution time allowance" "$LOG" | head -5 || true)
+            NAMED=$(printf '%s\n' "$FAILING_TESTS" \
+              | sed -n 's/^[[:space:]]*\(.*\)[[:space:]]*()$/\1/p' | head -1 || true)
+            if [ -z "$NAMED" ]; then
+              # No "Failing tests:" block at all: recover the Class.test name from the timeout
+              # line itself ("Test Case '-[MattermostTests.T44CCallsEngineTests testFoo]'").
+              NAMED=$(printf '%s\n' "$TIMEOUT_LINES" | awk '
+                match($0, /Test Case .-\[[^]]*\]/) {
+                  s = substr($0, RSTART, RLENGTH)
+                  sub(/^Test Case .-\[/, "", s); sub(/\]$/, "", s)
+                  n = split(s, tok, " ")
+                  if (n == 2) { sub(/^.*\./, "", tok[1]); print tok[1] "." tok[2]; exit }
+                  if (n >= 1) { print tok[1]; exit }
+                }' || true)
+            fi
+            REASON=""
+            # The named test hung rather than failed an assertion: say so, that is the diagnosis.
+            # ${NAMED##*.} matches the bare test name, because xcodebuild's timeout line carries
+            # the class as a separate word ("-[MattermostTests.Class testName]").
+            if [ -n "$NAMED" ] \
+               && printf '%s\n' "$TIMEOUT_LINES" | grep -qF -- "${NAMED##*.}"; then
+              REASON=$(printf '%s\n' "$TIMEOUT_LINES" \
+                | grep -m1 -o "exceeded execution time allowance of [^.]*" || true)
+            fi
+            if [ -n "$NAMED" ]; then
+              echo "::error::test (${{ matrix.name }}): $NAMED${REASON:+ ($REASON)}"
+            else
+              echo "::error::TEST SUCCEEDED not found in the ${{ matrix.name }} log"
+            fi
+            # The detail stays in the step log, where GitHub truncates nothing.
+            if [ -n "$FAILING_TESTS" ]; then printf '%s\n' "$FAILING_TESTS"; fi
+            if [ -n "$TIMEOUT_LINES" ]; then printf '%s\n' "$TIMEOUT_LINES"; fi
             grep -E "error:|failed|FAIL" "$LOG" | head -40 || true
             exit 1
           fi

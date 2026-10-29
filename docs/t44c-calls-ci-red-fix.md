@@ -142,6 +142,11 @@ T44D (blast radius, iOS): 21 run, 0 skipped, 0 failed
   on the answer: whatever wedges it, a hang-up must not wait for `close()`.
 * A wedged close leaks one thread and one factory per occurrence. libwebrtc offers no cancellation, so
   the honest options are "don't await it" and "report it"; the report is the 10 s log line above.
-* The workflow's failure annotation now prints `Failing tests:` and the execution-allowance line, so a
-  timeout reds with the test's name instead of "TEST SUCCEEDED not found" and unrelated noise
-  (`docs/t44cc-calls-ci-red.md` §7).
+* The workflow's failure branch now names the failing test **in the check-run annotation**
+  (`::error::test (catalyst): T44CCallsEngineTests.testAConfirmedUnmuteSurvivesTheNextSnapshot
+  (exceeded execution time allowance of 5 minutes)`), not only in the step log, and the
+  `Failing tests:` / execution-allowance greps still print under it
+  (`docs/t44cc-calls-ci-red.md` §7, `docs/releasing.md` stage 1, card `t_f427b00b`). The earlier
+  wording of this bullet claimed the annotation itself when only the step log did that; the claim
+  was the defect the validator found, and `scripts/test_annotation_selftest.sh` now pins the
+  annotation text against real-log fixtures on every push.

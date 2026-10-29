@@ -276,6 +276,15 @@ minutes`, so the annotation a reader sees on the run is the *absence of a succes
 lines printed under it are unrelated noise ("Failed to delete history…", "failed to connect 127.0.0.1:18443"). The test's name and the real reason are in the step's `tail -60` and in the artifact;
 neither reaches the annotation, and nothing in the step says the failure was a *timeout*.
 
+**Fixed in `t_f427b00b`.** The branch now builds its single `::error::` line from the evidence —
+first entry of `Failing tests:`, else the name recovered from an `exceeded execution time
+allowance` line (with the allowance that blew), else the paragraph's generic sentence as the
+fallback — and the greps above still print underneath it. Replayed against the raw log of this
+run (`gh run download 40899137785 -n test-log-catalyst`), which now annotates
+`test (catalyst): T44CCallsEngineTests.testAConfirmedUnmuteSurvivesTheNextSnapshot (exceeded
+execution time allowance of 5 minutes)`; `scripts/test_annotation_selftest.sh` pins that text,
+and the green path, on every push.
+
 ## 8. Artifacts and commands used
 
 * `docs/t44cc-calls-ci-red-excerpt.log` — verbatim excerpts quoted above (both legs, the restart,
