@@ -131,14 +131,20 @@ All runs: iPhone 17 Pro simulator, `scripts/qa-test.py`, logs under `build/logs/
 
 | gate | command | result |
 |---|---|---|
-| whole unit target | `python3 scripts/qa-test.py --platform ios --sim "name=iPhone 17 Pro" --only-testing MattermostTests --label t5449-units5` | **1793 run / 8 skipped / 0 failed**, `** TEST SUCCEEDED **` (`build/logs/t5449-units5.log`) — the base is 1788/8/0, plus this card's 5 |
+| whole unit target | `python3 scripts/qa-test.py --platform ios --sim "name=iPhone 17 Pro" --only-testing MattermostTests --label t5449-units6` | **1793 run / 8 skipped / 0 failed**, `** TEST SUCCEEDED **` (`build/logs/t5449-units6.log`) — the base is 1788/8/0, plus this card's 5 |
 | dual-render gates | `bash scripts/verify-dual-render-gates.sh --allow-approved-registry` | `RESULT: PASS — dual-render debug affordances cannot reach a Release build.` (gate 5 allowed by the flag, gate 8 counts the two new files as tracked) |
-| C1's live suite | `… --only-testing MattermostUITests/T5449ThreadProfileUITests --label t5449-live4` | **1 run / 0 skipped / 0 failed** (`build/logs/t5449-live4.log`) |
+| C1's live suite | `… --only-testing MattermostUITests/T5449ThreadProfileUITests --label t5449-live5` | **1 run / 0 skipped / 0 failed** (`build/logs/t5449-live5.log`; also green before the rebase, `t5449-live4.log`) |
 | T429 re-run (the pane's tap) | `… --only-testing MattermostUITests/T429ProfileTapUITests --label t5449-t429-run1` | **4 run / 0 skipped / 0 failed** (`build/logs/t5449-t429-run1.log`) |
 | T41 re-run (the sheet) | `… --only-testing MattermostUITests/T41ProfileUITests --label t5449-t41-run1` | **7 run / 0 skipped / 0 failed** (`build/logs/t5449-t41-run1.log`) |
 
 The live environment was `TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065`,
 `TEST_RUNNER_MM_AUTH_LOGIN=perfprobe`, the fixture password from `scripts/perf_seed.py`.
+
+The unit target, the gate script and C1's live suite were re-run **after** rebasing onto `main` (`68f0eb8`,
+which brings `t_aa211ff6`'s approval of the lookup defaults and `t_559943f3`'s teardown-queue test fix); the
+numbers above are from that rebased tree. `t_aa211ff6` makes search/saved+pinned/mentions native by default,
+which changes nothing this card asserts — its unit test reads only `.profile`'s resolution and the pane host's,
+and it deliberately does not read the search/activity defaults (those are C2's to spend).
 
 ### 6.1 Host instability, measured and named (not this card's)
 
