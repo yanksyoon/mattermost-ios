@@ -269,7 +269,12 @@ What this validation adds:
   suite, its assertion is a count of "Unknown user" rows, and the adaptation is a query-type change
   with no assertion weakened. It remains unverified by this validation.
 * The probe files used here (`T429AVProbeTests`, `T429AVDeactivatedProbeUITests`, the two scripts) are
-  **validation instruments**, not part of `8ab51f0`; they are attached to the card, not committed.
+  **validation instruments**, not part of `8ab51f0`. They are kept next to this note in
+  `docs/t_97162159-probes/` (outside every test target, so they do not compile into the app) and the
+  two fixture scripts are in `scripts/t429av_*.py`. To re-run the deactivated check: start the 9.11.19
+  server, run `python3 scripts/t429av_deactivated_fixture.py`, copy
+  `docs/t_97162159-probes/T429AVDeactivatedProbeUITests.swift` into `MattermostUITests/`, then run it
+  the way the T429 suite is run.
 
 ## 8. Claim-by-claim
 
