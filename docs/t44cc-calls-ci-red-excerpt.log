@@ -1,0 +1,105 @@
+# t_d398053f — verbatim CI excerpts
+#
+# Sources (all obtained with `gh run download <run-id> -n test-log-ios-simulator|test-log-catalyst`;
+# nothing here is retyped from a summary):
+#   [1]  run 40770021762 (5749cc2, 2026-10-28) — test-log-ios-simulator
+#   [2]  same run — the restart, and the final "Failing tests" block
+#   [2b] same run — test-log-catalyst
+#   [3]  run 40527106619 (a96bde02e, 2026-10-27) — the last run in which the suite ran and this test passed
+#   [3b] run 40595089394 (f833459ae, 2026-10-27) — the PRE-1e87032 file also hung (line 608 = old file)
+#   [4]  run 40671780556 (a0f4364) — the run the card calls "last green": the test legs were skipped
+#   [5]  the workflow's own step log for [1] — what a reader actually sees
+
+=== [1] ios-simulator: the test starts, the engine offers, and then nothing for 300 s ===
+Test Suite 'T44CCallsEngineTests' started at 2026-10-28 21:39:41.167.
+Test Case '-[MattermostTests.T44CCallsEngineTests testAConfirmedUnmuteSurvivesTheNextSnapshot]' started.
+2026-10-28 21:39:41.275228+0000 Mattermost[19590:67803] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: media engine created (factory + audio track + peer connection) @ Logger.swift.info(_:_:):66
+2026-10-28 21:39:41.561686+0000 Mattermost[19590:67803] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: offer sent (1366 chars, 2 candidate line(s) inline), waiting for the SFU's answer @ Logger.swift.info(_:_:):66
+2026-10-28 21:39:41.562439+0000 Mattermost[19590:67803] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: trickled 1 local candidate(s) @ Logger.swift.info(_:_:):66
+2026-10-28 21:40:35.493511+0000 Mattermost[19590:69471] [assertion] Error acquiring assertion: <Error Domain=RBSAssertionErrorDomain Code=2 "Specified target process 23208 does not exist" UserInfo={NSLocalizedFailureReason=Specified target process 23208 does not exist}>
+2026-10-28 21:40:35.495401+0000 Mattermost[19590:69471] [ProcessSuspension] 0x1221140c0 - ProcessAssertion::acquireSync Failed to acquire RBS assertion 'XPCConnectionTerminationWatchdog' for process with PID=23208, error: (null)
+2026-10-28 21:41:05.483855+0000 Mattermost[19590:58527] [general] Failed to terminate process: Error Domain=com.apple.extensionKit.errorDomain Code=18 "(null)" UserInfo={NSUnderlyingError=0x1482f7540 {Error Domain=RBSRequestErrorDomain Code=3 "No such process found" UserInfo={NSLocalizedFailureReason=No such process found}}}
+Test Case '-[MattermostTests.T44CCallsEngineTests testAConfirmedUnmuteSurvivesTheNextSnapshot]' exceeded execution time allowance of 5 minutes. The test may have hung; check Xcode's test report for additional diagnostics. If the test requires additional time, use -[XCTestCase executionTimeAllowance] or one of xcodebuild's command-line overrides.
+#
+# The two lines between "trickled" and the timeout are the app host's, not the test's. No
+# assertion line for this test exists anywhere in either artifact.
+
+=== [2] the same log: restart, and the rerun passes (which is why the summary says "0 failures") ===
+Restarting after unexpected exit, crash, or test timeout; summary will include totals from previous launches.
+
+Test Suite 'Selected tests' started at 2026-10-28 21:46:25.933.
+Test Suite 'MattermostTests.xctest' started at 2026-10-28 21:46:25.934.
+Test Suite 'T44CCallsEngineTests' started at 2026-10-28 21:46:25.934.
+Test Case '-[MattermostTests.T44CCallsEngineTests testADeltaForAnotherChannelIsNotFolded]' started.
+2026-10-28 21:46:26.041039+0000 Mattermost[30958:89524] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: media engine created (factory + audio track + peer connection) @ Logger.swift.info(_:_:):66
+2026-10-28 21:46:26.228496+0000 Mattermost[30958:89524] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: offer sent (1365 chars, 2 candidate line(s) inline), waiting for the SFU's answer @ Logger.swift.info(_:_:):66
+2026-10-28 21:46:26.229062+0000 Mattermost[30958:89524] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: trickled 2 local candidate(s) @ Logger.swift.info(_:_:):66
+2026-10-28 21:46:26.243473+0000 Mattermost[30958:90082] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: ICE state: closed @ Logger.swift.info(_:_:):66
+Test Case '-[MattermostTests.T44CCallsEngineTests testADeltaForAnotherChannelIsNotFolded]' passed (0.310 seconds).
+#
+# The whole class then passes in the restarted launch, including the test that hung:
+Test session results, code coverage, and logs:
+	/Users/runner/work/_temp/dd/Logs/Test/Test-Mattermost-2026.10.28_21-16-17-+0000.xcresult
+
+Failing tests:
+	T44CCallsEngineTests.testAConfirmedUnmuteSurvivesTheNextSnapshot()
+
+** TEST FAILED **
+
+=== [2b] 40770021762 catalyst leg: same shape ===
+Test Case '-[MattermostTests.T44CCallsEngineTests testAConfirmedUnmuteSurvivesTheNextSnapshot]' started.
+2026-10-28 21:17:37.248895+0000 Mattermost[5745:26142] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: media engine created (factory + audio track + peer connection) @ Logger.swift.info(_:_:):66
+2026-10-28 21:17:37.375264+0000 Mattermost[5745:21916] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: offer sent (1363 chars, 2 candidate line(s) inline), waiting for the SFU's answer @ Logger.swift.info(_:_:):66
+2026-10-28 21:17:37.375381+0000 Mattermost[5745:21916] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: trickled 2 local candidate(s) @ Logger.swift.info(_:_:):66
+Test Case '-[MattermostTests.T44CCallsEngineTests testAConfirmedUnmuteSurvivesTheNextSnapshot]' exceeded execution time allowance of 5 minutes. The test may have hung; check Xcode's test report for additional diagnostics. If the test requires additional time, use -[XCTestCase executionTimeAllowance] or one of xcodebuild's command-line overrides.
+Test session results, code coverage, and logs:
+	/Users/runner/work/_temp/dd/Logs/Test/Test-Mattermost-2026.10.28_21-13-59-+0000.xcresult
+
+Failing tests:
+	T44CCallsEngineTests.testAConfirmedUnmuteSurvivesTheNextSnapshot()
+
+** TEST FAILED **
+
+=== [3] the last run in which the suite ran and this test passed: 40527106619 @ a96bde02e ===
+Test Suite 'T44CCallsEngineTests' started at 2026-10-27 15:22:46.369.
+Test Case '-[MattermostTests.T44CCallsEngineTests testAConfirmedUnmuteSurvivesTheNextSnapshot]' started.
+2026-10-27 15:22:46.417629+0000 Mattermost[14222:47562] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: media engine created (factory + audio track + peer connection) @ Logger.swift.info(_:_:):66
+2026-10-27 15:22:46.569974+0000 Mattermost[14222:49517] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: offer sent (1364 chars, 2 candidate line(s) inline), waiting for the SFU's answer @ Logger.swift.info(_:_:):66
+2026-10-27 15:22:46.570111+0000 Mattermost[14222:49517] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: trickled 2 local candidate(s) @ Logger.swift.info(_:_:):66
+2026-10-27 15:22:46.585039+0000 Mattermost[14222:49517] [MMCalls] os_log_type_t(rawValue: 1).MMCalls: ICE state: closed @ Logger.swift.info(_:_:):66
+Test Case '-[MattermostTests.T44CCallsEngineTests testAConfirmedUnmuteSurvivesTheNextSnapshot]' passed (0.216 seconds).
+
+=== [3b] the SAME hang on the pre-1e87032 file (its waits were bounded at 2 s) — run 40595089394 ===
+3259:/Users/runner/work/mattermost-ios/mattermost-ios/MattermostTests/T44CCallsEngineTests.swift:608:14: warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+3265:/Users/runner/work/mattermost-ios/mattermost-ios/MattermostTests/T44CCallsEngineTests.swift:608:49: warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+7948:Test Case '-[MattermostTests.T44CCallsEngineTests testAConfirmedUnmuteSurvivesTheNextSnapshot]' started.
+7957:Test Case '-[MattermostTests.T44CCallsEngineTests testAConfirmedUnmuteSurvivesTheNextSnapshot]' exceeded execution time allowance of 5 minutes. The test may have hung; check Xcode's test report for additional diagnostics. If the test requires additional time, use -[XCTestCase executionTimeAllowance] or one of xcodebuild's command-line overrides.
+8440:	T44CCallsEngineTests.testAConfirmedUnmuteSurvivesTheNextSnapshot()
+#
+# Lines 7949..7956 in that log contain no assertion: the process stopped logging altogether.
+# `1e87032` moves the skip from 482 to 509 and the lock warning from 608 to 636 — the 608 here is
+# the OLD clock-polling copy of the file, whose every wait was `waitUntil(timeout: 2..5)`.
+
+=== [4] run 40671780556 (a0f4364) — the card's "last green": both test legs were skipped ===
+guard (tip + change scope)	UNKNOWN STEP	2026-10-28T10:34:10.7513357Z   [PASS] T11 emits run_tests=false
+guard (tip + change scope)	UNKNOWN STEP	2026-10-28T10:34:10.7513702Z   [PASS] T11 emits run_tests=false for docs-only
+guard (tip + change scope)	UNKNOWN STEP	2026-10-28T10:34:10.9558211Z docs_only=true
+guard (tip + change scope)	UNKNOWN STEP	2026-10-28T10:34:10.9558666Z run_tests=false
+guard (tip + change scope)	UNKNOWN STEP	2026-10-28T10:34:10.9559131Z reason=tip of main; documentation only (1 file(s)), test legs skipped, release still cut
+#
+# `gh run view 40671780556` → "test (${{ matrix.name }}) in 0s" (skipped);
+# `gh api …/actions/runs/40671780556/artifacts` → only `mattermost-macos-app`, no `test-log-*`.
+
+=== [5] the workflow's annotation for [1]: what a reader sees instead of the cause ===
+test (ios-simulator)	UNKNOWN STEP	2026-10-28T21:48:12.1665070Z Failing tests:
+test (ios-simulator)	UNKNOWN STEP	2026-10-28T21:48:12.1666020Z 	T44CCallsEngineTests.testAConfirmedUnmuteSurvivesTheNextSnapshot()
+test (ios-simulator)	UNKNOWN STEP	2026-10-28T21:48:12.1667040Z 
+test (ios-simulator)	UNKNOWN STEP	2026-10-28T21:48:12.1667580Z ** TEST FAILED **
+test (ios-simulator)	UNKNOWN STEP	2026-10-28T21:48:12.1667710Z 
+test (ios-simulator)	UNKNOWN STEP	2026-10-28T21:48:12.1667890Z Testing started
+test (ios-simulator)	UNKNOWN STEP	2026-10-28T21:48:12.1670480Z xcodebuild exit: 65
+test (ios-simulator)	UNKNOWN STEP	2026-10-28T21:48:12.2213000Z ##[error]TEST SUCCEEDED not found in the ios-simulator log
+#
+# The `tail -60` above is the only place the test's name appears; the annotation is the
+# `::error::TEST SUCCEEDED not found …` line, and the `grep -E "error:|failed|FAIL"` that follows it
+# prints unrelated lines (a WebKit "Failed to delete history" message), never the timeout.
