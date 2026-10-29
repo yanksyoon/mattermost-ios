@@ -314,7 +314,9 @@ unhostedSurfaces: []
 RESULT: PASS — every Surface case is consulted, or declared unhosted.
 ```
 
-Both probe runs and the generated `RenderMode.post.swift` are attached to this card.
+Both probe runs are quoted above and the probe itself is reproduced in Appendix A (so the measurement
+is reproducible from this repo alone; the parent card's `probe_gate11.py`, attached to `t_7ffa9e76`,
+is the same predicate without the case-source argument).
 
 ### 6.2 Gate 11's pinned literal shrinks to `[]` — the deliberate act the gate exists for
 
@@ -462,3 +464,76 @@ Measured on `cfc9cb5` (production code identical to `1577337`):
   `docs/t_7ffa9e76-threads-surface-retirement.md` §2.1, §6, §7, §9;
 * `scripts/verify-dual-render-gates.sh` gates 5 (`:270`) / 6 (`:283`), usage block (`:52`);
 * the gate-11 prototype from `t_7ffa9e76` (attachment `probe_gate11.py`), re-run and extended here.
+
+## Appendix A — the probe used for §1 and §6.1
+
+Identical predicate to the parent card's prototype, with one added argument so a **retirement can be
+measured before it lands**: the case list and the reservation set are read from a stand-in
+`RenderMode.swift` while the reference scan still runs against the real tree. Run it as
+`probe_gate11_catalogue.py <repo> [<RenderMode.swift to read cases from>]`.
+
+```python
+#!/usr/bin/env python3
+import os
+import re
+import sys
+
+root = sys.argv[1]
+render_mode = os.path.join(root, 'Mattermost', 'Core', 'RenderMode.swift')
+cases_src_path = sys.argv[2] if len(sys.argv) > 2 else render_mode
+src = open(cases_src_path, encoding='utf-8').read()
+app = os.path.join(root, 'Mattermost')
+
+body = src[src.index('public enum Surface:'):src.index('public var id: String')]
+cases = re.findall(r'^\s*case (\w+)$', body, re.M)
+
+pane_host = re.search(r'paneHostSurface: Surface = \.(\w+)', src)
+pane_host_case = pane_host.group(1) if pane_host else None
+
+lit = re.search(r'unhostedSurfaces: Set<Surface> = (\[[^\]]*\])', src)
+unhosted = set(re.findall(r'\.(\w+)', lit.group(1))) if lit else set()
+
+files = [os.path.join(d, f) for d, _, fs in os.walk(app) for f in fs if f.endswith('.swift')]
+
+
+def consulted(case):
+    if case == pane_host_case:
+        return 'SurfaceDefaults.paneHostSurface'
+    pats = [re.compile(p) for p in (
+        rf'resolvedMode\(for:\s*\.{case}\b',
+        rf'SurfaceHost\(\s*\.{case}\b',
+        rf'defaultMode\(for:\s*\.{case}\b')]
+    for p in files:
+        if p == render_mode:
+            continue
+        for i, line in enumerate(open(p, encoding='utf-8'), 1):
+            if line.strip().startswith('//'):
+                continue
+            for pat in pats:
+                if pat.search(line):
+                    return f'{os.path.relpath(p, root)}:{i}'
+    return None
+
+
+print(f'cases ({len(cases)}): {cases}')
+print(f'unhostedSurfaces: {sorted(unhosted)}')
+bad = []
+for c in cases:
+    if c in unhosted:
+        print(f'  ok    .{c:<12} declared unhosted')
+        continue
+    where = consulted(c)
+    if where:
+        print(f'  ok    .{c:<12} consulted at {where}')
+    else:
+        print(f'  FAIL  .{c:<12} neither consulted nor declared unhosted')
+        bad.append(c)
+if bad:
+    print(f'RESULT: FAIL — {len(bad)} surface key(s) with no effect: {bad}')
+    sys.exit(1)
+print('RESULT: PASS — every Surface case is consulted, or declared unhosted.')
+```
+
+The stand-in used for §6.1 is the tree's own `RenderMode.swift` with the three `case` lines and their
+three `title` arms deleted and `unhostedSurfaces: Set<Surface> = []` inserted; nothing else is edited,
+because gate 11 reads *cases and references*, not behaviour.
