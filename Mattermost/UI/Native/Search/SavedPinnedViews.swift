@@ -51,7 +51,7 @@ struct SavedPaneContent: View {
                     Image(systemName: "bookmark")
                         .font(.system(size: 30))
                         .foregroundStyle(.secondary)
-                    Text("Saved messages are off for this run (`search=web`)")
+                    Text(verbatim: "Saved messages are off for this run (`search=web`)")
                         .font(.headline)
                         .multilineTextAlignment(.center)
                     Text("Search, saved and pinned share one switch, and it resolves `web` for this "
@@ -64,7 +64,13 @@ struct SavedPaneContent: View {
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityElement(children: .contain)
+                // `verbatim:` on the title above: a `Text` fed a *literal* is Markdown, and
+                // `` `search=web` `` then renders as inline code with the backticks dropped. The
+                // other two notes pass their title as a `String` variable, so they keep them; this
+                // one says the same characters. The identifier sits on the VStack itself (no
+                // `.accessibilityElement(children: .contain)` — that shape does not publish the
+                // identifier on this runtime, measured by `TA7432FallbackCopyUITests`), so the note
+                // is addressable and its two texts still are.
                 .accessibilityIdentifier("savedWebFallback")
             }
         }
