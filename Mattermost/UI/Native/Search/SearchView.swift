@@ -47,11 +47,11 @@ struct SearchPaneContent: View {
                 }
             } else {
                 note(systemImage: "magnifyingglass",
-                     title: "Search is rendered by the web app",
-                     body: "The dual-render switch still resolves the search surface as web "
-                         + "(`search=web`), so the native screen is off for this run. Launch with "
-                         + "`-surfaceMode search=native`, or switch the surface in the inspector, to "
-                         + "use it.")
+                     title: "Search is off for this run (`search=web`)",
+                     body: "The `search` surface resolves `web` for this run, so the native search "
+                         + "screen is off. The web app draws search only while the workspace itself "
+                         + "renders web (`Use web view`); launch with `-surfaceMode search=native`, or "
+                         + "switch the surface in the inspector, to use the native screen.")
                     .accessibilityIdentifier("searchWebFallback")
             }
         }

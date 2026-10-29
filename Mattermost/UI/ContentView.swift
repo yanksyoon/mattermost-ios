@@ -31,12 +31,16 @@ struct ContentView: View {
 
     var body: some View {
         SurfaceHost(SurfaceDefaults.paneHostSurface) {
-            // T30: the native shell — sidebar + channel view + threads as placeholders — is the
-            // pane's native card. It is **not** in `SurfaceDefaults.nativeApprovedSurfaces` and not
-            // pane-owning, so this branch is reachable only through the DEBUG dual-render
-            // affordances (`-surfaceMode` / the Surface inspector); every shipping configuration
-            // still renders the webview below, and the release policy still refuses to release a
-            // webview for it.
+            // T30: the native shell — sidebar + channel view — is the pane's native card. Since the
+            // 2026-10-27 workspace decision (`t_c93b8337`) `.channelView` is in **both**
+            // `SurfaceDefaults.nativeApprovedSurfaces` and `SurfaceDefaults.paneOwningSurfaces`, so
+            // this is the **shipped** pane of a Release build with no flags: it resolves native and
+            // the release policy then destroys the per-server webview behind it
+            // (`docs/dual-render.md` §12; the shell mounts its tabs unconditionally, so this is the
+            // branch a reader reaches on every launch —
+            // `docs/t_39ea6115-surface-catalogue-dispositions.md` §5.2). The web branch below is
+            // reached through the escape hatch ("Use web view" -> `forceWebForThisRun`, §8), never as
+            // the default.
             NativeShellView(server: server, navigation: navigation)
                 .ignoresSafeArea()
         } web: {
