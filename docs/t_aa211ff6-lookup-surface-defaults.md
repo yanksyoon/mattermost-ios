@@ -37,7 +37,8 @@ in their own verdict; neither of these did.
 
 **Option 2 (stop offering the tab/button while the surface resolves `web`) is a capability loss, and
 it is the worst of the three for a shipped reader.** The native screens exist, are validated and are
-tested: 50 T39 unit tests + 7 live (search/saved/pinned), 46 T42 unit tests + 4 live (mentions).
+tested: 50 T39 unit tests (45 + 5 API) and a 7/7 live run in the T55-AV-R re-validation
+(search/saved/pinned), 46 T42 unit tests and 4/4 live (mentions).
 Hiding the entry points while `.channelView` is pane-owning would leave search, saved, pinned and
 mentions **unreachable in a Release build** — the web app's own screens live in a webview that
 `RootView.releaseIfNeeded` destroys (§12.2), and the only way back to it is "Use web view", which
