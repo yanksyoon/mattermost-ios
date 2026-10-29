@@ -162,6 +162,7 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/dd" \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 300 \
+            -collect-test-diagnostics on-failure \
             $SIGN \
             > "$LOG" 2>&1
           RC=$?
@@ -171,6 +172,11 @@ jobs:
           echo "xcodebuild exit: $RC"
           if ! grep -qE "\*\* TEST SUCCEEDED \*\*" "$LOG"; then
             echo "::error::TEST SUCCEEDED not found in the ${{ matrix.name }} log"
+            # Name the failure before the noise: a timed-out test reports neither an `error:`
+            # line nor "FAIL" (t_d398053f §7), so the old grep printed only unrelated noise and
+            # the annotation never said which test hung.
+            sed -n '/^Failing tests:/,/^$/p' "$LOG" | head -20 || true
+            grep -E "exceeded execution time allowance" "$LOG" | head -5 || true
             grep -E "error:|failed|FAIL" "$LOG" | head -40 || true
             exit 1
           fi
@@ -188,6 +194,23 @@ jobs:
           name: test-log-${{ matrix.name }}
           path: ${{ runner.temp }}/${{ matrix.name }}.log
           if-no-files-found: warn
+
+      # The result bundle is where xcodebuild puts the diagnostics it asks you to attach when a
+      # test exceeds its execution allowance (t_d398053f §6): the stack/spindump of the wedged
+      # process. Until this step existed the workflow threw it away, so nobody could name the
+      # blocked frame. Uploaded on every run (a 300 s hang is only visible after the fact).
+      - name: Upload test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-xcresult-${{ matrix.name }}
+          path: |
+            ${{ runner.temp }}/dd/Logs/Test/*.xcresult
+            ${{ runner.temp }}/dd/Logs/Test/*.spindump
+            ${{ runner.temp }}/dd/Logs/Test/*.sysdiagnose*
+            ${{ runner.temp }}/dd/Logs/Test/*.log
+          if-no-files-found: warn
+          retention-days: 14
 
   release:
     name: tag and publish
