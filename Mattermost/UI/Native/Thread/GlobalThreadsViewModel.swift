@@ -185,10 +185,17 @@ final class GlobalThreadsViewModel: ObservableObject {
     }
 
     private func loadProfiles(for ids: [String]) async {
-        let missing = ids.filter { users[$0] == nil }
-        guard !missing.isEmpty else { return }
-        let loaded = (try? await service.users(ids: missing)) ?? []
-        for user in loaded { users[user.id] = user }
+        let wanted = ProfileBatch.clean(ids).filter { users[$0] == nil }
+        guard !wanted.isEmpty else { return }
+        let report = await ProfileBatch.load(wanted, fetch: { [service] chunk in
+            try await service.users(ids: chunk)
+        }, onProfiles: { [weak self] loaded in
+            guard let self else { return }
+            for user in loaded { self.users[user.id] = user }
+        })
+        if let error = report.error {
+            Logger.error("ThreadProfiles", "\(report.line(pane: "threads=\(teamID)")) reason=\(error)")
+        }
     }
 
     /// Take a page's counters, but never let a page that omitted them zero the header.

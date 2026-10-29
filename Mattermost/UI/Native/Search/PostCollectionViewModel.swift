@@ -164,10 +164,18 @@ final class PostCollectionViewModel: ObservableObject {
     }
 
     private func loadProfiles(requested: Int) async {
-        let ids = SearchResultRows.profileIDs(posts).filter { users[$0] == nil }
-        guard !ids.isEmpty, let fetched = try? await service.users(ids: ids) else { return }
+        let ids = ProfileBatch.clean(SearchResultRows.profileIDs(posts)).filter { users[$0] == nil }
+        guard !ids.isEmpty else { return }
+        let report = await ProfileBatch.load(ids, fetch: { [service] chunk in
+            try await service.users(ids: chunk)
+        }, onProfiles: { [weak self] fetched in
+            guard let self else { return }
+            for user in fetched { self.users[user.id] = user }
+        })
         guard requested == generation else { return }
-        for user in fetched { users[user.id] = user }
+        if let error = report.error {
+            Logger.error("SearchProfiles", "\(report.line(pane: "search=\(kind)")) reason=\(error)")
+        }
     }
 
     /// The channels the saved rows came from, in one batched lookup.

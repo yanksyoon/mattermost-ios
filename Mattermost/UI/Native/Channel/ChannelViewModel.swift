@@ -116,6 +116,24 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     private(set) var resyncCount = 0
     private(set) var lastResyncInsertedCount = 0
 
+    /// The last author-profile load's counts (card t_70b41028).
+    ///
+    /// Diagnostics, not UI: before this existed, a refused `POST /users/ids` and "nobody to fetch"
+    /// were the same silence, and the only visible symptom was every row reading "Unknown user".
+    /// The `-shellSnapshot` dump prints this through `ChannelPaneCoordinator.diagnosticSummary`.
+    private(set) var lastProfileLoad: ProfileBatchReport?
+
+    /// Every profile load this pane has made, summed — so the report is about the **page**, not about
+    /// the last one-id socket patch that overwrote `lastProfileLoad`.
+    private(set) var profileTotals = ProfileBatchReport()
+
+    /// `<channel> profiles requested=… resolved=… err=…` — the line the dump and the log carry.
+    var profileDiagnostics: String {
+        let totals = profileTotals.line(pane: "channel=\(channelID)")
+        guard let last = lastProfileLoad else { return totals }
+        return totals + " last={\(last.line(pane: "batch"))}"
+    }
+
     /// How many posts the window holds (diagnostics/tests).
     var loadedCount: Int { posts.count }
     var loadedPostIDs: [String] { posts.map(\.id) }
@@ -126,6 +144,10 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     // MARK: Collaborators
 
     private let service: ChannelServing
+    /// Profiles other screens have already fetched, so a warm session asks for nobody (card
+    /// t_70b41028). Optional: a model built without one (unit tests, a future non-App host) simply
+    /// pays every request.
+    private let profiles: UserProfileCache?
     private let now: () -> Date
     private let calendar: Calendar
     private let locale: Locale
@@ -196,6 +218,7 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
          service: ChannelServing,
          myUserID: String? = nil,
          lastViewedAt: Int64? = nil,
+         profiles: UserProfileCache? = nil,
          now: @escaping () -> Date = { Date() },
          calendar: Calendar = .current,
          locale: Locale = .current) {
@@ -205,6 +228,7 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
         self.myUserID = myUserID
         self.lastViewedAt = lastViewedAt
         self.lastViewedAtIsAuthoritative = lastViewedAt != nil
+        self.profiles = profiles
         self.now = now
         self.calendar = calendar
         self.locale = locale
@@ -415,12 +439,43 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
         }
     }
 
+    /// Fill the author map for the rows on screen (card t_70b41028).
+    ///
+    /// Three properties, each of which was missing before and each of which is a test:
+    ///  - `user_id` can be `""` (system/join messages, some bot posts). `ProfileBatch.clean` drops
+    ///    empty ids **before** any request, so one system post can no longer turn the whole batch
+    ///    into a refused request and leave every author on the page "Unknown user";
+    ///  - profiles another screen already fetched are read from `profiles` first, so a warm session
+    ///    asks for nobody;
+    ///  - a failure is a reported number, not a swallow: a failed chunk costs only its own ids, and
+    ///    the counts go to `lastProfileLoad` and to the log. A profile failure still never fails the
+    ///    page — rows fall back to the `username` in `props`, then to the honest "Unknown user".
     private func loadProfiles(for userIDs: [String]) async {
-        let missing = userIDs.filter { users[$0] == nil }
-        guard !missing.isEmpty else { return }
-        // A profile failure must not fail the page (rows fall back to the username in `props`).
-        let loaded = (try? await service.users(ids: missing)) ?? []
-        for user in loaded { users[user.id] = user }
+        let wanted = ProfileBatch.clean(userIDs).filter { users[$0] == nil }
+        guard !wanted.isEmpty else { return }
+        let report = await ProfileBatch.load(wanted, cache: profiles, fetch: { [service] chunk in
+            try await service.users(ids: chunk)
+        }, onProfiles: { [weak self] loaded in
+            guard let self else { return }
+            for user in loaded { self.users[user.id] = user }
+        })
+        lastProfileLoad = report
+        profileTotals.requested += report.requested
+        profileTotals.cached += report.cached
+        profileTotals.sent += report.sent
+        profileTotals.resolved += report.resolved
+        profileTotals.chunks += report.chunks
+        profileTotals.failed += report.failed
+        if profileTotals.error == nil { profileTotals.error = report.error }
+        let line = report.line(pane: "channel=\(channelID)")
+        if let error = report.error {
+            Logger.error("ChannelProfiles", "\(line) reason=\(error)")
+        } else {
+            // One line per load, at the level the app actually keeps (`Logger`'s default gate is
+            // `.info`, so a `.debug` line would have been invisible on a live run — the very
+            // blindness this card is about).
+            Logger.info("ChannelProfiles", line)
+        }
     }
 
     /// The header title. A DM's `name` is `<userID>__<userID>` and a GM's is an opaque hash; the only

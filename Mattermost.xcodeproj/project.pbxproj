@@ -64,6 +64,7 @@
 		F30000000000000000000066 /* APITransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000066 /* APITransport.swift */; };
 		F30000000000000000000067 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000067 /* APIClient.swift */; };
 		F300000000000000000000F1 /* UserProfileCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000F1 /* UserProfileCache.swift */; };
+		F300000000000000000000F2 /* ProfileBatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000F2 /* ProfileBatch.swift */; };
 		F30000000000000000000068 /* MMEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000068 /* MMEndpoints.swift */; };
 		F30000000000000000000069 /* AuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000069 /* AuthSession.swift */; };
 		F3000000000000000000006A /* ServerTrustPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000006A /* ServerTrustPolicy.swift */; };
@@ -187,6 +188,7 @@
 		F20000000000000000000066 /* APITransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APITransport.swift; sourceTree = "<group>"; };
 		F20000000000000000000067 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		F200000000000000000000F1 /* UserProfileCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileCache.swift; sourceTree = "<group>"; };
+		F200000000000000000000F2 /* ProfileBatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileBatch.swift; sourceTree = "<group>"; };
 		F20000000000000000000068 /* MMEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMEndpoints.swift; sourceTree = "<group>"; };
 		F20000000000000000000069 /* AuthSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSession.swift; sourceTree = "<group>"; };
 		F2000000000000000000006A /* ServerTrustPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerTrustPolicy.swift; sourceTree = "<group>"; };
@@ -353,6 +355,7 @@
 				F20000000000000000000067 /* APIClient.swift */,
 				F20000000000000000000068 /* MMEndpoints.swift */,
 				F200000000000000000000F1 /* UserProfileCache.swift */,
+				F200000000000000000000F2 /* ProfileBatch.swift */,
 				F20000000000000000000069 /* AuthSession.swift */,
 				F2000000000000000000006A /* ServerTrustPolicy.swift */,
 				F2000000000000000000006B /* SocketEvent.swift */,
@@ -631,6 +634,7 @@
 				F30000000000000000000067 /* APIClient.swift in Sources */,
 				F30000000000000000000068 /* MMEndpoints.swift in Sources */,
 				F300000000000000000000F1 /* UserProfileCache.swift in Sources */,
+				F300000000000000000000F2 /* ProfileBatch.swift in Sources */,
 				F30000000000000000000069 /* AuthSession.swift in Sources */,
 				F3000000000000000000006A /* ServerTrustPolicy.swift in Sources */,
 				F3000000000000000000006B /* SocketEvent.swift in Sources */,

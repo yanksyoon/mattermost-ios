@@ -914,6 +914,7 @@ struct MattermostApp: App {
                 surfaces=\(surfacesLine)
                 sidebar=\(serverStore.servers.map { channelSidebarCoordinator.diagnosticSummary(for: $0) }.joined(separator: " | "))
                 auth=\(serverStore.servers.map { "\($0.name):\(String(describing: authCoordinator.phase(for: $0))):token=\(authCoordinator.hasStoredToken(for: $0))" }.joined(separator: ","))
+                channels=\(serverStore.servers.map { channelPaneCoordinator.diagnosticSummary(for: $0.id) }.joined(separator: " | "))
                 """
                 try? nativeDiag.write(to: URL(fileURLWithPath: path + ".txt"), atomically: true, encoding: .utf8)
                 // The early capture above is five seconds in, before channels and posts exist. Take a
@@ -930,6 +931,7 @@ struct MattermostApp: App {
                     let lateState = """
                     location=\(String(describing: nativeNavigation.location))
                     sidebar=\(serverStore.servers.map { channelSidebarCoordinator.diagnosticSummary(for: $0) }.joined(separator: " | "))
+                    channels=\(serverStore.servers.map { channelPaneCoordinator.diagnosticSummary(for: $0.id) }.joined(separator: " | "))
                     """
                     try? lateState.write(to: URL(fileURLWithPath: path + ".late.txt"),
                                          atomically: true, encoding: .utf8)

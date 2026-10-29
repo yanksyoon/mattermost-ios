@@ -118,9 +118,9 @@ final class SessionThreadService: ThreadServing {
     }
 
     func users(ids: [String]) async throws -> [MMUser] {
-        // A profile failure must not fail the thread: rows fall back to the id-derived avatar, which
-        // is still ordered and still says which post belongs to whom.
-        (try? await client().users(ids: ids)) ?? []
+        // A profile failure must not fail the thread — the pane catches it and records the counts
+        // (card t_70b41028). Swallowing it here made a refused request look like "nobody to fetch".
+        try await client().users(ids: ids)
     }
 
     /// S16/T37: the thread pane's reaction writes go through the same `APIClient` endpoints as the

@@ -49,7 +49,7 @@ final class DirectLabelResolver {
 
     /// The largest id batch one `POST /users/ids` may carry. Chunking is what keeps a large
     /// workspace from turning the label step into the slowest request of the load.
-    static let profileBatchSize = 100
+    static let profileBatchSize = ProfileBatch.size
 
     /// How many group channels have their member lists fetched at once.
     static let groupBatchSize = 8
@@ -71,6 +71,13 @@ final class DirectLabelResolver {
     private var selfChannels: [String] = []
     private var groupChannels: [MMChannel] = []
     private(set) var published = DirectLabelMap.empty
+    /// Every profile load this resolver has made, summed (card t_70b41028).
+    ///
+    /// Diagnostics, not UI: before this, the label step's `try?` made a refused `POST /users/ids`
+    /// and "nobody to name" the same silence — the only symptom was rows saying "Direct message"
+    /// while the channel timeline said "Unknown user" for the same people. Same loader, same
+    /// counters as the timeline, so the two panes cannot disagree about what went wrong.
+    private(set) var profileReport = ProfileBatchReport()
 
     init(client: APIClient,
          userID: String?,
@@ -143,32 +150,39 @@ final class DirectLabelResolver {
     // MARK: - Steps
 
     /// Learn these ids' profiles: cache first, then chunked requests. Publishes after each step.
-    private func resolve(_ ids: [String]) async {
-        let unknown = Array(Set(ids)).filter { people[$0] == nil }
-        guard !unknown.isEmpty else { return }
-        guard let profiles else {
-            await fetch(unknown)
-            return
-        }
-        let cached = profiles.known(ids: unknown)
-        for user in cached { people[user.id] = user }
-        publish()
-        let found = Set(cached.map(\.id))
-        await fetch(unknown.filter { !found.contains($0) })
-    }
-
-    /// `POST /users/ids`, at most `profileBatchSize` ids at a time.
     ///
-    /// A chunk that fails is skipped, not fatal: the rows it would have named stay unlabelled (which
-    /// the list already draws), and the rows the other chunks named stay named.
-    private func fetch(_ ids: [String]) async {
-        for chunk in Self.batches(of: ids, size: Self.profileBatchSize) {
-            if Task.isCancelled { return }
-            guard let answer = try? await client.users(ids: chunk) else { continue }
-            for user in answer where people[user.id] == nil { people[user.id] = user }
+    /// The work itself is `ProfileBatch` (card t_70b41028) — the same loader the channel timeline
+    /// uses, so the two panes cannot drift on the three rules that matter: an empty id never reaches
+    /// the request body, every request carries at most `profileBatchSize` ids, and a failed chunk
+    /// costs only its own ids. This method only decides what to publish and who is still unknown.
+    private func resolve(_ ids: [String]) async {
+        let unknown = ProfileBatch.clean(ids).filter { people[$0] == nil }
+        guard !unknown.isEmpty else { return }
+        let cache = profiles
+        let client = self.client
+        let report = await ProfileBatch.load(unknown, cache: cache, fetch: { chunk in
+            let answer = try await client.users(ids: chunk)
             // A profile this load paid for is remembered for the next screen and the next reload.
-            profiles?.remember(answer)
-            publish()
+            cache?.remember(answer)
+            return answer
+        }, onProfiles: { answer in
+            for user in answer where self.people[user.id] == nil { self.people[user.id] = user }
+            self.publish()
+        })
+        profileReport.requested += report.requested
+        profileReport.cached += report.cached
+        profileReport.sent += report.sent
+        profileReport.resolved += report.resolved
+        profileReport.chunks += report.chunks
+        profileReport.failed += report.failed
+        if profileReport.error == nil { profileReport.error = report.error }
+        let line = report.line(pane: "labels")
+        if let error = report.error {
+            Logger.error("SidebarProfiles", "\(line) reason=\(error)")
+        } else {
+            // `.info`, not `.debug`: the app's default gate drops debug, and a diagnostics line
+            // nobody can see is the silence this card is about.
+            Logger.info("SidebarProfiles", line)
         }
     }
 

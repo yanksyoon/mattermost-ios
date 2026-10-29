@@ -80,6 +80,20 @@ final class ChannelPaneCoordinator: ObservableObject {
         models[serverID]?[channelID]?.phase == .loaded
     }
 
+    /// The author-profile counts of every window this server has open (card t_70b41028).
+    ///
+    /// Printed by the `-shellSnapshot` dump. "All rows read Unknown user" and "the server named
+    /// everybody" look identical on screen until these numbers exist: `requested` is how many
+    /// authors a page had, `resolved` how many the client ended up holding a profile for, and
+    /// `failed`/`err` says whether a request was refused. `cached` is what cost no request at all.
+    func diagnosticSummary(for serverID: UUID) -> String {
+        guard let byChannel = models[serverID], !byChannel.isEmpty else { return "channels none" }
+        return byChannel.values
+            .sorted { $0.channelID < $1.channelID }
+            .map { "\($0.channelID) phase=\($0.phase) \($0.profileDiagnostics)" }
+            .joined(separator: " | ")
+    }
+
     func bind(auth: AuthCoordinator?,
               navigation: NativeNavigation?,
               serverStore: ServerStore?) {
@@ -97,7 +111,8 @@ final class ChannelPaneCoordinator: ObservableObject {
         let model = ChannelViewModel(channelID: channelID,
                                      channelName: channelName,
                                      service: service(for: server),
-                                     myUserID: auth?.userID(for: server.id))
+                                     myUserID: auth?.userID(for: server.id),
+                                     profiles: UserProfileCache.shared(for: server.id))
         models[server.id, default: [:]][channelID] = model
         touch(serverID: server.id, channelID: channelID)
         evictIfNeeded(serverID: server.id)

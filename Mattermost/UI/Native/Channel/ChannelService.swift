@@ -22,7 +22,13 @@ protocol ChannelServing: AnyObject {
     /// (T34-AV-F1). A service that answers with replies mixed in is still handled: the view model
     /// filters every page through `ChannelViewModel.isTimelineRow`.
     func posts(channelID: String, before: String?, perPage: Int) async throws -> MMPostList
-    /// Author profiles for the ids on screen, in one batched request.
+    /// Author profiles for the ids on screen.
+    ///
+    /// `ids` may contain `""` (system/join posts) and duplicates: `ChannelViewModel` cleans them
+    /// through `ProfileBatch` before calling, and `APIClient.users(ids:)` cleans them again — an
+    /// empty id in the body makes the server refuse the **whole** request (card t_70b41028).
+    /// Implementations that swallow a failure (`try? … ?? []`) are the defect this signature exists
+    /// to prevent: throw, and let the caller record requested-vs-resolved.
     func users(ids: [String]) async throws -> [MMUser]
 
     /// `GET /posts/{id}` — one post by id.
@@ -130,9 +136,11 @@ final class SessionChannelService: ChannelServing {
     }
 
     func users(ids: [String]) async throws -> [MMUser] {
-        // A profile failure must not fail the page: the rows fall back to the username carried in
-        // `props` (system messages) or to "Unknown user", which is honest and still ordered.
-        let fetched = (try? await client().users(ids: ids)) ?? []
+        // A profile failure must not fail the *page* — but it must be visible: the callers catch it
+        // and record the counts (card t_70b41028). Swallowing it here (`try? … ?? []`) made a
+        // refused request indistinguishable from "nobody to fetch", and the only symptom was every
+        // row reading "Unknown user".
+        let fetched = try await client().users(ids: ids)
         profiles?.remember(fetched)
         return fetched
     }
