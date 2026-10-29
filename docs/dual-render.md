@@ -141,6 +141,15 @@ over a released webview and the thread route's real web fallback is the pane's w
 web app's router (`NativeNavigation.acceptsNativeRouting`), i.e. `.channelView`'s. Its removal lands
 with card `t_cdcc1f38`.
 
+Three more cases are retired by the same rule, decided in
+`docs/t_39ea6115-surface-catalogue-dispositions.md`: `.settings` (shell chrome that exists in every
+pane mode and whose "web form" is the web app's own settings *inside the pane webview* — gating it
+would remove server management, not add a fallback), `.plugins` (S29-S32 never resolve `native`, so
+the key has one legal state — a switch that cannot be thrown is not a switch), and `.profile` (read
+and discarded by `ProfilePopoverPolicy`; the sheet is a sub-region of the row host). Removal lands
+with `t_6d420e01` and leaves the catalogue at **eight** cases with `unhostedSurfaces` **empty** — so
+gate 11's pinned literal becomes `[]` in that commit.
+
 Adding a case is additive, as above. **Removing** one is legal only by a decision card that records
 why the region is not a switch, and it lands with: the case gone, the acceptance-test rename, a pin
 that the retired raw value decodes to `nil`, a pin that a stale persisted row is dropped (the
@@ -457,9 +466,12 @@ flag).
   a thread pane only exists inside a native pane host, so it was never a switch — removal lands with
   `t_cdcc1f38`). `.settings` is consulted nowhere (`SettingsView` is presented unconditionally,
   `RootView.swift:180,229`) and `.plugins` nowhere (`S29`–`S32` are permanently web, §1) — both are
-  catalogue reservations, and their disposition is card `t_39ea6115`. `.profile` is *read and
+  **retired by decision** (`docs/t_39ea6115-surface-catalogue-dispositions.md`: shell chrome has no
+  web form of its own, and a key that can never resolve `native` is not a switch; the code change
+  lands with `t_6d420e01`, together with an empty `unhostedSurfaces`). `.profile` is *read and
   discarded* by `ProfilePopoverPolicy` (the tap is offered while `.profile` resolves `web`,
-  `T429ProfileTapTests.swift:83-93`), so that flag has no effect either. Gate 11 of
+  `T429ProfileTapTests.swift:83-93`), so that flag has no effect either — **also retired by the same
+  decision**: the sheet is a sub-region of the row host, so the case never owned a mode. Gate 11 of
   `scripts/verify-dual-render-gates.sh` — every case consulted, or declared in
   `SurfaceDefaults.unhostedSurfaces` — is what keeps this from recurring silently; it lands with
   `t_cdcc1f38`, and its stated limit is that it measures references, not effect (hence `.profile`
