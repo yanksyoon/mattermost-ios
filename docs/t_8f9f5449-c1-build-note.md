@@ -118,7 +118,7 @@ user is absent, not when it is blank). The stub can only come from a `thread_upd
 `participants` (`ThreadViewModel.apply(thread:)` stores whatever the frame carries into `users`); the REST
 thread answer on this server carries `participants: null`, so that is the only insertion path. That last
 step is a **hypothesis**, not a measurement: the socket frame was not captured. It is a separate defect
-from this card's — the popover is wired either way — and it is filed as a follow-up card rather than
+from this card's — the popover is wired either way — and it is filed as **`t_e73f31ce`** rather than
 fixed here, because the fix belongs to `ThreadViewModel`'s profile merge, not to the popover.
 
 The live test therefore taps the **avatar** (`post.<replyID>.avatar`, 36×36, hittable) and asserts the
@@ -127,7 +127,36 @@ this exercises the same route the card is about.
 
 ## 6. Gates and run logs
 
-_TBD — filled from the runs below._
+All runs: iPhone 17 Pro simulator, `scripts/qa-test.py`, logs under `build/logs/` on this tree.
+
+| gate | command | result |
+|---|---|---|
+| whole unit target | `python3 scripts/qa-test.py --platform ios --sim "name=iPhone 17 Pro" --only-testing MattermostTests --label t5449-units5` | **1793 run / 8 skipped / 0 failed**, `** TEST SUCCEEDED **` (`build/logs/t5449-units5.log`) — the base is 1788/8/0, plus this card's 5 |
+| dual-render gates | `bash scripts/verify-dual-render-gates.sh --allow-approved-registry` | `RESULT: PASS — dual-render debug affordances cannot reach a Release build.` (gate 5 allowed by the flag, gate 8 counts the two new files as tracked) |
+| C1's live suite | `… --only-testing MattermostUITests/T5449ThreadProfileUITests --label t5449-live4` | **1 run / 0 skipped / 0 failed** (`build/logs/t5449-live4.log`) |
+| T429 re-run (the pane's tap) | `… --only-testing MattermostUITests/T429ProfileTapUITests --label t5449-t429-run1` | **4 run / 0 skipped / 0 failed** (`build/logs/t5449-t429-run1.log`) |
+| T41 re-run (the sheet) | `… --only-testing MattermostUITests/T41ProfileUITests --label t5449-t41-run1` | **7 run / 0 skipped / 0 failed** (`build/logs/t5449-t41-run1.log`) |
+
+The live environment was `TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065`,
+`TEST_RUNNER_MM_AUTH_LOGIN=perfprobe`, the fixture password from `scripts/perf_seed.py`.
+
+### 6.1 Host instability, measured and named (not this card's)
+
+The host carried a load average of 130–330 during this work (several other cards' `xcodebuild` runs in
+parallel), and three of the earlier attempts were killed by **runner crashes**, not by test failures:
+
+* `t5449-units2` — 2 restarts (`Restarting after unexpected exit…`), 999 of 1788 tests reported, "failing"
+  `DownloadWorkerTests.testResolveDestinationBuildsDownloadsFileURL` and
+  `T34ChannelViewRestoreWiringTests.testTheListTurnsAPendingAnchorIntoARestoreAndConsumesIt`, both of which
+  then passed in isolation (`t5449-units-recheck`, `t5449-units-recheck2`) and in the clean run;
+* `t5449-units4` — 3 restarts, 1517 reported, "failing" `MMStoreConcurrencyTests…` and
+  `MMStoreSizeTests…` (GRDB tests this card does not touch), 0 real failures;
+* `t5449-live2` / `t5449-live3` — the UI runner died during launch / while typing into the quick switcher
+  (`kAXError -25218`), 0 tests reported; the same binary was green in `t5449-live4`.
+
+Every crash happened *inside the runner* (the accessibility/SwiftUI host), and the set of "failing" tests
+changes from run to run — the signature of the load, not of this diff. The clean runs above are the
+evidence used for the gates.
 
 ## 7. Not in this card
 
