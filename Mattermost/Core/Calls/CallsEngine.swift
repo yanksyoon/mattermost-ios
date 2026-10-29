@@ -903,7 +903,16 @@ final class CallsMediaTeardownQueue: CallsMediaTeardownScheduling, @unchecked Se
 
     /// How long a close may run before it is reported. 10 s is ~30× the measured close on a healthy
     /// host (3–14 ms after the last "trickled" line) and far below the 300 s test allowance.
-    static let warnAfter: TimeInterval = 10
+    static let defaultWarnAfter: TimeInterval = 10
+
+    /// The deadline this queue reports at — `defaultWarnAfter` in production. Injectable only so a
+    /// test can observe the report without spending 10 s on it (kanban t_16e785f5); every production
+    /// instance is `shared`.
+    let warnAfter: TimeInterval
+
+    init(warnAfter: TimeInterval = CallsMediaTeardownQueue.defaultWarnAfter) {
+        self.warnAfter = warnAfter
+    }
 
     private static let queue = DispatchQueue(label: "org.mattermost.calls.media-teardown",
                                              qos: .userInitiated,
@@ -920,17 +929,18 @@ final class CallsMediaTeardownQueue: CallsMediaTeardownScheduling, @unchecked Se
     func schedule(_ work: @escaping @Sendable () -> Void) {
         let started = Date()
         let completion = Completion()
+        let warnAfter = self.warnAfter
         Self.queue.async {
             work()
             completion.finish()
             let waited = Date().timeIntervalSince(started)
-            if waited > Self.warnAfter {
+            if waited > warnAfter {
                 MMLog.error("MMCalls", String(format: "libwebrtc close took %.1fs (off the engine; the call already ended)", waited))
             }
         }
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + Self.warnAfter) {
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + warnAfter) {
             guard !completion.isFinished else { return }
-            MMLog.error("MMCalls", "libwebrtc close() has not returned after \(Int(Self.warnAfter))s; the engine is not blocked by it (t_01f65f1d)")
+            MMLog.error("MMCalls", "libwebrtc close() has not returned after \(Int(warnAfter))s; the engine is not blocked by it (t_01f65f1d)")
         }
     }
 }

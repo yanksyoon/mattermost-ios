@@ -97,7 +97,44 @@ On a host where the close blocks, the same mutation hangs instead and the wait r
 Logs: `build/logs/t01f65-*.log`, results under
 `~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/`.
 
-## 5. What is still open
+## 5. The scheduler itself (t_16e785f5)
+
+§3 pins the *seam*: `stop()` finishes when the close it hands over never returns. It said nothing
+about the object production uses, and the adversarial pass proved it — making
+`CallsMediaTeardownQueue.schedule` run `work()` **inline** (the pre-fix shape, in shipped code) left
+the whole engine class green (t_5bf7a812, finding 1).
+
+`MattermostTests/T44CCallsMediaTeardownQueueTests.swift` covers the three properties that actually
+un-wedge a call, with no clock polling — the deadline is injectable
+(`CallsMediaTeardownQueue(warnAfter:)`, 10 s for `shared`) and every event, the report included, is a
+`TestSignal` the test awaits:
+
+| test | property | mutation that reds it |
+|---|---|---|
+| `testScheduleReturnsBeforeTheCloseItWasHandedFinishes` | `schedule` returns while a 2 s close is still running (and the close does run, then finish) | `work()` inline |
+| `testOneHeldCloseDoesNotHoldUpTheNextCallsClose` | a close held past the 1 s deadline does not stop the next call's close; the wedge is *reported* once, as `MMCalls: libwebrtc close() has not returned after 1s … the engine is not blocked by it` | `attributes: []` (serial) |
+
+Mutation evidence, iPhone 16 Pro / iOS 18.3, `-only-testing:MattermostTests/T44CCallsMediaTeardownQueueTests`:
+
+```
+inline work()          : 2 run / 6 failures
+  :45 XCTAssertLessThan failed: ("2.01") is not less than ("1.0")
+      - `schedule` returned after 2.01s: the close ran on the caller's thread …
+  :91 timed out after 10s waiting for the "has not returned" report for the held close
+serial queue           : 2 run / 2 failures
+  :87 timed out after 10s waiting for the second call's close while the first one is still held
+both mutations reverted: 2 run / 0 failures
+```
+
+Green, with the engine class alongside it:
+
+```
+iOS      : Executed 2 tests, with 0 failures … / Executed 21 tests, with 3 tests skipped and 0 failures
+Catalyst : Executed 2 tests, with 0 failures … / Executed 21 tests, with 3 tests skipped and 0 failures
+T44D (blast radius, iOS): 21 run, 0 skipped, 0 failed
+```
+
+## 6. What is still open
 
 * **Why** the close wedges on the runner is not proven. The evidence fits the CoreAudio proxy being
   unreachable in the test host (`docs/t44c-calls-engine.md` §6 already records this target wedging in
