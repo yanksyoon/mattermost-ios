@@ -476,6 +476,15 @@ flag).
   `SurfaceDefaults.unhostedSurfaces` — is what keeps this from recurring silently; it lands with
   `t_cdcc1f38`, and its stated limit is that it measures references, not effect (hence `.profile`
   passes).
+* **The three lookup screens ship as notes — decided 2026-10-29, not left open.** `.search` and
+  `.activity` are unapproved, so a shipped shell's Search, Saved and Mentions tabs (and the iPad
+  toolbar buttons) open a note over a webview that §12.2 destroyed — three of five tabs on a release
+  build. `docs/t_aa211ff6-lookup-surface-defaults.md` decides **both keys native-by-default** (the
+  `-AV` evidence is T55-AV-R's `.search` PASS-WITH-FINDINGS after T39-R, and T42-AV's
+  PASS-WITH-FINDINGS closed by T42-R; neither validator deferred the flip, unlike the 2026-10-27
+  workspace decision), landing as one labelled registry commit plus a ship-shaped QA round; the F5′
+  copy (`t_a7432eab`) keeps its three titles, and after that commit the notes are reachable only
+  from a DEBUG configuration. Until the flip lands, the paragraph above describes the shipped state.
 * **Native surfaces: five.** `.auth`, `.calls`, `.sidebar`, `.channelView` and `.composer` are
   native by default (§5); the rest require a passed `-AV` card. The workspace entries carry the
   owner's 2026-10-27 decision because their validators deferred the flip, and `.composer` follows
