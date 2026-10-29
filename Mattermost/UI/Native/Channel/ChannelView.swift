@@ -716,7 +716,11 @@ struct ChannelPaneContent: View {
     @State private var showsChannelInfo = false
     /// T41: whose profile popover is open, if any. One item-bound sheet for both entries (the header's
     /// own avatar and a tapped message author), so the two cannot fight over a presentation.
-    @State private var profileTarget: ProfileTarget?
+    ///
+    /// The state is a one-slot machine on purpose (`ProfilePopoverState`): a second tap while a
+    /// profile is open re-targets the same sheet instead of adding a second one, and only a dismissal
+    /// empties it.
+    @State private var profilePopover = ProfilePopoverState()
     /// T48: this channel's post-options state (permissions, saved set, team name, socket patches).
     @State private var postOptions: PostOptionsViewModel?
 
@@ -730,13 +734,16 @@ struct ChannelPaneContent: View {
         resolver.resolvedMode(for: .composer) == .native
     }
 
-    /// Whether the profile popover renders natively (T41's `.profile` surface).
+    /// Whether this pane offers the author-profile popover (T41's `.profile` card, reached from a post).
     ///
-    /// With it resolving web there is no avatar button and no author tap: the webview's own profile
-    /// popover is the only one on screen, and drawing a second, native one beside it would be two
-    /// answers to the same tap.
-    private var profileSurfaceIsNative: Bool {
-        resolver.resolvedMode(for: .profile) == .native
+    /// Decided by the **pane host**, not by `.profile`'s own resolution: a popover is part of the pane
+    /// it is anchored in, and while this pane is native the webview is not painting these rows at all
+    /// — so the web client's popover cannot be "the one on screen" (see `ProfilePopoverPolicy` for
+    /// the truth table and the defect it fixes, `t_42968927`).
+    private var offersAuthorProfile: Bool {
+        ProfilePopoverPolicy.offersAuthorTap(
+            paneHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface),
+            profileSurface: resolver.resolvedMode(for: .profile))
     }
 
     var body: some View {
@@ -769,8 +776,8 @@ struct ChannelPaneContent: View {
                                     },
                                     recents: emojiRecents,
                                     attachmentDownloads: attachmentDownloads,
-                                    onShowProfile: profileSurfaceIsNative
-                                        ? { userID in profileTarget = ProfileTarget(userID: userID) }
+                                    onShowProfile: offersAuthorProfile
+                                        ? { userID in profilePopover.present(userID: userID) }
                                         : nil,
                                     // T635-A: this pane was routed at a post, so the jump owns its
                                     // position and the initial placement must not move it.
@@ -868,7 +875,8 @@ struct ChannelPaneContent: View {
         }
         // T41: the profile popover. Its own item-bound sheet (the header's own avatar and a tapped
         // message author share it), and the account it opens for is the only state it carries.
-        .sheet(item: $profileTarget) { target in
+        .sheet(item: Binding(get: { profilePopover.target },
+                             set: { profilePopover.target = $0 })) { target in
             ProfileSheet(server: server, userID: target.userID, navigation: navigation)
         }
         .onChange(of: scenePhase) { _, phase in
@@ -982,10 +990,12 @@ struct ChannelPaneContent: View {
             }
             // T41 (S24): my own profile. Upstream's tab bar has an "Account" entry for exactly this;
             // the native pane has no tab of its own, so the header's avatar is the affordance (the same
-            // place the web client puts it).
-            if profileSurfaceIsNative, let myID = profiles.myUserID(for: server), !myID.isEmpty {
+            // place the web client puts it). Gated like the row tap (`offersAuthorProfile`): while this
+            // pane is native the webview is not painting its own account avatar either, so the surface's
+            // own resolution cannot decide whether this control exists.
+            if offersAuthorProfile, let myID = profiles.myUserID(for: server), !myID.isEmpty {
                 Button {
-                    profileTarget = ProfileTarget(userID: myID)
+                    profilePopover.present(userID: myID)
                 } label: {
                     Label("My profile", systemImage: "person.crop.circle")
                         .labelStyle(.iconOnly)

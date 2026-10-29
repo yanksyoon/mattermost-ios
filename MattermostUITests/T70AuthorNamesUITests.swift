@@ -120,9 +120,15 @@ final class T70AuthorNamesUITests: XCTestCase {
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 120),
                       "the channel pane must mount")
         // The rows carry profiles a moment after the page lands; wait for a name, then read the tree.
-        _ = app.staticTexts["perfprobe"].waitForExistence(timeout: 30)
+        // Since `t_42968927` the author's name is a **button** (it opens the profile), so it is no
+        // longer a `staticText` — the wait and the count below are label-based, not type-based, or
+        // this probe would silently stop seeing the very fallback it exists to catch.
+        _ = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", "perfprobe")).firstMatch
+            .waitForExistence(timeout: 30)
 
-        let unknown = app.staticTexts.matching(NSPredicate(format: "label == %@", "Unknown user"))
+        let unknown = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", "Unknown user"))
         let unknownCount = unknown.count
         print("PROBE-T70 unknown-user rows=\(unknownCount) authors=\(authorIDs.count)")
         XCTAssertEqual(unknownCount, 0,

@@ -145,3 +145,42 @@ public enum SurfaceDefaults {
         nativeApprovedSurfaces.contains(surface) ? .native : .web
     }
 }
+
+/// Whether a pane that draws posts offers the author-profile popover.
+///
+/// A profile popover is **not a surface of its own**: it is part of the pane it is anchored in, and
+/// it can only be reached through the rows that pane draws. The `.profile` surface answers a
+/// different question — "does this build ship a native profile *card*" — and T41's card resolved it
+/// `web` (it is not in `nativeApprovedSurfaces`), which made `ChannelView` remove the author tap
+/// entirely. That reasoning only holds while the webview still paints the conversation. It does not:
+/// `.channelView` is pane-owning (`paneOwningSurfaces`, `docs/dual-render.md` §12), so while the
+/// pane is native there is no web conversation on screen and the web client's own popover cannot
+/// answer a tap the reader makes on a native row. The reported defect was exactly that state — the
+/// reader got neither popover.
+///
+/// So the tap belongs to the pane host, not to `.profile`:
+///
+/// | pane host | `.profile` | author tap |
+/// |---|---|---|
+/// | native | web | **offered** — the reported regression; no web popover exists to answer it |
+/// | native | native | offered |
+/// | web | web | not offered — the webview's own popover is the one on screen |
+/// | web | native | not offered — no native pane is mounted, so there is nothing to anchor to |
+///
+/// `.profile` is deliberately read and ignored: keeping it in the signature is what lets the truth
+/// table above be pinned by a test instead of living in a comment.
+public enum ProfilePopoverPolicy {
+
+    /// The avatar/name tap on a post row.
+    ///
+    /// - Parameters:
+    ///   - paneHost: how `SurfaceDefaults.paneHostSurface` resolved for this server.
+    ///   - profileSurface: how `.profile` resolved. **Not consulted** — see the table above.
+    public static func offersAuthorTap(paneHost: SurfaceRenderMode,
+                                       profileSurface: SurfaceRenderMode) -> Bool {
+        switch (paneHost, profileSurface) {
+        case (.native, _): return true
+        case (.web, _): return false
+        }
+    }
+}

@@ -909,6 +909,63 @@ enum DMShortcut {
     }
 }
 
+// MARK: - The action set
+
+/// One row a profile popover can offer.
+enum ProfileAction: String, CaseIterable, Sendable, Identifiable {
+    /// Open (creating it if needed) the direct conversation with this account.
+    case message
+    /// My own presence, through the status setter.
+    case setStatus
+    /// My own custom status (set, or edit when one is set).
+    case customStatus
+    /// Remove my current custom status.
+    case clearCustomStatus
+
+    var id: String { rawValue }
+}
+
+/// The rows a profile popover offers for this account, gated by the viewer's permissions.
+///
+/// Upstream draws more rows than this build can honour — webapp `components/profile_popover` and
+/// mobile `screens/user_profile` have Message, Call (when the Calls plugin is enabled), Add to
+/// channel / Invite to team (only with the channel/team permission), Manage (a system admin acting
+/// on somebody else), and the account's own entries. This client can perform Message (a DM the
+/// server creates) and the three self entries; Call, Add to channel, Invite to team and Manage each
+/// need a permission model and a write path this build does not have, so they are **absent rather
+/// than drawn disabled** — a row that cannot work is worse than no row (`docs/t_42968927-profile-popover.md` §4).
+///
+/// Pure, so the permission matrix the card asks for is a unit test rather than a screenshot:
+///
+///  * another member (or a bot) → `[.message]`, no self rows;
+///  * my own profile → `[.setStatus, .customStatus]`, plus `.clearCustomStatus` when one is set;
+///  * a deactivated account → no rows at all, and the reason is copy the screen can show.
+struct ProfileActionSet: Equatable {
+    /// The rows, in the order the sheet draws them.
+    let offered: [ProfileAction]
+    /// Why no Message row is offered, when the account can say something more useful than nothing.
+    let messageUnavailableReason: String?
+
+    func offers(_ action: ProfileAction) -> Bool { offered.contains(action) }
+
+    static func resolve(profile: MMUserProfile,
+                        myUserID: String?,
+                        hasCustomStatus: Bool) -> ProfileActionSet {
+        var offered: [ProfileAction] = []
+        if DMShortcut.canMessage(profile: profile, myUserID: myUserID) {
+            offered.append(.message)
+        }
+        if let myUserID, !myUserID.isEmpty, profile.id == myUserID {
+            offered.append(.setStatus)
+            offered.append(.customStatus)
+            if hasCustomStatus { offered.append(.clearCustomStatus) }
+        }
+        return ProfileActionSet(offered: offered,
+                                messageUnavailableReason: DMShortcut.unavailableReason(profile: profile,
+                                                                                        myUserID: myUserID))
+    }
+}
+
 // MARK: - Formatting
 
 /// The strings the profile draws, as pure functions of a date, a zone and a locale.

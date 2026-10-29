@@ -208,9 +208,9 @@ struct PostRowView: View {
     /// T38: what the attachment section may do — open the gallery, open a file preview, download.
     /// Nil keeps the drawn-but-inert rendering (a preview host, or the web render of the pane).
     var attachmentActions: PostRowAttachmentActions? = nil
-    /// T41: a tap on the author's avatar opens that account's profile. Nil keeps the avatar inert —
-    /// a preview host, the thread host that has not been wired yet, and every host while the
-    /// `profile` surface resolves web.
+    /// T41: a tap on the author's avatar **or name** opens that account's profile. Nil keeps both
+    /// inert — a preview host, a thread host that has not been wired yet, or a pane that is not the
+    /// native conversation (see `ProfilePopoverPolicy`).
     var onShowProfile: ((String) -> Void)? = nil
 
     private var showsHeader: Bool { !row.isGrouped && !row.isSystem }
@@ -286,9 +286,10 @@ struct PostRowView: View {
     private var gutter: some View {
         if showsHeader {
             if let onShowProfile {
-                // T41: the avatar is the profile affordance, as it is in the web client and in
-                // upstream's `app/components/post/avatar`. A row with no host callback keeps the plain
-                // drawing (a preview, or the surface resolving web).
+                // T41: the avatar is one of the profile's two affordances, as it is in the web client
+                // and in upstream's `app/components/post/avatar`; the author's name is the other
+                // (`authorName`). A row with no host callback keeps the plain drawing (a preview, or
+                // the surface resolving web).
                 Button {
                     onShowProfile(row.author.id)
                 } label: {
@@ -319,10 +320,7 @@ struct PostRowView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(row.author.displayName)
-                .font(.system(size: 15, weight: .semibold))
-                .lineLimit(1)
-                .accessibilityIdentifier("post.\(row.id).author")
+            authorName
             Text(timeTitle)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
@@ -344,6 +342,34 @@ struct PostRowView: View {
             }
             Spacer(minLength: 0)
         }
+    }
+
+    /// The author's name. Upstream makes the name and the avatar one affordance
+    /// (`components/profile_popover`: the header's name is clickable), so a tap on either opens the
+    /// profile. A host that passes no callback keeps the plain, inert text — a preview, or a pane
+    /// whose posts are not the native conversation (`ProfilePopoverPolicy`).
+    @ViewBuilder
+    private var authorName: some View {
+        if let onShowProfile {
+            Button {
+                onShowProfile(row.author.id)
+            } label: {
+                authorNameText
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(row.author.displayName)
+            .accessibilityHint("Opens profile")
+            .accessibilityIdentifier("post.\(row.id).author")
+        } else {
+            authorNameText
+                .accessibilityIdentifier("post.\(row.id).author")
+        }
+    }
+
+    private var authorNameText: some View {
+        Text(row.author.displayName)
+            .font(.system(size: 15, weight: .semibold))
+            .lineLimit(1)
     }
 
     private var timeTitle: String {

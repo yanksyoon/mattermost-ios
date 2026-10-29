@@ -45,6 +45,23 @@ struct ProfileTarget: Identifiable, Equatable {
     var id: String { userID }
 }
 
+/// The one profile a pane can have open, as a single-slot state machine.
+///
+/// `ProfileTarget` is a value; this is the pane's *presentation* of it: exactly one account at a
+/// time, a second tap re-aims the sheet instead of stacking another presentation, and only a
+/// dismissal empties the slot. Pairing it with `.sheet(item:)` is what makes "only one popover is
+/// open" structural rather than a rule each host has to remember (`t_42968927`).
+struct ProfilePopoverState: Equatable {
+    /// The account whose profile is open. `.sheet(item:)` writes `nil` here on dismissal, so it is
+    /// the sheet's binding, not a private cache.
+    var target: ProfileTarget?
+
+    var isPresenting: Bool { target != nil }
+
+    /// Open (or re-aim) this pane's one profile sheet.
+    mutating func present(userID: String) { target = ProfileTarget(userID: userID) }
+}
+
 /// The sheet the shell presents for one account.
 struct ProfileSheet: View {
     let server: ServerConfig
@@ -289,8 +306,10 @@ struct ProfileScreen: View {
 
     @ViewBuilder
     private var actions: some View {
+        // Rows come from `ProfileActionSet` (permission-gated, unit-tested), not from conditions
+        // repeated here: the sheet draws exactly what the model says this viewer may do.
         VStack(spacing: 10) {
-            if model.canMessage {
+            if model.actions.offers(.message) {
                 Button {
                     Task { await model.openConversation() }
                 } label: {
@@ -300,7 +319,7 @@ struct ProfileScreen: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(model.isWriting)
                 .accessibilityIdentifier("profile.message")
-            } else if let reason = model.messageUnavailableReason {
+            } else if let reason = model.actions.messageUnavailableReason {
                 Text(reason)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -310,7 +329,7 @@ struct ProfileScreen: View {
             if let failure = model.conversationFailure {
                 bannerView(failure)
             }
-            if model.isMe {
+            if model.actions.offers(.setStatus) {
                 Button {
                     showsStatusSetter = true
                 } label: {
@@ -330,7 +349,7 @@ struct ProfileScreen: View {
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("profile.customStatusRow")
 
-                if model.activeCustomStatus != nil {
+                if model.actions.offers(.clearCustomStatus) {
                     Button(role: .destructive) {
                         Task { await model.clearCustomStatus() }
                     } label: {

@@ -115,6 +115,19 @@ final class ProfileViewModel: ObservableObject {
         return DMShortcut.unavailableReason(profile: profile, myUserID: myUserID)
     }
 
+    /// The permission-gated rows this popover offers (`ProfileActionSet`): Message for somebody
+    /// else, the status entries on my own profile, nothing for a deactivated account. The screen
+    /// draws *this*, so the matrix the card specifies is one pure rule instead of three `if`s in the
+    /// view that could drift apart.
+    var actions: ProfileActionSet {
+        guard let profile else {
+            return ProfileActionSet(offered: [], messageUnavailableReason: nil)
+        }
+        return ProfileActionSet.resolve(profile: profile,
+                                        myUserID: myUserID,
+                                        hasCustomStatus: activeCustomStatus != nil)
+    }
+
     /// The setter's current value: the row that is ticked.
     var selectedPresence: UserPresence? {
         guard isMe, let status, status.presence != .unknown else { return nil }
