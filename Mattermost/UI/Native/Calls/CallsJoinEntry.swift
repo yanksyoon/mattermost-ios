@@ -60,7 +60,23 @@ struct CallsJoinEntry: View {
                 try? await Task.sleep(nanoseconds: nanos)
             }
         }
-        .fullScreenCover(item: $presentation) { model in
+        .task(id: channelID) { startIfRequested() }
+        .onReceive(calls.$pendingStarts) { _ in
+            // The other half: an intent that arrives **after** this pane is already on screen (the
+            // same conversation's profile opened again). `onReceive` and not `onChange`: the latter
+            // compares against the value captured at the last body evaluation, and a pane rebuilt in
+            // the same turn as the write loses that baseline — measured once as a join that simply
+            // never ran. A publisher emission has no baseline to lose. Neither trigger is a task
+            // identity that consumption can invalidate, so nothing here cancels the join it starts.
+            startIfRequested()
+        }
+        .fullScreenCover(item: $presentation, onDismiss: {
+            // The one dismissal rule: closing the surface (Leave, Close, a swipe down, or the pane
+            // going away) leaves the call. `onDismiss` is what SwiftUI raises for a dismissal — a
+            // content re-creation is not one, which is why this lives here and not in the surface's
+            // own `onDisappear` (`CallsSurfaceView`'s header).
+            Task { await calls.endCall() }
+        }) { model in
             CallsSurfaceView(model: model)
         }
         .alert("Calls", isPresented: Binding(get: { calls.lastError != nil },
@@ -68,6 +84,27 @@ struct CallsJoinEntry: View {
             Button("OK", role: .cancel) { calls.clearError() }
         } message: {
             Text(calls.lastError ?? "")
+        }
+    }
+
+    /// Consume the profile's Call intent, if this pane is its target, and start the call — and
+    /// present it — from the pane, never from inside the sheet the row was tapped in.
+    ///
+    /// Deliberately **not** a `.task(id:)`: the pending value is part of what consumption changes, so
+    /// an id that carries it is invalidated by the very act of consuming it, and SwiftUI then cancels
+    /// the in-flight task. Measured: the join failed with `MMError.cancelled` while the plugin-version
+    /// request was still out, so no call was ever created (`build/logs/t5449-c3-ui-call2.log`). A
+    /// plain `Task` started here is owned by nobody, so the next view update cannot cancel it.
+    /// A failure surfaces through `startCall`'s `lastError` alert above, the surface's one error path.
+    private func startIfRequested() {
+        guard presentation == nil, !isStarting else { return }
+        guard calls.consumeStart(serverID: server.id, channelID: channelID) else { return }
+        isStarting = true
+        Task {
+            presentation = await calls.startCall(server: server,
+                                                 channelID: channelID,
+                                                 channelName: channelName)
+            isStarting = false
         }
     }
 }

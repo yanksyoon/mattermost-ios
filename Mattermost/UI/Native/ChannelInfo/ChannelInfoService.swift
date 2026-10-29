@@ -28,6 +28,11 @@ protocol ChannelInfoServing: AnyObject {
     func myMembership(channelID: String) async throws -> MMChannelMember
     /// My team membership, for the team roles (`manage_team`).
     func myTeamMembership(teamID: String) async throws -> MMTeamMembership
+    /// One team membership — mine (the same row `myTeamMembership` answers) or **somebody else's**,
+    /// which is how the profile's Add-to-a-channel row proves the account is a live member of the
+    /// current team (`t_8f9f5449` §4, §6). `MMError.notFound` is the server's own answer for "not a
+    /// member", i.e. a fact rather than a failure.
+    func teamMembership(teamID: String, userID: String) async throws -> MMTeamMembership
     /// The permission ids of the named roles (`POST /roles/names`).
     ///
     /// A role name the server does not answer contributes nothing; it must not fail the load, because a
@@ -59,6 +64,9 @@ protocol ChannelInfoServing: AnyObject {
     /// The channels I am in on this team (`GET /users/me/teams/{tid}/channels`) — the browser's "joined"
     /// set, and the id set the browser needs to split its two sections.
     func myTeamChannels(teamID: String) async throws -> [MMChannel]
+    /// My membership row for **every** channel I am in (`GET /users/me/channel_members`) — the
+    /// `roles` half of the team-wide "can I manage members here?" answer (`t_8f9f5449` §6).
+    func myChannelMemberships() async throws -> [MMChannelMember]
     /// The team's public channels (`GET /teams/{tid}/channels`).
     func teamPublicChannels(teamID: String, page: Int, perPage: Int) async throws -> [MMChannel]
     /// The team's archived channels (`GET /teams/{tid}/channels/deleted`); 403 when the reader may not
@@ -82,6 +90,12 @@ extension ChannelInfoServing {
     /// A service that cannot answer the archived list simply has none: the browser then shows the live
     /// channels only, which is what a reader without `list_team_channels` would see anyway.
     func archivedTeamChannels(teamID: String, page: Int, perPage: Int) async throws -> [MMChannel] { [] }
+
+    /// A service that cannot answer my channel memberships answers none — and the caller's rule is
+    /// **closed** on an empty answer (`canManageAnyChannelMembers == false`), never "unknown means
+    /// yes". A fake that wants the Add-to-a-channel row implements this; a green test cannot be
+    /// produced by forgetting to.
+    func myChannelMemberships() async throws -> [MMChannelMember] { [] }
 
     /// Default: no profiles. A member row then falls back to the user id, never to a made-up name (the
     /// same degradation rule as `ChannelServing.users`).
@@ -137,6 +151,10 @@ final class SessionChannelInfoService: ChannelInfoServing {
         return try await client().teamMembership(teamID: teamID, userID: principal.id)
     }
 
+    func teamMembership(teamID: String, userID: String) async throws -> MMTeamMembership {
+        try await client().teamMembership(teamID: teamID, userID: userID)
+    }
+
     func rolePermissions(names: [String]) async throws -> [MMRole] {
         try await client().roles(names: names)
     }
@@ -189,6 +207,10 @@ final class SessionChannelInfoService: ChannelInfoServing {
 
     func myTeamChannels(teamID: String) async throws -> [MMChannel] {
         try await client().teamChannels(teamID: teamID)
+    }
+
+    func myChannelMemberships() async throws -> [MMChannelMember] {
+        try await client().myChannelMembers()
     }
 
     func teamPublicChannels(teamID: String, page: Int, perPage: Int) async throws -> [MMChannel] {

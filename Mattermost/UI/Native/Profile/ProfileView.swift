@@ -29,6 +29,10 @@
 //   profile.position        the job title / bio line
 //   profile.message         "Send message" (absent when it cannot work)
 //   profile.messageReason   why it cannot work
+//   profile.addToChannel    opens the team-scoped channel picker (t_8f9f5449 C3)
+//   profile.addToChannelReason  why it is not offered
+//   profile.call            starts a call with this account, through their DM (same card)
+//   profile.callReason      why it is not offered ("You are already in a call.")
 //   profile.setStatus       opens the status setter (my own profile only)
 //   profile.customStatusRow opens the custom status editor (my own profile only)
 //   profile.clearStatus     clears the custom status (my own profile only, when one is set)
@@ -75,6 +79,8 @@ struct ProfileSheet: View {
     var navigation: NativeNavigation?
 
     @EnvironmentObject private var coordinator: ProfileCoordinator
+    @EnvironmentObject private var calls: CallsCoordinator
+    @EnvironmentObject private var resolver: SurfaceModeResolver
     @Environment(\.dismiss) private var dismiss
     @State private var model: ProfileViewModel?
 
@@ -85,9 +91,10 @@ struct ProfileSheet: View {
                     ProfileScreen(model: model,
                                   server: server,
                                   onClose: { dismiss() },
-                                  onOpenConversation: { channel in
-                                      openConversation(channel)
-                                  })
+                                  onOpenConversation: { channel, intent in
+                                      openConversation(channel, intent: intent)
+                                  },
+                                  teamID: navigation?.location.teamID)
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -111,6 +118,16 @@ struct ProfileSheet: View {
             // One presence read on open, warm model or not (`load()`): the sheet may have been
             // closed for minutes, and this server never sends a colleague's `status_change`.
             await resolved.load()
+            // The two write rows' gate (T5449 C3): what Calls can do here, whether a call is already
+            // live, the team this sheet was opened from, and the two team-scoped permission answers.
+            // Resolved on open — never on a row's tap path — and before the presence loop so the
+            // rows exist as soon as the profile does.
+            await coordinator.prepareActions(model: resolved,
+                                             server: server,
+                                             teamID: navigation?.location.teamID,
+                                             callsAvailable: calls.isCallsAvailable(serverID: server.id),
+                                             callsSurfaceNative: resolver.resolvedMode(for: .calls) == .native,
+                                             hasLiveCallElsewhere: calls.hasLiveCall)
             // Presence keeps itself current while the profile is open. `status_change` cannot do it
             // for somebody else — the server addresses that frame to the account that changed — so the
             // batched read is polled, which is what the web client does too (see
@@ -122,7 +139,12 @@ struct ProfileSheet: View {
     }
 
     /// Open the conversation the server answered, then close the sheet.
-    private func openConversation(_ channel: MMChannel) {
+    ///
+    /// For `.call` the pane is asked to join the call **after** the sheet is dismissed and the DM is
+    /// the shell's location: `CallsJoinEntry` owns `CallsSurfaceView`, and a full-screen cover raised
+    /// while a sheet is still up is T40's measured nested-presentation failure. Nothing here presents
+    /// the call surface.
+    private func openConversation(_ channel: MMChannel, intent: ProfileConversationIntent) {
         guard let navigation else {
             dismiss()
             return
@@ -130,8 +152,11 @@ struct ProfileSheet: View {
         var request = NativeChannelRequest(serverID: server.id, channelID: channel.id)
         request.teamID = channel.teamId.isEmpty ? nil : channel.teamId
         request.channelName = channel.name.isEmpty ? nil : channel.name
-        _ = navigation.openChannel(request)
         dismiss()
+        _ = navigation.openChannel(request)
+        if intent == .call {
+            calls.requestStart(serverID: server.id, channelID: channel.id)
+        }
     }
 }
 
@@ -140,13 +165,17 @@ struct ProfileScreen: View {
     @ObservedObject var model: ProfileViewModel
     let server: ServerConfig
     let onClose: () -> Void
-    var onOpenConversation: (MMChannel) -> Void = { _ in }
+    var onOpenConversation: (MMChannel, ProfileConversationIntent) -> Void = { _, _ in }
+    /// The team the enclosing shell is in (`navigation.location.teamID`), for the Add-to-a-channel
+    /// picker. `nil` in a host that knows no team — the row is then absent anyway.
+    var teamID: String? = nil
 
     @EnvironmentObject private var coordinator: ProfileCoordinator
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var showsStatusSetter = false
     @State private var showsCustomStatusEditor = false
+    @State private var showsAddToChannel = false
 
     private var now: Date { Date() }
 
@@ -173,10 +202,23 @@ struct ProfileScreen: View {
         .navigationDestination(isPresented: $showsCustomStatusEditor) {
             CustomStatusEditorScreen(model: model)
         }
+        // T5449 C3: upstream's Add to a Channel opens a **picker**, team-scoped. A push on this
+        // sheet's own stack — legal where a nested sheet is not (`ProfileView.swift`'s header).
+        // The team is the shell's current one (`navigation.location.teamID`), never an injected
+        // channel: upstream's row is team-scoped (§6).
+        .navigationDestination(isPresented: $showsAddToChannel) {
+            if let teamID {
+                AddToChannelPickerView(server: server,
+                                       teamID: teamID,
+                                       userID: model.userID,
+                                       userDisplayName: model.profile?.displayName ?? "")
+            }
+        }
         .onChange(of: model.conversation) { _, channel in
             guard let channel else { return }
+            let intent = model.conversationIntent
             model.consumeConversation()
-            onOpenConversation(channel)
+            onOpenConversation(channel, intent)
         }
     }
 
@@ -311,7 +353,8 @@ struct ProfileScreen: View {
     @ViewBuilder
     private var actions: some View {
         // Rows come from `ProfileActionSet` (permission-gated, unit-tested), not from conditions
-        // repeated here: the sheet draws exactly what the model says this viewer may do.
+        // repeated here: the sheet draws exactly what the model says this viewer may do, in the
+        // matrix's order — Message, Add to a channel, Call, then the self rows (`t_8f9f5449` §4).
         VStack(spacing: 10) {
             if model.actions.offers(.message) {
                 Button {
@@ -330,6 +373,49 @@ struct ProfileScreen: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .accessibilityIdentifier("profile.messageReason")
             }
+
+            // T5449 C3 — upstream's "Add to a Channel": a **team-scoped picker**, pushed on this
+            // sheet's own stack. Offered only when the matrix proved both terms
+            // (in this team ∧ I manage some channel's members); otherwise the sentence says why.
+            if model.actions.offers(.addToChannel) {
+                Button {
+                    showsAddToChannel = true
+                } label: {
+                    Label("Add to a channel", systemImage: "person.badge.plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("profile.addToChannel")
+            } else if let reason = model.actions.addToChannelUnavailableReason {
+                Text(reason)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .accessibilityIdentifier("profile.addToChannelReason")
+            }
+
+            // T5449 C3 — upstream's Call row. It is a **route** into the Calls surface, not a second
+            // presentation of it: the DM is created, the pane opens it, and the pane's own
+            // `CallsJoinEntry` joins the call (a cover raised from inside this sheet is T40's
+            // measured nested-presentation failure).
+            if model.actions.offers(.call) {
+                Button {
+                    Task { await model.openConversation(intent: .call) }
+                } label: {
+                    Label("Call", systemImage: "phone")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.isWriting)
+                .accessibilityIdentifier("profile.call")
+            } else if let reason = model.actions.callUnavailableReason {
+                Text(reason)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .accessibilityIdentifier("profile.callReason")
+            }
+
             if let failure = model.conversationFailure {
                 bannerView(failure)
             }

@@ -61,10 +61,23 @@ final class ProfileViewModel: ObservableObject {
     @Published private(set) var isWriting = false
     /// The last write's failure, reader-facing.
     @Published private(set) var banner: String?
-    /// The conversation behind "Send message", once the server answered.
+    /// The conversation behind "Send message" / "Call", once the server answered.
     @Published private(set) var conversation: MMChannel?
+    /// Which row produced it — the host opens the conversation either way, and a `.call` also asks
+    /// the pane to join the channel's call (`CallsCoordinator.requestStart`).
+    @Published private(set) var conversationIntent: ProfileConversationIntent = .open
     /// Why "Send message" failed, when it did.
     @Published private(set) var conversationFailure: String?
+
+    /// The app facts the **write rows** are gated on (Call, Add to a channel): whether Calls is
+    /// usable and native, whether a call is already live, the current team, and the two team-scoped
+    /// permission answers. Written by `ProfileCoordinator.prepareActions` when the sheet opens —
+    /// never on a row's tap path — so the matrix has already answered by the time a row can be
+    /// touched (`docs/t_8f9f5449-profile-popover-parity.md` §4, §6).
+    ///
+    /// The model's **own** facts (who is signed in, whether a custom status is set) are not stored
+    /// here: `actions` overlays them, so a custom-status write cannot leave the matrix stale.
+    @Published var actionContext = ProfileActionContext()
 
     /// Told to the coordinator whenever my own presence changes, so the auto-away pass reasons about
     /// the status this app just wrote rather than a stale reading.
@@ -116,16 +129,17 @@ final class ProfileViewModel: ObservableObject {
     }
 
     /// The permission-gated rows this popover offers (`ProfileActionSet`): Message for somebody
-    /// else, the status entries on my own profile, nothing for a deactivated account. The screen
-    /// draws *this*, so the matrix the card specifies is one pure rule instead of three `if`s in the
-    /// view that could drift apart.
+    /// else, the two write rows when every term of their gate is proved, the status entries on my
+    /// own profile, nothing for a deactivated account. The screen draws *this*, so the matrix the
+    /// card specifies is one pure rule instead of a dozen `if`s in the view that could drift apart.
     var actions: ProfileActionSet {
-        guard let profile else {
-            return ProfileActionSet(offered: [], messageUnavailableReason: nil)
-        }
-        return ProfileActionSet.resolve(profile: profile,
-                                        myUserID: myUserID,
-                                        hasCustomStatus: activeCustomStatus != nil)
+        guard let profile else { return .empty }
+        var context = actionContext
+        // The model's own facts always win over whatever the last preparation wrote: these two are
+        // about the screen's subject, not about the app.
+        context.myUserID = myUserID
+        context.hasCustomStatus = activeCustomStatus != nil
+        return ProfileActionSet.resolve(profile: profile, context: context)
     }
 
     /// The setter's current value: the row that is ticked.
@@ -352,7 +366,12 @@ final class ProfileViewModel: ObservableObject {
     /// The channel is published rather than navigated to here: the view owns presentation, and the
     /// model has no navigation authority (the same split as T40's browse model, which hands its join
     /// target back to the host).
-    func openConversation() async {
+    ///
+    /// `intent` is the *row* that asked: `.open` is "Send message", `.call` is "Call" — the same
+    /// write, and the host does one extra thing for `.call` (asks the pane to join the channel's
+    /// call once the DM is on screen; `ProfileSheet.openConversation`). Both come through here so
+    /// there is one DM write, one failure sentence and one `isWriting` lock.
+    func openConversation(intent: ProfileConversationIntent = .open) async {
         guard let profile, let myUserID, !myUserID.isEmpty else {
             conversationFailure = messageUnavailableReason ?? "A conversation cannot be started."
             return
@@ -378,6 +397,7 @@ final class ProfileViewModel: ObservableObject {
                 conversationFailure = "The server answered a channel this app cannot open as a conversation."
                 return
             }
+            conversationIntent = intent
             conversation = channel
         } catch {
             isWriting = false

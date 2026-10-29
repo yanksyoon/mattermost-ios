@@ -912,9 +912,17 @@ enum DMShortcut {
 // MARK: - The action set
 
 /// One row a profile popover can offer.
+///
+/// The order of the cases is **not** the order the sheet draws them in (that is
+/// `ProfileActionSet.resolve`'s, which is upstream's DOM order); it is the order this file reads in.
 enum ProfileAction: String, CaseIterable, Sendable, Identifiable {
     /// Open (creating it if needed) the direct conversation with this account.
     case message
+    /// Add this account to one of my channels — upstream's **team-scoped channel picker**, not
+    /// "add to this channel" (`t_8f9f5449` §6).
+    case addToChannel
+    /// Start a call with this account: open their direct conversation, then join its call.
+    case call
     /// My own presence, through the status setter.
     case setStatus
     /// My own custom status (set, or edit when one is set).
@@ -925,45 +933,184 @@ enum ProfileAction: String, CaseIterable, Sendable, Identifiable {
     var id: String { rawValue }
 }
 
+/// The facts **outside** the profile itself that the row matrix is a function of.
+///
+/// Split out of `ProfileActionSet.resolve` so every cell of the matrix is a unit test with no
+/// server, no socket and no view (`t_8f9f5449` §4). The profile's own facts (who it is, whether it
+/// is a bot, whether it is deactivated) stay a parameter: they are what the sheet is *about*.
+struct ProfileActionContext: Equatable {
+    /// The signed-in account, so the resolver can tell my own profile from somebody else's.
+    var myUserID: String?
+    /// Whether this account has a custom status in force — the one self row that depends on data.
+    var hasCustomStatus = false
+    /// `CallsCoordinator.isCallsAvailable(serverID:)`. **Answers `true` until a probe 404s** — the
+    /// deliberate exception to "unknown is absent" (§4): a Call row that disappeared before the
+    /// first probe would mean nobody could start the first call.
+    var callsAvailable = true
+    /// `SurfaceModeResolver.resolvedMode(for: .calls) == .native`. While Calls renders web the
+    /// webview owns it and a native row would be a second answer to the same tap.
+    var callsSurfaceNative = false
+    /// A call is live somewhere else (`CallsCoordinator.surface`). Switching calls is out of scope,
+    /// so the row is absent with a reason instead (`switch_call_modal` is not ported).
+    var hasLiveCallElsewhere = false
+    /// `navigation?.location.teamID != nil`. Upstream's Add to a Channel row is drawn from the
+    /// *team* context; without one there is no picker to open.
+    var hasTeam = false
+    /// Is the profile's account a live member of the current team? `nil` = not resolved yet.
+    var inCurrentTeam: Bool?
+    /// Do I hold manage-members on **some** channel of the current team (upstream's
+    /// `canManageAnyChannelMembersInCurrentTeam`)? `nil` = not resolved yet.
+    var canManageAnyChannelMembers: Bool?
+
+    /// Nothing is known: every optional is `nil`/false, so both write rows are absent.
+    static let unknown = ProfileActionContext()
+}
+
 /// The rows a profile popover offers for this account, gated by the viewer's permissions.
 ///
-/// Upstream draws more rows than this build can honour — webapp `components/profile_popover` and
-/// mobile `screens/user_profile` have Message, Call (when the Calls plugin is enabled), Add to
-/// channel / Invite to team (only with the channel/team permission), Manage (a system admin acting
-/// on somebody else), and the account's own entries. This client can perform Message (a DM the
-/// server creates) and the three self entries; Call, Add to channel, Invite to team and Manage each
-/// need a permission model and a write path this build does not have, so they are **absent rather
-/// than drawn disabled** — a row that cannot work is worse than no row (`docs/t_42968927-profile-popover.md` §4).
+/// A **pure function of a context** (`ProfileActionContext`), so the whole matrix is a unit test
+/// rather than a screenshot. Order is upstream's DOM order — Message first, then the two secondary
+/// writes, then the self rows (`t_8f9f5449` §4, normative):
 ///
-/// Pure, so the permission matrix the card asks for is a unit test rather than a screenshot:
+/// | action | another member (human) | bot | deactivated | my own profile |
+/// |---|---|---|---|---|
+/// | `.message` | ✅ | ✅ | ❌ reason | ❌ reason |
+/// | `.addToChannel` | ✅ | ✅ | ❌ absent | ❌ absent |
+/// | `.call` | ✅ | ❌ absent | ❌ absent | ❌ absent |
+/// | self rows | ❌ | ❌ | ❌ | ✅ |
 ///
-///  * another member (or a bot) → `[.message]`, no self rows;
-///  * my own profile → `[.setStatus, .customStatus]`, plus `.clearCustomStatus` when one is set;
-///  * a deactivated account → no rows at all, and the reason is copy the screen can show.
+/// Two rules keep it honest:
+///
+///  * **unknown is absent, not assumed** — an unresolved `inCurrentTeam` / `canManageAnyChannelMembers`
+///    (or no team at all) means the row is not drawn yet. That is `ChannelInfoCapabilities.none`'s own
+///    rule: a screen that has not finished loading permissions must not offer one it cannot prove.
+///  * **`.call`'s `callsAvailable` is the one deliberate exception** — see `ProfileActionContext`.
+///
+/// Each absence carries a sentence in the slot `messageUnavailableReason` uses, so the sheet can say
+/// *why* ("You are already in a call.") instead of showing nothing. A row that is **structurally**
+/// absent for this account (a bot's Call row, a deactivated account's two writes, my own profile's)
+/// carries **no** reason: there is nothing the reader could do about it.
 struct ProfileActionSet: Equatable {
     /// The rows, in the order the sheet draws them.
     let offered: [ProfileAction]
     /// Why no Message row is offered, when the account can say something more useful than nothing.
     let messageUnavailableReason: String?
+    /// Why no Call row is offered although this account could be called.
+    let callUnavailableReason: String?
+    /// Why no Add to a channel row is offered although this account could be added somewhere.
+    let addToChannelUnavailableReason: String?
 
     func offers(_ action: ProfileAction) -> Bool { offered.contains(action) }
 
-    static func resolve(profile: MMUserProfile,
-                        myUserID: String?,
-                        hasCustomStatus: Bool) -> ProfileActionSet {
+    /// Nothing offered and nothing to say — the state while the profile is still loading.
+    static let empty = ProfileActionSet(offered: [],
+                                        messageUnavailableReason: nil,
+                                        callUnavailableReason: nil,
+                                        addToChannelUnavailableReason: nil)
+
+    static func resolve(profile: MMUserProfile, context: ProfileActionContext) -> ProfileActionSet {
         var offered: [ProfileAction] = []
-        if DMShortcut.canMessage(profile: profile, myUserID: myUserID) {
+        let isMe = context.myUserID.map { !$0.isEmpty && $0 == profile.id } ?? false
+        // Both write rows belong to upstream's "other user" row: they are never drawn on my own
+        // profile, and never on an account the server has deactivated (there is nobody to add or
+        // call). A bot is a member like any other for Add to a channel — that is how an integration
+        // is pulled into a channel — but not for Call.
+        let isSomebodyElse = !isMe && !profile.isDeactivated
+
+        if DMShortcut.canMessage(profile: profile, myUserID: context.myUserID) {
             offered.append(.message)
         }
-        if let myUserID, !myUserID.isEmpty, profile.id == myUserID {
+
+        var addToChannelReason: String?
+        if isSomebodyElse {
+            let gate = addToChannelGate(context)
+            addToChannelReason = gate.reason
+            if gate.isOffered { offered.append(.addToChannel) }
+        }
+
+        var callReason: String?
+        if isSomebodyElse && !profile.isBot {
+            let gate = callGate(context)
+            callReason = gate.reason
+            if gate.isOffered { offered.append(.call) }
+        }
+
+        if isMe {
             offered.append(.setStatus)
             offered.append(.customStatus)
-            if hasCustomStatus { offered.append(.clearCustomStatus) }
+            if context.hasCustomStatus { offered.append(.clearCustomStatus) }
         }
+
         return ProfileActionSet(offered: offered,
                                 messageUnavailableReason: DMShortcut.unavailableReason(profile: profile,
-                                                                                        myUserID: myUserID))
+                                                                                       myUserID: context.myUserID),
+                                callUnavailableReason: callReason,
+                                addToChannelUnavailableReason: addToChannelReason)
     }
+
+    /// Call's gate. Every term has a sentence, because every term is a fact the reader can act on
+    /// (leave the other call, use the web view, this server has no Calls).
+    static func callGate(_ context: ProfileActionContext) -> ProfileRowGate {
+        if context.hasLiveCallElsewhere { return .absent("You are already in a call.") }
+        if !context.callsSurfaceNative {
+            return .absent("Calls opens in the web view on this device, so there is no call button here.")
+        }
+        if !context.callsAvailable { return .absent("Calls is not available on this server.") }
+        return .offer
+    }
+
+    /// Why Add to a channel is not offered, when the account could be added at all.
+    ///
+    /// An **unresolved** answer is absence *without* a sentence: "you may not" is a claim, and the
+    /// sheet has not earned it yet (§4). So this returns three states, not two — a `String?` could
+    /// not tell "draw the row" from "hide it and say nothing".
+    static func addToChannelGate(_ context: ProfileActionContext) -> ProfileRowGate {
+        guard context.hasTeam else {
+            return .absent("Open this profile from a conversation in a team to add somebody to a channel.")
+        }
+        if context.inCurrentTeam == false {
+            return .absent("This account is not a member of this team, so it cannot join its channels.")
+        }
+        if context.canManageAnyChannelMembers == false {
+            return .absent("You do not manage the members of any channel in this team.")
+        }
+        // Both terms must be *proved* before the row is drawn: an unresolved permission is not a
+        // permission (`ChannelInfoCapabilities.none`'s rule, the reason T40 drew no actions until
+        // its lookup came back). The row pops in when the coordinator's answer arrives, which is
+        // one appearance — never an offer that is withdrawn again.
+        guard context.inCurrentTeam == true, context.canManageAnyChannelMembers == true else {
+            return .absent(nil)
+        }
+        return .offer
+    }
+}
+
+/// Whether a row is drawn, and what the sheet may say when it is not.
+///
+/// Three states rather than two: `absent(reason: nil)` is a row that is simply not there — an
+/// unresolved permission, a bot's Call row — and drawing a sentence for it would invent a claim the
+/// account has not made. A `String?` cannot carry that difference.
+enum ProfileRowGate: Equatable {
+    case offer
+    /// `nil` = hidden, with nothing to say.
+    case absent(String?)
+
+    var isOffered: Bool { self == .offer }
+    /// The sentence to draw under the section, when there is one.
+    var reason: String? { if case let .absent(reason) = self { return reason } else { return nil } }
+}
+
+/// Which row asked for the direct conversation.
+///
+/// Both rows perform the same write (`POST /channels/direct`, T41's path) and differ only in what
+/// the host does once the channel exists: `.open` shows it, `.call` shows it **and** asks the pane
+/// to join its call (`CallsCoordinator.requestStart`). Modelled as one value so the model publishes
+/// one channel and the host cannot mistake one row for the other.
+enum ProfileConversationIntent: Equatable, Sendable {
+    /// "Send message".
+    case open
+    /// "Call" (`t_8f9f5449` §5).
+    case call
 }
 
 // MARK: - Formatting

@@ -184,16 +184,12 @@ struct ChannelInfoCapabilities: Equatable, Sendable {
         let isArchived = channel.deleteAt != 0
         let isDefault = channel.name == ChannelDefaults.defaultChannelName
 
-        let memberPermission = kind == .open
-            ? ChannelPermissionID.managePublicChannelMembers
-            : ChannelPermissionID.managePrivateChannelMembers
         let propertiesPermission = kind == .open
             ? ChannelPermissionID.managePublicChannelProperties
             : ChannelPermissionID.managePrivateChannelProperties
 
         // Upstream `observeCanManageChannelMembers`: no archived channel, no DM/GM, no default channel.
-        let canManageMembers = !isArchived && !kind.isDirectOrGroup && !isDefault
-            && permissions.contains(memberPermission)
+        let canManageMembers = Self.canManageMembers(channel: channel, permissions: permissions)
         // Upstream `observeCanManageChannelSettings`: no archived channel, no DM/GM (the default channel
         // *can* be renamed — the rule does not name it).
         let canManageSettings = !isArchived && !kind.isDirectOrGroup
@@ -220,6 +216,25 @@ struct ChannelInfoCapabilities: Equatable, Sendable {
                                        canUnarchive: canUnarchive,
                                        canBrowseChannels: permissions.contains(ChannelPermissionID.listTeamChannels),
                                        canJoinPublicChannels: permissions.contains(ChannelPermissionID.joinPublicChannels))
+    }
+
+    /// The one rule for "may I add or remove members here?", lifted out of `derive` so the
+    /// team-scoped Add-to-a-channel picker can apply it **per channel** (`t_8f9f5449` §6: one rule,
+    /// two quantifiers — the profile row asks it of ∃ channel in the team, a picker row of that one
+    /// channel).
+    ///
+    /// Upstream `observeCanManageChannelMembers`: never an archived channel, never a DM/GM, never the
+    /// team's default channel (everybody in the team belongs to it), and only with the member
+    /// permission that matches the channel's visibility.
+    static func canManageMembers(channel: MMChannel, permissions: Set<String>) -> Bool {
+        let kind = ChannelInfoKind(raw: channel.type)
+        guard !kind.isDirectOrGroup else { return false }
+        guard channel.deleteAt == 0 else { return false }
+        guard channel.name != ChannelDefaults.defaultChannelName else { return false }
+        let memberPermission = kind == .open
+            ? ChannelPermissionID.managePublicChannelMembers
+            : ChannelPermissionID.managePrivateChannelMembers
+        return permissions.contains(memberPermission)
     }
 
     /// Every gated action this screen can draw, in the order the screen draws them. One list, so a test

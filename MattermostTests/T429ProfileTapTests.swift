@@ -132,11 +132,21 @@ final class T429ProfileTapTests: XCTestCase {
 
     // MARK: - The action set (permission matrix)
 
+    /// The matrix C3 generalised into `ProfileActionContext`: these cells are about Message and the
+    /// self rows, so every **app** fact is left at its closed default — which is also the state a
+    /// sheet that has not resolved a team or a permission is in (`t_8f9f5449` §4). The two write rows
+    /// (Call, Add to a channel) have their own matrix in `T5449ProfileActionMatrixTests`.
+    private func actionContext(myUserID: String?, hasCustomStatus: Bool = false) -> ProfileActionContext {
+        var context = ProfileActionContext()
+        context.myUserID = myUserID
+        context.hasCustomStatus = hasCustomStatus
+        return context
+    }
+
     /// (a) Another member: Message, and nothing that belongs to my own account.
     func testTheActionSetForSomebodyElseIsMessageOnly() {
         let set = ProfileActionSet.resolve(profile: profile(id: otherID),
-                                           myUserID: myID,
-                                           hasCustomStatus: false)
+                                           context: actionContext(myUserID: myID))
         XCTAssertEqual(set.offered, [.message])
         XCTAssertTrue(set.offers(.message))
         XCTAssertFalse(set.offers(.setStatus))
@@ -148,23 +158,21 @@ final class T429ProfileTapTests: XCTestCase {
     /// only when there is something to clear.
     func testTheActionSetForMyOwnProfileIsTheStatusEntries() {
         let withoutStatus = ProfileActionSet.resolve(profile: profile(id: myID),
-                                                     myUserID: myID,
-                                                     hasCustomStatus: false)
+                                                     context: actionContext(myUserID: myID))
         XCTAssertEqual(withoutStatus.offered, [.setStatus, .customStatus])
         XCTAssertFalse(withoutStatus.offers(.message))
         XCTAssertEqual(withoutStatus.messageUnavailableReason, "This is your own profile.")
 
         let withStatus = ProfileActionSet.resolve(profile: profile(id: myID),
-                                                  myUserID: myID,
-                                                  hasCustomStatus: true)
+                                                  context: actionContext(myUserID: myID,
+                                                                         hasCustomStatus: true))
         XCTAssertEqual(withStatus.offered, [.setStatus, .customStatus, .clearCustomStatus])
     }
 
     /// (c) A deactivated account: no rows at all, and the sheet can say why instead of leaving a gap.
     func testTheActionSetForADeactivatedAccountIsEmptyAndSaysWhy() {
         let set = ProfileActionSet.resolve(profile: profile(id: otherID, deleteAt: 1_800_000_000_000),
-                                           myUserID: myID,
-                                           hasCustomStatus: false)
+                                           context: actionContext(myUserID: myID))
         XCTAssertTrue(set.offered.isEmpty)
         XCTAssertEqual(set.messageUnavailableReason,
                        "This account has been deactivated, so it cannot be messaged.")
@@ -173,8 +181,7 @@ final class T429ProfileTapTests: XCTestCase {
     /// A bot is messageable — that is how an integration is reached (upstream offers it too).
     func testABotIsMessageable() {
         let set = ProfileActionSet.resolve(profile: profile(id: otherID, isBot: true),
-                                           myUserID: myID,
-                                           hasCustomStatus: false)
+                                           context: actionContext(myUserID: myID))
         XCTAssertEqual(set.offered, [.message])
         XCTAssertNil(set.messageUnavailableReason)
     }
@@ -183,8 +190,7 @@ final class T429ProfileTapTests: XCTestCase {
     /// would create a DM with an unknown other half.
     func testWithNoResolvedAccountThereIsNoMessageRow() {
         let set = ProfileActionSet.resolve(profile: profile(id: otherID),
-                                           myUserID: nil,
-                                           hasCustomStatus: false)
+                                           context: actionContext(myUserID: nil))
         XCTAssertTrue(set.offered.isEmpty)
         XCTAssertNotNil(set.messageUnavailableReason)
     }

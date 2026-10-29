@@ -53,6 +53,18 @@ final class ProfileCoordinator: ObservableObject {
     /// Test seam: replaces the production session-backed service (T40's `serviceFactory`).
     var serviceFactory: ((ServerConfig) -> ProfileServing)?
 
+    /// Test seam for the team-scoped permission reads the **write rows** need (T5449 C3): the four
+    /// reads `ChannelMemberAdminDirectory` performs. Production resolves the session's client per
+    /// call, like `serviceFactory`.
+    var channelInfoServiceFactory: ((ServerConfig) -> ChannelInfoServing)?
+
+    /// The team-scoped "may I manage members here?" answers, per (server, team).
+    ///
+    /// Resolved when a profile sheet opens and read from the matrix — **never** on a row's tap path,
+    /// and never assumed: an unresolved (server, team) means the Add to a channel row is absent
+    /// (`docs/t_8f9f5449-profile-popover-parity.md` §4, §6).
+    let channelAdmin = ChannelMemberAdminDirectory()
+
     /// How often an open profile re-reads presence. Production default is in
     /// `ProfileViewModel.defaultPresenceInterval`; a UI test sets it through
     /// `-uiTestProfilePresenceInterval` (the socket half is asserted inside a window shorter than this,
@@ -150,6 +162,7 @@ final class ProfileCoordinator: ObservableObject {
         preferredPresence[serverID] = nil
         autoAwayServers.remove(serverID)
         autoAwayWrites[serverID] = nil
+        channelAdmin.forget(serverID: serverID)
     }
 
     func authPhaseChanged(_ serverID: UUID) {
@@ -257,6 +270,105 @@ final class ProfileCoordinator: ObservableObject {
         }
         let endMillis = presence == .dnd ? dndDuration?.dndEndTimeMillis(from: Date()) : nil
         await write(presence: presence, dndEndTime: endMillis, for: server)
+    }
+
+    // MARK: - The write rows' context (T5449 C3)
+
+    /// Fill a profile model's `actionContext`: the app facts the Call and Add-to-a-channel rows are
+    /// gated on (`docs/t_8f9f5449-profile-popover-parity.md` §4).
+    ///
+    /// Called from `ProfileSheet`'s `.task` — i.e. **when the sheet opens**, never from a row's tap
+    /// path — and it publishes what it already knows *before* the two team reads answer, so the
+    /// Message row appears with the profile rather than after the network.
+    ///
+    /// The two team answers are resolved here because this object owns the cache:
+    ///
+    ///  * `inCurrentTeam` — `GET /teams/{tid}/members/{userID}`, asked once per (profile, team);
+    ///  * `canManageAnyChannelMembers` — `ChannelMemberAdminDirectory`, resolved once per
+    ///    (server, team) and reused by the picker.
+    ///
+    /// A failed read leaves the field `nil`, which the matrix reads as **absent** — the row appears
+    /// on the next open rather than being offered on a guess.
+    func prepareActions(model: ProfileViewModel,
+                        server: ServerConfig,
+                        teamID: String?,
+                        callsAvailable: Bool,
+                        callsSurfaceNative: Bool,
+                        hasLiveCallElsewhere: Bool) async {
+        var context = ProfileActionContext()
+        context.myUserID = model.myUserID
+        context.hasCustomStatus = model.activeCustomStatus != nil
+        context.callsAvailable = callsAvailable
+        context.callsSurfaceNative = callsSurfaceNative
+        context.hasLiveCallElsewhere = hasLiveCallElsewhere
+        context.hasTeam = !(teamID ?? "").isEmpty
+        model.actionContext = context
+
+        // Nothing below can change a row for my own profile or for an account that cannot receive
+        // either write: skip the two round trips.
+        guard let teamID, !teamID.isEmpty,
+              let profile = model.profile, !profile.isDeactivated, !model.isMe else { return }
+
+        async let memberRead = isTeamMember(server: server, teamID: teamID, userID: profile.id)
+        async let adminRead = resolveChannelAdmin(server: server, teamID: teamID)
+        let (member, admin) = await (memberRead, adminRead)
+
+        var prepared = model.actionContext
+        prepared.inCurrentTeam = member
+        prepared.canManageAnyChannelMembers = admin?.canManageAnyChannelMembers
+        model.actionContext = prepared
+    }
+
+    /// The cached team answer, or `nil` when this (server, team) has not been resolved yet.
+    func channelAdminAnswer(serverID: UUID, teamID: String) -> ChannelMemberAdminAnswer? {
+        channelAdmin.answer(serverID: serverID, teamID: teamID)
+    }
+
+    /// Resolve — or read from the cache — whether I may manage members of any channel in this team.
+    ///
+    /// The read is the five-request fan-in `ChannelMemberAdminDirectory.resolve` performs; a failure
+    /// answers `nil` (rows absent), never a guess and never a banner over a profile that loaded fine.
+    @discardableResult
+    func resolveChannelAdmin(server: ServerConfig, teamID: String,
+                             force: Bool = false) async -> ChannelMemberAdminAnswer? {
+        if !force, let cached = channelAdminAnswer(serverID: server.id, teamID: teamID) {
+            return cached
+        }
+        guard let myID = myUserID(for: server), !myID.isEmpty else { return nil }
+        do {
+            let answer = try await ChannelMemberAdminDirectory.resolve(service: channelInfoService(for: server),
+                                                                      teamID: teamID,
+                                                                      myUserID: myID)
+            channelAdmin.store(answer, serverID: server.id, teamID: teamID)
+            return answer
+        } catch {
+            MMLog.debug("MMProfile", "channel-admin answer failed for team \(teamID): \(error)")
+            return nil
+        }
+    }
+
+    /// Is this account a **live** member of that team? `nil` when the server could not be asked.
+    func isTeamMember(server: ServerConfig, teamID: String, userID: String) async -> Bool? {
+        do {
+            let membership = try await channelInfoService(for: server).teamMembership(teamID: teamID,
+                                                                                     userID: userID)
+            return membership.deleteAt == 0
+        } catch MMError.notFound {
+            return false
+        } catch {
+            return nil
+        }
+    }
+
+    /// The channel-info service for one server — the seam the write rows' reads go through, resolved
+    /// per call so a service built before the session finished restoring is not a signed-out one.
+    func channelInfoService(for server: ServerConfig) -> ChannelInfoServing {
+        if let channelInfoServiceFactory { return channelInfoServiceFactory(server) }
+        let auth = self.auth
+        return SessionChannelInfoService {
+            guard let auth, let session = try? auth.session(for: server) else { return nil }
+            return session.client
+        }
     }
 
     // MARK: Internals

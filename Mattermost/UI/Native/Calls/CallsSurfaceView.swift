@@ -40,11 +40,14 @@ struct CallsSurfaceView: View {
         .background(Color(.systemBackground))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("callsSurface")
-        .onDisappear {
-            // Leaving the screen leaves the call: a background session with no UI is the one state
-            // a reader cannot reason about (and it holds the audio session).
-            Task { await model.leave() }
-        }
+        // **Nothing here leaves the call on `onDisappear`.** The rule ("leaving the screen leaves the
+        // call": a background session with no UI is a state a reader cannot reason about, and it
+        // holds the audio session) still holds — it is enforced by the **presenter's**
+        // `fullScreenCover(onDismiss:)` (`CallsJoinEntry`), the event SwiftUI raises for an actual
+        // dismissal. `onDisappear` also fires when SwiftUI substitutes the presented content during a
+        // re-render of the presenting pane, and measured, that ended a call one frame after it joined
+        // (`t_8f9f5449` C3: the profile's Call row presents on the pane's own insertion,
+        // `build/logs/t5449-c3-ui-callr1.log` — surface up, "Call ended").
     }
 
     // MARK: - Header

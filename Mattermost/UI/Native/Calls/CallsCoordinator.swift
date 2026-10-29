@@ -33,6 +33,46 @@ final class CallsCoordinator: ObservableObject {
     /// Why the last join attempt failed, shown once by the entry point. `nil` when nothing failed.
     @Published private(set) var lastError: String?
 
+    /// A one-shot "start the call in this channel" intent, per server (`t_8f9f5449` C3).
+    ///
+    /// The profile's Call row cannot present the call surface itself: the row lives in a sheet, and a
+    /// full-screen cover raised from inside a sheet is T40's measured nested-presentation failure
+    /// (a confirmation action that never ran, zero requests on the wire). So the row asks the pane
+    /// for it — `requestStart` — and the pane's `CallsJoinEntry`, the one owner of
+    /// `CallsSurfaceView`, **consumes** the intent when it mounts for that channel.
+    ///
+    /// App-scoped on purpose, like the model it starts: the pane can be re-created between the tap
+    /// and its appearance (a rotation, a channel switch mid-flight) and an intent owned by a view
+    /// would be lost with it. Consumed once, and dropped on sign-out with the rest of this state.
+    @Published private(set) var pendingStarts: [UUID: String] = [:]
+
+    /// Ask the pane for `channelID` to start its call as soon as it mounts.
+    func requestStart(serverID: UUID, channelID: String) {
+        guard !channelID.isEmpty else { return }
+        pendingStarts[serverID] = channelID
+    }
+
+    /// The pending intent for one server, without consuming it (diagnostics and the pane's key).
+    func pendingStart(serverID: UUID) -> String? { pendingStarts[serverID] }
+
+    /// Consume the intent **for this channel**, once.
+    ///
+    /// Answers `false` when nothing is pending or the pending intent names a different channel — an
+    /// intent is never spent by a pane it was not meant for.
+    @discardableResult
+    func consumeStart(serverID: UUID, channelID: String) -> Bool {
+        guard pendingStarts[serverID] == channelID else { return false }
+        pendingStarts[serverID] = nil
+        return true
+    }
+
+    /// Whether a call is live right now (any channel). What the profile's Call row reads to stay
+    /// absent while one is running.
+    var hasLiveCall: Bool {
+        guard let surface else { return false }
+        return !surface.phase.isTerminal
+    }
+
     func clearError() { lastError = nil }
 
     private weak var auth: AuthCoordinator?
@@ -209,6 +249,9 @@ final class CallsCoordinator: ObservableObject {
         activeCallChannels[serverID] = nil
         pluginVersions[serverID] = nil
         unavailable[serverID] = nil
+        // A start intent is this credential's too: a pending "call this person" must not fire after
+        // a sign-out and a sign-in as somebody else.
+        pendingStarts[serverID] = nil
         if let live { Task { await live.leave() } }
     }
 

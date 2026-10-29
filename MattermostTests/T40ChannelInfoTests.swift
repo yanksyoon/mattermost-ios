@@ -112,6 +112,14 @@ final class T40ChannelInfoTests: XCTestCase {
             return myTeamMembership
         }
 
+        /// This fake only answers about its own principal: another id is "no such membership",
+        /// which is the same shape the server gives for an account that is not in the team.
+        func teamMembership(teamID: String, userID: String) async throws -> MMTeamMembership {
+            let mine = try await myTeamMembership(teamID: teamID)
+            guard mine.userId == userID else { throw MMError.notFound }
+            return mine
+        }
+
         func rolePermissions(names: [String]) async throws -> [MMRole] {
             roleRequests.append(names)
             return names.compactMap { rolesByName[$0] }

@@ -91,6 +91,12 @@ final class T47CreateChannelTests: XCTestCase {
         func myTeamMembership(teamID: String) async throws -> MMTeamMembership {
             MMTeamMembership(userId: principalValue.id, teamId: teamID, roles: teamRoles)
         }
+        /// This fake only answers about its own principal (see `T40ChannelInfoTests`' note).
+        func teamMembership(teamID: String, userID: String) async throws -> MMTeamMembership {
+            let mine = try await myTeamMembership(teamID: teamID)
+            guard mine.userId == userID else { throw MMError.notFound }
+            return mine
+        }
         func rolePermissions(names: [String]) async throws -> [MMRole] {
             roleRequests.append(names)
             return names.compactMap { rolesByName[$0] }
