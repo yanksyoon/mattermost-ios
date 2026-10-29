@@ -115,7 +115,7 @@ The 12 switch keys are the regions of the client, not the 40 inventory screens. 
 | `sidebar` | S08 Channel sidebar, S09 Find/browse channels |
 | `channelView` | S11 Channel view (post list), S12 Permalink, S16 Reactions, S38 post options |
 | `composer` | S14 Composer, S15 Autocomplete, S17 emoji picker |
-| `threads` | S13 Thread RHS + global threads |
+| `threads` **— retired as a switch, see below** | S13 Thread RHS + global threads |
 | `search` | S19 Search, S20 Saved, S21 Pinned, S26 Drafts |
 | `profile` | S24 Profile popover/status, S27 user settings, S28 Edit profile, S39 custom attributes |
 | `activity` | S25 Mentions inbox |
@@ -128,6 +128,26 @@ The catalogue is **additive**: surfaces are never repurposed or renamed, because
 both the `-surfaceMode` key and the persisted override key (`testCataloguePinsTheTwelveContractSurfaces`,
 `testPersistenceKeyIsStable`). If a screen card needs a region that is not listed, it adds a case to
 `Surface` in the same PR that lands the card, with a `title` and a doc row here.
+
+**What may be a surface, and what retiring one means** (decided 2026-10-29, `t_7ffa9e76`,
+`docs/t_7ffa9e76-threads-surface-retirement.md`). A case is a *switch key*, so the region must be
+renderable two ways **while it is on screen**: (1) a native card, (2) a web path that exists at the
+moment the region can appear — a webview that is actually mounted, not one §12.2 destroyed — and
+(3) at least one production call site that consults it. A region whose only web form is another
+region's webview is that region's **sub-region** and inherits its mode; it is not a case.
+`.threads` was the first finding of this kind and is **retired**: the thread pane exists only inside
+`NativeShellView`, which is the native branch of the pane host, so a `web` thread pane would be a note
+over a released webview and the thread route's real web fallback is the pane's webview driven by the
+web app's router (`NativeNavigation.acceptsNativeRouting`), i.e. `.channelView`'s. Its removal lands
+with card `t_cdcc1f38`.
+
+Adding a case is additive, as above. **Removing** one is legal only by a decision card that records
+why the region is not a switch, and it lands with: the case gone, the acceptance-test rename, a pin
+that the retired raw value decodes to `nil`, a pin that a stale persisted row is dropped (the
+tolerance this section already promises), and gate 11 of
+`scripts/verify-dual-render-gates.sh` — *every case consulted, or declared unhosted* — green in the
+same commit. A retired key is never reused for a different region: the persisted row would inherit a
+mode the reader did not choose.
 
 ## 5. The `-AV` gate (the rule the validator enforces)
 
@@ -429,10 +449,21 @@ flag).
   `scripts/verify-dual-render-gates.sh`, which is the cheap early warning rather than a proof: a
   producer routed indirectly past the regex would still only be caught by a Release build and review
   (§5 states the limit).
-* **Only `channelView` has a host.** The other 11 surfaces are togglable (inspector / launch flag)
-  and resolve correctly, but no view mounts them yet — their hosts arrive with their screen cards.
-  Toggling e.g. `threads` therefore changes nothing on screen today, because threads are rendered
-  *inside* the web app; that is exactly the state until S13 lands.
+* **Only `channelView` has a *pane* host — and "no view mounts them yet" was wrong.** The other
+  surfaces are togglable (inspector / launch flag) and most of them gate inside their own panes
+  (`.search`, `.activity`, `.channelInfo`, `.composer`), but a case's host arriving is not the same as
+  the case being consulted. Measured on `1577337` (card `t_7ffa9e76`): **four** cases change nothing
+  on screen. `.threads` is consulted nowhere and is **retired** (`docs/t_7ffa9e76-threads-surface-retirement.md`;
+  a thread pane only exists inside a native pane host, so it was never a switch — removal lands with
+  `t_cdcc1f38`). `.settings` is consulted nowhere (`SettingsView` is presented unconditionally,
+  `RootView.swift:180,229`) and `.plugins` nowhere (`S29`–`S32` are permanently web, §1) — both are
+  catalogue reservations, and their disposition is card `t_39ea6115`. `.profile` is *read and
+  discarded* by `ProfilePopoverPolicy` (the tap is offered while `.profile` resolves `web`,
+  `T429ProfileTapTests.swift:83-93`), so that flag has no effect either. Gate 11 of
+  `scripts/verify-dual-render-gates.sh` — every case consulted, or declared in
+  `SurfaceDefaults.unhostedSurfaces` — is what keeps this from recurring silently; it lands with
+  `t_cdcc1f38`, and its stated limit is that it measures references, not effect (hence `.profile`
+  passes).
 * **Native surfaces: five.** `.auth`, `.calls`, `.sidebar`, `.channelView` and `.composer` are
   native by default (§5); the rest require a passed `-AV` card. The workspace entries carry the
   owner's 2026-10-27 decision because their validators deferred the flip, and `.composer` follows
