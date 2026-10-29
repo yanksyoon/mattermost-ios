@@ -52,6 +52,23 @@ struct ThreadPaneContent: View {
         resolver.resolvedMode(for: .composer) == .native
     }
 
+    /// Whether this thread's rows offer the author tap (T5449).
+    ///
+    /// `rowHost: .native` is a **fact about this view**, not a resolver read. `ThreadPostListView`
+    /// draws every row natively and nothing in `Mattermost/` consults
+    /// `resolvedMode(for: .threads)` — finding F1 of `docs/t_8f9f5449-profile-popover-parity.md`;
+    /// retired, see `docs/t_7ffa9e76-threads-surface-retirement.md` (the thread pane is a sub-region
+    /// of the pane host, so its rows are native by construction). Asking the resolver here would have
+    /// answered `web` on the shipped defaults and taken the tap off a row that is drawn natively:
+    /// exactly the defect `t_42968927` fixed for the channel pane, reintroduced one level down.
+    /// `.profile`'s own resolution is passed through and deliberately ignored
+    /// (`ProfilePopoverPolicy`'s truth table).
+    private var offersAuthorProfile: Bool {
+        ProfilePopoverPolicy.offersAuthorTap(
+            rowHost: .native,
+            profileSurface: resolver.resolvedMode(for: .profile))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -63,7 +80,10 @@ struct ThreadPaneContent: View {
                                    rowActions: rowActions,
                                    recents: emojiRecents,
                                    attachmentDownloads: attachmentDownloads,
-                                   postOptions: postOptions)
+                                   postOptions: postOptions,
+                                   offersAuthorProfile: offersAuthorProfile,
+                                   server: server,
+                                   navigation: navigation)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -260,8 +280,19 @@ struct ThreadPostListView: View {
     var attachmentDownloads: AttachmentDownloads? = nil
     /// T48: the root channel's post-options state. Nil keeps the pre-T48 sheet.
     var postOptions: PostOptionsViewModel? = nil
+    /// T5449: whether this thread's rows offer the author tap (name and avatar open the profile).
+    ///
+    /// Decided by the host (`ThreadPaneContent`), because the decision reads the resolver and this
+    /// list has none — and because the input is the **thread pane's own** row host, `.native` as a
+    /// fact (finding F1), not a surface this list may re-resolve. False keeps the inert drawing (a
+    /// preview, or a host that does not offer the tap).
+    var offersAuthorProfile: Bool = false
+    /// T5449: what the `.profile` sheet opens against. Read only by the `.profile` case below; nil
+    /// leaves the slot empty instead of presenting a sheet with nothing to load an account from.
+    var server: ServerConfig? = nil
+    var navigation: NativeNavigation? = nil
 
-    /// One item-bound sheet for this list (options, T37's picker and reactor list).
+    /// One item-bound sheet for this list (options, T37's picker and reactor list, T5449's profile).
     @State private var sheet: ChannelListSheet?
 
     var body: some View {
@@ -325,6 +356,13 @@ struct ThreadPostListView: View {
                                   imageStore: imageStore,
                                   downloads: attachmentDownloads,
                                   onClose: { self.sheet = nil })
+        case .profile(let target):
+            // T5449: the author tap. Presented from this list's **one** sheet slot — the thread pane
+            // must not add a second `.sheet` modifier (spec §2.2; the channel pane's four are the
+            // recorded hazard, F2), so the profile rides the slot the row menu already owns.
+            if let server {
+                ProfileSheet(server: server, userID: target.userID, navigation: navigation)
+            }
         }
     }
 
@@ -432,7 +470,14 @@ struct ThreadPostListView: View {
                         onToggleExpanded: { model.toggleExpanded(row.id) },
                         actions: actions(for: row),
                         reactionActions: reactionActions(for: row),
-                        attachmentActions: attachmentActions(for: row))
+                        attachmentActions: attachmentActions(for: row),
+                        // T5449: the author tap. Only the **callback** is gated: a `.profile` surface
+                        // that resolves web cannot remove it (the row host decides — see
+                        // `ThreadPaneContent.offersAuthorProfile`), and a host without the closure
+                        // keeps the inert drawing.
+                        onShowProfile: offersAuthorProfile
+                            ? { userID in sheet = .profile(ProfileTarget(userID: userID)) }
+                            : nil)
                 // A reply in a thread can itself be a root for the channel's reply line but never
                 // opens a second thread: the reply line is withheld here.
                 .accessibilityIdentifier("thread.post.\(row.id)")

@@ -64,17 +64,18 @@ final class T429ProfileTapTests: XCTestCase {
 
     /// The whole truth table. The row that matters is `native × web`: that is the shipped default
     /// and the state the reader reported. `.profile` must not be able to remove the tap while the
-    /// pane that draws the rows is native — the webview is not painting them, so there is no web
-    /// popover to take the tap instead.
+    /// surface that draws the rows is native — the webview is not painting them, so there is no web
+    /// popover to take the tap instead. (The parameter is the **row host** since `t_07216319`; for
+    /// this pane that is how `SurfaceDefaults.paneHostSurface` resolved.)
     func testTheAuthorTapFollowsThePaneHostNotTheProfileSurface() {
-        XCTAssertTrue(ProfilePopoverPolicy.offersAuthorTap(paneHost: .native, profileSurface: .web),
-                      "native pane + web profile card is the reported defect: the tap must exist")
-        XCTAssertTrue(ProfilePopoverPolicy.offersAuthorTap(paneHost: .native, profileSurface: .native),
+        XCTAssertTrue(ProfilePopoverPolicy.offersAuthorTap(rowHost: .native, profileSurface: .web),
+                      "native row host + web profile card is the reported defect: the tap must exist")
+        XCTAssertTrue(ProfilePopoverPolicy.offersAuthorTap(rowHost: .native, profileSurface: .native),
                       "a native card and a native popover agree")
-        XCTAssertFalse(ProfilePopoverPolicy.offersAuthorTap(paneHost: .web, profileSurface: .web),
+        XCTAssertFalse(ProfilePopoverPolicy.offersAuthorTap(rowHost: .web, profileSurface: .web),
                        "when the webview paints the conversation its own popover answers the tap")
-        XCTAssertFalse(ProfilePopoverPolicy.offersAuthorTap(paneHost: .web, profileSurface: .native),
-                       "no native pane is mounted, so there is no row to anchor a popover to")
+        XCTAssertFalse(ProfilePopoverPolicy.offersAuthorTap(rowHost: .web, profileSurface: .native),
+                       "no native row is drawn, so there is nothing to anchor a popover to")
     }
 
     /// The regression, pinned at the real decision point: the **shipped defaults** (no launch flags,
@@ -87,7 +88,7 @@ final class T429ProfileTapTests: XCTestCase {
         XCTAssertEqual(resolver.resolvedMode(for: .profile), .web,
                        "the profile card is not approved, so its surface resolves web")
         XCTAssertTrue(ProfilePopoverPolicy.offersAuthorTap(
-                        paneHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface),
+                        rowHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface),
                         profileSurface: resolver.resolvedMode(for: .profile)),
                       "this is the exact pair the card reported as broken")
     }
@@ -98,7 +99,7 @@ final class T429ProfileTapTests: XCTestCase {
         let resolver = makeResolver(arguments: ["-surfaceMode", "shell=web"])
         XCTAssertEqual(resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface), .web)
         XCTAssertFalse(ProfilePopoverPolicy.offersAuthorTap(
-                        paneHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface),
+                        rowHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface),
                         profileSurface: resolver.resolvedMode(for: .profile)))
     }
 

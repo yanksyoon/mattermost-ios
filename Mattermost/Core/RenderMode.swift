@@ -158,14 +158,27 @@ public enum SurfaceDefaults {
 /// answer a tap the reader makes on a native row. The reported defect was exactly that state — the
 /// reader got neither popover.
 ///
-/// So the tap belongs to the pane host, not to `.profile`:
+/// So the tap belongs to the host that draws the row, not to `.profile`. The parameter is the **row
+/// host**: how *that* view's surface resolved — `SurfaceDefaults.paneHostSurface` for the channel
+/// timeline, and each list host's own mode (`t_07216319`, `t_2fa3bbe1`):
 ///
-/// | pane host | `.profile` | author tap |
+/// | row host | `.profile` | author tap |
 /// |---|---|---|
 /// | native | web | **offered** — the reported regression; no web popover exists to answer it |
 /// | native | native | offered |
-/// | web | web | not offered — the webview's own popover is the one on screen |
-/// | web | native | not offered — no native pane is mounted, so there is nothing to anchor to |
+/// | web | web | not offered — the webview draws those rows and its own popover answers the tap |
+/// | web | native | not offered — no native row exists to anchor a popover to |
+///
+/// A **non-channel** example, because the rule is not about the pane: the search results list
+/// (`Search/SearchView.swift`) and the mentions inbox (`Activity/MentionsView.swift`) draw their own
+/// rows, so their own resolution is the input — while the channel pane passes how the pane host
+/// resolved. The reference is the view that draws the post, whatever surface it belongs to.
+///
+/// The thread pane is the one host whose input is a **fact rather than a resolver read**: nothing in
+/// `Mattermost/` consulted `resolvedMode(for: .threads)` (finding F1 of
+/// `docs/t_8f9f5449-profile-popover-parity.md`, now retired — see
+/// `docs/t_7ffa9e76-threads-surface-retirement.md`), so the resolver answered `web` for `.threads`
+/// while `ThreadPostListView` drew every row natively.
 ///
 /// `.profile` is deliberately read and ignored: keeping it in the signature is what lets the truth
 /// table above be pinned by a test instead of living in a comment.
@@ -174,11 +187,12 @@ public enum ProfilePopoverPolicy {
     /// The avatar/name tap on a post row.
     ///
     /// - Parameters:
-    ///   - paneHost: how `SurfaceDefaults.paneHostSurface` resolved for this server.
+    ///   - rowHost: how the surface that **draws** this row resolved (`SurfaceDefaults.paneHostSurface`
+    ///     for the channel timeline, `.native` as a fact for the thread pane — see F1).
     ///   - profileSurface: how `.profile` resolved. **Not consulted** — see the table above.
-    public static func offersAuthorTap(paneHost: SurfaceRenderMode,
+    public static func offersAuthorTap(rowHost: SurfaceRenderMode,
                                        profileSurface: SurfaceRenderMode) -> Bool {
-        switch (paneHost, profileSurface) {
+        switch (rowHost, profileSurface) {
         case (.native, _): return true
         case (.web, _): return false
         }

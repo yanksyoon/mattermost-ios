@@ -29,6 +29,12 @@ enum ChannelListSheet: Identifiable {
     case gallery(AttachmentGalleryTarget)
     /// T38: one file's preview (PDF, text, or the safe "not previewed" screen).
     case preview(AttachmentPreviewTarget)
+    /// T5449: a row's author was tapped and this list owns the one profile sheet slot.
+    ///
+    /// The thread pane is the host that raises it (`ThreadPostListView`); the channel pane keeps its
+    /// own item-bound sheet on the pane (`ChannelPaneContent.profilePopover`, T41/T429), so this case
+    /// is only ever presented by a list that was handed a `server`.
+    case profile(ProfileTarget)
 
     var id: String {
         switch self {
@@ -37,6 +43,7 @@ enum ChannelListSheet: Identifiable {
         case .reactors(let postID, let emojiName): return "reactors.\(postID).\(emojiName)"
         case .gallery(let target): return "gallery.\(target.id)"
         case .preview(let target): return "preview.\(target.id)"
+        case .profile(let target): return "profile.\(target.userID)"
         }
     }
 }
@@ -59,6 +66,12 @@ struct ChannelPostListView: View {
     var attachmentDownloads: AttachmentDownloads? = nil
     /// T41: a tap on a row's author opens that account's profile. Nil keeps the avatars inert.
     var onShowProfile: ((String) -> Void)? = nil
+    /// T5449: what the `.profile` sheet opens against — the server and the app's navigation model
+    /// (the sheet's "Send message" needs it). Only the `.profile` case reads them; a host that never
+    /// raises that case (the channel pane presents its own sheet from `ChannelPaneContent`) leaves
+    /// them nil, and the case then draws nothing rather than a sheet against a guess.
+    var server: ServerConfig? = nil
+    var navigation: NativeNavigation? = nil
     /// T635-A: the pane this list belongs to was opened **at a post** (a search result, a saved or
     /// pinned message, a permalink), so its position belongs to that jump and not to the initial
     /// placement. Set by `ChannelPaneContent` from its `focusPostID`.
@@ -148,6 +161,13 @@ struct ChannelPostListView: View {
                                   imageStore: imageStore,
                                   downloads: attachmentDownloads,
                                   onClose: { self.sheet = nil })
+        case .profile(let target):
+            // T5449: the thread pane's author tap (this case is the one slot that list presents
+            // into). A list that was never handed a server cannot open an account: leave the slot
+            // empty instead of presenting a sheet with nothing to load it against.
+            if let server {
+                ProfileSheet(server: server, userID: target.userID, navigation: navigation)
+            }
         }
     }
 
@@ -736,13 +756,13 @@ struct ChannelPaneContent: View {
 
     /// Whether this pane offers the author-profile popover (T41's `.profile` card, reached from a post).
     ///
-    /// Decided by the **pane host**, not by `.profile`'s own resolution: a popover is part of the pane
-    /// it is anchored in, and while this pane is native the webview is not painting these rows at all
-    /// — so the web client's popover cannot be "the one on screen" (see `ProfilePopoverPolicy` for
-    /// the truth table and the defect it fixes, `t_42968927`).
+    /// Decided by the **row host** — the surface that draws these rows, not by `.profile`'s own
+    /// resolution: a popover is part of the pane it is anchored in, and while this pane is native the
+    /// webview is not painting these rows at all — so the web client's popover cannot be "the one on
+    /// screen" (see `ProfilePopoverPolicy` for the truth table and the defect it fixes, `t_42968927`).
     private var offersAuthorProfile: Bool {
         ProfilePopoverPolicy.offersAuthorTap(
-            paneHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface),
+            rowHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface),
             profileSurface: resolver.resolvedMode(for: .profile))
     }
 
