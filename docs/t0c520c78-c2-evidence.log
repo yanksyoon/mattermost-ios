@@ -1,0 +1,205 @@
+build/logs/t0c520c78-gates-base.log:RESULT: PASS — dual-render debug affordances cannot reach a Release build.
+build/logs/t0c520c78-gates.log:RESULT: PASS — dual-render debug affordances cannot reach a Release build.
+build/logs/t0c520c78-live-pristine.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 108.003 (108.009) seconds
+build/logs/t0c520c78-live-pristine.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 108.003 (108.010) seconds
+build/logs/t0c520c78-live-pristine.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 108.003 (108.012) seconds
+build/logs/t0c520c78-live-pristine.log:** TEST SUCCEEDED **
+build/logs/t0c520c78-m1-search-nohelper.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:118: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASearchResultOpensTheirProfile] : XCTAssertTrue failed - a result's author tap must open the profile from this host:
+build/logs/t0c520c78-m1-search-nohelper.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:121: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASearchResultOpensTheirProfile] : XCTAssertTrue failed - the profile must mount:
+build/logs/t0c520c78-m1-search-nohelper.log:<unknown>:0: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASearchResultOpensTheirProfile] : Failed to get matching snapshot: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"profile.username" IN identifiers'`, given input App element pid: 59024
+build/logs/t0c520c78-m1-search-nohelper.log:Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASearchResultOpensTheirProfile]' failed (78.276 seconds).
+build/logs/t0c520c78-m1-search-nohelper.log:	 Executed 1 test, with 3 failures (0 unexpected) in 78.276 (78.278) seconds
+build/logs/t0c520c78-m1-search-nohelper.log:	 Executed 1 test, with 3 failures (0 unexpected) in 78.276 (78.279) seconds
+build/logs/t0c520c78-m1-search-nohelper.log:	 Executed 1 test, with 3 failures (0 unexpected) in 78.276 (78.280) seconds
+build/logs/t0c520c78-m1-search-nohelper.log:** TEST FAILED **
+build/logs/t0c520c78-m2-collection-nohelper.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:222: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAPinnedPostPushesTheProfile] : XCTAssertTrue failed - a profile opened from inside the pinned sheet must be pushed on that sheet's own stack:
+build/logs/t0c520c78-m2-collection-nohelper.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:226: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAPinnedPostPushesTheProfile] : XCTAssertTrue failed - the pushed profile must mount:
+build/logs/t0c520c78-m2-collection-nohelper.log:<unknown>:0: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAPinnedPostPushesTheProfile] : Failed to get matching snapshot: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"profile.username" IN identifiers'`, given input App element pid: 60685
+build/logs/t0c520c78-m2-collection-nohelper.log:Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAPinnedPostPushesTheProfile]' failed (88.288 seconds).
+build/logs/t0c520c78-m2-collection-nohelper.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:157: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASavedPostOpensTheirProfile] : XCTAssertTrue failed - a saved post's author tap must open the profile:
+build/logs/t0c520c78-m2-collection-nohelper.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:160: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASavedPostOpensTheirProfile] : XCTAssertTrue failed
+build/logs/t0c520c78-m2-collection-nohelper.log:<unknown>:0: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASavedPostOpensTheirProfile] : Failed to get matching snapshot: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"profile.username" IN identifiers'`, given input App element pid: 61188
+build/logs/t0c520c78-m2-collection-nohelper.log:Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASavedPostOpensTheirProfile]' failed (73.437 seconds).
+build/logs/t0c520c78-m2-collection-nohelper.log:	 Executed 2 tests, with 6 failures (0 unexpected) in 161.725 (161.727) seconds
+build/logs/t0c520c78-m2-collection-nohelper.log:	 Executed 2 tests, with 6 failures (0 unexpected) in 161.725 (161.729) seconds
+build/logs/t0c520c78-m2-collection-nohelper.log:	 Executed 2 tests, with 6 failures (0 unexpected) in 161.725 (161.730) seconds
+build/logs/t0c520c78-m2-collection-nohelper.log:** TEST FAILED **
+build/logs/t0c520c78-m3-mentions-nohelper.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:185: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAMentionOpensTheirProfile] : XCTAssertTrue failed - a mention's author tap must open the profile:
+build/logs/t0c520c78-m3-mentions-nohelper.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:188: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAMentionOpensTheirProfile] : XCTAssertTrue failed
+build/logs/t0c520c78-m3-mentions-nohelper.log:<unknown>:0: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAMentionOpensTheirProfile] : Failed to get matching snapshot: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"profile.username" IN identifiers'`, given input App element pid: 63076
+build/logs/t0c520c78-m3-mentions-nohelper.log:Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAMentionOpensTheirProfile]' failed (76.362 seconds).
+build/logs/t0c520c78-m3-mentions-nohelper.log:	 Executed 1 test, with 3 failures (0 unexpected) in 76.362 (76.364) seconds
+build/logs/t0c520c78-m3-mentions-nohelper.log:	 Executed 1 test, with 3 failures (0 unexpected) in 76.362 (76.366) seconds
+build/logs/t0c520c78-m3-mentions-nohelper.log:	 Executed 1 test, with 3 failures (0 unexpected) in 76.362 (76.368) seconds
+build/logs/t0c520c78-m3-mentions-nohelper.log:** TEST FAILED **
+build/logs/t0c520c78-m4-pinned-sheet-fallback.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:222: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAPinnedPostPushesTheProfile] : XCTAssertTrue failed - a profile opened from inside the pinned sheet must be pushed on that sheet's own stack:
+build/logs/t0c520c78-m4-pinned-sheet-fallback.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:230: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAPinnedPostPushesTheProfile] : XCTAssertFalse failed - no nested sheet: T40 measured a sheet inside a sheet whose confirmation never ran
+build/logs/t0c520c78-m4-pinned-sheet-fallback.log:Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAPinnedPostPushesTheProfile]' failed (70.865 seconds).
+build/logs/t0c520c78-m4-pinned-sheet-fallback.log:	 Executed 1 test, with 2 failures (0 unexpected) in 70.865 (70.866) seconds
+build/logs/t0c520c78-m4-pinned-sheet-fallback.log:	 Executed 1 test, with 2 failures (0 unexpected) in 70.865 (70.867) seconds
+build/logs/t0c520c78-m4-pinned-sheet-fallback.log:	 Executed 1 test, with 2 failures (0 unexpected) in 70.865 (70.868) seconds
+build/logs/t0c520c78-m4-pinned-sheet-fallback.log:** TEST FAILED **
+build/logs/t0c520c78-m5-search-button-row.log:	 Executed 1 test, with 0 failures (0 unexpected) in 32.322 (32.325) seconds
+build/logs/t0c520c78-m5-search-button-row.log:	 Executed 1 test, with 0 failures (0 unexpected) in 32.322 (32.326) seconds
+build/logs/t0c520c78-m5-search-button-row.log:	 Executed 1 test, with 0 failures (0 unexpected) in 32.322 (32.329) seconds
+build/logs/t0c520c78-m5-search-button-row.log:** TEST SUCCEEDED **
+build/logs/t0c520c78-m7-search-inert-author.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:118: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASearchResultOpensTheirProfile] : XCTAssertTrue failed - a result's author tap must open the profile from this host:
+build/logs/t0c520c78-m7-search-inert-author.log:/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0c520c78/.worktrees/t_0c520c78-c2audit/MattermostUITests/T5449ListProfileUITests.swift:121: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASearchResultOpensTheirProfile] : XCTAssertTrue failed - the profile must mount:
+build/logs/t0c520c78-m7-search-inert-author.log:<unknown>:0: error: -[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASearchResultOpensTheirProfile] : Failed to get matching snapshot: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"profile.username" IN identifiers'`, given input App element pid: 70280
+build/logs/t0c520c78-m7-search-inert-author.log:Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASearchResultOpensTheirProfile]' failed (79.743 seconds).
+build/logs/t0c520c78-m7-search-inert-author.log:	 Executed 1 test, with 3 failures (0 unexpected) in 79.743 (79.744) seconds
+build/logs/t0c520c78-m7-search-inert-author.log:	 Executed 1 test, with 3 failures (0 unexpected) in 79.743 (79.746) seconds
+build/logs/t0c520c78-m7-search-inert-author.log:	 Executed 1 test, with 3 failures (0 unexpected) in 79.743 (79.747) seconds
+build/logs/t0c520c78-m7-search-inert-author.log:** TEST FAILED **
+build/logs/t0c520c78-regress1.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 151.242 (151.246) seconds
+build/logs/t0c520c78-regress1.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 69.732 (69.736) seconds
+build/logs/t0c520c78-regress1.log:	 Executed 1 test, with 0 failures (0 unexpected) in 30.187 (30.188) seconds
+build/logs/t0c520c78-regress1.log:	 Executed 1 test, with 0 failures (0 unexpected) in 49.793 (49.795) seconds
+build/logs/t0c520c78-regress1.log:	 Executed 10 tests, with 0 failures (0 unexpected) in 300.955 (300.969) seconds
+build/logs/t0c520c78-regress1.log:	 Executed 10 tests, with 0 failures (0 unexpected) in 300.955 (300.970) seconds
+build/logs/t0c520c78-regress1.log:** TEST SUCCEEDED **
+build/logs/t0c520c78-regress2.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 515.446 (515.454) seconds
+build/logs/t0c520c78-regress2.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 99.190 (99.197) seconds
+build/logs/t0c520c78-regress2.log:	 Executed 11 tests, with 0 failures (0 unexpected) in 614.636 (614.654) seconds
+build/logs/t0c520c78-regress2.log:	 Executed 11 tests, with 0 failures (0 unexpected) in 614.636 (614.656) seconds
+build/logs/t0c520c78-regress2.log:** TEST SUCCEEDED **
+build/logs/t0c520c78-units.log:	 Executed 28 tests, with 0 failures (0 unexpected) in 0.213 (0.255) seconds
+build/logs/t0c520c78-units.log:	 Executed 10 tests, with 0 failures (0 unexpected) in 0.041 (0.045) seconds
+build/logs/t0c520c78-units.log:	 Executed 20 tests, with 0 failures (0 unexpected) in 0.962 (0.969) seconds
+build/logs/t0c520c78-units.log:	 Executed 2 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+build/logs/t0c520c78-units.log:	 Executed 11 tests, with 0 failures (0 unexpected) in 0.054 (0.058) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.003 (0.005) seconds
+build/logs/t0c520c78-units.log:	 Executed 12 tests, with 0 failures (0 unexpected) in 0.110 (0.114) seconds
+build/logs/t0c520c78-units.log:	 Executed 9 tests, with 0 failures (0 unexpected) in 0.007 (0.010) seconds
+build/logs/t0c520c78-units.log:	 Executed 1 test, with 0 failures (0 unexpected) in 0.027 (0.028) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.026 (0.028) seconds
+build/logs/t0c520c78-units.log:	 Executed 9 tests, with 0 failures (0 unexpected) in 0.045 (0.048) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.143 (0.146) seconds
+build/logs/t0c520c78-units.log:	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+build/logs/t0c520c78-units.log:	 Executed 13 tests, with 0 failures (0 unexpected) in 0.030 (0.034) seconds
+build/logs/t0c520c78-units.log:	 Executed 25 tests, with 0 failures (0 unexpected) in 0.617 (0.626) seconds
+build/logs/t0c520c78-units.log:	 Executed 16 tests, with 0 failures (0 unexpected) in 0.010 (0.020) seconds
+build/logs/t0c520c78-units.log:	 Executed 6 tests, with 0 failures (0 unexpected) in 0.029 (0.031) seconds
+build/logs/t0c520c78-units.log:	 Executed 9 tests, with 0 failures (0 unexpected) in 0.066 (0.069) seconds
+build/logs/t0c520c78-units.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 0.003 (0.005) seconds
+build/logs/t0c520c78-units.log:	 Executed 11 tests, with 0 failures (0 unexpected) in 0.021 (0.024) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.103 (0.106) seconds
+build/logs/t0c520c78-units.log:	 Executed 11 tests, with 0 failures (0 unexpected) in 0.033 (0.036) seconds
+build/logs/t0c520c78-units.log:	 Executed 6 tests, with 0 failures (0 unexpected) in 0.012 (0.014) seconds
+build/logs/t0c520c78-units.log:	 Executed 18 tests, with 0 failures (0 unexpected) in 0.037 (0.042) seconds
+build/logs/t0c520c78-units.log:	 Executed 8 tests, with 0 failures (0 unexpected) in 0.012 (0.015) seconds
+build/logs/t0c520c78-units.log:	 Executed 8 tests, with 0 failures (0 unexpected) in 2.000 (2.003) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.083 (0.085) seconds
+build/logs/t0c520c78-units.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 9.984 (9.985) seconds
+build/logs/t0c520c78-units.log:	 Executed 13 tests, with 0 failures (0 unexpected) in 0.522 (0.527) seconds
+build/logs/t0c520c78-units.log:Test Case '-[MattermostTests.MentionPollerTests testLiveMentionsFetch_optIn]' skipped (0.008 seconds).
+build/logs/t0c520c78-units.log:	 Executed 20 tests, with 1 test skipped and 0 failures (0 unexpected) in 0.341 (0.348) seconds
+build/logs/t0c520c78-units.log:Test Case '-[MattermostTests.NativeNavigationTests testClosingAThreadFromTheThreadsListReturnsToTheShellRoot]' skipped (0.001 seconds).
+build/logs/t0c520c78-units.log:Test Case '-[MattermostTests.NativeNavigationTests testClosingAThreadReturnsToItsChannel]' skipped (0.003 seconds).
+build/logs/t0c520c78-units.log:	 Executed 36 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.208 (0.220) seconds
+build/logs/t0c520c78-units.log:	 Executed 17 tests, with 0 failures (0 unexpected) in 0.129 (0.135) seconds
+build/logs/t0c520c78-units.log:	 Executed 9 tests, with 0 failures (0 unexpected) in 0.015 (0.018) seconds
+build/logs/t0c520c78-units.log:	 Executed 12 tests, with 0 failures (0 unexpected) in 0.537 (0.542) seconds
+build/logs/t0c520c78-units.log:	 Executed 18 tests, with 0 failures (0 unexpected) in 0.260 (0.267) seconds
+build/logs/t0c520c78-units.log:	 Executed 10 tests, with 0 failures (0 unexpected) in 0.028 (0.031) seconds
+build/logs/t0c520c78-units.log:	 Executed 12 tests, with 0 failures (0 unexpected) in 0.046 (0.049) seconds
+build/logs/t0c520c78-units.log:Test Case '-[MattermostTests.SelfSignedTrustTests testNativeCallFailsUntrustedThenSucceedsAfterTheCertificateIsTrusted]' skipped (0.009 seconds).
+build/logs/t0c520c78-units.log:Test Case '-[MattermostTests.SelfSignedTrustTests testRealWebSocketTransportOpensOnlyAfterTheCertificateIsTrusted]' skipped (0.006 seconds).
+build/logs/t0c520c78-units.log:	 Executed 3 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.015 (0.016) seconds
+build/logs/t0c520c78-units.log:	 Executed 11 tests, with 0 failures (0 unexpected) in 0.013 (0.018) seconds
+build/logs/t0c520c78-units.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 0.006 (0.007) seconds
+build/logs/t0c520c78-units.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 0.009 (0.010) seconds
+build/logs/t0c520c78-units.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 0.007 (0.008) seconds
+build/logs/t0c520c78-units.log:	 Executed 3 tests, with 0 failures (0 unexpected) in 0.012 (0.013) seconds
+build/logs/t0c520c78-units.log:	 Executed 6 tests, with 0 failures (0 unexpected) in 0.023 (0.025) seconds
+build/logs/t0c520c78-units.log:	 Executed 11 tests, with 0 failures (0 unexpected) in 0.007 (0.011) seconds
+build/logs/t0c520c78-units.log:	 Executed 6 tests, with 0 failures (0 unexpected) in 0.005 (0.011) seconds
+build/logs/t0c520c78-units.log:	 Executed 15 tests, with 0 failures (0 unexpected) in 0.021 (0.026) seconds
+build/logs/t0c520c78-units.log:	 Executed 12 tests, with 0 failures (0 unexpected) in 0.028 (0.032) seconds
+build/logs/t0c520c78-units.log:	 Executed 15 tests, with 0 failures (0 unexpected) in 0.009 (0.017) seconds
+build/logs/t0c520c78-units.log:	 Executed 19 tests, with 0 failures (0 unexpected) in 0.085 (0.095) seconds
+build/logs/t0c520c78-units.log:	 Executed 35 tests, with 0 failures (0 unexpected) in 0.094 (0.104) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.068 (0.070) seconds
+build/logs/t0c520c78-units.log:	 Executed 22 tests, with 0 failures (0 unexpected) in 2.064 (2.071) seconds
+build/logs/t0c520c78-units.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 0.007 (0.008) seconds
+build/logs/t0c520c78-units.log:	 Executed 12 tests, with 0 failures (0 unexpected) in 0.020 (0.024) seconds
+build/logs/t0c520c78-units.log:	 Executed 2 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.386 (0.389) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.024 (0.027) seconds
+build/logs/t0c520c78-units.log:	 Executed 42 tests, with 0 failures (0 unexpected) in 0.108 (0.121) seconds
+build/logs/t0c520c78-units.log:	 Executed 74 tests, with 0 failures (0 unexpected) in 0.855 (0.877) seconds
+build/logs/t0c520c78-units.log:	 Executed 14 tests, with 0 failures (0 unexpected) in 0.474 (0.479) seconds
+build/logs/t0c520c78-units.log:	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+build/logs/t0c520c78-units.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 0.021 (0.022) seconds
+build/logs/t0c520c78-units.log:	 Executed 28 tests, with 0 failures (0 unexpected) in 0.223 (0.231) seconds
+build/logs/t0c520c78-units.log:	 Executed 2 tests, with 0 failures (0 unexpected) in 6.144 (6.145) seconds
+build/logs/t0c520c78-units.log:	 Executed 11 tests, with 0 failures (0 unexpected) in 0.012 (0.017) seconds
+build/logs/t0c520c78-units.log:	 Executed 17 tests, with 0 failures (0 unexpected) in 0.036 (0.041) seconds
+build/logs/t0c520c78-units.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 0.184 (0.185) seconds
+build/logs/t0c520c78-units.log:	 Executed 27 tests, with 0 failures (0 unexpected) in 0.081 (0.089) seconds
+build/logs/t0c520c78-units.log:	 Executed 30 tests, with 0 failures (0 unexpected) in 0.244 (0.256) seconds
+build/logs/t0c520c78-units.log:	 Executed 9 tests, with 0 failures (0 unexpected) in 0.012 (0.018) seconds
+build/logs/t0c520c78-units.log:	 Executed 13 tests, with 0 failures (0 unexpected) in 0.018 (0.031) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.021 (0.023) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.642 (0.644) seconds
+build/logs/t0c520c78-units.log:	 Executed 11 tests, with 0 failures (0 unexpected) in 0.025 (0.029) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.008 (0.011) seconds
+build/logs/t0c520c78-units.log:	 Executed 10 tests, with 0 failures (0 unexpected) in 0.186 (0.190) seconds
+build/logs/t0c520c78-units.log:	 Executed 36 tests, with 0 failures (0 unexpected) in 0.039 (0.066) seconds
+build/logs/t0c520c78-units.log:	 Executed 48 tests, with 0 failures (0 unexpected) in 0.788 (0.819) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.009 (0.012) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.018 (0.022) seconds
+build/logs/t0c520c78-units.log:	 Executed 20 tests, with 0 failures (0 unexpected) in 0.026 (0.045) seconds
+build/logs/t0c520c78-units.log:	 Executed 31 tests, with 0 failures (0 unexpected) in 0.037 (0.065) seconds
+build/logs/t0c520c78-units.log:	 Executed 26 tests, with 0 failures (0 unexpected) in 0.040 (0.057) seconds
+build/logs/t0c520c78-units.log:	 Executed 34 tests, with 0 failures (0 unexpected) in 0.488 (0.499) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.015 (0.018) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.009 (0.011) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.003 (0.005) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.021 (0.023) seconds
+build/logs/t0c520c78-units.log:	 Executed 8 tests, with 0 failures (0 unexpected) in 0.009 (0.012) seconds
+build/logs/t0c520c78-units.log:	 Executed 2 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+build/logs/t0c520c78-units.log:	 Executed 10 tests, with 0 failures (0 unexpected) in 0.153 (0.157) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.018 (0.020) seconds
+build/logs/t0c520c78-units.log:	 Executed 16 tests, with 0 failures (0 unexpected) in 0.014 (0.019) seconds
+build/logs/t0c520c78-units.log:	 Executed 3 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.005 (0.011) seconds
+build/logs/t0c520c78-units.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.008 (0.018) seconds
+build/logs/t0c520c78-units.log:	 Executed 45 tests, with 0 failures (0 unexpected) in 0.113 (0.145) seconds
+build/logs/t0c520c78-units.log:	 Executed 49 tests, with 0 failures (0 unexpected) in 0.107 (0.150) seconds
+build/logs/t0c520c78-units.log:	 Executed 8 tests, with 0 failures (0 unexpected) in 0.117 (0.119) seconds
+build/logs/t0c520c78-units.log:	 Executed 65 tests, with 0 failures (0 unexpected) in 1.176 (1.218) seconds
+build/logs/t0c520c78-units.log:	 Executed 9 tests, with 0 failures (0 unexpected) in 0.013 (0.018) seconds
+build/logs/t0c520c78-units.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 0.006 (0.010) seconds
+build/logs/t0c520c78-units.log:	 Executed 42 tests, with 0 failures (0 unexpected) in 0.059 (0.097) seconds
+build/logs/t0c520c78-units.log:	 Executed 23 tests, with 0 failures (0 unexpected) in 0.175 (0.183) seconds
+build/logs/t0c520c78-units.log:	 Executed 37 tests, with 0 failures (0 unexpected) in 0.596 (0.612) seconds
+build/logs/t0c520c78-units.log:	 Executed 4 tests, with 0 failures (0 unexpected) in 0.024 (0.026) seconds
+build/logs/t0c520c78-units.log:	 Executed 9 tests, with 0 failures (0 unexpected) in 0.009 (0.012) seconds
+build/logs/t0c520c78-units.log:Test Case '-[MattermostTests.T44CCallsEngineTests testARemoteCandidateBeforeTheAnswerIsQueuedAndTheCallStillConnects]' skipped (0.001 seconds).
+build/logs/t0c520c78-units.log:Test Case '-[MattermostTests.T44CCallsEngineTests testAServerReOfferIsAnswered]' skipped (0.001 seconds).
+build/logs/t0c520c78-units.log:Test Case '-[MattermostTests.T44CCallsEngineTests testTheSFUsAnswerIsAppliedAndTheEngineConnects]' skipped (0.001 seconds).
+build/logs/t0c520c78-units.log:	 Executed 19 tests, with 3 tests skipped and 0 failures (0 unexpected) in 1.927 (1.934) seconds
+build/logs/t0c520c78-units.log:	 Executed 24 tests, with 0 failures (0 unexpected) in 0.021 (0.037) seconds
+build/logs/t0c520c78-units.log:	 Executed 2 tests, with 0 failures (0 unexpected) in 3.017 (3.017) seconds
+build/logs/t0c520c78-units.log:	 Executed 17 tests, with 0 failures (0 unexpected) in 0.649 (0.654) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.008 (0.010) seconds
+build/logs/t0c520c78-units.log:	 Executed 21 tests, with 0 failures (0 unexpected) in 0.034 (0.048) seconds
+build/logs/t0c520c78-units.log:	 Executed 15 tests, with 0 failures (0 unexpected) in 0.021 (0.032) seconds
+build/logs/t0c520c78-units.log:	 Executed 3 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+build/logs/t0c520c78-units.log:	 Executed 34 tests, with 0 failures (0 unexpected) in 0.050 (0.088) seconds
+build/logs/t0c520c78-units.log:	 Executed 23 tests, with 0 failures (0 unexpected) in 0.028 (0.041) seconds
+build/logs/t0c520c78-units.log:	 Executed 11 tests, with 0 failures (0 unexpected) in 0.009 (0.024) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.008 (0.012) seconds
+build/logs/t0c520c78-units.log:	 Executed 3 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+build/logs/t0c520c78-units.log:	 Executed 5 tests, with 0 failures (0 unexpected) in 0.003 (0.007) seconds
+build/logs/t0c520c78-units.log:	 Executed 11 tests, with 0 failures (0 unexpected) in 0.031 (0.036) seconds
+build/logs/t0c520c78-units.log:	 Executed 10 tests, with 0 failures (0 unexpected) in 0.010 (0.014) seconds
+build/logs/t0c520c78-units.log:	 Executed 7 tests, with 0 failures (0 unexpected) in 0.013 (0.016) seconds
+build/logs/t0c520c78-units.log:	 Executed 14 tests, with 0 failures (0 unexpected) in 0.170 (0.181) seconds
+build/logs/t0c520c78-units.log:	 Executed 24 tests, with 0 failures (0 unexpected) in 0.128 (0.136) seconds
+build/logs/t0c520c78-units.log:	 Executed 12 tests, with 0 failures (0 unexpected) in 0.009 (0.012) seconds
+build/logs/t0c520c78-units.log:	 Executed 1796 tests, with 8 tests skipped and 0 failures (0 unexpected) in 39.209 (40.163) seconds
+build/logs/t0c520c78-units.log:	 Executed 1796 tests, with 8 tests skipped and 0 failures (0 unexpected) in 39.209 (40.169) seconds
+build/logs/t0c520c78-units.log:** TEST SUCCEEDED **
