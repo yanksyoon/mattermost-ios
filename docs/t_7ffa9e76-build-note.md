@@ -234,3 +234,41 @@ TEST_RUNNER_MM_AUTH_PASSWORD=<scripts/perf_seed.py> \
 `--sim` must pin the runtime (`name=iPhone 16 Pro,OS=18.3.1`); a bare name resolves against the latest
 runtime, where this device does not exist. `build/logs/` is gitignored — the log names above are the
 runs this note cites.
+
+## 7. Independent re-verification (resumed run, 2026-10-30 13:20–14:05)
+
+The session that wrote §1–§6 was reclaimed by the dispatcher before it could record anything on the
+board, so this section states what a **second** session re-measured on the landed tip
+`79e1c9d` (== `origin/main`), and what it deliberately did **not** re-run.
+
+| Check | Result | Evidence |
+|---|---|---|
+| `bash scripts/verify-dual-render-gates.sh --allow-approved-registry` | **PASS**; §11 green at **11** cases, first line `unhostedSurfaces is exactly [.settings, .plugins] — the pinned declaration`, exactly the §1.2 output | run live on `79e1c9d` |
+| whole unit target | **1830 run / 8 skipped / 0 failed** in 41.1 s — reproduces §1.3 exactly | `build/logs/verify-units.log` |
+| CI on the commit that carries the code | run **41092380080** (head `7346847`, the push containing `a57fe67`): `test (ios-simulator)` **success**, `test (catalyst)` **success** | `gh run view 41092380080` |
+| `grep -rn "\.threads" MattermostTests/SurfaceModeResolverTests.swift` | **0** | live grep |
+| `grep -rn "threads=" MattermostUITests/` | no output | live grep |
+| `MattermostUITests/T36-ThreadsUITests.swift` launch line | `shell`, `auth`, `sidebar`, `composer` — no `threads` flag; file untouched since `02d9815` | `grep -n surfaceMode`, `git log -- "…/T36-ThreadsUITests.swift"` |
+| fixture facts behind §2.1 | re-measured through the API by this session: `perfprobe` is in **351** channels of team `perf`, `t36-threads` at **index 11**; its only three members are `opsbot` (345 channels), `perfprobe` (351) and `t36reply` (**3**) | scratch probe `probe_t36_fixture.py` / `probe_t36_members.py` |
+
+Two things this re-verification adds to the record rather than restates:
+
+1. **CI's test legs ran on the implementation commit, not on the tip.** The push that landed `a57fe67`
+   also carried `7346847`, so the tip of that push was still test-worthy and run **41092380080** ran
+   both legs green. The follow-up docs-only push (`79e1c9d`) is a separate run (**41092429696**) whose
+   test legs are **skipped by design** (`scripts/ci_plan.py`, docs-only). A reader who looks only at
+   the newest run sees `test … skipped` and might read that as untested code: it is not — the code's
+   run is 41092380080.
+2. **T36 cannot be made green by swapping the login.** §2.1 leaves the fixture repair to
+   `t_c941e3d3`; the member table above closes the obvious cheap alternative — the one account with a
+   three-channel sidebar (`t36reply`) is hard-coded as the suite's **second** author
+   (`T36-ThreadsUITests.swift:41`), so logging in as it would collapse the two-author premise the
+   follow/read tests rest on. The repair is a fixture or a shared scroll helper, i.e. `t_c941e3d3`'s.
+
+**Not re-run in this session, stated plainly:** `T36ThreadsUITests` and `T31WebSessionHarvestUITests`
+were not launched again (host load averaged 42 on 10 cores with two other cards' live suites on the
+same simulator, the condition C1's note records as runner-crash territory; a crashed runner would add
+a log that says nothing about the product). The two pairs of logs §2 cites were re-read line by line:
+both T36 logs stop at `T36-ThreadsUITests.swift:793` ten times with the same message, both T31 logs
+fail the same single test — so the base-vs-branch equality §2 asserts is intact, and the T36 red is
+still the fixture's, not this card's.
