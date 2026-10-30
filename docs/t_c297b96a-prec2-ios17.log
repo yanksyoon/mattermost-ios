@@ -1,0 +1,1068 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=iOS Simulator,id=146D23D9-9900-4D1E-AF1F-F9B374B699A4" -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/TestResults/t_c297b96a-prec2-ios17-881e45.xcresult -only-testing MattermostUITests/T5449ListProfileUITests/testTheAuthorOfASearchResultOpensTheirProfile -only-testing MattermostUITests/T5449ListProfileUITests/testTheAuthorOfASavedPostOpensTheirProfile -only-testing MattermostUITests/T5449ListProfileUITests/testTheAuthorOfAMentionOpensTheirProfile
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift @ 7.11.1
+
+Writing result bundle at path:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/TestResults/t_c297b96a-prec2-ios17-881e45.xcresult
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, arch:arm64, id:146D23D9-9900-4D1E-AF1F-F9B374B699A4, OS:17.0.1, name:iPhone 15 Pro }
+{ platform:iOS Simulator, arch:x86_64, id:146D23D9-9900-4D1E-AF1F-F9B374B699A4, OS:17.0.1, name:iPhone 15 Pro }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (7 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDBSQLite' in project 'GRDB'
+    Target 'GRDBSQLite' in project 'GRDB' (no dependencies)
+    Target 'GRDB_GRDB' in project 'GRDB' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro/Mattermost/Assets.xcassets
+
+ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+Build description signature: fa22a09f02a7b77638020764b3f88aba
+Build description path: /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/XCBuildData/fa22a09f02a7b77638020764b3f88aba.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist (in target 'GRDB_GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist -producttype com.apple.product-type.framework -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist
+
+CompileAssetCatalogVariant thinned /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro/Mattermost/Assets.xcassets (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro/Mattermost/Assets.xcassets --compile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_output/thinned --output-format human-readable-text --notices --warnings --export-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_dependencies_thinned --output-partial-info-plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist_thinned --app-icon AppIcon --accent-color AccentColor --compress-pngs --enable-on-demand-resources YES --filter-for-thinning-device-configuration iPhone16,1 --filter-for-device-os-version 17.0.1 --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 17.0 --platform iphonesimulator
+/* com.apple.actool.compilation-results */
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist_thinned
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_output/thinned/AppIcon60x60@2x.png
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_output/thinned/AppIcon76x76@2x~ipad.png
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_output/thinned/Assets.car
+
+
+LinkAssetCatalog /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro/Mattermost/Assets.xcassets (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    builtin-linkAssetCatalog --thinned /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_output/thinned --thinned-dependencies /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_dependencies_thinned --thinned-info-plist-content /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist_thinned --unthinned /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_output/unthinned --unthinned-dependencies /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_dependencies_unthinned --unthinned-info-plist-content /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist_unthinned --output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app --plist-output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist
+note: Emplaced /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/AppIcon60x60@2x.png (in target 'Mattermost' from project 'Mattermost')
+note: Emplaced /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Assets.car (in target 'Mattermost' from project 'Mattermost')
+note: Emplaced /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/AppIcon76x76@2x~ipad.png (in target 'Mattermost' from project 'Mattermost')
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro/Mattermost/Info.plist (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    builtin-infoPlistUtility /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro/Mattermost/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/WebRTC.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -format binary -platform iphonesimulator -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib: replacing existing signature
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app/__preview.dylib: replacing existing signature
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --entitlements /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/Mattermost.app.xcent --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app: replacing existing signature
+
+Validate /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    builtin-validationUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/Mattermost.app -shallow-bundle -infoplist-subpath Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c297b96a/repro
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+2026-10-30 13:48:10.632812-0500 MattermostUITests-Runner[91280:28660235] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-10-30 13:48:11.222.
+Test Suite 'MattermostUITests.xctest' started at 2026-10-30 13:48:11.223.
+Test Suite 'T5449ListProfileUITests' started at 2026-10-30 13:48:11.223.
+Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAMentionOpensTheirProfile]' started.
+    t =     0.00s Start Test at 2026-10-30 13:48:11.224
+    t =     0.21s Set Up
+    t =     1.03s Open com.mattermost.ios
+    t =     1.03s     Launch com.mattermost.ios
+2026-10-30 13:48:13.167 xcodebuild[90722:28656175] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-30 13:48:13.167 xcodebuild[90722:28656175] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     3.64s         Setting up automation session
+    t =     4.57s         Wait for com.mattermost.ios to idle
+    t =     6.79s Waiting 30.0s for "loginIDField" TextField to exist
+    t =     7.83s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     7.84s         Checking existence of `"loginIDField" TextField`
+    t =     8.03s Tap "loginIDField" TextField
+    t =     8.03s     Wait for com.mattermost.ios to idle
+    t =     8.05s     Find the "loginIDField" TextField
+    t =     8.08s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     8.24s     Synthesize event
+    t =     8.84s     Wait for com.mattermost.ios to idle
+    t =    10.61s Type 'perfprobe' into "loginIDField" TextField
+    t =    10.61s     Wait for com.mattermost.ios to idle
+    t =    10.64s     Find the "loginIDField" TextField
+    t =    10.75s     Check for interrupting elements affecting "loginIDField" TextField
+    t =    10.79s     Synthesize event
+    t =    11.14s     Wait for com.mattermost.ios to idle
+    t =    11.15s Checking existence of `"loginPasswordField" SecureTextField`
+    t =    11.17s Tap "loginPasswordField" SecureTextField
+    t =    11.17s     Wait for com.mattermost.ios to idle
+    t =    11.18s     Find the "loginPasswordField" SecureTextField
+    t =    11.20s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =    11.22s     Synthesize event
+    t =    11.52s     Wait for com.mattermost.ios to idle
+    t =    11.53s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =    11.53s     Wait for com.mattermost.ios to idle
+    t =    11.53s     Find the "loginPasswordField" SecureTextField
+    t =    11.55s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =    11.58s     Synthesize event
+    t =    12.26s     Wait for com.mattermost.ios to idle
+    t =    12.26s Tap "loginSubmitButton" Button
+    t =    12.26s     Wait for com.mattermost.ios to idle
+    t =    12.26s     Find the "loginSubmitButton" Button
+    t =    12.29s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =    12.31s     Synthesize event
+    t =    12.61s     Wait for com.mattermost.ios to idle
+    t =    13.64s Waiting 60.0s for "nativeShell" Any to exist
+    t =    14.67s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    14.68s         Checking existence of `"nativeShell" Any`
+    t =    14.73s Checking existence of `TabBar (First Match)`
+    t =    14.75s Checking existence of `TabBar (First Match)`
+    t =    14.76s Waiting 10.0s for "Mentions" Button to exist
+    t =    15.84s     Checking `Expect predicate `existsNoRetry == 1` for object "Mentions" Button`
+    t =    15.87s         Checking existence of `"Mentions" Button`
+    t =    15.99s Tap "Mentions" Button
+    t =    15.99s     Wait for com.mattermost.ios to idle
+    t =    16.00s     Find the "Mentions" Button
+    t =    16.04s     Check for interrupting elements affecting "Mentions" Button
+    t =    16.18s     Synthesize event
+    t =    16.56s     Wait for com.mattermost.ios to idle
+    t =    16.57s Waiting 40.0s for "nativeActivityPane" Any to exist
+    t =    17.60s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeActivityPane" Any`
+    t =    17.60s         Checking existence of `"nativeActivityPane" Any`
+    t =    17.63s Waiting 40.0s for "activity.list" Any to exist
+    t =    18.65s     Checking `Expect predicate `existsNoRetry == 1` for object "activity.list" Any`
+    t =    18.66s         Checking existence of `"activity.list" Any`
+    t =    18.69s Waiting 60.0s for "activity.row.jsu8whii7bgo8m31s4in4q957r" Any to exist
+    t =    19.73s     Checking `Expect predicate `existsNoRetry == 1` for object "activity.row.jsu8whii7bgo8m31s4in4q957r" Any`
+    t =    19.73s         Checking existence of `"activity.row.jsu8whii7bgo8m31s4in4q957r" Any`
+    t =    19.83s Find the "activity.row.jsu8whii7bgo8m31s4in4q957r" Any
+    t =    19.88s Checking existence of `"post.jsu8whii7bgo8m31s4in4q957r.avatar" Any`
+    t =    19.93s Waiting 20.0s for "post.jsu8whii7bgo8m31s4in4q957r.avatar" Any to exist
+    t =    20.97s     Checking `Expect predicate `existsNoRetry == 1` for object "post.jsu8whii7bgo8m31s4in4q957r.avatar" Any`
+    t =    20.97s         Checking existence of `"post.jsu8whii7bgo8m31s4in4q957r.avatar" Any`
+    t =    21.02s Find the "post.jsu8whii7bgo8m31s4in4q957r.avatar" Any
+    t =    21.06s Find the "post.jsu8whii7bgo8m31s4in4q957r.avatar" Button
+    t =    21.11s Find the "post.jsu8whii7bgo8m31s4in4q957r.avatar" Button
+    t =    21.21s Find the "post.jsu8whii7bgo8m31s4in4q957r.avatar" Button
+[t_c297b96a-probe] author elementType=9 identifier=post.jsu8whii7bgo8m31s4in4q957r.avatar hittable=true frame=(32.0, 263.66666666666663, 36.0, 36.0)
+    t =    21.28s Requesting snapshot of accessibility hierarchy for app with pid 91325
+    t =    21.51s Requesting snapshot of accessibility hierarchy for app with pid 91325
+    t =    21.60s Requesting snapshot of accessibility hierarchy for app with pid 91325
+    t =    21.68s Find: Descendants matching type Any
+    t =    21.68s Find: Elements matching predicate '"activity.row.jsu8whii7bgo8m31s4in4q957r" IN identifiers'
+    t =    21.68s Requesting snapshot of accessibility hierarchy for app with pid 91325
+    t =    21.76s Find: Descendants matching type Any
+    t =    21.76s Requesting snapshot of accessibility hierarchy for app with pid 91325
+[t_c297b96a-probe] row tree:
+Attributes: Button, 0x10620eed0, {{0.0, 230.3}, {393.0, 132.3}}, identifier: 'activity.row.jsu8whii7bgo8m31s4in4q957r', label: '#t429-tap, unread message, Buddy Profile: @perfprobe t5449c2mention6BF5320B from t41buddy'
+Element subtree:
+ →Button, 0x10620eed0, {{0.0, 230.3}, {393.0, 132.3}}, identifier: 'activity.row.jsu8whii7bgo8m31s4in4q957r', label: '#t429-tap, unread message, Buddy Profile: @perfprobe t5449c2mention6BF5320B from t41buddy'
+    Other, 0x10620ca50, {{20.0, 245.0}, {7.0, 7.0}}
+    StaticText, 0x10620db40, {{33.0, 241.3}, {61.0, 14.3}}, label: '#t429-tap'
+    Image, 0x106024db0, {{361.3, 244.3}, {10.3, 8.7}}, label: 'arrow.turn.down.right'
+    Other, 0x106021f30, {{32.0, 263.7}, {274.0, 82.0}}, identifier: 'post.jsu8whii7bgo8m31s4in4q957r'
+      Button, 0x103b12a20, {{32.0, 263.7}, {36.0, 36.0}}, identifier: 'post.jsu8whii7bgo8m31s4in4q957r.avatar', label: 'Buddy Profile profile'
+        StaticText, 0x103b097a0, {{41.3, 273.8}, {17.3, 15.7}}, label: 'BP'
+        Other, 0x103e14f10, {{32.0, 263.7}, {36.0, 36.0}}
+      Button, 0x103e155b0, {{78.0, 263.7}, {96.3, 18.0}}, identifier: 'post.jsu8whii7bgo8m31s4in4q957r.author', label: 'Buddy Profile'
+      StaticText, 0x103e156d0, {{180.3, 267.7}, {41.3, 13.3}}, label: '1:48 PM'
+      StaticText, 0x103e15970, {{78.0, 285.7}, {228.0, 60.0}}, identifier: 'post.jsu8whii7bgo8m31s4in4q957r.body.block0', label: '@perfprobe t5449c2mention6BF5320B from t41buddy'
+Path to element:
+ →Application, 0x103d1d8d0, pid: 91325, label: 'Mattermost'
+  ↳Window (Main), 0x103c0abf0, {{0.0, 0.0}, {393.0, 852.0}}
+   ↳Other, 0x103c09740, {{0.0, 0.0}, {393.0, 852.0}}
+    ↳Other, 0x103c0efd0, {{0.0, 0.0}, {393.0, 852.0}}
+     ↳Other, 0x103c04ef0, {{0.0, 0.0}, {393.0, 852.0}}
+      ↳Other, 0x103c0f630, {{0.0, 0.0}, {393.0, 852.0}}
+       ↳Other, 0x103c09120, {{0.0, 0.0}, {393.0, 852.0}}
+        ↳Other, 0x103c10900, {{0.0, 0.0}, {393.0, 852.0}}
+         ↳Other, 0x103c10a20, {{0.0, 0.0}, {393.0, 852.0}}
+          ↳Other, 0x103c10b40, {{0.0, 0.0}, {393.0, 852.0}}
+           ↳Other, 0x103c10c60, {{0.0, 0.0}, {393.0, 852.0}}
+            ↳Other, 0x103d215a0, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeShell'
+             ↳Other, 0x10610f0d0, {{0.0, 0.0}, {393.0, 852.0}}
+              ↳Other, 0x10610f1f0, {{0.0, 0.0}, {393.0, 852.0}}
+               ↳Other, 0x10610f310, {{0.0, 0.0}, {393.0, 852.0}}
+                ↳Other, 0x10640f9f0, {{0.0, 0.0}, {393.0, 852.0}}
+                 ↳Other, 0x1064127c0, {{0.0, 0.0}, {393.0, 852.0}}
+                  ↳Other, 0x106410ee0, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeActivityPane'
+                   ↳CollectionView, 0x10620c360, {{0.0, 230.3}, {393.0, 621.7}}, identifier: 'activity.list'
+                    ↳Cell, 0x106024a20, {{0.0, 230.3}, {393.0, 132.3}}
+                     ↳Other, 0x10620d120, {{0.0, 230.3}, {393.0, 132.3}}
+                      ↳Other, 0x10620d470, {{0.0, 230.3}, {393.0, 132.3}}
+                       ↳Other, 0x10620eb60, {{0.0, 230.3}, {393.0, 132.3}}
+                        ↳Button, 0x10620eed0, {{0.0, 230.3}, {393.0, 132.3}}, identifier: 'activity.row.jsu8whii7bgo8m31s4in4q957r', label: '#t429-tap, unread message, Buddy Profile: @perfprobe t5449c2mention6BF5320B from t41buddy'
+Query chain:
+ →Find: Target Application 'com.mattermost.ios'
+  Output: {
+    Application, 0x103b39f30, pid: 91325, label: 'Mattermost'
+  }
+  ↪︎Find: Descendants matching type Any
+    Output: {
+      Window (Main), 0x103e2bf80, {{0.0, 0.0}, {393.0, 852.0}}
+      Window, 0x10612e280, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x103e2c340, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x10612e3a0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x103e2c460, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x10612e4c0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x10612e5e0, {{0.0, 852.0}, {393.0, 233.0}}
+      Other, 0x103e2c0a0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x103e2c1c0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x103e2c580, {{0.0, 0.0}, {393.0, 852.0}}
+      NavigationBar, 0x103e2c6a0, {{0.0, 53.7}, {393.0, 96.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+      Other, 0x103e2daa0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x103e2c7c0, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x103e2cf60, {{244.7, 58.7}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+      Other, 0x103e2d2c0, {{294.7, 58.3}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+      Other, 0x103e2d620, {{345.7, 60.7}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+      StaticText, 0x103e2d980, {{16.0, 101.3}, {7.3, 40.7}}, label: ' '
+      Other, 0x103e2dbc0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x103e2c8e0, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x103e2d080, {{244.7, 58.7}, {42.0, 34.0}}
+      Other, 0x103e2d3e0, {{294.7, 58.3}, {43.0, 35.0}}
+      Other, 0x103e2d740, {{345.7, 60.7}, {31.3, 30.0}}
+      Other, 0x103e2dce0, {{0.0, 0.0}, {393.0, 852.0}}
+      Button, 0x103e2cae0, {{83.3, 53.7}, {155.3, 44.0}}, identifier: 'serverSwitcher', label: 'Local Mattermost'
+      Button, 0x103e2d1a0, {{244.7, 58.7}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+      Button, 0x103e2d500, {{294.7, 58.3}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+      Button, 0x103e2d860, {{345.7, 60.7}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+      Other, 0x103e2de00, {{0.0, 0.0}, {393.0, 852.0}}
+      Button, 0x103e2cc00, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x103e2df20, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeShell'
+      Other, 0x103e2cd20, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x103e2e040, {{0.0, 0.0}, {393.0, 852.0}}
+      StaticText, 0x103e2ce40, {{83.3, 53.7}, {155.3, 44.0}}, label: 'Local Mattermost'
+      Other, 0x103e2e160, {{0.0, 0.0}, {393.0, 852.0}}
+      TabBar, 0x10612dbc0, {{0.0, 769.0}, {393.0, 83.0}}, label: 'Tab Bar'
+      Other, 0x103e2e280, {{0.0, 0.0}, {393.0, 852.0}}
+      Button, 0x10612dce0, {{2.0, 770.0}, {75.0, 48.0}}, label: 'Channels'
+      Button, 0x10612de00, {{81.0, 770.0}, {74.0, 48.0}}, label: 'Threads'
+      Button, 0x10612df20, {{159.0, 770.0}, {75.0, 48.0}}, label: 'Search'
+      Button, 0x10612e040, {{238.0, 770.0}, {74.0, 48.0}}, label: 'Mentions', Selected
+      Button, 0x10612e160, {{316.0, 770.0}, {75.0, 48.0}}, label: 'Saved'
+      Other, 0x103e2e3a0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x103e2e4c0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x103e2e5e0, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeActivityPane'
+      Image, 0x103e2e700, {{17.7, 161.0}, {17.0, 18.7}}, label: 'bell.badge'
+      StaticText, 0x103e2e820, {{44.0, 160.3}, {133.7, 20.3}}, identifier: 'activity.title', label: 'Recent mentions'
+      Button, 0x103e2e940, {{331.7, 159.7}, {17.7, 20.0}}, identifier: 'activity.refresh', label: 'Refresh mentions'
+      Button, 0x103e2ea60, {{357.3, 161.3}, {19.7, 19.0}}, identifier: 'activity.markAllRead', label: 'Mark all read', Selected
+      StaticText, 0x103e2eb80, {{16.0, 197.3}, {136.0, 14.3}}, identifier: 'activity.subtitle', label: '100 mentions · 7 unread'
+      SegmentedControl, 0x103e2eca0, {{197.0, 189.0}, {180.0, 31.0}}, identifier: 'activity.filter'
+      CollectionView, 0x103e2f000, {{0.0, 230.3}, {393.0, 621.7}}, identifier: 'activity.list'
+      Button, 0x103e2edc0, {{197.0, 189.0}, {89.0, 32.0}}, label: 'All', Selected
+      Button, 0x103e2eee0, {{287.0, 189.0}, {90.0, 32.0}}, label: 'Unread'
+      Other, 0x103e2f120, {{0.0, -1013.0}, {393.0, 7328.3}}
+      Cell, 0x103e2f240, {{0.0, 230.3}, {393.0, 132.3}}
+      Cell, 0x103e30560, {{0.0, 362.7}, {393.0, 132.3}}
+      Other, 0x106129cc0, {{33.0, 362.3}, {360.0, 0.3}}
+      Cell, 0x106129de0, {{0.0, 495.0}, {393.0, 132.3}}
+      Other, 0x10612b100, {{33.0, 494.7}, {360.0, 0.3}}
+      Cell, 0x10612b220, {{0.0, 627.3}, {393.0, 132.3}}
+      Other, 0x10612c540, {{33.0, 627.0}, {360.0, 0.3}}
+      Cell, 0x10612c660, {{0.0, 759.7}, {393.0, 132.3}}
+      Other, 0x10612d980, {{33.0, 759.3}, {360.0, 0.3}}
+      Other, 0x10612daa0, {{360.0, 255.0}, {30.0, 514.0}}, label: 'Vertical scroll bar, 9 pages', value: 0%
+      Other, 0x103e2f360, {{0.0, 230.3}, {393.0, 132.3}}
+      Other, 0x103e2f5a0, {{0.0, 230.3}, {393.0, 132.3}}
+      Other, 0x103e30680, {{0.0, 362.7}, {393.0, 132.3}}
+      Other, 0x103e308c0, {{0.0, 362.7}, {393.0, 132.3}}
+      Other, 0x106129f00, {{0.0, 495.0}, {393.0, 132.3}}
+      Other, 0x10612a140, {{0.0, 495.0}, {393.0, 132.3}}
+      Other, 0x10612b340, {{0.0, 627.3}, {393.0, 132.3}}
+      Other, 0x10612b580, {{0.0, 627.3}, {393.0, 132.3}}
+      Other, 0x10612c780, {{0.0, 759.7}, {393.0, 132.3}}
+      Other, 0x10612c9c0, {{0.0, 759.7}, {393.0, 132.3}}
+      Other, 0x103e2f480, {{0.0, 230.3}, {393.0, 132.3}}
+      Other, 0x103e2f6c0, {{0.0, 230.3}, {393.0, 132.3}}
+      Other, 0x103e307a0, {{0.0, 362.7}, {393.0, 132.3}}
+      Other, 0x103e309e0, {{0.0, 362.7}, {393.0, 132.3}}
+      Other, 0x10612a020, {{0.0, 495.0}, {393.0, 132.3}}
+      Other, 0x10612a260, {{0.0, 495.0}, {393.0, 132.3}}
+      Other, 0x10612b460, {{0.0, 627.3}, {393.0, 132.3}}
+      Other, 0x10612b6a0, {{0.0, 627.3}, {393.0, 132.3}}
+      Other, 0x10612c8a0, {{0.0, 759.7}, {393.0, 132.3}}
+      Other, 0x10612cae0, {{0.0, 759.7}, {393.0, 132.3}}
+      Other, 0x103e2f7e0, {{0.0, 230.3}, {393.0, 132.3}}
+      Other, 0x103e30b00, {{0.0, 362.7}, {393.0, 132.3}}
+      Other, 0x10612a380, {{0.0, 495.0}, {393.0, 132.3}}
+      Other, 0x10612b7c0, {{0.0, 627.3}, {393.0, 132.3}}
+      Other, 0x10612cc00, {{0.0, 759.7}, {393.0, 132.3}}
+      Button, 0x103e2f900, {{0.0, 230.3}, {393.0, 132.3}}, identifier: 'activity.row.jsu8whii7bgo8m31s4in4q957r', label: '#t429-tap, unread message, Buddy Profile: @perfprobe t5449c2mention6BF5320B from t41buddy'
+      Button, 0x103e30c20, {{0.0, 362.7}, {393.0, 132.3}}, identifier: 'activity.row.ctpycek4wpg7ix79c5kk796mje', label: '#t429-tap, unread message, Buddy Profile: @perfprobe t5449c2mention5B37CA0F from t41buddy'
+      Button, 0x10612a4a0, {{0.0, 495.0}, {393.0, 132.3}}, identifier: 'activity.row.94sgqqqynigstgfyw87hosadkw', label: '#t429-tap, unread message, Buddy Profile: @perfprobe t5449c2mentionDCB20BD0 from t41buddy'
+      Button, 0x10612b8e0, {{0.0, 627.3}, {393.0, 132.3}}, identifier: 'activity.row.fmshhucwtiyem8icg7af87jbqr', label: '#t429-tap, unread message, Buddy Profile: @perfprobe t5449c2mention5D62B17D from t41buddy'
+      Button, 0x10612cd20, {{0.0, 759.7}, {393.0, 132.3}}, identifier: 'activity.row.d5qazqscuf84im8dkj3fwasc7o', label: '#t429-tap, unread message, Buddy Profile: @perfprobe t5449c2mentionE29C24B7 from t41buddy'
+      Other, 0x103e2fa20, {{20.0, 245.0}, {7.0, 7.0}}
+      StaticText, 0x103e2fb40, {{33.0, 241.3}, {61.0, 14.3}}, label: '#t429-tap'
+      Image, 0x103e2fc60, {{361.3, 244.3}, {10.3, 8.7}}, label: 'arrow.turn.down.right'
+      Other, 0x103e2fd80, {{32.0, 263.7}, {274.0, 82.0}}, identifier: 'post.jsu8whii7bgo8m31s4in4q957r'
+      Other, 0x103e30d40, {{20.0, 377.3}, {7.0, 7.0}}
+      StaticText, 0x103e30e60, {{33.0, 373.7}, {61.0, 14.3}}, label: '#t429-tap'
+      Image, 0x106122340, {{361.3, 376.7}, {10.3, 8.7}}, label: 'arrow.turn.down.right'
+      Other, 0x1061233d0, {{32.0, 396.0}, {274.3, 82.0}}, identifier: 'post.ctpycek4wpg7ix79c5kk796mje'
+      Other, 0x10612a5c0, {{20.0, 509.7}, {7.0, 7.0}}
+      StaticText, 0x10612a6e0, {{33.0, 506.0}, {61.0, 14.3}}, label: '#t429-tap'
+      Image, 0x10612a800, {{361.3, 509.0}, {10.3, 8.7}}, label: 'arrow.turn.down.right'
+      Other, 0x10612a920, {{32.0, 528.3}, {279.3, 82.0}}, identifier: 'post.94sgqqqynigstgfyw87hosadkw'
+      Other, 0x10612ba00, {{20.0, 642.0}, {7.0, 7.0}}
+      StaticText, 0x10612bb20, {{33.0, 638.3}, {61.0, 14.3}}, label: '#t429-tap'
+      Image, 0x10612bc40, {{361.3, 641.3}, {10.3, 8.7}}, label: 'arrow.turn.down.right'
+      Other, 0x10612bd60, {{32.0, 660.7}, {274.0, 82.0}}, identifier: 'post.fmshhucwtiyem8icg7af87jbqr'
+      Other, 0x10612ce40, {{20.0, 774.3}, {7.0, 7.0}}
+      StaticText, 0x10612cf60, {{33.0, 770.7}, {61.0, 14.3}}, label: '#t429-tap'
+      Image, 0x10612d080, {{361.3, 773.7}, {10.3, 8.7}}, label: 'arrow.turn.down.right'
+      Other, 0x10612d1a0, {{32.0, 793.0}, {274.3, 82.0}}, identifier: 'post.d5qazqscuf84im8dkj3fwasc7o'
+      Button, 0x103e2fea0, {{32.0, 263.7}, {36.0, 36.0}}, identifier: 'post.jsu8whii7bgo8m31s4in4q957r.avatar', label: 'Buddy Profile profile'
+      Button, 0x103e30200, {{78.0, 263.7}, {96.3, 18.0}}, identifier: 'post.jsu8whii7bgo8m31s4in4q957r.author', label: 'Buddy Profile'
+      StaticText, 0x103e30320, {{180.3, 267.7}, {41.3, 13.3}}, label: '1:48 PM'
+      StaticText, 0x103e30440, {{78.0, 285.7}, {228.0, 60.0}}, identifier: 'post.jsu8whii7bgo8m31s4in4q957r.body.block0', label: '@perfprobe t5449c2mention6BF5320B from t41buddy'
+      Button, 0x1061237f0, {{32.0, 396.0}, {36.0, 36.0}}, identifier: 'post.ctpycek4wpg7ix79c5kk796mje.avatar', label: 'Buddy Profile profile'
+      Button, 0x106129960, {{78.0, 396.0}, {96.3, 18.0}}, identifier: 'post.ctpycek4wpg7ix79c5kk796mje.author', label: 'Buddy Profile'
+      StaticText, 0x106129a80, {{180.3, 400.0}, {41.0, 13.3}}, label: '1:45 PM'
+      StaticText, 0x106129ba0, {{78.0, 418.0}, {228.3, 60.0}}, identifier: 'post.ctpycek4wpg7ix79c5kk796mje.body.block0', label: '@perfprobe t5449c2mention5B37CA0F from t41buddy'
+      Button, 0x10612aa40, {{32.0, 528.3}, {36.0, 36.0}}, identifier: 'post.94sgqqqynigstgfyw87hosadkw.avatar', label: 'Buddy Profile profile'
+      Button, 0x10612ada0, {{78.0, 528.3}, {96.3, 18.0}}, identifier: 'post.94sgqqqynigstgfyw87hosadkw.author', label: 'Buddy Profile'
+      StaticText, 0x10612aec0, {{180.3, 532.3}, {39.3, 13.3}}, label: '1:41 PM'
+      StaticText, 0x10612afe0, {{78.0, 550.3}, {233.3, 60.0}}, identifier: 'post.94sgqqqynigstgfyw87hosadkw.body.block0', label: '@perfprobe t5449c2mentionDCB20BD0 from t41buddy'
+      Button, 0x10612be80, {{32.0, 660.7}, {36.0, 36.0}}, identifier: 'post.fmshhucwtiyem8icg7af87jbqr.avatar', label: 'Buddy Profile profile'
+      Button, 0x10612c1e0, {{78.0, 660.7}, {96.3, 18.0}}, identifier: 'post.fmshhucwtiyem8icg7af87jbqr.author', label: 'Buddy Profile'
+      StaticText, 0x10612c300, {{180.3, 664.7}, {41.0, 13.3}}, label: '1:40 PM'
+      StaticText, 0x10612c420, {{78.0, 682.7}, {228.0, 60.0}}, identifier: 'post.fmshhucwtiyem8icg7af87jbqr.body.block0', label: '@perfprobe t5449c2mention5D62B17D from t41buddy'
+      Button, 0x10612d2c0, {{32.0, 793.0}, {36.0, 36.0}}, identifier: 'post.d5qazqscuf84im8dkj3fwasc7o.avatar', label: 'Buddy Profile profile'
+      Button, 0x10612d620, {{78.0, 793.0}, {96.3, 18.0}}, identifier: 'post.d5qazqscuf84im8dkj3fwasc7o.author', label: 'Buddy Profile'
+      StaticText, 0x10612d740, {{180.3, 797.0}, {48.0, 13.3}}, label: '12:04 PM'
+      StaticText, 0x10612d860, {{78.0, 815.0}, {228.3, 60.0}}, identifier: 'post.d5qazqscuf84im8dkj3fwasc7o.body.block0', label: '@perfprobe t5449c2mentionE29C24B7 from t41buddy'
+      StaticText, 0x103e2ffc0, {{41.3, 273.8}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x103e300e0, {{32.0, 263.7}, {36.0, 36.0}}
+      StaticText, 0x106122fb0, {{41.3, 406.2}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x106120c10, {{32.0, 396.0}, {36.0, 36.0}}
+      StaticText, 0x10612ab60, {{41.3, 538.5}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x10612ac80, {{32.0, 528.3}, {36.0, 36.0}}
+      StaticText, 0x10612bfa0, {{41.3, 670.8}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x10612c0c0, {{32.0, 660.7}, {36.0, 36.0}}
+      StaticText, 0x10612d3e0, {{41.3, 803.2}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x10612d500, {{32.0, 793.0}, {36.0, 36.0}}
+    }
+    ↪︎Find: Elements matching predicate '"activity.row.jsu8whii7bgo8m31s4in4q957r" IN identifiers'
+      Output: {
+        Button, 0x103c38e10, {{0.0, 230.3}, {393.0, 132.3}}, identifier: 'activity.row.jsu8whii7bgo8m31s4in4q957r', label: '#t429-tap, unread message, Buddy Profile: @perfprobe t5449c2mention6BF5320B from t41buddy'
+      }
+      ↪︎Find: First Match
+        Output: {
+          Button, 0x10641e1e0, {{0.0, 230.3}, {393.0, 132.3}}, identifier: 'activity.row.jsu8whii7bgo8m31s4in4q957r', label: '#t429-tap, unread message, Buddy Profile: @perfprobe t5449c2mention6BF5320B from t41buddy'
+        }
+
+    t =    22.51s Find the "post.jsu8whii7bgo8m31s4in4q957r.avatar" Button
+    t =    22.56s Find the "post.jsu8whii7bgo8m31s4in4q957r.avatar" Button
+    t =    22.61s Find the "activity.row.jsu8whii7bgo8m31s4in4q957r" Button
+    t =    22.65s Tap "post.jsu8whii7bgo8m31s4in4q957r.avatar" Button
+    t =    22.65s     Wait for com.mattermost.ios to idle
+    t =    22.65s     Find the "post.jsu8whii7bgo8m31s4in4q957r.avatar" Button
+    t =    22.70s     Check for interrupting elements affecting "post.jsu8whii7bgo8m31s4in4q957r.avatar" Button
+    t =    22.86s     Synthesize event
+    t =    23.19s     Wait for com.mattermost.ios to idle
+    t =    23.42s Waiting 30.0s for "profileSheet" Any to exist
+    t =    24.46s     Checking `Expect predicate `existsNoRetry == 1` for object "profileSheet" Any`
+    t =    24.47s         Checking existence of `"profileSheet" Any`
+    t =    24.51s Waiting 20.0s for "profile.username" Any to exist
+    t =    25.53s     Checking `Expect predicate `existsNoRetry == 1` for object "profile.username" Any`
+    t =    25.54s         Checking existence of `"profile.username" Any`
+    t =    25.60s Find the "profile.username" Any
+    t =    25.64s Find the Target Application 'com.mattermost.ios'
+    t =    25.93s Added attachment named 't5449-c2-mention-author-profile'
+    t =    25.96s Tear Down
+Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfAMentionOpensTheirProfile]' passed (26.224 seconds).
+Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASavedPostOpensTheirProfile]' started.
+    t =     0.01s Start Test at 2026-10-30 13:48:37.451
+    t =     0.05s Set Up
+    t =     0.83s Open com.mattermost.ios
+    t =     0.83s     Launch com.mattermost.ios
+    t =     0.83s         Terminate com.mattermost.ios:91325
+2026-10-30 13:48:39.319 xcodebuild[90722:28656175] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-30 13:48:39.319 xcodebuild[90722:28656175] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.30s         Setting up automation session
+    t =     4.17s         Wait for com.mattermost.ios to idle
+    t =     6.55s Waiting 30.0s for "loginIDField" TextField to exist
+    t =     7.58s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     7.58s         Checking existence of `"loginIDField" TextField`
+    t =     7.70s Tap "loginIDField" TextField
+    t =     7.70s     Wait for com.mattermost.ios to idle
+    t =     7.72s     Find the "loginIDField" TextField
+    t =     7.74s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     7.90s     Synthesize event
+    t =     8.22s     Wait for com.mattermost.ios to idle
+    t =     8.71s Type 'perfprobe' into "loginIDField" TextField
+    t =     8.71s     Wait for com.mattermost.ios to idle
+    t =     9.22s     Find the "loginIDField" TextField
+    t =     9.26s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     9.29s     Synthesize event
+    t =     9.66s     Wait for com.mattermost.ios to idle
+    t =     9.66s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     9.69s Tap "loginPasswordField" SecureTextField
+    t =     9.69s     Wait for com.mattermost.ios to idle
+    t =     9.69s     Find the "loginPasswordField" SecureTextField
+    t =     9.72s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     9.75s     Synthesize event
+    t =    10.05s     Wait for com.mattermost.ios to idle
+    t =    10.05s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =    10.05s     Wait for com.mattermost.ios to idle
+    t =    10.06s     Find the "loginPasswordField" SecureTextField
+    t =    10.08s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =    10.11s     Synthesize event
+    t =    10.79s     Wait for com.mattermost.ios to idle
+    t =    10.80s Tap "loginSubmitButton" Button
+    t =    10.80s     Wait for com.mattermost.ios to idle
+    t =    10.80s     Find the "loginSubmitButton" Button
+    t =    10.83s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =    10.87s     Synthesize event
+    t =    11.16s     Wait for com.mattermost.ios to idle
+    t =    11.65s Waiting 60.0s for "nativeShell" Any to exist
+    t =    12.66s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    12.67s         Checking existence of `"nativeShell" Any`
+    t =    12.73s Checking existence of `TabBar (First Match)`
+    t =    12.74s Checking existence of `TabBar (First Match)`
+    t =    12.76s Waiting 10.0s for "Saved" Button to exist
+    t =    13.80s     Checking `Expect predicate `existsNoRetry == 1` for object "Saved" Button`
+    t =    13.80s         Checking existence of `"Saved" Button`
+    t =    13.89s Tap "Saved" Button
+    t =    13.89s     Wait for com.mattermost.ios to idle
+    t =    13.89s     Find the "Saved" Button
+    t =    13.93s     Check for interrupting elements affecting "Saved" Button
+    t =    13.97s     Synthesize event
+    t =    14.27s     Wait for com.mattermost.ios to idle
+    t =    14.42s Waiting 40.0s for "nativeSavedPane" Any to exist
+    t =    15.43s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeSavedPane" Any`
+    t =    15.43s         Checking existence of `"nativeSavedPane" Any`
+    t =    15.46s Checking existence of `"savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y" Any`
+    t =    15.51s Waiting 60.0s for "savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y" Any to exist
+    t =    16.53s     Checking `Expect predicate `existsNoRetry == 1` for object "savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y" Any`
+    t =    16.53s         Checking existence of `"savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y" Any`
+    t =    16.57s Find the "savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y" Any
+    t =    16.61s Checking existence of `"post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Any`
+    t =    16.65s Waiting 20.0s for "post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Any to exist
+    t =    17.69s     Checking `Expect predicate `existsNoRetry == 1` for object "post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Any`
+    t =    17.69s         Checking existence of `"post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Any`
+    t =    17.74s Find the "post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Any
+    t =    17.78s Find the "post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Button
+    t =    17.83s Find the "post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Button
+    t =    17.88s Find the "post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Button
+[t_c297b96a-probe] author elementType=9 identifier=post.dspg8ssxsfrjjbxucdstz85n4y.avatar hittable=true frame=(32.0, 183.0, 36.0, 36.0)
+    t =    17.93s Requesting snapshot of accessibility hierarchy for app with pid 91445
+    t =    18.14s Requesting snapshot of accessibility hierarchy for app with pid 91445
+    t =    18.24s Requesting snapshot of accessibility hierarchy for app with pid 91445
+    t =    18.33s Find: Descendants matching type Any
+    t =    18.33s Find: Elements matching predicate '"savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y" IN identifiers'
+    t =    18.33s Requesting snapshot of accessibility hierarchy for app with pid 91445
+    t =    18.42s Find: Descendants matching type Any
+    t =    18.42s Requesting snapshot of accessibility hierarchy for app with pid 91445
+[t_c297b96a-probe] row tree:
+Attributes: Button, 0x106111640, {{21.3, 157.7}, {234.0, 86.3}}, identifier: 'savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y', label: '#t429-tap, Buddy Profile: t5449c2saved06A85937 from t41buddy'
+Element subtree:
+ →Button, 0x106111640, {{21.3, 157.7}, {234.0, 86.3}}, identifier: 'savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y', label: '#t429-tap, Buddy Profile: t5449c2saved06A85937 from t41buddy'
+    StaticText, 0x106111760, {{21.3, 157.7}, {76.0, 20.3}}, identifier: 'savedPosts.channel.dspg8ssxsfrjjbxucdstz85n4y', label: '#t429-tap'
+    Other, 0x106111880, {{32.0, 183.0}, {223.3, 61.0}}, identifier: 'post.dspg8ssxsfrjjbxucdstz85n4y'
+      Button, 0x1061119a0, {{32.0, 183.0}, {36.0, 36.0}}, identifier: 'post.dspg8ssxsfrjjbxucdstz85n4y.avatar', label: 'Buddy Profile profile'
+        StaticText, 0x106111ac0, {{41.3, 193.2}, {17.3, 15.7}}, label: 'BP'
+        Other, 0x106111be0, {{32.0, 183.0}, {36.0, 36.0}}
+      Button, 0x106111d00, {{78.0, 183.0}, {96.3, 18.0}}, identifier: 'post.dspg8ssxsfrjjbxucdstz85n4y.author', label: 'Buddy Profile'
+      StaticText, 0x106111e20, {{180.3, 187.0}, {41.3, 13.3}}, label: '1:48 PM'
+      StaticText, 0x106111f40, {{78.0, 205.0}, {177.3, 39.0}}, identifier: 'post.dspg8ssxsfrjjbxucdstz85n4y.body.block0', label: 't5449c2saved06A85937 from t41buddy'
+Path to element:
+ →Application, 0x103e17590, pid: 91445, label: 'Mattermost'
+  ↳Window (Main), 0x10610ccb0, {{0.0, 0.0}, {393.0, 852.0}}
+   ↳Other, 0x10610eb80, {{0.0, 0.0}, {393.0, 852.0}}
+    ↳Other, 0x10610eca0, {{0.0, 0.0}, {393.0, 852.0}}
+     ↳Other, 0x10610ea30, {{0.0, 0.0}, {393.0, 852.0}}
+      ↳Other, 0x10610db70, {{0.0, 0.0}, {393.0, 852.0}}
+       ↳Other, 0x10610edc0, {{0.0, 0.0}, {393.0, 852.0}}
+        ↳Other, 0x106110200, {{0.0, 0.0}, {393.0, 852.0}}
+         ↳Other, 0x106110320, {{0.0, 0.0}, {393.0, 852.0}}
+          ↳Other, 0x106110440, {{0.0, 0.0}, {393.0, 852.0}}
+           ↳Other, 0x106110560, {{0.0, 0.0}, {393.0, 852.0}}
+            ↳Other, 0x106110680, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeShell'
+             ↳Other, 0x1061107a0, {{0.0, 0.0}, {393.0, 852.0}}
+              ↳Other, 0x1061108c0, {{0.0, 0.0}, {393.0, 852.0}}
+               ↳Other, 0x1061109e0, {{0.0, 0.0}, {393.0, 852.0}}
+                ↳Other, 0x106110b00, {{0.0, 0.0}, {393.0, 852.0}}
+                 ↳Other, 0x106110c20, {{0.0, 0.0}, {393.0, 852.0}}
+                  ↳CollectionView, 0x106110d40, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeSavedPane'
+                   ↳Cell, 0x106110f80, {{0.0, 149.7}, {393.0, 111.3}}
+                    ↳Other, 0x1061112e0, {{0.0, 149.7}, {393.0, 111.3}}
+                     ↳Other, 0x106111400, {{0.0, 149.7}, {393.0, 111.3}}
+                      ↳Other, 0x106111520, {{0.0, 149.7}, {393.0, 111.3}}
+                       ↳Button, 0x106111640, {{21.3, 157.7}, {234.0, 86.3}}, identifier: 'savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y', label: '#t429-tap, Buddy Profile: t5449c2saved06A85937 from t41buddy'
+Query chain:
+ →Find: Target Application 'com.mattermost.ios'
+  Output: {
+    Application, 0x103b3f1b0, pid: 91445, label: 'Mattermost'
+  }
+  ↪︎Find: Descendants matching type Any
+    Output: {
+      Window (Main), 0x106141180, {{0.0, 0.0}, {393.0, 852.0}}
+      Window, 0x10614cce0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x1061371c0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x10614ce00, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x1061419a0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x10614cf20, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x10614d040, {{0.0, 852.0}, {393.0, 233.0}}
+      Other, 0x106141dc0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x10613fa40, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x106140b40, {{0.0, 0.0}, {393.0, 852.0}}
+      NavigationBar, 0x106141580, {{0.0, 53.7}, {393.0, 96.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+      Other, 0x1061432c0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x10613fe60, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x106142780, {{244.7, 58.7}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+      Other, 0x106142ae0, {{294.7, 58.3}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+      Other, 0x106142e40, {{345.7, 60.7}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+      StaticText, 0x1061431a0, {{16.0, 101.3}, {7.3, 40.7}}, label: ' '
+      Other, 0x1061433e0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x1061421e0, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x1061428a0, {{244.7, 58.7}, {42.0, 34.0}}
+      Other, 0x106142c00, {{294.7, 58.3}, {43.0, 35.0}}
+      Other, 0x106142f60, {{345.7, 60.7}, {31.3, 30.0}}
+      Other, 0x106143500, {{0.0, 0.0}, {393.0, 852.0}}
+      Button, 0x106142300, {{83.3, 53.7}, {155.3, 44.0}}, identifier: 'serverSwitcher', label: 'Local Mattermost'
+      Button, 0x1061429c0, {{244.7, 58.7}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+      Button, 0x106142d20, {{294.7, 58.3}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+      Button, 0x106143080, {{345.7, 60.7}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+      Other, 0x106143620, {{0.0, 0.0}, {393.0, 852.0}}
+      Button, 0x106142420, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x106143740, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeShell'
+      Other, 0x106142540, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x106143860, {{0.0, 0.0}, {393.0, 852.0}}
+      StaticText, 0x106142660, {{83.3, 53.7}, {155.3, 44.0}}, label: 'Local Mattermost'
+      Other, 0x106143980, {{0.0, 0.0}, {393.0, 852.0}}
+      TabBar, 0x10614c620, {{0.0, 769.0}, {393.0, 83.0}}, label: 'Tab Bar'
+      Other, 0x106143aa0, {{0.0, 0.0}, {393.0, 852.0}}
+      Button, 0x10614c740, {{2.0, 770.0}, {75.0, 48.0}}, label: 'Channels'
+      Button, 0x10614c860, {{81.0, 770.0}, {74.0, 48.0}}, label: 'Threads'
+      Button, 0x10614c980, {{159.0, 770.0}, {75.0, 48.0}}, label: 'Search'
+      Button, 0x10614caa0, {{238.0, 770.0}, {74.0, 48.0}}, label: 'Mentions'
+      Button, 0x10614cbc0, {{316.0, 770.0}, {75.0, 48.0}}, label: 'Saved', Selected
+      Other, 0x106143bc0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x106143ce0, {{0.0, 0.0}, {393.0, 852.0}}
+      CollectionView, 0x106143e00, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeSavedPane'
+      Other, 0x106143f20, {{0.0, -1554.3}, {393.0, 4319.3}}
+      Cell, 0x106144040, {{0.0, 149.7}, {393.0, 111.3}}
+      Cell, 0x106145240, {{0.0, 261.0}, {393.0, 111.3}}
+      Other, 0x106146440, {{36.3, 260.7}, {356.7, 0.3}}
+      Cell, 0x106146560, {{0.0, 372.3}, {393.0, 111.3}}
+      Other, 0x106147760, {{36.3, 372.0}, {356.7, 0.3}}
+      Cell, 0x106147880, {{0.0, 483.7}, {393.0, 111.3}}
+      Other, 0x106148a80, {{36.3, 483.3}, {356.7, 0.3}}
+      Cell, 0x106148ba0, {{0.0, 595.0}, {393.0, 111.3}}
+      Other, 0x106149da0, {{36.3, 594.7}, {356.7, 0.3}}
+      Cell, 0x106149ec0, {{0.0, 706.3}, {393.0, 111.3}}
+      Other, 0x10614b0c0, {{36.3, 706.0}, {356.7, 0.3}}
+      Cell, 0x10614b1e0, {{0.0, 817.7}, {393.0, 111.3}}
+      Other, 0x10614c3e0, {{36.3, 817.3}, {356.7, 0.3}}
+      Other, 0x10614c500, {{360.0, 149.7}, {30.0, 619.3}}, label: 'Vertical scroll bar, 2 pages', value: 0%
+      Other, 0x106144160, {{0.0, 149.7}, {393.0, 111.3}}
+      Other, 0x1061443a0, {{0.0, 149.7}, {393.0, 111.3}}
+      Other, 0x106145360, {{0.0, 261.0}, {393.0, 111.3}}
+      Other, 0x1061455a0, {{0.0, 261.0}, {393.0, 111.3}}
+      Other, 0x106146680, {{0.0, 372.3}, {393.0, 111.3}}
+      Other, 0x1061468c0, {{0.0, 372.3}, {393.0, 111.3}}
+      Other, 0x1061479a0, {{0.0, 483.7}, {393.0, 111.3}}
+      Other, 0x106147be0, {{0.0, 483.7}, {393.0, 111.3}}
+      Other, 0x106148cc0, {{0.0, 595.0}, {393.0, 111.3}}
+      Other, 0x106148f00, {{0.0, 595.0}, {393.0, 111.3}}
+      Other, 0x106149fe0, {{0.0, 706.3}, {393.0, 111.3}}
+      Other, 0x10614a220, {{0.0, 706.3}, {393.0, 111.3}}
+      Other, 0x10614b300, {{0.0, 817.7}, {393.0, 111.3}}
+      Other, 0x10614b540, {{0.0, 817.7}, {393.0, 111.3}}
+      Other, 0x106144280, {{0.0, 149.7}, {393.0, 111.3}}
+      Other, 0x1061444c0, {{0.0, 149.7}, {393.0, 111.3}}
+      Other, 0x106145480, {{0.0, 261.0}, {393.0, 111.3}}
+      Other, 0x1061456c0, {{0.0, 261.0}, {393.0, 111.3}}
+      Other, 0x1061467a0, {{0.0, 372.3}, {393.0, 111.3}}
+      Other, 0x1061469e0, {{0.0, 372.3}, {393.0, 111.3}}
+      Other, 0x106147ac0, {{0.0, 483.7}, {393.0, 111.3}}
+      Other, 0x106147d00, {{0.0, 483.7}, {393.0, 111.3}}
+      Other, 0x106148de0, {{0.0, 595.0}, {393.0, 111.3}}
+      Other, 0x106149020, {{0.0, 595.0}, {393.0, 111.3}}
+      Other, 0x10614a100, {{0.0, 706.3}, {393.0, 111.3}}
+      Other, 0x10614a340, {{0.0, 706.3}, {393.0, 111.3}}
+      Other, 0x10614b420, {{0.0, 817.7}, {393.0, 111.3}}
+      Other, 0x10614b660, {{0.0, 817.7}, {393.0, 111.3}}
+      Other, 0x1061445e0, {{0.0, 149.7}, {393.0, 111.3}}
+      Other, 0x1061457e0, {{0.0, 261.0}, {393.0, 111.3}}
+      Other, 0x106146b00, {{0.0, 372.3}, {393.0, 111.3}}
+      Other, 0x106147e20, {{0.0, 483.7}, {393.0, 111.3}}
+      Other, 0x106149140, {{0.0, 595.0}, {393.0, 111.3}}
+      Other, 0x10614a460, {{0.0, 706.3}, {393.0, 111.3}}
+      Other, 0x10614b780, {{0.0, 817.7}, {393.0, 111.3}}
+      Button, 0x106144700, {{21.3, 157.7}, {234.0, 86.3}}, identifier: 'savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y', label: '#t429-tap, Buddy Profile: t5449c2saved06A85937 from t41buddy'
+      Button, 0x106145120, {{355.3, 160.7}, {17.7, 20.3}}, identifier: 'savedPosts.remove.dspg8ssxsfrjjbxucdstz85n4y', label: 'Unsave'
+      Button, 0x106145900, {{21.3, 269.0}, {238.0, 86.3}}, identifier: 'savedPosts.row.8sx1dkyty3r7znphzcrtfwg4ey', label: '#t429-tap, Buddy Profile: t5449c2saved86CDDFA6 from t41buddy'
+      Button, 0x106146320, {{355.3, 272.0}, {17.7, 20.3}}, identifier: 'savedPosts.remove.8sx1dkyty3r7znphzcrtfwg4ey', label: 'Unsave'
+      Button, 0x106146c20, {{21.3, 380.3}, {233.3, 86.3}}, identifier: 'savedPosts.row.37wkuho7ut8ibeu9k98bierzha', label: '#t429-tap, Buddy Profile: t5449c2savedCA07203F from t41buddy'
+      Button, 0x106147640, {{355.3, 383.3}, {17.7, 20.3}}, identifier: 'savedPosts.remove.37wkuho7ut8ibeu9k98bierzha', label: 'Unsave'
+      Button, 0x106147f40, {{21.3, 491.7}, {231.7, 86.3}}, identifier: 'savedPosts.row.uaen3wm7otrufmu9op744o6o6r', label: '#t429-tap, Buddy Profile: t5449c2saved5C10180C from t41buddy'
+      Button, 0x106148960, {{355.3, 494.7}, {17.7, 20.3}}, identifier: 'savedPosts.remove.uaen3wm7otrufmu9op744o6o6r', label: 'Unsave'
+      Button, 0x106149260, {{21.3, 603.0}, {238.0, 86.3}}, identifier: 'savedPosts.row.8wbh4w4jejdb8byzieggr94eya', label: '#t429-tap, Buddy Profile: t5449c2savedC63E69CD from t41buddy'
+      Button, 0x106149c80, {{355.3, 606.0}, {17.7, 20.3}}, identifier: 'savedPosts.remove.8wbh4w4jejdb8byzieggr94eya', label: 'Unsave'
+      Button, 0x10614a580, {{21.3, 714.3}, {235.3, 86.3}}, identifier: 'savedPosts.row.gbe1xnpztjgu7j5kpwj8c6rzyy', label: '#t429-tap, Buddy Profile: t5449c2savedCFA3A7D5 from t41buddy'
+      Button, 0x10614afa0, {{355.3, 717.3}, {17.7, 20.3}}, identifier: 'savedPosts.remove.gbe1xnpztjgu7j5kpwj8c6rzyy', label: 'Unsave'
+      Button, 0x10614b8a0, {{21.3, 825.7}, {231.0, 86.3}}, identifier: 'savedPosts.row.tdmkjx6ottn1xn7qa8kmruqunc', label: '#t429-tap, Buddy Profile: t5449c2saved80E89251 from t41buddy'
+      Button, 0x10614c2c0, {{355.3, 828.7}, {17.7, 20.3}}, identifier: 'savedPosts.remove.tdmkjx6ottn1xn7qa8kmruqunc', label: 'Unsave'
+      StaticText, 0x106144820, {{21.3, 157.7}, {76.0, 20.3}}, identifier: 'savedPosts.channel.dspg8ssxsfrjjbxucdstz85n4y', label: '#t429-tap'
+      Other, 0x106144940, {{32.0, 183.0}, {223.3, 61.0}}, identifier: 'post.dspg8ssxsfrjjbxucdstz85n4y'
+      StaticText, 0x106145a20, {{21.3, 269.0}, {76.0, 20.3}}, identifier: 'savedPosts.channel.8sx1dkyty3r7znphzcrtfwg4ey', label: '#t429-tap'
+      Other, 0x106145b40, {{32.0, 294.3}, {227.3, 61.0}}, identifier: 'post.8sx1dkyty3r7znphzcrtfwg4ey'
+      StaticText, 0x106146d40, {{21.3, 380.3}, {76.0, 20.3}}, identifier: 'savedPosts.channel.37wkuho7ut8ibeu9k98bierzha', label: '#t429-tap'
+      Other, 0x106146e60, {{32.0, 405.7}, {222.7, 61.0}}, identifier: 'post.37wkuho7ut8ibeu9k98bierzha'
+      StaticText, 0x106148060, {{21.3, 491.7}, {76.0, 20.3}}, identifier: 'savedPosts.channel.uaen3wm7otrufmu9op744o6o6r', label: '#t429-tap'
+      Other, 0x106148180, {{32.0, 517.0}, {221.0, 61.0}}, identifier: 'post.uaen3wm7otrufmu9op744o6o6r'
+      StaticText, 0x106149380, {{21.3, 603.0}, {76.0, 20.3}}, identifier: 'savedPosts.channel.8wbh4w4jejdb8byzieggr94eya', label: '#t429-tap'
+      Other, 0x1061494a0, {{32.0, 628.3}, {227.3, 61.0}}, identifier: 'post.8wbh4w4jejdb8byzieggr94eya'
+      StaticText, 0x10614a6a0, {{21.3, 714.3}, {76.0, 20.3}}, identifier: 'savedPosts.channel.gbe1xnpztjgu7j5kpwj8c6rzyy', label: '#t429-tap'
+      Other, 0x10614a7c0, {{32.0, 739.7}, {224.7, 61.0}}, identifier: 'post.gbe1xnpztjgu7j5kpwj8c6rzyy'
+      StaticText, 0x10614b9c0, {{21.3, 825.7}, {76.0, 20.3}}, identifier: 'savedPosts.channel.tdmkjx6ottn1xn7qa8kmruqunc', label: '#t429-tap'
+      Other, 0x10614bae0, {{32.0, 851.0}, {220.3, 61.0}}, identifier: 'post.tdmkjx6ottn1xn7qa8kmruqunc'
+      Button, 0x106144a60, {{32.0, 183.0}, {36.0, 36.0}}, identifier: 'post.dspg8ssxsfrjjbxucdstz85n4y.avatar', label: 'Buddy Profile profile'
+      Button, 0x106144dc0, {{78.0, 183.0}, {96.3, 18.0}}, identifier: 'post.dspg8ssxsfrjjbxucdstz85n4y.author', label: 'Buddy Profile'
+      StaticText, 0x106144ee0, {{180.3, 187.0}, {41.3, 13.3}}, label: '1:48 PM'
+      StaticText, 0x106145000, {{78.0, 205.0}, {177.3, 39.0}}, identifier: 'post.dspg8ssxsfrjjbxucdstz85n4y.body.block0', label: 't5449c2saved06A85937 from t41buddy'
+      Button, 0x106145c60, {{32.0, 294.3}, {36.0, 36.0}}, identifier: 'post.8sx1dkyty3r7znphzcrtfwg4ey.avatar', label: 'Buddy Profile profile'
+      Button, 0x106145fc0, {{78.0, 294.3}, {96.3, 18.0}}, identifier: 'post.8sx1dkyty3r7znphzcrtfwg4ey.author', label: 'Buddy Profile'
+      StaticText, 0x1061460e0, {{180.3, 298.3}, {41.0, 13.3}}, label: '1:45 PM'
+      StaticText, 0x106146200, {{78.0, 316.3}, {181.3, 39.0}}, identifier: 'post.8sx1dkyty3r7znphzcrtfwg4ey.body.block0', label: 't5449c2saved86CDDFA6 from t41buddy'
+      Button, 0x106146f80, {{32.0, 405.7}, {36.0, 36.0}}, identifier: 'post.37wkuho7ut8ibeu9k98bierzha.avatar', label: 'Buddy Profile profile'
+      Button, 0x1061472e0, {{78.0, 405.7}, {96.3, 18.0}}, identifier: 'post.37wkuho7ut8ibeu9k98bierzha.author', label: 'Buddy Profile'
+      StaticText, 0x106147400, {{180.3, 409.7}, {41.0, 13.3}}, label: '1:42 PM'
+      StaticText, 0x106147520, {{78.0, 427.7}, {176.7, 39.0}}, identifier: 'post.37wkuho7ut8ibeu9k98bierzha.body.block0', label: 't5449c2savedCA07203F from t41buddy'
+      Button, 0x1061482a0, {{32.0, 517.0}, {36.0, 36.0}}, identifier: 'post.uaen3wm7otrufmu9op744o6o6r.avatar', label: 'Buddy Profile profile'
+      Button, 0x106148600, {{78.0, 517.0}, {96.3, 18.0}}, identifier: 'post.uaen3wm7otrufmu9op744o6o6r.author', label: 'Buddy Profile'
+      StaticText, 0x106148720, {{180.3, 521.0}, {41.0, 13.3}}, label: '1:42 PM'
+      StaticText, 0x106148840, {{78.0, 539.0}, {175.0, 39.0}}, identifier: 'post.uaen3wm7otrufmu9op744o6o6r.body.block0', label: 't5449c2saved5C10180C from t41buddy'
+      Button, 0x1061495c0, {{32.0, 628.3}, {36.0, 36.0}}, identifier: 'post.8wbh4w4jejdb8byzieggr94eya.avatar', label: 'Buddy Profile profile'
+      Button, 0x106149920, {{78.0, 628.3}, {96.3, 18.0}}, identifier: 'post.8wbh4w4jejdb8byzieggr94eya.author', label: 'Buddy Profile'
+      StaticText, 0x106149a40, {{180.3, 632.3}, {47.7, 13.3}}, label: '12:05 PM'
+      StaticText, 0x106149b60, {{78.0, 650.3}, {181.3, 39.0}}, identifier: 'post.8wbh4w4jejdb8byzieggr94eya.body.block0', label: 't5449c2savedC63E69CD from t41buddy'
+      Button, 0x10614a8e0, {{32.0, 739.7}, {36.0, 36.0}}, identifier: 'post.gbe1xnpztjgu7j5kpwj8c6rzyy.avatar', label: 'Buddy Profile profile'
+      Button, 0x10614ac40, {{78.0, 739.7}, {96.3, 18.0}}, identifier: 'post.gbe1xnpztjgu7j5kpwj8c6rzyy.author', label: 'Buddy Profile'
+      StaticText, 0x10614ad60, {{180.3, 743.7}, {46.0, 13.3}}, label: '11:22 AM'
+      StaticText, 0x10614ae80, {{78.0, 761.7}, {178.7, 39.0}}, identifier: 'post.gbe1xnpztjgu7j5kpwj8c6rzyy.body.block0', label: 't5449c2savedCFA3A7D5 from t41buddy'
+      Button, 0x10614bc00, {{32.0, 851.0}, {36.0, 36.0}}, identifier: 'post.tdmkjx6ottn1xn7qa8kmruqunc.avatar', label: 'Buddy Profile profile'
+      Button, 0x10614bf60, {{78.0, 851.0}, {96.3, 18.0}}, identifier: 'post.tdmkjx6ottn1xn7qa8kmruqunc.author', label: 'Buddy Profile'
+      StaticText, 0x10614c080, {{180.3, 855.0}, {44.7, 13.3}}, label: '11:15 AM'
+      StaticText, 0x10614c1a0, {{78.0, 873.0}, {174.3, 39.0}}, identifier: 'post.tdmkjx6ottn1xn7qa8kmruqunc.body.block0', label: 't5449c2saved80E89251 from t41buddy'
+      StaticText, 0x106144b80, {{41.3, 193.2}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x106144ca0, {{32.0, 183.0}, {36.0, 36.0}}
+      StaticText, 0x106145d80, {{41.3, 304.5}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x106145ea0, {{32.0, 294.3}, {36.0, 36.0}}
+      StaticText, 0x1061470a0, {{41.3, 415.8}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x1061471c0, {{32.0, 405.7}, {36.0, 36.0}}
+      StaticText, 0x1061483c0, {{41.3, 527.2}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x1061484e0, {{32.0, 517.0}, {36.0, 36.0}}
+      StaticText, 0x1061496e0, {{41.3, 638.5}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x106149800, {{32.0, 628.3}, {36.0, 36.0}}
+      StaticText, 0x10614aa00, {{41.3, 749.8}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x10614ab20, {{32.0, 739.7}, {36.0, 36.0}}
+      StaticText, 0x10614bd20, {{41.3, 861.2}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x10614be40, {{32.0, 851.0}, {36.0, 36.0}}
+    }
+    ↪︎Find: Elements matching predicate '"savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y" IN identifiers'
+      Output: {
+        Button, 0x10643b0a0, {{21.3, 157.7}, {234.0, 86.3}}, identifier: 'savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y', label: '#t429-tap, Buddy Profile: t5449c2saved06A85937 from t41buddy'
+      }
+      ↪︎Find: First Match
+        Output: {
+          Button, 0x10612e260, {{21.3, 157.7}, {234.0, 86.3}}, identifier: 'savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y', label: '#t429-tap, Buddy Profile: t5449c2saved06A85937 from t41buddy'
+        }
+
+    t =    19.29s Find the "post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Button
+    t =    19.34s Find the "post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Button
+    t =    19.39s Find the "savedPosts.row.dspg8ssxsfrjjbxucdstz85n4y" Button
+    t =    19.43s Tap "post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Button
+    t =    19.43s     Wait for com.mattermost.ios to idle
+    t =    19.43s     Find the "post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Button
+    t =    19.47s     Check for interrupting elements affecting "post.dspg8ssxsfrjjbxucdstz85n4y.avatar" Button
+    t =    19.54s     Synthesize event
+    t =    19.86s     Wait for com.mattermost.ios to idle
+    t =    19.94s Waiting 30.0s for "profileSheet" Any to exist
+    t =    20.95s     Checking `Expect predicate `existsNoRetry == 1` for object "profileSheet" Any`
+    t =    20.96s         Checking existence of `"profileSheet" Any`
+    t =    21.01s Waiting 20.0s for "profile.username" Any to exist
+    t =    22.04s     Checking `Expect predicate `existsNoRetry == 1` for object "profile.username" Any`
+    t =    22.05s         Checking existence of `"profile.username" Any`
+    t =    22.09s Find the "profile.username" Any
+    t =    22.13s Find the Target Application 'com.mattermost.ios'
+    t =    22.30s Added attachment named 't5449-c2-saved-author-profile'
+    t =    22.32s Tear Down
+Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASavedPostOpensTheirProfile]' passed (22.621 seconds).
+Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASearchResultOpensTheirProfile]' started.
+    t =     0.00s Start Test at 2026-10-30 13:49:00.073
+    t =     0.07s Set Up
+    t =     1.00s Open com.mattermost.ios
+    t =     1.00s     Launch com.mattermost.ios
+    t =     1.00s         Terminate com.mattermost.ios:91445
+2026-10-30 13:49:02.142 xcodebuild[90722:28656175] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-30 13:49:02.142 xcodebuild[90722:28656175] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.29s         Setting up automation session
+    t =     3.99s         Wait for com.mattermost.ios to idle
+    t =     6.44s Waiting 30.0s for "loginIDField" TextField to exist
+    t =     7.47s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     7.47s         Checking existence of `"loginIDField" TextField`
+    t =     7.56s Tap "loginIDField" TextField
+    t =     7.56s     Wait for com.mattermost.ios to idle
+    t =     7.59s     Find the "loginIDField" TextField
+    t =     7.60s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     7.69s     Synthesize event
+    t =     8.01s     Wait for com.mattermost.ios to idle
+    t =     8.47s Type 'perfprobe' into "loginIDField" TextField
+    t =     8.47s     Wait for com.mattermost.ios to idle
+    t =     8.93s     Find the "loginIDField" TextField
+    t =     8.97s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     9.00s     Synthesize event
+    t =     9.35s     Wait for com.mattermost.ios to idle
+    t =     9.36s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     9.38s Tap "loginPasswordField" SecureTextField
+    t =     9.38s     Wait for com.mattermost.ios to idle
+    t =     9.38s     Find the "loginPasswordField" SecureTextField
+    t =     9.40s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     9.42s     Synthesize event
+    t =     9.78s     Wait for com.mattermost.ios to idle
+    t =     9.80s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     9.80s     Wait for com.mattermost.ios to idle
+    t =     9.82s     Find the "loginPasswordField" SecureTextField
+    t =     9.90s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     9.97s     Synthesize event
+    t =    10.65s     Wait for com.mattermost.ios to idle
+    t =    10.66s Tap "loginSubmitButton" Button
+    t =    10.66s     Wait for com.mattermost.ios to idle
+    t =    10.66s     Find the "loginSubmitButton" Button
+    t =    10.69s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =    10.71s     Synthesize event
+    t =    11.01s     Wait for com.mattermost.ios to idle
+    t =    11.47s Waiting 60.0s for "nativeShell" Any to exist
+    t =    12.49s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    12.49s         Checking existence of `"nativeShell" Any`
+    t =    12.52s Checking existence of `TabBar (First Match)`
+    t =    12.54s Checking existence of `TabBar (First Match)`
+    t =    12.55s Waiting 10.0s for "Search" Button to exist
+    t =    13.58s     Checking `Expect predicate `existsNoRetry == 1` for object "Search" Button`
+    t =    13.58s         Checking existence of `"Search" Button`
+    t =    13.65s Tap "Search" Button
+    t =    13.65s     Wait for com.mattermost.ios to idle
+    t =    13.65s     Find the "Search" Button
+    t =    13.68s     Check for interrupting elements affecting "Search" Button
+    t =    13.72s     Synthesize event
+    t =    14.01s     Wait for com.mattermost.ios to idle
+    t =    14.01s Waiting 40.0s for "nativeSearchPane" Any to exist
+    t =    15.03s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeSearchPane" Any`
+    t =    15.03s         Checking existence of `"nativeSearchPane" Any`
+    t =    15.06s Waiting 20.0s for "searchField" Any to exist
+    t =    16.07s     Checking `Expect predicate `existsNoRetry == 1` for object "searchField" Any`
+    t =    16.07s         Checking existence of `"searchField" Any`
+    t =    16.10s Tap "searchField" Any
+    t =    16.10s     Wait for com.mattermost.ios to idle
+    t =    16.11s     Find the "searchField" Any
+    t =    16.13s     Check for interrupting elements affecting "searchField" TextField
+    t =    16.18s     Synthesize event
+    t =    16.47s     Wait for com.mattermost.ios to idle
+    t =    16.89s Type 't5449c2search2C31D...' into "searchField" TextField
+    t =    16.89s     Wait for com.mattermost.ios to idle
+    t =    16.90s     Find the "searchField" TextField
+    t =    16.94s     Check for interrupting elements affecting "searchField" TextField
+    t =    16.99s     Synthesize event
+    t =    17.54s     Wait for com.mattermost.ios to idle
+    t =    17.54s Waiting 20.0s for "searchSubmit" Any to exist
+    t =    18.57s     Checking `Expect predicate `existsNoRetry == 1` for object "searchSubmit" Any`
+    t =    18.57s         Checking existence of `"searchSubmit" Any`
+    t =    18.62s Tap "searchSubmit" Any
+    t =    18.62s     Wait for com.mattermost.ios to idle
+    t =    18.62s     Find the "searchSubmit" Any
+    t =    18.66s     Check for interrupting elements affecting "searchSubmit" Button
+    t =    18.73s     Synthesize event
+    t =    19.03s     Wait for com.mattermost.ios to idle
+    t =    19.39s Waiting 60.0s for "searchResult.xy5oewn17t8dzj835b6ccget1a" Any to exist
+    t =    20.41s     Checking `Expect predicate `existsNoRetry == 1` for object "searchResult.xy5oewn17t8dzj835b6ccget1a" Any`
+    t =    20.41s         Checking existence of `"searchResult.xy5oewn17t8dzj835b6ccget1a" Any`
+    t =    20.45s Find the "searchResult.xy5oewn17t8dzj835b6ccget1a" Any
+    t =    20.48s Checking existence of `"post.xy5oewn17t8dzj835b6ccget1a.avatar" Any`
+    t =    20.51s Waiting 20.0s for "post.xy5oewn17t8dzj835b6ccget1a.avatar" Any to exist
+    t =    21.54s     Checking `Expect predicate `existsNoRetry == 1` for object "post.xy5oewn17t8dzj835b6ccget1a.avatar" Any`
+    t =    21.54s         Checking existence of `"post.xy5oewn17t8dzj835b6ccget1a.avatar" Any`
+    t =    21.57s Find the "post.xy5oewn17t8dzj835b6ccget1a.avatar" Any
+    t =    21.60s Find the "post.xy5oewn17t8dzj835b6ccget1a.avatar" Button
+    t =    21.63s Find the "post.xy5oewn17t8dzj835b6ccget1a.avatar" Button
+    t =    21.67s Find the "post.xy5oewn17t8dzj835b6ccget1a.avatar" Button
+[t_c297b96a-probe] author elementType=9 identifier=post.xy5oewn17t8dzj835b6ccget1a.avatar hittable=true frame=(20.0, 270.66666666666663, 36.0, 36.0)
+    t =    21.70s Requesting snapshot of accessibility hierarchy for app with pid 91570
+    t =    21.85s Requesting snapshot of accessibility hierarchy for app with pid 91570
+    t =    21.90s Requesting snapshot of accessibility hierarchy for app with pid 91570
+    t =    21.95s Find: Descendants matching type Any
+    t =    21.95s Find: Elements matching predicate '"searchResult.xy5oewn17t8dzj835b6ccget1a" IN identifiers'
+    t =    21.96s Requesting snapshot of accessibility hierarchy for app with pid 91570
+    t =    22.00s Find: Descendants matching type Any
+    t =    22.01s Requesting snapshot of accessibility hierarchy for app with pid 91570
+[t_c297b96a-probe] row tree:
+Attributes: Button, 0x10602ef80, {{0.0, 244.3}, {393.0, 76.3}}, identifier: 'searchResult.xy5oewn17t8dzj835b6ccget1a', label: '#t429-tap, Buddy Profile: t5449c2search2C31D6D4 from t41buddy'
+Element subtree:
+ →Button, 0x10602ef80, {{0.0, 244.3}, {393.0, 76.3}}, identifier: 'searchResult.xy5oewn17t8dzj835b6ccget1a', label: '#t429-tap, Buddy Profile: t5449c2search2C31D6D4 from t41buddy'
+    StaticText, 0x10602f0a0, {{8.0, 248.3}, {61.0, 14.3}}, label: '#t429-tap'
+    Image, 0x10602f1c0, {{373.3, 251.3}, {10.3, 8.7}}, label: 'arrow.turn.down.right'
+    Other, 0x10602f2e0, {{20.0, 270.7}, {331.0, 40.0}}, identifier: 'post.xy5oewn17t8dzj835b6ccget1a'
+      Button, 0x10602f400, {{20.0, 270.7}, {36.0, 36.0}}, identifier: 'post.xy5oewn17t8dzj835b6ccget1a.avatar', label: 'Buddy Profile profile'
+        StaticText, 0x10602f520, {{29.3, 280.8}, {17.3, 15.7}}, label: 'BP'
+        Other, 0x10602f640, {{20.0, 270.7}, {36.0, 36.0}}
+      Button, 0x10602f760, {{66.0, 270.7}, {96.3, 18.0}}, identifier: 'post.xy5oewn17t8dzj835b6ccget1a.author', label: 'Buddy Profile'
+      StaticText, 0x10602f880, {{168.3, 274.7}, {41.3, 13.3}}, label: '1:49 PM'
+      StaticText, 0x10602f9a0, {{66.0, 292.7}, {285.0, 18.0}}, identifier: 'post.xy5oewn17t8dzj835b6ccget1a.body.block0', label: 't5449c2search2C31D6D4 from t41buddy'
+Path to element:
+ →Application, 0x106022dd0, pid: 91570, label: 'Mattermost'
+  ↳Window (Main), 0x106023f30, {{0.0, 0.0}, {393.0, 852.0}}
+   ↳Other, 0x10602b740, {{0.0, 0.0}, {393.0, 852.0}}
+    ↳Other, 0x10602b860, {{0.0, 0.0}, {393.0, 852.0}}
+     ↳Other, 0x10602b5f0, {{0.0, 0.0}, {393.0, 852.0}}
+      ↳Other, 0x10602a740, {{0.0, 0.0}, {393.0, 852.0}}
+       ↳Other, 0x10602b980, {{0.0, 0.0}, {393.0, 852.0}}
+        ↳Other, 0x10602cdc0, {{0.0, 0.0}, {393.0, 852.0}}
+         ↳Other, 0x10602cee0, {{0.0, 0.0}, {393.0, 852.0}}
+          ↳Other, 0x10602d000, {{0.0, 0.0}, {393.0, 852.0}}
+           ↳Other, 0x10602d120, {{0.0, 0.0}, {393.0, 852.0}}
+            ↳Other, 0x10602d240, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeShell'
+             ↳Other, 0x10602d360, {{0.0, 0.0}, {393.0, 852.0}}
+              ↳Other, 0x10602d480, {{0.0, 0.0}, {393.0, 852.0}}
+               ↳Other, 0x10602d5a0, {{0.0, 0.0}, {393.0, 852.0}}
+                ↳Other, 0x10602d6c0, {{0.0, 0.0}, {393.0, 852.0}}
+                 ↳Other, 0x10602d7e0, {{0.0, 0.0}, {393.0, 852.0}}
+                  ↳Other, 0x10602d900, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeSearchPane'
+                   ↳CollectionView, 0x10602dea0, {{0.0, 200.3}, {393.0, 651.7}}, identifier: 'searchResults'
+                    ↳Cell, 0x10602e8c0, {{0.0, 244.3}, {393.0, 76.3}}
+                     ↳Other, 0x10602ec20, {{0.0, 244.3}, {393.0, 76.3}}
+                      ↳Other, 0x10602ed40, {{0.0, 244.3}, {393.0, 76.3}}
+                       ↳Other, 0x10602ee60, {{0.0, 244.3}, {393.0, 76.3}}
+                        ↳Button, 0x10602ef80, {{0.0, 244.3}, {393.0, 76.3}}, identifier: 'searchResult.xy5oewn17t8dzj835b6ccget1a', label: '#t429-tap, Buddy Profile: t5449c2search2C31D6D4 from t41buddy'
+Query chain:
+ →Find: Target Application 'com.mattermost.ios'
+  Output: {
+    Application, 0x106115530, pid: 91570, label: 'Mattermost'
+  }
+  ↪︎Find: Descendants matching type Any
+    Output: {
+      Window (Main), 0x106210d90, {{0.0, 0.0}, {393.0, 852.0}}
+      Window, 0x106429de0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x106213530, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x106429f00, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x106215760, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x10642a020, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x10642a140, {{0.0, 852.0}, {393.0, 233.0}}
+      Other, 0x10620d470, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x106211460, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x106216190, {{0.0, 0.0}, {393.0, 852.0}}
+      NavigationBar, 0x106215e00, {{0.0, 53.7}, {393.0, 96.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+      Other, 0x106228c30, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x1062164f0, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x106217990, {{244.7, 58.7}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+      Other, 0x106218710, {{294.7, 58.3}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+      Other, 0x10622ed70, {{345.7, 60.7}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+      StaticText, 0x10622e6b0, {{16.0, 101.3}, {7.3, 40.7}}, label: ' '
+      Other, 0x106228f80, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x106216bc0, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x106218050, {{244.7, 58.7}, {42.0, 34.0}}
+      Other, 0x106227e80, {{294.7, 58.3}, {43.0, 35.0}}
+      Other, 0x10622f410, {{345.7, 60.7}, {31.3, 30.0}}
+      Other, 0x1062288c0, {{0.0, 0.0}, {393.0, 852.0}}
+      Button, 0x106213c10, {{83.3, 53.7}, {155.3, 44.0}}, identifier: 'serverSwitcher', label: 'Local Mattermost'
+      Button, 0x106217d00, {{244.7, 58.7}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+      Button, 0x10622ea20, {{294.7, 58.3}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+      Button, 0x1062281f0, {{345.7, 60.7}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+      Other, 0x106229dd0, {{0.0, 0.0}, {393.0, 852.0}}
+      Button, 0x1062172d0, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x106229a80, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeShell'
+      Other, 0x106217630, {{83.3, 53.7}, {155.3, 44.0}}
+      Other, 0x10622a140, {{0.0, 0.0}, {393.0, 852.0}}
+      StaticText, 0x106216f60, {{83.3, 53.7}, {155.3, 44.0}}, label: 'Local Mattermost'
+      Other, 0x10622b930, {{0.0, 0.0}, {393.0, 852.0}}
+      TabBar, 0x1064117d0, {{0.0, 769.0}, {393.0, 83.0}}, label: 'Tab Bar'
+      Other, 0x103b46410, {{0.0, 0.0}, {393.0, 852.0}}
+      Button, 0x10640c8b0, {{2.0, 770.0}, {75.0, 48.0}}, label: 'Channels'
+      Button, 0x106408390, {{81.0, 770.0}, {74.0, 48.0}}, label: 'Threads'
+      Button, 0x10641e1e0, {{159.0, 770.0}, {75.0, 48.0}}, label: 'Search', Selected
+      Button, 0x10641c410, {{238.0, 770.0}, {74.0, 48.0}}, label: 'Mentions'
+      Button, 0x106429cc0, {{316.0, 770.0}, {75.0, 48.0}}, label: 'Saved'
+      Other, 0x103b46530, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x1060580c0, {{0.0, 0.0}, {393.0, 852.0}}
+      Other, 0x106058e80, {{0.0, 0.0}, {393.0, 852.0}}, identifier: 'nativeSearchPane'
+      Image, 0x106058fa0, {{14.0, 166.7}, {16.3, 16.7}}, label: 'Search'
+      TextField, 0x106058400, {{40.3, 164.0}, {227.7, 22.0}}, identifier: 'searchField', placeholderValue: 'Search messages', value: t5449c2search2C31D...
+      Button, 0x1064131f0, {{276.0, 165.3}, {19.7, 19.0}}, identifier: 'searchClear', label: 'Clear search'
+      Button, 0x10641a4c0, {{303.7, 157.7}, {77.3, 34.3}}, identifier: 'searchSubmit', label: 'Search'
+      CollectionView, 0x1064196f0, {{0.0, 200.3}, {393.0, 651.7}}, identifier: 'searchResults'
+      Other, 0x106410ee0, {{0.0, -1103.0}, {393.0, 2727.0}}
+      Cell, 0x1064127c0, {{0.0, 200.3}, {393.0, 44.0}}
+      Cell, 0x106415f30, {{0.0, 244.3}, {393.0, 76.3}}
+      Other, 0x106419010, {{8.0, 320.3}, {385.0, 0.3}}
+      Other, 0x106423dc0, {{360.0, 225.0}, {30.0, 544.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+      Other, 0x10640f9f0, {{0.0, 200.3}, {393.0, 44.0}}
+      Other, 0x106412b20, {{0.0, 200.3}, {393.0, 44.0}}
+      Other, 0x106414a30, {{0.0, 244.3}, {393.0, 76.3}}
+      Other, 0x106414360, {{0.0, 244.3}, {393.0, 76.3}}
+      Other, 0x106411260, {{0.0, 200.3}, {393.0, 44.0}}
+      Other, 0x106412e90, {{0.0, 200.3}, {393.0, 44.0}}
+      Other, 0x106413900, {{0.0, 244.3}, {393.0, 76.3}}
+      Other, 0x106415ba0, {{0.0, 244.3}, {393.0, 76.3}}
+      Other, 0x106413580, {{0.0, 200.3}, {393.0, 44.0}}
+      Other, 0x106411d80, {{0.0, 244.3}, {393.0, 76.3}}
+      StaticText, 0x106415800, {{0.0, 200.3}, {393.0, 44.0}}, identifier: 'searchSummary', label: '1 result for “t5449c2search2C31D6D4”', value: page 1, 1 results,...
+      Button, 0x10641a160, {{0.0, 244.3}, {393.0, 76.3}}, identifier: 'searchResult.xy5oewn17t8dzj835b6ccget1a', label: '#t429-tap, Buddy Profile: t5449c2search2C31D6D4 from t41buddy'
+      StaticText, 0x1064169c0, {{8.0, 248.3}, {61.0, 14.3}}, label: '#t429-tap'
+      Image, 0x1064120e0, {{373.3, 251.3}, {10.3, 8.7}}, label: 'arrow.turn.down.right'
+      Other, 0x106419df0, {{20.0, 270.7}, {331.0, 40.0}}, identifier: 'post.xy5oewn17t8dzj835b6ccget1a'
+      Button, 0x106419360, {{20.0, 270.7}, {36.0, 36.0}}, identifier: 'post.xy5oewn17t8dzj835b6ccget1a.avatar', label: 'Buddy Profile profile'
+      Button, 0x1064170e0, {{66.0, 270.7}, {96.3, 18.0}}, identifier: 'post.xy5oewn17t8dzj835b6ccget1a.author', label: 'Buddy Profile'
+      StaticText, 0x1064185c0, {{168.3, 274.7}, {41.3, 13.3}}, label: '1:49 PM'
+      StaticText, 0x106418c80, {{66.0, 292.7}, {285.0, 18.0}}, identifier: 'post.xy5oewn17t8dzj835b6ccget1a.body.block0', label: 't5449c2search2C31D6D4 from t41buddy'
+      StaticText, 0x106417eb0, {{29.3, 280.8}, {17.3, 15.7}}, label: 'BP'
+      Other, 0x106418250, {{20.0, 270.7}, {36.0, 36.0}}
+    }
+    ↪︎Find: Elements matching predicate '"searchResult.xy5oewn17t8dzj835b6ccget1a" IN identifiers'
+      Output: {
+        Button, 0x106114470, {{0.0, 244.3}, {393.0, 76.3}}, identifier: 'searchResult.xy5oewn17t8dzj835b6ccget1a', label: '#t429-tap, Buddy Profile: t5449c2search2C31D6D4 from t41buddy'
+      }
+      ↪︎Find: First Match
+        Output: {
+          Button, 0x103d51800, {{0.0, 244.3}, {393.0, 76.3}}, identifier: 'searchResult.xy5oewn17t8dzj835b6ccget1a', label: '#t429-tap, Buddy Profile: t5449c2search2C31D6D4 from t41buddy'
+        }
+
+    t =    22.37s Find the "post.xy5oewn17t8dzj835b6ccget1a.avatar" Button
+    t =    22.40s Find the "post.xy5oewn17t8dzj835b6ccget1a.avatar" Button
+    t =    22.43s Find the "searchResult.xy5oewn17t8dzj835b6ccget1a" Button
+    t =    22.46s Tap "post.xy5oewn17t8dzj835b6ccget1a.avatar" Button
+    t =    22.46s     Wait for com.mattermost.ios to idle
+    t =    22.46s     Find the "post.xy5oewn17t8dzj835b6ccget1a.avatar" Button
+    t =    22.49s     Check for interrupting elements affecting "post.xy5oewn17t8dzj835b6ccget1a.avatar" Button
+    t =    22.56s     Synthesize event
+    t =    22.85s     Wait for com.mattermost.ios to idle
+    t =    23.31s Waiting 30.0s for "profileSheet" Any to exist
+    t =    24.33s     Checking `Expect predicate `existsNoRetry == 1` for object "profileSheet" Any`
+    t =    24.33s         Checking existence of `"profileSheet" Any`
+    t =    24.35s Waiting 20.0s for "profile.username" Any to exist
+    t =    25.38s     Checking `Expect predicate `existsNoRetry == 1` for object "profile.username" Any`
+    t =    25.38s         Checking existence of `"profile.username" Any`
+    t =    25.42s Find the "profile.username" Any
+    t =    25.46s Find the Target Application 'com.mattermost.ios'
+    t =    25.59s Added attachment named 't5449-c2-search-author-profile'
+    t =    25.59s Waiting 20.0s for "profile.done" Any to exist
+    t =    26.61s     Checking `Expect predicate `existsNoRetry == 1` for object "profile.done" Any`
+    t =    26.61s         Checking existence of `"profile.done" Any`
+    t =    26.64s Tap "profile.done" Any
+    t =    26.64s     Wait for com.mattermost.ios to idle
+    t =    26.64s     Find the "profile.done" Any
+    t =    26.67s     Check for interrupting elements affecting "profile.done" Other
+    t =    26.72s     Synthesize event
+    t =    27.01s     Wait for com.mattermost.ios to idle
+    t =    27.51s Checking existence of `"profileSheet" Any`
+    t =    27.55s Tap "searchResult.xy5oewn17t8dzj835b6ccget1a" Button[0.55, 0.80]
+    t =    27.55s     Wait for com.mattermost.ios to idle
+    t =    27.55s     Find the "searchResult.xy5oewn17t8dzj835b6ccget1a" Button
+    t =    27.58s     Check for interrupting elements affecting "searchResult.xy5oewn17t8dzj835b6ccget1a" Button
+    t =    27.63s     Synthesize event
+    t =    27.63s         Find the "searchResult.xy5oewn17t8dzj835b6ccget1a" Button
+    t =    27.67s         Find the "searchResult.xy5oewn17t8dzj835b6ccget1a" Button
+    t =    27.70s         Find the "searchResult.xy5oewn17t8dzj835b6ccget1a" Button
+    t =    28.01s     Wait for com.mattermost.ios to idle
+    t =    28.30s Waiting 45.0s for "postFocus.xy5oewn17t8dzj835b6ccget1a" Any to exist
+    t =    29.32s     Checking `Expect predicate `existsNoRetry == 1` for object "postFocus.xy5oewn17t8dzj835b6ccget1a" Any`
+    t =    29.33s         Checking existence of `"postFocus.xy5oewn17t8dzj835b6ccget1a" Any`
+    t =    29.38s Find the Target Application 'com.mattermost.ios'
+    t =    29.51s Added attachment named 't5449-c2-search-row-still-opens-post'
+    t =    29.52s Tear Down
+Test Case '-[MattermostUITests.T5449ListProfileUITests testTheAuthorOfASearchResultOpensTheirProfile]' passed (29.782 seconds).
+Test Suite 'T5449ListProfileUITests' passed at 2026-10-30 13:49:29.855.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 78.627 (78.632) seconds
+Test Suite 'MattermostUITests.xctest' passed at 2026-10-30 13:49:29.856.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 78.627 (78.633) seconds
+Test Suite 'Selected tests' passed at 2026-10-30 13:49:29.857.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 78.627 (78.635) seconds
+2026-10-30 13:49:30.262 xcodebuild[90722:28656175] [MT] IDETestOperationsObserverDebug: 97.201 elapsed -- Testing started completed.
+2026-10-30 13:49:30.262 xcodebuild[90722:28656175] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-30 13:49:30.262 xcodebuild[90722:28656175] [MT] IDETestOperationsObserverDebug: 97.201 sec, +97.201 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t_c297b96a/TestResults/t_c297b96a-prec2-ios17-881e45.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started

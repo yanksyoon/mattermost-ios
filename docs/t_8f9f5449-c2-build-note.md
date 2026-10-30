@@ -24,13 +24,24 @@ in use by another card — see §7).
 | `docs/parity.md` | T39 and T42 rows: the row shape changed (not a `Button`, one combined element, `Open profile` action) and the host clauses (sheet vs push). |
 | `docs/t_8f9f5449-c2-build-note.md` | this note. |
 
-## 2. The row restructure, and why it is not a style change
+## 2. The row restructure: hardening, and not a measured fix
 
 All three list hosts wrapped `PostRowView` in a `Button(action: onOpen)`. With `onShowProfile` wired
-that made the author's avatar and name buttons **inside a button's label**, which SwiftUI does not
-hit-test reliably: the tap either does nothing or wins for the row and jumps. The fix is the shape
-`ReactionBarView` already documents — a plain view with an explicit gesture and the button trait
-re-added for VoiceOver:
+that made the author's avatar and name buttons **inside a button's label**. This note first said
+SwiftUI does not hit-test that reliably and that the tap "either does nothing or wins for the row and
+jumps". That was a prediction, and it **does not reproduce**: `t_c297b96a` restored this exact
+container in all three hosts with the callback kept, rebuilt and relinked, and the shipped live tests
+passed with the author's own action running every time — simulator iOS 26.5 and 17.0.1 for all three
+hosts (3/3 each, plus three consecutive iterations of the search test), and 18.3.1 for all three.
+No device was attached and XCUITest cannot drive VoiceOver's activation path, so a device-only or
+VoiceOver-only failure is unmeasured; the runs, the element tree the runtime publishes and the limits
+are in `docs/t_c297b96a-c2-f1-restatement.md`.
+
+The shape is kept as **hardening**, not as the fix for a tap that never fired: the row's jump and the
+author's tap become different handlers on different controls (a gesture on the container, real
+`Button`s inside it) instead of one control nested inside another's label, and the row's VoiceOver
+contract is only expressible once the container is not a control. It is the shape `ReactionBarView`
+already documents — a plain view with an explicit gesture and the button trait re-added for VoiceOver:
 
 ```swift
 VStack { … PostRowView(…, onShowProfile: …) }
@@ -42,9 +53,10 @@ VStack { … PostRowView(…, onShowProfile: …) }
     .accessibilityAction(named: Text("Open profile")) { … }
 ```
 
-The avatar and the name stay the only real `Button`s inside the row, so a tap on them never reaches
-the row's gesture — that is what the live tests tap. Accessibility keeps **one labelled element per
-row** (`T8e`: a 60-row list must not become 180 VoiceOver stops) and adds an explicit
+The avatar and the name are the only real `Button`s the author tap adds (the saved/pinned row also
+keeps its pre-existing `savedPosts.remove.<id>` control), so a tap on them is the author's own button
+and not the row's gesture — that is what the live tests tap. Accessibility keeps **one labelled
+element per row** (`T8e`: a 60-row list must not become 180 VoiceOver stops) and adds an explicit
 `Open profile` action, and each site's comment now records what the first live run measured: the row's
 leaves stay **addressable** inside it (`PostRowView` is `.contain`; an outer `.combine` does not
 flatten a nested container), so the author is a normal element tap, not a coordinate — see §6.2/§6.3.

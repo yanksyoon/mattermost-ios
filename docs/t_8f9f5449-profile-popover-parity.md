@@ -176,19 +176,33 @@ exists but what the row's **primary** action is (a jump), so:
 
 ---
 
-## 3. The three list hosts are a different shape from the timeline (nested tap)
+## 3. The three list hosts: one handler per control (hardening, not a measured fix)
 
 In `ChannelPostListView` the row is a plain `VStack` and `PostRowView` already draws a real `Button`
-around the avatar and the name — the parent card's fix works because nothing wraps it. In the three
-list hosts the whole row **is** a `Button` whose label contains `PostRowView`:
+around the avatar and the name — the parent card's fix works because nothing wraps it. The three list
+hosts wrapped the whole row **in** a `Button` whose label contains `PostRowView`:
 
 ```
 Button(action: onOpen) { VStack { channel line; PostRowView(...) } }
 ```
 
-A `Button` inside a `Button`'s label is not a reliable tap target in SwiftUI, so passing
-`onShowProfile` into those rows produces an author affordance that either never fires or fires the
-row's jump. Required restructure, identical in all three:
+**The restructure is hardening; the causal claim this section first made does not reproduce.** That
+draft said a `Button` inside a `Button`'s label "is not a reliable tap target in SwiftUI", so passing
+`onShowProfile` into those rows "produces an author affordance that either never fires or fires the
+row's jump". Measured (`docs/t_c297b96a-c2-f1-restatement.md`): with that exact container restored and
+`onShowProfile` still wired, the three hosts' live tests pass and the inner control's **own** action
+runs — the profile sheet, with the `username` read back from `GET /users/{id}` — on every runtime
+available here (simulator iOS 26.5, iOS 18.3.1 and iOS 17.0.1 for all three hosts), and
+the runtime publishes the avatar and the name as separate `Button` elements inside the row's button.
+No device was attached and XCUITest cannot drive VoiceOver's activation path, so a device-only or
+VoiceOver-only failure is *unmeasured* rather than refuted — but a prediction this document cannot
+show is not a justification it may keep asserting.
+
+The shape is still required, for reasons that do not depend on hit-test resolution: the row's jump and
+the author's tap must be **different handlers on different controls** (a gesture on the container, real
+`Button`s for the avatar and the name) instead of one control nested inside another's label, and only
+then is the row's VoiceOver contract expressible at all (point 3). It is also the shape
+`ReactionBarView` already uses and documents. Identical in all three:
 
 1. The row container stops being a `Button`. It becomes the same visual `VStack` with
    `.contentShape(Rectangle())` and `.onTapGesture { onOpen() }`, plus `.accessibilityAddTraits(.isButton)`.
@@ -200,24 +214,29 @@ row's jump. Required restructure, identical in all three:
    VoiceOver stops): keep `.accessibilityElement(children: .combine)` and the existing explicit
    label, and add
    `.accessibilityAction(named: Text("Open profile")) { onShowProfile?(author.id) }`.
-   Consequence, stated so no builder "fixes" it: under `.combine` the inner `post.<id>.author` button
-   is **not** an addressable accessibility element in these three hosts.
+   Consequence, measured (`docs/t_c297b96a-c2-f1-restatement.md` §3 corrects an earlier draft of this
+   line): the inner `post.<id>.avatar` / `.author` **stay addressable** inside these rows —
+   `PostRowView` is itself `.accessibilityElement(children: .contain)` and an outer `.combine` does not
+   flatten a nested container, so they remain `Button` elements with their own frames (which is what
+   the live tests tap).
 
 ### What the live test taps
 
-Because of (3), the test cannot address `post.<id>.author` in the list hosts. It taps the row element
-by a coordinate inside the author header:
+The test addresses the author control itself — `post.<id>.avatar`, else `post.<id>.author`, both
+inside the row — and asserts the **outcome**, not a coordinate:
 
 ```swift
-let row = app.descendants(matching: .any)["searchResult.\(postID)"]   // etc.
+let row = element(app, "searchResult.\(postID)")   // etc.
 XCTAssertTrue(row.waitForExistence(timeout: 60))
 XCTAssertTrue(row.label.contains(authorDisplayName), "the row must be drawing that author")
-row.coordinate(withNormalizedOffset: CGVector(dx: 0.18, dy: 0.22)).tap()
+// tapAuthorHeader: assert the header sits inside the row, then header.tap()
 ```
 
-Coordinate taps are already used in this target (`T38HeavyScrollProbeUITests` l. 107). The guard that
-makes it non-vacuous is the label assertion plus the sheet's own identity assertion (§9). Do **not**
-add a test-only identifier probe for the author: it would be a knob that exists only for tests.
+The guard that makes it non-vacuous is the label assertion plus the sheet's own identity assertion
+(§9). Do **not** swap this for a coordinate tap: C2 measured that `(0.18, 0.22)` of a row that draws a
+channel line lands in that line and opens the post (build note §6.3) — a failure with nothing to do
+with the author control. Do **not** add a test-only identifier probe for the author either; the
+identifiers the test uses are the shipped ones.
 
 Rows keep their identifiers: `searchResult.<postID>`, `activity.row.<postID>`,
 `savedPosts.row.<postID>` / `pinnedPosts.row.<postID>`.
