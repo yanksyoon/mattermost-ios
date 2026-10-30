@@ -192,8 +192,8 @@ draft said a `Button` inside a `Button`'s label "is not a reliable tap target in
 row's jump". Measured (`docs/t_c297b96a-c2-f1-restatement.md`): with that exact container restored and
 `onShowProfile` still wired, the three hosts' live tests pass and the inner control's **own** action
 runs — the profile sheet, with the `username` read back from `GET /users/{id}` — on every runtime
-available here (simulator iOS 26.5, iOS 18.3.1 and iOS 17.0.1 for all three hosts), and
-the runtime publishes the avatar and the name as separate `Button` elements inside the row's button.
+available here (simulator iOS 26.5, iOS 18.3.1 and iOS 17.0.1 for all three hosts), and the runtime
+publishes the avatar and the name as separate `Button` elements inside the row's button.
 No device was attached and XCUITest cannot drive VoiceOver's activation path, so a device-only or
 VoiceOver-only failure is *unmeasured* rather than refuted — but a prediction this document cannot
 show is not a justification it may keep asserting.
@@ -209,7 +209,8 @@ then is the row's VoiceOver contract expressible at all (point 3). It is also th
    (Precedent for a plain view as a tap target in this repo: `ReactionBarView`, whose comment records
    why a `Button` was abandoned there.)
 2. `onShowProfile` is passed into `PostRowView`, so the avatar and the name stay real `Button`s and
-   remain the *only* inner controls.
+   remain the *only* inner controls the author tap adds (the saved/pinned row also keeps its
+   pre-existing `savedPosts.remove.<id>` control).
 3. Accessibility stays **one element per row** (the `T8e` rule; a 60-row list must not become 180
    VoiceOver stops): keep `.accessibilityElement(children: .combine)` and the existing explicit
    label, and add
