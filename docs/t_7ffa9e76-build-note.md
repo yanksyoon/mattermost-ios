@@ -8,6 +8,10 @@ Tree: branch `t_cdcc1f38`, fast-forwarded onto `e59e11a` (`main`) before the fir
 slice the steward flagged as missing. Host: MacBook-Pro-6.local, Xcode simulator `iPhone 16 Pro`
 runtime `OS=18.3.1`, fixture server `http://127.0.0.1:8065` (9.11.19).
 
+**Commit: `a57fe67`** — the retirement, gate 11, the unit/UI test edits and `docs/dual-render.md` in
+one commit (the spec's requirement, so the gate is never red on `main`); this note is the small
+follow-up commit that records it.
+
 ## 1. What shipped
 
 One commit, as the spec requires (a gate added before the retirement would be red on `main`, a gate
@@ -95,12 +99,15 @@ The `unhostedSurfaces` literal is what makes the follow-up visible: `t_6d420e01`
 ### 1.3 The unit target
 
 `python3 scripts/qa-test.py --platform ios --sim "name=iPhone 16 Pro,OS=18.3.1"
---only-testing MattermostTests` → `build/logs/t_cdcc1f38-units2.log`:
+--only-testing MattermostTests` → `build/logs/t_cdcc1f38-units-final.log`:
 
 ```
-Executed 1830 tests, with 8 tests skipped and 0 failures (0 unexpected) in 40.428 (41.598) seconds
+Executed 1830 tests, with 8 tests skipped and 0 failures (0 unexpected) in 39.357 (40.391) seconds
 ** TEST SUCCEEDED **
 ```
+
+(`build/logs/t_cdcc1f38-units-final.log`, on the rebased tip; `t_cdcc1f38-units2.log` is the same run
+before the rebase onto `679b05f` — identical counts, 40.4 s.)
 
 1830 = C3's landed 1828 + this card's 2 new pins. (`testRetiredSurfaceRawValueDoesNotRoundTrip`,
 `testRetiredPersistedOverrideIsDropped`.) Note the first run of this card, `t_cdcc1f38-units1.log`,
