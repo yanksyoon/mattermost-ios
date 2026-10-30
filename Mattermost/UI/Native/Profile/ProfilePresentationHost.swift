@@ -132,7 +132,6 @@ struct PushedProfileScreen: View {
     var navigation: NativeNavigation?
 
     @EnvironmentObject private var coordinator: ProfileCoordinator
-    @EnvironmentObject private var calls: CallsCoordinator
     @Environment(\.dismiss) private var dismiss
     @State private var model: ProfileViewModel?
 
@@ -143,7 +142,16 @@ struct PushedProfileScreen: View {
                               server: server,
                               onClose: { dismiss() },
                               onOpenConversation: { channel, intent in
-                                  openConversation(channel, intent: intent)
+                                  // The push resolves **no** write rows: `PushedProfileScreen.task`
+                                  // never asks `ProfileCoordinator.prepareActions`, so its context
+                                  // stays `unknown` and both of C3's rows are absent here (measured,
+                                  // `docs/t_8f9f5449-c3-build-note.md` §6). The intent is therefore
+                                  // always `.open`; it is accepted because `ProfileScreen` shares one
+                                  // signature with the sheet, and dropped explicitly rather than
+                                  // silently — a `.call` arriving here would be a bug in that gate,
+                                  // not something this view can honour.
+                                  _ = intent
+                                  openConversation(channel)
                               })
             } else {
                 ProgressView()
@@ -185,13 +193,7 @@ struct PushedProfileScreen: View {
     /// The same route `ProfileSheet.openConversation` performs; it is repeated rather than shared because
     /// the two dismissals differ (a sheet dismisses itself, a push pops) and `ProfileView.swift` is C3's
     /// file in this same programme.
-    /// Open the conversation the server answered, then close the push.
-    ///
-    /// The intent is C3's: `.call` also asks the destination pane to join the call
-    /// (`CallsCoordinator.requestStart`), because the call surface belongs to the pane —
-    /// `CallsJoinEntry` — and a full-screen cover raised from inside a push or a sheet is T40's
-    /// measured nested-presentation failure.
-    private func openConversation(_ channel: MMChannel, intent: ProfileConversationIntent) {
+    private func openConversation(_ channel: MMChannel) {
         guard let navigation else {
             dismiss()
             return
@@ -201,8 +203,5 @@ struct PushedProfileScreen: View {
         request.channelName = channel.name.isEmpty ? nil : channel.name
         _ = navigation.openChannel(request)
         dismiss()
-        if intent == .call {
-            calls.requestStart(serverID: server.id, channelID: channel.id)
-        }
     }
 }

@@ -85,10 +85,14 @@ Changed:
 * `MattermostTests/T429ProfileTapTests.swift` — the old five-cell calls now go through
   `actionContext(...)`; their expectations are unchanged (an all-defaults context offers neither write
   row).
-* `Profile/ProfilePresentationHost.swift` — C2's **pushed** profile (`t_2fa3bbe1`, merged while this
-  branch was open) carries the same two rows, so its route has to honour the intent too:
-  `openConversation(_:intent:)` asks the pane to join on `.call`. Without it the pushed form would draw
-  a Call row that only opened the DM.
+* `Profile/ProfilePresentationHost.swift` — **one compile fix, and the finding that goes with it** (§6.1).
+  C2's pushed form draws the same `ProfileScreen`, whose `onOpenConversation` now carries C3's
+  `ProfileConversationIntent`; the push's closure therefore has to accept it. It accepts it and drops
+  it **with a comment**, because the push resolves no write rows at all: `PushedProfileScreen.task`
+  never calls `ProfileCoordinator.prepareActions`, so a `.call` intent cannot arise there. C3 does not
+  add that call: its card body scopes it to the sheet and says it must not touch C2's hosts, and the
+  one live route to the push is itself blocked by a measured C2 defect. The 6-line change was written,
+  built and **reverted** — §6.1 has the six runs that could not prove it.
 * `docs/parity.md` — the **T41** row (rows now offered, with identifiers) and the **T44d** row (the
   profile's Call row as a second route into the surface).
 
@@ -103,6 +107,10 @@ Units — `python3 scripts/qa-test.py --platform ios --sim "name=iPhone 16 Pro,O
 | `build/logs/t5449-c3-units4.log` | the two new classes | **32 run / 0 skipped / 0 failed** |
 | `build/logs/t5449-c3-final-units2.log` | the whole `MattermostTests` target, final code | **1,825 run / 8 skipped / 0 failed — `RESULT: PASS`** |
 | `build/logs/t5449-c3-rebased-units2.log` | after rebasing onto `main` **7f38b14** (C2 `t_2fa3bbe1` merged) | **1,828 run / 8 skipped / 0 failed — `RESULT: PASS`** |
+| `build/logs/t5449-c3-r3-units-final.log` | the whole target on the **final** tree of this run (revert of §6.1, the `Leave` wait of §4.5) | **see §3.1** |
+
+The `r3` prefix marks this run's re-verification on `main` **7f38b14**: the earlier attempt's logs above
+are kept because their subject was the same code, and the reruns below are what the handoff claims.
 
 The first full-suite attempt (`t5449-c3-final-units.log`) reported one failure,
 `T35ComposerDraftStoreTests.testAllDraftsAreNewestFirst`, and the re-run of the suite passed with the
@@ -130,16 +138,48 @@ What the live tests assert, and against whose word:
   `Add to channel` enables; after the tap `GET /channels/{id}/members/{t41buddy}` answers **200** —
   the server's answer, not the view's.
 
-Attachments from these runs: `docs/t5449-shots/` (call row, picker ready, after-leave).
+Attachments from these runs — exported from the final run's own `xcresult`
+(`xcrun xcresulttool export attachments`) into `docs/t5449-shots/`:
+
+| file | what it is |
+|---|---|
+| `t5449-01-call-row.png` | the profile sheet for `@t41buddy`, opened from the author tap |
+| `t5449-02-in-call.png` | the **DM's** call surface, `In call`, the reader's tile with the mute icon and host crown, `Unmute` / `Raise hand` / `Leave` |
+| `t5449-03-after-leave.png` | the same pane after `Leave` |
+| `t5449-05-picker-ready.png` | the pushed picker: search reads `T5449 picker fixture`, that row is selected, `Add to channel` is enabled |
+| `t5449-06-after-add.png` | the same screen after the write (the server's `200` is what the test asserts) |
 
 The two rows' **negative** cells are unit-pinned, deliberately: live-tapping "the Call row is absent
 while a call is live elsewhere" means starting a second concurrent call to watch a row disappear,
 which is exactly the fragile flow T40/T44d recorded. `testTheCallRowIsAbsentWhileACallIsLiveElsewhere`
 pins it.
 
+### 3.1 This run's re-verification (branch rebased on `main` 7f38b14)
+
+Everything below is on the final tree of this run, on a quiet host (load 6.7 at the start of the Call
+run — the T44d §4.2 audio hazard needs it).
+
+| gate | run | result |
+|---|---|---|
+| whole `MattermostTests` target | `build/logs/t5449-c3-r3-units-final.log` | **1,828 run / 8 skipped / 0 failed — `TEST SUCCEEDED`** (32 of them this card's: 18 matrix + 14 picker/intent) |
+| `MattermostUITests/T5449ProfileActionsUITests` (both tests) | `build/logs/t5449-c3-r3-ui-final2.log` | **2 run / 0 skipped / 0 failed — `TEST SUCCEEDED`** |
+| `T41ProfileUITests` + `T429ProfileTapUITests` (they own this sheet) | `build/logs/t5449-c3-r3-regress.log` | **11 run / 0 failed — `TEST SUCCEEDED`** (T41 7, T429 4) |
+| `scripts/verify-dual-render-gates.sh --allow-approved-registry` | in place | **`RESULT: PASS`** (registry non-empty and allowed by the flag; `paneOwningSurfaces ⊆ nativeApprovedSurfaces`; no `project.pbxproj` change) |
+| `MattermostUITests/T44DCallsUITests` | `build/logs/t5449-c3-r3-t44d.log` | **0 of 2 green — both stop at `#t44-calls must be listed in the sidebar`**, i.e. before any of this card's code runs |
+
+The T44d suite is **not** re-verified green here, and that is not a claim of parity: the fixture account
+is in 351 channels on this server, so `revealSidebarRow` never reaches that row — the same failure the
+earlier attempt recorded (`build/logs/t5449-c3-t44d-regress.log`) before any C3 change. What those two
+tests assert about this card's own change — that `Leave` ends the call **on the server** — is asserted by
+`testCallOpensTheDirectChannelAndJoins`, which passed twice in a row here
+(`build/logs/t5449-c3-r3-ui-final2.log`; the earlier attempt's `…ui-call8.log`, `…callstab1.log`,
+`…callstab2.log`, `…ui-rebased.log` all green). The `CallsJoinEntry`/`CallsSurfaceView` edits this card
+makes are exercised by that path; the channel-header route those tests drive is unchanged by this card
+except for consuming the intent (§4.2).
+
 ---
 
-## 4. Four measurements this card needed (and the bugs they found)
+## 4. Five measurements this card needed (and the bugs they found)
 
 Each of these was a **live** symptom first, then a code change, then a re-run. They are the reason the
 implemented shape is not the shape in the first draft.
@@ -195,11 +235,22 @@ test proves the *write*, not the *breadth* of the permission rule. The rule itse
 tests with clean role fixtures (§3), including the private/public split in both directions.
 
 `MattermostUITests/T44DCallsUITests` cannot run on this fixture right now: both of its tests stop at
-"`#t44-calls` must be listed in the sidebar" (`build/logs/t5449-c3-t44d-regress.log`) — the account is
-in 351 channels, so that channel is not in the sidebar's window. That failure is identical **before**
-this card's changes (it is the fixture, not a regression), and the behaviour those tests assert —
-Leave ends the call on the server — is asserted by this card's Call test, which the `onDismiss` change
-touches.
+"`#t44-calls` must be listed in the sidebar" (`build/logs/t5449-c3-t44d-regress.log`, and again in this
+run's `build/logs/t5449-c3-r3-t44d.log`) — the account is in 351 channels, so that channel is not in the
+sidebar's window. That failure is identical **before** this card's changes (it is the fixture, not a
+regression), and the behaviour those tests assert — Leave ends the call on the server — is asserted by
+this card's Call test, which the `onDismiss` change touches.
+
+### 4.5 A Leave control that did not exist yet
+
+`build/logs/t5449-c3-r3-ui-final2.log` (first attempt: `…r3-ui-final.log`): the Call test tapped
+`calls.leaveButton` 0.2 s after `callsSurface` first existed and failed with
+`Failed to tap "calls.leaveButton": No matches found` — while the **server already answered `active`**
+for the DM. The surface mounts at `joining` and draws no Leave control until the join settles, so the
+test's assertion was right and its timing was wrong. The test now waits for the control
+(`leave.waitForExistence(timeout: 60)`) before tapping it; the product did not change. Recorded because
+the difference between "the control is missing" and "the control is not drawn yet" is exactly the kind
+of thing this file keeps mistaking for one another.
 
 ---
 
@@ -221,6 +272,42 @@ touches.
 ---
 
 ## 6. Limits that stay
+
+### 6.1 The pushed form offers no write rows, and its one live route is blocked
+
+`PushedProfileScreen` (C2's host — the regular-layout lookup sheet and the pinned sheet) resolves the
+model and starts presence, but never calls `ProfileCoordinator.prepareActions`. Its
+`ProfileActionContext` is therefore `unknown`, and by §1's matrix an unresolved context offers
+**neither** write row: the pushed form draws Message and the self rows only.
+
+The fix is the sheet's own call — six lines, same arguments, `teamID: navigation?.location.teamID`,
+`callsAvailable: calls.isCallsAvailable(serverID:)`,
+`callsSurfaceNative: resolver.resolvedMode(for: .calls) == .native`,
+`hasLiveCallElsewhere: calls.hasLiveCall`, plus two `@EnvironmentObject`s. It was written, built, and
+**reverted**, because the only live route to a pushed profile on iPhone is `PinnedPostsView`'s sheet and
+**the pinned row's author tap does not open the profile on this tree**. Six runs, each measuring the
+same thing:
+
+| run | what it measured |
+|---|---|
+| `build/logs/t5449-c3-r3-ui-push2.log` | the pinned sheet opens, the row exists, the avatar exists inside it — `header.tap()` computes hit point `{-1, -1}` and nothing happens |
+| `…push3.log` | `isHittable` stays `false` after six list swipes, with the row at mid-screen (`frame` inside the visible `pinnedPosts` collection view) |
+| `…push4.log` | a raw coordinate tap at the avatar's own frame performs the **row's** action: the sheet dismisses and the pane jumps to the post |
+| `…push5.log` | `isHittable` never becomes true after 12 × 250 ms of settling on a drawn row |
+| `…push6.log` | C2's own `tapAuthorHeader` route (frame-inside-row assert, then `tap()`), unmodified — same dead tap |
+| `…c2pinned.log` | C2's `testTheAuthorOfAPinnedPostPushesTheProfile` gets **past** that tap in this run and then fails its last assertion ("popping the profile must return to the pinned list") |
+
+So the two tests disagree about the tap, and the cause is not settled here. The prime suspect — stated
+as a hypothesis, not a measurement — is the `List` row's `.onTapGesture` winning over `PostRowView`'s
+nested `Button`s: in the accessibility tree `pinnedPosts.row.<id>` is a `Button` and
+`post.<id>.avatar` / `.author` are `Button`s nested inside it, which is the same class of defect C2
+fixed for the row as a whole and not for its leaves.
+
+Filed as **`t_dc0ea74d`** (both defects, with these logs). Until it lands, the push is the one host
+where the matrix's "another human" cell is not offered — stated here rather than papered over with an
+unprovable change to a host this card was told not to touch.
+
+### 6.2 Other limits
 
 * **Not proved ⇒ not drawn.** The Add row needs three facts proved (`hasTeam`,
   `inCurrentTeam == true`, `canManageAnyChannelMembers == true`). An unresolved fact hides the row

@@ -148,7 +148,14 @@ final class T5449ProfileActionsUITests: XCTestCase {
                       "`GET …/calls/\(dmChannelID!)/active` must answer active — the DM the profile "
                       + "opened, not the channel the profile was opened from")
 
-        element(app, "calls.leaveButton").tap()
+        // The surface mounts while the join is still in flight (`joining`/`connecting` draw no Leave
+        // control), so wait for the control rather than tapping the instant `callsSurface` exists —
+        // measured as `Failed to tap "calls.leaveButton": No matches found` 0.2 s after the surface
+        // appeared, with the server already answering `active` (`build/logs/t5449-c3-r3-ui-final.log`).
+        let leave = element(app, "calls.leaveButton")
+        XCTAssertTrue(leave.waitForExistence(timeout: 60),
+                      "the joined call must draw its Leave control:\n\(app.debugDescription)")
+        leave.tap()
         XCTAssertTrue(waitUntil(timeout: 30) { !element(app, "callsSurface").exists },
                       "leaving must dismiss the call surface:\n\(app.debugDescription)")
         XCTAssertTrue(try waitForServerActiveCall(dmChannelID, timeout: 30, expected: false),
