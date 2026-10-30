@@ -120,12 +120,14 @@ keeping `Surface.search` as the typed first element; the run above is the post-f
 
 Both suites are red on this host. Neither red is caused by this change, and that is measured rather
 than argued: the same suites were run against a detached worktree of **`e59e11a`** (the parent C3 tip,
-no changes of this card) with the same simulator, fixture and credentials.
+no changes of this card) with the same simulator, fixture and credentials. Those two base logs are
+copied into this worktree (`build/logs/base-t36.log`, `build/logs/base-t31.log`) so the comparison
+survives with the branch — `build/` is gitignored.
 
 | suite | this tree (`t_cdcc1f38`) | base (`e59e11a`) |
 |---|---|---|
-| `MattermostUITests/T36ThreadsUITests` | 5 run / 0 skipped / **10 failed**, 275.7 s — `build/logs/t_cdcc1f38-t36a.log` | 5 run / 0 skipped / **10 failed**, 278.7 s — `…/cache/scratch/base_cdcc/build/logs/base-t36.log` |
-| `MattermostUITests/T31WebSessionHarvestUITests` | 2 run / **1 failed**, 72.9 s — `build/logs/t_cdcc1f38-t31.log` | 2 run / **1 failed**, 72.0 s — `…/base_cdcc/build/logs/base-t31.log` |
+| `MattermostUITests/T36ThreadsUITests` | 5 run / 0 skipped / **10 failed**, 275.7 s — `build/logs/t_cdcc1f38-t36a.log` | 5 run / 0 skipped / **10 failed**, 278.7 s — `build/logs/base-t36.log` |
+| `MattermostUITests/T31WebSessionHarvestUITests` | 2 run / **1 failed**, 72.9 s — `build/logs/t_cdcc1f38-t31.log` | 2 run / **1 failed**, 72.0 s — `build/logs/base-t31.log` |
 
 The failing test names are identical in both runs (T36: all five; T31:
 `testAWebviewOnlySessionRendersTheNativeWorkspaceWithoutSigningInAgain`), and so is every assertion
