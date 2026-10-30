@@ -166,6 +166,7 @@ run — the T44d §4.2 audio hazard needs it).
 | `T41ProfileUITests` + `T429ProfileTapUITests` (they own this sheet) | `build/logs/t5449-c3-r3-regress.log` | **11 run / 0 failed — `TEST SUCCEEDED`** (T41 7, T429 4) |
 | `scripts/verify-dual-render-gates.sh --allow-approved-registry` | in place | **`RESULT: PASS`** (registry non-empty and allowed by the flag; `paneOwningSurfaces ⊆ nativeApprovedSurfaces`; no `project.pbxproj` change) |
 | `MattermostUITests/T44DCallsUITests` | `build/logs/t5449-c3-r3-t44d.log` | **0 of 2 green — both stop at `#t44-calls must be listed in the sidebar`**, i.e. before any of this card's code runs |
+| CI on `main` at the merged tip `e59e11a` | GitHub Actions run **41077737041** | **all three jobs green**: `guard (tip + change scope)` 8 s, `test (catalyst)` 5 m 04 s, `test (ios-simulator)` 20 m 39 s |
 
 The T44d suite is **not** re-verified green here, and that is not a claim of parity: the fixture account
 is in 351 channels on this server, so `revealSidebarRow` never reaches that row — the same failure the
