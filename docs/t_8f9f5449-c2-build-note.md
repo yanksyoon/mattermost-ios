@@ -378,6 +378,7 @@ runtime iOS 26.5:
 | run | command (abridged) | outcome |
 |---|---|---|
 | live, whole target | `--only-testing MattermostUITests/T5449ListProfileUITests --label t_a8a0bac4-live-phone2` | **5 run, 1 skipped, 0 failed** (172.3 s), `** TEST SUCCEEDED **` |
+| the same, re-run on the committed tree | same spec, `--label t_a8a0bac4-live-final` (commit `6168a94`) | **5 run, 1 skipped, 0 failed** (122.1 s), `** TEST SUCCEEDED **` |
 | live, F4 test on a regular layout | `--only-testing …/testTheAuthorOfASearchResultInTheLookupSheetPushesTheProfile` on an iPad Pro 11-inch | **1 run, 0 skipped, 0 failed** (71.7 s) |
 | F2 mutation | `--only-testing …/testTheAuthorOfASearchResultOpensTheirProfile` with `onShowProfile: nil` | 1 run, **4 failed**, first red at `:503` by name |
 | F4 mutation | the lookup sheet's push declaration removed, F4 test on the same iPad | 1 run, **2 failed** — `:325` (`profilePush` must exist) and `:328` (`profileSheet` absent) |
@@ -385,7 +386,9 @@ runtime iOS 26.5:
 | dual-render gates | `bash scripts/verify-dual-render-gates.sh --allow-approved-registry` | **PASS** at `7f38b14` (`130 + 105 + 31`, `264`) and at `79e1c9d` (`133 + 107 + 32`, `270`) |
 
 Per-test timings from `t_a8a0bac4-live-phone2`: mention 48.3 s, pinned 35.4 s, saved 22.3 s,
-lookup-sheet **skipped** 34.6 s, search 31.8 s.
+lookup-sheet **skipped** 34.6 s, search 31.8 s. On the committed-tree re-run
+(`t_a8a0bac4-live-final`): mention 23.9 s, pinned 34.9 s, saved 19.2 s, lookup-sheet **skipped**
+16.5 s, search 27.7 s.
 
 Not run in this card: `MattermostTests`. No file under `Mattermost/` differs from the base
 (`git diff --stat` is the two files above), so the unit suite's inputs are unchanged.
