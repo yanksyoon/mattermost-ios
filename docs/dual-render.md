@@ -48,7 +48,7 @@ mode, because a half-ported app in that mode is exactly the failure this card av
 
 | File | Role |
 |---|---|
-| `Core/RenderMode.swift` | `Surface` (the 12 switch keys), `SurfaceRenderMode` (`web` / `native`), `SurfaceDefaults` (compile-time default + the **native-by-default approval registry**). |
+| `Core/RenderMode.swift` | `Surface` (the 11 switch keys), `SurfaceRenderMode` (`web` / `native`), `SurfaceDefaults` (compile-time default + the **native-by-default approval registry** + the `unhostedSurfaces` reservations). |
 | `Core/SurfaceModeResolver.swift` | The single decision point: `resolvedMode(for:)`, persisted overrides, `-surfaceMode` launch parsing, the always-usable escape hatch. |
 | `UI/SurfaceHost.swift` | One `some View` per surface: renders the native branch or the web branch. |
 | `UI/Native/NativeShellView.swift` | The pane surface's native branch since T30: the application shell, whose unported regions are explicit placeholders naming the card that ships them — never a blank pane. (The generic `UnportedSurfaceView` stand-in was deleted in T30-R: the shell replaced its only call site, so it was dead code.) |
@@ -106,16 +106,15 @@ construction that is a no-op (`web` for every surface today).
 
 ## 4. Surfaces
 
-The 12 switch keys are the regions of the client, not the 40 inventory screens. Mapping to
+The 11 switch keys are the regions of the client, not the 40 inventory screens. Mapping to
 `docs/component-map.md` §5 (S-IDs) — a screen card owns its whole surface:
 
 | `Surface` | Owns (component-map §5) |
 |---|---|
 | `auth` | S01 Login, S02 MFA, S03 SSO, S04 Signup/forgot, S06 ToS gate, S37 onboarding |
 | `sidebar` | S08 Channel sidebar, S09 Find/browse channels |
-| `channelView` | S11 Channel view (post list), S12 Permalink, S16 Reactions, S38 post options |
+| `channelView` | S11 Channel view (post list), S12 Permalink, S16 Reactions, S38 post options; S13 Thread RHS + global threads is a **sub-region** of it (native thread pane or the web app's RHS, see below) |
 | `composer` | S14 Composer, S15 Autocomplete, S17 emoji picker |
-| `threads` **— retired as a switch, see below** | S13 Thread RHS + global threads |
 | `search` | S19 Search, S20 Saved, S21 Pinned, S26 Drafts |
 | `profile` | S24 Profile popover/status, S27 user settings, S28 Edit profile, S39 custom attributes |
 | `activity` | S25 Mentions inbox |
@@ -125,7 +124,7 @@ The 12 switch keys are the regions of the client, not the 40 inventory screens. 
 | `plugins` | S29 System Console, S30 Plugin screens, S31 Boards, S32 Playbooks, S34 Apps framework |
 
 The catalogue is **additive**: surfaces are never repurposed or renamed, because the raw string is
-both the `-surfaceMode` key and the persisted override key (`testCataloguePinsTheTwelveContractSurfaces`,
+both the `-surfaceMode` key and the persisted override key (`testCataloguePinsTheElevenContractSurfaces`,
 `testPersistenceKeyIsStable`). If a screen card needs a region that is not listed, it adds a case to
 `Surface` in the same PR that lands the card, with a `title` and a doc row here.
 
@@ -135,11 +134,13 @@ renderable two ways **while it is on screen**: (1) a native card, (2) a web path
 moment the region can appear — a webview that is actually mounted, not one §12.2 destroyed — and
 (3) at least one production call site that consults it. A region whose only web form is another
 region's webview is that region's **sub-region** and inherits its mode; it is not a case.
-`.threads` was the first finding of this kind and is **retired**: the thread pane exists only inside
+`.threads` was the first finding of this kind and is **retired** — the case is gone as of card
+`t_cdcc1f38`: the thread pane exists only inside
 `NativeShellView`, which is the native branch of the pane host, so a `web` thread pane would be a note
 over a released webview and the thread route's real web fallback is the pane's webview driven by the
-web app's router (`NativeNavigation.acceptsNativeRouting`), i.e. `.channelView`'s. Its removal lands
-with card `t_cdcc1f38`.
+web app's router (`NativeNavigation.acceptsNativeRouting`), i.e. `.channelView`'s. **No gate is added
+to `ThreadPaneContent`, `GlobalThreadsPaneContent` or `NativeThreadsPaneView`:** they keep drawing
+whenever the route mounts, and that is the contract, not an omission (`t_7ffa9e76` §2/§3).
 
 Three more cases are retired by the same rule, decided in
 `docs/t_39ea6115-surface-catalogue-dispositions.md`: `.settings` (shell chrome that exists in every
@@ -157,6 +158,12 @@ tolerance this section already promises), and gate 11 of
 `scripts/verify-dual-render-gates.sh` — *every case consulted, or declared unhosted* — green in the
 same commit. A retired key is never reused for a different region: the persisted row would inherit a
 mode the reader did not choose.
+
+A case that is **not yet consulted** is not a switch either, but it is not silently tolerated: it must
+be declared in `SurfaceDefaults.unhostedSurfaces` — "catalogue reservations: a name a future card can
+key on, with no host and no switch today" — and gate 11 lists that declaration in its own output. The
+literal is pinned (`[.settings, .plugins]` at this commit); changing it, including emptying it, needs
+the gate's `--allow-unhosted-change` flag, so a reservation that lingers is visible in review (§11).
 
 ## 5. The `-AV` gate (the rule the validator enforces)
 
@@ -438,7 +445,8 @@ flag).
 | `testReleaseSemanticsStillHonourRemoteDefaultAndCompileDefault` | R2: only tiers 1/2 go away in Release |
 | `testClearAllOverridesAlsoDropsLaunchOverrides` / `testClearOverrideDropsLaunchOverrideForThatSurface` | R5: the reset paths beat a `-surfaceMode` launch override |
 | `testHasAnyOverrideCoversLaunchAndStoredOverrides` | R5: "Reset all" is enabled for a pure launch override |
-| `testCataloguePinsTheTwelveContractSurfaces` / `testPersistenceKeyIsStable` / `testModeRawValuesAreTheDocumentedSpellings` | the contract surface names, keys, spellings |
+| `testCataloguePinsTheElevenContractSurfaces` / `testPersistenceKeyIsStable` / `testModeRawValuesAreTheDocumentedSpellings` | the contract surface names (11 cases), keys, spellings |
+| `testRetiredSurfaceRawValueDoesNotRoundTrip` / `testRetiredPersistedOverrideIsDropped` | retirement is supported, not a break: `Surface(rawValue: "threads")` is `nil`, and a stale `{"threads": "native"}` row is dropped without enabling "Reset all" (§4) |
 | `testDanglingSurfaceModeArgumentIsIgnored` / `testEmptyValueAndMissingSeparatorAreIgnored` | malformed flags |
 | `testForceWebForThisRunBeatsLaunchArgument` / `testInspectorToggleDropsLaunchOverrideForThatSurface` | always-usable-app escape hatch |
 | `testWebViewInstanceIsStableAcrossSurfaceToggles` | one webview per server; re-attach not recreate |
@@ -461,21 +469,22 @@ flag).
 * **Only `channelView` has a *pane* host — and "no view mounts them yet" was wrong.** The other
   surfaces are togglable (inspector / launch flag) and most of them gate inside their own panes
   (`.search`, `.activity`, `.channelInfo`, `.composer`), but a case's host arriving is not the same as
-  the case being consulted. Measured on `1577337` (card `t_7ffa9e76`): **four** cases change nothing
-  on screen. `.threads` is consulted nowhere and is **retired** (`docs/t_7ffa9e76-threads-surface-retirement.md`;
-  a thread pane only exists inside a native pane host, so it was never a switch — removal lands with
-  `t_cdcc1f38`). `.settings` is consulted nowhere (`SettingsView` is presented unconditionally,
-  `RootView.swift:180,229`) and `.plugins` nowhere (`S29`–`S32` are permanently web, §1) — both are
-  **retired by decision** (`docs/t_39ea6115-surface-catalogue-dispositions.md`: shell chrome has no
-  web form of its own, and a key that can never resolve `native` is not a switch; the code change
-  lands with `t_6d420e01`, together with an empty `unhostedSurfaces`). `.profile` is *read and
-  discarded* by `ProfilePopoverPolicy` (the tap is offered while `.profile` resolves `web`,
+  the case being consulted. Measured on `1577337` (card `t_7ffa9e76`): **four** cases changed nothing
+  on screen. `.threads` was consulted nowhere and is **retired** — the case is gone, the catalogue is
+  11 (`t_cdcc1f38`, `docs/t_7ffa9e76-threads-surface-retirement.md`: a thread pane only exists inside
+  a native pane host, so it was never a switch); the pane keeps drawing whenever the route mounts.
+  `.settings` is consulted nowhere (`SettingsView` is presented unconditionally, `RootView.swift:180,229`)
+  and `.plugins` nowhere (`S29`–`S32` are permanently web, §1) — both are **declared** in
+  `SurfaceDefaults.unhostedSurfaces` today and **retired by decision**
+  (`docs/t_39ea6115-surface-catalogue-dispositions.md`: shell chrome has no web form of its own, and a
+  key that can never resolve `native` is not a switch; the code change lands with `t_6d420e01`,
+  together with an empty `unhostedSurfaces` and its `--allow-unhosted-change` commit). `.profile` is
+  *read and discarded* by `ProfilePopoverPolicy` (the tap is offered while `.profile` resolves `web`,
   `T429ProfileTapTests.swift:83-93`), so that flag has no effect either — **also retired by the same
   decision**: the sheet is a sub-region of the row host, so the case never owned a mode. Gate 11 of
   `scripts/verify-dual-render-gates.sh` — every case consulted, or declared in
-  `SurfaceDefaults.unhostedSurfaces` — is what keeps this from recurring silently; it lands with
-  `t_cdcc1f38`, and its stated limit is that it measures references, not effect (hence `.profile`
-  passes).
+  `SurfaceDefaults.unhostedSurfaces` — is live and keeps this from recurring silently; its stated
+  limit is that it measures references, not effect (hence `.profile` passes it today).
 * **The three lookup screens ship as notes — decided 2026-10-29, not left open.** `.search` and
   `.activity` are unapproved, so a shipped shell's Search, Saved and Mentions tabs (and the iPad
   toolbar buttons) open a note over a webview that §12.2 destroyed — three of five tabs on a release
@@ -697,10 +706,10 @@ WebContent the warm `native` arm still carries. The implementation card is paren
 | Alternative | Why it was rejected |
 |---|---|
 | Release whenever a surface resolves `.native` | debug tiers (inspector, `-surfaceMode`) reach `.native` with no card; releasing behind a stand-in would strand the user on a stand-in *and* pay a reload, and would break `testLaunchArgumentRendersNativeChannelViewWithChromeIntact` |
-| Release when *all* surfaces resolve native | 11 of the 12 surfaces have no host at all today, so "all native" can be true while the webview is still the only thing painting the sidebar. Pane ownership, not a resolution count, is the real condition |
+| Release when *all* surfaces resolve native | 10 of the 11 surfaces have no host at all today, so "all native" can be true while the webview is still the only thing painting the sidebar. Pane ownership, not a resolution count, is the real condition |
 | Park (`about:blank`) | frees the page but keeps the process: neither §12.6 metric moves |
 | Release on `.background` only | keeps the escape hatch instant, but leaves the measured foreground footprint unchanged, so it demonstrates nothing. Legitimate as a *complement* later; it cannot be the v1 policy |
-| Release per region (e.g. when `threads` ports) | the 12 surfaces are regions of **one** web app; a region card cannot replace the pane |
+| Release per region (e.g. when `threads` ports) | the surfaces are regions of **one** web app; a region card cannot replace the pane |
 
 ### 12.8 Consequences and risks
 

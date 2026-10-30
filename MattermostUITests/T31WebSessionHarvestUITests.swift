@@ -145,7 +145,6 @@ final class T31WebSessionHarvestUITests: XCTestCase {
                     "-surfaceMode", "auth=native",
                     "-surfaceMode", "sidebar=native",
                     "-surfaceMode", "channelView=native",
-                    "-surfaceMode", "threads=native",
                     "-surfaceMode", "composer=native",
                     "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         if let token {

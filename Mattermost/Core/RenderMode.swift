@@ -9,6 +9,12 @@ import Foundation
 /// Port role: `Surface` is the key of the per-surface dual-render switch. A screen card names
 /// its own surface when it opts in; there is deliberately no global "port everything" switch.
 /// See `docs/dual-render.md` for the opt-in contract.
+///
+/// A case names a region whose mode the switch can change **while that region is on screen**. A
+/// region that only ever exists inside another region's native card is that region's sub-region and
+/// inherits its mode — it is not a case (`t_7ffa9e76`,
+/// `docs/t_7ffa9e76-threads-surface-retirement.md`; the thread pane under `.channelView` is the
+/// first, and the rule is checked by gate 11 of `scripts/verify-dual-render-gates.sh`).
 public enum Surface: String, CaseIterable, Codable, Identifiable, Sendable {
     /// Login / auth flow. SSO/OAuth still runs inside the webview (the IdP hand-off), while the
     /// sign-in form, the MFA step and the expiry banner are the native S01/S02/S03 cards — native by
@@ -27,8 +33,6 @@ public enum Surface: String, CaseIterable, Codable, Identifiable, Sendable {
     /// pane the flip approves draws the composer *inside* it, so a `web` composer there would be a
     /// dead placeholder over a released webview (see the ledger entry below).
     case composer
-    /// Threads ("view thread" / replies).
-    case threads
     /// Global / in-channel search.
     case search
     /// The user's own profile.
@@ -53,7 +57,6 @@ public enum Surface: String, CaseIterable, Codable, Identifiable, Sendable {
         case .sidebar: return "Sidebar"
         case .channelView: return "Channel view"
         case .composer: return "Composer"
-        case .threads: return "Threads"
         case .search: return "Search"
         case .profile: return "Profile"
         case .activity: return "Activity"
@@ -103,6 +106,24 @@ public enum SurfaceDefaults {
     /// non-empty registry unless `--allow-approved-registry` accompanies the approval commit).
     public static let nativeApprovedSurfaces: Set<Surface> = [.auth, .calls, .sidebar, .channelView, .composer]
 
+    /// **Catalogue reservations**: a name a future card can key on, with **no host and no switch
+    /// today** — production code consults none of these, so their mode changes nothing on screen.
+    ///
+    /// Gate 11 of `scripts/verify-dual-render-gates.sh` requires every `Surface` case to be
+    /// consulted (`resolvedMode(for: .<case>)`, `SurfaceHost(.<case` or `defaultMode(for: .<case>)`
+    /// in `Mattermost/`), to be `paneHostSurface`'s value, **or** to be listed here. So a case can
+    /// only stay inert by being *declared*, and growing this set is a deliberate act: the literal is
+    /// pinned to `[.settings, .plugins]` and changing it needs `--allow-unhosted-change` (the same
+    /// shape as gate 5's `--allow-approved-registry`).
+    ///
+    /// Members, each with its reason row in `docs/dual-render.md` §11: `.settings` — the shell's
+    /// `SettingsView` is presented unconditionally (`RootView.swift:180,229`) and the web app's
+    /// settings modal has no host of its own; `.plugins` — S29-S32 are permanently web by decision
+    /// (`docs/dual-render.md` §1), so the key can never resolve `native`. Both are retired by
+    /// `docs/t_39ea6115-surface-catalogue-dispositions.md` (card `t_6d420e01`); this set is what
+    /// keeps the gap visible until that card lands.
+    public static let unhostedSurfaces: Set<Surface> = [.settings, .plugins]
+
     /// Surfaces whose native card renders the *entire* per-server work area — every region the
     /// one-per-server WKWebView paints (sidebar, channel header, post list, composer, RHS).
     ///
@@ -133,7 +154,7 @@ public enum SurfaceDefaults {
     /// thing that card mounts is the *shell* — the native equivalent of the whole workspace chrome
     /// (sidebar + channel view + threads), which is exactly what the pane host surface maps to. The
     /// alias exists so that flag works as written, and it is **launch-only**: there is no
-    /// `Surface.shell` case (the 12 surfaces are the inventory-driven render regions, and a "shell"
+    /// `Surface.shell` case (the 11 surfaces are the inventory-driven render regions, and a "shell"
     /// region would duplicate `channelView` in the inspector, in `mm.surfaceModes`, and in the
     /// approval registry). It is parsed in the DEBUG-only launch tier (`parseLaunchOverrides`), so
     /// it cannot steer a Release build — same rule as every other launch override.

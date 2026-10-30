@@ -43,6 +43,15 @@
 #      one is a deliberate, reviewable act. The diff is `git diff <base>...HEAD` plus the working
 #      tree; `--base`/`PBXPROJ_BASE` choose the base (default: the merge-base with `main` when on a
 #      branch, `HEAD` on `main` — a run with no diff to audit says so and audits nothing).
+#  11. Every `Surface` case is **consulted** by the app target — `resolvedMode(for: .<case>)`,
+#      `SurfaceHost(.<case` or `defaultMode(for: .<case>)` in `Mattermost/` outside
+#      `Core/RenderMode.swift` — or is `SurfaceDefaults.paneHostSurface`'s value (`.channelView`,
+#      reached through that one constant), or is declared in `SurfaceDefaults.unhostedSurfaces`
+#      ("a name a future card can key on, with no host and no switch today"). That literal is pinned
+#      to `[.settings, .plugins]`; changing it needs `--allow-unhosted-change` (gate 5's shape), so
+#      an inert key cannot be added or tolerated with a one-line edit. The gate measures
+#      *references*, not effect: `.profile` passes while `ProfilePopoverPolicy` discards the value
+#      (that limit is stated in the section itself).
 #
 # Scope and honest limits: this is a regex gate over the *app target* (`Mattermost/`, i.e. what
 # ships), not over the test targets (tests may inject a provider), it skips comment lines, and it
@@ -51,6 +60,7 @@
 #
 # Usage: scripts/verify-dual-render-gates.sh [--allow-approved-registry]
 #                                          [--base <git ref>] [--allow-pbxproj-resource-entry]
+#                                          [--allow-unhosted-change]
 # Exit: 0 = every gate holds; 1 = at least one violation (printed as "FAIL ...").
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -61,6 +71,7 @@ import os, re, subprocess, sys
 
 ALLOW_APPROVED = '--allow-approved-registry' in sys.argv
 ALLOW_RESOURCE_ENTRY = '--allow-pbxproj-resource-entry' in sys.argv
+ALLOW_UNHOSTED = '--allow-unhosted-change' in sys.argv
 BASE_ARG = None
 if '--base' in sys.argv:
     BASE_ARG = sys.argv[sys.argv.index('--base') + 1] if sys.argv.index('--base') + 1 < len(sys.argv) else None
@@ -508,6 +519,98 @@ elif added_lines:
 else:
     print(f'  note  no change to {PBXPROJ} against {base} — nothing to audit here. Run a card branch '
           f'with --base main to audit its diff.')
+
+print('== 11. every Surface case is consulted, or declared unhosted ==')
+# Why this gate exists: a catalogue key nobody reads is a decoration, and nothing used to check for
+# one. `Surface.threads` was consulted nowhere for several review rounds (F1 of
+# `docs/t_8f9f5449-profile-popover-parity.md`, retired by `t_7ffa9e76`) precisely because no card's
+# acceptance list asked "does this card consult its surface?" — the class is bigger than that case,
+# which is why this gate is general.
+#
+# A case is CONSULTED when the app target reads it in one of the three documented shapes outside
+# `Core/RenderMode.swift`:
+#     resolvedMode(for: .<case>)  |  SurfaceHost(.<case  |  defaultMode(for: .<case>)
+# or when the case IS `SurfaceDefaults.paneHostSurface`'s value (`.channelView`): the constant is what
+# `ContentView`, `RootView` and `NativeNavigation` read, so the pane host has three production call
+# sites while the literal `.channelView` never appears in their gate expressions. A case that is
+# none of those must be DECLARED in `SurfaceDefaults.unhostedSurfaces` — "a name a future card can
+# key on, with no host and no switch today" — and that literal is pinned to `[.settings, .plugins]`.
+# Changing the pin (including emptying it) requires --allow-unhosted-change: a deliberate act that
+# shows in the diff, the same shape as gate 5's --allow-approved-registry.
+#
+# HONEST LIMIT, stated here so nobody discovers it later: this gate measures *references*, not
+# *effect*. `.profile` passes — `ChannelView` passes it to `ProfilePopoverPolicy`, which discards the
+# value — so a case that is read and ignored is invisible to a regex. Proving "the value changes what
+# is drawn" would need a running UI, i.e. the -AV programme, not this script; the read-and-discarded
+# class is card `t_9d0b0e11`'s subject.
+surface_body = render_src[render_src.index('public enum Surface:'):render_src.index('public var id: String')]
+surface_cases = re.findall(r'^\s*case (\w+)$', surface_body, re.M)
+pane_host = re.search(r'paneHostSurface: Surface = \.(\w+)', render_src)
+pane_host_case = pane_host.group(1) if pane_host else None
+unhosted_literal = re.search(r'unhostedSurfaces: Set<Surface> = (\[[^\]]*\])', render_src)
+
+if not surface_cases:
+    bad(f'could not read a single `case` from the Surface enum in {RENDER_MODE}')
+if not pane_host_case:
+    bad(f'could not read `paneHostSurface: Surface = .<case>` from {RENDER_MODE}')
+
+UNHOSTED_PIN = {'settings', 'plugins'}
+if not unhosted_literal:
+    bad(f'unhostedSurfaces could not be read from {RENDER_MODE} (expected '
+        f'`unhostedSurfaces: Set<Surface> = [ … ]` next to the other catalogue declarations)')
+    unhosted_set = set()
+else:
+    unhosted_set = surface_set(unhosted_literal.group(1))
+    unhosted_text = unhosted_literal.group(1).strip()
+    non_cases = sorted(unhosted_set - set(surface_cases))
+    if non_cases:
+        bad(f'unhostedSurfaces names something that is not a Surface case: {non_cases}')
+    if unhosted_set == UNHOSTED_PIN:
+        ok(f'unhostedSurfaces is exactly {unhosted_text} — the pinned declaration')
+    elif ALLOW_UNHOSTED:
+        ok(f'unhostedSurfaces is {unhosted_text} — allowed by --allow-unhosted-change '
+           f'(pinned set is {sorted(UNHOSTED_PIN)})')
+    else:
+        bad(f'unhostedSurfaces is {unhosted_text}, not the pinned '
+            f'[{", ".join(sorted(UNHOSTED_PIN))}] — a catalogue key may only be declared inert by a '
+            f'card that records why; pass --allow-unhosted-change when that card is the subject')
+
+CONSULT_SHAPES = (
+    'resolvedMode\\(for:\\s*\\.%s\\b',
+    'SurfaceHost\\(\\s*\\.%s\\b',
+    'defaultMode\\(for:\\s*\\.%s\\b',
+)
+# Comment lines are skipped for the same reason gate 1 skips them: a doc comment saying "nothing
+# reads resolvedMode(for: .threads) any more" must not count as a read.
+def consulted_in(case):
+    pats = [re.compile(shape % re.escape(case)) for shape in CONSULT_SHAPES]
+    for path in sorted(swift_files()):
+        if path == RENDER_MODE:
+            continue
+        for i, line in enumerate(open(path, encoding='utf-8').read().splitlines(), 1):
+            if line.strip().startswith('//'):
+                continue
+            if any(p.search(line) for p in pats):
+                return f'{path}:{i}'
+    return None
+
+unconsulted = []
+for case in surface_cases:
+    if case == pane_host_case:
+        ok(f'.{case:<12} consulted at SurfaceDefaults.paneHostSurface '
+           f'({RENDER_MODE}; three call sites read the constant)')
+        continue
+    where = consulted_in(case)
+    if where:
+        ok(f'.{case:<12} consulted at {where}')
+    elif case in unhosted_set:
+        ok(f'.{case:<12} declared unhosted')
+    else:
+        bad(f'.{case:<12} neither consulted nor declared unhosted — a catalogue key with no effect '
+            f'(consult it, retire it, or declare it in SurfaceDefaults.unhostedSurfaces)')
+        unconsulted.append(case)
+if not unconsulted and surface_cases:
+    ok(f'all {len(surface_cases)} Surface case(s) are consulted, or declared unhosted')
 
 print()
 if failures:
