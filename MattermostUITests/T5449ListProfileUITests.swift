@@ -1,5 +1,6 @@
 // t_2fa3bbe1 (C2 of t_8f9f5449) — the live tests for the profile popover on the three **list** hosts:
-// search results, Saved, and the mentions inbox, plus the pinned sheet's push.
+// search results, Saved, and the mentions inbox, plus the two push sites (the pinned sheet, and the
+// regular layout's lookup sheet).
 //
 // Spec of record: `docs/t_8f9f5449-profile-popover-parity.md` §3 (the nested-tap restructure), §2.2
 // (presentation legality) and §9 (the acceptance table). C1 (`t_07216319`) shipped the thread host.
@@ -8,11 +9,14 @@
 //
 //   * **No `-surfaceMode profile=native`.** T429's lesson: the flag hides exactly this class of defect,
 //     and the shipped default (`.profile` = web) is the state that must offer the tap.
-//   * **The tap is a coordinate, not an element.** The three list hosts are one accessibility element
-//     per row (`T8e`, and spec §3), so under `.accessibilityElement(children: .combine)` the inner
-//     `post.<id>.author` button is *not* addressable — the test taps the row at a point inside the
-//     author header and asserts `post.<id>.author` is absent first, so a passing run cannot be a test
-//     that silently found a different element.
+//   * **The tap is an element, not a coordinate.** The row is one labelled element (`T8e`, and spec
+//     §3), but `PostRowView` is itself `.accessibilityElement(children: .contain)` and an outer
+//     `.combine` does not flatten a nested container — measured, so `post.<id>.avatar` and
+//     `post.<id>.author` stay **addressable inside** the row and the test taps the avatar (falling
+//     back to the name) and asserts that element is a `Button`. It is not a fixed fraction of the row:
+//     (0.18, 0.22) of a row that draws a channel line lands *in* that line and opens the post, which
+//     is why build note §6.3 replaced the coordinate with the measured element. (Spec §3's
+//     "not addressable, so tap a coordinate" is the claim the first live run refuted — §6.2.)
 //   * **The expected value comes from the server** (`GET /users/{authorID}`): username for the profile's
 //     own line, display name for the row's label. A local string would let a wrong-account profile pass.
 //   * **The fixture lives in `#t429-tap`**, never `#t41-profile`: T429 §5.1 records that posting there
@@ -28,6 +32,12 @@
 //     TEST_RUNNER_MM_AUTH_PASSWORD=<fixture password> \
 //     python3 scripts/qa-test.py --platform ios --sim "name=iPhone 17 Pro" \
 //       --only-testing MattermostUITests/T5449ListProfileUITests
+//
+// The fifth test (the regular layout's lookup sheet) needs a regular-width destination — an iPad,
+// landscape — and **skips** on a phone rather than failing; it is the same spec on either:
+//
+//     python3 scripts/qa-test.py --platform ios --sim id=<iPad simulator> \
+//       --only-testing MattermostUITests/T5449ListProfileUITests/testTheAuthorOfASearchResultInTheLookupSheetPushesTheProfile
 //
 // Skips — never fails — when the environment, the server, the buddy account or its membership in the
 // fixture channel is missing, like every live test in this target.
@@ -234,17 +244,113 @@ final class T5449ListProfileUITests: XCTestCase {
         // The stack, measured by popping it: the pinned list is underneath the push (a push that
         // replaced the sheet would have nothing to go back to). While a destination is on top the
         // list is not in the tree — measured, which is why this is a pop rather than an `exists`.
-        let back = element(app, "BackButton")
-        if back.waitForExistence(timeout: 10) {
-            back.tap()
-        } else {
-            app.navigationBars.buttons["Back"].tap()
-        }
+        popProfile(in: app)
         XCTAssertTrue(element(app, "pinnedPosts").waitForExistence(timeout: 20),
-                      "popping the profile must return to the pinned list it was pushed from:\\n"
+                      "popping the profile must return to the pinned list it was pushed from:\n"
                       + "\(app.debugDescription)")
         XCTAssertTrue(waitUntil(timeout: 20) { !self.element(app, "profilePush").exists },
                       "the push must be gone once it is popped, leaving the pinned sheet up")
+    }
+
+    // MARK: - 5. The regular layout's lookup sheet — the second push site
+
+    /// Claim 2's *other* push container: a profile opened from **inside the regular layout's lookup
+    /// sheet** is pushed on that sheet's `NavigationStack` (`NativeShellView.lookupSheet`), never
+    /// presented as a second sheet over it.
+    ///
+    /// The four tests above run the **compact** layout (`ShellSettle.tapTab`), where Search / Saved /
+    /// Mentions are tabs and the default `.sheet` is the legal presentation — so before this test
+    /// nothing in this target reached the `.environment(\.profilePresentation, .push)` line in
+    /// `NativeShellView.swift` (C2 validation F4). Test 4 pins the pinned sheet's push; this is the
+    /// same law for the sheet the split layout opens the lookup screens in.
+    ///
+    /// The `Open profile` accessibility action the three hosts also carry stays **source-only**:
+    /// XCUITest cannot invoke a custom accessibility action, so no test here exercises it and this
+    /// comment says so instead of leaving it implied (C2 validation F4). Everything a test *can*
+    /// drive is the element tap below.
+    ///
+    /// Runs on a regular-width destination — an iPad, landscape so both columns are drawn — and
+    /// **skips**, never fails, when that layout is not what came up, the same convention as T95's and
+    /// T33's layout halves.
+    func testTheAuthorOfASearchResultInTheLookupSheetPushesTheProfile() throws {
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        if isPad { XCUIDevice.shared.orientation = .landscapeLeft }
+        defer { if isPad { XCUIDevice.shared.orientation = .portrait } }
+
+        let marker = "t5449c2sheet\(Self.stamp())"
+        let postID = try seedBuddyPost(message: "\(marker) from t41buddy")
+
+        let app = launchApp()
+
+        // The layout decides the host, so it is checked before anything is tapped: a destination that
+        // drew the compact layout has tabs instead of this toolbar, and there the profile is a sheet
+        // (tests 1–3). Skipping keeps the phone run of this file green while still failing loudly if
+        // the regular layout's toolbar disappears on a device that *is* regular-width.
+        let toolbarSearch = element(app, "shellSearchButton")
+        guard toolbarSearch.waitForExistence(timeout: isPad ? 40 : 6) else {
+            throw XCTSkip("no detail-column toolbar — this destination drew the compact layout, where "
+                          + "the lookup screens are tabs and their profile is a sheet. The lookup "
+                          + "sheet's push needs a regular-width destination (an iPad, landscape).")
+        }
+
+        // Search scopes itself to the shell's current team (`SearchPaneContent` reads it from
+        // `navigation.location`), and the split layout keeps the team rail in its sidebar column:
+        // select #perf the way a reader does, so the pane cannot land on "No team selected".
+        let teamRow = element(app, "teamSidebar.team.\(teamID!)")
+        XCTAssertTrue(teamRow.waitForExistence(timeout: 40),
+                      "the split layout's sidebar must list #perf:\n\(app.debugDescription)")
+        if !(teamRow.value as? String ?? "").contains("Selected") { teamRow.tap() }
+
+        toolbarSearch.tap()
+        // The sheet's own chrome: its Done button exists only in this container, so the push asserted
+        // below is provably the sheet's, not a stack the compact layout would have drawn.
+        XCTAssertTrue(element(app, "searchSheetClose").waitForExistence(timeout: 30),
+                      "the detail toolbar must open the lookup sheet:\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "nativeSearchPane").waitForExistence(timeout: 30),
+                      "the sheet must draw the native search pane:\n\(app.debugDescription)")
+
+        type(marker, into: "searchField", in: app)
+        tap("searchSubmit", in: app)
+
+        let row = element(app, "searchResult.\(postID)")
+        XCTAssertTrue(row.waitForExistence(timeout: 60),
+                      "the server's own result must be listed inside the sheet for \"\(marker)\":\n"
+                      + "\(app.debugDescription)")
+        XCTAssertTrue(row.label.contains(buddyDisplayName),
+                      "the row must be drawing that author, got \"\(row.label)\"")
+        tapAuthorHeader(of: row, postID: postID, in: app)
+
+        // The push, positively (spec §2.2): `profilePush` is the pushed form's identifier, and a sheet
+        // would not carry it.
+        XCTAssertTrue(element(app, "profilePush").waitForExistence(timeout: 30),
+                      "a profile opened from inside the lookup sheet must be pushed on that sheet's "
+                      + "own stack:\n\(app.debugDescription)")
+        XCTAssertFalse(element(app, "profileSheet").exists,
+                       "no nested sheet: T40 measured a sheet opened from inside a sheet whose "
+                       + "confirmation never ran")
+        let username = element(app, "profile.username")
+        XCTAssertTrue(username.waitForExistence(timeout: 20),
+                      "the pushed profile must mount:\n\(app.debugDescription)")
+        // The expected value is the *server's*: `GET /users/{authorID}` for the account the post
+        // belongs to. A local string would let a profile of the wrong account pass.
+        let author = try getJSON("/api/v4/users/\(buddyID!)") as? [String: Any] ?? [:]
+        let expectedUsername = try XCTUnwrap(author["username"] as? String,
+                                             "GET /users/\(buddyID!) must name the account")
+        XCTAssertEqual(username.label, "@\(expectedUsername)",
+                       "the push must be about the tapped result's author, read from the server")
+        attach(app, "t5449-c2-lookupsheet-author-push")
+
+        // The stack, measured by popping it: the sheet's Done button comes back, which is only
+        // possible if the push sat on the sheet's stack rather than replacing the sheet (the pinned
+        // test proves the same thing the same way — build note §6.5).
+        popProfile(in: app)
+        XCTAssertTrue(waitUntil(timeout: 20) { !self.element(app, "profilePush").exists },
+                      "the push must be gone once it is popped")
+        XCTAssertTrue(element(app, "searchSheetClose").waitForExistence(timeout: 20),
+                      "popping the profile must return to the lookup sheet it was pushed from:\n"
+                      + "\(app.debugDescription)")
+        XCTAssertTrue(waitUntil(timeout: 30) { self.element(app, "searchResult.\(postID)").exists },
+                      "the results the push was opened from must be underneath it")
     }
 
     // MARK: - App driving
@@ -381,6 +487,11 @@ final class T5449ListProfileUITests: XCTestCase {
     /// `.combine` does not flatten a nested container. So the tap is the element a reader taps. A fixed
     /// fraction of the row is *not* equivalent: (0.18, 0.22) of that saved row is y 317.3, which is in
     /// the row's channel line, and it opens the post instead of the profile.
+    ///
+    /// Existence is not enough: `element(_:_:)` matches `.any`, so the resolved header must also be a
+    /// `Button`. With `onShowProfile: nil` the same identifiers resolve to an inert `StaticText` —
+    /// measured (C2 validation M7), and spelled out here so the diagnosis lands on the affordance
+    /// rather than on the presentation assertion three steps later.
     private func tapAuthorHeader(of row: XCUIElement, postID: String, in app: XCUIApplication) {
         let avatar = element(app, "post.\(postID).avatar")
         let name = element(app, "post.\(postID).author")
@@ -389,9 +500,31 @@ final class T5449ListProfileUITests: XCTestCase {
                       "the row must draw the author's own button — the tap target the restructure is "
                       + "there to keep reachable:\n\(row.debugDescription)")
         let centre = CGPoint(x: header.frame.midX, y: header.frame.midY)
+        XCTAssertEqual(header.elementType, .button,
+                       "the author must be a control, not inert text: \(header.debugDescription)")
         XCTAssertTrue(row.frame.contains(centre),
                       "the author header \(header.frame) must sit inside its row \(row.frame)")
         header.tap()
+    }
+
+    /// Pop a **pushed** profile back to the screen it was pushed from, from that push's own bar.
+    ///
+    /// Measured, and the reason this helper exists (`build/logs/t_a8a0bac4-pinned-retry.log`): the
+    /// obvious `navigationBars.buttons["Back"]` resolves the *shell's* back button, which sits
+    /// underneath the pinned sheet (its label really is "Back"). The sheet covers it, so XCUITest
+    /// computes a hit point of `(-1, -1)`, the tap is a no-op, and the two assertions that follow
+    /// report "the push must be gone" for a tap that never happened. The pushed profile's own bar is
+    /// titled **Profile** and its leading button is labelled with the previous screen's title
+    /// ("Pinned in t429-tap", "Search", …) — the stock iOS back label — so it is addressed through
+    /// the bar, not by label.
+    private func popProfile(in app: XCUIApplication) {
+        let bar = app.navigationBars["Profile"]
+        XCTAssertTrue(bar.waitForExistence(timeout: 20),
+                      "the pushed profile must carry its own navigation bar:\n\(app.debugDescription)")
+        let back = bar.buttons.element(boundBy: 0)
+        XCTAssertTrue(back.waitForExistence(timeout: 10),
+                      "the pushed profile's bar must offer its back button:\n\(bar.debugDescription)")
+        back.tap()
     }
 
     private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
