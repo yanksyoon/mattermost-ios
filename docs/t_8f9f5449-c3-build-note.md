@@ -92,7 +92,9 @@ Changed:
   never calls `ProfileCoordinator.prepareActions`, so a `.call` intent cannot arise there. C3 does not
   add that call: its card body scopes it to the sheet and says it must not touch C2's hosts, and the
   one live route to the push is itself blocked by a measured C2 defect. The 6-line change was written,
-  built and **reverted** — §6.1 has the six runs that could not prove it.
+  built and **reverted** — §6.1 has the six runs that could not prove it. (**`t_dc0ea74d` has since
+  landed that call, and the "blocked route" turned out to be the test's lookup, not the host — §6.1's
+  banner.**)
 * `docs/parity.md` — the **T41** row (rows now offered, with identifiers) and the **T44d** row (the
   profile's Call row as a second route into the surface).
 
