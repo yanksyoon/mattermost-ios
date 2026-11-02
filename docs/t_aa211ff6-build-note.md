@@ -5,7 +5,7 @@ Card: **`t_01afff4b`** (`mmios-ios`), implementing §7-A of
 Base: `main` = `c70d949` (`t_a7432eab`'s F5′ tip; `t_6d420e01` and `t_a7432eab` both landed before
 this run — the ordering `t_aa211ff6` §8 requires).
 One commit: `feat(render): the lookup surfaces are native by default — search, saved+pinned and the
-mentions inbox (t_aa211ff6)`.
+mentions inbox (t_aa211ff6)` = **`9ac0b73`** (plus the docs follow-up that records this note).
 
 ## 1. What changed, and what did not
 
@@ -176,11 +176,14 @@ board decision for the architect; the flip itself remains one literal and one re
   fallback copy — none of them asserts the default configuration.
 * **No copy, identifier, release-policy, `paneOwningSurfaces` or debug-tier change.** Each is a
   deliberate non-change (`docs/dual-render.md` §12.1, gate 6).
-* **No CI run** at the time of writing: the commit is local until the card's publication step.
+* **CI covers the units, not the UI.** The push of `9ac0b73` to `origin/main` ran release run
+  **41421471596**, all five jobs green: `guard (tip + change scope)`, `test (catalyst)`,
+  `test (ios-simulator)`, `tag and publish`, `package Mattermost.app`. CI does not run the XCUITest
+  suites (`docs/t_39ea6115-build-note.md` §10), so the live-suite evidence belongs to `t_636e6483`.
 
 ## 5. Hotspot
 
 `MattermostTests/SurfaceModeResolverTests.swift` was the third card in sequence on this file
-(`t_cdcc1f38` → `t_6d420e01` → this one). `t_cdcc1f38` retires `.threads` and still edits the same
-suite; the file is flagged on the board, and the `.channelInfo` stand-in is now the only
-unapproved-surface name in it, so the next flip-shaped card has one substitution, not two.
+(`t_cdcc1f38` retired `.threads` at `a57fe67`, `t_6d420e01` retired `settings`/`plugins`/`profile` at
+`81ef63c`, this flip) and is the suite §8.5 of the dispositions doc called out. `.channelInfo` is now
+the only unapproved-surface name in it, so the next flip-shaped card has one substitution, not two.
