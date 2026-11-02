@@ -756,3 +756,124 @@ WebContent the warm `native` arm still carries. The implementation card is paren
 * **`-AV` obligation for a pane-owning card.** Approving one requires proving, with the webview
   released, that *every* region the webview used to paint is still rendered natively (one screenshot
   per region in the §10 style) — not just the surface the card is named after.
+
+---
+
+## 13. Permanently web surfaces (T46)
+
+**Status: implemented (T46, `t_a7a9f2ff`). These surfaces are `web` for ever — they are not waiting
+on a port.** Build note and measurements: `docs/t46-build-note.md`.
+
+### 13.1 Which surfaces, and why
+
+A surface is permanently web when the thing on screen is **the server's** program, not the client's:
+either it ships from the server (`/plugins/webapp`, Boards, Playbooks) or it is the server's own
+administration UI, whose screens change with the server binary. Porting it would mean chasing an app
+whose version is the server's — and the licence boundary forbids copying the web app's source anyway
+(§1's AGPL note).
+
+The catalogue is **`WebFallbackSurface`** (`Mattermost/UI/Native/Web/WebFallbackSurface.swift`), a
+list of *routes*:
+
+| `WebFallbackSurface.Kind` | Route | Why it stays web |
+|---|---|---|
+| `systemConsole` | `/admin_console` | the server's own admin UI (S29); its screens change with the server version, plugins register panes inside it, and the official mobile client omits it by design (`docs/native-inventory.md`) |
+| `boards` | `/boards` | a server-shipped product bundle (S31) — board logic and UI live in the plugin, with its own release cycle |
+| `playbooks` | `/playbooks` | likewise a server-shipped product bundle (S32) |
+| `plugin` (with an id) | `/plugins/<id>` | a plugin screen is arbitrary third-party UI (S30); Calls (`com.mattermost.calls`, S33) is reached the same way — T44d's native call surface is an addition for joining/participating, not a replacement for the plugin's own screens |
+
+**These are deliberately *not* `Surface` cases, and the reason is §4's own rule** (decided in
+`t_39ea6115` §1.1, landed by `t_6d420e01` before this card ran): a case is a *switch key*, and a key
+must be able to change what is on screen in at least one direction. That is why `.plugins` was
+retired — "S29–S32 are permanently web … the key's `native` state was unreachable — one legal state
+is not a switch". A permanently-web surface has exactly one renderer, so modelling it as a render
+mode would resurrect a retired raw value and put a one-legal-state key back into the catalogue
+(`scripts/verify-dual-render-gates.sh` gate 11 pins the unhosted keys). The honest type for these is
+a route, and that is what `WebFallbackSurface` is. Nothing here can therefore appear in
+`SurfaceDefaults.nativeApprovedSurfaces`, and no `-AV` card owns them: there is no native card to
+approve.
+
+### 13.2 How a reader reaches them
+
+`ChannelSidebarView`'s **Web view** section — drawn in both layouts, i.e. wherever the native sidebar
+is — holds four rows:
+
+| Row | Identifier | Opens |
+|---|---|---|
+| Boards | `webFallbackRow.boards` | `/boards` |
+| Playbooks | `webFallbackRow.playbooks` | `/playbooks` |
+| System Console | `webFallbackRow.systemConsole` | `/admin_console` |
+| Plugin screen… | `webFallbackRow.plugin` | an id prompt → `/plugins/<id>` |
+
+The plugin row asks for the id rather than guessing a list: the shell cannot know which plugins a
+server ships, and a wrong guess is a 404 the reader cannot explain. (The id is validated as a single
+path segment — `WebFallbackSurface.isValidPluginID` refuses `.`/`..`, slashes, queries, control
+characters — so a row can never address a different part of the server.) A row presents
+`WebFallbackSurface`'s sheet; **Done** dismisses it and the native stack underneath is untouched. The
+webview pane (`WebViewContainer`) is *not* involved — a fallback surface is the surface only, never
+the workspace (that is also why the sheet's webview passes `claimsMentionInput: false`: it must not
+take the server's mention input away from the pane, T43).
+
+### 13.3 The session rule (the part that decides "no second login")
+
+A fallback surface boots the server's web app, which requires a **browser** session, not a bearer
+token. T46's first build handed over `MMAUTHTOKEN` alone; measured, the web app then boots, finds it
+cannot sign its own state-changing requests (`PUT /users/me/patch`, `POST /users/logout`, both
+CSRF-signed), and **logs the session out** — the surface lands on `/login?redirect_to=…`
+(`docs/t46-build-note.md` §4.2, the request log and the server's `CSRF Header check failed` line).
+
+So the handoff is the triple the server itself sets for a browser login, and it is written into the
+per-server `WKWebsiteDataStore` (never into page script):
+
+| Cookie | Value | Flags | Why |
+|---|---|---|---|
+| `MMAUTHTOKEN` | the shell's session token | `HttpOnly`, 30 d, host, `/` | the session itself; `HttpOnly` keeps it out of `document.cookie` |
+| `MMUSERID` | the signed-in user id (`SecureVault.userID`) | 30 d, host, `/` | the identity the web client's boot reads |
+| `MMCSRF` | 26-char `[a-z0-9]`, minted per handoff | 30 d, host, `/` | the double-submit value the client echoes in `X-CSRF-Token`; the server compares header↔cookie |
+
+Rules: a store that already holds **all three** is `.shared` and is never written (a web sign-in
+outranks the vault; overwriting it would be a silent re-login), a partial store is repaired by
+writing all three, and no user id means **no** handoff (`.none` — half a handoff is the logout
+above). Signing out deletes `MMAUTHTOKEN` (`AuthCoordinator.signOut` →
+`WebKitSessionCookieClearing.clearAuthCookie`, which is scoped to that cookie); `MMUSERID` and
+`MMCSRF` are left behind and are **inert** — `hasUsableSession` requires all three, and the server
+does not accept either without the token. The card does not widen the sign-out path.
+
+The web app's first-visit **landing page** is separate: its `__landingPageSeen__` flag is seeded at
+`atDocumentStart` so the first boot is already the surface, with the same-server fragment skip kept as
+the fallback for a store whose storage is disabled.
+
+### 13.4 Teardown
+
+One presentation, one `WKWebView`, destroyed on close (drop the store; never park on `about:blank` —
+§12.2's rule applies to the fallback too, at webview granularity rather than pane granularity). The
+server's data store and its cookies outlive the presentation, so reopening a surface is not a new
+login. `scripts/t46_leak_probe.py` is the process-level check (peak ≤ 4 attributed `WebContent`
+processes, 0 after settling); `T46WebFallbackTests` is the object-level one.
+
+### 13.5 Reasons the obvious alternatives are not taken
+
+| Alternative | Why not |
+|---|---|
+| Reuse the pane's webview to show a fallback surface | the pane's webview *is* the workspace; navigating it to `/admin_console` would replace the reader's channel view with a page they must then navigate back from by hand — and the pane webview is released when the pane is native (§12) |
+| Give the fallback a `WKWebView` of its own `WKWebsiteDataStore` | a second session, i.e. the second login this card forbids |
+| Hand the token to the page (`localStorage`, a `window` bridge call) | it puts the session where a plugin's JavaScript can read it; the cookie is `HttpOnly` precisely so that it cannot |
+| Claim the desktop user agent so the web app skips the landing page | measured (`WebViewStore.userAgent`): the web app switches to its Electron code path, needs a fuller `window.desktop` API, and leaves the workspace stuck on "Loading" |
+
+### 13.6 What "exactly that surface" is measured as
+
+Two traps this card hit, both worth keeping in mind for any later fallback work:
+
+* **`didFinish` is not "rendered".** The web app's HTML shell finishes loading with a blank body; the
+  SPA then routes and paints. A live assertion on the committed URL alone therefore certifies a white
+  rectangle (measured in T46's own first screenshot). The sheet publishes the page's own
+  `document.body.innerText` character count after load (`|chars=N` in `webFallbackPane`'s value), and
+  the live suite requires ≥ 120 characters before it attaches a screenshot. The evaluation is
+  read-only — no cookie, no storage, no bridge call — and a unit test pins that.
+* **A plugin route is a request, not a page.** `/plugins/<id>` answers `301 → /` on the fixture for
+  every installed plugin, because a plugin's UI is a client-side route inside the web app. The sheet
+  therefore publishes both what it **asked** for (`|requested=…`) and what the server **committed**;
+  the live test asserts both. Boards, Playbooks and the System Console are real server routes and are
+  asserted on the committed URL alone.
+
+

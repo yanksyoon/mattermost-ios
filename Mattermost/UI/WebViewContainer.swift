@@ -17,6 +17,17 @@ struct WebViewContainer: UIViewRepresentable {
     let serverID: UUID
     /// The configured server URL. Certificate decisions are scoped to this origin only.
     let serverURL: URL
+    /// Whether mounting this webview makes *the page* the server's mention input for as long as it
+    /// is mounted (`NotificationInputRouting.paneKindChanged`).
+    ///
+    /// `true` for the pane, which is the workspace: while the web app draws it, the page is the only
+    /// party that can see which channel the reader is looking at. `false` for a surface webview that
+    /// is **not** the workspace — T46's permanent-web fallback (`WebFallbackView`). That one shows
+    /// Boards or the System Console over a native pane; reporting it as the pane would make the
+    /// native socket fall silent for a server whose conversation is still drawn natively, and on a
+    /// web pane it would let the fallback's dismissal clear a claim the pane still holds (the gate
+    /// is a set, not a count — `NotificationInputGate.webPane`).
+    var claimsMentionInput: Bool = true
 
     /// The app-wide mention/unread accounting (desktop `AppState`), injected from the environment.
     @EnvironmentObject var sessionStore: SessionStore
@@ -26,7 +37,8 @@ struct WebViewContainer: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator {
         let coordinator = Coordinator(store: store, serverID: serverID, serverURL: serverURL,
-                                      sessionStore: sessionStore, notificationWorker: notificationWorker)
+                                      sessionStore: sessionStore, notificationWorker: notificationWorker,
+                                      claimsMentionInput: claimsMentionInput)
         // T43: the app-wide mention-input arbitration, so this webview's `notify_mention` frames are
         // refused while the server's native socket is the live input.
         coordinator.mentionInput = NotificationInputRouting.shared
@@ -48,7 +60,10 @@ struct WebViewContainer: UIViewRepresentable {
         // T43: the pane is the web app, so the *page* is this server's mention input (it is the only
         // input that knows which channel the reader is looking at). The native socket stays silent for
         // this server while the webview is mounted — one source, and the one that can see the screen.
-        NotificationInputRouting.shared.paneKindChanged(serverID: serverID, isWeb: true)
+        // A non-pane surface webview (T46's fallback) is not the workspace and does not claim it.
+        if claimsMentionInput {
+            NotificationInputRouting.shared.paneKindChanged(serverID: serverID, isWeb: true)
+        }
         Logger.info("WebView", "mounted the webview for \(serverID) "
                     + "(containers: \(store.mountedContainers), loading: \(webView.isLoading))")
         return webView
@@ -89,8 +104,12 @@ struct WebViewContainer: UIViewRepresentable {
             coordinator.store.installCoordinator(nil)
         }
         // T43: the webview is gone, so this server's pane is no longer the page — if a native pane
-        // takes over, the socket is the input and must be allowed to deliver again.
-        NotificationInputRouting.shared.paneKindChanged(serverID: coordinator.serverID, isWeb: false)
+        // takes over, the socket is the input and must be allowed to deliver again. Only a webview
+        // that claimed the input may release it (`claimsMentionInput`), or a fallback's dismissal
+        // would speak for the pane.
+        if coordinator.claimsMentionInput {
+            NotificationInputRouting.shared.paneKindChanged(serverID: coordinator.serverID, isWeb: false)
+        }
         // The store records "I stopped an unfinished page" itself: `WKWebView.isLoading` flips to
         // false asynchronously (KVO), so a resume decision taken right after this call cannot rely on
         // it (T26-R R6, race found by re-running the UI repro in a batch).
@@ -163,13 +182,18 @@ struct WebViewContainer: UIViewRepresentable {
         /// the app scene (a preview, a test, the SSO sheet) cannot crash on a missing environment value.
         var mentionInput: NotificationInputRouting?
 
+        /// Whether this webview claims the server's mention input while it is mounted (T46). The
+        /// pane says `true`; a surface webview opened over the native shell says `false`.
+        let claimsMentionInput: Bool
+
         init(store: WebViewStore,
              serverID: UUID,
              serverURL: URL,
              sessionStore: SessionStore,
              notificationWorker: NotificationWorker,
              certTrust: CertTrust = CertTrust(),
-             themeSync: ThemeSync = ThemeSync()) {
+             themeSync: ThemeSync = ThemeSync(),
+             claimsMentionInput: Bool = true) {
             self.store = store
             self.serverID = serverID
             self.serverURL = serverURL
@@ -177,6 +201,7 @@ struct WebViewContainer: UIViewRepresentable {
             self.notificationWorker = notificationWorker
             self.certTrust = certTrust
             self.themeSync = themeSync
+            self.claimsMentionInput = claimsMentionInput
             super.init()
             // Route inbound page→native bridge messages to this coordinator (the page-event sink).
             store.bridge.delegate = self
