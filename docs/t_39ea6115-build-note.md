@@ -206,3 +206,86 @@ This section was written by the docs commits that follow those two (one records 
 this note to the path the card body names), so their own runs are not part of the record above; the
 tested code tip is `61ba0d0`.
 
+## 9. F5′ — the three lookup notes name the flag, not a web app (card `t_a7432eab`)
+
+The card body said to write this line into `docs/t_39ea6115-build-note.md` **if it already exists**,
+else a separate copy note. It exists (above), so F5′ is recorded here rather than in a second document;
+`docs/t_39ea6115-copy-build-note.md` — created by the first attempt of this card before the file was
+known to exist — is folded in and removed.
+
+**Base:** `main` `67d0867` (the F5′ commits were rebased onto it from the C2-era branch; nothing here
+touches the registry, the tabs or the defaults).
+
+| file | change |
+|---|---|
+| `Mattermost/UI/Native/Search/SearchView.swift:50` | title `"Search is off for this run (`search=web`)"`; body names the **surface** and says the web app draws search only while the workspace renders web (`Use web view`) |
+| `Mattermost/UI/Native/Search/SavedPinnedViews.swift:54` | title `"Saved messages are off for this run (`search=web`)"` (`Text(verbatim:)`, §9.3 F3); body keeps “Search, saved and pinned share one switch, and it resolves `web` for this run” |
+| `Mattermost/UI/Native/Activity/MentionsView.swift:38` | title `"Mentions are off for this run (`activity=web`)"`; same shape as Search with `activity` |
+| `Mattermost/UI/ContentView.swift:34-43` | the stale T30 comment (§9 D-2 of the dispositions doc): `.channelView` is in **both** registries since the 2026-10-27 decision, so the native shell is the **shipped** pane and the webview is released behind it (`docs/dual-render.md` §12, dispositions §5.2) — not a DEBUG-only branch |
+| `MattermostUITests/TA7432FallbackCopyUITests.swift` (new) | one live test over all three notes: the identifier exists, the exact title is on screen, and no `StaticText` in the tree still says `rendered by the web app` |
+
+`searchWebFallback` (`SearchView.swift:55`), `savedWebFallback` (`SavedPinnedViews.swift:74`) and
+`activityWebFallback` (`MentionsView.swift:43`) are unchanged and still sit on the containers they
+named. The bodies never assert the *pane's* mode (the amendment in `docs/t_aa211ff6-lookup-surface-defaults.md`
+§6): they name the surface, so the same sentence stays true under `-surfaceMode channelView=web
+-surfaceMode search=web`. Nothing about the state they describe changed — no tab hidden, no default
+flipped, `nativeApprovedSurfaces`/`paneOwningSurfaces` untouched, `.composer` copy untouched, and the
+three “Until T39-AV/T42-AV approves the flip …” header comments were left for the flip card.
+
+### 9.1 Runs (all on this host, iOS simulator `iPhone 16 Pro` / iOS 18.3 `81A7F251-…`, fixture `127.0.0.1:8065`)
+
+| gate | command | result |
+|---|---|---|
+| dual-render gates | `bash scripts/verify-dual-render-gates.sh --allow-approved-registry` | **RESULT: PASS**, 33 `ok` checks (`build/logs/ta7432eab-gates.log`) |
+| whole `MattermostTests` target | `qa-test.py --platform ios --only-testing MattermostTests` | **1834 run / 8 skipped / 0 failed**, `TEST SUCCEEDED` (`build/logs/ta7432eab-units.log`) — the same 1834 as `main` at `67d0867`; no unit test references the strings (`grep -rn "rendered by the web app\|is off for this run\|WebFallback" MattermostTests/` → empty) |
+| the new copy suite | `… --only-testing MattermostUITests/TA7432FallbackCopyUITests` with `TEST_RUNNER_MM_AUTH_*` | **1 run / 0 failed**, 24.2 s — the three notes drawn with the new titles (`build/logs/ta7432eab-ui-copy.log`) |
+| the suite is not vacuous | Search's title reverted to `"Search is rendered by the web app"`, suite re-run, then restored | **2 assertions failed** — the exact-title check and the “no false claim” check (`build/logs/ta7432eab-ui-mutant.log`) |
+| `T42ActivityUITests` | `… --only-testing MattermostUITests/T42ActivityUITests` | **4 run / 0 failed** (`build/logs/ta7432eab-ui-t39-t42.log`) |
+| `T39SearchUITests` | same run | **3 of 4 passed; `testUnsaveFromTheSavedTabRemovesTheRowAndThePreference` failed** — and it fails identically with this card's four files reverted to `main` (§9.3 F4; `build/logs/ta7432eab-ui-t39-t42.log`, `…-ui-t39-r2.log`, baseline `…-ui-t39-unsave-baseline.log`) |
+
+Both T39/T42 launch with `-surfaceMode search=native` / `activity=native`, so they never reach a note:
+their value here is regression, not copy. The copy itself is pinned by the new suite, which launches
+with `search=web` **and** `activity=web` explicitly — valid before and after the lookup surfaces flip
+native by default, since after the flip a `-surfaceMode …=web` launch is the only way to reach them.
+
+### 9.2 The acceptance greps
+
+```
+$ grep -rn "rendered by the web app" Mattermost/
+(no matches)
+$ grep -rn "WebFallback" Mattermost/UI/Native/
+SearchView.swift:55:                    .accessibilityIdentifier("searchWebFallback")
+SavedPinnedViews.swift:74:                .accessibilityIdentifier("savedWebFallback")
+MentionsView.swift:43:                    .accessibilityIdentifier("activityWebFallback")
+```
+
+### 9.3 What the tree measured that the card did not say
+
+* **F1 — no suite asserted these notes.** `grep -rn "WebFallback" MattermostUITests MattermostTests`
+  was empty on the base tree, and both T39/T42 launch native, so the copy that claimed a web app was
+  drawing the content was **unverified**. Hence the new live suite instead of only re-running the two.
+* **F2 — `savedWebFallback` was not addressable.** The Saved note carried
+  `.accessibilityElement(children: .contain)` *and* an identifier on the same `VStack`; on this runtime
+  that publishes no element at all (the first run's accessibility tree showed the two `StaticText`s
+  hanging directly under `nativeSavedPane`). It now uses the shape the other two notes already have:
+  identifier on the `VStack`, `.contain` dropped, both texts still addressable. Same class of finding
+  C2 recorded for `savedPosts` (`docs/t_8f9f5449-c2-build-note.md` §6.4).
+* **F3 — a `Text` fed a literal is Markdown.** The Saved title first rendered
+  `Saved messages are off for this run (search=web)` — the backticks swallowed as inline code — while
+  Search's and Mentions' titles kept them (theirs are `String` variables, the `StringProtocol`
+  initialiser, no Markdown). `Text(verbatim:)` makes the three read the same; the measured label now
+  carries the backticks.
+* **F4 — `T39SearchUITests.testUnsaveFromTheSavedTabRemovesTheRowAndThePreference` is red on this tree
+  for a reason older than this card.** It fails at `T39SearchUITests.swift:350` swiping
+  `"savedPosts"` — the identifier `savedPosts` does not resolve on this runtime at all (C2's §6.4
+  finding: the enclosing collection carries `nativeSavedPane`), and `revealRow` swipes immediately
+  without waiting for the list to draw. Reproduced three times on this tree, and **identically on a
+  baseline** in which only this card's four source files were reverted to `main` (`67d0867`) and the
+  same test re-run (`build/logs/ta7432eab-ui-t39-unsave-baseline.log`, same line, same error), so it
+  is filed as a pre-existing fixture/runtime failure, not a regression of the copy change.
+
+### 9.4 Not this card
+
+The **state** the copy describes — three shipped tabs whose content is a note — is the product
+decision on `t_39ea6115`'s escalation; the flip is `t_01afff4b`. This card changed no default, hid no
+tab and touched no registry entry, and it did not change the `.composer` placeholder copy.
