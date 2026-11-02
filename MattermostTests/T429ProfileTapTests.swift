@@ -95,6 +95,12 @@ final class T429ProfileTapTests: XCTestCase {
 
     /// The other side: with the pane itself forced to web (`-surfaceMode shell=web`, the documented
     /// debug path), the webview paints the conversation and the native rows are gone, so no tap.
+    ///
+    /// **Defensive, not a live state (F3 of `docs/t_97162159-profile-tap-validation.md`).** The app
+    /// cannot build it: `ContentView` mounts the native shell — and with it `ChannelPaneContent` —
+    /// only inside `SurfaceHost(SurfaceDefaults.paneHostSurface)`, so a native row never coexists
+    /// with `rowHost == .web`. This pins the policy's answer if a host is ever mounted differently;
+    /// the live coverage is the `.native` pair (`testTheShippedDefaultsOfferTheTapWhileProfileResolvesWeb`).
     func testAWebPaneTakesTheTapOffWithItsRows() {
         let resolver = makeResolver(arguments: ["-surfaceMode", "shell=web"])
         XCTAssertEqual(resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface), .web)
