@@ -34,6 +34,9 @@ final class T45A11yInventoryTests: XCTestCase {
         let variableLineLimits: Int
         let convertedBySurface: [String: Int]
         let lineLimitOne: [[String: Any]]
+        let lineLimitUnexplained: [String]
+        let lineLimitExemptions: [String]
+        let staleLineLimitExemptions: [String]
         let identifiers: Int
         let labels: Int
         let hints: Int
@@ -41,6 +44,7 @@ final class T45A11yInventoryTests: XCTestCase {
         let reduceMotionUses: Int
         let contrastUses: Int
         let animationSites: [[String: Any]]
+        let unguardedAnimations: [String]
         let bySurface: [String: Int]
         let head: String
     }
@@ -87,6 +91,13 @@ final class T45A11yInventoryTests: XCTestCase {
             variableLineLimits: int("variable_line_limit_sites"),
             convertedBySurface: (json["converted_by_surface"] as? [String: Int]) ?? [:],
             lineLimitOne: objects("line_limit_one"),
+            lineLimitUnexplained: strings("line_limit_one_unexplained"),
+            lineLimitExemptions: ((json["line_limit_exemptions"] as? [[String: Any]]) ?? []).map { exemption in
+                let file = exemption["file"] as? String ?? "?"
+                let reason = exemption["reason"] as? String ?? "?"
+                return "\(file) :: \(reason)"
+            },
+            staleLineLimitExemptions: strings("stale_line_limit_exemptions"),
             identifiers: int("accessibility_identifiers"),
             labels: int("accessibility_labels"),
             hints: int("accessibility_hints"),
@@ -94,6 +105,7 @@ final class T45A11yInventoryTests: XCTestCase {
             reduceMotionUses: int("reduce_motion_uses"),
             contrastUses: int("contrast_uses"),
             animationSites: objects("animation_sites"),
+            unguardedAnimations: strings("unguarded_animations"),
             bySurface: (json["font_sites_by_surface"] as? [String: Int]) ?? [:],
             head: (json["head"] as? String) ?? ""
         )
@@ -181,11 +193,29 @@ final class T45A11yInventoryTests: XCTestCase {
         XCTAssertTrue(files.isSubset(of: ["Mattermost/UI/Native/Sidebar/TeamSidebarView.swift",
                                          "Mattermost/UI/DownloadsView.swift"]),
                       "an unguarded .lineLimit(1) came back in: \(files.sorted())")
+        // T45-AV-R §6: the count was printed and never asserted, so a fourth cap shipped
+        // green. The scan now classifies every site; the manifest records the verdict.
+        XCTAssertTrue(manifest.lineLimitUnexplained.isEmpty,
+                      "a .lineLimit(1) outside the documented three:\n"
+                      + manifest.lineLimitUnexplained.joined(separator: "\n"))
+        XCTAssertEqual(manifest.lineLimitExemptions.count, 3,
+                       "the exemption list changed shape — the pass allows exactly three caps "
+                       + "and every one must carry a reason:\n"
+                       + manifest.lineLimitExemptions.joined(separator: "\n"))
+        XCTAssertTrue(manifest.staleLineLimitExemptions.isEmpty,
+                      "a .lineLimit(1) exemption no longer names a site:\n"
+                      + manifest.staleLineLimitExemptions.joined(separator: "\n"))
     }
 
     // MARK: - Labels
 
     /// No `Button` draws a glyph and names nothing.
+    ///
+    /// T45-AV-R §5: the scan that feeds this assertion could not *see* the app's own button
+    /// shape (`Button { … } label: { Image(…) }`) — it read the action closure and stopped
+    /// there — so a probe file with exactly that shape and no label measured 0 unnamed and
+    /// PASS. The scan now classifies every shape; the fixed manifest below is what this test
+    /// asserts, so it catches the violation on the next regeneration.
     func testNoIconOnlyButtonIsUnnamed() throws {
         let manifest = try loadManifest()
         XCTAssertTrue(manifest.unnamedButtons.isEmpty,
@@ -213,10 +243,17 @@ final class T45A11yInventoryTests: XCTestCase {
     // MARK: - Settings the shell must consult
 
     /// Every animation site reads Reduce Motion.
+    ///
+    /// T45-AV-R §6: this used to ask the *file* (`guarded_file`), so one read anywhere in a
+    /// file vouched for every animation in it, and nothing failed on a site at all. The
+    /// manifest now carries a per-statement verdict, and both are asserted.
     func testEveryAnimationSiteConsultsReduceMotion() throws {
         let manifest = try loadManifest()
-        let unguarded = manifest.animationSites.filter { ($0["guarded_file"] as? Bool) != true }
+        let unguarded = manifest.animationSites.filter { ($0["guarded"] as? Bool) != true }
         XCTAssertTrue(unguarded.isEmpty, "animates without reading reduce motion: \(unguarded)")
+        XCTAssertTrue(manifest.unguardedAnimations.isEmpty,
+                      "animation sites that do not consult Reduce Motion:\n"
+                      + manifest.unguardedAnimations.joined(separator: "\n"))
         XCTAssertGreaterThanOrEqual(manifest.animationSites.count, 4,
                                     "the animation scan found nothing — it is looking at the wrong tree")
     }

@@ -215,8 +215,12 @@ struct NativeSidebarAnchorRow: View {
                 // its symbol name).
                 .accessibilityHidden(true)
             Text(server.name)
-                .lineLimit(2)
+                // T45-AV-R §3: at AX5 "Local Mattermost" needs three lines in this row's
+                // ~265 pt and a hard 2-line cap drew "Local / Matterm…". `mmLineLimit` is the
+                // pass's own policy — two lines roomy, three at an accessibility size.
+                .mmLineLimit(2)
                 .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityRepresentation {
             Text(server.name)

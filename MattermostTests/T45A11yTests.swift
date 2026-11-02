@@ -4,10 +4,18 @@ import XCTest
 
 /// T45 — the pure logic behind the accessibility pass.
 ///
-/// What is not testable from a unit test is what the screen *looks* like; that is
-/// the capture run in `docs/t45-a11y-*.png` and the live UI assertions in
-/// `MattermostUITests/T45A11yUITests.swift`. What is testable — and what this file
-/// pins — is every decision the pass makes about the user's settings:
+/// What is not testable from a unit test is what the screen *looks* like, and no test in this
+/// repository covers that: the captures are the measurement (`docs/t45-a11y-shots/`,
+/// `docs/t45-av-shots/`) and the AX3/AX5 walks that produced them were temporary UI tests,
+/// deleted after the run. An earlier version of this comment cited a live suite at
+/// `MattermostUITests/T45A11yUITests.swift`; **that file does not exist and never did**
+/// (T45-AV-R §7), so the reference is gone rather than replaced by another claim. VoiceOver
+/// itself is not exercised anywhere: there is no supported way to read the spoken output back
+/// from a headless simulator, so a VoiceOver pass is a manual/assistive procedure, not a test
+/// this host can run.
+///
+/// What *is* testable — and what this file pins — is every decision the pass makes about the
+/// user's settings:
 ///
 ///   * a designed point size resolves to exactly one Dynamic Type role, and the
 ///     resolution is monotone (bigger design -> bigger or equal role) and total

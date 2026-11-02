@@ -38,6 +38,8 @@ struct NativeChannelSidebarContent: View {
     /// T8f: the phone draws the channel list on the grouped background `List(.sidebar)` used; the
     /// regular layout keeps the pane's own background.
     @Environment(\.horizontalSizeClass) private var sizeClass
+    /// T45-AV-R §3: the Workspace header and the Threads row reflow at accessibility text sizes.
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     @State private var quickSwitcherPresented = false
     /// T40: the channel browser (S24). Presented from this list because the list is where a missing
@@ -49,6 +51,13 @@ struct NativeChannelSidebarContent: View {
     @State private var newDirectMessagePresented = false
     @State private var createModel: ChannelCreateViewModel?
     @State private var directMessageModel: NewDirectMessageViewModel?
+
+    /// T46: the permanent-web escape hatch (`docs/dual-render.md` §13). One item-based presentation
+    /// holds both the plugin-id prompt and the surface sheet: the prompt hands its id to
+    /// `pendingFallback`, and `onDismiss` opens the surface, so the two never fight over one
+    /// presentation (a second `.sheet` is the shape this file already avoids for the create flow).
+    @State private var webSheet: WebSheet?
+    @State private var pendingFallback: WebFallbackSurface?
     /// The team's global-thread list, resolved once the sidebar knows its team. Held so the row can
     /// draw the unread count live: a thread that arrives over the socket moves the badge the same
     /// way it moves the list.
@@ -93,6 +102,11 @@ struct NativeChannelSidebarContent: View {
         ScrollView(.vertical) {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 workspaceSection
+                // T46: the surfaces that are permanently web, one row each, above the categories.
+                // Above, not below: this list is 347 channels on a real account and a lazy
+                // `LazyVStack` does not build a row that has not been scrolled to (T8f's lesson,
+                // and the reason the Threads row moved up).
+                webSurfacesSection
                 channelSections
                 footerSection
             }
@@ -152,6 +166,24 @@ struct NativeChannelSidebarContent: View {
                 }
             }
         }
+        // T46: the permanent-web surfaces. One item-based presentation for the id prompt and the
+        // surface itself; the prompt hands its answer to `pendingFallback` and `onDismiss` opens it,
+        // so the second presentation starts only after the first has finished going away.
+        .sheet(item: $webSheet, onDismiss: {
+            if let pending = pendingFallback {
+                pendingFallback = nil
+                webSheet = .fallback(pending, UUID())
+            }
+        }) { sheet in
+            switch sheet {
+            case .fallback(let surface, _):
+                WebFallbackSheet(server: server, surface: surface)
+            case .pluginPrompt:
+                PluginScreenPrompt { surface in
+                    pendingFallback = surface
+                }
+            }
+        }
         // The create menu lives in the section header's `+` (`ChannelCreateMenuButton`), which observes
         // the model itself — a `@State`-held model read here would never re-render, and the `+` would be
         // born hidden while the permission answer was still in flight (the defect T40-R measured).
@@ -175,7 +207,69 @@ struct NativeChannelSidebarContent: View {
         }
     }
 
+    // MARK: The web escape hatch's presentation
+
+    /// What the sidebar's "Web view" section can present. One `Identifiable` item type for both
+    /// cases, because a view gets one item-based sheet; the id of a fallback carries a UUID so a
+    /// second tap after a dismissal is a **new** presentation (and therefore a new webview — the
+    /// previous one was torn down on disappear).
+    private enum WebSheet: Identifiable {
+        /// The token is part of the identity on purpose: it is minted when the row is tapped, so
+        /// re-opening the same surface is a distinct presentation. It must be **stored**, never
+        /// computed in `id` — an `id` that changes on every read makes SwiftUI re-diff the item on
+        /// every pass and re-present the sheet.
+        case fallback(WebFallbackSurface, UUID)
+        case pluginPrompt
+
+        var id: String {
+            switch self {
+            case .fallback(let surface, let token): return "fallback-\(surface.id)-\(token.uuidString)"
+            case .pluginPrompt: return "pluginPrompt"
+            }
+        }
+    }
+
     // MARK: Sections
+
+    /// T46 — the permanent-web escape hatch, as four rows in the native navigation.
+    ///
+    /// These surfaces are **not** `Surface` cases and this view does not consult a render mode for
+    /// them: a plugin screen, Boards, Playbooks and the System Console have exactly one renderer (the
+    /// server's web app), so the honest statement is a route, not a switch. See
+    /// `docs/dual-render.md` §13 for why re-adding `.plugins` as a key would resurrect a retired raw
+    /// value and put a one-legal-state key back into a catalogue that forbids it.
+    ///
+    /// The rows are drawn wherever the native sidebar is (both layouts), which is the whole point:
+    /// the reader reaches a web-only screen from the same place as a conversation, and closing it
+    /// returns here. Nothing here is gated on a flag — the *shell* being native is what makes these
+    /// rows exist at all, and in a shipped Release build the pane host resolves native.
+    private var webSurfacesSection: some View {
+        Section {
+            ForEach(WebFallbackSurface.fixedMenu) { surface in
+                Button {
+                    webSheet = .fallback(surface, UUID())
+                } label: {
+                    Label(surface.title, systemImage: surface.systemImage)
+                        .channelSidebarRowContent()
+                }
+                .accessibilityIdentifier("webFallbackRow.\(surface.id)")
+                .channelSidebarRowSurface()
+            }
+            // A plugin screen is whatever the plugin serves at `/plugins/<id>`; the id is the only
+            // thing the shell cannot know, so this row asks for it instead of guessing a list.
+            Button {
+                webSheet = .pluginPrompt
+            } label: {
+                Label("Plugin screen…", systemImage: "puzzlepiece.extension")
+                    .channelSidebarRowContent()
+            }
+            .accessibilityIdentifier("webFallbackRow.plugin")
+            .channelSidebarRowSurface(separator: false)
+        } header: {
+            Text("Web view")
+                .channelSidebarSectionHeaderSurface()
+        }
+    }
 
     private var workspaceSection: some View {
         Section {
@@ -242,19 +336,49 @@ struct NativeChannelSidebarContent: View {
                 .channelSidebarRowSurface()
             }
         } header: {
-            HStack(spacing: 6) {
-                Text("Workspace")
-                Spacer(minLength: 0)
-                // T47: the `+` upstream draws in the channel list header (S09/S10's create entry).
-                if let createModel {
-                    ChannelCreateMenuButton(model: createModel,
-                                            createChannel: $createChannelPresented,
-                                            browseChannels: $browseChannelsPresented,
-                                            directMessage: $newDirectMessagePresented)
+            // T45-AV-R §3: at AX5 the header's row is ~265 pt wide and the `+` takes 44 of it,
+            // so the upper-cased section title hyphenated mid-word (`WORK-/SPACE`). The header
+            // reflows at an accessibility size — the name claims its own line, the create menu
+            // goes below it — which is the same reflow the pane header and the composer use.
+            Group {
+                if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 4) {
+                        workspaceHeaderTitle
+                        if let createModel {
+                            ChannelCreateMenuButton(model: createModel,
+                                                    createChannel: $createChannelPresented,
+                                                    browseChannels: $browseChannelsPresented,
+                                                    directMessage: $newDirectMessagePresented)
+                        }
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        workspaceHeaderTitle
+                        Spacer(minLength: 0)
+                        // T47: the `+` upstream draws in the channel list header (S09/S10's create entry).
+                        if let createModel {
+                            ChannelCreateMenuButton(model: createModel,
+                                                    createChannel: $createChannelPresented,
+                                                    browseChannels: $browseChannelsPresented,
+                                                    directMessage: $newDirectMessagePresented)
+                        }
+                    }
                 }
             }
             .channelSidebarSectionHeaderSurface()
         }
+    }
+
+    /// The WORKSPACE block's name. The section style upper-cases it (`textCase`), which is
+    /// presentation only — so the accessibility label is the section's real name and the audit
+    /// measures "Workspace" rather than "WORKSPACE" against a frame laid out for the former
+    /// (measured at AX3: the upper-cased label against the un-uppercased frame was reported as
+    /// `Text clipped` while the screenshot showed the word complete).
+    private var workspaceHeaderTitle: some View {
+        Text("Workspace")
+            .accessibilityLabel("Workspace")
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("channelSidebar.workspaceHeader")
     }
 
     @ViewBuilder
@@ -657,27 +781,33 @@ struct ChannelSidebarRow: View {
 private struct ThreadsRailRow: View {
     @ObservedObject var model: GlobalThreadsViewModel
     let action: () -> Void
+    /// T45-AV-R §3: at AX5 the badge leaves the one-word title ~200 pt and "Threads" broke
+    /// mid-word (`Thre-/ads`). At an accessibility size the badge moves under the title.
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         let entry = model.railEntry
         return Button(action: action) {
-            HStack(spacing: 6) {
-                Label("Threads", systemImage: "text.bubble")
-                    // Upstream's unread emphasis: the row is bold while anything is waiting.
-                    .fontWeight(entry.isUnread ? .bold : .regular)
-                Spacer(minLength: 4)
-                if let text = entry.badgeText {
-                    Text(text)
-                        .font(.caption2.weight(.bold))
-                        .monospacedDigit()
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 1)
-                        .background(Capsule().fill(Color.accentColor))
-                        // Decoration: the row's own value carries the sentence (the same split
-                        // `ChannelSidebarRow` uses for its badges, and for the same reason — a
-                        // `Button` merges its label's children into one accessibility element).
-                        .accessibilityHidden(true)
+            Group {
+                if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 2) {
+                        // T45-AV-R §3: even with the badge out of the way, the inline glyph leaves
+                        // ~245 pt for a seven-letter word that needs ~280 at AX5, and SwiftUI broke
+                        // it `Threa-/ds`. At an accessibility size the title takes the row's full
+                        // width and the glyph is dropped — the same trade the date separator makes
+                        // when it drops its flanking rules (F3). The row is still announced as
+                        // "Threads" by the representation below, so nothing is lost to a reader.
+                        Text("Threads")
+                            .fontWeight(entry.isUnread ? .bold : .regular)
+                            .fixedSize(horizontal: false, vertical: true)
+                        badge(entry)
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        threadsLabel(entry)
+                        Spacer(minLength: 4)
+                        badge(entry)
+                    }
                 }
             }
             // A `.plain` button hit-tests its label's content shape; without this the space after the
@@ -693,6 +823,30 @@ private struct ThreadsRailRow: View {
                 .accessibilityValue(entry.accessibilityValue)
         }
         .accessibilityIdentifier("nativeSidebarAllThreads")
+    }
+
+    private func threadsLabel(_ entry: ThreadsRailEntry) -> some View {
+        Label("Threads", systemImage: "text.bubble")
+            // Upstream's unread emphasis: the row is bold while anything is waiting.
+            .fontWeight(entry.isUnread ? .bold : .regular)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private func badge(_ entry: ThreadsRailEntry) -> some View {
+        if let text = entry.badgeText {
+            Text(text)
+                .font(.caption2.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
+                .background(Capsule().fill(Color.accentColor))
+                // Decoration: the row's own value carries the sentence (the same split
+                // `ChannelSidebarRow` uses for its badges, and for the same reason — a
+                // `Button` merges its label's children into one accessibility element).
+                .accessibilityHidden(true)
+        }
     }
 }
 

@@ -718,6 +718,8 @@ struct ChannelPaneContent: View {
     /// same record the Downloads screen lists.
     @EnvironmentObject private var downloadWorker: DownloadWorker
     @Environment(\.scenePhase) private var scenePhase
+    /// T45-AV-R: the header reflows at accessibility text sizes (see `header`).
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     @State private var model: ChannelViewModel?
     @State private var imageStore: ChannelImageStore?
@@ -969,96 +971,130 @@ struct ChannelPaneContent: View {
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            // T40-R F4: the title lives in its own view **because the model has to be observed**.
-            //
-            // The pane keeps the model in `@State` — it cannot be a `@StateObject`, because the
-            // coordinator creates it in `.task` — and a `@State` reference does not republish anything.
-            // `ChannelViewModel.title` starts as the name the shell was handed (`t40-browse-me`, the URL
-            // slug) and `loadChannelHeader()` replaces it with the server's display name a beat later;
-            // with nothing observing the model, that second publish never reached the screen and the
-            // header sat at the slug for as long as the pane was open. Same defect as the Add button
-            // (F1) and the Save row (F2), same fix: a view that observes the object.
-            if let model {
-                ChannelPaneTitle(model: model, fallback: channelName ?? "Channel")
-                    // T45: the title claims its width before the trailing controls.
-                    // At AX3 the four header glyphs grew to ~180 pt and, with equal
-                    // priority, "Off-Topic" was squeezed to ~90 pt and broke mid-word
-                    // ("Off-" / "Topi" / "c").
-                    .layoutPriority(1)
+        // T45-AV-R F1: the title and the four trailing glyphs cannot share one row at an
+        // accessibility text size. At AX5 the glyphs alone are wider than the pane, so the title
+        // was not drawn at all; at AX3 it was squeezed to `T8` / `G` / `pr…` and Apple's audit
+        // reported `Text clipped | element=nativeChannelTitle`. T45's `.layoutPriority(1)` could
+        // not fix that: priority decides who gets an unbounded *line budget*, not how much
+        // *width* the leading view leaves. The fix is the composer's (`ComposerView.inputRow`):
+        // reflow. The title claims a row of its own, the controls move to the row below it, and
+        // no control changes identity — every identifier and label below is the one the suites
+        // already address.
+        Group {
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    titleView
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack(spacing: 8) {
+                        trailingControls
+                        Spacer(minLength: 0)
+                    }
+                }
             } else {
-                Text(channelName ?? "Channel")
-                    .font(.headline)
-                    .lineLimit(2)
-                    .accessibilityIdentifier("nativeChannelTitle")
-            }
-            Spacer(minLength: 8)
-            if ChannelUITestHook.exposesLoadEarlier, let model {
-                LoadEarlierSeamButton(model: model)
-                // The second pin (task t_a4d02070): what the last reader-restore actually did. The
-                // frame comparison alone passes on this host with the restore deleted, so the live
-                // anchor test needs a signal only the restore can produce.
-                ScrollRestoreSeam(model: model)
-            }
-            // T40 (S22/S23): the channel's own header opens its info screen. The web client makes the
-            // channel *title* the affordance; a pane header that shows a title is the same place, so the
-            // button sits first among the trailing controls rather than in a menu.
-            if resolver.resolvedMode(for: .channelInfo) == .native {
-                Button {
-                    showsChannelInfo = true
-                } label: {
-                    Label("Channel info", systemImage: "info.circle")
-                        .labelStyle(.iconOnly)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    titleView
+                    Spacer(minLength: 8)
+                    trailingControls
                 }
-                .accessibilityLabel("Channel info")
-                .accessibilityIdentifier("nativeChannelInfoButton")
             }
-            // T41 (S24): my own profile. Upstream's tab bar has an "Account" entry for exactly this;
-            // the native pane has no tab of its own, so the header's avatar is the affordance (the same
-            // place the web client puts it). Gated like the row tap (`offersAuthorProfile`): while this
-            // pane is native the webview is not painting its own account avatar either, so the surface's
-            // own resolution cannot decide whether this control exists.
-            if offersAuthorProfile, let myID = profiles.myUserID(for: server), !myID.isEmpty {
-                Button {
-                    profilePopover.present(userID: myID)
-                } label: {
-                    Label("My profile", systemImage: "person.crop.circle")
-                        .labelStyle(.iconOnly)
-                }
-                .accessibilityLabel("My profile")
-                .accessibilityIdentifier("nativeProfileButton")
-            }
-            // T39 (S21): the channel's pinned messages, behind the same `search` surface as the
-            // search/saved screens (pinned is part of that card's lookup group).
-            if resolver.resolvedMode(for: .search) == .native {
-                Button {
-                    showsPinned = true
-                } label: {
-                    Label("Pinned messages", systemImage: "pin")
-                        .labelStyle(.iconOnly)
-                }
-                .accessibilityLabel("Pinned messages")
-                .accessibilityIdentifier("nativeChannelPinnedButton")
-            }
-            // T44d (S33): the Calls entry point. Gated on the `calls` surface exactly like every
-            // other header affordance: while `calls` renders web the webview owns Calls (and its own
-            // button), so a second native one beside it would be two answers to the same tap.
-            if resolver.resolvedMode(for: .calls) == .native {
-                CallsJoinEntry(server: server,
-                               channelID: channelID,
-                               channelName: channelName ?? model?.title)
-            }
-            Button {
-                navigation.openThreads(navigation.location.request)
-            } label: {
-                Label("Threads", systemImage: "text.bubble")
-                    .labelStyle(.iconOnly)
-            }
-            .accessibilityLabel("Threads")
-            .accessibilityIdentifier("nativeChannelThreadsButton")
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
+    }
+
+    /// The header's title. Its own view because the model must be observed (T40-R F4).
+    @ViewBuilder
+    private var titleView: some View {
+        // T40-R F4: the title lives in its own view **because the model has to be observed**.
+        //
+        // The pane keeps the model in `@State` — it cannot be a `@StateObject`, because the
+        // coordinator creates it in `.task` — and a `@State` reference does not republish anything.
+        // `ChannelViewModel.title` starts as the name the shell was handed (`t40-browse-me`, the URL
+        // slug) and `loadChannelHeader()` replaces it with the server's display name a beat later;
+        // with nothing observing the model, that second publish never reached the screen and the
+        // header sat at the slug for as long as the pane was open. Same defect as the Add button
+        // (F1) and the Save row (F2), same fix: a view that observes the object.
+        if let model {
+            ChannelPaneTitle(model: model, fallback: channelName ?? "Channel")
+                // T45: the title claims its width before the trailing controls. Still true
+                // below AX; at an accessibility size the reflow above gives it the whole row.
+                .layoutPriority(1)
+        } else {
+            Text(channelName ?? "Channel")
+                .font(.headline)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("nativeChannelTitle")
+        }
+    }
+
+    /// The header's trailing controls: the channel-info, profile, pinned, Calls and Threads
+    /// affordances, each gated on its own surface exactly as before.
+    @ViewBuilder
+    private var trailingControls: some View {
+        if ChannelUITestHook.exposesLoadEarlier, let model {
+            LoadEarlierSeamButton(model: model)
+            // The second pin (task t_a4d02070): what the last reader-restore actually did. The
+            // frame comparison alone passes on this host with the restore deleted, so the live
+            // anchor test needs a signal only the restore can produce.
+            ScrollRestoreSeam(model: model)
+        }
+        // T40 (S22/S23): the channel's own header opens its info screen. The web client makes the
+        // channel *title* the affordance; a pane header that shows a title is the same place, so the
+        // button sits first among the trailing controls rather than in a menu.
+        if resolver.resolvedMode(for: .channelInfo) == .native {
+            Button {
+                showsChannelInfo = true
+            } label: {
+                Label("Channel info", systemImage: "info.circle")
+                    .labelStyle(.iconOnly)
+            }
+            .accessibilityLabel("Channel info")
+            .accessibilityIdentifier("nativeChannelInfoButton")
+        }
+        // T41 (S24): my own profile. Upstream's tab bar has an "Account" entry for exactly this;
+        // the native pane has no tab of its own, so the header's avatar is the affordance (the same
+        // place the web client puts it). Gated like the row tap (`offersAuthorProfile`): while this
+        // pane is native the webview is not painting its own account avatar either, so the surface's
+        // own resolution cannot decide whether this control exists.
+        if offersAuthorProfile, let myID = profiles.myUserID(for: server), !myID.isEmpty {
+            Button {
+                profilePopover.present(userID: myID)
+            } label: {
+                Label("My profile", systemImage: "person.crop.circle")
+                    .labelStyle(.iconOnly)
+            }
+            .accessibilityLabel("My profile")
+            .accessibilityIdentifier("nativeProfileButton")
+        }
+        // T39 (S21): the channel's pinned messages, behind the same `search` surface as the
+        // search/saved screens (pinned is part of that card's lookup group).
+        if resolver.resolvedMode(for: .search) == .native {
+            Button {
+                showsPinned = true
+            } label: {
+                Label("Pinned messages", systemImage: "pin")
+                    .labelStyle(.iconOnly)
+            }
+            .accessibilityLabel("Pinned messages")
+            .accessibilityIdentifier("nativeChannelPinnedButton")
+        }
+        // T44d (S33): the Calls entry point. Gated on the `calls` surface exactly like every
+        // other header affordance: while `calls` renders web the webview owns Calls (and its own
+        // button), so a second native one beside it would be two answers to the same tap.
+        if resolver.resolvedMode(for: .calls) == .native {
+            CallsJoinEntry(server: server,
+                           channelID: channelID,
+                           channelName: channelName ?? model?.title)
+        }
+        Button {
+            navigation.openThreads(navigation.location.request)
+        } label: {
+            Label("Threads", systemImage: "text.bubble")
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Threads")
+        .accessibilityIdentifier("nativeChannelThreadsButton")
     }
 
     private var title: String {
@@ -1180,6 +1216,10 @@ private struct ChannelPaneTitle: View {
     @ObservedObject var model: ChannelViewModel
     /// What the shell was handed, shown only in the frame before the server's title arrives.
     let fallback: String
+    /// T45-AV-R: at an accessibility size the title owns a full row of the reflowed header, so
+    /// the two-line cap that keeps the header compact stops being a compactness rule and becomes
+    /// an ellipsis on a name that has room to wrap ("T8" / "G" / "pr…" at AX3).
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         HStack(spacing: 8) {
@@ -1189,7 +1229,7 @@ private struct ChannelPaneTitle: View {
                 .accessibilityHidden(true)
             Text(model.title.isEmpty ? fallback : model.title)
                 .font(.headline)
-                .mmLineLimit(2)
+                .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("nativeChannelTitle")
         }

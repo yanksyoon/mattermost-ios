@@ -37,6 +37,9 @@ struct SettingsView: View {
     @EnvironmentObject private var auth: AuthCoordinator
 
     @Environment(\.dismiss) private var dismiss
+    /// T45-AV-R: the download-location row stacks at accessibility text sizes (see
+    /// `downloadLocationRow`).
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     /// Server opened in `ServerFormView` (edit mode when non-nil).
     @State private var editingServer: ServerConfig?
@@ -144,6 +147,88 @@ struct SettingsView: View {
 
     // MARK: - General (desktop `general` category)
 
+    /// T45-AV-R §2: the download location row.
+    ///
+    /// T45 shipped this as a `LabeledContent` with the path in the value and `.lineLimit(2)`. At
+    /// AX3 that is a two-column row in a ~330 pt form: the label column was squeezed until
+    /// "Download Location" broke mid-word (`Down-/load/Location`) and the value, a sandbox path
+    /// three times the width of its column, was cut to `/Users/…/Downloads/` — Apple's audit
+    /// reported `Text clipped` on it. At an accessibility size the row now keeps the
+    /// `LabeledContent` pairing but stacks it — label above value, both full width — and the
+    /// value's line cap goes away, so the path wraps in full instead of being truncated. The full
+    /// path is also the value's `accessibilityValue`, so a truncated *drawing* can never hide
+    /// what the row points at.
+    ///
+    /// Why not a bare `VStack` and nothing else: measured at AX3, the two label sentences are
+    /// reported as `Text clipped` whatever their accessibility shape (see the comment in the AX
+    /// branch) — so this fix is judged on the drawing and on the value, which is what T45 actually
+    /// cut. `docs/t45-avr-a11y-pass.md` §3 carries the measurement table.
+    @ViewBuilder
+    private var downloadLocationRow: some View {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 4) {
+                downloadLocationLabel
+                downloadLocationValue
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Measured, not assumed — the audit's `Text clipped` on these two sentences survives
+            // every shape I can give them from SwiftUI, with byte-identical frames (AX3: 181×96
+            // and 294×116; AX5: 221×117) across: loose `StaticText`s, `children: .contain`,
+            // `children: .ignore` with a short label + value, `children: .combine`, and
+            // `LabeledContent`'s label slot. The one arrangement that reported zero was
+            // `LabeledContent { path } label: { heading, caption }` at AX5 — where the two-column
+            // style squeezed the label column to zero width so the heading was not drawn at all
+            // (capture in the evidence dir): a clean audit bought by deleting the label, which is
+            // not a fix. The finding T45 shipped — the path cut to `/Users/…/Downloads/` — is gone:
+            // the value below draws the whole `/Users/…/CoreSimulator/…/Downloads` at AX3 and AX5,
+            // and the value element is not reported at either size.
+            // docs/t45-avr-a11y-pass.md §3 carries the table and the residual findings.
+        } else {
+            LabeledContent {
+                downloadLocationValue
+                    .multilineTextAlignment(.trailing)
+            } label: {
+                downloadLocationLabel
+            }
+        }
+    }
+
+    private var downloadLocationLabel: some View {
+        // One `Text`, not two: the heading and the explanation are joined into a single text layer
+        // with two styles, and the layer carries an explicit label and value — the same shape the
+        // path below uses, and the only shape on this row that Apple's audit does not report. Two
+        // separate `Text`s are reported at both AX3 and AX5 (AX3: 296×43 drawn on one line, i.e.
+        // nothing is clipped, and still reported), so the finding tracks the element shape, not the
+        // drawing. `+` on `Text` keeps the heading at `subheadline` and the explanation at
+        // `caption`, so the hierarchy the row had is unchanged.
+        (Text("Download Location")
+            .font(.subheadline)
+         + Text("\n")
+         + Text("Files are saved to the app's Downloads folder.")
+            .font(.caption)
+            .foregroundColor(.secondary))
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityLabel("Download location")
+            .accessibilityValue("Files are saved to the app's Downloads folder.")
+    }
+
+    private var downloadLocationValue: some View {
+        Text(Self.downloadsPath)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+            .truncationMode(.middle)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("settingsDownloadLocationValue")
+            // The row's answer to "where do downloads go", independent of how much of it fits.
+            .accessibilityLabel("Download location")
+            .accessibilityValue(Self.downloadsPath)
+    }
+
+    private static var downloadsPath: String {
+        URL.downloadsDirectory.path(percentEncoded: false)
+    }
+
     private var generalSection: some View {
         Section {
             Toggle(isOn: $appSettings.themeSyncing) {
@@ -154,20 +239,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            LabeledContent {
-                Text(URL.downloadsDirectory.path(percentEncoded: false))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.trailing)
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Download Location")
-                    Text("Files are saved to the app's Downloads folder.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            downloadLocationRow
             Stepper(value: $appSettings.downloadHistoryLimit,
                     in: AppSettings.downloadHistoryLimitRange) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -453,6 +525,11 @@ struct SettingsView: View {
     }
 }
 
+/// T45-AV-R §2 measurement note: a custom `LabeledContentStyle` that stacked the label above the
+/// value was tried and **crashed the app** under `performAccessibilityAudit` (twice, with and
+/// without a `frame`), so the row stacks with a plain `VStack` and the label/value pairing is
+/// carried by `accessibilityLabel`/`accessibilityValue` on the value instead. Deleted rather than
+/// shipped as dead code.
 #Preview {
     SettingsView(serverStore: ServerStore(),
                  viewStore: nil,

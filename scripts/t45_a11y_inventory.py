@@ -16,8 +16,11 @@ What it measures, per the card's acceptance criteria:
   labels     interactive controls (`Button`) that draw only a glyph: no `Text`,
              no `accessibilityLabel`. Those are unnamed to VoiceOver.
   lineLimit  `.lineLimit(1)` sites. A single line becomes a truncation the
-             moment its text style scales, so each becomes a variable limit.
+             moment its text style scales, so each becomes a variable limit. The
+             three that stay are in `EXEMPT_LINE_LIMITS`; a fourth fails --check.
   motion     animation sites that do not consult `accessibilityReduceMotion`.
+             Asked of the *statement* (T45-AV-R §6): a file that reads the
+             setting once no longer vouches for every animation in it.
   contrast   `.colorSchemeContrast` uses (0 before T45: Increase Contrast was
              not honoured anywhere).
   ids        `accessibilityIdentifier` count, which must never fall — the UI
@@ -91,6 +94,24 @@ UNOWNED_FILES = (
     "Mattermost/UI/SettingsView.swift",
 )
 
+# The three one-line caps this pass allows to stay. Content-keyed, like the font
+# exemptions above, so a comment above a call site does not silently re-arm the bug.
+#
+# T45-AV-R §6: before this the three were *reported* and never gated, so a fourth
+# `.lineLimit(1)` on scaling text shipped green. `--check` now fails on any bare cap
+# outside this table, and on an entry here that no longer names a site.
+EXEMPT_LINE_LIMITS = {
+    ("Mattermost/UI/DownloadsView.swift",
+     "Text(record.filename)"):
+        "a file name in a fixed-height download row; the row's own label carries it in full",
+    ("Mattermost/UI/DownloadsView.swift",
+     "Text(note)"):
+        "the 'saved as' note is middle-truncated on purpose and the full value is the row's value",
+    ("Mattermost/UI/Native/Sidebar/TeamSidebarView.swift",
+     "Text(entry.initials)"):
+        "team initials in the fixed 52 pt rail tile, scaled to fit the tile (cannot truncate)",
+}
+
 
 def is_exempt(site):
     for (file, fragment), _reason in EXEMPT_FONT_SITES.items():
@@ -151,40 +172,145 @@ def font_sites():
 
 
 def unnameable_buttons():
-    """Buttons whose label closure draws a glyph and names nothing.
+    """Buttons drawn from a glyph that name nothing.
 
-    Brace-balanced rather than line-based: `Button { ... } label: { Image(...) }`
-    spans lines, and a line scan produces both false positives and misses.
+    Brace-balanced rather than line-based: `Button { ... } label: { Image(...) }` spans
+    lines, and a line scan produces both false positives and misses.
+
+    T45-AV-R §5 rewrote this. The first version read only the text between the keyword's
+    first `{` and its matching `}` — i.e. the **action** closure — and searched that for
+    `label:` and `Image(`. So the shape every toolbar glyph in this app uses
+
+        Button {
+            showsPinned = true
+        } label: {
+            Label("Pinned messages", systemImage: "pin")
+        }
+
+    was never inspected at all: a probe file with exactly that shape and no label measured
+    `unnamed glyph buttons 0 / RESULT: PASS`. The scan now finds the **label** closure for
+    every `Button` shape the tree uses and asks the question about that:
+
+      * `Button { action } label: { <label> }`     — trailing `label:` closure;
+      * `Button { action } content: { <label> }`   — the deprecated spelling of the same;
+      * `Button { <label> }`                        — the closure *is* the label;
+      * `Button("Done") { action }` / `Label(...)`  — named by the title/Label it is given;
+      * `Button(action: ...) { <label> }`           — params then a trailing label closure.
+
+    A control counts as named when its label closure contains a `Text(` or a `Label(` (both
+    draw the name they are given; `Label(...).labelStyle(.iconOnly)` still carries it), or
+    when the statement carries `.accessibilityLabel(...)` — the trailer is read because the
+    label modifier usually sits *after* the closure closes.
     """
     findings = []
     for path in swift_files():
         text = "\n".join(read(path))
         for match in re.finditer(r"\bButton\b", text):
-            start = match.end()
-            # First `{` at or after the keyword opens the action closure.
-            opening = text.find("{", start)
-            if opening == -1:
+            line = _unnamed_button_line(text, match.end())
+            if line is None:
                 continue
-            end = _matching_brace(text, opening)
-            if end == -1:
-                continue
-            body = text[opening:end]
-            label_open = body.find("label:")
-            label = body[label_open:] if label_open != -1 else body
-            # The label is usually a modifier ON the Button, i.e. *after* the
-            # closure closes. Read the enclosing statement too — a scan that stops
-            # at the brace reports those four real controls as unnamed, which is
-            # what the first run of this tool did.
-            trailer = text[end:end + 400]
-            if "Text(" in label:
-                continue
-            if "accessibilityLabel" in label or "accessibilityLabel" in trailer:
-                continue
-            if "Image(" not in label and "ProgressView" not in label:
-                continue
-            line = text.count("\n", 0, match.start()) + 1
-            findings.append({"file": rel(path), "line": line})
+            findings.append({"file": rel(path),
+                             "line": text.count("\n", 0, match.start()) + 1})
     return findings
+
+
+def _unnamed_button_line(text, start):
+    """`True`-ish when the `Button` whose keyword ends at `start` draws an unnamed glyph."""
+    cursor = _skip_space(text, start)
+    if cursor >= len(text):
+        return None
+
+    named_by_arguments = False
+    if text[cursor] == "(":
+        close = _matching_paren(text, cursor)
+        if close == -1:
+            return None
+        arguments = text[cursor:close]
+        # The parenthesis carries the name only when it starts with a string literal
+        # (`Button("Done")`) or contains a `Label(...)` (`Button(role:)` + a labelled closure).
+        named_by_arguments = bool(arguments.lstrip().startswith("\"")
+                                  or re.search(r"\bLabel\s*\(", arguments))
+        cursor = _skip_space(text, close + 1)
+        if cursor >= len(text):
+            return None
+        # `Button("Done") { dismiss() }`: the title is on the parenthesis, the closure is
+        # only the action — there is no glyph-only label to inspect.
+        if named_by_arguments and not re.search(r"\baction\s*:", arguments):
+            return None
+
+    if text[cursor] != "{":
+        # `Button(title, action:)` and friends: no closure-shaped label to inspect.
+        return None
+
+    action_end = _matching_brace(text, cursor)
+    if action_end == -1:
+        return None
+
+    # `label:` / `content:` must follow the action closure **immediately** (it is part of the
+    # initializer). Searching a fixed-width window instead finds the *next* Button's `label:`
+    # and reports that button's label as this one's — which is what the first draft of this
+    # rewrite did to the three `Button("…")` rows inside a confirmation dialog.
+    label_body = None
+    label_end = action_end
+    after = _skip_space(text, action_end + 1)
+    keyword = re.match(r"(?:label|content)\s*:\s*", text[after:])
+    if keyword:
+        opening = _skip_space(text, after + keyword.end())
+        if opening < len(text) and text[opening] == "{":
+            closing = _matching_brace(text, opening)
+            if closing != -1:
+                label_body = text[opening:closing]
+                label_end = closing
+    if label_body is None:
+        # `Button(action: ...) { Image(...) }` — params, then the trailing closure is the
+        # label — and a plain `Button { ... }`, whose closure is both action and label.
+        label_body = text[cursor:action_end]
+
+    if re.search(r"\bText\s*\(", label_body) or re.search(r"\bLabel\s*\(", label_body):
+        return None
+    # The label modifier is applied to the Button, i.e. after the closure that closed last.
+    trailer = _modifier_chain(text, label_end + 1)
+    if "accessibilityLabel" in label_body or "accessibilityLabel" in trailer:
+        return None
+    if "Image(" not in label_body and "ProgressView" not in label_body:
+        return None
+    return True
+
+
+def _modifier_chain(text, index, budget=600):
+    """The `.modifier(...)` lines that follow `index` — one statement's trailing chain.
+
+    Stops at the first line that does not start with `.`, so a later `Button` (or any other
+    statement) cannot lend its `.accessibilityLabel` to the control being inspected.
+    """
+    chunk = text[index:index + budget]
+    lines = chunk.split("\n")
+    kept = [lines[0]]
+    for line in lines[1:]:
+        if line.strip().startswith("."):
+            kept.append(line)
+            continue
+        break
+    return "\n".join(kept)
+
+
+def _skip_space(text, index):
+    while index < len(text) and text[index] in " \t\r\n":
+        index += 1
+    return index
+
+
+def _matching_paren(text, opening):
+    depth = 0
+    for index in range(opening, len(text)):
+        char = text[index]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return index
+    return -1
 
 
 def _matching_brace(text, opening):
@@ -212,27 +338,69 @@ def count(needle, path_filter=None):
 def line_limit_sites():
     sites = []
     for path in swift_files():
-        for index, line in enumerate(read(path)):
-            if ".lineLimit(1)" in line:
-                sites.append({"file": rel(path), "line": index + 1})
+        lines = read(path)
+        for index, line in enumerate(lines):
+            if ".lineLimit(1)" not in line:
+                continue
+            # A comment that *describes* the cap is not a cap (the probe for this gate put
+            # one in a doc comment and the scan counted it).
+            if line.strip().startswith("//"):
+                continue
+            # Same receiver walk as `font_sites`: the exemption has to name the *text* the cap
+            # is applied to, and the `.lineLimit(1)` line alone does not carry it.
+            receiver = ""
+            for back in range(index, max(-1, index - 6), -1):
+                stripped = lines[back].strip()
+                if not stripped.startswith("."):
+                    receiver = stripped
+                    break
+            sites.append({"file": rel(path), "line": index + 1,
+                          "receiver": receiver[:110],
+                          "source": line.strip()})
     return sites
 
 
+def line_limit_matches(site, file, fragment):
+    return site["file"] == file and (fragment in site.get("receiver", "")
+                                     or fragment in site.get("source", ""))
+
+
+def line_limit_exemption(site):
+    for (file, fragment), _reason in EXEMPT_LINE_LIMITS.items():
+        if line_limit_matches(site, file, fragment):
+            return True
+    return False
+
+
 def animation_sites():
-    """Animation call sites and whether the file consults Reduce Motion."""
+    """Animation call sites and whether *that statement* consults Reduce Motion.
+
+    T45-AV-R §6: the first version asked the file (`guarded_file`), so any file that read
+    `accessibilityReduceMotion` once made every animation in it look guarded — and nothing
+    failed on an unguarded site at all. The question is now asked of the statement: an
+    `Animation` that reaches `withAnimation`/`.animation`/`.transition` must go through
+    `MotionPolicy` (or carry `reduceMotion` itself). A multi-line call is read as up to four
+    lines from the keyword.
+    """
     sites = []
     for path in swift_files():
         lines = read(path)
         guards = "accessibilityReduceMotion" in "\n".join(lines)
         for index, line in enumerate(lines):
-            if "withAnimation(" in line or re.search(r"\.animation\(", line) \
-                    or ".transition(" in line:
-                sites.append({
-                    "file": rel(path),
-                    "line": index + 1,
-                    "guarded_file": guards,
-                    "source": line.strip()[:110],
-                })
+            if not ("withAnimation(" in line or re.search(r"\.animation\(", line)
+                    or ".transition(" in line):
+                continue
+            statement = "\n".join(lines[index:index + 4])
+            guarded = ("MotionPolicy." in statement or "mmAnimation(" in statement
+                       or "reduceMotion" in statement)
+            sites.append({
+                "file": rel(path),
+                "line": index + 1,
+                "guarded": guarded,
+                # Kept for the manifest the T45 unit test reads; `guarded` is the real answer.
+                "guarded_file": guards,
+                "source": line.strip()[:110],
+            })
     return sites
 
 
@@ -313,7 +481,19 @@ def report():
         "variable_line_limit_sites": count(".mmLineLimit("),
         "unnamed_buttons": unnameable_buttons(),
         "line_limit_one": line_limit_sites(),
+        "line_limit_one_unexplained": [site for site in line_limit_sites()
+                                       if not line_limit_exemption(site)],
+        "line_limit_exemptions": [{"file": file, "fragment": fragment, "reason": reason}
+                                  for (file, fragment), reason in EXEMPT_LINE_LIMITS.items()],
+        "stale_line_limit_exemptions": [
+            "%s :: %s" % (file, fragment)
+            for (file, fragment) in EXEMPT_LINE_LIMITS
+            if not any(line_limit_matches(site, file, fragment)
+                       for site in line_limit_sites())
+        ],
         "animation_sites": animation_sites(),
+        "unguarded_animations": [site for site in animation_sites()
+                                 if not site["guarded"]],
         "reduce_motion_uses": count("accessibilityReduceMotion"),
         "contrast_uses": count("colorSchemeContrast"),
         "accessibility_labels": count("accessibilityLabel"),
@@ -357,11 +537,14 @@ def main():
             data["scaled_font_sites"], data["scaled_symbol_sites"],
             data["scaled_column_sites"]))
         print("variable line limits         %3d" % data["variable_line_limit_sites"])
-        print("bare lineLimit(1) left       %3d" % len(data["line_limit_one"]))
+        print("bare lineLimit(1) left       %3d  (%d exempt, %d unexplained)" % (
+            len(data["line_limit_one"]),
+            len(data["line_limit_one"]) - len(data["line_limit_one_unexplained"]),
+            len(data["line_limit_one_unexplained"])))
         print("unnamed glyph buttons        %3d" % len(data["unnamed_buttons"]))
         print("animation sites              %3d (%d consult reduce motion)" % (
             len(data["animation_sites"]),
-            len([site for site in data["animation_sites"] if site["guarded_file"]])))
+            len([site for site in data["animation_sites"] if site["guarded"]])))
         print("accessibilityReduceMotion    %3d" % data["reduce_motion_uses"])
         print("colorSchemeContrast          %3d" % data["contrast_uses"])
         print("accessibilityLabel           %3d" % data["accessibility_labels"])
@@ -373,8 +556,16 @@ def main():
             print("  unowned font %s:%d  %s" % (site["file"], site["line"], site["source"]))
         for site in data["unnamed_buttons"]:
             print("  label %s:%d" % (site["file"], site["line"]))
+        for site in data["line_limit_one_unexplained"]:
+            print("  bare lineLimit(1) %s:%d  %s"
+                  % (site["file"], site["line"], site.get("source", "")))
+        for site in data["unguarded_animations"]:
+            print("  unguarded animation %s:%d  %s"
+                  % (site["file"], site["line"], site.get("source", "")))
         for key in data["stale_exemptions"]:
             print("  stale exemption %s" % key)
+        for key in data["stale_line_limit_exemptions"]:
+            print("  stale lineLimit exemption %s" % key)
 
     if arguments.check:
         failures = []
@@ -388,6 +579,16 @@ def main():
             failures.append("%d unnamed glyph buttons" % len(data["unnamed_buttons"]))
         if data["stale_exemptions"]:
             failures.append("%d stale exemptions" % len(data["stale_exemptions"]))
+        # T45-AV-R §6: the two gates that used to be print-outs only.
+        if data["unguarded_animations"]:
+            failures.append("%d animation sites that do not consult Reduce Motion"
+                            % len(data["unguarded_animations"]))
+        if data["line_limit_one_unexplained"]:
+            failures.append("%d bare .lineLimit(1) sites outside the documented three"
+                            % len(data["line_limit_one_unexplained"]))
+        if data["stale_line_limit_exemptions"]:
+            failures.append("%d stale .lineLimit(1) exemptions"
+                            % len(data["stale_line_limit_exemptions"]))
         if failures:
             print("\nRESULT: FAIL — " + "; ".join(failures))
             return 1
