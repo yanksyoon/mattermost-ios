@@ -806,11 +806,15 @@ is — holds four rows:
 | System Console | `webFallbackRow.systemConsole` | `/admin_console` |
 | Plugin route… | `webFallbackRow.plugin` | an id prompt → `/plugins/<id>` (a request into the plugin namespace, §13.6) |
 
-**Audit note (T46-AV-R, `t_54c49efc`):** the shipped row does **not** say "Plugin route…" — it
-hard-codes "Plugin screen…" (`ChannelSidebarView.swift:263`), because the plugin row is built beside
-`fixedMenu` and never reads `surface.rowTitle`. The sheet and the prompt do say "Plugin route". The label
-is a bug, filed as `t_14afc3a5`; this table describes the intended and repaired state, and the failure is
-recorded in `docs/t46-avr-verdict.md` §3 F1.
+**Repaired (T46-AV-R-R `t_14afc3a5`):** the T46-AV-R audit (`t_54c49efc`) found this row shipping as
+**"Plugin screen…"** while the sheet and the prompt said "route" — the plugin row was built beside
+`fixedMenu` with a literal in place of `surface.rowTitle`, and the unit test pinned `rowTitle`, a
+property that row never read. The row now renders `WebFallbackSurface(kind: .plugin).rowTitle` (one
+catalogue value — `ChannelSidebarView.pluginRow` — so the row and the sheet cannot disagree), and the
+live suite asserts **the row's own label** (`XCTAssertEqual(row.label, "Plugin route…")`), not only the
+prompt's and the sheet's titles. Measured on the repaired build: `PROBE row webFallbackRow.plugin:
+exists=true label=Plugin route…` (`build/logs/t46avrr-live-1.log`); the failure it repairs is recorded
+in `docs/t46-avr-verdict.md` §3 F1.
 
 The two product rows are gated on what the server actually serves (`GET /api/v4/plugins/webapp`,
 asked before the first navigation). A server without the plugin gets a sentence — "Boards is not
@@ -901,20 +905,24 @@ still alive twelve minutes later with no client app, and run 2 counted zero
 
 A pid that outlives its app is reported as an **orphan** and excluded from the at-rest count, not
 counted as a leak: the app's death tears its webviews down, so a process that survives it was never
-held by a webview the app retained. Measured: `build/logs/t46r-live-6.log` /
-`build/t46-leak/t46r-live-6.json` — twenty presentations, **peak 1** attributed `WebContent` process,
-**41 at-rest samples all at 0**, 0 after the app exited; and `t46r-live-5`, where one pid stayed
-alive through the window *and* after the app was gone (still there minutes later, the §F5 shape), is
-an orphan under this rule rather than a leak — that run predates it, so its JSON reports the raw count
-and the re-scoring is recorded in `docs/t46-build-note.md` §9.5.
+held by a webview the app retained. The shape the rule exists for is T46-AV's own run-1 observation
+(a `WebContent` pid alive twelve minutes after its app was gone, `docs/t46-av-verdict.md` §F5),
+measured with the older probe; **no run in this repo has yet recorded an orphan under the current
+rule**, and this section does not claim one. What the cited runs do measure is the contract — **peak
+≤ 4 attributed `WebContent` processes, and 0 while the app is alive and idle** — with the observed
+numbers belonging to their runs: `build/t46-leak/t46r-live-6.json` (twenty presentations, peak 1, 41
+at-rest samples all 0, final 0), `build/t46-leak/t46avrr-live-1.json` (peak 1, 38 samples all 0,
+`at_rest_orphan_pids: []`, `final_app_alive: false`, `final_webcontent: 0`) and the audit's
+`build/t46-leak/t46avr-live-2.json` (peak 3, 37 samples all 0, final 0) — PASS in all three. The peak
+is not a property of the card; it is a number per run.
 
-**Audit note (T46-AV-R, `t_54c49efc`):** two of those numbers are run-specific, and one claim is not in
-its artifact. The same suite on the same fixture measured **peak 3** (limit 4), **37** at-rest samples
-(all 0) and final 0 — PASS either way (`build/t46-leak/t46avr-live-2.json`); the contract is peak ≤ 4 and
-at rest 0. And `t46r-live-5.json` has no `baseline_app_pids`, carries `"app_pid": 47416` (the stale
-Catalyst app) and `"final_app_alive": true`, so it cannot show a pid that outlived the app — it is the
-attribution bug recorded before the fix, not an orphan measurement. `docs/t46-avr-verdict.md` §3 F4/F5;
-repair `t_14afc3a5`.
+`t46r-live-5.json` is **not** cited for either branch. It predates the attribution fix (no
+`baseline_app_pids` at all, samples carrying `"app_pid": 47416` — the stale Catalyst app on this
+host — and `"final_app_alive": true` with `"at_rest_webcontent": 1`), so it can show neither an
+orphan nor a retained webview: re-scored it would either exclude its pid (if 47416 were in its
+baseline) or FAIL on at-rest 1. `docs/t46-build-note.md` §9.5 records that, and why the sentence it
+used to carry ("still alive after the app exited") was wrong (`docs/t46-avr-verdict.md` §3 F2/F3,
+repair `t_14afc3a5`).
 
 ### 13.5 Reasons the obvious alternatives are not taken
 
@@ -941,8 +949,10 @@ Three traps this card hit, all worth keeping in mind for any later fallback work
   publishes both what it **asked** for (`|requested=…`) and what the server **committed**; the live
   test asserts both. The row and the sheet are labelled **"Plugin route…"** — T46 called it "Plugin
   screen…" and shipped `docs/t46-shots/t46-plugin-screen.png` as evidence for a "plugin screen",
-  which was a picture of the workspace at Town Square (T46-AV §F2). The shot is kept under the honest
-  name `t46-plugin-route-request.png`: it is the evidence for what the route request renders.
+  which was a picture of the workspace at Town Square (T46-AV §F2); the row's label was still wrong
+  after T46-R's rename and is repaired and asserted at the row in T46-AV-R-R (`t_14afc3a5`, §13.2
+  above). The shot is kept under the honest name `t46-plugin-route-request.png`: it is the evidence
+  for what the route request renders.
 * **A product surface whose plugin is absent is not a surface.** `/boards` and `/playbooks` are
   answered by the web app's HTML shell whether or not the plugin that paints them is installed. On a
   9.11.19 Team Edition fixture with no focalboard plugin, the Boards row painted the "Preview Mode"
@@ -959,10 +969,13 @@ Three traps this card hit, all worth keeping in mind for any later fallback work
 
 What the live suite asserts per surface: the System Console (painted, signed in, committed URL at
 `/admin_console…`), Playbooks (painted at `/playbooks…`), Board**s** (painted at `/boards…` **or** the
-not-enabled statement, and never a webview with neither — `testBoardsIsEitherPaintedOrSaysItIsNotEnabled`),
-the plugin route (requested `/plugins/<id>`, painted page, sheet titled "Plugin route: …"), and
-twenty console presentations, each signed in (`.installed` or `.shared`, never `.none`) and painted,
-with the session decision printed per cycle.
+not-enabled statement, and never a webview with neither — `testBoardsIsEitherPaintedOrSaysItIsNotEnabled`,
+whose not-enabled half reads the pane's own state **unconditionally** since T46-AV-R-R `t_14afc3a5`: a
+pane that stopped being exposed is a failure, not a reason to skip the assertion), the plugin route
+(**the row's own label is "Plugin route…"**, the prompt and the sheet are titled "Plugin route", the
+request is exactly `/plugins/<id>`, and a page is painted), and twenty console presentations, each
+signed in (`.installed` or `.shared`, never `.none`) and painted, with the session decision printed per
+cycle.
 
 ### 13.7 What this is *not* measured against (negative space)
 

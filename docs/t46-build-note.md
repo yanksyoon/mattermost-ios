@@ -335,6 +335,7 @@ live  : Executed 5 tests, with 0 failures (0 unexpected) in 228 s   ** TEST SUCC
         (build/logs/t46r-live-6.log)
 leak  : peak 1, at rest 0 while the app was alive (41 samples over 20 s), final 0
         RESULT: PASS   (build/t46-leak/t46r-live-6.json)
+        these are this run's numbers: the contract is peak <= 4 and at rest 0 (§9.5)
 ```
 
 ### 9.1 R1 — Boards painted a blank page (the FAIL)
@@ -427,27 +428,38 @@ final WC       : 0 after 15s idle
 RESULT: PASS
 ```
 
+That block is `build/t46-leak/t46r-live-6.json`'s own report, kept verbatim as the shape of the
+verdict. Its two numbers belong to **that run**: the contract is *peak ≤ 4 attributed `WebContent`
+processes, and 0 while the app is alive and idle*, and the observed peak has been 1, 1 and 3 across
+three runs of the same suite on the same fixture — `t46r-live-6` (peak 1, 41 at-rest samples),
+`t46avrr-live-1` (peak 1, 38), and the audit's `t46avr-live-2` (peak 3, 37), every one a PASS. A note
+that quotes one run's peak as *the* peak is making a claim about the machine, not about the card
+(`docs/t46-avr-verdict.md` §3 F3).
+
 The post-exit count is still reported, and it now has a job: **a pid that outlives the app is excluded
 from the at-rest count** as an orphan, because the app's death tears its webviews down — a process that
-survives it was never held by a webview the app retained. This is T46-AV §F5's run-1 failure mode (one
-`WebContent` pid alive twelve minutes later with no client app). Measured both ways:
-`build/t46-leak/t46r-live-5.json` — taken before the rule existed — shows pid 18048 alive through all
-38 at-rest samples *and* still alive 15 s after the app exited (it was still there, in the next run's
-baseline, minutes later): under this rule it is an orphan, not a retained webview.
-`build/t46-leak/t46r-live-6.json` is the clean run above, with no orphan at all.
+survives it was never held by a webview the app retained. The shape it exists for is T46-AV §F5's
+run-1 observation (one `WebContent` pid alive twelve minutes later with no client app), which was
+measured by that audit's older probe, not by this one.
 
-*(T46-AV-R `t_54c49efc` correction to the paragraph above: `t46r-live-5.json` does not record an app
-exit — it has no `baseline_app_pids` at all and its samples carry `"app_pid": 47416` (the stale Catalyst
-app on this host), with `"final_app_alive": true`. So that file cannot show 18048 outliving its app; it
-is the attribution bug this section says was fixed, captured before the fix. The orphan rule itself is
-sound, and the audit's own run measured it with a working baseline (`baseline_app_pids: [47416]`,
-at-rest 0 over 37 samples, final 0: `build/t46-leak/t46avr-live-2.json`). The re-scoring of live-5 is
-therefore an assertion about what the rule *would* do, not a measurement in that artifact —
-`docs/t46-avr-verdict.md` §3 F4, repair `t_14afc3a5`.)*
+**No run in this repo has recorded an orphan under the current rule, and this note does not claim
+one.** It used to say that `t46r-live-5.json` showed pid 18048 alive through all 38 at-rest samples
+*and* still alive 15 s after the app exited. The artifact says otherwise and cannot support it: that
+file has no `baseline_app_pids` key at all, its samples carry `"app_pid": 47416` (the stale Catalyst
+app on this host), and it records `"final_app_alive": true`, `"final_webcontent": 1`,
+`"at_rest_webcontent": 1`. It is the attribution bug this section says was fixed, captured before the
+fix: its count is attributable to neither app, so it is neither a measured orphan nor a measured
+leak. Re-scored under the current rule it would either exclude 18048 (if 47416 were in its baseline,
+as in `t46r-live-6` and `t46avrr-live-1`) or FAIL on at-rest 1 — the JSON as committed decides
+neither, so the file is no longer cited (`docs/t46-avr-verdict.md` §3 F2). The orphan branch of the
+probe is therefore **stated in the code and unexercised by a measurement**; the at-rest branch — the
+one the card's criterion is about — is measured in every run cited above.
 
-*(Also from that audit: the peak is not stable at 1. The same suite on the same fixture measured **peak
-3** (limit 4) and 37 at-rest samples (all 0), versus the 1/41 in this section; both PASS. The contract is
-"peak ≤ 4, at rest 0", the number belongs to its run — `docs/t46-avr-verdict.md` §3 F5.)*
+The run that was measured against that rule most recently is `build/t46-leak/t46avrr-live-1.json`
+(T46-AV-R-R `t_14afc3a5`): `"baseline_app_pids": [47416]`, `"peak_webcontent": 1`,
+`"at_rest_webcontent": 0` over `"at_rest_samples": 38`, `"at_rest_orphan_pids": []`,
+`"final_app_alive": false`, `"final_webcontent": 0` → `RESULT: PASS` (5/5 live tests green,
+`build/logs/t46avrr-live-1.log`).
 
 Two attribution bugs were found and fixed in the probe while doing this:
 
@@ -470,3 +482,64 @@ Two attribution bugs were found and fixed in the probe while doing this:
 * `git mv docs/t46-shots/t46-plugin-screen.png docs/t46-shots/t46-plugin-route-request.png`.
 * No secrets, no real workspace host: the only hosts in the new files are `127.0.0.1:8065` and
   `mm.example.com` placeholders.
+
+## 10. T46-AV-R-R — the repair of T46-AV-R's findings (card `t_14afc3a5`)
+
+The verdict repaired is `docs/t46-avr-verdict.md` (card `t_54c49efc`, **FAIL** on `6affb0f`). Four
+items, each measured on this host; nothing here re-audits the five criteria that already passed.
+
+### 10.1 F1 — the plugin row now says "Plugin route…" (the FAIL)
+
+`ChannelSidebarView`'s plugin row carried its own literal, `Label("Plugin screen…")`, while the
+`fixedMenu` loop above it read `surface.rowTitle` — so T46-R's rename reached the sheet and the prompt
+but never the row a reader taps, and `T46WebFallbackTests` stayed green because it pins `rowTitle`, the
+property the row did not read. The row now renders a catalogue value, `Self.pluginRow`
+(`WebFallbackSurface(kind: .plugin)` — no id until the prompt supplies one), so the row and the sheet
+cannot disagree; the prompt type is `PluginRoutePrompt`; and the two stale doc comments the audit named
+(`WebFallbackSurface.swift`'s `fixedMenu` note, `WebFallbackView.swift`'s prompt header) say "route".
+
+The guard is the assertion the suite was missing — **the row's own label**, not only the prompt's and
+the sheet's titles:
+
+```
+PROBE row webFallbackRow.plugin: exists=true label=Plugin route…
+(build/logs/t46avrr-live-1.log, testAPluginRouteIsAddressableByID)
+```
+
+### 10.2 F2 — the live-5 "orphan" re-scoring is gone, not re-worded
+
+`build/t46-leak/t46r-live-5.json` cannot show a pid outliving its app: it has no `baseline_app_pids`
+at all, its samples carry `"app_pid": 47416` (the stale Catalyst app on this host) and it records
+`"final_app_alive": true`, `"final_webcontent": 1`, `"at_rest_webcontent": 1`. It is the pre-fix
+attribution bug, so it is cited for nothing; §9.5 and `docs/dual-render.md` §13.4 now say the orphan
+branch of the probe is **stated and unexercised**, and cite only runs measured under the current rule.
+The run made for this card (`t46avrr-live-1`) has no orphan either (`"at_rest_orphan_pids": []`).
+
+### 10.3 F3 — the leak numbers are attributed to their run
+
+The contract is **peak ≤ 4 attributed `WebContent` processes, and 0 while the app is alive and idle**;
+the peak is a number per run — 1 in `t46r-live-6` (41 at-rest samples), 1 in `t46avrr-live-1` (38), 3 in
+the audit's `t46avr-live-2` (37), all PASS. §9 (the summary block), §9.5, `docs/dual-render.md` §13.4
+and `docs/parity.md`'s T46 row now say that instead of quoting one run's peak as a property.
+
+### 10.4 F4 — the Boards not-enabled assertion is unconditional
+
+`testBoardsIsEitherPaintedOrSaysItIsNotEnabled` wrapped "no navigation happened" in `if pane.exists`;
+the pane **is** in the tree in that state (measured: `idle|none|-|requested=http://127.0.0.1:8065/boards`),
+so the check ran — but a pane that stopped being exposed would have skipped it silently. The mount is
+deliberate (it installs the navigation delegate), so its absence is now a failure:
+`XCTAssertTrue(pane.exists)`, then `idle|` prefix and `committedURL == "-"` unconditionally.
+
+### 10.5 What was run
+
+```
+units : 1900 run / 9 skipped / 0 failed            build/logs/t46avrr-units-1.log
+live  : 5 run / 0 skipped / 0 failed (277 s)       build/logs/t46avrr-live-1.log
+leak  : peak 1 (limit 4), at rest 0 over 38 samples, final 0, no orphan
+        RESULT: PASS                               build/t46-leak/t46avrr-live-1.json
+gates : verify-dual-render-gates.sh --allow-approved-registry -> RESULT: PASS
+```
+
+The live run is the same five tests as T46-R plus the two assertion changes above; the fixture is
+`mm-perf` 9.11.19 at `http://127.0.0.1:8065` (no focalboard — the Boards half is the `notEnabled`
+branch, as before), the simulator is the iPhone 16 Pro `81A7F251-…`.

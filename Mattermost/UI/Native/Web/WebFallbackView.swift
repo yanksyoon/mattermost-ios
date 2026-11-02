@@ -210,9 +210,11 @@ private struct WebFallbackPane: View {
     }
 }
 
-/// The "Plugin screen…" prompt: a plugin screen is whatever the plugin serves at
-/// `/plugins/<id>`, so the reader supplies the id and the shell validates it as one path segment.
-struct PluginScreenPrompt: View {
+/// The "Plugin route…" prompt: a plugin route is whatever the server answers at `/plugins/<id>`,
+/// so the reader supplies the id and the shell validates it as one path segment. Named for the
+/// route since T46-AV-R F1 (it said "Plugin screen", which promised a screen the shell cannot
+/// guarantee — `/plugins/<id>` is a request into the server's plugin namespace).
+struct PluginRoutePrompt: View {
     @Environment(\.dismiss) private var dismiss
     @State private var pluginID = ""
     let onOpen: (WebFallbackSurface) -> Void

@@ -143,14 +143,23 @@ final class T46WebFallbackUITests: XCTestCase {
             // past `idle` and nothing was committed. (`requested=` is the route the sheet *would*
             // ask for, set in `init`, so it is not evidence of a load.) A "not enabled" state that
             // had loaded `/boards` would be the blank page T46-AV found, with a caption over it.
-            if pane.exists {
-                let paneState = String(describing: pane.value ?? "")
-                XCTAssertTrue(paneState.hasPrefix("idle|"),
-                              "a not-enabled surface must not have started a navigation "
-                              + "(pane state: \(paneState))")
-                XCTAssertEqual(committedURL(in: paneState), "-",
-                               "a not-enabled surface must not have committed a page")
-            }
+            //
+            // T46-AV-R F4: **unconditional**. This used to be `if pane.exists { … }`, so if the
+            // pane stopped being exposed at all the decisive assertions would silently skip and
+            // the test would still pass — the same "green suite over the wrong observation" shape
+            // as the plugin row's label (F1). The mount is deliberate (the delegate-install rule,
+            // `docs/dual-render.md` §13.6), so its absence is a failure of this card's own design,
+            // not a reason to say nothing. Measured on the fixed build:
+            // `idle|none|-|requested=http://…/boards`.
+            XCTAssertTrue(pane.exists,
+                          "the not-enabled sheet must keep its webview mounted (it installs the "
+                          + "navigation delegate) and expose its state")
+            let paneState = String(describing: pane.value ?? "")
+            XCTAssertTrue(paneState.hasPrefix("idle|"),
+                          "a not-enabled surface must not have started a navigation "
+                          + "(pane state: \(paneState))")
+            XCTAssertEqual(committedURL(in: paneState), "-",
+                           "a not-enabled surface must not have committed a page")
             XCTAssertTrue(element(app, "webFallbackUnavailable").exists,
                           "the not-enabled state is the sheet's own 'cannot be opened' state")
         } else {
@@ -246,6 +255,20 @@ final class T46WebFallbackUITests: XCTestCase {
 
         let row = element(app, "webFallbackRow.plugin")
         XCTAssertTrue(scrollTo(app, element: row), "the Plugin route row must be reachable")
+
+        // T46-AV-R F1 — **the row's own label**, which is what the reader taps and reads.
+        //
+        // T46 and T46-R both renamed the thing (`rowTitle`, the sheet's title, the prompt) and this
+        // suite opened the row and asserted the prompt's and the sheet's title — so the shipped row
+        // could still say "Plugin screen…" and a green suite said nothing about it. Measured on the
+        // Measured on the repaired build: `PROBE row webFallbackRow.plugin label=Plugin route…`.
+        print("PROBE row webFallbackRow.plugin: exists=\(row.exists) label=\(row.label)")
+        XCTAssertEqual(row.label, "Plugin route…",
+                       "the plugin row must render the catalogue's `rowTitle` — a literal in "
+                       + "`ChannelSidebarView` is how it shipped as \"Plugin screen…\" while the "
+                       + "unit test pinned `rowTitle`")
+        XCTAssertFalse(row.label.contains("Plugin screen"),
+                       "the row is a route into the plugin namespace, not a promised screen")
         row.tap()
 
         // The prompt is titled for what it does, not for what it cannot promise.

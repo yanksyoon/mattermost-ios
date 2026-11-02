@@ -171,7 +171,7 @@ public struct WebFallbackSurface: Hashable, Identifiable, Codable, Sendable {
     }
 
     /// The rows the native chrome offers, in order. `.plugin` is not one of them: it needs an id,
-    /// so it is reached through its own row ("Plugin screen…") rather than a fixed entry.
+    /// so it is reached through its own row ("Plugin route…") rather than a fixed entry.
     public static let fixedMenu: [WebFallbackSurface] = [
         WebFallbackSurface(kind: .boards),
         WebFallbackSurface(kind: .playbooks),

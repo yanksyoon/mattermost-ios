@@ -179,7 +179,7 @@ struct NativeChannelSidebarContent: View {
             case .fallback(let surface, _):
                 WebFallbackSheet(server: server, surface: surface)
             case .pluginPrompt:
-                PluginScreenPrompt { surface in
+                PluginRoutePrompt { surface in
                     pendingFallback = surface
                 }
             }
@@ -231,6 +231,11 @@ struct NativeChannelSidebarContent: View {
 
     // MARK: Sections
 
+    /// T46-AV-R F1: the plugin row's catalogue entry. The row asks for an id, so the entry carries
+    /// none — `path` is nil until the prompt fills one in, and `rowTitle` is "Plugin route…" either
+    /// way. One value for the row, so the row and the sheet cannot disagree about what it is called.
+    static let pluginRow = WebFallbackSurface(kind: .plugin)
+
     /// T46 — the permanent-web escape hatch, as four rows in the native navigation.
     ///
     /// These surfaces are **not** `Surface` cases and this view does not consult a render mode for
@@ -255,12 +260,19 @@ struct NativeChannelSidebarContent: View {
                 .accessibilityIdentifier("webFallbackRow.\(surface.id)")
                 .channelSidebarRowSurface()
             }
-            // A plugin screen is whatever the plugin serves at `/plugins/<id>`; the id is the only
+            // A plugin route is whatever the server answers at `/plugins/<id>`; the id is the only
             // thing the shell cannot know, so this row asks for it instead of guessing a list.
+            //
+            // T46-AV-R F1: the row's text comes from the catalogue, not from a string written
+            // here. Hard-coding it is exactly how T46-R's "Plugin route…" reached the sheet and
+            // the prompt but never the row the reader taps, while the unit test pinned
+            // `rowTitle` — a property this view did not read. `pluginRow` is a `.plugin` surface
+            // with no id (`path` stays nil until the prompt supplies one) and its `rowTitle` is
+            // "Plugin route…" whatever the id is.
             Button {
                 webSheet = .pluginPrompt
             } label: {
-                Label("Plugin screen…", systemImage: "puzzlepiece.extension")
+                Label(Self.pluginRow.rowTitle, systemImage: Self.pluginRow.systemImage)
                     .channelSidebarRowContent()
             }
             .accessibilityIdentifier("webFallbackRow.plugin")
