@@ -114,6 +114,25 @@ Host: macOS 26.3.1, iPhone 17 Pro simulator **iOS 26.5**, derived data outside t
 | `t_10d3db63-units-full` | `--platform ios --only-testing MattermostTests` (whole unit target) | **1833 run / 8 skipped / 0 failed**, `** TEST SUCCEEDED **` (`build/logs/t_10d3db63-units-full.log`) — 1830 before this card + the 3 new tests; the 8 skips are the target's standing ones, unchanged |
 | `t_10d3db63-units-catalyst` | `--platform mac --only-testing MattermostTests` | **1833 run / 9 skipped / 0 failed**, `** TEST SUCCEEDED **` (`build/logs/t_10d3db63-units-catalyst.log`) — the Catalyst-only halves of the standing skips |
 
+### 3.1 CI
+
+GitHub Actions on **`2f509cb`**, the pushed tip. One push event carried both commits, so the guard
+measures the whole push from `ffc22f7`: **5 files changed, 2 of them not documentation,
+`docs_only=false`, `run_tests=true`** — the tree the test legs ran is the code commit's tree, not a
+docs-only one.
+
+| check | outcome |
+|---|---|
+| `guard (tip + change scope)` | **success** — `BASE ffc22f7`, reason "tip of main; 5 file(s) changed, 2 of them not documentation" |
+| `test (ios-simulator)` | **success** — `Executed 1833 tests, with 8 tests skipped and 0 failures`, `** TEST SUCCEEDED **` |
+| `test (catalyst)` | **success** — `Executed 1833 tests, with 9 tests skipped and 0 failures`, `** TEST SUCCEEDED **` |
+| `tag and publish` / `package Mattermost.app` | **success** |
+
+The shape C4's validator flagged is worth stating rather than hiding: the code commit `5fca40e` has no
+check-runs of its own — GitHub runs the workflow for the pushed head, `2f509cb` — but the head's tree
+contains it and the guard's changed-file list is the two Swift files, so the leg that ran is the code
+plus docs tree.
+
 No XCUITest was run or changed: nothing in this card presses a control, and the SwiftUI change is
 confined to a method body whose behaviour is pinned by the unit target.
 
