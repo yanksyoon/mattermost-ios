@@ -1,6 +1,8 @@
 # `t_6d420e01` — the surface catalogue is eight switch keys
 
-Card: **`t_6d420e01`**, implementing `docs/t_39ea6115-surface-catalogue-dispositions.md`.
+Card: **`t_6d420e01`**, implementing `docs/t_39ea6115-surface-catalogue-dispositions.md` (the card body
+names this file `docs/t_39ea6115-build-note.md`, so the note for the implementation lives under the
+decision's id; the title above keeps the implementing card).
 Base: local `main` **`c4f199a`** (= live `origin/main` when the run started). No product behaviour was
 changed for a user who never passes a debug flag: three *debug switch keys* stopped existing, one
 predicate lost a parameter that was already being discarded, and the tests/docs that named them now
@@ -200,6 +202,7 @@ view that draws the row… no `profile=` launch flag exists any more”).
 | CI, `release` workflow on the final code tip `61ba0d0` | GitHub Actions run **41386810410** — **all jobs green**: `guard (tip + change scope)`, `test (catalyst)`, `test (ios-simulator)` (which runs `MattermostTests` only), `tag and publish`, `package Mattermost.app` |
 | earlier run on `81ef63c` | run **41386689983**, also all green — the two tips differ by that one comment line |
 
-This section was written by the docs commit that follows those two, so its own run is not part of the
-record above; the tested code tip is `61ba0d0`.
+This section was written by the docs commits that follow those two (one records the run, the next moves
+this note to the path the card body names), so their own runs are not part of the record above; the
+tested code tip is `61ba0d0`.
 
