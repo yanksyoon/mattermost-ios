@@ -806,6 +806,12 @@ is — holds four rows:
 | System Console | `webFallbackRow.systemConsole` | `/admin_console` |
 | Plugin route… | `webFallbackRow.plugin` | an id prompt → `/plugins/<id>` (a request into the plugin namespace, §13.6) |
 
+**Audit note (T46-AV-R, `t_54c49efc`):** the shipped row does **not** say "Plugin route…" — it
+hard-codes "Plugin screen…" (`ChannelSidebarView.swift:263`), because the plugin row is built beside
+`fixedMenu` and never reads `surface.rowTitle`. The sheet and the prompt do say "Plugin route". The label
+is a bug, filed as `t_14afc3a5`; this table describes the intended and repaired state, and the failure is
+recorded in `docs/t46-avr-verdict.md` §3 F1.
+
 The two product rows are gated on what the server actually serves (`GET /api/v4/plugins/webapp`,
 asked before the first navigation). A server without the plugin gets a sentence — "Boards is not
 enabled on this server." — instead of a blank page (T46-R R1, `docs/t46-av-verdict.md` §F1).
@@ -901,6 +907,14 @@ held by a webview the app retained. Measured: `build/logs/t46r-live-6.log` /
 alive through the window *and* after the app was gone (still there minutes later, the §F5 shape), is
 an orphan under this rule rather than a leak — that run predates it, so its JSON reports the raw count
 and the re-scoring is recorded in `docs/t46-build-note.md` §9.5.
+
+**Audit note (T46-AV-R, `t_54c49efc`):** two of those numbers are run-specific, and one claim is not in
+its artifact. The same suite on the same fixture measured **peak 3** (limit 4), **37** at-rest samples
+(all 0) and final 0 — PASS either way (`build/t46-leak/t46avr-live-2.json`); the contract is peak ≤ 4 and
+at rest 0. And `t46r-live-5.json` has no `baseline_app_pids`, carries `"app_pid": 47416` (the stale
+Catalyst app) and `"final_app_alive": true`, so it cannot show a pid that outlived the app — it is the
+attribution bug recorded before the fix, not an orphan measurement. `docs/t46-avr-verdict.md` §3 F4/F5;
+repair `t_14afc3a5`.
 
 ### 13.5 Reasons the obvious alternatives are not taken
 

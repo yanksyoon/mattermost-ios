@@ -252,8 +252,13 @@ can be held to — the pane's `requested=` route is exactly
 `http://127.0.0.1:8065/plugins/com.mattermost.calls`, and the page that comes back is painted
 (`chars ≥ 120`, signed in) — and `docs/t46-shots/t46-plugin-route-request.png` (renamed from
 `t46-plugin-screen.png` by T46-R) is that state: the web app at Town Square. It is evidence for "the
-route request rendered the web app", **not** for "this plugin's screen" — the row and the sheet are
+route request rendered the web app", **not** for "this plugin's screen" — the sheet and the prompt are
 therefore labelled "Plugin route…" (T46-R R2, `docs/t46-av-verdict.md` §F2).
+
+*(T46-AV-R `t_54c49efc` correction: the **sidebar row** was not relabelled — `ChannelSidebarView`
+hard-codes "Plugin screen…" and never reads `surface.rowTitle`, so only the sheet and the prompt say
+"route". Measured: `PROBE row webFallbackRow.plugin: label=Plugin screen…`, screenshot
+`docs/t46-shots/t46avr-webview-row-labels.png`; `docs/t46-avr-verdict.md` §3 F1, repair `t_14afc3a5`.)*
 
 The last sentence of this section in T46 read "Boards, Playbooks and the System Console are real
 server routes and are asserted on the **committed** URL." That was true for Playbooks and the console
@@ -430,6 +435,19 @@ survives it was never held by a webview the app retained. This is T46-AV §F5's 
 38 at-rest samples *and* still alive 15 s after the app exited (it was still there, in the next run's
 baseline, minutes later): under this rule it is an orphan, not a retained webview.
 `build/t46-leak/t46r-live-6.json` is the clean run above, with no orphan at all.
+
+*(T46-AV-R `t_54c49efc` correction to the paragraph above: `t46r-live-5.json` does not record an app
+exit — it has no `baseline_app_pids` at all and its samples carry `"app_pid": 47416` (the stale Catalyst
+app on this host), with `"final_app_alive": true`. So that file cannot show 18048 outliving its app; it
+is the attribution bug this section says was fixed, captured before the fix. The orphan rule itself is
+sound, and the audit's own run measured it with a working baseline (`baseline_app_pids: [47416]`,
+at-rest 0 over 37 samples, final 0: `build/t46-leak/t46avr-live-2.json`). The re-scoring of live-5 is
+therefore an assertion about what the rule *would* do, not a measurement in that artifact —
+`docs/t46-avr-verdict.md` §3 F4, repair `t_14afc3a5`.)*
+
+*(Also from that audit: the peak is not stable at 1. The same suite on the same fixture measured **peak
+3** (limit 4) and 37 at-rest samples (all 0), versus the 1/41 in this section; both PASS. The contract is
+"peak ≤ 4, at rest 0", the number belongs to its run — `docs/t46-avr-verdict.md` §3 F5.)*
 
 Two attribution bugs were found and fixed in the probe while doing this:
 
