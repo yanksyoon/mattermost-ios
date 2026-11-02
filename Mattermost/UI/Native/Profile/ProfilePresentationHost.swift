@@ -206,18 +206,58 @@ struct PushedProfileScreen: View {
     /// presentation is still up is T40's measured nested-presentation failure). Nothing here presents
     /// the call surface. It is repeated rather than shared because the two dismissals differ (a sheet
     /// dismisses itself, a push pops) and `ProfileView.swift` is C3's file in this same programme.
+    ///
+    /// The body is `route` — a static seam, so the ordering below is run by the unit target
+    /// (`T5449ProfilePresentationTests`, t_10d3db63) instead of only being readable here.
     private func openConversation(_ channel: MMChannel, intent: ProfileConversationIntent) {
-        guard let navigation else {
+        Self.route(channel,
+                   intent: intent,
+                   serverID: server.id,
+                   dismiss: { dismiss() },
+                   open: navigation.map { navigation in { _ = navigation.openChannel($0) } },
+                   requestStart: { calls.requestStart(serverID: $0, channelID: $1) })
+    }
+
+    /// The conversation route, separated from the view so the unit target can pin the **order** with
+    /// no UI, no panel and no audio (t_10d3db63 — the tap path `1d67294` added was code-reading only).
+    ///
+    /// The order is the contract, and each step is the precondition of the next:
+    ///   1. **pop first.** `CallsJoinEntry` presents `CallsSurfaceView` from the pane; a presentation
+    ///      raised while another one is still up is T40's measured failure (a confirmation that never
+    ///      ran, zero requests on the wire), and a push that stayed on screen would keep the DM's pane
+    ///      from being the shell's location.
+    ///   2. **then hand the DM to the pane.** `openChannel` is what makes the DM the shell's location,
+    ///      so it is what makes a `CallsJoinEntry` for the DM exist at all.
+    ///   3. **then, only for `.call`, ask the pane to join.** `CallsCoordinator.requestStart` is a
+    ///      one-shot intent, consumed by `consumeStart` only for the channel it names — so it must be
+    ///      requested against the DM the pane is now showing, not before the route lands.
+    ///
+    /// `open` is `nil` when the push has no `NativeNavigation` (a preview, or a host that only draws
+    /// the screen): with no pane to route to, the only honest action is the pop.
+    ///
+    /// Why a seam and not a live XCUITest: pressing Call starts a real calls session, and T44d §4.2
+    /// records the measured `AURemoteIO::Initialize` abort under host load — the hazard that keeps the
+    /// live suite's own Call press alone on a quiet host, and the reason the pushed-form live test
+    /// asserts the row instead of pressing it. This runs the ordering in the unit leg on every CI run;
+    /// the sheet's live test keeps the server-side oracle (`GET …/calls/{id}/active`).
+    @MainActor
+    static func route(_ channel: MMChannel,
+                      intent: ProfileConversationIntent,
+                      serverID: UUID,
+                      dismiss: () -> Void,
+                      open: ((NativeChannelRequest) -> Void)?,
+                      requestStart: (UUID, String) -> Void) {
+        guard let open else {
             dismiss()
             return
         }
-        var request = NativeChannelRequest(serverID: server.id, channelID: channel.id)
+        var request = NativeChannelRequest(serverID: serverID, channelID: channel.id)
         request.teamID = channel.teamId.isEmpty ? nil : channel.teamId
         request.channelName = channel.name.isEmpty ? nil : channel.name
         dismiss()
-        _ = navigation.openChannel(request)
+        open(request)
         if intent == .call {
-            calls.requestStart(serverID: server.id, channelID: channel.id)
+            requestStart(serverID, channel.id)
         }
     }
 }
