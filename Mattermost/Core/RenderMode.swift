@@ -190,6 +190,16 @@ public enum SurfaceDefaults {
 /// | web | web | not offered — the webview draws those rows and its own popover answers the tap |
 /// | web | native | not offered — no native row exists to anchor a popover to |
 ///
+/// **The two `.web` rows are defensive only — the app cannot build them.** `ContentView` mounts the
+/// native shell, and therefore `ChannelPaneContent`, only inside
+/// `SurfaceHost(SurfaceDefaults.paneHostSurface)`, so a native row cannot exist while the pane host
+/// resolves `web`. The other native row hosts are gated the same way by their own content views
+/// (`SearchPaneContent`, `MentionsPaneContent` draw their lists only while `.search` / `.activity`
+/// resolve native) and the thread pane passes `.native` as a fact. Those cells pin the policy's
+/// answer — `testAWebPaneTakesTheTapOffWithItsRows` drives it from `-surfaceMode shell=web`, where no
+/// native pane is mounted by construction — not a state a reader can be in (F3 of
+/// `docs/t_97162159-profile-tap-validation.md`).
+///
 /// A **non-channel** example, because the rule is not about the pane: the search results list
 /// (`Search/SearchView.swift`) and the mentions inbox (`Activity/MentionsView.swift`) draw their own
 /// rows, so their own resolution is the input — while the channel pane passes how the pane host

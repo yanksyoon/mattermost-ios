@@ -130,7 +130,19 @@ final class T429ProfileTapUITests: XCTestCase {
 
         let name = element(app, "post.\(postID!).author")
         XCTAssertTrue(name.waitForExistence(timeout: 60),
-                      "the author's name must be an affordance, as it is upstream:\n\(app.debugDescription)")
+                      "the author's name must be on screen:\n\(app.debugDescription)")
+        // F1 of `docs/t_97162159-profile-tap-validation.md` §1.3: **existence is not affordance.**
+        // The pre-fix shape drew a plain `Text` that carried this same identifier — measured, that
+        // assertion passed on it and the test only went red on the sheet. So the type and the
+        // tappability are asserted here, and this message says what is checked: the fix ships a
+        // `Button`, and a label is not one.
+        XCTAssertEqual(name.elementType, .button,
+                       "the author's name must be drawn as a control, not inert text — the "
+                       + "identifier exists on both shapes, so the type is what distinguishes "
+                       + "them:\n\(app.debugDescription)")
+        XCTAssertTrue(name.isHittable,
+                      "the author's name must be tappable, not merely present:\n"
+                      + "\(app.debugDescription)")
         name.tap()
 
         assertProfileOfTheFixtureAuthor(app)

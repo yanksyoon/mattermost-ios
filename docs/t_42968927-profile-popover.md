@@ -58,14 +58,25 @@ over, and it is covered live.
 | `Mattermost/Core/RenderMode.swift` | `ProfilePopoverPolicy` — the pure rule above, with the truth table in its doc comment |
 | `Mattermost/UI/Native/Channel/ChannelView.swift` | `profileSurfaceIsNative` → `offersAuthorProfile` (pane host + `.profile`, feeding the policy); rows and the header avatar both use it; `@State profileTarget` → `ProfilePopoverState` |
 | `Mattermost/UI/Native/Channel/PostRowView.swift` | `authorName`: the name is a `Button` calling the **same** `onShowProfile` closure as the avatar when the host supplies one, and inert text when it does not; `post.<id>.author` remains the identifier |
-| `Mattermost/UI/Native/Profile/ProfileView.swift` | `ProfilePopoverState` — the pane's one-slot presentation (a tap re-aims, dismissal empties); the action stack is driven by `ProfileActionSet` instead of three ad-hoc conditions |
+| `Mattermost/UI/Native/Profile/ProfileView.swift` | `ProfilePopoverState` — the pane's one-slot presentation (presenting while open re-aims the *state*, dismissal empties it; see §3 for why the re-aim is not reachable from the UI); the action stack is driven by `ProfileActionSet` instead of three ad-hoc conditions |
 | `Mattermost/UI/Native/Profile/ProfileModels.swift` | `ProfileAction` + `ProfileActionSet.resolve(profile:myUserID:hasCustomStatus:)`, the permission matrix |
 | `Mattermost/UI/Native/Profile/ProfileViewModel.swift` | `actions`, the set the screen draws |
 
 one popover at a time: the pane keeps a single `ProfilePopoverState` bound to one `.sheet(item:)`, so
-the header avatar and every row share one presentation slot and a second tap re-targets it rather
-than stacking a second sheet. That is structural (SwiftUI can only present one sheet per slot), and
-the state machine itself is unit-tested.
+the header avatar and every row share **one presentation slot**. That is structural (SwiftUI presents
+one sheet per slot) and measured under a socket-driven redraw: with a profile open, a post arriving
+through the socket leaves exactly one `profileSheet` on screen, showing the same `@username`
+(`testANewPostDoesNotStackOrSwapTheOpenProfile`, 1 run / 0 failed,
+`docs/t_97162159-probes/T429AVDeactivatedProbeUITests.swift`,
+`build/logs/t429av-probe-deactivated2.log`).
+
+The state machine's **re-aim** — `present(userID:)` called while one is already presented — is
+unit-tested (`testOnlyOneProfileCanBePresentedAtATime`), but it is **unreachable from the UI and
+therefore untested there**: both row entry points and the header avatar sit behind the presented
+sheet, so no second tap can happen while it is open, and SwiftUI's `.sheet(item:)` does not rebuild
+its content when `item` changes during presentation. This paragraph previously said "a second tap
+re-targets it rather than stacking a second sheet" — that is the state machine's rule restated as an
+observed behaviour (F2 of `docs/t_97162159-profile-tap-validation.md` §3).
 
 ## 4. The action set against upstream — the audit the card asked for
 
@@ -121,6 +132,10 @@ testBothAffordancesOpenOnePopoverAtATime               passed (31.4 s)
 testThePanesOwnProfileEntryIsOfferedWhileProfileResolvesWeb  passed (23.2 s)
 ```
 
+Re-run on the corrected tree (`t_78621736`, same shipped-default launch, iPhone 16 Pro / iOS 18.3.1):
+**4 run / 0 skipped / 0 failed** in 132 s (`build/logs/t786-suite-green.log`) — avatar 22.7 s, name
+22.5 s, one-popover 27.8 s, header 22.9 s.
+
 The suite launches **without** `-surfaceMode profile=native` on purpose: T41's suite passes that flag,
 which is exactly what hid this defect. Each test ensures its **own** channel (`#t429-tap`, created on
 first run, with `t41buddy` added as a member), posts a fresh message **as `t41buddy`** (with a
@@ -170,9 +185,29 @@ T429ProfileTapUITests.swift:173 the pane header must offer the signed-in profile
 T429ProfileTapUITests.swift:189 the profile sheet must mount      (name tap)
 ```
 
+That name-tap line is the one `t_97162159`'s F1 corrected: the identifier the old assertion waited for
+also existed on the inert text, so the assertion passed and only the sheet caught the defect.
+**Re-measured with the corrected assertion** (`t_78621736`): the name back to the inert `Text` with
+its identifier kept (`build/logs/t786-mut-name.diff`) makes the suite red at the name test's *first*
+assertion —
+
+```
+T429ProfileTapUITests.swift:139 "the author's name must be drawn as a control, not inert text"
+                           elementType staticText(48) != button(9)
+T429ProfileTapUITests.swift:202 the profile sheet must mount
+```
+
+`build/logs/t786-mut-name.log`, 1 run / 3 failed. Green with the shipped `Button`:
+`build/logs/t786-name-green.log`, 1 run / 0 failed (25.3 s); the focused unit run
+`build/logs/t786-unit2.log` 9/9.
+
 ## 6. What is still not covered
 
-* **The other hosts upstream offers the popover in.** `ThreadView` (`RHS`), `SearchView`,
+* **The other hosts upstream offers the popover in.** *(Superseded: this gap was closed by
+  `t_8f9f5449` — the thread pane in C1 (`docs/t_8f9f5449-c1-build-note.md`), and search results,
+  Saved/Pinned and the mentions inbox in C2 (`docs/t_8f9f5449-c2-build-note.md`); every one of them
+  now passes `onShowProfile` behind its own `ProfilePopoverPolicy` read.)* As written when this card
+  landed: `ThreadView` (`RHS`), `SearchView`,
   `MentionsView` and `SavedPinnedViews` all draw `PostRowView` but pass no `onShowProfile`, so their
   author names and avatars are still inert. They are separate panes with their own sheets, so each
   needs its own presentation slot and its own live coverage; the rule to apply is the same
