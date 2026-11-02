@@ -335,7 +335,14 @@ final class T41ProfileUITests: XCTestCase {
         // A second session of my own account: the server broadcasts this to my connections.
         try sendJSON("PUT", "/api/v4/users/\(userID!)/status",
                      body: ["user_id": userID!, "status": "dnd"])
-        XCTAssertTrue(waitUntil(timeout: 10) { presence.label == "Do not disturb" },
+        // `hasPrefix`, not `==`: `testChoosingDoNotDisturbReachesTheServer` runs first
+        // (alphabetically) and chooses DND *through the app*, which writes a `dnd_end_time` about
+        // twenty minutes out. The server never clears that field on a later status write — measured
+        // with `scripts/t6d420e01_dnd_probe.py`: `online`, `dnd_end_time: 0` and `null` all leave
+        // the old end time in place, so the row honestly reads "Do not disturb until 11:54 AM" for
+        // the rest of that window. What this test is about is that the socket's `status_change`
+        // landed at all (inside one two-minute poll interval), not how the clock is rendered.
+        XCTAssertTrue(waitUntil(timeout: 10) { presence.label.hasPrefix("Do not disturb") },
                       "the socket's status_change must land well inside one poll interval; it reads "
                       + "\"\(presence.label)\" (server: \(oracleStatus(userID: userID)))")
         attach(app, "t41-presence-socket")
@@ -397,7 +404,6 @@ final class T41ProfileUITests: XCTestCase {
                                "-surfaceMode", "shell=native",
                                "-surfaceMode", "auth=native",
                                "-surfaceMode", "sidebar=native",
-                               "-surfaceMode", "profile=native",
                                "-uiTestProfilePresenceInterval", presenceInterval,
                                "-uiTestLogLevel", "error",
                                "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]

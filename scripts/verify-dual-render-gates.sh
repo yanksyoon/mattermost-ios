@@ -48,10 +48,12 @@
 #      `Core/RenderMode.swift` — or is `SurfaceDefaults.paneHostSurface`'s value (`.channelView`,
 #      reached through that one constant), or is declared in `SurfaceDefaults.unhostedSurfaces`
 #      ("a name a future card can key on, with no host and no switch today"). That literal is pinned
-#      to `[.settings, .plugins]`; changing it needs `--allow-unhosted-change` (gate 5's shape), so
-#      an inert key cannot be added or tolerated with a one-line edit. The gate measures
-#      *references*, not effect: `.profile` passes while `ProfilePopoverPolicy` discards the value
-#      (that limit is stated in the section itself).
+#      to `[]`: `t_6d420e01` retired the last three reservations (`[.settings, .plugins]` was the
+#      `t_cdcc1f38` pin) and every remaining case is a real switch. Changing the pin — growing it or
+#      emptying it back — needs `--allow-unhosted-change` (gate 5's shape), so an inert key cannot
+#      be added or tolerated with a one-line edit. The gate measures *references*, not effect: a
+#      case that is read and discarded is invisible to it (the `.profile` class, retired by the
+#      same card that emptied this pin).
 #
 # Scope and honest limits: this is a regex gate over the *app target* (`Mattermost/`, i.e. what
 # ships), not over the test targets (tests may inject a provider), it skips comment lines, and it
@@ -534,15 +536,16 @@ print('== 11. every Surface case is consulted, or declared unhosted ==')
 # `ContentView`, `RootView` and `NativeNavigation` read, so the pane host has three production call
 # sites while the literal `.channelView` never appears in their gate expressions. A case that is
 # none of those must be DECLARED in `SurfaceDefaults.unhostedSurfaces` — "a name a future card can
-# key on, with no host and no switch today" — and that literal is pinned to `[.settings, .plugins]`.
-# Changing the pin (including emptying it) requires --allow-unhosted-change: a deliberate act that
-# shows in the diff, the same shape as gate 5's --allow-approved-registry.
+# key on, with no host and no switch today" — and that literal is pinned to `[]` since `t_6d420e01`
+# retired the last three reservations. Changing the pin (growing it, or emptying it back) requires
+# --allow-unhosted-change: a deliberate act that shows in the diff, the same shape as gate 5's
+# --allow-approved-registry.
 #
 # HONEST LIMIT, stated here so nobody discovers it later: this gate measures *references*, not
-# *effect*. `.profile` passes — `ChannelView` passes it to `ProfilePopoverPolicy`, which discards the
-# value — so a case that is read and ignored is invisible to a regex. Proving "the value changes what
-# is drawn" would need a running UI, i.e. the -AV programme, not this script; the read-and-discarded
-# class is card `t_9d0b0e11`'s subject.
+# *effect*. It passed `.profile` — `ChannelView` passed it to `ProfilePopoverPolicy`, which discarded
+# the value — so a case that is read and ignored is invisible to a regex; that class is why the case
+# was retired by decision (`docs/t_39ea6115-surface-catalogue-dispositions.md`) rather than by this
+# script. Proving "the value changes what is drawn" needs a running UI, i.e. the -AV programme.
 surface_body = render_src[render_src.index('public enum Surface:'):render_src.index('public var id: String')]
 surface_cases = re.findall(r'^\s*case (\w+)$', surface_body, re.M)
 pane_host = re.search(r'paneHostSurface: Surface = \.(\w+)', render_src)
@@ -554,7 +557,7 @@ if not surface_cases:
 if not pane_host_case:
     bad(f'could not read `paneHostSurface: Surface = .<case>` from {RENDER_MODE}')
 
-UNHOSTED_PIN = {'settings', 'plugins'}
+UNHOSTED_PIN = set()
 if not unhosted_literal:
     bad(f'unhostedSurfaces could not be read from {RENDER_MODE} (expected '
         f'`unhostedSurfaces: Set<Surface> = [ … ]` next to the other catalogue declarations)')

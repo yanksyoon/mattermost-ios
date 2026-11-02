@@ -164,8 +164,9 @@ final class T5449ThreadProfileUITests: XCTestCase {
 
     private func launchApp() -> XCUIApplication {
         let app = XCUIApplication()
-        // NOTE: no `-surfaceMode profile=native`. The shipped default (`.profile` = web) is the state
-        // this test exists to cover; adding it would hide the defect the card is about (T429's lesson).
+        // NOTE: no `-surfaceMode profile=native`. The `.profile` surface that flag used to name is
+        // retired (`t_6d420e01`), so the shipped defaults — a native row host — are exactly the
+        // state this test exists to cover; the flag was what hid the defect (T429's lesson).
         app.launchArguments = ["-uiTestResetPersistedState",
                                "-uiTestForgetSession", serverURL.absoluteString,
                                "-uiTestSeedServer", serverURL.absoluteString,

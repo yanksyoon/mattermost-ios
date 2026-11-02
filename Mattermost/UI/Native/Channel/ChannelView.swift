@@ -754,16 +754,16 @@ struct ChannelPaneContent: View {
         resolver.resolvedMode(for: .composer) == .native
     }
 
-    /// Whether this pane offers the author-profile popover (T41's `.profile` card, reached from a post).
+    /// Whether this pane offers the author-profile popover (T41's profile sheet, reached from a post).
     ///
-    /// Decided by the **row host** — the surface that draws these rows, not by `.profile`'s own
-    /// resolution: a popover is part of the pane it is anchored in, and while this pane is native the
-    /// webview is not painting these rows at all — so the web client's popover cannot be "the one on
-    /// screen" (see `ProfilePopoverPolicy` for the truth table and the defect it fixes, `t_42968927`).
+    /// Decided by the **row host** — the surface that draws these rows: a popover is part of the view
+    /// it is anchored in, and while this pane is native the webview is not painting these rows at all
+    /// — so the web client's popover cannot be "the one on screen" (see `ProfilePopoverPolicy` for the
+    /// two-row rule and the defect it fixes, `t_42968927`). `.profile` is retired (`t_6d420e01`), so
+    /// this is a function of the row host alone.
     private var offersAuthorProfile: Bool {
         ProfilePopoverPolicy.offersAuthorTap(
-            rowHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface),
-            profileSurface: resolver.resolvedMode(for: .profile))
+            rowHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface))
     }
 
     var body: some View {

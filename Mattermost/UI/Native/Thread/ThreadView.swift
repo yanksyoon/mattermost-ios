@@ -61,12 +61,9 @@ struct ThreadPaneContent: View {
     /// of the pane host, so its rows are native by construction). Asking the resolver here would have
     /// answered `web` on the shipped defaults and taken the tap off a row that is drawn natively:
     /// exactly the defect `t_42968927` fixed for the channel pane, reintroduced one level down.
-    /// `.profile`'s own resolution is passed through and deliberately ignored
-    /// (`ProfilePopoverPolicy`'s truth table).
+    /// `.profile` is retired (`t_6d420e01`), so the row host is the only input the policy takes.
     private var offersAuthorProfile: Bool {
-        ProfilePopoverPolicy.offersAuthorTap(
-            rowHost: .native,
-            profileSurface: resolver.resolvedMode(for: .profile))
+        ProfilePopoverPolicy.offersAuthorTap(rowHost: .native)
     }
 
     var body: some View {
@@ -471,10 +468,10 @@ struct ThreadPostListView: View {
                         actions: actions(for: row),
                         reactionActions: reactionActions(for: row),
                         attachmentActions: attachmentActions(for: row),
-                        // T5449: the author tap. Only the **callback** is gated: a `.profile` surface
-                        // that resolves web cannot remove it (the row host decides — see
-                        // `ThreadPaneContent.offersAuthorProfile`), and a host without the closure
-                        // keeps the inert drawing.
+                        // T5449: the author tap. Only the **callback** is gated, and the row host alone
+                        // decides it (`.profile` is retired, `t_6d420e01` — see
+                        // `ThreadPaneContent.offersAuthorProfile`); a host without the closure keeps
+                        // the inert drawing.
                         onShowProfile: offersAuthorProfile
                             ? { userID in sheet = .profile(ProfileTarget(userID: userID)) }
                             : nil)

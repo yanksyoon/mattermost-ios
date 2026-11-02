@@ -83,10 +83,10 @@ final class T45AvatarUITests: XCTestCase {
                                "-surfaceMode", "shell=native",
                                "-surfaceMode", "auth=native",
                                "-surfaceMode", "sidebar=native",
-                               // The avatar is the profile affordance (T41). With the profile
-                               // surface native it becomes a button, which is also the handle this
-                               // test uses to prove a group's first row is mounted.
-                               "-surfaceMode", "profile=native",
+                               // The avatar is the profile affordance (T41), offered by the row host
+                               // (`ProfilePopoverPolicy` — the `.profile` surface the old
+                               // `profile=native` flag named is retired, `t_6d420e01`). It is also
+                               // the handle this test uses to prove a group's first row is mounted.
                                "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
 

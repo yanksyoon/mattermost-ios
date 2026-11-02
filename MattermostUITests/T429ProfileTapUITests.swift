@@ -1,10 +1,11 @@
 // t_42968927 — the live tap test for the profile popover (card: "tapping an author's name or avatar
 // opens nothing"). This is a **regression** test, not a re-run of T41:
 //
-//   * T41's suite launches with `-surfaceMode profile=native`, which is exactly the flag that hides
-//     the defect. This suite launches the **shipped defaults**: `.channelView` native (approved) and
-//     `.profile` web (not approved). That pair is the state the reader reported — the native pane
-//     draws the conversation, so the webview's own popover cannot answer a tap on it.
+//   * T41's suite used to launch with `-surfaceMode profile=native` — exactly the flag that hid the
+//     defect. Both suites now launch the **shipped defaults** with no `profile=` key at all (retired
+//     by `t_6d420e01`, so there is no such key to pass): `.channelView` native (approved) and the rows
+//     drawn natively. That is the state the reader reported — the native pane draws the conversation,
+//     so the webview's own popover cannot answer a tap on it.
 //   * It taps BOTH affordances upstream offers: the avatar (`post.<id>.avatar`) and the author's
 //     name (`post.<id>.author`), and asserts the sheet that opens is *that account's* profile, read
 //     from the server.
@@ -217,8 +218,8 @@ final class T429ProfileTapUITests: XCTestCase {
 
     private func launchApp() -> XCUIApplication {
         let app = XCUIApplication()
-        // NOTE: no `-surfaceMode profile=native`. The shipped default (`.profile` = web) is the
-        // state this test exists to cover; adding it would hide the defect again.
+        // NOTE: no `-surfaceMode profile=native`. That case is retired (`t_6d420e01`): the shipped
+        // defaults are a native row host with no profile switch left to hide the defect.
         app.launchArguments = ["-uiTestResetPersistedState",
                                "-uiTestForgetSession", serverURL.absoluteString,
                                "-uiTestSeedServer", serverURL.absoluteString,

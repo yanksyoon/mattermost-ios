@@ -157,17 +157,17 @@ struct PostCollectionView: View {
     let listIdentifier: String
     /// T5449: how the surface that **draws these rows** resolved — `.search` for the Saved tab (it is
     /// gated on that surface), `.native` as a fact for the pinned sheet. Both call sites say why.
+    ///
+    /// This is the policy's **only** input: `.profile` is retired (`t_6d420e01`), and the row host is
+    /// the whole rule (`ProfilePopoverPolicy`).
     let rowHost: SurfaceRenderMode
 
-    /// T5449: `.profile`'s own resolution, read and ignored by the policy (the truth table's pin).
-    @EnvironmentObject private var resolver: SurfaceModeResolver
     /// T5449: the one profile this list may have open. One slot per list instance, so the Saved tab and
     /// a pinned sheet each own their own and cannot re-aim the other's.
     @State private var profilePopover = ProfilePopoverState()
 
     private var offersAuthorProfile: Bool {
-        ProfilePopoverPolicy.offersAuthorTap(rowHost: rowHost,
-                                             profileSurface: resolver.resolvedMode(for: .profile))
+        ProfilePopoverPolicy.offersAuthorTap(rowHost: rowHost)
     }
 
     var body: some View {

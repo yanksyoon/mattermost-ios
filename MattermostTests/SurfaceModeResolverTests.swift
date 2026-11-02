@@ -92,7 +92,10 @@ final class SurfaceModeResolverTests: XCTestCase {
         XCTAssertTrue(SurfaceDefaults.paneOwningSurfaces.isSubset(of: SurfaceDefaults.nativeApprovedSurfaces),
                       "pane ownership is the stronger claim: it must be a subset of the -AV registry")
         // Everything else in the workspace stays web: the flip is scoped to the surfaces above.
-        for surface in [Surface.search, .profile, .activity, .channelInfo, .plugins] {
+        // `.channelInfo` is the only unapproved case left after `t_6d420e01`; `.search`/`.activity`
+        // leave this loop because `t_aa211ff6` flips both to native-by-default in its own commit
+        // (asserting them `web` here would invert the moment that lands).
+        for surface in [Surface.channelInfo] {
             XCTAssertEqual(SurfaceDefaults.defaultMode(for: surface), .web,
                            "\(surface.rawValue) was not part of the approved scope and must stay web")
         }
@@ -163,10 +166,10 @@ final class SurfaceModeResolverTests: XCTestCase {
 
     func testClearOverrideFallsBackToDefault() {
         let resolver = makeResolver()
-        resolver.setOverride(.native, for: .plugins)
-        resolver.clearOverride(for: .plugins)
-        XCTAssertEqual(resolver.resolvedMode(for: .plugins), .web)
-        XCTAssertEqual(makeResolver().resolvedMode(for: .plugins), .web)
+        resolver.setOverride(.native, for: .channelInfo)
+        resolver.clearOverride(for: .channelInfo)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
+        XCTAssertEqual(makeResolver().resolvedMode(for: .channelInfo), .web)
     }
 
     func testClearAllOverridesResetsEverySurface() {
@@ -208,18 +211,26 @@ final class SurfaceModeResolverTests: XCTestCase {
         // asymmetry that makes this test necessary in this direction: the persisted tier can only
         // ever hold the *non-default* value (`setOverride` drops a row equal to the compile
         // default), so the remote default has to disagree with the user for precedence to show.
-        let resolver = makeResolver(remoteDefault: { $0 == .profile ? .web : .native })
-        resolver.setOverride(.native, for: .profile)
-        XCTAssertEqual(resolver.resolvedMode(for: .profile), .native,
-                       "the persisted override wins over the remote default")
+        // `.channelInfo` is the unapproved case that carries that role after `t_6d420e01` retired
+        // the read-and-discarded one (and it is the only case still web-by-default after
+        // `t_aa211ff6`'s flip).
+        let resolver = makeResolver(remoteDefault: { $0 == .channelInfo ? .web : .native })
+        resolver.setOverride(.native, for: .channelInfo)
         XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native,
+                       "the persisted override wins over the remote default")
+        XCTAssertEqual(resolver.resolvedMode(for: .activity), .native,
                        "surface without an override still takes the remote default")
     }
 
     func testRemoteDefaultFillsBetweenPersistedAndCompileTimeDefault() {
-        let resolver = makeResolver(remoteDefault: { $0 == .profile ? .native : nil })
-        XCTAssertEqual(resolver.resolvedMode(for: .profile), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web,
+        // The remote tier fills in above the compile-time default: `.channelView` is approved native,
+        // and a remote `web` for it must win. `.channelInfo` (nil remote) falls through to the
+        // compile-time default, asserted through `defaultMode(for:)` so a future registry flip does
+        // not invert the test.
+        let resolver = makeResolver(remoteDefault: { $0 == .channelView ? .web : nil })
+        XCTAssertEqual(resolver.resolvedMode(for: .channelView), .web)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo),
+                       SurfaceDefaults.defaultMode(for: .channelInfo),
                        "unhandled surfaces fall through to the compile-time default")
     }
 
@@ -241,17 +252,20 @@ final class SurfaceModeResolverTests: XCTestCase {
 
     // MARK: Surface catalogue + persistence-key contract
 
-    /// The 11 surfaces named in the T26 card must all exist and keep their raw values: those
-    /// strings are the launch-argument keys (`-surfaceMode <rawValue>=<mode>`) and the persisted
-    /// override keys, so renaming one silently breaks a user's stored choice. The `threads` key is
-    /// **retired** (`t_7ffa9e76`, `docs/t_7ffa9e76-threads-surface-retirement.md`): the thread pane
-    /// is a sub-region of the pane host and inherits its mode, so there is no key to store.
-    func testCataloguePinsTheElevenContractSurfaces() {
+    /// The eight switch keys must all exist and keep their raw values: those strings are the
+    /// launch-argument keys (`-surfaceMode <rawValue>=<mode>`) and the persisted override keys, so
+    /// renaming one silently breaks a user's stored choice.
+    ///
+    /// Four keys are **retired**, and none of them is reused: `threads` (`t_7ffa9e76`,
+    /// `docs/t_7ffa9e76-threads-surface-retirement.md` — the thread pane is a sub-region of the pane
+    /// host) and `settings`, `plugins`, `profile` (`t_39ea6115`, card `t_6d420e01`,
+    /// `docs/t_39ea6115-surface-catalogue-dispositions.md` — shell chrome with no web form of its own,
+    /// a key that can never resolve `native`, and a key that was read and discarded).
+    func testCataloguePinsTheEightContractSurfaces() {
         let required: [(Surface, String)] = [
             (.auth, "auth"), (.sidebar, "sidebar"), (.channelView, "channelView"),
             (.composer, "composer"), (.search, "search"),
-            (.profile, "profile"), (.activity, "activity"), (.settings, "settings"),
-            (.channelInfo, "channelInfo"), (.calls, "calls"), (.plugins, "plugins")
+            (.activity, "activity"), (.channelInfo, "channelInfo"), (.calls, "calls")
         ]
         for (surface, rawValue) in required {
             XCTAssertEqual(surface.rawValue, rawValue, "\(rawValue) is part of the T26 contract")
@@ -261,11 +275,11 @@ final class SurfaceModeResolverTests: XCTestCase {
         }
         XCTAssertEqual(Set(Surface.allCases).count, Surface.allCases.count, "no duplicate surfaces")
         XCTAssertEqual(Surface.allCases.count, required.count,
-                       "the catalogue is exactly these 11 cases — an added case is its own card "
+                       "the catalogue is exactly these 8 cases — an added case is its own card "
                        + "and updates this pin")
     }
 
-    // MARK: Retired surface — `threads` (t_7ffa9e76)
+    // MARK: Retired surfaces — `threads` (t_7ffa9e76), then `settings`/`plugins`/`profile` (t_39ea6115)
 
     /// A retired key stops existing, so it stops round-tripping: `-surfaceMode threads=native` and a
     /// stored `"threads"` row decode to nothing. Retirement is a supported operation
@@ -276,6 +290,26 @@ final class SurfaceModeResolverTests: XCTestCase {
                      + "(`docs/t_7ffa9e76-threads-surface-retirement.md`), not a switch")
         XCTAssertFalse(Surface.allCases.map(\.rawValue).contains("threads"),
                        "the catalogue no longer offers the key, so no inspector row can appear")
+    }
+
+    /// The three keys retired by `t_39ea6115` (spec §7, artefact 3): each raw value decodes to `nil`
+    /// and no inspector row can be drawn for it. `settings` was shell chrome with no web form of its
+    /// own, `plugins` could never resolve `native`, and `profile` was read and discarded — none of
+    /// them is a switch, and none of them may be reused for a different region.
+    func testTheThreeRetiredSurfaceRawValuesDoNotRoundTrip() {
+        let retired: [(String, String)] = [
+            ("settings", "the shell's SettingsView is presented in every pane mode — shell chrome, "
+                + "not a render region"),
+            ("plugins", "S29-S32 are permanently web: a key with one legal state is not a switch"),
+            ("profile", "the sheet is a sub-region of the row host; the surface was read and "
+                + "discarded"),
+        ]
+        for (rawValue, why) in retired {
+            XCTAssertNil(Surface(rawValue: rawValue), "`\(rawValue)` is retired: \(why)")
+            XCTAssertFalse(Surface.allCases.map(\.rawValue).contains(rawValue),
+                           "the catalogue no longer offers `\(rawValue)`, so no inspector row "
+                           + "can appear for it")
+        }
     }
 
     /// An upgraded install can still carry the row a previous build wrote. The tolerant decode drops
@@ -292,6 +326,22 @@ final class SurfaceModeResolverTests: XCTestCase {
                        "a row that decodes to nothing must not enable Reset all")
     }
 
+    /// The same for the three keys `t_6d420e01` retired (spec §7, artefact 4). A shipped install that
+    /// once wrote `{"settings": "native"}` must read exactly like a fresh install: no stored row, and
+    /// no "Reset all" enabled by a key the resolver cannot represent.
+    func testStaleRowsForTheThreeRetiredKeysAreDropped() {
+        AppPreferences(defaults: defaults).set(["settings": "native",
+                                                "plugins": "native",
+                                                "profile": "native"],
+                                               forKey: SurfaceModeResolver.Keys.surfaceModes)
+
+        let resolver = makeResolver()
+        XCTAssertTrue(resolver.overrides.isEmpty,
+                      "the three retired surface names are dropped by the tolerant decode")
+        XCTAssertFalse(resolver.hasAnyOverride,
+                       "an all-retired row must not enable Reset all")
+    }
+
     func testPersistenceKeyIsStable() {
         // Changing this key orphans every user's stored per-surface choice.
         XCTAssertEqual(SurfaceModeResolver.Keys.surfaceModes, "mm.surfaceModes")
@@ -300,12 +350,12 @@ final class SurfaceModeResolverTests: XCTestCase {
     // MARK: T30 — the `shell` launch alias
 
     /// `-surfaceMode shell=native` is the T30 card's flag spelling. `shell` is **not** a `Surface`
-    /// (the 11 inventory surfaces are the render regions, and a `shell` region would duplicate
+    /// (the eight switch keys are the render regions, and a `shell` region would duplicate
     /// `channelView` in the inspector, in `mm.surfaceModes` and in the approval registry), so it is
     /// a launch-only alias for the pane host surface.
     func testShellLaunchAliasAddressesThePaneHostSurface() {
         XCTAssertEqual(SurfaceDefaults.paneHostAlias, "shell")
-        XCTAssertNil(Surface(rawValue: "shell"), "the alias must not become a 13th surface")
+        XCTAssertNil(Surface(rawValue: "shell"), "the alias must not become a ninth surface")
 
         let resolver = makeResolver(arguments: ["-surfaceMode", "shell=native"])
         XCTAssertEqual(resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface), .native)
@@ -474,9 +524,11 @@ final class SurfaceModeResolverTests: XCTestCase {
     func testReleaseSemanticsStillHonourRemoteDefaultAndCompileDefault() {
         let releaseResolver = SurfaceModeResolver.releaseSemantics(
             preferences: AppPreferences(defaults: defaults),
-            remoteDefault: { $0 == .profile ? .native : nil })
-        XCTAssertEqual(releaseResolver.resolvedMode(for: .profile), .native)
-        XCTAssertEqual(releaseResolver.resolvedMode(for: .channelInfo), .web)
+            remoteDefault: { $0 == .sidebar ? .web : nil })
+        XCTAssertEqual(releaseResolver.resolvedMode(for: .sidebar), .web,
+                       "the remote default still decides in Release, over the approved compile default")
+        XCTAssertEqual(releaseResolver.resolvedMode(for: .channelInfo),
+                       SurfaceDefaults.defaultMode(for: .channelInfo))
     }
 
     // MARK: R5 — the reset paths beat a launch override too (T26-R)
@@ -485,18 +537,18 @@ final class SurfaceModeResolverTests: XCTestCase {
     /// no surface is left native by a flag the button could not otherwise clear.
     func testClearAllOverridesAlsoDropsLaunchOverrides() {
         let resolver = makeResolver(arguments: ["-surfaceMode", "channelInfo=native",
-                                                "-surfaceMode", "plugins=native"])
-        resolver.setOverride(.native, for: .search)
+                                                "-surfaceMode", "activity=native"])
+        resolver.setOverride(.native, for: .channelInfo)
         XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .plugins), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .search), .native)
+        XCTAssertEqual(resolver.resolvedMode(for: .activity), .native)
 
         resolver.clearAllOverrides()
 
         XCTAssertTrue(resolver.overrides.isEmpty)
         XCTAssertTrue(resolver.launchOverrides.isEmpty, "a launch override must not survive the reset")
-        for surface in [Surface.channelInfo, .plugins, .search] {
-            XCTAssertEqual(resolver.resolvedMode(for: surface), .web,
+        for surface in [Surface.channelInfo, .activity] {
+            XCTAssertEqual(resolver.resolvedMode(for: surface),
+                           SurfaceDefaults.defaultMode(for: surface),
                            "\(surface) must fall back to its compile-time default")
         }
     }

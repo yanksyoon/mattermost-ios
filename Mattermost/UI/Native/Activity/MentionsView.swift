@@ -79,18 +79,15 @@ struct ActivityFeedView: View {
     /// T5449: whether a mention's author offers the profile tap.
     ///
     /// This feed draws its own rows, so **`.activity`'s** resolution is the gate
-    /// (`ProfilePopoverPolicy.offersAuthorTap(rowHost:profileSurface:)`); `.profile`'s own answer is
-    /// passed through and ignored (the truth table's regression pin). `MentionsPaneContent` only mounts
-    /// this feed while `.activity` resolves native, so a `.web` answer here is belt-and-braces.
+    /// (`ProfilePopoverPolicy.offersAuthorTap(rowHost:)`). `MentionsPaneContent` only mounts this feed
+    /// while `.activity` resolves native, so a `.web` answer here is belt-and-braces.
     @EnvironmentObject private var resolver: SurfaceModeResolver
 
     /// T5449: the one profile this feed may have open (a one-slot machine — a second tap re-aims it).
     @State private var profilePopover = ProfilePopoverState()
 
     private var offersAuthorProfile: Bool {
-        ProfilePopoverPolicy.offersAuthorTap(
-            rowHost: resolver.resolvedMode(for: .activity),
-            profileSurface: resolver.resolvedMode(for: .profile))
+        ProfilePopoverPolicy.offersAuthorTap(rowHost: resolver.resolvedMode(for: .activity))
     }
 
     var body: some View {
@@ -225,8 +222,8 @@ struct ActivityFeedView: View {
                                 isMarking: model.isMarking,
                                 onOpen: { open(row) },
                                 onMarkRead: { Task { await model.markRead(row) } },
-                                // T5449: gated on the callback only, so `.profile` resolving web cannot
-                                // take the tap off a row drawn natively.
+                                // T5449: gated on the callback only, so the row host alone decides
+                                // whether the tap exists (`.profile` is retired, `t_6d420e01`).
                                 onShowProfile: offersAuthorProfile
                                     ? { userID in profilePopover.present(userID: userID) }
                                     : nil)

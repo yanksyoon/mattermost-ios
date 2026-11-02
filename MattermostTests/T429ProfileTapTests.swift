@@ -4,11 +4,12 @@
 // The card: tapping an author's **name or avatar** in a post opened nothing. Two independent causes
 // are pinned here:
 //
-//   1. the tap was gated on the `.profile` *surface*. It is `web` by default (it is not in
-//      `SurfaceDefaults.nativeApprovedSurfaces`), so `ChannelView` removed the affordance — while
+//   1. the tap was gated on the `.profile` *surface*. It was `web` by default (it was not in
+//      `nativeApprovedSurfaces`), so `ChannelView` removed the affordance — while
 //      `.channelView` is pane-owning, i.e. the webview is not painting those rows at all. The reader
-//      got neither popover. `ProfilePopoverPolicy` is the rule that fixes it, and the truth table is
-//      the first test;
+//      got neither popover. `ProfilePopoverPolicy` is the rule that fixes it, and the two-row truth
+//      table is the first test. The case is **retired** now (`t_6d420e01`), so the policy takes the
+//      row host and nothing else;
 //   2. the name was plain text (`PostRowView`). The live UI suite
 //      (`MattermostUITests/T429ProfileTapUITests.swift`) taps both; the name's affordance is wired
 //      through the same `onShowProfile` callback the avatar uses, so there is one route, not two.
@@ -62,35 +63,28 @@ final class T429ProfileTapTests: XCTestCase {
 
     // MARK: - The tap's gate (defect 1)
 
-    /// The whole truth table. The row that matters is `native × web`: that is the shipped default
-    /// and the state the reader reported. `.profile` must not be able to remove the tap while the
-    /// surface that draws the rows is native — the webview is not painting them, so there is no web
-    /// popover to take the tap instead. (The parameter is the **row host** since `t_07216319`; for
-    /// this pane that is how `SurfaceDefaults.paneHostSurface` resolved.)
-    func testTheAuthorTapFollowsThePaneHostNotTheProfileSurface() {
-        XCTAssertTrue(ProfilePopoverPolicy.offersAuthorTap(rowHost: .native, profileSurface: .web),
-                      "native row host + web profile card is the reported defect: the tap must exist")
-        XCTAssertTrue(ProfilePopoverPolicy.offersAuthorTap(rowHost: .native, profileSurface: .native),
-                      "a native card and a native popover agree")
-        XCTAssertFalse(ProfilePopoverPolicy.offersAuthorTap(rowHost: .web, profileSurface: .web),
+    /// The whole truth table — two rows since `t_6d420e01` retired the `.profile` surface: a native
+    /// row host always offers the tap (that is the shipped default and the state the reader
+    /// reported), a web one never does (its own popover answers there). The old four-cell table's
+    /// second axis only existed to pin that retired, discarded value.
+    func testTheAuthorTapFollowsTheRowHost() {
+        XCTAssertTrue(ProfilePopoverPolicy.offersAuthorTap(rowHost: .native),
+                      "a native row host draws the only popover that can answer the tap")
+        XCTAssertFalse(ProfilePopoverPolicy.offersAuthorTap(rowHost: .web),
                        "when the webview paints the conversation its own popover answers the tap")
-        XCTAssertFalse(ProfilePopoverPolicy.offersAuthorTap(rowHost: .web, profileSurface: .native),
-                       "no native row is drawn, so there is nothing to anchor a popover to")
     }
 
     /// The regression, pinned at the real decision point: the **shipped defaults** (no launch flags,
-    /// no stored overrides) resolve `.channelView` native and `.profile` web, and the tap is offered.
-    /// A reader launching the app as it ships is in exactly this state.
-    func testTheShippedDefaultsOfferTheTapWhileProfileResolvesWeb() {
+    /// no stored overrides) resolve the pane host native and the tap is offered. No
+    /// `-surfaceMode profile=` is involved — that case no longer exists, which is the point: nothing
+    /// can gate the tap off while the rows are native.
+    func testTheShippedDefaultsOfferTheTap() {
         let resolver = makeResolver()
         XCTAssertEqual(resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface), .native,
                        "the pane host is native by default since the 2026-10-27 workspace flip")
-        XCTAssertEqual(resolver.resolvedMode(for: .profile), .web,
-                       "the profile card is not approved, so its surface resolves web")
         XCTAssertTrue(ProfilePopoverPolicy.offersAuthorTap(
-                        rowHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface),
-                        profileSurface: resolver.resolvedMode(for: .profile)),
-                      "this is the exact pair the card reported as broken")
+                        rowHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface)),
+                      "this is the exact configuration the card reported as broken")
     }
 
     /// The other side: with the pane itself forced to web (`-surfaceMode shell=web`, the documented
@@ -100,13 +94,12 @@ final class T429ProfileTapTests: XCTestCase {
     /// cannot build it: `ContentView` mounts the native shell — and with it `ChannelPaneContent` —
     /// only inside `SurfaceHost(SurfaceDefaults.paneHostSurface)`, so a native row never coexists
     /// with `rowHost == .web`. This pins the policy's answer if a host is ever mounted differently;
-    /// the live coverage is the `.native` pair (`testTheShippedDefaultsOfferTheTapWhileProfileResolvesWeb`).
+    /// the live coverage is the `.native` pair (`testTheShippedDefaultsOfferTheTap`).
     func testAWebPaneTakesTheTapOffWithItsRows() {
         let resolver = makeResolver(arguments: ["-surfaceMode", "shell=web"])
         XCTAssertEqual(resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface), .web)
         XCTAssertFalse(ProfilePopoverPolicy.offersAuthorTap(
-                        rowHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface),
-                        profileSurface: resolver.resolvedMode(for: .profile)))
+                        rowHost: resolver.resolvedMode(for: SurfaceDefaults.paneHostSurface)))
     }
 
     // MARK: - Only one popover (defect 2's presentation rule)

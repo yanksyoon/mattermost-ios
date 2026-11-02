@@ -93,10 +93,9 @@ struct SearchView: View {
     /// T5449: whether a result's author offers the profile tap.
     ///
     /// This list draws its own rows, so **its** surface resolution is the gate
-    /// (`ProfilePopoverPolicy.offersAuthorTap(rowHost:profileSurface:)`), and `.profile`'s own
-    /// resolution is passed through and deliberately ignored — the truth table's regression pin.
-    /// The pane itself only draws this screen while `.search` resolves native (`SearchPaneContent`), so
-    /// on `.web` the answer is a belt-and-braces `false` on a list that is already the web app's.
+    /// (`ProfilePopoverPolicy.offersAuthorTap(rowHost:)`). The pane itself only draws this screen while
+    /// `.search` resolves native (`SearchPaneContent`), so on `.web` the answer is a belt-and-braces
+    /// `false` on a list that is already the web app's.
     @EnvironmentObject private var resolver: SurfaceModeResolver
 
     /// T5449: the one profile this screen may have open. A one-slot machine: a second tap re-aims it.
@@ -105,9 +104,7 @@ struct SearchView: View {
     @FocusState private var fieldFocused: Bool
 
     private var offersAuthorProfile: Bool {
-        ProfilePopoverPolicy.offersAuthorTap(
-            rowHost: resolver.resolvedMode(for: .search),
-            profileSurface: resolver.resolvedMode(for: .profile))
+        ProfilePopoverPolicy.offersAuthorTap(rowHost: resolver.resolvedMode(for: .search))
     }
 
     var body: some View {
@@ -325,8 +322,8 @@ struct SearchView: View {
             ForEach(model.rows) { row in
                 SearchResultRowView(row: row,
                                     onOpen: { open(row) },
-                                    // T5449: gated on the callback only, so a `.profile` that resolves web
-                                    // cannot take the author tap off a natively drawn row.
+                                    // T5449: gated on the callback only, so the row host alone decides
+                                    // whether the author tap exists (`.profile` is retired, `t_6d420e01`).
                                     onShowProfile: offersAuthorProfile
                                         ? { userID in profilePopover.present(userID: userID) }
                                         : nil)

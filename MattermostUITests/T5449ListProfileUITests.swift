@@ -357,8 +357,9 @@ final class T5449ListProfileUITests: XCTestCase {
 
     private func launchApp() -> XCUIApplication {
         let app = XCUIApplication()
-        // No `-surfaceMode profile=native` (T429's lesson, see the header). The two list surfaces are
-        // switched on because their panes only draw natively when asked to on this tree.
+        // No `-surfaceMode profile=native`: that case is retired (`t_6d420e01`) and the row host now
+        // decides the tap (T429's lesson, see the header). The two list surfaces are switched on
+        // because their panes only draw natively when asked to on this tree.
         app.launchArguments = ["-uiTestResetPersistedState",
                                "-uiTestForgetSession", serverURL.absoluteString,
                                "-uiTestSeedServer", serverURL.absoluteString,

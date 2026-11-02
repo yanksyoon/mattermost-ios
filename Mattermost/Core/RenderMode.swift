@@ -15,6 +15,13 @@ import Foundation
 /// inherits its mode — it is not a case (`t_7ffa9e76`,
 /// `docs/t_7ffa9e76-threads-surface-retirement.md`; the thread pane under `.channelView` is the
 /// first, and the rule is checked by gate 11 of `scripts/verify-dual-render-gates.sh`).
+///
+/// A case must also be a **switch**: flipping it must be able to change what is on screen in at least
+/// one direction. A key with one legal state is not a switch, even when a call site reads it
+/// (`docs/t_39ea6115-surface-catalogue-dispositions.md` §1.1 — `.plugins` had no native form and no
+/// possible `native` mode; `.settings` was shell chrome with no web form of its own; `.profile` was
+/// read and discarded and the sheet is a sub-region of the row host). All three are retired, as is
+/// `.threads` above: the catalogue is eight cases and each one has a mode that changes a screen.
 public enum Surface: String, CaseIterable, Codable, Identifiable, Sendable {
     /// Login / auth flow. SSO/OAuth still runs inside the webview (the IdP hand-off), while the
     /// sign-in form, the MFA step and the expiry banner are the native S01/S02/S03 cards — native by
@@ -35,18 +42,12 @@ public enum Surface: String, CaseIterable, Codable, Identifiable, Sendable {
     case composer
     /// Global / in-channel search.
     case search
-    /// The user's own profile.
-    case profile
     /// Mentions / activity list.
     case activity
-    /// Settings. The shell's settings are already a native SwiftUI `SettingsView`.
-    case settings
     /// Channel info / members panel.
     case channelInfo
     /// Mattermost Calls.
     case calls
-    /// Plugin surfaces (Boards, Playbooks, custom slash-apps).
-    case plugins
 
     public var id: String { rawValue }
 
@@ -58,12 +59,9 @@ public enum Surface: String, CaseIterable, Codable, Identifiable, Sendable {
         case .channelView: return "Channel view"
         case .composer: return "Composer"
         case .search: return "Search"
-        case .profile: return "Profile"
         case .activity: return "Activity"
-        case .settings: return "Settings"
         case .channelInfo: return "Channel info"
         case .calls: return "Calls"
-        case .plugins: return "Plugins"
         }
     }
 }
@@ -106,23 +104,23 @@ public enum SurfaceDefaults {
     /// non-empty registry unless `--allow-approved-registry` accompanies the approval commit).
     public static let nativeApprovedSurfaces: Set<Surface> = [.auth, .calls, .sidebar, .channelView, .composer]
 
-    /// **Catalogue reservations**: a name a future card can key on, with **no host and no switch
-    /// today** — production code consults none of these, so their mode changes nothing on screen.
+    /// **No catalogue reservations.** This set was `[.settings, .plugins]` when gate 11 landed
+    /// (`t_cdcc1f38`); `t_6d420e01` retired both cases, so every remaining `Surface` is a real switch
+    /// with a production call site and there is nothing left to reserve.
     ///
-    /// Gate 11 of `scripts/verify-dual-render-gates.sh` requires every `Surface` case to be
-    /// consulted (`resolvedMode(for: .<case>)`, `SurfaceHost(.<case` or `defaultMode(for: .<case>)`
-    /// in `Mattermost/`), to be `paneHostSurface`'s value, **or** to be listed here. So a case can
-    /// only stay inert by being *declared*, and growing this set is a deliberate act: the literal is
-    /// pinned to `[.settings, .plugins]` and changing it needs `--allow-unhosted-change` (the same
-    /// shape as gate 5's `--allow-approved-registry`).
+    /// The mechanism stays: gate 11 of `scripts/verify-dual-render-gates.sh` requires every `Surface`
+    /// case to be consulted (`resolvedMode(for: .<case>)`, `SurfaceHost(.<case` or
+    /// `defaultMode(for: .<case>)` in `Mattermost/`) **or** to be the pane host's value, **or** to be
+    /// listed here. That literal is pinned to `[]`; growing it — or emptying it back — is a deliberate
+    /// act that needs `--allow-unhosted-change` (the same shape as gate 5's
+    /// `--allow-approved-registry`), so an inert key cannot be tolerated with a one-line edit.
     ///
-    /// Members, each with its reason row in `docs/dual-render.md` §11: `.settings` — the shell's
-    /// `SettingsView` is presented unconditionally (`RootView.swift:180,229`) and the web app's
-    /// settings modal has no host of its own; `.plugins` — S29-S32 are permanently web by decision
-    /// (`docs/dual-render.md` §1), so the key can never resolve `native`. Both are retired by
-    /// `docs/t_39ea6115-surface-catalogue-dispositions.md` (card `t_6d420e01`); this set is what
-    /// keeps the gap visible until that card lands.
-    public static let unhostedSurfaces: Set<Surface> = [.settings, .plugins]
+    /// The three cases that used to live here are retired by
+    /// `docs/t_39ea6115-surface-catalogue-dispositions.md`: `.settings` was shell chrome with no web
+    /// form of its own, `.plugins` could never resolve `native`, and `.profile` was read and discarded
+    /// (its sheet is a sub-region of the row host). A reservation is for a name a future card will key
+    /// on; none of the three could ever be keyed on again.
+    public static let unhostedSurfaces: Set<Surface> = []
 
     /// Surfaces whose native card renders the *entire* per-server work area — every region the
     /// one-per-server WKWebView paints (sidebar, channel header, post list, composer, RHS).
@@ -154,7 +152,7 @@ public enum SurfaceDefaults {
     /// thing that card mounts is the *shell* — the native equivalent of the whole workspace chrome
     /// (sidebar + channel view + threads), which is exactly what the pane host surface maps to. The
     /// alias exists so that flag works as written, and it is **launch-only**: there is no
-    /// `Surface.shell` case (the 11 surfaces are the inventory-driven render regions, and a "shell"
+    /// `Surface.shell` case (the eight switch keys are the inventory-driven render regions, and a "shell"
     /// region would duplicate `channelView` in the inspector, in `mm.surfaceModes`, and in the
     /// approval registry). It is parsed in the DEBUG-only launch tier (`parseLaunchOverrides`), so
     /// it cannot steer a Release build — same rule as every other launch override.
@@ -167,37 +165,35 @@ public enum SurfaceDefaults {
     }
 }
 
-/// Whether a pane that draws posts offers the author-profile popover.
+/// Whether a row host that draws posts offers the author-profile popover.
 ///
-/// A profile popover is **not a surface of its own**: it is part of the pane it is anchored in, and
-/// it can only be reached through the rows that pane draws. The `.profile` surface answers a
-/// different question — "does this build ship a native profile *card*" — and T41's card resolved it
-/// `web` (it is not in `nativeApprovedSurfaces`), which made `ChannelView` remove the author tap
+/// A profile popover is **not a surface of its own**: it is part of the view it is anchored in, and it
+/// can only be reached through the rows that view draws. The retired `.profile` surface used to answer
+/// a different question — "does this build ship a native profile *card*" — and T41's card resolved it
+/// `web` (it was never in `nativeApprovedSurfaces`), which made `ChannelView` remove the author tap
 /// entirely. That reasoning only holds while the webview still paints the conversation. It does not:
-/// `.channelView` is pane-owning (`paneOwningSurfaces`, `docs/dual-render.md` §12), so while the
-/// pane is native there is no web conversation on screen and the web client's own popover cannot
-/// answer a tap the reader makes on a native row. The reported defect was exactly that state — the
-/// reader got neither popover.
+/// `.channelView` is pane-owning (`paneOwningSurfaces`, `docs/dual-render.md` §12), so while the pane
+/// is native there is no web conversation on screen and the web client's own popover cannot answer a
+/// tap the reader makes on a native row. The reported defect was exactly that state — the reader got
+/// neither popover.
 ///
-/// So the tap belongs to the host that draws the row, not to `.profile`. The parameter is the **row
+/// So the tap belongs to the host that draws the row, and to nothing else. The parameter is the **row
 /// host**: how *that* view's surface resolved — `SurfaceDefaults.paneHostSurface` for the channel
 /// timeline, and each list host's own mode (`t_07216319`, `t_2fa3bbe1`):
 ///
-/// | row host | `.profile` | author tap |
-/// |---|---|---|
-/// | native | web | **offered** — the reported regression; no web popover exists to answer it |
-/// | native | native | offered |
-/// | web | web | not offered — the webview draws those rows and its own popover answers the tap |
-/// | web | native | not offered — no native row exists to anchor a popover to |
+/// | row host | author tap |
+/// |---|---|
+/// | native | **offered** — the native rows are the only ones on screen, so this sheet is the only popover |
+/// | web | not offered — the webview draws those rows and its own popover answers the tap |
 ///
-/// **The two `.web` rows are defensive only — the app cannot build them.** `ContentView` mounts the
-/// native shell, and therefore `ChannelPaneContent`, only inside
+/// **The `.web` row is defensive only — the app cannot build it.** `ContentView` mounts the native
+/// shell, and therefore `ChannelPaneContent`, only inside
 /// `SurfaceHost(SurfaceDefaults.paneHostSurface)`, so a native row cannot exist while the pane host
 /// resolves `web`. The other native row hosts are gated the same way by their own content views
 /// (`SearchPaneContent`, `MentionsPaneContent` draw their lists only while `.search` / `.activity`
-/// resolve native) and the thread pane passes `.native` as a fact. Those cells pin the policy's
-/// answer — `testAWebPaneTakesTheTapOffWithItsRows` drives it from `-surfaceMode shell=web`, where no
-/// native pane is mounted by construction — not a state a reader can be in (F3 of
+/// resolve native) and the thread pane passes `.native` as a fact. That cell pins the policy's answer
+/// — `testAWebPaneTakesTheTapOffWithItsRows` drives it from `-surfaceMode shell=web`, where no native
+/// pane is mounted by construction — not a state a reader can be in (F3 of
 /// `docs/t_97162159-profile-tap-validation.md`).
 ///
 /// A **non-channel** example, because the rule is not about the pane: the search results list
@@ -211,21 +207,23 @@ public enum SurfaceDefaults {
 /// `docs/t_7ffa9e76-threads-surface-retirement.md`), so the resolver answered `web` for `.threads`
 /// while `ThreadPostListView` drew every row natively.
 ///
-/// `.profile` is deliberately read and ignored: keeping it in the signature is what lets the truth
-/// table above be pinned by a test instead of living in a comment.
+/// **The second parameter is gone** (`t_6d420e01`, spec §4.3 of
+/// `docs/t_39ea6115-surface-catalogue-dispositions.md`): it existed only to pin `.profile`'s
+/// _discarded_ answer in a truth table, and once the case is retired the `native × web` cell it pinned
+/// is unrepresentable. The live statement the old cell made — "a flag that does not exist cannot
+/// remove the tap" — is only measurable against a running app, and `T429ProfileTapUITests` already
+/// makes it on the shipped defaults with no `-surfaceMode profile=` on the launch line.
 public enum ProfilePopoverPolicy {
 
     /// The avatar/name tap on a post row.
     ///
-    /// - Parameters:
-    ///   - rowHost: how the surface that **draws** this row resolved (`SurfaceDefaults.paneHostSurface`
-    ///     for the channel timeline, `.native` as a fact for the thread pane — see F1).
-    ///   - profileSurface: how `.profile` resolved. **Not consulted** — see the table above.
-    public static func offersAuthorTap(rowHost: SurfaceRenderMode,
-                                       profileSurface: SurfaceRenderMode) -> Bool {
-        switch (rowHost, profileSurface) {
-        case (.native, _): return true
-        case (.web, _): return false
+    /// - Parameter rowHost: how the surface that **draws** this row resolved
+    ///   (`SurfaceDefaults.paneHostSurface` for the channel timeline, `.native` as a fact for the
+    ///   thread pane — see F1).
+    public static func offersAuthorTap(rowHost: SurfaceRenderMode) -> Bool {
+        switch rowHost {
+        case .native: return true
+        case .web: return false
         }
     }
 }
