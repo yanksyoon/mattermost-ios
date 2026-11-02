@@ -20,11 +20,34 @@ struct WebFallbackSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let store = model.store {
-                    WebFallbackPane(store: store, model: model,
-                                    server: model.server, surface: model.surface)
-                } else {
-                    unavailable
+                // T46-R R1: the sheet says what it can show instead of opening a page the
+                // server does not serve (Boards/Playbooks are product plugins; measured on a
+                // 9.11.19 server without focalboard: `/boards` painted 61 characters of nothing).
+                //
+                // The webview is mounted as soon as there is a route — **before** the capability
+                // answer arrives — and the informational states are drawn over it. Mounting first
+                // is not cosmetic: `WebViewContainer` is what installs the navigation delegate, and
+                // a navigation that starts before its delegate exists never reports `didFinish`
+                // (T26-R `t_065c8753`: the pane sat blank at 10 %), which would leave the paint
+                // probe and the live state stuck at `loading`. A webview that never navigates
+                // paints nothing, so mounting early costs the reader nothing.
+                ZStack {
+                    if let store = model.store {
+                        WebFallbackPane(store: store, model: model,
+                                        server: model.server, surface: model.surface)
+                            .opacity(model.availability == .available ? 1 : 0)
+                            .accessibilityHidden(model.availability != .available)
+                    }
+                    switch model.availability {
+                    case .checking:
+                        checking
+                    case .notEnabled:
+                        notEnabled
+                    case .unaddressable:
+                        unavailable
+                    case .available:
+                        EmptyView()
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -84,6 +107,49 @@ struct WebFallbackSheet: View {
         .padding(24)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("webFallbackUnavailable")
+        .accessibilityValue("unaddressable")
+    }
+
+    /// The server answered and does not serve this surface's product plugin.
+    ///
+    /// This is the state T46 was missing: the row opened `/boards`, the server's web app answered
+    /// with its HTML shell, no Boards bundle existed to mount, and the reader got a blank navy
+    /// page (measured: 61 characters, `docs/t46-av-verdict.md` §F1). The identifier is the same
+    /// "cannot be opened" state as `unavailable` — the difference is the sentence and its
+    /// accessibility value, which is what the live suite asserts.
+    private var notEnabled: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "rectangle.slash")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text(model.notEnabledMessage)
+                .font(.headline)
+                .multilineTextAlignment(.center)
+            Text(model.notEnabledDetail)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(24)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("webFallbackUnavailable")
+        .accessibilityValue("notEnabled")
+    }
+
+    /// Asking the server which plugins it serves. A spinner with a sentence, never an empty
+    /// rectangle: this state is on screen only while the capability request is in flight.
+    private var checking: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+            Text("Checking whether \(model.surface.title) is available…")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(24)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("webFallbackChecking")
     }
 }
 
@@ -166,13 +232,20 @@ struct PluginScreenPrompt: View {
                         #endif
                         .accessibilityIdentifier("webFallbackPluginField")
                 } header: {
-                    Text("Plugin ID")
+                    Text("Plugin route")
                 } footer: {
+                    // T46-R R2: the row used to be called "Plugin screen", which promised a screen
+                    // the shell cannot guarantee. `/plugins/<id>` is a request into the server's
+                    // plugin namespace; a plugin's own UI is a client-side route inside the web
+                    // app, and a server with no page there answers with the workspace (measured
+                    // on 9.11.19: `301 → /` for every installed plugin). Say what it does.
                     Text("Opens /plugins/<id> in this server's web app. The id is the plugin's "
-                         + "manifest id — for example com.mattermost.calls.")
+                         + "manifest id — for example com.mattermost.calls. A plugin whose UI is a "
+                         + "client-side route inside the web app answers this path with the "
+                         + "workspace, so this row opens the route, not a guaranteed plugin screen.")
                 }
             }
-            .navigationTitle("Plugin screen")
+            .navigationTitle("Plugin route")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

@@ -33,6 +33,24 @@ final class WebFallbackModel: ObservableObject {
         case unavailable
     }
 
+    /// Whether the surface can be shown at all, decided **before** the first navigation.
+    ///
+    /// T46-R R1: the Boards and Playbooks rows used to open `/boards` / `/playbooks` on every
+    /// server. On a server that does not install the product plugin, the web app's shell answers
+    /// those routes and the SPA has no bundle to mount, so the reader got a blank navy page that
+    /// said nothing — 61 characters, measured (`docs/t46-av-verdict.md` §F1). A surface whose
+    /// plugin is absent is not a surface; the sheet renders a statement instead of a page.
+    enum Availability: Equatable {
+        /// The server is being asked (`GET /api/v4/plugins/webapp`); no webview has loaded yet.
+        case checking
+        /// This surface can be addressed and, when it needs a product plugin, the server serves it.
+        case available
+        /// The server answered and does not serve this surface's product plugin (its id).
+        case notEnabled(String)
+        /// The entry names no route at all (`target == nil`); nothing was created.
+        case unaddressable
+    }
+
     let server: ServerConfig
     let surface: WebFallbackSurface
 
@@ -44,6 +62,22 @@ final class WebFallbackModel: ObservableObject {
     let store: WebViewStore?
 
     @Published private(set) var sessionSource: SessionSource = .unavailable
+    /// Whether the sheet can show this surface (`Availability`). Published because the sheet
+    /// renders it: `.checking` is a progress state, `.notEnabled` is a sentence, `.available` is
+    /// the webview.
+    @Published private(set) var availability: Availability = .checking
+    /// The **names** (never the values) of the cookies the shared store held at the moment the
+    /// session decision was taken, sorted.
+    ///
+    /// This is the instrument for T46-AV's F4: every live state line reported `|installed|`, so
+    /// "the data store's session outlives the presentation" (§13.4) was argued rather than
+    /// measured. Publishing the names makes the next presentation's answer checkable — a store
+    /// that holds `MMAUTHTOKEN` but not `MMUSERID`/`MMCSRF` is `.installed` for a reason the
+    /// reader of a log can see. A cookie value never leaves the store; only names are published.
+    @Published private(set) var observedCookieNames: [String] = []
+    /// The plugin ids the server listed, once it has answered. `nil` means it was not asked yet
+    /// or could not be asked; the value is kept for the log line and for tests, never rendered.
+    private(set) var servedProductPluginIDs: Set<String>?
     /// Mirrored so the sheet's toolbar can offer the web page's own Back button without observing
     /// the store in two places.
     @Published private(set) var canGoBack = false
@@ -64,6 +98,9 @@ final class WebFallbackModel: ObservableObject {
     private let tokenProvider: (ServerConfig) -> String?
     /// The signed-in user's id for the server (`MMUSERID`), same injection rule as the token.
     private let userIDProvider: (ServerConfig) -> String?
+    /// The server's served plugin ids, injected so the capability gate is unit-tested without a
+    /// network and so a test can answer "unknown" deterministically.
+    private let pluginLister: (ServerConfig) async -> Set<String>?
     /// Whether this model created its webview — i.e. whether there is anything to tear down.
     private(set) var isStarted = false
     private(set) var isTornDown = false
@@ -77,16 +114,29 @@ final class WebFallbackModel: ObservableObject {
     init(server: ServerConfig,
          surface: WebFallbackSurface,
          tokenProvider: @escaping (ServerConfig) -> String? = WebFallbackModel.vaultToken,
-         userIDProvider: @escaping (ServerConfig) -> String? = WebFallbackModel.vaultUserID) {
+         userIDProvider: @escaping (ServerConfig) -> String? = WebFallbackModel.vaultUserID,
+         pluginLister: @escaping (ServerConfig) async -> Set<String>? =
+            WebFallbackModel.vaultPluginListing) {
         self.server = server
         self.surface = surface
         self.tokenProvider = tokenProvider
         self.userIDProvider = userIDProvider
+        self.pluginLister = pluginLister
 
         let target = surface.url(relativeTo: server.url)
         self.target = target
         let store = target.map { _ in WebViewStore(dataStoreIdentifier: server.id) }
         self.store = store
+        // The gate starts here, not at `start()`: a `.plugin`/`.systemConsole` surface has nothing
+        // to check and must render its webview as soon as the sheet mounts, while Boards and
+        // Playbooks start as `.checking` until the server has listed its plugins.
+        if target == nil {
+            availability = .unaddressable
+        } else if surface.requiredProductPluginID == nil {
+            availability = .available
+        } else {
+            availability = .checking
+        }
         if let store {
             store.$canGoBack.assign(to: &$canGoBack)
             // The web app's first-visit landing page is not the surface (see `WebAppLandingPage`).
@@ -120,6 +170,73 @@ final class WebFallbackModel: ObservableObject {
         SecureVault().getSecret(key: .userID, serverURL: server.url)
     }
 
+    /// The production plugin listing: `GET /api/v4/plugins/webapp`, authenticated with the
+    /// shell's own token. `nil` (could not be asked) is not "no plugins" — see
+    /// `WebFallbackPluginListing.pluginIDs`.
+    nonisolated static func vaultPluginListing(_ server: ServerConfig) async -> Set<String>? {
+        await WebFallbackPluginListing.pluginIDs(for: server, token: vaultToken(server))
+    }
+
+    // MARK: Availability (T46-R R1)
+
+    /// Decide whether this surface is served here, before anything is loaded.
+    ///
+    /// - Returns: `true` when the surface may load, `false` when the server answered that it does
+    ///   not serve the product plugin. Sets `availability` either way.
+    ///
+    /// The two negative cases are treated differently on purpose:
+    ///  * **the server answered, without the plugin** → `.notEnabled(id)`: the sheet says
+    ///    "Boards is not enabled on this server" and creates no navigation at all. This is the R1
+    ///    fix: T46's sheet showed a blank page in exactly this state (61 characters, zero
+    ///    feedback, measured);
+    ///  * **the shell could not ask** (no network, a 401 before the session is installed, a
+    ///    server without the route) → the surface loads as before, and the *page* is the thing
+    ///    that answers. Refusing to open a surface because a capability probe failed would break
+    ///    servers that work today; a blank page is at worst the pre-existing behaviour, and the
+    ///    live suite asserts a painted surface or a statement, never silence.
+    ///
+    /// Idempotent: a second call after a decision is a no-op, so `start()` and a retry cannot
+    /// disagree.
+    @discardableResult
+    func checkAvailability() async -> Bool {
+        guard availability == .checking else { return availability == .available }
+        guard let required = surface.requiredProductPluginID else {
+            availability = .available
+            return true
+        }
+        let served = await pluginLister(server)
+        servedProductPluginIDs = served
+        guard let served else {
+            Logger.info("WebFallback",
+                        "could not list the plugins \(server.id) serves; opening \(surface.id) "
+                        + "and letting the page answer")
+            availability = .available
+            return true
+        }
+        guard served.contains(required) else {
+            Logger.info("WebFallback",
+                        "\(surface.id) needs the \(required) plugin, which \(server.id) does not "
+                        + "serve (it lists: \(served.sorted().joined(separator: ",")))")
+            availability = .notEnabled(required)
+            return false
+        }
+        availability = .available
+        return true
+    }
+
+    /// What the sheet says when the server does not serve this surface's product plugin.
+    /// One sentence, in the reader's terms — not the plugin id.
+    var notEnabledMessage: String {
+        "\(surface.title) is not enabled on this server."
+    }
+
+    /// The second line of that state: why the row exists anyway and what would change it.
+    var notEnabledDetail: String {
+        guard case .notEnabled(let pluginID) = availability else { return "" }
+        return "The server does not serve the \(pluginID) plugin, so there is no \(surface.title) "
+            + "to show. An administrator can enable it in System Console → Plugins."
+    }
+
     // MARK: Opening
 
     /// Install the session (if the shared store has none) and load exactly this surface.
@@ -130,6 +247,12 @@ final class WebFallbackModel: ObservableObject {
     func start() async {
         guard let store, let target, !isStarted else { return }
         isStarted = true
+        // T46-R R1: never navigate to a surface the server says it does not serve. The sheet
+        // renders `availability` instead, so this returns without a page load. The webview itself
+        // is mounted by the sheet from the start (a navigation that begins before
+        // `WebViewContainer` installs the delegate never reports `didFinish` — T26-R
+        // `t_065c8753`), but a webview that never navigates paints nothing.
+        guard await checkAvailability() else { return }
         // The landing-page flag goes in **before** the first request (T46-R, measured): the landing
         // page signs the session out, so following it afterwards cannot work — the surface's own
         // boot would already be a 401. See `WebAppLandingPage.preloadScript`.
@@ -187,6 +310,7 @@ final class WebFallbackModel: ObservableObject {
     private func installSessionCookieIfNeeded(for store: WebViewStore) async -> SessionSource {
         let cookieStore = store.webView.configuration.websiteDataStore.httpCookieStore
         let existing = await cookieStore.allCookies()
+        observedCookieNames = existing.map(\.name).sorted()
         if hasUsableSession(in: existing) {
             return .shared
         }
@@ -320,7 +444,8 @@ final class WebFallbackModel: ObservableObject {
                                     sessionSource: sessionSource.rawValue,
                                     url: url,
                                     paintedCharacters: paintedCharacters,
-                                    requested: target?.absoluteString)
+                                    requested: target?.absoluteString,
+                                    cookieNames: observedCookieNames)
     }
 
     /// The format above, separated so it is testable without a webview.
@@ -334,9 +459,13 @@ final class WebFallbackModel: ObservableObject {
                                             sessionSource: String,
                                             url: String,
                                             paintedCharacters: Int?,
-                                            requested: String? = nil) -> String {
+                                            requested: String? = nil,
+                                            cookieNames: [String] = []) -> String {
         let painted = paintedCharacters.map { "|chars=\($0)" } ?? ""
         let asked = requested.map { "|requested=\($0)" } ?? ""
-        return "\(pageLoadState)|\(sessionSource)|\(url)\(painted)\(asked)"
+        // Names only — never a value. Empty means the store held no cookie at all when the
+        // decision was made, which is a different fact from "it held a partial session".
+        let cookies = cookieNames.isEmpty ? "" : "|cookies=\(cookieNames.joined(separator: ","))"
+        return "\(pageLoadState)|\(sessionSource)|\(url)\(painted)\(asked)\(cookies)"
     }
 }

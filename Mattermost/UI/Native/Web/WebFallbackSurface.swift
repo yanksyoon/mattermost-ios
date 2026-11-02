@@ -75,13 +75,25 @@ public struct WebFallbackSurface: Hashable, Identifiable, Codable, Sendable {
     }
 
     /// What the native chrome calls this surface.
+    ///
+    /// `.plugin` says **route**, not "screen" (T46-R, R2): `/plugins/<id>` is a request into the
+    /// server's plugin namespace — on 9.11.19 it answers `301 → /` for every installed plugin,
+    /// because a plugin's UI is a client-side route inside the web app. A label that promised
+    /// "this plugin's screen" would be a promise the shell cannot keep (`docs/dual-render.md`
+    /// §13.6).
     public var title: String {
         switch kind {
         case .boards: return "Boards"
         case .playbooks: return "Playbooks"
         case .systemConsole: return "System Console"
-        case .plugin: return pluginID.map { "Plugin: \($0)" } ?? "Plugin screen"
+        case .plugin: return pluginID.map { "Plugin route: \($0)" } ?? "Plugin route"
         }
+    }
+
+    /// The sidebar row's own label (`.plugin` is the only one that differs from `title`: the row
+    /// asks for an id, so it ends in an ellipsis like every other "asks a question" row).
+    public var rowTitle: String {
+        kind == .plugin ? "Plugin route…" : title
     }
 
     /// The glyph the row draws. Decoration only: the row is labelled by `title` (T45's rule).
@@ -119,6 +131,31 @@ public struct WebFallbackSurface: Hashable, Identifiable, Codable, Sendable {
         guard let path else { return nil }
         return MMBaseURL(serverURL)?.absolute(path)
     }
+
+    /// The server-side **product plugin** that has to be installed for this surface to have
+    /// anything to paint, or `nil` when the surface is the server binary's own UI
+    /// (`.systemConsole`) or an arbitrary plugin the reader named (`.plugin` — the shell cannot
+    /// know whether that one is installed; the row is a request into the plugin namespace).
+    ///
+    /// Why this exists (T46-R, R1): `/boards` and `/playbooks` are answered by the web app's HTML
+    /// shell on a server that ships **no** Boards/Playbooks bundle. Measured on a 9.11.19 Team
+    /// Edition fixture without focalboard: tapping the Boards row painted the "Preview Mode"
+    /// banner and nothing else — 61 characters, no spinner, no error
+    /// (`docs/t46-av-verdict.md` §F1). A surface whose plugin is absent is not a surface; the
+    /// sheet says so instead of showing a blank page.
+    public var requiredProductPluginID: String? {
+        switch kind {
+        case .boards: return Self.boardsPluginID
+        case .playbooks: return Self.playbooksPluginID
+        case .systemConsole, .plugin: return nil
+        }
+    }
+
+    /// Boards' plugin id. The product is called Boards; the plugin's manifest id is still
+    /// `focalboard` (its historical name), which is what `GET /api/v4/plugins/webapp` lists.
+    public static let boardsPluginID = "focalboard"
+    /// Playbooks' plugin id, as the manifest and `/api/v4/plugins/webapp` both spell it.
+    public static let playbooksPluginID = "playbooks"
 
     /// A plugin id has to be one path segment: it is pasted into `/plugins/<id>` and the webview
     /// takes it literally. `.`/`..`, slashes, queries, fragments, whitespace and control characters

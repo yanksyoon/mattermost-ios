@@ -249,7 +249,7 @@ struct NativeChannelSidebarContent: View {
                 Button {
                     webSheet = .fallback(surface, UUID())
                 } label: {
-                    Label(surface.title, systemImage: surface.systemImage)
+                    Label(surface.rowTitle, systemImage: surface.systemImage)
                         .channelSidebarRowContent()
                 }
                 .accessibilityIdentifier("webFallbackRow.\(surface.id)")

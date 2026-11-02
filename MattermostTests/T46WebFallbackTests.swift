@@ -32,7 +32,10 @@ final class T46WebFallbackTests: XCTestCase {
         let surface = WebFallbackSurface(kind: .plugin, pluginID: "com.mattermost.calls")
         XCTAssertEqual(surface.path, "/plugins/com.mattermost.calls")
         XCTAssertEqual(surface.id, "plugin.com.mattermost.calls")
-        XCTAssertEqual(surface.title, "Plugin: com.mattermost.calls")
+        // T46-R R2: "route", not "screen". `/plugins/<id>` is a request into the plugin
+        // namespace; the label must not promise a screen the shell cannot guarantee.
+        XCTAssertEqual(surface.title, "Plugin route: com.mattermost.calls")
+        XCTAssertEqual(surface.rowTitle, "Plugin route…")
         // The id is only meaningful for `.plugin`; every other kind ignores it.
         XCTAssertEqual(WebFallbackSurface(kind: .boards, pluginID: "x").pluginID, nil)
     }
@@ -539,6 +542,189 @@ final class T46WebFallbackTests: XCTestCase {
         XCTAssertNil(model.landingPageSkipTarget(for: landing), "the second landing page is shown")
         let other = try XCTUnwrap(URL(string: "http://127.0.0.1:8065/landing#/playbooks"))
         XCTAssertNil(model.landingPageSkipTarget(for: other), "one skip covers every surface")
+    }
+
+    // MARK: - The capability gate (T46-R R1)
+
+    /// Which surfaces need a product plugin, and which do not. Pure.
+    func testTheProductSurfacesNameThePluginTheyNeed() {
+        XCTAssertEqual(WebFallbackSurface(kind: .boards).requiredProductPluginID, "focalboard")
+        XCTAssertEqual(WebFallbackSurface(kind: .playbooks).requiredProductPluginID, "playbooks")
+        // The console is the server binary's own UI; a plugin route is whatever the reader named
+        // and cannot be checked against a fixed id (the row is a request, not a capability claim).
+        XCTAssertNil(WebFallbackSurface(kind: .systemConsole).requiredProductPluginID)
+        XCTAssertNil(WebFallbackSurface(kind: .plugin, pluginID: "com.mattermost.calls")
+            .requiredProductPluginID)
+        // The gate does not change what the row addresses.
+        XCTAssertEqual(WebFallbackSurface(kind: .boards).path, "/boards")
+        XCTAssertEqual(WebFallbackSurface(kind: .boards).rowTitle, "Boards")
+    }
+
+    /// The finding: on a server without focalboard the Boards row opened `/boards` and painted the
+    /// "Preview Mode" banner — 61 characters of nothing, 75 s, with no statement anywhere
+    /// (`docs/t46-av-verdict.md` §F1). The gate must refuse the navigation and say so instead.
+    func testASurfaceWhosePluginTheServerDoesNotServeIsNotEnabled() async throws {
+        let server = Self.server(id: UUID())
+        let model = WebFallbackModel(server: server, surface: .init(kind: .boards),
+                                     pluginLister: { _ in ["com.mattermost.calls",
+                                                           "com.mattermost.nps",
+                                                           "playbooks"] })
+        XCTAssertEqual(model.availability, .checking,
+                       "the gate is not decided until the server has answered")
+
+        let mayLoad = await model.checkAvailability()
+        XCTAssertFalse(mayLoad)
+        XCTAssertEqual(model.availability, .notEnabled("focalboard"))
+        XCTAssertEqual(model.servedProductPluginIDs, Set(["com.mattermost.calls",
+                                                          "com.mattermost.nps",
+                                                          "playbooks"]))
+        XCTAssertEqual(model.notEnabledMessage, "Boards is not enabled on this server.")
+        XCTAssertTrue(model.notEnabledDetail.contains("focalboard"),
+                      "the detail names the plugin an administrator would have to enable")
+
+        // The decisive part: nothing was navigated to. A sheet that never loads cannot paint a
+        // blank page, and it also costs no WebContent process.
+        await model.start()
+        let store = try XCTUnwrap(model.store)
+        XCTAssertNil(store.lastRequestedURL, "a not-enabled surface must not issue a navigation")
+        XCTAssertNil(store.url, "and nothing may commit")
+        model.tearDown()
+    }
+
+    func testASurfaceWhosePluginTheServerServesLoads() async throws {
+        let server = Self.server(id: UUID())
+        let model = WebFallbackModel(server: server, surface: .init(kind: .boards),
+                                     tokenProvider: { _ in "token" },
+                                     userIDProvider: { _ in "user" },
+                                     pluginLister: { _ in ["focalboard", "playbooks"] })
+        let mayLoad = await model.checkAvailability()
+        XCTAssertTrue(mayLoad)
+        XCTAssertEqual(model.availability, .available)
+        model.tearDown()
+    }
+
+    func testPlaybooksSaysWhichProductIsMissing() async throws {
+        let server = Self.server(id: UUID())
+        let model = WebFallbackModel(server: server, surface: .init(kind: .playbooks),
+                                     pluginLister: { _ in ["focalboard"] })
+        let mayLoad = await model.checkAvailability()
+        XCTAssertFalse(mayLoad)
+        XCTAssertEqual(model.notEnabledMessage, "Playbooks is not enabled on this server.")
+        model.tearDown()
+    }
+
+    /// An unanswered capability question is **not** "the server serves nothing". A server behind a
+    /// failing probe must keep working: the surface loads and the page answers, which is the
+    /// pre-existing behaviour rather than a new refusal.
+    func testAnUnansweredPluginListingStillOpensTheSurface() async throws {
+        let server = Self.server(id: UUID())
+        let model = WebFallbackModel(server: server, surface: .init(kind: .boards),
+                                     pluginLister: { _ in nil })
+        let mayLoad = await model.checkAvailability()
+        XCTAssertTrue(mayLoad, "an unanswerable probe must not close a surface that works today")
+        XCTAssertEqual(model.availability, .available)
+        XCTAssertNil(model.servedProductPluginIDs)
+        model.tearDown()
+    }
+
+    /// The console and a named plugin route are never gated: nothing is asked of the server, so a
+    /// sheet with no product plugin opens immediately (and cannot be delayed by a slow probe).
+    func testTheConsoleAndPluginRoutesAreNeverGated() async throws {
+        let server = Self.server(id: UUID())
+        let console = WebFallbackModel(server: server, surface: .init(kind: .systemConsole),
+                                       pluginLister: { _ in Set<String>() })
+        XCTAssertEqual(console.availability, .available, "no gate, no checking state")
+        let consoleLoads = await console.checkAvailability()
+        XCTAssertTrue(consoleLoads)
+
+        let plugin = WebFallbackModel(server: server,
+                                      surface: .init(kind: .plugin, pluginID: "com.mattermost.nps"),
+                                      pluginLister: { _ in Set<String>() })
+        XCTAssertEqual(plugin.availability, .available)
+        let pluginLoads = await plugin.checkAvailability()
+        XCTAssertTrue(pluginLoads)
+        XCTAssertNil(plugin.servedProductPluginIDs,
+                     "the shell must not ask a question whose answer it cannot use")
+        XCTAssertNil(console.servedProductPluginIDs)
+        console.tearDown()
+        plugin.tearDown()
+    }
+
+    /// `GET /api/v4/plugins/webapp` → the ids, and `nil` for everything that is not an answer.
+    func testThePluginListingReadsTheServersOwnAnswer() async throws {
+        let server = Self.server(id: UUID())
+        MockURLProtocol.handler = { request in
+            XCTAssertEqual(request.url?.path, "/api/v4/plugins/webapp")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer shell-token")
+            return (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url),
+                                                  statusCode: 200,
+                                                  httpVersion: nil,
+                                                  headerFields: nil)),
+                    Data("""
+                    [{"id":"playbooks","version":"1.41.1","webapp":{"bundle_path":"/static/p.js"}},
+                     {"id":"com.mattermost.calls"}]
+                    """.utf8))
+        }
+        let ids = await WebFallbackPluginListing.pluginIDs(for: server, token: "shell-token",
+                                                           session: mockSession())
+        XCTAssertEqual(ids, Set(["playbooks", "com.mattermost.calls"]))
+
+        MockURLProtocol.handler = { request in
+            (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url),
+                                           statusCode: 500,
+                                           httpVersion: nil,
+                                           headerFields: nil)), Data())
+        }
+        let failed = await WebFallbackPluginListing.pluginIDs(for: server, token: nil,
+                                                              session: mockSession())
+        XCTAssertNil(failed, "a 5xx is not 'the server serves no plugins'")
+
+        MockURLProtocol.handler = { request in
+            (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url),
+                                           statusCode: 200,
+                                           httpVersion: nil,
+                                           headerFields: nil)), Data("<html>".utf8))
+        }
+        let garbage = await WebFallbackPluginListing.pluginIDs(for: server, token: nil,
+                                                               session: mockSession())
+        XCTAssertNil(garbage, "a body that is not a plugin list is not an empty list")
+        MockURLProtocol.handler = nil
+    }
+
+    /// A sub-path install asks the same endpoint under the server's base path.
+    func testThePluginListingKeepsASubPathInstall() async throws {
+        let id = UUID()
+        let server = ServerConfig(id: id, name: "sub",
+                                  url: try XCTUnwrap(URL(string: "https://mm.example.com/company/mm")),
+                                  hasSession: true)
+        MockURLProtocol.handler = { request in
+            XCTAssertEqual(request.url?.path, "/company/mm/api/v4/plugins/webapp")
+            return (try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url),
+                                                  statusCode: 200,
+                                                  httpVersion: nil,
+                                                  headerFields: nil)), Data("[]".utf8))
+        }
+        let ids = await WebFallbackPluginListing.pluginIDs(for: server, token: nil,
+                                                           session: mockSession())
+        XCTAssertEqual(ids, Set<String>(), "an empty list is an answer, not a failure")
+        MockURLProtocol.handler = nil
+    }
+
+    /// The live suite reads the session decision out of one string; T46-R R4 makes it say *why*.
+    func testTheObservableStateCarriesTheCookieNamesTheStoreHeld() {
+        let state = WebFallbackModel.observableState(pageLoadState: "loaded",
+                                                    sessionSource: "installed",
+                                                    url: "http://127.0.0.1:8065/boards",
+                                                    paintedCharacters: 61,
+                                                    cookieNames: ["MMAUTHTOKEN", "MMUSERID"])
+        XCTAssertEqual(state, "loaded|installed|http://127.0.0.1:8065/boards|chars=61"
+                       + "|cookies=MMAUTHTOKEN,MMUSERID")
+        // No cookies is an empty tail, not a `|cookies=` with nothing after it.
+        XCTAssertEqual(WebFallbackModel.observableState(pageLoadState: "loading",
+                                                        sessionSource: "installed",
+                                                        url: "-",
+                                                        paintedCharacters: nil),
+                       "loading|installed|-")
     }
 
     // MARK: - Helpers

@@ -761,8 +761,9 @@ WebContent the warm `native` arm still carries. The implementation card is paren
 
 ## 13. Permanently web surfaces (T46)
 
-**Status: implemented (T46, `t_a7a9f2ff`). These surfaces are `web` for ever — they are not waiting
-on a port.** Build note and measurements: `docs/t46-build-note.md`.
+**Status: implemented (T46, `t_a7a9f2ff`); repaired by T46-R (`t_aa65ed88`) after T46-AV's FAIL.**
+These surfaces are `web` for ever — they are not waiting on a port. Build note and measurements:
+`docs/t46-build-note.md` (§9 is the repair run).
 
 ### 13.1 Which surfaces, and why
 
@@ -800,10 +801,14 @@ is — holds four rows:
 
 | Row | Identifier | Opens |
 |---|---|---|
-| Boards | `webFallbackRow.boards` | `/boards` |
-| Playbooks | `webFallbackRow.playbooks` | `/playbooks` |
+| Boards | `webFallbackRow.boards` | `/boards` — **only when the server serves the `focalboard` plugin** (§13.6) |
+| Playbooks | `webFallbackRow.playbooks` | `/playbooks` — **only when the server serves the `playbooks` plugin** |
 | System Console | `webFallbackRow.systemConsole` | `/admin_console` |
-| Plugin screen… | `webFallbackRow.plugin` | an id prompt → `/plugins/<id>` |
+| Plugin route… | `webFallbackRow.plugin` | an id prompt → `/plugins/<id>` (a request into the plugin namespace, §13.6) |
+
+The two product rows are gated on what the server actually serves (`GET /api/v4/plugins/webapp`,
+asked before the first navigation). A server without the plugin gets a sentence — "Boards is not
+enabled on this server." — instead of a blank page (T46-R R1, `docs/t46-av-verdict.md` §F1).
 
 The plugin row asks for the id rather than guessing a list: the shell cannot know which plugins a
 server ships, and a wrong guess is a 404 the reader cannot explain. (The id is validated as a single
@@ -843,13 +848,59 @@ The web app's first-visit **landing page** is separate: its `__landingPageSeen__
 `atDocumentStart` so the first boot is already the surface, with the same-server fragment skip kept as
 the fallback for a store whose storage is disabled.
 
+**Measured (T46-R, R4/R5) — the reuse path is not deterministic.** Runs of the same live suite
+printed the session decision once per presentation:
+
+```
+run A (build/logs/t46r-live-1.log): installed ×4, then shared ×16   (presentations 5–20)
+run B (build/logs/t46r-live-3.log): installed ×20, shared ×0
+run C (build/logs/t46r-live-6.log): installed ×20, shared ×0
+```
+
+`|cookies=` (names only, never values) explains run A: presentations 1–4 read an **empty** cookie
+jar (`allCookies()` returned `[]`); presentation 5 read the triple plus the web app's own `rl_*`
+cookies. So the jar **can** carry the session forward — and runs B and C show it can fail to do so
+for a whole run. A separate probe (one presentation, a 70 s idle, a second presentation) also read an
+empty jar on the second, so this is not a flush timer that a wait fixes.
+
+What is measured, therefore, is what the code does: when the read is empty — and that is the common
+case — the shell re-installs the same triple from `SecureVault`. **The load-bearing guarantee is the
+re-install ("no second login"), not the reuse**, and T46's run (every state `installed`) was the usual
+case rather than an anomaly. The live suite asserts what the claim needs: every presentation is
+`.installed` or `.shared`, never `.none`, and never lands on `/login`.
+
+Consequence worth keeping in mind: an empty read is indistinguishable from an empty store, so a
+webview-established session could in principle be overwritten by the vault's token in that state —
+untested against a real SSO server (§13.7).
+
 ### 13.4 Teardown
 
 One presentation, one `WKWebView`, destroyed on close (drop the store; never park on `about:blank` —
 §12.2's rule applies to the fallback too, at webview granularity rather than pane granularity). The
-server's data store and its cookies outlive the presentation, so reopening a surface is not a new
-login. `scripts/t46_leak_probe.py` is the process-level check (peak ≤ 4 attributed `WebContent`
-processes, 0 after settling); `T46WebFallbackTests` is the object-level one.
+server's data store outlives the presentation; whether its cookies are *readable* by the next
+presentation is not deterministic (§13.3), so a reopen may re-install the shell's triple — the same
+session, still not a new login. `scripts/t46_leak_probe.py` is the process-level check (peak ≤ 4
+attributed `WebContent` processes, and **0 while the app is alive and idle**); `T46WebFallbackTests`
+is the object-level one.
+
+The at-rest sample is driven by the suite, not by the script: the last thing
+`testTwentyOpenCloseCyclesEachRender` does is print `T46_AT_REST_BEGIN`, hold the app open with
+nothing presented for 20 s, and print `T46_AT_REST_END`; the probe **tails the runner's log** while
+the suite is running (`scripts/qa-test.py` writes `xcodebuild` to `build/logs/<label>.log` and does
+not echo it to its own stdout — the first reader watched the pipe and saw no window) and judges the
+run on those samples. Before T46-R the sample was taken *after* `xcodebuild` exited, where a retained
+webview and an app exit are indistinguishable — the audit's run 1 counted a `WebContent` pid that was
+still alive twelve minutes later with no client app, and run 2 counted zero
+(`docs/t46-av-verdict.md` §F5).
+
+A pid that outlives its app is reported as an **orphan** and excluded from the at-rest count, not
+counted as a leak: the app's death tears its webviews down, so a process that survives it was never
+held by a webview the app retained. Measured: `build/logs/t46r-live-6.log` /
+`build/t46-leak/t46r-live-6.json` — twenty presentations, **peak 1** attributed `WebContent` process,
+**41 at-rest samples all at 0**, 0 after the app exited; and `t46r-live-5`, where one pid stayed
+alive through the window *and* after the app was gone (still there minutes later, the §F5 shape), is
+an orphan under this rule rather than a leak — that run predates it, so its JSON reports the raw count
+and the re-scoring is recorded in `docs/t46-build-note.md` §9.5.
 
 ### 13.5 Reasons the obvious alternatives are not taken
 
@@ -862,7 +913,7 @@ processes, 0 after settling); `T46WebFallbackTests` is the object-level one.
 
 ### 13.6 What "exactly that surface" is measured as
 
-Two traps this card hit, both worth keeping in mind for any later fallback work:
+Three traps this card hit, all worth keeping in mind for any later fallback work:
 
 * **`didFinish` is not "rendered".** The web app's HTML shell finishes loading with a blank body; the
   SPA then routes and paints. A live assertion on the committed URL alone therefore certifies a white
@@ -871,9 +922,45 @@ Two traps this card hit, both worth keeping in mind for any later fallback work:
   the live suite requires ≥ 120 characters before it attaches a screenshot. The evaluation is
   read-only — no cookie, no storage, no bridge call — and a unit test pins that.
 * **A plugin route is a request, not a page.** `/plugins/<id>` answers `301 → /` on the fixture for
-  every installed plugin, because a plugin's UI is a client-side route inside the web app. The sheet
-  therefore publishes both what it **asked** for (`|requested=…`) and what the server **committed**;
-  the live test asserts both. Boards, Playbooks and the System Console are real server routes and are
-  asserted on the committed URL alone.
+  every installed plugin (calls, playbooks; focalboard 404s on this server because it is not
+  installed), because a plugin's UI is a client-side route inside the web app. The sheet therefore
+  publishes both what it **asked** for (`|requested=…`) and what the server **committed**; the live
+  test asserts both. The row and the sheet are labelled **"Plugin route…"** — T46 called it "Plugin
+  screen…" and shipped `docs/t46-shots/t46-plugin-screen.png` as evidence for a "plugin screen",
+  which was a picture of the workspace at Town Square (T46-AV §F2). The shot is kept under the honest
+  name `t46-plugin-route-request.png`: it is the evidence for what the route request renders.
+* **A product surface whose plugin is absent is not a surface.** `/boards` and `/playbooks` are
+  answered by the web app's HTML shell whether or not the plugin that paints them is installed. On a
+  9.11.19 Team Edition fixture with no focalboard plugin, the Boards row painted the "Preview Mode"
+  banner and 61 characters of nothing, after 75 s, with no spinner and no statement (T46-AV §F1,
+  `docs/t46-av-shots/t46av-boards-blank.png`). The sheet now asks the server which plugins it serves
+  (`GET /api/v4/plugins/webapp`) **before the first navigation**: `boards` needs `focalboard`,
+  `playbooks` needs `playbooks`. When the answer excludes the plugin, the sheet renders "Boards is
+  not enabled on this server." in its own `webFallbackUnavailable` state and issues **no navigation
+  at all**: the webview is mounted (so the next load finds a delegate — §13.2's trap) but never
+  navigates, which the live test asserts from the pane's own state (`idle`, no committed URL). An
+  *unanswered* probe (no network, a 401 before the
+  session is installed, a server without the route) is **not** "not enabled": the surface opens and
+  the page answers, because refusing on a failed probe would break servers that work today.
+
+What the live suite asserts per surface: the System Console (painted, signed in, committed URL at
+`/admin_console…`), Playbooks (painted at `/playbooks…`), Board**s** (painted at `/boards…` **or** the
+not-enabled statement, and never a webview with neither — `testBoardsIsEitherPaintedOrSaysItIsNotEnabled`),
+the plugin route (requested `/plugins/<id>`, painted page, sheet titled "Plugin route: …"), and
+twenty console presentations, each signed in (`.installed` or `.shared`, never `.none`) and painted,
+with the session decision printed per cycle.
+
+### 13.7 What this is *not* measured against (negative space)
+
+Stated rather than left silent (T46-AV §4):
+
+| Gap | Why it matters | Status |
+|---|---|---|
+| the in-sheet **Back** button (`webFallbackBack`) | the only navigation control inside a surface; `canGoBack` is mirrored but no test taps it | untested |
+| **non-admin** reader + System Console | the row is offered to everyone; a member gets the console's own refusal inside the sheet | stated in `docs/parity.md`, no measurement |
+| **dark mode / Dynamic Type / VoiceOver** on the sheet | the shell went through T45; this sheet did not | untested |
+| a **webview-established** (SSO) session handing over | §13.3: an empty cookie-jar read is indistinguishable from an empty store, so the vault's token could overwrite a web session | untested live |
+| **server-side session survival** after twenty cycles | the suite proves each page renders signed in; it never asks the server whether the native transport's session is still valid afterwards | untested (inferred from the cycles rendering) |
+| Boards on a server that **does** install focalboard | the fixture ships none, so the "painted Boards" half of the row's contract is unmeasured here; the `notEnabled` half is measured (`build/logs/t46r-live-1.log`) | untested live; unit-tested with an injected listing |
 
 

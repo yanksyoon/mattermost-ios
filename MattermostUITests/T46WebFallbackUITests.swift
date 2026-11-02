@@ -81,6 +81,88 @@ final class T46WebFallbackUITests: XCTestCase {
         XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 20))
     }
 
+    /// **T46-R R1** — the Boards row must never present a blank page.
+    ///
+    /// T46 had no test that opened this row, and `docs/dual-render.md` §13.6 claimed one existed.
+    /// The audit ran it by hand: a natively signed-in session, the row tapped, 75 s of watching —
+    /// and `loaded|installed|http://127.0.0.1:8065/boards|chars=61`, the "Preview Mode" banner and
+    /// a blank navy page (`docs/t46-av-verdict.md` §F1). Boards is a **product plugin**
+    /// (`focalboard`); this fixture does not install it, so `/boards` is the web app's HTML shell
+    /// with no bundle to mount.
+    ///
+    /// Two outcomes are acceptable, and both are measured here:
+    ///  * the server serves Boards → the webview paints it (`chars >= 120` at a `/boards…` URL);
+    ///  * the server does not → the sheet says "Boards is not enabled on this server." and **no
+    ///    webview is created at all** (a statement, not a page that happens to be empty).
+    ///
+    /// The third outcome — a webview at `/boards` with too little text and no statement — is the
+    /// finding this test exists to fail on.
+    func testBoardsIsEitherPaintedOrSaysItIsNotEnabled() throws {
+        let app = launchApp()
+
+        let row = element(app, "webFallbackRow.boards")
+        XCTAssertTrue(scrollTo(app, element: row), "the Boards row must be reachable")
+        row.tap()
+
+        let statement = app.staticTexts["Boards is not enabled on this server."]
+        let pane = element(app, "webFallbackPane")
+        let deadline = Date().addingTimeInterval(90)
+        var outcome = "none"
+        var observed = ""
+
+        while Date() < deadline {
+            if statement.exists {
+                outcome = "notEnabled"
+                observed = statement.label
+                break
+            }
+            if pane.exists {
+                let value = String(describing: pane.value ?? "")
+                observed = value
+                if value.hasPrefix("loaded|"),
+                   let committed = committedURL(in: value),
+                   committed.contains("/boards"),
+                   let painted = paintedCharacters(in: value),
+                   painted >= 120 {
+                    outcome = "painted"
+                    break
+                }
+            }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+
+        print("T46 boards outcome: \(outcome) — \(observed)")
+        attachment(app, named: "t46-boards-\(outcome)")
+        XCTAssertNotEqual(outcome, "none",
+                          "the Boards row must paint Boards or say the server does not enable it "
+                          + "within 90 s; it did neither (last pane state: \(observed)) — a webview "
+                          + "with no text and no statement is T46-AV's F1")
+        if outcome == "notEnabled" {
+            // The webview stays mounted so the navigation delegate is installed before any load,
+            // but it is hidden and — the decisive fact — it never navigated: the page never went
+            // past `idle` and nothing was committed. (`requested=` is the route the sheet *would*
+            // ask for, set in `init`, so it is not evidence of a load.) A "not enabled" state that
+            // had loaded `/boards` would be the blank page T46-AV found, with a caption over it.
+            if pane.exists {
+                let paneState = String(describing: pane.value ?? "")
+                XCTAssertTrue(paneState.hasPrefix("idle|"),
+                              "a not-enabled surface must not have started a navigation "
+                              + "(pane state: \(paneState))")
+                XCTAssertEqual(committedURL(in: paneState), "-",
+                               "a not-enabled surface must not have committed a page")
+            }
+            XCTAssertTrue(element(app, "webFallbackUnavailable").exists,
+                          "the not-enabled state is the sheet's own 'cannot be opened' state")
+        } else {
+            XCTAssertTrue(app.staticTexts["Boards is not enabled on this server."].exists == false,
+                          "a painted Boards surface must not also claim to be disabled")
+        }
+
+        app.buttons["webFallbackClose"].tap()
+        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 20),
+                      "closing the Boards sheet returns to the native shell")
+    }
+
     // MARK: - 2. Teardown and recreation
 
     /// Twenty presentations. Each one is a fresh `WebFallbackModel` (the sheet's item identity
@@ -90,29 +172,85 @@ final class T46WebFallbackUITests: XCTestCase {
     func testTwentyOpenCloseCyclesEachRender() throws {
         let app = launchApp()
         let cycles = 20
+        var decisions: [String] = []
         for cycle in 0..<cycles {
             let pane = openSurface(app, row: "webFallbackRow.systemConsole",
                                    surface: "/admin_console", timeout: 60,
                                    screenshot: cycle == 0 || cycle == cycles - 1)
+            // Printed per cycle (T46-R R4): the session decision is the thing the "no second
+            // login" claim rests on, and a log that only shows the first presentation cannot say
+            // whether the store's session was reused or re-installed. `|cookies=` lists names.
+            let state = String(describing: pane.value ?? "")
+            print("T46 cycle \(cycle + 1) state: \(state)")
+            // What the card claims, asserted: every cycle is a **signed-in** presentation of the
+            // console, and none of them is a second login. `.installed` and `.shared` are both
+            // legitimate — the shell installs its own token when the store's cookie jar has
+            // nothing readable (measured: presentations 1-4 of this run), and reuses the store's
+            // session when it does (5-20). `.none` (no session at all) or a `/login` URL would
+            // break the claim.
+            let decision = sessionDecision(in: state)
+            XCTAssertNotNil(decision, "every cycle must report a session decision (state: \(state))")
+            XCTAssertNotEqual(decision, "none",
+                              "cycle \(cycle + 1): the shell holds a token for this server, so a "
+                              + "fallback presentation is never signed out (state: \(state))")
+            XCTAssertFalse(state.contains("/login"),
+                           "cycle \(cycle + 1) must not land on the login page (state: \(state))")
+            decisions.append(decision ?? "?")
             app.buttons["webFallbackClose"].tap()
             let gone = XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "exists == false"), object: pane)
             XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 30), .completed,
                            "cycle \(cycle): the fallback webview must go away when its sheet closes")
         }
+        // The sequence, not just a count: T46-AV's F4 said `shared` never happened in the app, and
+        // what this run measures is *when* it starts happening. Printed so the log carries the
+        // answer, and asserted only insofar as the claim needs it (never `none`, above).
+        let installed = decisions.filter { $0 == "installed" }.count
+        let shared = decisions.filter { $0 == "shared" }.count
+        print("T46 session decisions over \(cycles) presentations: installed=\(installed) "
+              + "shared=\(shared) (sequence: \(decisions.joined(separator: ",")))")
+
+        // T46-R R5 — the "at rest" sample must be taken while this app is **still alive**.
+        //
+        // `scripts/t46_leak_probe.py` used to take its final count after `xcodebuild` had exited,
+        // i.e. after XCTest terminated the app: a leaked `WKWebView` and an app exit are the same
+        // observation at that point (T46-AV F5: run 1 counted one `WebContent` pid that was still
+        // alive 12 minutes later with no client app; run 2 counted zero). So the last thing this
+        // test does is hold the app open and idle with nothing presented, and print a marker pair
+        // the probe samples between. Twenty seconds is longer than WebKit needs to retire the
+        // content process it was using (measured: under 2 s after a close).
+        print("T46_AT_REST_BEGIN")
+        XCTAssertTrue(element(app, "nativeShell").exists,
+                      "nothing is presented at the at-rest sample: the native shell is on screen")
+        Thread.sleep(forTimeInterval: 20)
+        print("T46_AT_REST_END")
+        XCTAssertTrue(element(app, "nativeShell").exists,
+                      "the app must still be alive at the end of the at-rest window, or the sample "
+                      + "measured an app exit rather than a released webview")
     }
 
-    // MARK: - 3. Plugin screens
+    // MARK: - 3. Plugin routes
 
-    /// A plugin screen is `/plugins/<id>`; the prompt refuses an id that is not one path segment
-    /// until it is valid, and then opens exactly that route.
-    func testAPluginScreenIsAddressableByID() throws {
+    /// **T46-R R2** — a plugin **route**, not a plugin screen.
+    ///
+    /// `/plugins/<id>` answers `301 → /` on 9.11.19 for every installed plugin (calls 301,
+    /// playbooks 301, focalboard 404 — `docs/t46-build-note.md` §7.4), so what the reader gets is
+    /// the workspace. T46's row called itself "Plugin screen" and shipped
+    /// `docs/t46-shots/t46-plugin-screen.png` as evidence for "a plugin screen" — the picture was
+    /// of Town Square. The repair renames the row and the sheet to "Plugin route…", says in the
+    /// prompt what the path actually addresses, and this test asserts exactly what is true:
+    /// the shell asked for `/plugins/com.mattermost.calls`, the page it rendered is the server's
+    /// web app (signed in), and the sheet's own title says "route".
+    func testAPluginRouteIsAddressableByID() throws {
         let app = launchApp()
 
         let row = element(app, "webFallbackRow.plugin")
-        XCTAssertTrue(scrollTo(app, element: row), "the Plugin screen row must be reachable")
+        XCTAssertTrue(scrollTo(app, element: row), "the Plugin route row must be reachable")
         row.tap()
 
+        // The prompt is titled for what it does, not for what it cannot promise.
+        XCTAssertTrue(app.navigationBars["Plugin route"].waitForExistence(timeout: 20),
+                      "the plugin prompt must name the route it opens")
         let field = element(app, "webFallbackPluginField")
         XCTAssertTrue(field.waitForExistence(timeout: 20), "the plugin-id prompt must appear")
         let open = app.buttons["webFallbackPluginOpen"]
@@ -123,19 +261,23 @@ final class T46WebFallbackUITests: XCTestCase {
         XCTAssertTrue(open.isEnabled, "a plugin id is one path segment under /plugins/")
         open.tap()
 
+        // The sheet is titled "Plugin route: <id>" — the label the repair is about.
+        XCTAssertTrue(app.navigationBars["Plugin route: com.mattermost.calls"]
+                        .waitForExistence(timeout: 30),
+                      "the sheet must say it opened a route, not a plugin screen")
+
         // The prompt closes and the surface opens; the route is what it says it is. Waited for, not
         // read once: the sheet exists before its first navigation commits, and the state carries the
         // shell's URL until then (`loading|installed|http://127.0.0.1:8065/` — measured when this
         // assertion raced the load, `build/logs/t46-leak-r2.log`).
         //
         // What this fixture actually answers: `/plugins/<id>` is a **301 to `/`** for every installed
-        // plugin (measured: calls 301, playbooks 301, focalboard 404 — `docs/t46-build-note.md` §7.4),
-        // so the committed page is the web app, not a page at the plugin path. Both facts are
+        // plugin, so the committed page is the web app, not a page at the plugin path. Both facts are
         // asserted: the shell asked for exactly `/plugins/com.mattermost.calls`, and the answer that
         // came back is a rendered page (the server's, signed in) rather than a white rectangle.
         let pane = element(app, "webFallbackPane")
         XCTAssertTrue(pane.waitForExistence(timeout: 30),
-                      "a plugin screen must open a webview")
+                      "a plugin route must open a webview")
         let routed = XCTNSPredicateExpectation(
             predicate: NSPredicate { object, _ in
                 let value = String(describing: (object as? XCUIElement)?.value ?? "")
@@ -149,7 +291,9 @@ final class T46WebFallbackUITests: XCTestCase {
         let value = String(describing: pane.value ?? "")
         XCTAssertEqual(reached, .completed,
                        "the fallback must address exactly the plugin root (state: \(value))")
-        attachment(app, named: "t46-plugin-screen")
+        print("T46 plugin route state: \(value)")
+        // Named for the evidence it is (T46-R R2): the request, not "the plugin's screen".
+        attachment(app, named: "t46-plugin-route-request")
         app.buttons["webFallbackClose"].tap()
         XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 20))
     }
@@ -292,6 +436,13 @@ final class T46WebFallbackUITests: XCTestCase {
         let parts = state.split(separator: "|", omittingEmptySubsequences: false)
         guard parts.count >= 3 else { return nil }
         return String(parts[2])
+    }
+
+    /// The session decision (the second field): `installed`, `shared`, `none` or `unavailable`.
+    private func sessionDecision(in state: String) -> String? {
+        let parts = state.split(separator: "|", omittingEmptySubsequences: false)
+        guard parts.count >= 2, !parts[1].isEmpty else { return nil }
+        return String(parts[1])
     }
 
     /// The sidebar's own scroll surface (`ShellSettle.channelSidebarScroll`): rows below the fold are

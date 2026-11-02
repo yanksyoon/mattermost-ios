@@ -250,9 +250,16 @@ A plugin's webapp is a **client-side** route inside the web app (the installed b
 so the plugin root can only 301 into the app. The live test therefore asserts both facts the shell
 can be held to — the pane's `requested=` route is exactly
 `http://127.0.0.1:8065/plugins/com.mattermost.calls`, and the page that comes back is painted
-(`chars ≥ 120`, signed in) — and `docs/t46-shots/t46-plugin-screen.png` is that state: the web app at
-Town Square, titled `Plugin: com.mattermost.c…`. Boards, Playbooks and the System Console are real
-server routes and are asserted on the **committed** URL.
+(`chars ≥ 120`, signed in) — and `docs/t46-shots/t46-plugin-route-request.png` (renamed from
+`t46-plugin-screen.png` by T46-R) is that state: the web app at Town Square. It is evidence for "the
+route request rendered the web app", **not** for "this plugin's screen" — the row and the sheet are
+therefore labelled "Plugin route…" (T46-R R2, `docs/t46-av-verdict.md` §F2).
+
+The last sentence of this section in T46 read "Boards, Playbooks and the System Console are real
+server routes and are asserted on the **committed** URL." That was true for Playbooks and the console
+and false for Boards: no test opened the Boards row (T46-AV §F3), and on this fixture — which ships no
+focalboard plugin — it painted 61 characters and nothing else (§F1). T46-R added
+`testBoardsIsEitherPaintedOrSaysItIsNotEnabled`; see §9.
 
 ### 7.5 Teardown and the memory claim — process level
 
@@ -281,7 +288,7 @@ would defeat the memory goal. Report: `build/t46-leak/t46-leak-r4.json`.
 | `t46-system-console-native-session.png` | the System Console signed in as **@perfprobe**, at Edition and License — the card's first criterion, on the native session |
 | `t46-cycle-20-console.png` | the **twentieth** open/close cycle, same surface (byte-identical to the shot above: the screen is deterministic, which is itself the claim — cycle 20 renders exactly like cycle 1) |
 | `t46-playbooks.png` | Playbooks at `/playbooks`, team `Perf`, RUNS/PLAYBOOKS lists |
-| `t46-plugin-screen.png` | `/plugins/com.mattermost.calls` requested → the server's 301 → the web app renders (Town Square), title `Plugin: com.mattermost.c…` |
+| `t46-plugin-route-request.png` | `/plugins/com.mattermost.calls` requested → the server's 301 → the web app renders (Town Square). Renamed from `t46-plugin-screen.png` by T46-R: it is evidence for the route request, not for a plugin screen. |
 
 ---
 
@@ -289,6 +296,159 @@ would defeat the memory goal. Report: `build/t46-leak/t46-leak-r4.json`.
 
 | Suite | What it holds |
 |---|---|
-| `MattermostTests/T46WebFallbackTests.swift` | the surface catalogue (routes, plugin ids, sub-path installs, no traversal), the session-cookie policy (scope/flags/lifetime/triple/CSRF shape), the sharing rules (`.shared`/`.installed`/`.none`, token-only store is repaired, token-without-user-id is refused, a web session is never overwritten), teardown (idempotent, cookies survive, twenty webviews deallocate) |
-| `MattermostUITests/T46WebFallbackUITests.swift` | live: the console opens from native chrome with the native session and returns to the shell; Playbooks opens at its own route; a plugin screen opens at the plugin root; twenty open/close cycles each render; closing returns to the native stack |
-| `scripts/t46_leak_probe.py` | process-level leak verdict for the twenty cycles |
+| `MattermostTests/T46WebFallbackTests.swift` | the surface catalogue (routes, plugin ids, sub-path installs, no traversal), the session-cookie policy (scope/flags/lifetime/triple/CSRF shape), the sharing rules (`.shared`/`.installed`/`.none`, token-only store is repaired, token-without-user-id is refused, a web session is never overwritten), teardown (idempotent, cookies survive, twenty webviews deallocate), and — T46-R — the capability gate (product plugin ids, not-enabled vs unanswerable, the console/plugin routes never gated, the endpoint's decode/5xx/garbage/sub-path/auth header) |
+| `MattermostUITests/T46WebFallbackUITests.swift` | live: the console opens from native chrome with the native session and returns to the shell; Playbooks opens at its own route; **Boards paints `/boards` or says it is not enabled — never a blank page**; a plugin **route** opens at `/plugins/<id>` and is labelled as a route; twenty open/close cycles each render, each signed in, followed by a 20 s app-alive at-rest window; closing returns to the native stack |
+| `scripts/t46_leak_probe.py` | process-level leak verdict for the twenty cycles: peak, and the at-rest count sampled inside the suite's `T46_AT_REST_BEGIN`/`END` window while the app is alive |
+
+---
+
+## 9. T46-R — the repair run (card `t_aa65ed88`)
+
+T46-AV (`docs/t46-av-verdict.md`) returned **FAIL** on criterion 1 and filed five findings. This
+section is the repair's measurements. Nothing above is deleted: the T46 numbers stand, and where a
+claim was too strong it is corrected in place (§7.4) and here.
+
+Run commands (all on this host, fixture `mm-perf` 9.11.19 at `http://127.0.0.1:8065`, iPhone 16 Pro
+`81A7F251-…`):
+
+```
+python3 scripts/qa-test.py --platform mac \
+  --derived-data ~/Library/Developer/Xcode/DerivedData/t46r-qa --label t46r-units-final3 \
+  --only-testing MattermostTests -- \
+  -clonedSourcePackagesDirPath ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages
+
+TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
+TEST_RUNNER_MM_AUTH_PASSWORD=<scripts/perf_seed.py> \
+python3 scripts/t46_leak_probe.py --run-test --sim id=81A7F251-… \
+  --label t46r-live-6 --only-testing MattermostUITests/T46WebFallbackUITests
+```
+
+```
+units : Executed 1900 tests, with 9 tests skipped and 0 failures   ** TEST SUCCEEDED **
+        (build/logs/t46r-units-final3.log; 1891 → 1900, the nine new tests are this card's)
+live  : Executed 5 tests, with 0 failures (0 unexpected) in 228 s   ** TEST SUCCEEDED **
+        (build/logs/t46r-live-6.log)
+leak  : peak 1, at rest 0 while the app was alive (41 samples over 20 s), final 0
+        RESULT: PASS   (build/t46-leak/t46r-live-6.json)
+```
+
+### 9.1 R1 — Boards painted a blank page (the FAIL)
+
+**Before** (T46-AV §F1, not re-run here as the card instructed): a natively signed-in app, the
+Boards row tapped, 75 s — `loaded|installed|http://127.0.0.1:8065/boards|chars=61`. The fixture ships
+no focalboard plugin:
+
+```
+$ docker exec mm-perf ls /mattermost/plugins
+com.mattermost.calls
+com.mattermost.nps
+playbooks
+$ curl -s http://127.0.0.1:8065/api/v4/plugins/webapp   # ids: playbooks, com.mattermost.nps, com.mattermost.calls
+```
+
+**Repair: the capability check** (the first of the card's two options). `WebFallbackSurface` names the
+product plugin a surface needs (`boards` → `focalboard`, `playbooks` → `playbooks`); `WebFallbackModel`
+asks `GET /api/v4/plugins/webapp` **before the first navigation** and, when the answer excludes the
+plugin, sets `availability = .notEnabled(id)` and returns without loading anything — no navigation, no
+page, a sentence instead:
+
+```
+T46 boards outcome: notEnabled — Boards is not enabled on this server.
+Test Case '…testBoardsIsEitherPaintedOrSaysItIsNotEnabled' passed (12.688 seconds)
+```
+
+The same test accepts the other half of the contract on a server that *does* serve focalboard
+(`chars ≥ 120` at a `/boards…` URL); the fixture cannot show that, so it is unit-tested with an
+injected listing instead, and `docs/dual-render.md` §13.7 states the gap.
+
+An **unanswered** probe is not "not enabled": the surface opens and the page answers (a refusal on a
+failed probe would break servers that work today). Pinned by
+`testAnUnansweredPluginListingStillOpensTheSurface`.
+
+### 9.2 R2 — the plugin row is a request, not a screen
+
+Measured again on this fixture: `/plugins/com.mattermost.calls` → `301 → /`; `/plug/com.mattermost.calls`
+answers `200` but no installed plugin on this server registers a client route there, so the row cannot
+promise a plugin UI. The repair takes the card's second option — **say what it shows**: the row is
+"Plugin route…", the sheet is "Plugin route: <id>", the id prompt's footer says the path may answer
+with the workspace, and `t46-plugin-screen.png` is renamed `t46-plugin-route-request.png` (it is
+evidence for the route request). The live test now asserts the sheet's own title and the measured
+state:
+
+```
+T46 plugin route state: loaded|installed|http://127.0.0.1:8065/ops/channels/town-square|chars=1567|requested=http://127.0.0.1:8065/plugins/com.mattermost.calls
+```
+
+### 9.3 R3 — the docs claimed a Boards assertion that did not exist
+
+Fixed where the claim was made: `docs/dual-render.md` §13.6 no longer says Boards "is asserted on the
+committed URL alone"; it says the row is asserted as *painted or explicitly not enabled*, and §7.4 of
+this note records what the old sentence got wrong. The sentence is true now because
+`testBoardsIsEitherPaintedOrSaysItIsNotEnabled` exists (it is `grep`-able, and it ran — §9.1).
+
+### 9.4 R4 — `.shared` was never exercised in the app
+
+The observable state now carries the cookie **names** the store held at the decision point
+(`|cookies=`, never a value), printed per presentation. Three runs of the same suite:
+
+```
+run A (build/logs/t46r-live-1.log): installed ×4, shared ×16   — the jar read empty 4 times, then complete
+run B (build/logs/t46r-live-3.log): installed ×20, shared ×0   — the jar never became readable
+run C (build/logs/t46r-live-6.log): installed ×20, shared ×0   — same, on the final code
+```
+
+A third probe (one presentation, 70 s idle, a second presentation; `build/logs/t46r-probe-gap.log`)
+also read an empty jar → `installed`. So: **the store's cookie jar can carry the session forward, but a
+later presentation cannot rely on reading it, and a wait does not fix it.** The load-bearing guarantee
+is the re-install of the same triple from `SecureVault` — still no second login — and the live suite
+now asserts exactly that for all twenty presentations (`.installed`/`.shared`, never `.none`, never
+`/login`). `docs/dual-render.md` §13.3 and §13.4 are weakened to this measurement; the residual risk
+(an empty read is indistinguishable from an empty store, so a webview-established session could be
+overwritten) is stated in §13.7 rather than left silent.
+
+### 9.5 R5 — the leak probe could not tell a leak from an app exit
+
+The "at rest" sample now happens **while the app is alive**: the end of
+`testTwentyOpenCloseCyclesEachRender` prints `T46_AT_REST_BEGIN`, holds the native shell on screen for
+20 s with nothing presented, and prints `T46_AT_REST_END`. The probe tails the suite's log while it
+runs (measured: the runner does not echo `xcodebuild`, so the first version of the tailer saw nothing),
+samples inside that window, and reports:
+
+```
+[t46] suite printed T46_AT_REST_BEGIN - at-rest sampling starts now (the app is alive and idle)
+at rest WC     : 0 while the app was alive and idle (41 samples)
+peak WC        : 1 (limit 4)
+final WC       : 0 after 15s idle
+RESULT: PASS
+```
+
+The post-exit count is still reported, and it now has a job: **a pid that outlives the app is excluded
+from the at-rest count** as an orphan, because the app's death tears its webviews down — a process that
+survives it was never held by a webview the app retained. This is T46-AV §F5's run-1 failure mode (one
+`WebContent` pid alive twelve minutes later with no client app). Measured both ways:
+`build/t46-leak/t46r-live-5.json` — taken before the rule existed — shows pid 18048 alive through all
+38 at-rest samples *and* still alive 15 s after the app exited (it was still there, in the next run's
+baseline, minutes later): under this rule it is an orphan, not a retained webview.
+`build/t46-leak/t46r-live-6.json` is the clean run above, with no orphan at all.
+
+Two attribution bugs were found and fixed in the probe while doing this:
+
+* **The app under test is not "the first `Mattermost` process".** This host carried a 1 h 41 m old
+  Catalyst `Mattermost` app during T46-AV, and it is still running (pid 47416): `app_pid()` returned it
+  while the simulator's app was starting, so "is the app alive" was answering about the wrong process.
+  The probe now snapshots the app pids at start and only counts pids that appeared **after** it
+  (`baseline_app_pids`).
+* **The suite's markers are in the log, not on the pipe.** `scripts/qa-test.py` redirects `xcodebuild`
+  into `build/logs/<label>.log`; the first tailer read only the subprocess pipe and reported "no
+  `T46_AT_REST_BEGIN` window" for a run whose log contained it. The reader now tails both.
+
+### 9.6 Host state this repair changed
+
+* Fixture `mm-perf` **untouched**: focalboard is *not* installed, because the card's first option
+  (the capability check) is the one taken and the not-enabled path is what this host can prove.
+* Two temporary probes created, run and deleted: `MattermostTests/T46RProbeTests.swift` (does a cookie
+  survive a `WKWebsiteDataStore` handle's death? — measured: yes in-process, which is why the empty
+  jar above is not that) and `MattermostUITests/T46RSessionProbeUITests.swift` (the 70 s gap probe).
+* `git mv docs/t46-shots/t46-plugin-screen.png docs/t46-shots/t46-plugin-route-request.png`.
+* No secrets, no real workspace host: the only hosts in the new files are `127.0.0.1:8065` and
+  `mm.example.com` placeholders.
