@@ -190,3 +190,16 @@ view that draws the row… no `profile=` launch flag exists any more”).
 * Retiring the keys means a user who had persisted `"profile"`/`"settings"`/`"plugins"` rows silently
   loses them — which is the intended behaviour (the rows were inert) and is why they are *not* reused
   for any new region.
+
+## 8. Landed
+
+| what | where |
+|---|---|
+| `refactor(dual-render): the catalogue is eight switch keys …` | `81ef63c` on `main` (`origin/main`) |
+| `docs(core): launchSurface counts the eight surface raw values, not twelve` | `61ba0d0` on `main` — the one stale count the grep for “11”/“12” found outside the docs (`Core/SurfaceModeResolver.swift:287`) |
+| CI, `release` workflow on the final code tip `61ba0d0` | GitHub Actions run **41386810410** — **all jobs green**: `guard (tip + change scope)`, `test (catalyst)`, `test (ios-simulator)` (which runs `MattermostTests` only), `tag and publish`, `package Mattermost.app` |
+| earlier run on `81ef63c` | run **41386689983**, also all green — the two tips differ by that one comment line |
+
+This section was written by the docs commit that follows those two, so its own run is not part of the
+record above; the tested code tip is `61ba0d0`.
+
