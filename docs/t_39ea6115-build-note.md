@@ -289,3 +289,14 @@ MentionsView.swift:43:                    .accessibilityIdentifier("activityWebF
 The **state** the copy describes — three shipped tabs whose content is a note — is the product
 decision on `t_39ea6115`'s escalation; the flip is `t_01afff4b`. This card changed no default, hid no
 tab and touched no registry entry, and it did not change the `.composer` placeholder copy.
+
+### 9.5 Landed
+
+| what | where |
+|---|---|
+| `fix(search): the lookup fallback notes name the flag …` | `b2ccf56` on `main` |
+| `fix(search): the Saved note's title keeps its backticks …` | `53e6d7a` on `main` |
+| this note | `7973d0d` on `main` (`origin/main`) |
+| CI, `release` workflow on `7973d0d` | GitHub Actions run **41416053578** — **all five jobs green**: `guard (tip + change scope)`, `test (catalyst)`, `test (ios-simulator)`, `tag and publish`, `package Mattermost.app` |
+
+The commits after `7973d0d` are docs-only (this table), so they change no tested code tip.
