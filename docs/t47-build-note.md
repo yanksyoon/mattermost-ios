@@ -124,6 +124,14 @@ They use handwritten fakes (`FakeCreateService`) — no network, no clock.
 
 ### 5.2 Live UI suite — the verdict, straight at the server
 
+> **T47-AV measured this paragraph not reproducible at `8643fbf`.** At that commit the two tests are
+> **0/2**: `revealSidebarRow` queries `app.collectionViews` while the sidebar is a `ScrollView`
+> (`channelSidebar.scroll`), so it never scrolls and both sidebar assertions fail; one run additionally
+> opened on Operations, created the channel there while the oracle looked in Perf ("POST /channels never
+> landed"), and left `t47-ui-1793648428` live (since archived). The feature itself passed the adversarial
+> suite 4/4. Evidence and the harness repair: `docs/t47-av-verdict.md` §1.2, §6 (F7/F8), card
+> `t_40082af1`.
+
 ```
 TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
 TEST_RUNNER_MM_AUTH_PASSWORD=… python3 scripts/qa-test.py --platform ios \
