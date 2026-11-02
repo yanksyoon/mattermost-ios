@@ -403,3 +403,47 @@ lookup-sheet **skipped** 34.6 s, search 31.8 s. On the committed-tree re-run
 
 Not run in this card: `MattermostTests`. No file under `Mattermost/` differs from the base
 (`git diff --stat` is the two files above), so the unit suite's inputs are unchanged.
+
+### 8.7 Correction (`t_dc0ea74d`, 2026-11-02) — the author tap was fine; the pushed *form* was not
+
+C3's §6.1 filed two defects against this card's host: "the pushed form resolves no write rows" and "the
+pinned row's author tap never opens the profile". The first was a real gap here and is fixed; the second
+was **not in the product** — it was the test's element lookup — and this note's record of it is corrected
+below rather than left standing.
+
+**8.7.1 `PushedProfileScreen` resolved no write rows — a real gap in this card's host.** The push resolved
+the model and started presence, but never called `ProfileCoordinator.prepareActions`, so its
+`ProfileActionContext` stayed `unknown` and C3's matrix ("unknown is absent, not assumed") drew neither
+`.call` nor `.addToChannel`. It now makes **the sheet's own call, with the sheet's four arguments**
+(`teamID: navigation?.location.teamID`, `callsAvailable: calls.isCallsAvailable(serverID:)`,
+`callsSurfaceNative: resolver.resolvedMode(for: .calls) == .native`,
+`hasLiveCallElsewhere: calls.hasLiveCall`) between `load()` and the presence loop, with the two
+`@EnvironmentObject`s the sheet also reads; passes `teamID` into `ProfileScreen` (the picker's destination
+renders only when it is non-nil, so a pushed Add row without it would open nothing); and honours
+`ProfileConversationIntent.call` in `openConversation` — pop, open the DM, `CallsCoordinator.requestStart`
+— the sheet's rule, so the pushed Call row is not an offer that cannot be kept. Live:
+`MattermostUITests/T5449ProfileActionsUITests/testThePushedProfileCarriesTheSameWriteRows` → **1 run /
+0 failed** (41.0 s): `profilePush` present, `profileSheet` absent, both rows drawn, the Add row pressing
+through to `addToChannel.picker`.
+
+**8.7.2 The pinned row's author tap opens the push. The defect was the lookup, not the affordance.**
+`post.<id>.avatar` is not a unique element in that host: the pinned sheet is presented **over** the channel
+pane, the pinned post belongs to that channel, and the row is drawn twice — `{{27.0, 637.6},
+{33.1, 33.1}}` in `channelPostList` underneath and `{{32.0, 557.0}, {36.0, 36.0}}` in `pinnedPosts` on top.
+The suite's app-wide `descendants(matching: .any).firstMatch` answered the **covered** copy, and every
+symptom C3 measured follows from that alone: the frame is outside the row that was revealed (C3's
+`…push6.log`: header y 637.6 against row y 720, containment assert red), `isHittable` is false because a
+sheet covers it, `tap()` computes `{-1, -1}`, and a raw tap at that frame lands on a *sheet* row and
+performs **that** row's action. The six C3 runs disagreeing with this card's own green run are the tree
+order of the two copies changing between launches, not the product changing.
+
+Fix (test-only): `tapAuthorHeader` resolves the author **inside the row**, which makes the containment
+assert mean what it says; it also asserts `isHittable`, so a future ambiguity fails on the affordance
+instead of three assertions later. Live: `…/testTheAuthorOfAPinnedPostPushesTheProfile` **alone** → 1 run /
+0 failed (43.0 s), the tap logging `Tap "post.<id>.avatar" Button` with `profilePush` present 1.4 s later;
+the whole file **5 run / 1 skipped / 0 failed** (128.9 s). Evidence: `docs/t_dc0ea74d-build-note.md` §3–§4
+(`build/logs/t_dc0ea74d-pinned.log`, `…-listprofile.log`).
+
+Nothing else in this note is withdrawn: §6.1's row restructure, §6.2's nested-container measurement, §6.5's
+pop-as-proof and §8.4's `popProfile` all still hold — `popProfile` is what makes the pop-back assertion in
+that test green.

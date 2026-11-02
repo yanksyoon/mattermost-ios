@@ -276,6 +276,15 @@ of thing this file keeps mistaking for one another.
 
 ### 6.1 The pushed form offers no write rows, and its one live route is blocked
 
+> **Landed as `t_dc0ea74d` (2026-11-02).** Both findings below are fixed and measured: the pushed form now
+> makes the sheet's own `prepareActions` call (and passes `teamID`, and honours the `.call` intent), and
+> the author tap's failure was **the test's app-wide element lookup**, not the affordance — `post.<id>.avatar`
+> is drawn twice in that host (channel pane underneath, pinned sheet on top) and `.firstMatch` answered the
+> covered copy. The prime suspect in the last paragraph — the `List` row's `.onTapGesture` beating
+> `PostRowView`'s nested buttons — is **withdrawn**: resolved inside the row, the same tap opens the push.
+> See `docs/t_dc0ea74d-build-note.md` §3 and `docs/t_8f9f5449-c2-build-note.md` §8.7. Everything below is
+> kept as the record of what was measured at the time (and of what a push did *not* offer until then).
+
 `PushedProfileScreen` (C2's host — the regular-layout lookup sheet and the pinned sheet) resolves the
 model and starts presence, but never calls `ProfileCoordinator.prepareActions`. Its
 `ProfileActionContext` is therefore `unknown`, and by §1's matrix an unresolved context offers
