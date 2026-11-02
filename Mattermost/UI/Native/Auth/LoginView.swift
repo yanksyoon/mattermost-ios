@@ -33,6 +33,10 @@ struct AuthSurfaceView: View {
 
     @StateObject private var model: LoginViewModel
     @State private var isPresentingSSO = false
+    /// S04: one sheet carries either account flow, so the auth card keeps a single presentation
+    /// channel for them (SwiftUI applies several `.sheet` modifiers on one view unreliably — the
+    /// SSO sheet and the certificate sheet already own their own).
+    @State private var accountFlow: AccountFlow?
 
     init(server: ServerConfig, coordinator: AuthCoordinator) {
         self.server = server
@@ -75,7 +79,19 @@ struct AuthSurfaceView: View {
                         // placeholder offered, kept exactly because sign-in is the one flow a user
                         // must never be locked out of.
                         resolver.forceWebForThisRun(SurfaceDefaults.paneHostSurface)
+                    } forgotPassword: {
+                        accountFlow = .forgotPassword
+                    } createAccount: {
+                        accountFlow = .signUp
                     }
+                }
+            }
+            .sheet(item: $accountFlow) { flow in
+                switch flow {
+                case .signUp:
+                    SignUpSheet(server: server, coordinator: coordinator)
+                case .forgotPassword:
+                    ForgotPasswordSheet(server: server, coordinator: coordinator)
                 }
             }
             .padding(.horizontal, 24)
@@ -156,6 +172,10 @@ struct LoginView: View {
     var useSSO: () -> Void
     /// The always-usable escape hatch back to the webview.
     var useWebView: () -> Void
+    /// S04: `POST /users/password/reset/send`, upstream `forgot_password/index.tsx`.
+    var forgotPassword: () -> Void
+    /// S04: `POST /users`, upstream's sign-up flow.
+    var createAccount: () -> Void
 
     @FocusState private var focusedField: Field?
 
@@ -199,6 +219,14 @@ struct LoginView: View {
                         if !newValue.isEmpty { model.clearError() }
                     }
                     .accessibilityIdentifier("loginPasswordField")
+
+                Button("Forgot password?") {
+                    focusedField = nil
+                    forgotPassword()
+                }
+                .font(.footnote)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .accessibilityIdentifier("forgotPasswordButton")
             }
 
             if let error = model.errorMessage {
@@ -256,6 +284,15 @@ struct LoginView: View {
             Button("Use the web view instead", action: useWebView)
                 .font(.footnote)
                 .accessibilityIdentifier("authUseWebViewButton")
+
+            Divider().padding(.vertical, 2)
+
+            Button("Create an account") {
+                focusedField = nil
+                createAccount()
+            }
+            .font(.footnote)
+            .accessibilityIdentifier("createAccountButton")
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
@@ -296,4 +333,41 @@ struct SessionExpiredBanner: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("sessionExpiredBanner")
     }
+}
+
+// MARK: - S04 account flows
+
+/// Which account flow the auth card is presenting. One value, one sheet: the sign-in screen
+/// already owns two presentations (SSO, the certificate prompt), and SwiftUI does not reliably
+/// apply a third independent `.sheet` to the same view.
+enum AccountFlow: String, Identifiable {
+    case signUp
+    case forgotPassword
+
+    var id: String { rawValue }
+}
+
+/// Owns the sign-up model for as long as the sheet is up, so a body re-evaluation does not discard
+/// what the reader typed (`server`/`coordinator` are captured by value in the model's construction).
+struct SignUpSheet: View {
+    @StateObject private var model: SignUpViewModel
+
+    init(server: ServerConfig, coordinator: AuthCoordinator) {
+        _model = StateObject(wrappedValue: SignUpViewModel(
+            serverName: server.name,
+            service: coordinator.accountService(for: server)))
+    }
+
+    var body: some View { SignUpView(model: model) }
+}
+
+struct ForgotPasswordSheet: View {
+    @StateObject private var model: ForgotPasswordViewModel
+
+    init(server: ServerConfig, coordinator: AuthCoordinator) {
+        _model = StateObject(wrappedValue: ForgotPasswordViewModel(
+            service: coordinator.accountService(for: server)))
+    }
+
+    var body: some View { ForgotPasswordView(model: model) }
 }

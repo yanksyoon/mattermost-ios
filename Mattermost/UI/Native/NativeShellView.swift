@@ -90,6 +90,13 @@ struct NativeShellView: View {
         navigation.location.serverID == server.id && navigation.authState == .signedOut
     }
 
+    /// T49: a live session whose custom terms are outstanding. It is a third top-level branch, not
+    /// a sheet over the workspace: the card requires a gate the user cannot swipe away, and the
+    /// workspace behind it would offer every control the server is about to refuse.
+    private var showsTermsGate: Bool {
+        navigation.location.serverID == server.id && navigation.authState == .termsOfServiceRequired
+    }
+
     var body: some View {
         // The auth surface is deliberately **outside** the shell's accessibility container.
         //
@@ -102,7 +109,13 @@ struct NativeShellView: View {
         // fix it: the signed-out state is not the workspace shell, so it gets its own top-level
         // branch (and its own identifier, which T31's sign-in screen will keep), and the
         // `nativeShell` container only wraps the shell it actually names.
-        if showsAuthSurface {
+        if showsTermsGate {
+            // T49: signed in, terms outstanding. `TermsOfServiceView` is the blocking gate — it
+            // has no dismiss action, only Accept / Decline (sign out) / Retry.
+            TermsOfServiceView(server: server, coordinator: auth)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("termsOfServiceGate")
+        } else if showsAuthSurface {
             // T31: the sign-in screen is its own surface card (`SurfaceHost(.auth)` inside), so it
             // stays behind the dual-render switch; it is still outside the shell's accessibility
             // container so its `nativeAuthSurface` identifier reaches the tree (T30-AV F2).

@@ -200,6 +200,11 @@ protocol NativeChannelDirectory: AnyObject {
 enum NativeAuthState: Equatable {
     case signedIn
     case signedOut
+    /// T49: a live session whose custom terms of service are not accepted yet (or could not be
+    /// read). The pane shows the blocking `TermsOfServiceView` — never the workspace, because every
+    /// write in it would be refused by the server, and never the sign-in form, because the sign-in
+    /// itself succeeded.
+    case termsOfServiceRequired
 }
 
 /// The auth seam.

@@ -186,6 +186,11 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
     var nickname: String
     var deleteAt: Int64
     var updateAt: Int64
+    /// T49: the terms-of-service acceptance, as `GET /users/me` reports it. `termsOfServiceID` is
+    /// the id of the document this user accepted (`""` when none), and the gate compares it with
+    /// the id `GET /terms_of_service` publishes. Decoded tolerantly: older servers omit both keys.
+    var termsOfServiceID: String
+    var termsOfServiceCreateAt: Int64
 
     enum CodingKeys: String, CodingKey {
         case id, username, email, nickname
@@ -193,6 +198,8 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
         case lastName = "last_name"
         case deleteAt = "delete_at"
         case updateAt = "update_at"
+        case termsOfServiceID = "terms_of_service_id"
+        case termsOfServiceCreateAt = "terms_of_service_create_at"
     }
 
     init(id: String,
@@ -202,7 +209,9 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
          lastName: String = "",
          nickname: String = "",
          deleteAt: Int64 = 0,
-         updateAt: Int64 = 0) {
+         updateAt: Int64 = 0,
+         termsOfServiceID: String = "",
+         termsOfServiceCreateAt: Int64 = 0) {
         self.id = id
         self.username = username
         self.email = email
@@ -211,6 +220,8 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
         self.nickname = nickname
         self.deleteAt = deleteAt
         self.updateAt = updateAt
+        self.termsOfServiceID = termsOfServiceID
+        self.termsOfServiceCreateAt = termsOfServiceCreateAt
     }
 
     init(from decoder: Decoder) throws {
@@ -223,6 +234,8 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
         nickname = try values.decodeIfPresent(String.self, forKey: .nickname) ?? ""
         deleteAt = try values.decodeIfPresent(Int64.self, forKey: .deleteAt) ?? 0
         updateAt = try values.decodeIfPresent(Int64.self, forKey: .updateAt) ?? 0
+        termsOfServiceID = try values.decodeIfPresent(String.self, forKey: .termsOfServiceID) ?? ""
+        termsOfServiceCreateAt = try values.decodeIfPresent(Int64.self, forKey: .termsOfServiceCreateAt) ?? 0
     }
 }
 

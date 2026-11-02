@@ -548,6 +548,12 @@ struct MattermostApp: App {
         #else
         nativeNavigation.authGate = authCoordinator
         #endif
+        // T49: the terms-of-service gate's live reader. Wired here, next to the gate itself, so
+        // the production app is the object that checks the server; a host that never calls
+        // `bindShellStores()` (the unit suites) keeps the pre-T49 behaviour.
+        authCoordinator.makeTermsOfService = { _, session in
+            ServerTermsOfServiceAPI(session: session)
+        }
         // T32: the rail reads the current team from `NativeNavigation.location` (one source of
         // truth) and owns one socket per server. Bound here, with the other shell seams.
         teamSidebarCoordinator.bind(auth: authCoordinator,

@@ -68,6 +68,24 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
     /// Per-server phases. Absent means `.unresolved`.
     @Published private(set) var phases: [UUID: Phase] = [:]
 
+    /// Per-server terms-of-service verdicts (T49). Absent means "this run has not asked"; the
+    /// launch answer then comes from `termsVerdicts` (the previous run's). The shell's gate reads
+    /// this through `termsState(for:)`, and `authState(for:)` folds it into the decision.
+    @Published private(set) var termsStates: [UUID: TermsOfServiceState] = [:]
+
+    /// How a server's terms are read and accepted. **Set by `MattermostApp.bindShellStores()`** on
+    /// the production object; `nil` means this process performs no TOS check, which is what keeps
+    /// the pre-T49 suites (and any host that does not wire the gate) behaving exactly as before.
+    ///
+    /// It is a factory rather than an object because a provider needs the server's live
+    /// `AuthSession`, which is created on first use, not at app launch.
+    var makeTermsOfService: ((ServerConfig, AuthSession) -> TermsOfServiceProviding)?
+
+    /// How a **public** (unauthenticated) client is built for a server — the seam the unit suite
+    /// scripts to test the policy / sign-up / reset paths without a socket. `nil` means the
+    /// production construction below (a real `URLSessionTransport` sharing `certTrust`).
+    var makePublicClient: ((ServerConfig) throws -> APIClient)?
+
     /// An untrusted-certificate decision the *native* transport is waiting on. The auth surface
     /// presents `CertPromptSheet` for it (the webview keeps its own prompt in `ContentView`); the
     /// trust bag itself is shared, so trusting here also covers the webview and vice versa.
@@ -81,6 +99,11 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
     private let certTrust: CertTrust
     private let cookieClearing: SessionCookieClearing
     private let makeSession: (ServerConfig, @escaping (CertificatePrompt) -> Void) throws -> AuthSession
+    /// The last verdict per server, so a relaunch does not mount a workspace for a user whose terms
+    /// are outstanding while `restore()` re-validates the answer.
+    private let termsVerdicts: TermsOfServiceVerdictStore
+    /// One provider per server, kept so a retry/accept reuses the session's own client.
+    private var termsProviders: [UUID: TermsOfServiceProviding] = [:]
 
     /// How the **webview-held** session for a server is read (see `WebSessionAdoption.swift`).
     ///
@@ -110,11 +133,13 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
          certTrust: CertTrust = CertTrust(),
          cookieClearing: SessionCookieClearing? = nil,
          cookieReader: ((UUID) -> SessionCookieReading)? = nil,
+         termsVerdicts: TermsOfServiceVerdictStore = TermsOfServiceVerdictStore(),
          makeSession: ((ServerConfig, @escaping (CertificatePrompt) -> Void) throws -> AuthSession)? = nil) {
         self.vault = vault
         self.certTrust = certTrust
         self.cookieClearing = cookieClearing ?? WebKitSessionCookieClearing()
         self.makeCookieReader = cookieReader ?? { serverID in WebKitSessionCookieReader(serverID: serverID) }
+        self.termsVerdicts = termsVerdicts
         if let makeSession {
             self.makeSession = makeSession
         } else {
@@ -139,14 +164,46 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
     /// The shell's gate. Signed in when the server's session is live, or (before the server has
     /// answered) when a token is stored — never signed out optimistically, because that would be a
     /// login prompt for a session that is very probably still valid.
+    ///
+    /// T49 folds the terms-of-service verdict into that answer:
+    ///  - a live session with outstanding terms → `.termsOfServiceRequired` (the blocking gate);
+    ///  - an unreadable terms answer → the same, so a workspace is never mounted on a guess;
+    ///  - a server with no custom terms, or one whose published document this user accepted →
+    ///    `.signedIn`, exactly as before.
+    ///
+    /// During the optimistic launch window the answer comes from the **remembered** verdict
+    /// (`termsState(for:)`), which is what keeps a relaunch of a terms-pending user from mounting
+    /// the workspace for the length of the restore call.
     func authState(for server: ServerConfig) -> NativeAuthState {
-        switch phase(for: server.id) {
+        let state = phase(for: server.id)
+        let terms = termsState(for: server)
+
+        switch state {
         case .signedIn:
-            return .signedIn
+            return Self.nativeState(TermsOfServiceGate.decide(phase: .signedIn, terms: terms))
         case .signedOut, .expired:
             return .signedOut
         case .unresolved:
-            return hasStoredToken(for: server) ? .signedIn : .signedOut
+            // The pre-T49 optimism, preserved: a stored token keeps the shell signed in while
+            // `restore()` is in flight (an offline launch must not become a login screen). The
+            // remembered verdict still wins, so a stale "pending" keeps the gate.
+            guard hasStoredToken(for: server) else { return .signedOut }
+            return Self.nativeState(TermsOfServiceGate.decide(phase: .signedIn, terms: terms))
+        }
+    }
+
+    /// What the gate knows about this server's terms right now: this run's answer when there is
+    /// one, else the previous run's remembered verdict, else `.unknown` (nothing asked yet).
+    func termsState(for server: ServerConfig) -> TermsOfServiceState {
+        if let state = termsStates[server.id] { return state }
+        return termsVerdicts.verdict(for: server.url) ?? .unknown
+    }
+
+    private static func nativeState(_ decision: AuthGateDecision) -> NativeAuthState {
+        switch decision {
+        case .signedIn: return .signedIn
+        case .signedOut: return .signedOut
+        case .termsOfService: return .termsOfServiceRequired
         }
     }
 
@@ -240,6 +297,10 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
         do {
             let restored = try await session.restore()
             if let restored {
+                // T49: the terms are checked **before** the phase resolves signed in, so the shell
+                // never mounts the workspace on an outstanding acceptance (and a check that cannot
+                // be read blocks instead of guessing — see `checkTerms`).
+                await checkTerms(ofService: server, session: session)
                 setPhase(.signedIn(username: restored.username, userID: restored.userID), for: server.id)
                 return restored
             }
@@ -298,6 +359,10 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
                 mfaToken: String? = nil) async throws -> AuthSession.Session {
         let session = try session(for: server)
         let result = try await session.login(loginID: loginID, password: password, mfaToken: mfaToken)
+        // T49: outstanding terms block the shell *here*, before the phase says "signed in". The
+        // sign-in itself succeeded — the server minted a token — but the workspace must not mount
+        // until the acceptance the server requires has been recorded.
+        await checkTerms(ofService: server, session: session)
         setPhase(.signedIn(username: result.username, userID: result.userID), for: server.id)
         return result
     }
@@ -309,8 +374,121 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
                          using reader: SessionCookieReading) async throws -> AuthSession.Session {
         let session = try session(for: server)
         let adopted = try await session.adoptWebSession(using: reader)
+        // T49: an SSO hand-off lands on the same terms requirement as a password sign-in.
+        await checkTerms(ofService: server, session: session)
         setPhase(.signedIn(username: adopted.username, userID: adopted.userID), for: server.id)
         return adopted
+    }
+
+    // MARK: - Public server calls (policy, sign-up, password reset)
+
+    /// A client for the **public** auth calls (`/config/client`, `/users`, password reset).
+    ///
+    /// It shares this coordinator's `CertTrust`, so a self-signed server prompts once for both the
+    /// webview and these calls, and it surfaces an untrusted certificate through the same sheet the
+    /// sign-in form already presents. It carries no credential: every call made with it passes
+    /// `requiresAuth: false`.
+    private func publicClient(for server: ServerConfig) throws -> APIClient {
+        if let makePublicClient { return try makePublicClient(server) }
+        return try APIClient(serverURL: server.url, vault: vault, certTrust: certTrust) { [weak self] prompt in
+            Task { @MainActor in self?.pendingCertificatePrompt = prompt }
+        }
+    }
+
+    /// The policy the sign-up form obeys and the TOS gate links to.
+    func authPolicy(for server: ServerConfig) async throws -> ServerAuthPolicy {
+        try await ServerAuthPolicyAPI(client: try publicClient(for: server)).load()
+    }
+
+    /// The account-creation / password-reset surface for one server.
+    func accountService(for server: ServerConfig) -> AccountServicing {
+        ServerAccountAPI { [weak self] in
+            guard let self else { throw MMError.notSignedIn }
+            return try self.publicClient(for: server)
+        }
+    }
+
+    // MARK: - Terms of service (T49)
+
+    /// The provider for one server, created on first use from the app-wired factory.
+    private func termsProvider(for server: ServerConfig,
+                               session: AuthSession) -> TermsOfServiceProviding? {
+        if let existing = termsProviders[server.id] { return existing }
+        guard let make = makeTermsOfService else { return nil }
+        let provider = make(server, session)
+        termsProviders[server.id] = provider
+        return provider
+    }
+
+    /// Ask the server whether this user's terms are outstanding, and remember the answer.
+    ///
+    /// Outcomes, in the order they are decided:
+    ///  1. no provider wired (a unit-test host, or a process that never installed the gate) →
+    ///     nothing is claimed; the verdict is left as it was;
+    ///  2. `GET /terms_of_service` says there is no document (`404`/`400`) → `.notRequired`, so a
+    ///     server without terms behaves exactly as it did before this card;
+    ///  3. a document exists and the user's `terms_of_service_id` is it → `.accepted`;
+    ///  4. a document exists and the user's id is not it (or is absent) → `.pending(document)`;
+    ///  5. anything else (transport, 5xx, an unreadable body) → `.unreadable(reason)`, which the
+    ///     gate renders as the blocking screen. Deliberately **not** `.unknown`: an answer that
+    ///     could not be read is not an acceptance.
+    private func checkTerms(ofService server: ServerConfig, session: AuthSession) async {
+        guard let provider = termsProvider(for: server, session: session) else { return }
+        do {
+            guard let document = try await provider.latestDocument() else {
+                setTerms(.notRequired, for: server, notify: false)
+                return
+            }
+            let user = try await provider.currentUser()
+            let accepted = !user.termsOfServiceID.isEmpty && user.termsOfServiceID == document.id
+            setTerms(accepted ? .accepted : .pending(document), for: server, notify: false)
+            MMLog.info("MMAuth", "terms of service \(accepted ? "accepted" : "outstanding") on \(server.name)")
+        } catch {
+            let reason = LoginErrorCopy.message(for: error)
+            setTerms(.unreadable(reason), for: server, notify: false)
+            MMLog.info("MMAuth", "terms of service could not be read on \(server.name): \(reason)")
+        }
+    }
+
+    /// Re-ask the server (the gate's Retry). Notifies the shell even when the verdict is unchanged,
+    /// because the user asked and the screen must leave its spinner.
+    func retryTermsOfService(_ server: ServerConfig) async {
+        guard let session = try? session(for: server) else { return }
+        await checkTerms(ofService: server, session: session)
+        onChange?(server.id)
+    }
+
+    /// The gate's Accept: `POST /users/me/terms_of_service`, then a re-read that must confirm the
+    /// acceptance before the shell is allowed to look signed in.
+    ///
+    /// The verification is the point, not a formality: a gate that believes its own request is the
+    /// fake gate the card forbids, and the workspace's first write is refused by the server when
+    /// the acceptance did not actually land.
+    func acceptTermsOfService(_ server: ServerConfig) async throws {
+        guard case .pending(let document) = termsState(for: server) else { return }
+        let session = try session(for: server)
+        guard let provider = termsProvider(for: server, session: session) else {
+            throw MMError.transport("terms of service is not wired in this build")
+        }
+        try await provider.accept(documentID: document.id)
+        let user = try await provider.currentUser()
+        guard user.termsOfServiceID == document.id else {
+            throw MMError.malformedResponse("terms_of_service was not recorded by the server")
+        }
+        setTerms(.accepted, for: server, notify: true)
+    }
+
+    private func setTerms(_ state: TermsOfServiceState, for server: ServerConfig, notify: Bool) {
+        termsStates[server.id] = state
+        termsVerdicts.save(state, for: server.url)
+        if notify { onChange?(server.id) }
+    }
+
+    /// A credential is going away: the terms verdict belongs to it, not to the server forever.
+    private func clearTermsState(for server: ServerConfig) {
+        termsStates[server.id] = nil
+        termsProviders[server.id] = nil
+        termsVerdicts.clear(for: server.url)
     }
 
     // MARK: - Sign out
@@ -344,6 +522,7 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
             try? vault.deleteSecret(.userID, serverURL: server.url)
         }
         pendingCertificatePrompt = nil
+        clearTermsState(for: server)
         setPhase(.signedOut, for: server.id)
         return DiscardedCredential(server: server, token: discarded)
     }

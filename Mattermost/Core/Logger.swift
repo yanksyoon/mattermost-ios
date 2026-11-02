@@ -12,7 +12,14 @@ enum Logger {
     private static let subsystem = Bundle.main.bundleIdentifier ?? "com.mattermost.ios"
 
     /// Per-category `OSLog` handles, lazily created so they aren't opened unless used.
+    ///
+    /// Guarded by `lock`: `log()` is called from every thread that touches the network, and an
+    /// unsynchronised read/write of this dictionary crashed the app at launch on 2026-11-03
+    /// (`-[__NSCFNumber objectForKey:]` inside `os(_:)`, reached from `MMLog.debug` on an
+    /// `APIClient` restore). T49's gate adds another concurrent reader at launch, which is what
+    /// made the pre-existing race reproducible.
     private static var cache: [String: OSLog] = [:]
+    private static let lock = NSLock()
 
     #if DEBUG
     /// Test-only mirror of every line about to be logged, before the level gate (T28). Used by
@@ -28,6 +35,8 @@ enum Logger {
     /// Set the minimum severity that reaches `os_log` (desktop `logLevel` setting). Accepts
     /// the desktop's string values; unknown values keep the previous gate.
     nonisolated static func setMinimumLevel(_ level: String) {
+        lock.lock()
+        defer { lock.unlock() }
         switch level {
         case "error": minimumLevel = .error
         case "warn": minimumLevel = .fault // OSLogType has no "warn"; fault is next-above-error
@@ -38,10 +47,14 @@ enum Logger {
     }
 
     private static func shouldLog(_ level: OSLogType) -> Bool {
-        level.rawValue >= minimumLevel.rawValue
+        lock.lock()
+        defer { lock.unlock() }
+        return level.rawValue >= minimumLevel.rawValue
     }
 
     private static func os(_ category: String) -> OSLog {
+        lock.lock()
+        defer { lock.unlock() }
         if let log = cache[category] { return log }
         let log = OSLog(subsystem: subsystem, category: category)
         cache[category] = log
