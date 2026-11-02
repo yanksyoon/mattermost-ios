@@ -98,7 +98,7 @@ struct ReactionSheetView<Source: ReactionTarget & ObservableObject>: View {
                         HStack(spacing: 3) {
                             EmojiGlyph(name: name, emoji: emojiCatalogue)
                             Text("\(summary.count)")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.scaled(12, weight: .semibold))
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
@@ -129,11 +129,11 @@ struct ReactionSheetView<Source: ReactionTarget & ObservableObject>: View {
                                        size: 30)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(reactor.label)
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.scaled(14, weight: .medium))
                                 .accessibilityIdentifier("reactionReactor.\(reactor.userID).name")
                             if !reactor.detail.isEmpty {
                                 Text(reactor.detail)
-                                    .font(.system(size: 12))
+                                    .font(.scaled(12))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -154,7 +154,7 @@ struct ReactionSheetView<Source: ReactionTarget & ObservableObject>: View {
     private var emptyState: some View {
         VStack(spacing: 8) {
             Image(systemName: "face.smiling")
-                .font(.system(size: 24))
+                .scaledSymbol(24)
                 .foregroundStyle(.tertiary)
             Text("No reactions left")
                 .font(.footnote)

@@ -133,6 +133,14 @@ struct ComposerView: View {
     /// The debounce-free view of the model's text, so the preview and the toolbar can read it.
     private var message: String { model.text }
 
+    /// T45: at an accessibility text size the control cluster reflows above the
+    /// input. Measured at AX3 on an iPhone 16 Pro: four scaled glyph buttons took
+    /// ~160 pt of a 402 pt row, leaving the input about 60 pt wide — the word
+    /// "Message" hyphenated to "Mes-sage" and the placeholder was clipped by the
+    /// field's min-height. Reflow rather than shrink: the glyphs are what a
+    /// low-vision reader needs to hit.
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
         VStack(spacing: 6) {
             if let note = model.statusNote { statusLine(note) }
@@ -179,44 +187,70 @@ struct ComposerView: View {
 
     private var inputRow: some View {
         VStack(spacing: 4) {
-            HStack(alignment: .bottom, spacing: 6) {
-                attachButton
-                emojiButton
-                ZStack(alignment: .topLeading) {
-                    if message.isEmpty {
-                        Text(placeholder)
-                            .font(.body)
-                            .foregroundStyle(.tertiary)
-                            .padding(.top, 6)
-                            .padding(.leading, 2)
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
+            if typeSize.isAccessibilitySize {
+                // Reflow: input first, controls below it. See `typeSize`.
+                VStack(alignment: .leading, spacing: 6) {
+                    inputField
+                    HStack(spacing: 10) {
+                        attachButton
+                        emojiButton
+                        if model.mode == .newPost { toolbarMenu }
+                        Spacer(minLength: 0)
+                        sendButton
                     }
-                    ComposerTextView(text: message,
-                                     caret: model.caret,
-                                     placeholder: placeholder,
-                                     onEdit: { text, range in
-                                         selection = range
-                                         model.textChanged(text, caret: NSMaxRange(range))
-                                     },
-                                     onSelection: { range in
-                                         selection = range
-                                         model.caretMoved(to: NSMaxRange(range))
-                                     },
-                                     onReturn: { _ in
-                                         // Same entry point as the send button: one send path, so a
-                                         // Return and a click cannot disagree about draft, uploads or
-                                         // the editing mode.
-                                         guard model.canSend else { return }
-                                         Task { await model.send() }
-                                     })
-                        .frame(minHeight: 34, maxHeight: 140)
                 }
-                if model.mode == .newPost { toolbarMenu }
-                sendButton
+            } else {
+                HStack(alignment: .bottom, spacing: 6) {
+                    attachButton
+                    emojiButton
+                    inputField
+                    if model.mode == .newPost { toolbarMenu }
+                    sendButton
+                }
             }
             if !message.isEmpty || model.mode != .newPost { markdownToolbar }
         }
+    }
+
+    /// The text field and its placeholder, sized for the current text size.
+    ///
+    /// The height grows with Dynamic Type rather than staying at 34 pt: at AX3 a
+    /// `body` line is ~40 pt tall, so a fixed 34 pt field clipped the first line
+    /// and the placeholder with it (measured in the AX3 capture).
+    private var inputField: some View {
+        ZStack(alignment: .topLeading) {
+            if message.isEmpty {
+                Text(placeholder)
+                    .font(.body)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 6)
+                    .padding(.leading, 2)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+            ComposerTextView(text: message,
+                             caret: model.caret,
+                             placeholder: placeholder,
+                             onEdit: { text, range in
+                                 selection = range
+                                 model.textChanged(text, caret: NSMaxRange(range))
+                             },
+                             onSelection: { range in
+                                 selection = range
+                                 model.caretMoved(to: NSMaxRange(range))
+                             },
+                             onReturn: { _ in
+                                 // Same entry point as the send button: one send path, so a
+                                 // Return and a click cannot disagree about draft, uploads or
+                                 // the editing mode.
+                                 guard model.canSend else { return }
+                                 Task { await model.send() }
+                             })
+                .frame(minHeight: typeSize.isAccessibilitySize ? 56 : 34,
+                       maxHeight: typeSize.isAccessibilitySize ? 220 : 140)
+        }
+        .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : nil,
+               alignment: .leading)
     }
 
     private var placeholder: String {
@@ -262,7 +296,7 @@ struct ComposerView: View {
             isAttachMenuPresented = true
         } label: {
             Image(systemName: "plus.circle")
-                .font(.system(size: 22))
+                .scaledSymbol(22)
                 .foregroundStyle(model.mode.isEditing ? .tertiary : .secondary)
         }
         .buttonStyle(.plain)
@@ -286,11 +320,11 @@ struct ComposerView: View {
                     .frame(width: 26, height: 26)
             } else if model.mode.isEditing {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 26))
+                    .scaledSymbol(26)
                     .foregroundStyle(model.canSend ? Color.accentColor : Color.secondary)
             } else {
                 Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 26))
+                    .scaledSymbol(26)
                     .foregroundStyle(model.canSend ? Color.accentColor : Color.secondary)
             }
         }
@@ -310,7 +344,7 @@ struct ComposerView: View {
             }
         } label: {
             Image(systemName: "ellipsis.circle")
-                .font(.system(size: 22))
+                .scaledSymbol(22)
                 .foregroundStyle(.secondary)
         }
         .accessibilityIdentifier("channelComposer.menu")
@@ -378,12 +412,12 @@ struct ComposerView: View {
                                     .accessibilityHidden(true)
                             }
                             Text(suggestion.label)
-                                .font(.system(size: 15))
-                                .lineLimit(1)
+                                .font(.scaled(15))
+                                .mmLineLimit(1)
                             Text(suggestion.detail)
-                                .font(.system(size: 12))
+                                .font(.scaled(12))
                                 .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                                .mmLineLimit(1)
                             Spacer(minLength: 0)
                         }
                         .padding(.horizontal, 10)
@@ -416,7 +450,7 @@ struct ComposerView: View {
             Text(model.mode.isEditing ? "Editing message" : "Replying to \(model.replyTarget ?? "thread")")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .mmLineLimit(1)
             Spacer(minLength: 0)
             // A thread composer has no "leave reply mode" that stays in the thread — its Cancel could
             // only mean `.newPost`, i.e. a channel post while the pane reads "Replying to …"
@@ -515,12 +549,12 @@ struct ComposerView: View {
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(attachment.filename)
-                    .font(.system(size: 12, weight: .medium))
-                    .lineLimit(1)
+                    .font(.scaled(12, weight: .medium))
+                    .mmLineLimit(1)
                 switch attachment.state {
                 case .uploaded:
                     Text(attachment.sizeLabel)
-                        .font(.system(size: 10))
+                        .font(.scaled(10))
                         .foregroundStyle(.secondary)
                 case .uploading(let progress):
                     ProgressView(value: progress)
@@ -529,13 +563,13 @@ struct ComposerView: View {
                         .accessibilityValue("\(Int(progress * 100))")
                 case .queued:
                     Text("Waiting…")
-                        .font(.system(size: 10))
+                        .font(.scaled(10))
                         .foregroundStyle(.secondary)
                 case .failed(let reason):
                     Text(reason)
-                        .font(.system(size: 10))
+                        .font(.scaled(10))
                         .foregroundStyle(.orange)
-                        .lineLimit(1)
+                        .mmLineLimit(1)
                 }
             }
             if case .failed = attachment.state {

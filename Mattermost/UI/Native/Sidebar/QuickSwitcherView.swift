@@ -114,7 +114,7 @@ struct QuickSwitcherView: View {
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(entry.displayName)
                                         .fontWeight(entry.showsUnreadEmphasis ? .bold : .regular)
-                                        .lineLimit(1)
+                                        .mmLineLimit(1)
                                     if entry.kind.isDirect {
                                         Text(entry.kind.accessibilityName)
                                             .font(.caption2)

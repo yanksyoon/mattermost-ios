@@ -140,25 +140,25 @@ struct TeamIconButton: View {
     let action: () -> Void
 
     @State private var image: UIImage?
+    /// T45: at an accessibility text size the badge pill grows past the 6 pt margin
+    /// the 64 pt rail leaves around a 52 pt tile, so it covered the initials (the
+    /// AX3 capture shows "PE" reading as "PL") and its 6 pt trailing offset pushed
+    /// the pill outside the rail, where it was clipped. Below AX the pill goes under
+    /// the tile and nothing is drawn outside the rail.
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         Button(action: action) {
-            ZStack(alignment: .topTrailing) {
-                icon
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 9))
-                    // A white plate around the icon, so the selection ring has a gap on *both*
-                    // kinds of tile: an uploaded icon can be any colour (the seeded one is solid
-                    // blue), and an accent ring drawn straight onto a blue tile is invisible.
-                    .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 13))
-                    .frame(width: 52, height: 52)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 13)
-                            .strokeBorder(entry.isSelected ? Color.accentColor : Color.primary.opacity(0.08),
-                                          lineWidth: entry.isSelected ? 2 : 1)
-                    }
-
-                badge
+            if typeSize.isAccessibilitySize {
+                VStack(spacing: 3) {
+                    tile
+                    badgeBelowTile
+                }
+            } else {
+                ZStack(alignment: .topTrailing) {
+                    tile
+                    badge
+                }
             }
         }
         .buttonStyle(.plain)
@@ -179,6 +179,46 @@ struct TeamIconButton: View {
         .accessibilityAddTraits(entry.isSelected ? [.isSelected] : [])
         .task(id: entry.lastIconUpdatedAt) {
             image = await model.icon(for: entry)
+        }
+    }
+
+    /// The tile itself: the uploaded icon or the initials on a white plate, ringed while selected.
+    private var tile: some View {
+        icon
+            .frame(width: 44, height: 44)
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+            // A white plate around the icon, so the selection ring has a gap on *both*
+            // kinds of tile: an uploaded icon can be any colour (the seeded one is solid
+            // blue), and an accent ring drawn straight onto a blue tile is invisible.
+            .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 13))
+            .frame(width: 52, height: 52)
+            .overlay {
+                RoundedRectangle(cornerRadius: 13)
+                    .strokeBorder(entry.isSelected ? Color.accentColor : Color.primary.opacity(0.08),
+                                  lineWidth: entry.isSelected ? 2 : 1)
+            }
+    }
+
+    /// The badge drawn *under* the tile at accessibility sizes — no offset, so it cannot
+    /// leave the rail and cannot cover the initials.
+    @ViewBuilder
+    private var badgeBelowTile: some View {
+        switch entry.badge {
+        case .none:
+            EmptyView()
+        case .dot:
+            Circle()
+                .fill(Color.red)
+                .frame(width: 9, height: 9)
+                .accessibilityHidden(true)
+        case .count:
+            Text(entry.badge.text ?? "")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(Color.red, in: Capsule())
+                .accessibilityHidden(true)
         }
     }
 

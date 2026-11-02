@@ -291,6 +291,8 @@ struct ThreadPostListView: View {
 
     /// One item-bound sheet for this list (options, T37's picker and reactor list, T5449's profile).
     @State private var sheet: ChannelListSheet?
+    /// T45: scrolling to a newly arrived reply is incidental motion — Reduce Motion jumps.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -409,7 +411,9 @@ struct ThreadPostListView: View {
             // the notification/mention pointed at is what the reader came for.
             .onChange(of: model.items.count) { previous, current in
                 guard current > previous, let last = model.items.last else { return }
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(MotionPolicy.animation(.easeOut(duration: 0.15),
+                                                     for: .incidental,
+                                                     reduceMotion: reduceMotion)) {
                     proxy.scrollTo(last.id, anchor: .bottom)
                 }
             }

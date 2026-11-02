@@ -495,7 +495,7 @@ struct NativeAuthPlaceholderView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "person.crop.circle.badge.questionmark")
-                .font(.system(size: 40))
+                .scaledSymbol(40)
                 .foregroundStyle(.secondary)
 
             Text("Sign in to \(server.name)")

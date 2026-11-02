@@ -133,13 +133,13 @@ struct AttachmentPreviewView: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(attachment.name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .lineLimit(1)
+                    .font(.scaled(14, weight: .semibold))
+                    .mmLineLimit(1)
                     .truncationMode(.middle)
                     .accessibilityIdentifier("attachmentPreview.title")
                 Text([attachment.typeLabel, attachment.sizeLabel, downloadState.label]
                         .filter { !$0.isEmpty }.joined(separator: " · "))
-                    .font(.system(size: 11))
+                    .font(.scaled(11))
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("attachmentPreview.subtitle")
             }
@@ -158,7 +158,7 @@ struct AttachmentPreviewView: View {
                 Button { downloads?.download(attachment) } label: {
                     Image(systemName: downloadState == .done
                           ? "checkmark.circle.fill" : "arrow.down.circle")
-                        .font(.system(size: 17))
+                        .font(.scaled(17))
                 }
                 .buttonStyle(.plain)
                 .disabled(downloadState.isActive)
@@ -203,18 +203,18 @@ struct AttachmentPreviewView: View {
     private func unsupported(_ reason: FilePreviewKind.UnsupportedReason) -> some View {
         VStack(spacing: 12) {
             Image(systemName: reason == .blocked ? "nosign" : "shield.lefthalf.filled")
-                .font(.system(size: 32))
+                .scaledSymbol(32)
                 .foregroundStyle(.secondary)
             Text(attachment.name)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.scaled(15, weight: .semibold))
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
             Text([attachment.typeLabel, attachment.sizeLabel].filter { !$0.isEmpty }
                     .joined(separator: " · "))
-                .font(.system(size: 12))
+                .font(.scaled(12))
                 .foregroundStyle(.secondary)
             Text(FileTypeMap.unsupportedReason(reason))
-                .font(.system(size: 12))
+                .font(.scaled(12))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -244,20 +244,20 @@ struct AttachmentPreviewView: View {
     private func tooLarge(limit: Int64) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.circle")
-                .font(.system(size: 30))
+                .scaledSymbol(30)
                 .foregroundStyle(.secondary)
             Text(attachment.name)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.scaled(15, weight: .semibold))
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
             Text([attachment.typeLabel, attachment.sizeLabel].filter { !$0.isEmpty }
                     .joined(separator: " · "))
-                .font(.system(size: 12))
+                .font(.scaled(12))
                 .foregroundStyle(.secondary)
             Text("This file is larger than the "
                  + "\(AttachmentPreviewView.byteLabel(Int(limit))) this client will load into memory "
                  + "for a preview. Download it to open it in another app.")
-                .font(.system(size: 12))
+                .font(.scaled(12))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -286,18 +286,18 @@ struct AttachmentPreviewView: View {
             VStack(alignment: .leading, spacing: 6) {
                 if text.isEmpty {
                     Text("These bytes are not text this client can show.")
-                        .font(.system(size: 13))
+                        .font(.scaled(13))
                         .foregroundStyle(.secondary)
                 } else {
                     Text(text)
-                        .font(.system(size: 12, design: .monospaced))
+                        .font(.scaled(12, design: .monospaced))
                         .textSelection(.enabled)
                         .fixedSize(horizontal: true, vertical: false)
                 }
                 if truncated {
                     Text("Showing the first \(AttachmentPreviewView.byteLabel(TextPreview.byteLimit)) "
                          + "of \(attachment.sizeLabel).")
-                        .font(.system(size: 11))
+                        .font(.scaled(11))
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("attachmentPreview.text.truncated")
                 }
@@ -311,10 +311,10 @@ struct AttachmentPreviewView: View {
     private func failureState(_ message: String) -> some View {
         VStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 26))
+                .scaledSymbol(26)
                 .foregroundStyle(.secondary)
             Text(message)
-                .font(.system(size: 13))
+                .font(.scaled(13))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Retry") {

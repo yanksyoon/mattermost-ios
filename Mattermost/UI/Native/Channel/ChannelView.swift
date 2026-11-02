@@ -613,7 +613,7 @@ struct ChannelPostListView: View {
                     Text("This is the beginning of the channel")
                 }
             }
-            .font(.system(size: 13))
+            .font(.scaled(13))
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
@@ -656,7 +656,7 @@ struct ChannelPostListView: View {
     private func failureState(_ message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 30))
+                .scaledSymbol(30)
                 .foregroundStyle(.secondary)
             Text(message)
                 .font(.callout)
@@ -674,7 +674,7 @@ struct ChannelPostListView: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 30))
+                .scaledSymbol(30)
                 .foregroundStyle(.secondary)
             Text("No messages yet")
                 .font(.headline)
@@ -981,6 +981,11 @@ struct ChannelPaneContent: View {
             // (F1) and the Save row (F2), same fix: a view that observes the object.
             if let model {
                 ChannelPaneTitle(model: model, fallback: channelName ?? "Channel")
+                    // T45: the title claims its width before the trailing controls.
+                    // At AX3 the four header glyphs grew to ~180 pt and, with equal
+                    // priority, "Off-Topic" was squeezed to ~90 pt and broke mid-word
+                    // ("Off-" / "Topi" / "c").
+                    .layoutPriority(1)
             } else {
                 Text(channelName ?? "Channel")
                     .font(.headline)
@@ -1184,7 +1189,8 @@ private struct ChannelPaneTitle: View {
                 .accessibilityHidden(true)
             Text(model.title.isEmpty ? fallback : model.title)
                 .font(.headline)
-                .lineLimit(2)
+                .mmLineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("nativeChannelTitle")
         }
         // T8e: the pane header is one element. `.accessibilityHidden(true)` on the glyph did not take

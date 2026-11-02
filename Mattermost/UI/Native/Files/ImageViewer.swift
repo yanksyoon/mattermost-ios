@@ -83,7 +83,7 @@ struct AttachmentGalleryView: View {
         .overlay(alignment: .bottom) {
             if let failure {
                 Text(failure)
-                    .font(.system(size: 12))
+                    .font(.scaled(12))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(.thinMaterial, in: Capsule())
@@ -107,11 +107,11 @@ struct AttachmentGalleryView: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(current?.name ?? "")
-                    .font(.system(size: 14, weight: .semibold))
-                    .lineLimit(1)
+                    .font(.scaled(14, weight: .semibold))
+                    .mmLineLimit(1)
                     .truncationMode(.middle)
                 Text(gallery.counterLabel(min(page, max(0, gallery.images.count - 1))))
-                    .font(.system(size: 11))
+                    .font(.scaled(11))
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("attachmentGallery.counter")
             }
@@ -129,7 +129,7 @@ struct AttachmentGalleryView: View {
             Button { saveCurrent() } label: {
                 Image(systemName: downloads?.state(for: current?.id ?? "") == .done
                       ? "checkmark.circle.fill" : "arrow.down.circle")
-                    .font(.system(size: 17))
+                    .font(.scaled(17))
             }
             .buttonStyle(.plain)
             .disabled(current == nil)
@@ -184,10 +184,10 @@ struct AttachmentGalleryPage: View {
             } else if didFail {
                 VStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 22))
+                        .scaledSymbol(22)
                         .foregroundStyle(.secondary)
                     Text("This image could not be loaded.")
-                        .font(.system(size: 13))
+                        .font(.scaled(13))
                         .foregroundStyle(.secondary)
                     Button("Retry") { didFail = false; reload() }
                         .buttonStyle(.bordered)

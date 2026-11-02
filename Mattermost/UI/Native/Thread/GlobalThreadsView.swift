@@ -301,7 +301,7 @@ struct GlobalThreadRowView: View {
                 HStack(spacing: 6) {
                     Text(row.isMine ? "You" : row.author.displayName)
                         .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
+                        .mmLineLimit(1)
                     Spacer(minLength: 4)
                     Text(row.timeLabel)
                         .font(.caption2)

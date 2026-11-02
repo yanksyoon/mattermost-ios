@@ -16,9 +16,9 @@
 import SwiftUI
 
 /// The little that is shared between block kinds.
-private enum MarkdownMetrics {
-    static let bodyFont = Font.system(size: 15)
-    static let codeFont = Font.system(size: 13.5, design: .monospaced)
+enum MarkdownMetrics {
+    static let bodyFont = Font.scaled(15)
+    static let codeFont = Font.scaled(13.5, design: .monospaced)
     static let bodyLineSpacing: CGFloat = 3
 }
 
@@ -29,6 +29,9 @@ struct MarkdownView: View {
     var identifierPrefix: String = "markdown"
     /// The server's custom emoji, when the pane has them. `nil` = draw every shortcode as text.
     var emoji: EmojiCatalogue?
+    /// T45: Increase Contrast strengthens the quote bar — structure a low-vision reader
+    /// navigates by.
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -52,7 +55,7 @@ struct MarkdownView: View {
 
         case .heading(let level, let runs):
             MarkdownInlineText(runs: runs, emoji: emoji)
-                .font(.system(size: MarkdownMetrics.headingSize(level), weight: .semibold))
+                .font(.system(MarkdownMetrics.headingRole(level).textStyle, weight: .semibold))
                 .fixedSize(horizontal: false, vertical: true)
 
         case .codeBlock(let language, let code):
@@ -61,7 +64,7 @@ struct MarkdownView: View {
         case .blockQuote(let inner):
             HStack(alignment: .top, spacing: 8) {
                 Rectangle()
-                    .fill(Color.secondary.opacity(0.35))
+                    .fill(Color.secondary.opacity(ContrastPolicy.separatorOpacity(0.35, contrast: contrast)))
                     .frame(width: 3)
                 MarkdownView(blocks: inner, identifierPrefix: "\(identifierPrefix).quote", emoji: emoji)
             }
@@ -91,7 +94,7 @@ struct MarkdownView: View {
                     GridRow {
                         ForEach(Array(header.enumerated()), id: \.offset) { _, cell in
                             MarkdownInlineText(runs: cell, emoji: emoji)
-                                .font(.system(size: 13.5, weight: .semibold))
+                                .font(.scaled(13.5, weight: .semibold))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -100,7 +103,7 @@ struct MarkdownView: View {
                         GridRow {
                             ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
                                 MarkdownInlineText(runs: cell, emoji: emoji)
-                                    .font(.system(size: 13.5))
+                                    .font(.scaled(13.5))
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -182,14 +185,20 @@ private struct CatalogueInlineText: View {
     }
 }
 
-private extension MarkdownMetrics {
-    static func headingSize(_ level: Int) -> CGFloat {
+extension MarkdownMetrics {
+    /// A heading level's Dynamic Type role.
+    ///
+    /// Upstream sizes the six levels at 22/20/18/16.5/15.5/15.5 pt and never
+    /// scales them; here each level keeps a distinct role and the ramp is
+    /// **non-increasing**, so h3 can never render smaller than h4 at any text
+    /// size. (`MattermostTests/T45A11yTests.swift` asserts that.)
+    static func headingRole(_ level: Int) -> TypeRole {
         switch level {
-        case 1: return 22
-        case 2: return 20
-        case 3: return 18
-        case 4: return 16.5
-        default: return 15.5
+        case 1: return .title2
+        case 2: return .title3
+        case 3: return .callout
+        case 4: return .subheadline
+        default: return .footnote
         }
     }
 }
@@ -201,6 +210,9 @@ private extension MarkdownMetrics {
 struct CodeBlockView: View {
     let language: String?
     let code: String
+    /// T45: Increase Contrast thickens the block's border — it is the only cue for where
+    /// the code ends and the message resumes.
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         let attributed = MarkdownText.highlighted(code: code, language: language)
@@ -215,7 +227,8 @@ struct CodeBlockView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.secondary.opacity(0.2))
+                .strokeBorder(Color.secondary.opacity(ContrastPolicy.separatorOpacity(0.2, contrast: contrast)),
+                              lineWidth: ContrastPolicy.borderWidth(1, contrast: contrast))
         )
         // A code block is a single accessibility element: VoiceOver should read the code, not the
         // colouring, and it must not stop on eleven separate coloured runs.

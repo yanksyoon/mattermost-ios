@@ -173,7 +173,7 @@ struct AttachmentImageCell: View {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 15, weight: .semibold))
                     Text("Retry")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.scaled(10, weight: .semibold))
                 }
                 .foregroundStyle(.secondary)
             }
@@ -224,14 +224,14 @@ struct AttachmentFileRowView: View {
                         .frame(width: 24)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(attachment.name)
-                            .font(.system(size: 13, weight: .medium))
-                            .lineLimit(1)
+                            .font(.scaled(13, weight: .medium))
+                            .mmLineLimit(1)
                             .truncationMode(.middle)
                         if !subtitle.isEmpty {
                             Text(subtitle)
-                                .font(.system(size: 11))
+                                .font(.scaled(11))
                                 .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                                .mmLineLimit(1)
                         }
                     }
                     Spacer(minLength: 0)

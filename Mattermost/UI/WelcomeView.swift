@@ -127,6 +127,9 @@ struct WelcomeView: View {
 
     @StateObject private var model: WelcomePagerModel
     @State private var hasAutoAdvanced = false
+    /// T45: the carousel's auto-advance is incidental motion — Reduce Motion swaps the
+    /// slide instead of sliding, and the 5 s loop still advances.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(slides: [WelcomeSlide], startPage: Int = 0, onGetStarted: @escaping () -> Void = {}) {
         self.slides = slides
@@ -185,7 +188,9 @@ struct WelcomeView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(WelcomePagerModel.autoAdvanceInterval))
                 guard !Task.isCancelled else { break }
-                withAnimation(.easeInOut(duration: 0.25)) {
+                withAnimation(MotionPolicy.animation(.easeInOut(duration: 0.25),
+                                                     for: .incidental,
+                                                     reduceMotion: reduceMotion)) {
                     model.advanceAuto()
                 }
             }

@@ -56,7 +56,7 @@ struct CallsSurfaceView: View {
         VStack(spacing: 4) {
             Text(model.channelName ?? "Call")
                 .font(.headline)
-                .lineLimit(1)
+                .mmLineLimit(1)
                 .accessibilityIdentifier("calls.channelName")
             HStack(spacing: 8) {
                 Text(model.phase.statusText)
@@ -113,7 +113,7 @@ struct CallsSurfaceView: View {
         VStack(spacing: 12) {
             Spacer()
             Image(systemName: "phone.down.circle")
-                .font(.system(size: 44))
+                .scaledSymbol(44)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             Text(model.phase.statusText)
@@ -234,7 +234,7 @@ struct CallsParticipantTile: View {
 
             Text(participant.label)
                 .font(.footnote.weight(.medium))
-                .lineLimit(1)
+                .mmLineLimit(1)
                 .truncationMode(.tail)
 
             HStack(spacing: 4) {

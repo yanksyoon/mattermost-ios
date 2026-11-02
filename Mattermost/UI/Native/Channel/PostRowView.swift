@@ -30,17 +30,27 @@ import UIKit
 
 struct PostDateSeparatorView: View {
     let separator: PostDateSeparator
+    /// T45: Increase Contrast strengthens the rule — the separator is the only cue
+    /// that a new day started.
+    @Environment(\.colorSchemeContrast) private var contrast
+    /// T45: at accessibility sizes the flanking rules are dropped and the title
+    /// takes the full width. Measured at AX3: with the rules in place the title
+    /// was squeezed into a four-line pill ("Sunday / ,25 / Octo- / ber") while the
+    /// rules kept most of the row.
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        HStack(spacing: 8) {
-            line
-            Text(separator.title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Color(.secondarySystemBackground), in: Capsule())
-            line
+        Group {
+            if typeSize.isAccessibilitySize {
+                titleText
+                    .frame(maxWidth: .infinity)
+            } else {
+                HStack(spacing: 8) {
+                    line
+                    titleText
+                    line
+                }
+            }
         }
         .padding(.vertical, 10)
         .accessibilityElement(children: .combine)
@@ -48,8 +58,21 @@ struct PostDateSeparatorView: View {
         .accessibilityIdentifier("channelDateSeparator.\(separator.dayKey)")
     }
 
+    private var titleText: some View {
+        Text(separator.title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Color(.secondarySystemBackground), in: Capsule())
+    }
+
     private var line: some View {
-        Rectangle().fill(Color.secondary.opacity(0.18)).frame(height: 1)
+        Rectangle()
+            .fill(Color.secondary.opacity(ContrastPolicy.separatorOpacity(0.18, contrast: contrast)))
+            .frame(height: ContrastPolicy.borderWidth(1, contrast: contrast))
     }
 }
 
@@ -273,7 +296,7 @@ struct PostRowView: View {
         HStack(spacing: 4) {
             ProgressView().controlSize(.mini)
             Text("Sending…")
-                .font(.system(size: 11))
+                .font(.scaled(11))
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
@@ -305,14 +328,14 @@ struct PostRowView: View {
             Image(systemName: "info.circle")
                 .font(.system(size: 15))
                 .foregroundStyle(.secondary)
-                .frame(width: 36, alignment: .center)
+                .scaledColumn(width: 36)
                 .padding(.top, 2)
                 .accessibilityHidden(true)
         } else {
             Text(timeTitle)
-                .font(.system(size: 11))
+                .font(.scaled(11))
                 .foregroundStyle(.secondary)
-                .frame(width: 36, alignment: .trailing)
+                .scaledColumn(width: 36, alignment: .trailing)
                 .padding(.top, 3)
                 .accessibilityHidden(true)
         }
@@ -322,7 +345,7 @@ struct PostRowView: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             authorName
             Text(timeTitle)
-                .font(.system(size: 11))
+                .font(.scaled(11))
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             if row.isPinned {
@@ -336,7 +359,7 @@ struct PostRowView: View {
             }
             if row.isEdited {
                 Text("(edited)")
-                    .font(.system(size: 11))
+                    .font(.scaled(11))
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("post.\(row.id).edited")
             }
@@ -368,8 +391,8 @@ struct PostRowView: View {
 
     private var authorNameText: some View {
         Text(row.author.displayName)
-            .font(.system(size: 15, weight: .semibold))
-            .lineLimit(1)
+            .font(.scaled(15, weight: .semibold))
+            .mmLineLimit(1)
     }
 
     private var timeTitle: String {
@@ -392,7 +415,7 @@ struct PostRowView: View {
                 // Upstream simply omits it on a grouped row; hiding the fact that a message changed is
                 // worse than one extra muted word (docs/t34-build-note.md §10).
                 Text("(edited)")
-                    .font(.system(size: 11))
+                    .font(.scaled(11))
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("post.\(row.id).edited")
             }
@@ -401,12 +424,12 @@ struct PostRowView: View {
                     // What the fold is hiding. Upstream says nothing and simply clips the height, so
                     // a reader cannot tell a 5-line trim from a 5,000-line one.
                     Text(row.foldSummary)
-                        .font(.system(size: 11))
+                        .font(.scaled(11))
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("post.\(row.id).foldSummary")
                 }
                 Button(isExpanded ? "Show less" : "Show more") { onToggleExpanded() }
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.scaled(13, weight: .semibold))
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.accentColor)
                     .accessibilityIdentifier("post.\(row.id).showMore")
@@ -416,7 +439,7 @@ struct PostRowView: View {
 
     private var systemMessage: some View {
         Text(row.post.message)
-            .font(.system(size: 13))
+            .font(.scaled(13))
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityIdentifier("post.\(row.id).system")
@@ -424,7 +447,7 @@ struct PostRowView: View {
 
     private var deletedTombstone: some View {
         Text("This message was deleted.")
-            .font(.system(size: 15))
+            .font(.scaled(15))
             .italic()
             .foregroundStyle(.secondary)
             .accessibilityIdentifier("post.\(row.id).deleted")
@@ -471,7 +494,7 @@ struct PostRowView: View {
                 .accessibilityHidden(true)
             }
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.scaled(12, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
             if onOpenThread != nil {
                 Image(systemName: "chevron.right")
@@ -733,7 +756,7 @@ private struct EmojiGlyphContent: View {
                 .frame(width: size, height: size)
         } else {
             Text(EmojiShortcodes.character(for: name) ?? ":\(name):")
-                .font(.system(size: size))
+                .font(.scaled(size))
         }
     }
 }

@@ -804,10 +804,17 @@ struct MattermostApp: App {
             // Let the first frame, the (seeded) server activation and the shell settle.
             try? await Task.sleep(nanoseconds: 2_500_000_000)
             try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            // T45 extended this list: the card's criterion is Dynamic Type "up to
+            // AX5", so the evidence set is the shell at each accessibility size
+            // (AX1, AX3, AX5) plus dark mode at the size the criterion names.
+            // `large` stays first and keeps its name so the existing T30/T31
+            // captures and their notes still resolve.
             let captures: [(String, SwiftUI.ColorScheme, DynamicTypeSize)] = [
                 ("light", .light, .large),
                 ("dark", .dark, .large),
+                ("light-ax1", .light, .accessibility1),
                 ("light-ax3", .light, .accessibility3),
+                ("light-ax5", .light, .accessibility5),
                 ("dark-ax3", .dark, .accessibility3),
             ]
             for (name, scheme, size) in captures {

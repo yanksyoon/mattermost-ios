@@ -23,7 +23,7 @@ struct MFAView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "lock.shield.fill")
-                .font(.system(size: 44))
+                .scaledSymbol(44)
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.tint)
                 .padding(.top, 8)

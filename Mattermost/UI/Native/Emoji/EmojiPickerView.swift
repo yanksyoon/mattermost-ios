@@ -26,6 +26,9 @@ struct EmojiPickerView: View {
     /// The server's custom emoji, so a custom cell can draw its image (T34's catalogue).
     var emoji: EmojiCatalogue?
     @Environment(\.dismiss) private var dismiss
+    /// T45: the section-jump scroll is incidentally animated — under Reduce Motion it
+    /// jumps instead of sliding.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var scrolledSection: String?
 
@@ -107,8 +110,8 @@ struct EmojiPickerView: View {
                         scrolledSection = section.id
                     } label: {
                         Text(Self.stripLabel(for: section))
-                            .font(.system(size: 12, weight: .semibold))
-                            .lineLimit(1)
+                            .font(.scaled(12, weight: .semibold))
+                            .mmLineLimit(1)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
                             .background(scrolledSection == section.id
@@ -145,7 +148,7 @@ struct EmojiPickerView: View {
         if model.isEmpty {
             VStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 24, weight: .regular))
+                    .scaledSymbol(24, weight: .regular)
                     .foregroundStyle(.tertiary)
                 Text("No emoji match “\(model.search)”")
                     .font(.footnote)
@@ -168,7 +171,7 @@ struct EmojiPickerView: View {
                                 .padding(.horizontal, 8)
                             } header: {
                                 Text(section.title)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.scaled(11, weight: .semibold))
                                     .foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.horizontal, 12)
@@ -182,7 +185,9 @@ struct EmojiPickerView: View {
                 }
                 .onChange(of: scrolledSection) { _, target in
                     guard let target else { return }
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(MotionPolicy.animation(.easeOut(duration: 0.2),
+                                                         for: .incidental,
+                                                         reduceMotion: reduceMotion)) {
                         proxy.scrollTo(target, anchor: .top)
                     }
                 }

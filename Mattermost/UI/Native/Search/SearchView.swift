@@ -64,7 +64,7 @@ struct SearchPaneContent: View {
     private func note(systemImage: String, title: String, body: String) -> some View {
         VStack(spacing: 10) {
             Image(systemName: systemImage)
-                .font(.system(size: 30))
+                .scaledSymbol(30)
                 .foregroundStyle(.secondary)
             Text(title)
                 .font(.headline)
@@ -355,7 +355,7 @@ struct SearchView: View {
     private var empty: some View {
         VStack(spacing: 10) {
             Image(systemName: "text.magnifyingglass")
-                .font(.system(size: 30))
+                .scaledSymbol(30)
                 .foregroundStyle(.secondary)
             Text(model.emptyCopy)
                 .font(.callout)
@@ -372,7 +372,7 @@ struct SearchView: View {
     private func failure(_ message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 30))
+                .scaledSymbol(30)
                 .foregroundStyle(.secondary)
             Text(message)
                 .font(.callout)

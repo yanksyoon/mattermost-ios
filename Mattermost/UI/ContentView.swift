@@ -113,6 +113,8 @@ private struct WebPane: View {
     let server: ServerConfig
     /// The pane had a committed page before it was released: this is §12.4's return trip.
     let isReopen: Bool
+    /// T45: the progress bar's fade-in is incidental — under Reduce Motion it appears in place.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -145,7 +147,7 @@ private struct WebPane: View {
                 ProgressView(value: store.progress)
                     .progressViewStyle(.linear)
                     .frame(maxHeight: .infinity, alignment: .top)
-                    .transition(.opacity)
+                    .transition(MotionPolicy.transition(.opacity, for: .incidental, reduceMotion: reduceMotion))
             }
         }
         .sheet(item: $store.pendingCertificatePrompt) { prompt in

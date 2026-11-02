@@ -1,0 +1,303 @@
+{
+  "accessibility_hints": 4,
+  "accessibility_identifiers": 465,
+  "accessibility_labels": 95,
+  "animation_sites": [
+    {
+      "file": "Mattermost/UI/ContentView.swift",
+      "guarded_file": true,
+      "line": 150,
+      "source": ".transition(MotionPolicy.transition(.opacity, for: .incidental, reduceMotion: reduceMotion))"
+    },
+    {
+      "file": "Mattermost/UI/WelcomeView.swift",
+      "guarded_file": true,
+      "line": 191,
+      "source": "withAnimation(MotionPolicy.animation(.easeInOut(duration: 0.25),"
+    },
+    {
+      "file": "Mattermost/UI/Native/Emoji/EmojiPickerView.swift",
+      "guarded_file": true,
+      "line": 188,
+      "source": "withAnimation(MotionPolicy.animation(.easeOut(duration: 0.2),"
+    },
+    {
+      "file": "Mattermost/UI/Native/Thread/ThreadView.swift",
+      "guarded_file": true,
+      "line": 414,
+      "source": "withAnimation(MotionPolicy.animation(.easeOut(duration: 0.15),"
+    }
+  ],
+  "contrast_uses": 3,
+  "converted_by_surface": {
+    "channel": 21,
+    "composer": 15,
+    "settings": 0,
+    "sidebar": 4,
+    "thread": 1
+  },
+  "exemptions": [
+    {
+      "file": "Mattermost/UI/Native/Channel/PostRowView.swift",
+      "fragment": "size: size * 0.45",
+      "reason": "avatar initials, sized from the circle"
+    },
+    {
+      "file": "Mattermost/UI/Native/Channel/PostRowView.swift",
+      "fragment": "size: size * 0.36",
+      "reason": "avatar initials, sized from the circle"
+    },
+    {
+      "file": "Mattermost/UI/Native/Profile/ProfileView.swift",
+      "fragment": "size: size * 0.42",
+      "reason": "avatar initials, sized from the circle"
+    },
+    {
+      "file": "Mattermost/UI/Native/Profile/ProfileView.swift",
+      "fragment": "size: size * 0.34",
+      "reason": "avatar initials, sized from the circle"
+    },
+    {
+      "file": "Mattermost/UI/Native/Emoji/EmojiPickerView.swift",
+      "fragment": "Text(character)",
+      "reason": "emoji grid cell glyph"
+    },
+    {
+      "file": "Mattermost/UI/WelcomeView.swift",
+      "fragment": "slide.isMain ? 72 : 64",
+      "reason": "welcome illustration artwork (integration-owned file)"
+    }
+  ],
+  "font_sites": 34,
+  "font_sites_by_surface": {
+    "channel": 6,
+    "composer": 10,
+    "settings": 2,
+    "thread": 1
+  },
+  "font_sites_exempt": 6,
+  "font_sites_glyph": [
+    {
+      "file": "Mattermost/UI/CertPromptSheet.swift",
+      "kind": "glyph",
+      "line": 36,
+      "receiver": "Image(systemName: \"lock.shield\")",
+      "source": ".font(.system(size: 34))"
+    },
+    {
+      "file": "Mattermost/UI/ErrorStateView.swift",
+      "kind": "glyph",
+      "line": 52,
+      "receiver": "Image(systemName: \"exclamationmark.triangle\")",
+      "source": ".font(.system(size: 44))"
+    },
+    {
+      "file": "Mattermost/UI/ErrorStateView.swift",
+      "kind": "glyph",
+      "line": 163,
+      "receiver": "Image(systemName: \"exclamationmark.octagon\")",
+      "source": ".font(.system(size: 44))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Composer/ComposerView.swift",
+      "kind": "glyph",
+      "line": 271,
+      "receiver": "Image(systemName: \"face.smiling\")",
+      "source": ".font(.system(size: 21))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Composer/ComposerView.swift",
+      "kind": "glyph",
+      "line": 365,
+      "receiver": "Image(systemName: action.systemImage)",
+      "source": ".font(.system(size: 13))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Composer/ComposerView.swift",
+      "kind": "glyph",
+      "line": 377,
+      "receiver": "Image(systemName: model.isPreviewing ? \"eye.slash\" : \"eye\")",
+      "source": ".font(.system(size: 13))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Composer/ComposerView.swift",
+      "kind": "glyph",
+      "line": 402,
+      "receiver": "Text(glyph).font(.system(size: 15))",
+      "source": "Text(glyph).font(.system(size: 15))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Composer/ComposerView.swift",
+      "kind": "glyph",
+      "line": 405,
+      "receiver": "Image(systemName: suggestion.kind == .channel ? \"number\" : \"person.crop.circle\")",
+      "source": ".font(.system(size: 14))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Composer/ComposerView.swift",
+      "kind": "glyph",
+      "line": 448,
+      "receiver": "Image(systemName: model.mode.isEditing ? \"pencil\" : \"arrowshape.turn.up.left\")",
+      "source": ".font(.system(size: 12))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Composer/ComposerView.swift",
+      "kind": "glyph",
+      "line": 479,
+      "receiver": "Image(systemName: \"exclamationmark.triangle.fill\")",
+      "source": ".font(.system(size: 13))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Composer/ComposerView.swift",
+      "kind": "glyph",
+      "line": 548,
+      "receiver": "Image(systemName: attachment.mimeType.hasPrefix(\"image/\") ? \"photo\" : \"doc\")",
+      "source": ".font(.system(size: 16))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Composer/ComposerView.swift",
+      "kind": "glyph",
+      "line": 580,
+      "receiver": "Image(systemName: \"arrow.clockwise\")",
+      "source": ".font(.system(size: 12))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Composer/ComposerView.swift",
+      "kind": "glyph",
+      "line": 590,
+      "receiver": "Image(systemName: \"xmark.circle.fill\")",
+      "source": ".font(.system(size: 14))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Reactions/ReactionBarView.swift",
+      "kind": "glyph",
+      "line": 102,
+      "receiver": "Image(systemName: \"face.smiling\")",
+      "source": ".font(.system(size: 12, weight: .semibold))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Emoji/EmojiPickerView.swift",
+      "kind": "glyph",
+      "line": 76,
+      "receiver": "Image(systemName: \"magnifyingglass\")",
+      "source": ".font(.system(size: 13, weight: .semibold))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Channel/PostRowView.swift",
+      "kind": "glyph",
+      "line": 283,
+      "receiver": "Image(systemName: \"ellipsis\")",
+      "source": ".font(.system(size: 13, weight: .semibold))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Channel/PostRowView.swift",
+      "kind": "glyph",
+      "line": 329,
+      "receiver": "Image(systemName: \"info.circle\")",
+      "source": ".font(.system(size: 15))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Channel/PostRowView.swift",
+      "kind": "glyph",
+      "line": 353,
+      "receiver": "Image(systemName: \"pin.fill\")",
+      "source": ".font(.system(size: 10))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Channel/PostRowView.swift",
+      "kind": "glyph",
+      "line": 501,
+      "receiver": "Image(systemName: \"chevron.right\")",
+      "source": ".font(.system(size: 9, weight: .semibold))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Files/AttachmentViews.swift",
+      "kind": "glyph",
+      "line": 162,
+      "receiver": "Image(systemName: \"photo\")",
+      "source": ".font(.system(size: 18))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Files/AttachmentViews.swift",
+      "kind": "glyph",
+      "line": 174,
+      "receiver": "Image(systemName: \"arrow.clockwise\")",
+      "source": ".font(.system(size: 15, weight: .semibold))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Files/AttachmentViews.swift",
+      "kind": "glyph",
+      "line": 222,
+      "receiver": "Image(systemName: attachment.symbolName)",
+      "source": ".font(.system(size: 17, weight: .regular))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Files/AttachmentViews.swift",
+      "kind": "glyph",
+      "line": 279,
+      "receiver": "Image(systemName: state == .idle ? \"arrow.down.circle\" : \"arrow.clockwise.circle\")",
+      "source": ".font(.system(size: 19))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Files/FilePreviewView.swift",
+      "kind": "glyph",
+      "line": 128,
+      "receiver": "Image(systemName: \"xmark\")",
+      "source": ".font(.system(size: 15, weight: .semibold))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Files/FilePreviewView.swift",
+      "kind": "glyph",
+      "line": 151,
+      "receiver": "Image(systemName: \"square.and.arrow.up\").font(.system(size: 16))",
+      "source": "Image(systemName: \"square.and.arrow.up\").font(.system(size: 16))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Files/ImageViewer.swift",
+      "kind": "glyph",
+      "line": 102,
+      "receiver": "Image(systemName: \"xmark\")",
+      "source": ".font(.system(size: 15, weight: .semibold))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Files/ImageViewer.swift",
+      "kind": "glyph",
+      "line": 122,
+      "receiver": "Image(systemName: \"square.and.arrow.up\")",
+      "source": ".font(.system(size: 16))"
+    },
+    {
+      "file": "Mattermost/UI/Native/Thread/ThreadView.swift",
+      "kind": "glyph",
+      "line": 255,
+      "receiver": "Image(systemName: model.isFollowing ? \"bell.fill\" : \"bell.slash\")",
+      "source": ".font(.system(size: 15, weight: .semibold))"
+    }
+  ],
+  "font_sites_unexplained": [],
+  "font_sites_unowned": [],
+  "generated_by": "scripts/t45_a11y_inventory.py",
+  "head": "d5e964d3c2d12b05574956d58e86046198c1e37e",
+  "line_limit_one": [
+    {
+      "file": "Mattermost/UI/DownloadsView.swift",
+      "line": 116
+    },
+    {
+      "file": "Mattermost/UI/DownloadsView.swift",
+      "line": 132
+    },
+    {
+      "file": "Mattermost/UI/Native/Sidebar/TeamSidebarView.swift",
+      "line": 236
+    }
+  ],
+  "note": "Generated by the host-side scan. The unit test asserts this manifest has no offenders; re-run this command and commit the file whenever the accessibility surfaces change.",
+  "reduce_motion_uses": 4,
+  "scaled_column_sites": 3,
+  "scaled_font_sites": 48,
+  "scaled_symbol_sites": 25,
+  "stale_exemptions": [],
+  "unnamed_buttons": [],
+  "variable_line_limit_sites": 18
+}

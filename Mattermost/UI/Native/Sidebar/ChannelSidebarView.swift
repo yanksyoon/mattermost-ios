@@ -504,7 +504,7 @@ struct CategoryHeader: View {
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Text(group.displayName)
-                    .lineLimit(1)
+                    .mmLineLimit(1)
                 if group.category.muted {
                     Image(systemName: "bell.slash")
                         .font(.caption2)
@@ -552,10 +552,10 @@ struct ChannelSidebarRow: View {
                 Image(systemName: entry.iconSymbolName)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .frame(width: 16)
+                    .scaledColumn(width: 16)
                     .accessibilityHidden(true)
                 Text(entry.displayName)
-                    .lineLimit(1)
+                    .mmLineLimit(1)
                     .truncationMode(.tail)
                     // The name wins the horizontal space: without this the badge and the mute glyph
                     // squeeze a short name into "Off-…" in the 240 pt sidebar.

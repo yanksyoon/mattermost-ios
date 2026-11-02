@@ -126,7 +126,7 @@ struct AuthSurfaceView: View {
     private var header: some View {
         VStack(spacing: 8) {
             Image(systemName: "bubble.left.and.bubble.right.fill")
-                .font(.system(size: 40))
+                .scaledSymbol(40)
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.tint)
                 .accessibilityHidden(true)

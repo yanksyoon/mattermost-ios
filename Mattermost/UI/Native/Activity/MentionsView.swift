@@ -53,7 +53,7 @@ struct MentionsPaneContent: View {
     private func note(systemImage: String, title: String, body: String) -> some View {
         VStack(spacing: 10) {
             Image(systemName: systemImage)
-                .font(.system(size: 30))
+                .scaledSymbol(30)
                 .foregroundStyle(.secondary)
             Text(title)
                 .font(.headline)
@@ -249,7 +249,7 @@ struct ActivityFeedView: View {
     private var empty: some View {
         VStack(spacing: 10) {
             Image(systemName: "bell.slash")
-                .font(.system(size: 30))
+                .scaledSymbol(30)
                 .foregroundStyle(.secondary)
             Text(model.filter == .unread ? "Nothing unread" : "No mentions yet")
                 .font(.headline)
@@ -268,7 +268,7 @@ struct ActivityFeedView: View {
     private func failure(_ message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 30))
+                .scaledSymbol(30)
                 .foregroundStyle(.secondary)
             Text(message)
                 .font(.callout)

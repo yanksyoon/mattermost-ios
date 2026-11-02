@@ -49,7 +49,7 @@ struct SavedPaneContent: View {
             } else {
                 VStack(spacing: 10) {
                     Image(systemName: "bookmark")
-                        .font(.system(size: 30))
+                        .scaledSymbol(30)
                         .foregroundStyle(.secondary)
                     Text(verbatim: "Saved messages are off for this run (`search=web`)")
                         .font(.headline)
@@ -187,7 +187,7 @@ struct PostCollectionView: View {
             case .failed(let message):
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 30))
+                        .scaledSymbol(30)
                         .foregroundStyle(.secondary)
                     Text(message)
                         .font(.callout)
@@ -307,7 +307,7 @@ struct PostCollectionView: View {
     private var empty: some View {
         VStack(spacing: 10) {
             Image(systemName: model.kind == .saved ? "bookmark" : "pin")
-                .font(.system(size: 30))
+                .scaledSymbol(30)
                 .foregroundStyle(.secondary)
             Text(model.kind.emptyTitle)
                 .font(.headline)

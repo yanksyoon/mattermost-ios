@@ -64,7 +64,7 @@ struct ReactionBarView: View {
         HStack(spacing: 3) {
             EmojiGlyph(name: reaction.emojiName, emoji: emoji)
             Text("\(reaction.count)")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.scaled(12, weight: .semibold))
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
