@@ -74,12 +74,16 @@ mode, because a half-ported app in that mode is exactly the failure this card av
    not require touching the resolver — and wiring one is a reviewable decision (`§5`, gate script).
 4. **Compile-time default** — `SurfaceDefaults.defaultMode(for:)`, i.e.
    `native` **only** for a surface listed in `SurfaceDefaults.nativeApprovedSurfaces`, otherwise
-   `web`. Since the 2026-10-27 workspace flip that registry holds `.auth`, `.calls`, `.sidebar`,
-   `.channelView` and `.composer` (§5); every other surface is `web`.
+   `web`. Since the 2026-10-27 workspace flip and the `t_aa211ff6` lookup flip that registry holds
+   `.auth`, `.calls`, `.sidebar`, `.channelView`, `.composer`, `.search` and `.activity` (§5);
+   `.channelInfo` is the only surface left on `web`.
 
-So a **Release build resolves from tiers 3 and 4 only**. With those five approved and no remote
+So a **Release build resolves from tiers 3 and 4 only**. With those seven approved and no remote
 default, a shipped binary renders the workspace natively (team rail, channel list, channel pane and
-composer) and still falls back to the webview for every unapproved surface.
+composer) and the three lookup tabs (Search, Saved, Mentions) draw their native screens instead of a
+note; `.channelInfo` is the only surface that still falls back to the webview — and the pane-owning
+workspace has released that webview anyway (§12.2), which is why those lookups are the whole screen
+rather than a card painted over a live page.
 
 Two rules make the switch behave the way a user expects at runtime:
 
@@ -102,7 +106,7 @@ a missing value, or a dangling `-surfaceMode` at the end of `argv` are all dropp
 retired surface name in a future build cannot crash the shell (`testUnknownPersistedOverrideIsDropped`).
 
 Do not pass a `-surfaceMode` whose value is the surface's own compile-time default — by
-construction that is a no-op (`web` for every surface today).
+construction that is a no-op (`web` for `.channelInfo`, `native` for the seven approved surfaces).
 
 ## 4. Surfaces
 
@@ -115,7 +119,7 @@ The eight switch keys are the regions of the client, not the 40 inventory screen
 | `sidebar` | S08 Channel sidebar, S09 Find/browse channels |
 | `channelView` | S11 Channel view (post list), S12 Permalink, S16 Reactions, S38 post options; S13 Thread RHS + global threads is a **sub-region** of it (native thread pane or the web app's RHS, see below) |
 | `composer` | S14 Composer, S15 Autocomplete, S17 emoji picker |
-| `search` | S19 Search, S20 Saved, S21 Pinned, S26 Drafts |
+| `search` | S19 Search, S20 Saved, S21 Pinned, S26 Drafts — **S26 Drafts is T51's** (`t_e1ac98d8`), not part of this surface's approval: a draft is stored and restored per channel by the composer, but `allDrafts(limit:)` has no production caller, so no drafts screen ships and approving `.search` does not claim one |
 | `activity` | S25 Mentions inbox |
 | `channelInfo` | S22 Channel info, S23 Members / manage |
 | `calls` | S33 Calls — **pinned to `web` by T44** (2026-10-27): no native card owns this surface, and the pin is deliberate. `docs/t44-build-note.md` §6 gives the reasons (a native surface without the ReplayKit broadcast-extension target *regresses* screen share against today's webview; no licence sign-off for the AGPL/source-available plugin; no surface card) and they still stand. **Amended by T44b** (`t_7b826839`, `docs/t44b-calls-media-path.md`): the media-path half of the reason is gone — a UDP relay sidecar on `mm-perf-net` publishes the SFU's ICE port, `scripts/t44_calls_probe.py` now measures reachability with a credentialed ICE check (`MEDIA PATH: 1/3`), and a real call carries bidirectional opus both ways with `getStats()` counters (`outbound-rtp` +405/+404 packets, `inbound-rtp` +388,800 samples decoded on each side, selected pair `127.0.0.1:8443/udp`). "Bidirectional audio" **is** measurable here now, so lifting the pin rests on licence, screen share and a surface card — T44c (`t_d7b43d10`) owns the engine work. **Amended again by T44-AV-R** (`t_19ac4035`; `docs/t44-build-note.md` §3.3): measured inside this app's own `WebViewStore`, the *pinned* webview does show the plugin's Calls button at iPad width (95 × 32 at x = 646 of 834) but **not** at iPhone width — at 402 pt `.channel-header` computes `display: none` and the desktop `User-Agent` keeps the web app from mounting its mobile header, so `#calls-join-button` exists in the DOM only inside a hidden subtree (0 × 0). The pin gives an iPhone-shaped viewport no way to start a call, so "screen share works exactly as today" only holds where a call can be joined at all. **Amended by T44d** (`t_a2ff267a`, 2026-10-27; `docs/t44d-build-note.md`): a native card now **owns** this surface — `UI/Native/Calls/` renders the call (participant tiles with mute/hand/host, the control bar, the states a call really has) and the channel header offers `Start call` ⇄ `Join call`, gated on `resolvedMode(for: .calls) == .native` so the webview keeps Calls whenever `calls` resolves `web`. The web fallback is therefore still reachable and unchanged, and the licence/screen-share reasons above now bound *what the native surface may do* rather than whether one may exist: screen share stays inside the webview (no ReplayKit extension until T44e), and the camera control is absent. `.calls` **entered `SurfaceDefaults.nativeApprovedSurfaces` at T44d-AV** (`t_466e8e90`, 2026-10-27, verdict PASS-WITH-FINDINGS; `Mattermost/Core/RenderMode.swift`), so `defaultMode(for: .calls) == .native` with no launch flag. Two things that flip does **not** mean, both measured: (a) the entry point is drawn by `NativeChannelPaneView`, so it is reachable only when the pane host (`.channelView`) resolves native — that surface is not approved, so a shipping build still renders the web app and the web client's own Calls UI, and the registry flip is a correct state rather than a user-visible change by itself; (b) screen share is still web-only (no ReplayKit extension until T44e), so the moment `.channelView` is approved the native surface will be the one that loses it unless T44e lands first. The two assertions the pin was waiting on now **pass**: on 2026-10-27 the live suite's `Leave`-ends-the-call and both `user_unmuted`/`user_muted` round trips went 2/2 green in two consecutive runs against the fixture (`build/logs/t44d-run3.log`, `t44d-run5.log`), independently re-run by the `-AV` card (`build/logs/t44d-av-live1.log`: 2 run, 0 skipped, 0 failed, `** TEST SUCCEEDED **`) after four earlier runs had been killed by an AudioToolbox abort that is host audio contention (signature and ladder in §4.2 of that note). |
@@ -191,7 +195,7 @@ Mechanically that means exactly one edit: appending the surface to
 
 ```swift
 // Mattermost/Core/RenderMode.swift
-public static let nativeApprovedSurfaces: Set<Surface> = [.auth, .calls, .sidebar, .channelView, .composer]
+public static let nativeApprovedSurfaces: Set<Surface> = [.auth, .calls, .sidebar, .channelView, .composer, .search, .activity]
 ```
 
 * **The registry is an approval ledger, not a scratch list.** Each entry is one `-AV` sign-off, and
@@ -204,6 +208,8 @@ public static let nativeApprovedSurfaces: Set<Surface> = [.auth, .calls, .sideba
   | `.sidebar` | T33-AV2 (card `t_8c99e10a`, verdict `PASS-WITH-FINDINGS`) **+ the owner's decision of 2026-10-27** (card `t_c93b8337`, scope A; human gate `t_4413b7b2`) | `docs/t33r2-build-note.md` §3/§6 — T33-AV2 closed with "the flip itself stays a separate decision", so the validator never granted it; the owner's approval is the sign-off, and T33-R2 (`t_98c39e49`) had already closed AV2-F1–F3 |
   | `.channelView` | T34-AV (card `t_1ca87edd`, verdict `PASS-WITH-FINDINGS`, F1 repaired by `t_cf23dcd7`) + T55-AV-R (card `t_6059f7ce`) **+ the owner's decision of 2026-10-27** (card `t_c93b8337`, scope A) | `docs/t34r5-build-note.md` §5 (F1 repair) and `docs/t55-revalidation-build-note.md` §3/§6: the five regions the pane hosts were re-validated with no FAIL — `.threads` PASS, reactions PASS-WITH-FINDINGS, attachments PASS, `.search` PASS-WITH-FINDINGS, `.channelInfo` PASS. This is the AV debt T34-AV named as the blocker |
   | `.composer` | T35-AV (card `t_3042a50f`, verdict `PASS-WITH-FINDINGS`; repair `t_e7eeaa46`) — **a repair, not a flip grant** — plus the pane-ownership requirement the same 2026-10-27 decision created (card `t_c93b8337`): the release this flip exists for asserts "composer is native" (`t_9928d203` step 4) | `docs/t35-build-note.md`. Without this entry the approved pane draws the dead `"Message input — web (S14/T35)"` placeholder (`ChannelView.composerPlaceholder`) **while `.channelView` is pane-owning, i.e. after the webview is released** — a read-only workspace. The composer mounts only inside the pane, so the entry is pane-local |
+  | `.search` | T39-AV (`t_3c83d5e7`, **FAIL**) → T39-R (`t_37a4545b`) → **T55-AV-R (`t_6059f7ce`), `.search` PASS-WITH-FINDINGS after repair** → T39-R2 (`t_c3957991`, harness only) | `docs/t39-search-build-note.md`, `docs/t55-revalidation-build-note.md` §3/§6 (mutation-checked closures, T39 live 7/7), `docs/t39-r2-build-note.md` |
+  | `.activity` | T42-AV (`t_af5a4d3b`, PASS-WITH-FINDINGS; findings were documentation/test-strength only) + T42-R (`t_b483a58d`, F1–F5 closed) | `docs/t42-build-note.md`, `docs/parity.md` T42 row (46 unit, 4/4 live, 4/4 again after T42-R) |
 
   `.sidebar` and `.channelView` are the first entries whose sign-off is a **product decision, not a
   `-AV` verdict**: both validators passed *with findings* and both explicitly deferred the flip. The
@@ -445,8 +451,9 @@ flag).
 
 | Test | Pins |
 |---|---|
-| `testOnlyTheApprovedRegistryDefaultsToNative` | the exact approval registry (`[.auth, .calls, .sidebar, .channelView, .composer]`); every other surface falls back to `web` |
-| `testTheWorkspaceFlipApprovesBothSurfacesAndOnlyThePaneHostOwnsThePane` | the 2026-10-27 scope-A decision: `.sidebar`, `.channelView` and (from pane ownership) `.composer` native; only `.channelView` pane-owning; the rest still `web` |
+| `testOnlyTheApprovedRegistryDefaultsToNative` | the exact approval registry (`[.auth, .calls, .sidebar, .channelView, .composer, .search, .activity]`); every other surface falls back to `web` |
+| `testTheLookupFlipIsApprovedByAVerdictsAndOwnsNoPane` | the `t_aa211ff6` flip on its own terms: `.search` and `.activity` resolve native by default (naming T55-AV-R and T42-AV, the verdicts that authorised each), and neither is pane-owning — a lookup screen draws beside the webview and may never release one (§12.1) |
+| `testTheWorkspaceFlipApprovesBothSurfacesAndOnlyThePaneHostOwnsThePane` | the 2026-10-27 scope-A decision: `.sidebar`, `.channelView` and (from pane ownership) `.composer` native; only `.channelView` pane-owning; `.channelInfo` is the only remaining `web` default |
 | `testNativeByDefaultRequiresApproval` | native-by-default only via `nativeApprovedSurfaces` |
 | `testLaunchArgumentOverrideWinsOverCompileTimeDefault` | tier 1 beats tier 4; unlisted surfaces keep default |
 | `testLaunchArgumentSingleTokenFormIsAccepted` | `-surfaceMode=x=y` form |
@@ -485,8 +492,11 @@ flag).
   (§5 states the limit).
 * **Only `channelView` has a *pane* host — and "no view mounts them yet" was wrong.** The other
   surfaces are togglable (inspector / launch flag) and most of them gate inside their own panes
-  (`.search`, `.activity`, `.channelInfo`, `.composer`), but a case's host arriving is not the same as
-  the case being consulted. Measured on `1577337` (card `t_7ffa9e76`): **four** cases changed nothing
+  (`.search`, `.activity`, `.channelInfo`, `.composer`). For `.search` and `.activity` that gate now
+  describes their **DEBUG** branch only: both are native by default since `t_aa211ff6`, so a shipped
+  pane draws the native screen and the gate's `web` arm is reachable solely from a `-surfaceMode`
+  launch or the inspector (release builds have neither tier). And a case's host arriving is not the
+  same as the case being consulted. Measured on `1577337` (card `t_7ffa9e76`): **four** cases changed nothing
   on screen, and **all four are now retired** — the code matches the decision:
   `.threads` (`t_cdcc1f38`, `docs/t_7ffa9e76-threads-surface-retirement.md`: a thread pane only exists
   inside a native pane host, so it was never a switch; the pane keeps drawing whenever the route
@@ -499,22 +509,26 @@ flag).
   pinned to `[]` — is live and keeps the class from recurring silently. Its stated limit is that it
   measures references, not effect: `.profile` passed it while being read and discarded, which is why
   the four above were retired by decision rather than by the script.
-* **The three lookup screens ship as notes — decided 2026-10-29, not left open.** `.search` and
-  `.activity` are unapproved, so a shipped shell's Search, Saved and Mentions tabs (and the iPad
-  toolbar buttons) open a note over a webview that §12.2 destroyed — three of five tabs on a release
-  build. `docs/t_aa211ff6-lookup-surface-defaults.md` decides **both keys native-by-default** (the
-  `-AV` evidence is T55-AV-R's `.search` PASS-WITH-FINDINGS after T39-R, and T42-AV's
-  PASS-WITH-FINDINGS closed by T42-R; neither validator deferred the flip, unlike the 2026-10-27
-  workspace decision), landing as one labelled registry commit plus a ship-shaped QA round; the F5′
-  copy (`t_a7432eab`) keeps its three titles, and after that commit the notes are reachable only
-  from a DEBUG configuration. Until the flip lands, the paragraph above describes the shipped state.
-* **Native surfaces: five.** `.auth`, `.calls`, `.sidebar`, `.channelView` and `.composer` are
-  native by default (§5); the rest require a passed `-AV` card. The workspace entries carry the
-  owner's 2026-10-27 decision because their validators deferred the flip, and `.composer` follows
-  from pane ownership (§12.1).
+* **The three lookup screens are native by default — decided 2026-10-29, landed by `t_aa211ff6`.**
+  `.search` and `.activity` entered `nativeApprovedSurfaces` in one labelled registry commit, so a
+  shipped shell's Search, Saved and Mentions tabs (and the iPad toolbar buttons, and the channel
+  header's pinned button) draw real screens instead of a note over a webview that §12.2 destroyed —
+  three of five tabs, which is what this bullet previously recorded as a limit. The sign-off is each
+  surface's own validator, not a product decision: T55-AV-R's `.search` PASS-WITH-FINDINGS after
+  T39-R (T39-AV had FAILed), and T42-AV's PASS-WITH-FINDINGS closed by T42-R; neither deferred the
+  flip, unlike the 2026-10-27 workspace decision (`docs/t_aa211ff6-lookup-surface-defaults.md` §3).
+  Both verdicts were issued with `-surfaceMode …=native`, so the **shipped configuration** is the
+  sibling QA card's subject (`t_636e6483`: a Release build with no launch arguments). The F5′ notes
+  (`searchWebFallback`/`savedWebFallback`/`activityWebFallback`, `t_a7432eab`) stay in the tree but
+  are **DEBUG-only** now: no release tier can resolve either surface `web`.
+* **Native surfaces: seven.** `.auth`, `.calls`, `.sidebar`, `.channelView`, `.composer`, `.search`
+  and `.activity` are native by default (§5); `.channelInfo` is the only case that still requires a
+  passed `-AV` card. The workspace entries carry the owner's 2026-10-27 decision because their
+  validators deferred the flip, `.composer` follows from pane ownership (§12.1), and the two lookup
+  entries carry their own validators' verdicts (T55-AV-R after T39-R; T42-AV closed by T42-R).
 * **A non-pane native surface still loads a full webview — the switch buys no memory for it
-  (T26-R R4).** Every approved surface except the pane host (`.auth`, `.calls`, `.sidebar`) renders
-  beside a fully mounted webview: same process count, same memory, same session. The exception is
+  (T26-R R4).** Every approved surface except the pane host (`.auth`, `.calls`, `.sidebar`, `.search`,
+  `.activity`) renders beside a fully mounted webview: same process count, same memory, same session. The exception is
   the pane host itself — §12's release policy is now live (`paneOwningSurfaces = [.channelView]`), so
   a native workspace releases the per-server `WKWebView` once its navigation settles. For the other
   surfaces the dual-render switch is a *rendering* switch, not a resource one. The follow-up

@@ -7,10 +7,10 @@
 // Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §16; no
 // upstream source copied. The SwiftUI decomposition is this repo's own (component-map.md §1).
 //
-// Surface: `Surface.search` (S19). Until T39-AV approves the flip the surface resolves `.web`
-// (`SurfaceDefaults.nativeApprovedSurfaces`), and this pane then says so instead of drawing a screen
-// the dual-render switch says is not native. `-surfaceMode search=native` is the launch flag the UI
-// test uses.
+// Surface: `Surface.search` (S19). Since `t_aa211ff6` the surface is native by default
+// (`SurfaceDefaults.nativeApprovedSurfaces`, on T55-AV-R's PASS-WITH-FINDINGS after T39-R repaired
+// T39-AV's findings), so this pane draws the screen on every shipped build. The note behind the gate
+// is the DEBUG-only fallback — a release build has no tier that can resolve the surface `web`.
 
 import SwiftUI
 

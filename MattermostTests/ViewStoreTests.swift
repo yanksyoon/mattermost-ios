@@ -278,12 +278,15 @@ final class ViewStoreTests: XCTestCase {
     /// release path was inert; the owner decision (`t_c93b8337`, scope A) approved `.channelView`
     /// **and** made it pane-owning, so destroying the per-server webview is now the point of the
     /// flip. The four-condition rule (§12.1) is what keeps it from firing anywhere else: `.auth`,
-    /// `.calls` and `.sidebar` are approved but own no pane, so they can never evict a webview, and
-    /// the pane host itself cannot evict while a login/SSO navigation is in flight.
+    /// `.calls`, `.sidebar`, `.search` and `.activity` are approved but own no pane, so they can
+    /// never evict a webview, and the pane host itself cannot evict while a login/SSO navigation is
+    /// in flight. (The two lookup surfaces joined the registry in `t_aa211ff6`; `paneOwningSurfaces`
+    /// did not move, which is the assertion below.)
     func testReleaseIsReachableOnlyThroughTheApprovedPaneOwner() {
         XCTAssertEqual(SurfaceDefaults.nativeApprovedSurfaces,
-                      [.auth, .calls, .sidebar, .channelView, .composer],
-                      "the approved surfaces include the workspace set from the 2026-10-27 decision")
+                      [.auth, .calls, .sidebar, .channelView, .composer, .search, .activity],
+                      "the approved surfaces include the workspace set from the 2026-10-27 decision "
+                      + "and the two lookup surfaces from `t_aa211ff6`")
         XCTAssertEqual(SurfaceDefaults.paneOwningSurfaces, [.channelView],
                       "exactly one surface owns the pane, and it is the pane host")
         XCTAssertEqual(SurfaceDefaults.paneHostSurface, .channelView)

@@ -6,10 +6,11 @@
 // Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §19; no
 // upstream source copied. The SwiftUI decomposition is this repo's own (docs/component-map.md §1).
 //
-// Surface: `Surface.activity` (S25). Until T42-AV approves the flip the surface resolves `.web`
-// (`SurfaceDefaults.nativeApprovedSurfaces`), and this pane says so instead of drawing a screen the
-// dual-render switch says is not native. `-surfaceMode activity=native` is the launch flag the UI test
-// uses — and the same flag this app's own snapshot probe needs.
+// Surface: `Surface.activity` (S25). Since `t_aa211ff6` the surface is native by default
+// (`SurfaceDefaults.nativeApprovedSurfaces`, on T42-AV's PASS-WITH-FINDINGS closed by T42-R), so this
+// pane draws the feed on every shipped build. The note behind the gate is the DEBUG-only fallback —
+// a release build has no tier that can resolve the surface `web`, and `-surfaceMode activity=web` is
+// what this app's own snapshot probe uses to reach the other branch.
 //
 // The row's body is `PostRowView`, the same renderer the channel timeline and the search results use, so
 // a mention reads exactly like the message it is (its markdown, its attachments, its reactions) instead of
