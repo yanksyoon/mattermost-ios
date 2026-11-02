@@ -284,7 +284,7 @@ public final class SurfaceModeResolver: ObservableObject {
 
     /// Resolve a launch-argument surface token to a `Surface`.
     ///
-    /// Accepts the 12 surface raw values **plus** the launch-only alias
+    /// Accepts the eight surface raw values **plus** the launch-only alias
     /// `SurfaceDefaults.paneHostAlias` ("shell"), which names the pane host surface — see that
     /// constant for why the alias exists and why it is not a `Surface` case. An unknown token is
     /// rejected (and therefore ignored), exactly as before.
