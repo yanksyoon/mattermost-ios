@@ -60,14 +60,15 @@ C3 measured, six ways, that tapping a pinned row's author did not open the profi
 author affordance is not receiving touches in that host", with the `List` row's `.onTapGesture` winning
 over `PostRowView`'s nested `Button`s as the prime suspect (explicitly a hypothesis).
 
-**That diagnosis is withdrawn.** The element is not unique in that host. The pinned sheet is presented
-over the channel pane, the pinned post belongs to that same channel, and the row is therefore drawn
-twice: `{{27.0, 637.6}, {33.1, 33.1}}` inside `channelPostList` under the sheet, and
+**That diagnosis is withdrawn.** The failure was the test's element lookup, not the product — on the
+runtime C3 measured (iPhone 16 Pro / iOS 18.x) the pinned sheet is presented over the channel pane, the
+pinned post belongs to that same channel, and the row is therefore drawn **twice**:
+`{{27.0, 637.6}, {33.1, 33.1}}` inside `channelPostList` under the sheet, and
 `{{32.0, 557.0}, {36.0, 36.0}}` inside `pinnedPosts` on it. The test resolved
 `element(app, "post.<id>.avatar")` app-wide, so `.firstMatch` answered the **covered** copy in the pane.
-Everything C3 measured follows from that one fact, and nothing from the product:
+Everything C3 measured on that runtime follows from that one fact, and nothing from the product:
 
-| C3's observation | What it was |
+| C3's observation (iOS 18.x) | What it was |
 |---|---|
 | `header.tap()` → `Computed hit point {-1, -1}`, nothing happens | the resolved element is covered by the sheet, so XCUITest cannot compute a hit point |
 | `header.isHittable` never becomes true, on a drawn row mid-list | same — hittability is computed *under the cover* |
@@ -75,6 +76,29 @@ Everything C3 measured follows from that one fact, and nothing from the product:
 | the frame is "inside the row and inside the visible list" | true of the *sheet's* row; the header being tapped was the other copy — C3's `push6.log` records the failed containment assert this produces: header at y 637.6, revealed row at y 720 |
 | C2's own test got past the tap in one run | in that run `.firstMatch` answered the sheet's copy — the tree order of the two copies is not stable between launches |
 | the two tests disagree | they address different copies, not different behaviour |
+
+### 3.1 The duplicate is runtime-scoped, not universal (`t_10d3db63`)
+
+This note first stated the duplicate as if it were a property of the host. It is not: it is a property
+of the iOS runtime under test. On `origin/main` (`ffc22f7`) built for iPhone 17 Pro **iOS 26.5**, the
+identifier is drawn **once** — a temporary probe inside the pinned test printed, while the pinned sheet
+was open:
+
+    AVPROBE copies=1
+    AVPROBE copy[0] frame=(28.0, 864.0, 36.0, 36.0) hittable=true
+    AVPROBE rowFrame=(16.0, 858.0, 344.6666666666667, 73.0)
+
+One copy, 36 pt, inside the row, hittable. The **pre-fix** app-wide lookup
+(`git checkout b82de6d -- MattermostUITests/T5449ListProfileUITests.swift`) also **passes** on that
+runtime (`build/logs/t_76a52cbe-mut-lookup.log`, 1 run / 0 failed). So whether the covered pane copy is
+exposed in the accessibility tree depends on the runtime; the 18.x shape is not reproducible on this
+host (the 18.5 simulator would not launch the app — `t_76a52cbe-pushed.log`; the retry wedged,
+`t_76a52cbe-pushed-r2.log` rc=124).
+
+The correct statement, then: **on the runtimes measured (iOS 18.x) the identifier was drawn twice; the
+row-scoped lookup makes the tap independent of whether the covered copy is exposed (iOS 26.5 exposes
+one).** The row-scoped fix is kept because it is correct in **both** shapes — not because the app-wide
+lookup is always wrong. The product was never at fault in either run.
 
 Fix (test-only, this card): the header is resolved **inside the row** —
 `row.descendants(matching: .any).matching(identifier: "post.<id>.avatar").firstMatch` — which makes the
@@ -121,12 +145,15 @@ C3 §6.2). The sheet's own two live tests are unchanged in behaviour: `launchApp
   container differs only in which `NavigationStack` the push rides on; both draw the same
   `PushedProfileScreen`.
 * The pushed Call row is asserted, not pressed, in the live test — pressing it starts a real call, which
-  is T44's own audio gate. Its route is the sheet's (unit-pinned in `T5449ProfileActionMatrixTests` plus
-  `CallsCoordinator`'s `requestStart`/`consumeStart` rules), and the one line that differs between the two
-  hosts is `dismiss()` vs `dismiss()`-then-`requestStart`, written out in `PushedProfileScreen`.
-* A pinned post is drawn **twice** while its sheet is open (pane underneath, sheet on top). That is
-  ordinary iOS presentation, not a defect, but any test — present or future — that looks up
-  `post.<id>.*` app-wide in that host is resolving an ambiguous identifier. §3 is the record.
+  is T44's own audio gate. Its route is now **run** rather than code-read: `PushedProfileScreen.route`
+  is a static seam and `T5449ProfilePresentationTests` pins pop → open the DM → `requestStart` (and that
+  `.open` never asks for a call) with no UI and no audio, `t_10d3db63`. The one line that differs between
+  the two hosts is still `dismiss()` vs `dismiss()`-then-`requestStart`, written out in
+  `PushedProfileScreen`; the sheet's live test keeps the server-side oracle (`GET …/active`).
+* A pinned post may be drawn **twice** while its sheet is open (pane underneath, sheet on top) — on iOS
+  18.x it was, and iOS 26.5 exposes one copy. That is ordinary iOS presentation, not a defect, but any
+  test — present or future — that looks up `post.<id>.*` app-wide in that host is resolving an ambiguous
+  identifier on a runtime that draws two. §3 is the record.
 * `pinnedPosts` is a `CollectionView` in the tree; `savedPosts` is not exposed at all (C2 §6.4). The new
   test's `revealRow` swipes the list when the row is below the fold and is tolerant of the identifier
   being absent, the same convention as C2's.
