@@ -229,9 +229,89 @@ final class T5449ProfileActionsUITests: XCTestCase {
                       + "\(String(describing: row.value))")
     }
 
+    // MARK: - 3. The same two rows in the **pushed** form
+
+    /// The profile reached from the pinned sheet is a **push** (`profilePush`, no `profileSheet`), and
+    /// it offers the same two write rows the sheet does — the defect this card fixes.
+    ///
+    /// Before `t_dc0ea74d`, `PushedProfileScreen.task` resolved the model and started presence but never
+    /// called `ProfileCoordinator.prepareActions`, so its `ProfileActionContext` stayed `unknown` and the
+    /// matrix (unknown is absent) offered **neither** row here.
+    ///
+    /// **No call is started**: the Call row is asserted, not pressed, so T44d §4.2's audio caveat does
+    /// not apply to this test and it can run beside the rest of the suite. Add to a channel *is*
+    /// pressed — it is a push on this stack and no audio — which also proves the team reached the
+    /// pushed `ProfileScreen`: without `teamID` the row would draw and its destination render nothing.
+    func testThePushedProfileCarriesTheSameWriteRows() throws {
+        // The only live route to a pushed profile on iPhone (`PinnedPostsView` declares
+        // `.profilePresentation = .push`), so this test needs the fixture post pinned. The pin is
+        // removed again in a teardown block: `#t429-tap`'s pinned list is shared with C2's suite.
+        _ = try sendJSON("POST", "/api/v4/posts/\(postID!)/pin", body: nil, as: token)
+        addTeardownBlock {
+            _ = try? self.sendJSON("POST", "/api/v4/posts/\(self.postID!)/unpin", body: nil, as: self.token)
+        }
+
+        let app = launchApp(nativeLookup: true)
+        openChannel(app)
+
+        let pinButton = element(app, "nativeChannelPinnedButton")
+        XCTAssertTrue(pinButton.waitForExistence(timeout: 60),
+                      "the channel header must offer its pinned messages:\n\(app.debugDescription)")
+        pinButton.tap()
+
+        let row = revealRow(element(app, "pinnedPosts.row.\(postID!)"), in: "pinnedPosts", app: app)
+        XCTAssertTrue(row.waitForExistence(timeout: 60),
+                      "the pinned sheet must draw the server's pinned post:\n\(app.debugDescription)")
+
+        // The author affordance, resolved **inside the row** (t_dc0ea74d). App-wide, this identifier
+        // is ambiguous: the same post is also drawn in `channelPostList` underneath the sheet, and
+        // `.firstMatch` answers that covered copy, whose `tap()` computes a hit point of `{-1, -1}`.
+        // See `T5449ListProfileUITests.tapAuthorHeader`, where the measurement is written down.
+        let avatar = row.descendants(matching: .any)
+            .matching(identifier: "post.\(postID!).avatar").firstMatch
+        let name = row.descendants(matching: .any)
+            .matching(identifier: "post.\(postID!).author").firstMatch
+        let header = avatar.exists ? avatar : name
+        XCTAssertTrue(header.waitForExistence(timeout: 20),
+                      "the pinned row must draw the author's own button:\n\(row.debugDescription)")
+        XCTAssertEqual(header.elementType, .button,
+                       "the author must be a control, not inert text: \(header.debugDescription)")
+        header.tap()
+
+        XCTAssertTrue(element(app, "profilePush").waitForExistence(timeout: 30),
+                      "a profile opened inside the pinned sheet is a push on that sheet's stack:\n"
+                      + "\(app.debugDescription)")
+        XCTAssertFalse(element(app, "profileSheet").exists,
+                       "no nested sheet: T40 measured a sheet inside a sheet whose confirmation never ran")
+        let username = element(app, "profile.username")
+        XCTAssertTrue(username.waitForExistence(timeout: 20),
+                      "the pushed profile must mount:\n\(app.debugDescription)")
+        XCTAssertEqual(username.label, "@\(buddyLogin)",
+                       "the push must be about the pinned post's author, not somebody else")
+
+        // **The two rows this card is about.** Resolved by `prepareActions` in the push's own `.task`,
+        // after `GET /users/{me}/teams/{tid}/members/{author}` and the channel-admin fan-in.
+        let callRow = element(app, "profile.call")
+        XCTAssertTrue(callRow.waitForExistence(timeout: 40),
+                      "the pushed form must offer the Call row exactly as the sheet does:\n"
+                      + "\(app.debugDescription)")
+        let addRow = element(app, "profile.addToChannel")
+        XCTAssertTrue(addRow.waitForExistence(timeout: 40),
+                      "the pushed form must offer Add to a channel exactly as the sheet does:\n"
+                      + "\(app.debugDescription)")
+        attach(app, "07-pushed-write-rows")
+
+        // Pressed, not merely drawn: the picker is pushed on the *sheet's* stack, above the profile.
+        addRow.tap()
+        XCTAssertTrue(element(app, "addToChannel.picker").waitForExistence(timeout: 30),
+                      "the pushed profile's Add row must open the team-scoped picker — the team is "
+                      + "threaded into the pushed `ProfileScreen`:\n\(app.debugDescription)")
+        attach(app, "08-pushed-picker")
+    }
+
     // MARK: - App driving
 
-    private func launchApp() -> XCUIApplication {
+    private func launchApp(nativeLookup: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         // No `-surfaceMode calls=…`: `.calls` is native by default since T44d-AV, and no
         // `-surfaceMode profile=…`: the sheet is not gated (T429's lesson — the flag hid the defect).
@@ -241,9 +321,16 @@ final class T5449ProfileActionsUITests: XCTestCase {
                                "-uiTestSeedServerName", "Local Mattermost",
                                "-surfaceMode", "shell=native",
                                "-surfaceMode", "auth=native",
-                               "-surfaceMode", "sidebar=native",
-                               "-uiTestLogLevel", "error",
-                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+                               "-surfaceMode", "sidebar=native"]
+        // The pinned sheet is drawn by the **lookup** group's switch (`nativeChannelPinnedButton` is
+        // gated on `resolvedMode(for: .search) == .native`), so the pushed-profile test — whose only
+        // route is that sheet — needs this one surface on. The other two tests keep the shipped
+        // default: their premise is the pane as a reader gets it.
+        if nativeLookup {
+            app.launchArguments += ["-surfaceMode", "search=native"]
+        }
+        app.launchArguments += ["-uiTestLogLevel", "error",
+                                "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launchEnvironment["OS_ACTIVITY_MODE"] = "disable"
         app.launch()
         signIn(app)
@@ -462,6 +549,24 @@ final class T5449ProfileActionsUITests: XCTestCase {
 
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    /// Scroll a list until one row is drawn (a lazy `List` builds only what is on screen).
+    ///
+    /// The pinned list carries every pin `#t429-tap` has accumulated, so the fixture's own row can be
+    /// below the fold. `pinnedPosts` is the identifier the sheet's `List` is given; when the runtime
+    /// does not expose it (measured for `savedPosts` in `build/logs/t5449c2-live1.log`), the swipes are
+    /// simply served by the app's own scroll view and the row check below is what decides.
+    private func revealRow(_ target: XCUIElement, in listIdentifier: String,
+                           app: XCUIApplication, maxSwipes: Int = 12) -> XCUIElement {
+        guard !target.exists else { return target }
+        let list = element(app, listIdentifier)
+        var swipes = 0
+        while !target.exists, swipes < maxSwipes {
+            list.swipeUp(velocity: .fast)
+            swipes += 1
+        }
+        return target
     }
 
     private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {

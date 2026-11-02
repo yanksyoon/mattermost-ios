@@ -120,7 +120,9 @@ extension View {
 /// It is the same `ProfileScreen` the sheet draws — same identifiers (`profile.username`, …), same
 /// presence polling, same actions — behind the stack's back button instead of a sheet's Done button.
 /// The model is resolved through `ProfileCoordinator` in `.task`, exactly as `ProfileSheet` does, so a
-/// push and a sheet for the same account share one warm model (and one socket subscription).
+/// push and a sheet for the same account share one warm model (and one socket subscription), and the
+/// write rows' context is prepared by the **same** `prepareActions` call the sheet makes (t_dc0ea74d:
+/// without it `actionContext` stayed `unknown` and both C3 rows were silently absent here).
 ///
 /// What it deliberately does **not** carry: `profileSheet`. A test that asserts a profile arrived as a
 /// push asserts `profileSheet` is absent and `profilePush` is present — the two forms cannot both be on
@@ -132,6 +134,10 @@ struct PushedProfileScreen: View {
     var navigation: NativeNavigation?
 
     @EnvironmentObject private var coordinator: ProfileCoordinator
+    /// The two write rows' environment (t_dc0ea74d). The sheet reads the same two; a push that did
+    /// not would offer a Call row whose tap could not join anything, or an Add row with no team.
+    @EnvironmentObject private var calls: CallsCoordinator
+    @EnvironmentObject private var resolver: SurfaceModeResolver
     @Environment(\.dismiss) private var dismiss
     @State private var model: ProfileViewModel?
 
@@ -142,17 +148,12 @@ struct PushedProfileScreen: View {
                               server: server,
                               onClose: { dismiss() },
                               onOpenConversation: { channel, intent in
-                                  // The push resolves **no** write rows: `PushedProfileScreen.task`
-                                  // never asks `ProfileCoordinator.prepareActions`, so its context
-                                  // stays `unknown` and both of C3's rows are absent here (measured,
-                                  // `docs/t_8f9f5449-c3-build-note.md` §6). The intent is therefore
-                                  // always `.open`; it is accepted because `ProfileScreen` shares one
-                                  // signature with the sheet, and dropped explicitly rather than
-                                  // silently — a `.call` arriving here would be a bug in that gate,
-                                  // not something this view can honour.
-                                  _ = intent
-                                  openConversation(channel)
-                              })
+                                  openConversation(channel, intent: intent)
+                              },
+                              // The picker's team is the shell's, exactly as the sheet's is: the Add
+                              // row is team-scoped, and `ProfileScreen` renders nothing when this is
+                              // nil (a dead row would be worse than an absent one).
+                              teamID: navigation?.location.teamID)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -167,8 +168,17 @@ struct PushedProfileScreen: View {
             let resolved = Self.resolveModel(target: target, server: server, coordinator: coordinator)
             model = resolved
             await resolved.load()
+            // The two write rows' gate — **the sheet's own call, same arguments** (t_dc0ea74d). C3
+            // left this out of the push and the pushed form drew neither row: an unresolved context
+            // offers nothing, by the matrix's "unknown is absent" rule.
+            await coordinator.prepareActions(model: resolved,
+                                             server: server,
+                                             teamID: navigation?.location.teamID,
+                                             callsAvailable: calls.isCallsAvailable(serverID: server.id),
+                                             callsSurfaceNative: resolver.resolvedMode(for: .calls) == .native,
+                                             hasLiveCallElsewhere: calls.hasLiveCall)
             // Presence keeps itself current while the profile is open; the task is cancelled when the
-            // push pops. Same two calls as `ProfileSheet.task`, on purpose.
+            // push pops. Same calls as `ProfileSheet.task`, on purpose.
             await resolved.runPresenceUpdates(interval: coordinator.presenceInterval)
         }
         .accessibilityElement(children: .contain)
@@ -190,10 +200,13 @@ struct PushedProfileScreen: View {
 
     /// Open the conversation the server answered, then pop back to the list the reader came from.
     ///
-    /// The same route `ProfileSheet.openConversation` performs; it is repeated rather than shared because
-    /// the two dismissals differ (a sheet dismisses itself, a push pops) and `ProfileView.swift` is C3's
-    /// file in this same programme.
-    private func openConversation(_ channel: MMChannel) {
+    /// The same route `ProfileSheet.openConversation` performs, and now with the same intent rule: for
+    /// `.call` the pane is asked to join the call **after** this push is popped and the DM is the
+    /// shell's location (`CallsJoinEntry` owns `CallsSurfaceView`; a full-screen cover raised while a
+    /// presentation is still up is T40's measured nested-presentation failure). Nothing here presents
+    /// the call surface. It is repeated rather than shared because the two dismissals differ (a sheet
+    /// dismisses itself, a push pops) and `ProfileView.swift` is C3's file in this same programme.
+    private func openConversation(_ channel: MMChannel, intent: ProfileConversationIntent) {
         guard let navigation else {
             dismiss()
             return
@@ -201,7 +214,10 @@ struct PushedProfileScreen: View {
         var request = NativeChannelRequest(serverID: server.id, channelID: channel.id)
         request.teamID = channel.teamId.isEmpty ? nil : channel.teamId
         request.channelName = channel.name.isEmpty ? nil : channel.name
-        _ = navigation.openChannel(request)
         dismiss()
+        _ = navigation.openChannel(request)
+        if intent == .call {
+            calls.requestStart(serverID: server.id, channelID: channel.id)
+        }
     }
 }

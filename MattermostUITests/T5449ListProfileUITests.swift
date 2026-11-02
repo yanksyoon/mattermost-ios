@@ -480,21 +480,35 @@ final class T5449ListProfileUITests: XCTestCase {
 
     /// Tap the author header of a list row — the surface spec §3's restructure exists to keep tappable.
     ///
-    /// Measured on this tree (`build/logs/t5449c2-live1.log`): the author's own avatar and name stay
-    /// **addressable inside** these rows — a saved row at `{{16, 302.3}, {346.3, 68.3}}` carries
-    /// `post.<id>.avatar` at `{{28, 324.7}, {36, 36}}` and `post.<id>.author` at `{{74, 324.7}, {72.7, 18}}`
-    /// — because `PostRowView` is itself `.accessibilityElement(children: .contain)` and an outer
-    /// `.combine` does not flatten a nested container. So the tap is the element a reader taps. A fixed
-    /// fraction of the row is *not* equivalent: (0.18, 0.22) of that saved row is y 317.3, which is in
-    /// the row's channel line, and it opens the post instead of the profile.
+    /// **Resolved inside the row, not app-wide** (t_dc0ea74d). `post.<id>.avatar` is not unique on
+    /// screen: when the pinned sheet is open over the channel pane, the *same* post is drawn twice —
+    /// once in `channelPostList` underneath the sheet and once in `pinnedPosts` — and an app-wide
+    /// `.firstMatch` answers the covered copy. Measured: the sheet's row sat at y 720 while the
+    /// resolved header came back at `{27.0, 637.6, 33.1, 33.1}` (the pane's 33.1 pt avatar, not the
+    /// sheet's 36 pt one), `isHittable` was `false` because the sheet covers it, `tap()` computed a hit
+    /// point of `{-1, -1}` and did nothing, and a raw coordinate tap at that frame landed on a *sheet*
+    /// row and performed **that** row's action (`build/logs/t5449-c3-r3-ui-push6.log` line 279,
+    /// `…push4.log` t=25.18s). The affordance was never at fault; the lookup was.
+    ///
+    /// Scoping to the row makes the identifier honest and makes the containment assert below a real
+    /// check (the header the tap uses is the one drawn *in this row*) instead of an accidental detector
+    /// of the ambiguity.
+    ///
+    /// The author's own avatar and name stay **addressable inside** these rows — a saved row at
+    /// `{{16, 302.3}, {346.3, 68.3}}` carries `post.<id>.avatar` at `{{28, 324.7}, {36, 36}}` and
+    /// `post.<id>.author` at `{{74, 324.7}, {72.7, 18}}` — because `PostRowView` is itself
+    /// `.accessibilityElement(children: .contain)` and an outer `.combine` does not flatten a nested
+    /// container. So the tap is the element a reader taps. A fixed fraction of the row is *not*
+    /// equivalent: (0.18, 0.22) of that saved row is y 317.3, which is in the row's channel line, and
+    /// it opens the post instead of the profile.
     ///
     /// Existence is not enough: `element(_:_:)` matches `.any`, so the resolved header must also be a
     /// `Button`. With `onShowProfile: nil` the same identifiers resolve to an inert `StaticText` —
     /// measured (C2 validation M7), and spelled out here so the diagnosis lands on the affordance
     /// rather than on the presentation assertion three steps later.
     private func tapAuthorHeader(of row: XCUIElement, postID: String, in app: XCUIApplication) {
-        let avatar = element(app, "post.\(postID).avatar")
-        let name = element(app, "post.\(postID).author")
+        let avatar = row.descendants(matching: .any).matching(identifier: "post.\(postID).avatar").firstMatch
+        let name = row.descendants(matching: .any).matching(identifier: "post.\(postID).author").firstMatch
         let header = avatar.exists ? avatar : name
         XCTAssertTrue(header.waitForExistence(timeout: 20),
                       "the row must draw the author's own button — the tap target the restructure is "
@@ -504,6 +518,9 @@ final class T5449ListProfileUITests: XCTestCase {
                        "the author must be a control, not inert text: \(header.debugDescription)")
         XCTAssertTrue(row.frame.contains(centre),
                       "the author header \(header.frame) must sit inside its row \(row.frame)")
+        XCTAssertTrue(header.isHittable,
+                      "the author header must be the element a touch lands on, not a copy covered by "
+                      + "another presentation: \(header.debugDescription)")
         header.tap()
     }
 
