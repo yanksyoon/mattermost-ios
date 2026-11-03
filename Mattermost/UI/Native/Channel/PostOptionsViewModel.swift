@@ -284,6 +284,12 @@ final class PostOptionsViewModel: ObservableObject {
             case .followThread, .unfollowThread:
                 let following = option == .followThread
                 let rootID = row.post.rootId.isEmpty ? row.id : row.post.rootId
+                // The follow write is team-scoped. A lookup row activates with no team hint and lets
+                // the channel answer (`PostOptionsLookup.swift`), so an unreachable channel read
+                // leaves this empty: refuse honestly instead of PUT-ing to a path with no team.
+                guard !teamID.isEmpty else {
+                    return .failed("This thread's team is not known yet. Try again once the message has loaded.")
+                }
                 try await service.setFollowing(teamID: teamID, rootID: rootID, following: following)
                 followStates[rootID] = following
                 onFollowChange?(rootID, following)

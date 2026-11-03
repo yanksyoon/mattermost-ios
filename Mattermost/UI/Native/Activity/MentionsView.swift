@@ -87,6 +87,15 @@ struct ActivityFeedView: View {
     /// T5449: the one profile this feed may have open (a one-slot machine — a second tap re-aims it).
     @State private var profilePopover = ProfilePopoverState()
 
+    /// T48-AV-R1: the one post options screen this feed may have open. A mention names a post from
+    /// any channel of any team, so the row hands this slot a presentation for *its own* channel's
+    /// model (`PostOptionsLookup.swift`).
+    @State private var postOptionsSheet: PostOptionsPresentation?
+
+    /// T48-AV-R1: the model cache the presentation resolves through (one model per channel, shared
+    /// with the channel pane and the other lookup lists).
+    @EnvironmentObject private var panes: ChannelPaneCoordinator
+
     private var offersAuthorProfile: Bool {
         ProfilePopoverPolicy.offersAuthorTap(rowHost: resolver.resolvedMode(for: .activity))
     }
@@ -223,6 +232,12 @@ struct ActivityFeedView: View {
                                 isMarking: model.isMarking,
                                 onOpen: { open(row) },
                                 onMarkRead: { Task { await model.markRead(row) } },
+                                // T48-AV-R1: the mention's own post options menu. Nil only when the
+                                // row names no channel (no model to derive from — no dead ellipsis).
+                                actions: PostOptionsLookupActions.rowActions(for: row.model,
+                                                                            onShowOptions: {
+                                    showOptions(for: row)
+                                }),
                                 // T5449: gated on the callback only, so the row host alone decides
                                 // whether the tap exists (`.profile` is retired, `t_6d420e01`).
                                 onShowProfile: offersAuthorProfile
@@ -243,6 +258,9 @@ struct ActivityFeedView: View {
         }
         .listStyle(.plain)
         .refreshable { await model.reload() }
+        // T48-AV-R1: the options screen these rows open. Attached to the list (the author popover
+        // already owns a presentation on the pane's outer view — see `PostOptionsPresentationHost`).
+        .postOptionsPresentationHost($postOptionsSheet)
         .accessibilityIdentifier("activity.list")
     }
 
@@ -286,6 +304,16 @@ struct ActivityFeedView: View {
     }
 
     // MARK: Opening a mention
+
+    /// Present this mention's post options menu (T48-AV-R1).
+    ///
+    /// The presentation resolves through **the mention's own channel** — a mention can come from
+    /// another team entirely, so neither the pane's channel nor its team is a valid input.
+    private func showOptions(for row: ActivityRow) {
+        postOptionsSheet = PostOptionsLookup.presentation(for: row.model,
+                                                          server: server,
+                                                          panes: panes)
+    }
 
     /// Jump to the message: a root post opens its channel **at that post**, a reply opens its thread — the
     /// same rule the search results use (`SearchJump`), through the same router a deep link uses
@@ -344,6 +372,9 @@ struct ActivityRowView: View {
     let isMarking: Bool
     var onOpen: () -> Void
     var onMarkRead: () -> Void
+    /// T48-AV-R1: the row's post options menu. Nil keeps the row without an ellipsis — a read-only
+    /// host, or a row that names no channel (`PostOptionsLookupActions.rowActions`).
+    var actions: PostRowActions? = nil
     /// T5449: a tap on the author's avatar or name opens that account's profile. Nil keeps both inert
     /// (a preview, or a host whose `.activity` surface resolved web — see `ProfilePopoverPolicy`).
     var onShowProfile: ((String) -> Void)? = nil
@@ -381,6 +412,7 @@ struct ActivityRowView: View {
                         imageStore: nil,
                         emoji: nil,
                         onToggleExpanded: {},
+                        actions: actions,
                         onShowProfile: onShowProfile)
         }
         .contentShape(Rectangle())

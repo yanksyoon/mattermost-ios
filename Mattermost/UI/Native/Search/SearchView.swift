@@ -101,6 +101,15 @@ struct SearchView: View {
     /// T5449: the one profile this screen may have open. A one-slot machine: a second tap re-aims it.
     @State private var profilePopover = ProfilePopoverState()
 
+    /// T48-AV-R1: the one post options screen this list may have open. A lookup row names a post
+    /// from any channel of the team, so the row hands this slot a `PostOptionsPresentation` for
+    /// *its own* channel's model (`PostOptionsLookup.swift`) — never the pane's last channel.
+    @State private var postOptionsSheet: PostOptionsPresentation?
+
+    /// T48-AV-R1: the model cache the presentation resolves through. One `PostOptionsViewModel` per
+    /// channel, shared with the channel pane and the other lookup lists.
+    @EnvironmentObject private var panes: ChannelPaneCoordinator
+
     @FocusState private var fieldFocused: Bool
 
     private var offersAuthorProfile: Bool {
@@ -322,6 +331,13 @@ struct SearchView: View {
             ForEach(model.rows) { row in
                 SearchResultRowView(row: row,
                                     onOpen: { open(row) },
+                                    // T48-AV-R1: a result row now carries the post options menu.
+                                    // `nil` only when the row names no channel (nothing to derive
+                                    // from, so no ellipsis instead of a dead one).
+                                    actions: PostOptionsLookupActions.rowActions(for: row.model,
+                                                                                 onShowOptions: {
+                                        showOptions(for: row)
+                                    }),
                                     // T5449: gated on the callback only, so the row host alone decides
                                     // whether the author tap exists (`.profile` is retired, `t_6d420e01`).
                                     onShowProfile: offersAuthorProfile
@@ -349,6 +365,11 @@ struct SearchView: View {
             }
         }
         .listStyle(.plain)
+        // T48-AV-R1: the options screen this list's rows open. Attached to the **list**, not to the
+        // pane's outer view: the author popover already owns a presentation there, and two `.sheet`
+        // modifiers on one node is the shape that silently drops one (T5449 spec F2). The container
+        // decides sheet-vs-push (`PostOptionsPresentationMode`); the compact tab gets a sheet.
+        .postOptionsPresentationHost($postOptionsSheet)
         .accessibilityIdentifier("searchResults")
     }
 
@@ -388,6 +409,17 @@ struct SearchView: View {
     }
 
     // MARK: Opening a result
+
+    /// Present this result's post options menu (T48-AV-R1).
+    ///
+    /// The presentation is resolved from **the row's own channel** through the coordinator's
+    /// per-channel cache, so the sheet's permission union, saved set, pin state and team name are
+    /// that channel's — not the ones of whatever channel the pane showed last.
+    private func showOptions(for row: SearchResultRow) {
+        postOptionsSheet = PostOptionsLookup.presentation(for: row.model,
+                                                          server: server,
+                                                          panes: panes)
+    }
 
     /// Jump to the message: a root post opens its channel *at that post*, a reply opens its thread
     /// (the channel timeline is thread-collapsed, so a reply is not a row to scroll to). Both go
@@ -432,6 +464,9 @@ struct SearchView: View {
 struct SearchResultRowView: View {
     let row: SearchResultRow
     let onOpen: () -> Void
+    /// T48-AV-R1: the row's post options menu. Nil keeps the row without an ellipsis — a read-only
+    /// host, or a row that names no channel (see `PostOptionsLookupActions.rowActions`).
+    var actions: PostRowActions? = nil
     /// T5449: a tap on the author's avatar or name opens that account's profile. Nil keeps both inert
     /// (a preview, or a host whose `.search` surface resolved web — see `ProfilePopoverPolicy`).
     var onShowProfile: ((String) -> Void)? = nil
@@ -453,6 +488,7 @@ struct SearchResultRowView: View {
                         imageStore: nil,
                         emoji: nil,
                         onToggleExpanded: {},
+                        actions: actions,
                         onShowProfile: onShowProfile)
                 // The highlight the renderer applies inside the body runs (MarkdownView reads this
                 // environment value). Scoped to this row so a channel pane's own rows are never

@@ -139,6 +139,9 @@ struct PinnedPostsView: View {
             // action never ran, and `ProfileView.swift`'s header states the same rule for this surface.
             // `ProfilePresentationHost` reads it in `PostCollectionView`.
             .environment(\.profilePresentation, .push)
+            // T48-AV-R1: a row's menu opened from inside this sheet is pushed on this stack for the
+            // same reason, so an unpin is reachable without a nested presentation.
+            .environment(\.postOptionsPresentation, .push)
         }
         .task {
             let resolved = coordinator.pinned(for: server, channelID: channelID)
@@ -172,6 +175,14 @@ struct PostCollectionView: View {
     /// T5449: the one profile this list may have open. One slot per list instance, so the Saved tab and
     /// a pinned sheet each own their own and cannot re-aim the other's.
     @State private var profilePopover = ProfilePopoverState()
+
+    /// T48-AV-R1: the one post options screen this list may have open. Saved rows span channels (and
+    /// the pinned sheet's rows all name its channel), so the row hands this slot a presentation for
+    /// **its own** channel's model (`PostOptionsLookup.swift`).
+    @State private var postOptionsSheet: PostOptionsPresentation?
+
+    /// T48-AV-R1: the model cache the presentation resolves through.
+    @EnvironmentObject private var panes: ChannelPaneCoordinator
 
     private var offersAuthorProfile: Bool {
         ProfilePopoverPolicy.offersAuthorTap(rowHost: rowHost)
@@ -256,6 +267,13 @@ struct PostCollectionView: View {
                                     imageStore: nil,
                                     emoji: nil,
                                     onToggleExpanded: {},
+                                    // T48-AV-R1: the row's own menu. These two lists are where unsave
+                                    // and unpin belong, so the absence was the sharpest edge of
+                                    // T48-AV §F1.
+                                    actions: PostOptionsLookupActions.rowActions(for: row,
+                                                                                onShowOptions: {
+                                        showOptions(for: row)
+                                    }),
                                     onShowProfile: offersAuthorProfile
                                         ? { userID in profilePopover.present(userID: userID) }
                                         : nil)
@@ -301,6 +319,18 @@ struct PostCollectionView: View {
             }
         }
         .listStyle(.plain)
+        // T48-AV-R1: the options screen these rows open, on the list (the author popover already owns
+        // a presentation on the outer view). `onPerformed` lets the list settle a write it can see:
+        // an unsaved or unpinned row has to leave, and this list does not hold the write's model.
+        .postOptionsPresentationHost($postOptionsSheet) { option, _ in
+            guard option == .unsave || option == .unpin else { return }
+            // Re-read the server rather than mutating `posts` here: the rows are derived from the
+            // server's answer, and `remove(_:)` would send a second write for a change that already
+            // landed (`PostOptionsViewModel.perform`). The Saved tab cannot lean on the socket
+            // either — 9.11.19 publishes `preferences_changed`/`_deleted` as a **string**, which
+            // `SocketEvent` drops (T48-AV §F2, repaired under `t_fddfb0d5`).
+            Task { await model.reload() }
+        }
         .accessibilityIdentifier(listIdentifier)
     }
 
@@ -335,6 +365,14 @@ struct PostCollectionView: View {
     /// or a preview), so the accessibility action can never open something the row does not draw.
     private func offersAuthorProfileTarget(for row: PostRowModel) -> String? {
         offersAuthorProfile ? row.author.id : nil
+    }
+
+    /// Present this row's post options menu (T48-AV-R1).
+    ///
+    /// Saved rows name the channel they came from and the pinned sheet's do too, so the model is the
+    /// row's own channel's — the Saved tab is team-scoped and its rows can live anywhere.
+    private func showOptions(for row: PostRowModel) {
+        postOptionsSheet = PostOptionsLookup.presentation(for: row, server: server, panes: panes)
     }
 
     /// Same jump rule as the search results (a reply opens its thread).

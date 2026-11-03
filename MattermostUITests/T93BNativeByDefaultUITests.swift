@@ -57,6 +57,17 @@ final class T93BNativeByDefaultUITests: XCTestCase {
         app.descendants(matching: .any)[identifier]
     }
 
+    /// A row-level element **inside the pane that draws it**.
+    ///
+    /// The same post can be drawn twice: a lookup sheet sits over the channel pane, and the post a
+    /// result names may also be in the channel behind it. Both rows legitimately draw
+    /// `post.<id>.menu`, so an app-wide query matches two buttons and `.tap()` refuses ("Multiple
+    /// matching elements found" — measured on the iPad). Scoping to the pane is what the identifier
+    /// set is for.
+    private func element(_ app: XCUIApplication, in pane: String, _ identifier: String) -> XCUIElement {
+        element(app, pane).descendants(matching: .any)[identifier]
+    }
+
     private func sidebarRows(_ app: XCUIApplication) -> XCUIElementQuery {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH %@", "channelSidebar.channel."))
@@ -574,12 +585,12 @@ final class T93BNativeByDefaultUITests: XCTestCase {
         attachment(app, named: "release-live-mention-opened-channel")
     }
 
-    // MARK: - 4. The post options menu on a lookup row (00cd217's regression surface)
+    // MARK: - 4. The post options menu on a lookup row (00cd217's regression surface, repaired by R1)
 
-    /// `00cd217` added the options menu to the **shared** `PostRowView`. This is the finding the
-    /// decision card asked this round to measure: a search-result row is drawn by `SearchResultRowView`,
-    /// which calls `PostRowView` without `actions:`, so the row asks for no menu — and the ellipsis
-    /// (`post.<id>.menu`) is not in the tree, let alone its sheet.
+    /// `00cd217` added the options menu to the **shared** `PostRowView`, but only to the hosts that
+    /// passed `actions:` — and `SearchResultRowView` did not, so the ellipsis (`post.<id>.menu`) was
+    /// not in the tree at all (T48-AV §F1, reproduced live by `t636e6483`). R1 (`t_29925e81`) wires
+    /// the row to `PostOptionsLookup`, and this assertion is the one it has to keep green.
     func testThePostOptionsMenuOpensOnASearchResultRow() throws {
         let server = try liveServer()
         let app = try launchedIntoShell()
@@ -595,18 +606,18 @@ final class T93BNativeByDefaultUITests: XCTestCase {
         let submit = app.buttons["searchSubmit"]
         if submit.waitForExistence(timeout: 10) { submit.tap() } else { field.typeText("\n") }
 
-        guard let (postID, row) = revealAnyResult(app, postIDs: targets) else {
-            return XCTFail("the result row must draw first:\n\(app.debugDescription)")
+        guard let (postID, menu) = optionsMenu(app, pane: "nativeSearchPane", postIDs: targets) else {
+            return XCTFail("a search-result row must offer the post options menu (the row was drawn "
+                           + "without `actions:` — T48-AV §F1):\n\(app.debugDescription)")
         }
-        XCTAssertTrue(row.exists, "the result row must draw first:\n\(app.debugDescription)")
-        let menu = element(app, "post.\(postID).menu")
-        XCTAssertTrue(menu.waitForExistence(timeout: 15),
-                      "a search-result row must offer the post options menu that 00cd217 added: "
-                      + "`post.\(postID).menu` is not in the tree (SearchResultRowView calls "
-                      + "PostRowView without `actions:`):\n\(app.debugDescription)")
         menu.tap()
-        XCTAssertTrue(element(app, "postOptions.\(postID)").waitForExistence(timeout: 30),
-                      "the search result's menu must open the options sheet:\n\(app.debugDescription)")
+        XCTAssertTrue(waitForOptionsScreen(app, postID: postID, timeout: 30),
+                      "the search result's menu must open the options screen (sheet on the compact "
+                      + "tabs, push inside the regular layout's lookup sheet):\n\(app.debugDescription)")
+        // The screen is not empty: the options its channel derives are drawn (Save always, for a
+        // readable post — `PostOptionsCapabilities.derive`).
+        XCTAssertNotNil(revealAnyOption(app, ["postOptions.save", "postOptions.unsave"]),
+                        "the search result's sheet must draw its derived options:\n\(app.debugDescription)")
         attachment(app, named: "release-search-result-options")
     }
 
@@ -624,15 +635,193 @@ final class T93BNativeByDefaultUITests: XCTestCase {
         let postID = String(row.identifier.dropFirst("activity.row.".count))
         attachment(app, named: "release-mention-row-before-menu")
 
-        let menu = element(app, "post.\(postID).menu")
+        // Scoped to the mentions pane: the mentioned post may also be in the channel behind it.
+        let menu = element(app, in: "nativeActivityPane", "post.\(postID).menu")
         XCTAssertTrue(menu.waitForExistence(timeout: 15),
-                      "a mention row must offer the post options menu that 00cd217 added: "
-                      + "`post.\(postID).menu` is not in the tree (ActivityRowView calls PostRowView "
-                      + "without `actions:`):\n\(app.debugDescription)")
+                      "a mention row must offer the post options menu: "
+                      + "`post.\(postID).menu` is not in the tree (the row was drawn without "
+                      + "`actions:` — T48-AV §F1):\n\(app.debugDescription)")
         menu.tap()
-        XCTAssertTrue(element(app, "postOptions.\(postID)").waitForExistence(timeout: 30),
-                      "the mention row's menu must open the options sheet:\n\(app.debugDescription)")
+        XCTAssertTrue(waitForOptionsScreen(app, postID: postID, timeout: 30),
+                      "the mention row's menu must open the options screen:\n\(app.debugDescription)")
+        XCTAssertNotNil(revealAnyOption(app, ["postOptions.save", "postOptions.unsave"]),
+                        "the mention row's sheet must draw its derived options:\n\(app.debugDescription)")
         attachment(app, named: "release-mention-row-options")
+    }
+
+    // MARK: - 4b. T48-AV-R1 — the same menu on the saved and pinned rows, and a refused write
+
+    /// The Saved tab is where "unsave from the menu" was most wanted, and before R1 its rows drew no
+    /// menu at all (`PostCollectionView` called `PostRowView` without `actions:` — T48-AV §F1, the
+    /// row family the ship-shaped QA card did not name).
+    ///
+    /// The write is measured on the server: the post is saved through REST before the app looks at
+    /// it, Unsave is pressed in the sheet, and the oracle is `GET /users/me/preferences` — the same
+    /// `flagged_post` rows the Saved list itself is built from.
+    func testThePostOptionsMenuOpensOnASavedRowAndUnsaveLandsOnTheServer() throws {
+        let server = try liveServer()
+        let app = try launchedIntoShell()
+        let word = "t48r1saved\(Int(Date().timeIntervalSince1970))"
+        let targets = try seedSearchTargets(word: word, app: app, server: server)
+        guard !targets.isEmpty else {
+            return XCTFail("the fixture created no post to save")
+        }
+        // The Saved list is **team-scoped** (`SavedPaneContent` hands it `navigation.location.teamID`),
+        // and on the regular layout the seeding helper cannot read the shell's team, so it creates one
+        // post per team. Save every one of them and measure whichever the list actually draws —
+        // otherwise the fixture's first id may belong to a team this pane is not showing (measured on
+        // the iPad: "No saved messages yet" with the preference held on the server).
+        for target in targets {
+            try setSavedPreference(postID: target, saved: true, on: server)
+            XCTAssertTrue(try isSavedOnServer(target, on: server),
+                          "the premise: the server holds \(target) as a flagged_post preference")
+        }
+
+        XCTAssertTrue(openLookup(ShellSettle.Tab.saved, toolbar: "shellSavedButton",
+                                 pane: "nativeSavedPane", in: app))
+        guard let postID = revealAnySavedRow(app, postIDs: targets,
+                                             pane: "nativeSavedPane") else {
+            return XCTFail("the saved row must draw for one of \(targets):\n\(app.debugDescription)")
+        }
+
+        // Scoped to the Saved pane: the saved post may also be in the channel behind the sheet.
+        let menu = element(app, in: "nativeSavedPane", "post.\(postID).menu")
+        XCTAssertTrue(menu.waitForExistence(timeout: 20),
+                      "a saved row must offer the post options menu (T48-AV §F1): `post.\(postID).menu` "
+                      + "is not in the tree:\n\(app.debugDescription)")
+        menu.tap()
+        XCTAssertTrue(waitForOptionsScreen(app, postID: postID),
+                      "the saved row's menu must open the options screen:\n\(app.debugDescription)")
+        attachment(app, named: "release-saved-row-options")
+
+        let drawn = try XCTUnwrap(revealAnyOption(app, ["postOptions.unsave", "postOptions.save"]),
+                                  "the saved row's sheet must draw Save or Unsave:\n"
+                                  + app.debugDescription)
+        XCTAssertEqual(drawn, "postOptions.unsave",
+                       "a row from the Saved list must offer Unsave — it is saved on the server, and the "
+                       + "offer is derived from that channel's model")
+        element(app, drawn).tap()
+
+        XCTAssertTrue(waitUntil(timeout: 30) { (try? self.isSavedOnServer(postID, on: server)) == false },
+                      "an Unsave pressed in the lookup sheet must land on the server")
+        XCTAssertTrue(waitUntil(timeout: 30) { !self.element(app, "savedPosts.row.\(postID)").exists },
+                      "the unsaved row must leave the Saved list (the sheet reports the write to the list):\n"
+                      + app.debugDescription)
+    }
+
+    /// The pinned sheet is the other surface the ship-shaped QA card did not name, and unpin is the
+    /// write it exists for.
+    func testThePostOptionsMenuOpensOnAPinnedRowAndUnpinLandsOnTheServer() throws {
+        let server = try liveServer()
+        let app = try launchedIntoShell()
+        // Measure in the **shell's own team**, not a fixed one: the regular layout's rail does not
+        // honour a tap from this state (measured on the iPad: the tap landed and the rail still read
+        // "Operations" a minute later), so asking it to switch teams made the quick switcher scope
+        // its search to a team the test then typed a different team's channel into. Every fixture
+        // team has a town-square, and the row this test measures is a pinned one — the channel is
+        // only the host of that row.
+        openSidebarIfCollapsed(app)
+        let teamID = selectedTeamID(app) ?? server.teamID
+        let channel = try fixtureChannel(named: "town-square", teamID: teamID, on: server)
+        XCTAssertTrue(openFixtureChannel(app, named: "town-square", displayName: "Town Square",
+                                         teamID: teamID, channelID: channel),
+                      "the fixture channel must be open before its pinned sheet can be measured:\n"
+                      + app.debugDescription)
+        let postID = try createPost(inChannel: channel,
+                                    word: "t48r1pinned\(Int(Date().timeIntervalSince1970))",
+                                    on: server)
+        try setPinned(postID: postID, pinned: true, on: server)
+        XCTAssertTrue(try isPinnedOnServer(postID, on: server), "the premise: the post is pinned")
+
+        let pinButton = element(app, "nativeChannelPinnedButton")
+        XCTAssertTrue(pinButton.waitForExistence(timeout: 45),
+                      "an open channel's header must offer the pinned messages:\n\(app.debugDescription)")
+        pinButton.tap()
+        XCTAssertTrue(element(app, "pinnedSheet").waitForExistence(timeout: 45),
+                      "the pinned button must open the pinned sheet:\n\(app.debugDescription)")
+
+        let row = revealSavedOrPinned(app, identifier: "pinnedPosts.row.\(postID)",
+                                      pane: "pinnedSheet")
+        XCTAssertTrue(row.exists, "the pinned row must draw:\n\(app.debugDescription)")
+        // Scoped to the sheet on purpose: this post is also in the channel behind the sheet, and
+        // both rows legitimately draw `post.<id>.menu`, so an unscoped query matches two elements
+        // and `.tap()` refuses (measured: `t48r1-iphone-b2`, "Multiple matching elements found").
+        let sheet = element(app, "pinnedSheet")
+        let menu = sheet.descendants(matching: .any)["post.\(postID).menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 20),
+                      "a pinned row must offer the post options menu (T48-AV §F1): "
+                      + "`post.\(postID).menu` is not in the tree:\n\(app.debugDescription)")
+        menu.tap()
+        // The pinned sheet already is a presentation, so the options screen arrives **pushed on that
+        // stack** (`postOptionsPresentation: .push`), which is the form `postOptionsPush` names. A
+        // `List` identifier is not reliably in this runtime's tree once the list is a push
+        // destination (T636 §F3, the same reason `revealSavedOrPinned` swipes the pane), so the
+        // pushed form is asserted by its wrapper and by the option rows below.
+        XCTAssertTrue(element(app, "postOptionsPush").waitForExistence(timeout: 45),
+                      "the pinned row's menu must open the options screen:\n\(app.debugDescription)")
+        attachment(app, named: "release-pinned-row-options")
+
+        let drawn = try XCTUnwrap(revealAnyOption(app, ["postOptions.unpin", "postOptions.pin"]),
+                                  "the pinned row's sheet must draw Pin or Unpin:\n"
+                                  + app.debugDescription)
+        XCTAssertEqual(drawn, "postOptions.unpin",
+                       "a row from the pinned list must offer Unpin — it is pinned on the server")
+        element(app, drawn).tap()
+
+        XCTAssertTrue(waitUntil(timeout: 30) { (try? self.isPinnedOnServer(postID, on: server)) == false },
+                      "an Unpin pressed in the pinned sheet's menu must land on the server")
+    }
+
+    /// The other half of the card's acceptance: a refusal must be **drawn in the sheet**, which must
+    /// stay open. Forced the way it happens in life — the post is deleted from another session while
+    /// the sheet is open, then Pin is pressed; the server answers 404.
+    func testARefusedPinFromASearchResultSheetStaysOpenWithTheReason() throws {
+        let server = try liveServer()
+        let app = try launchedIntoShell()
+        let word = "t48r1refused\(Int(Date().timeIntervalSince1970))"
+        let targets = try seedSearchTargets(word: word, app: app, server: server)
+        guard !targets.isEmpty else {
+            return XCTFail("the fixture created no post to refuse a pin on")
+        }
+
+        XCTAssertTrue(openLookup(ShellSettle.Tab.search, toolbar: "shellSearchButton",
+                                 pane: "nativeSearchPane", in: app))
+        let field = app.textFields["searchField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 30))
+        field.tap()
+        field.typeText(word)
+        let submit = app.buttons["searchSubmit"]
+        if submit.waitForExistence(timeout: 10) { submit.tap() } else { field.typeText("\n") }
+        guard let (postID, menu) = optionsMenu(app, pane: "nativeSearchPane", postIDs: targets) else {
+            return XCTFail("the result row must offer its menu:\n\(app.debugDescription)")
+        }
+        menu.tap()
+        XCTAssertTrue(waitForOptionsScreen(app, postID: postID),
+                      "the result row's menu must open the options screen:\n\(app.debugDescription)")
+        let pin = try XCTUnwrap(revealAnyOption(app, ["postOptions.pin"]),
+                                "the premise: Pin is offered in a lookup sheet for a channel I can "
+                                + "write in:\n\(app.debugDescription)")
+
+        // The author deletes the post from another session; the sheet stays on screen with the row
+        // it was opened for.
+        try deletePost(postID, on: server)
+        XCTAssertTrue(try isDeletedOnServer(postID, on: server),
+                      "the premise: the server holds the post as deleted")
+
+        element(app, pin).tap()
+        // The refusal is drawn in a section **below** the options, and a `List` only realises what it
+        // draws: on a short sheet that section is below the fold and is not in the tree until it is
+        // scrolled in (measured on the iPad, where the pushed screen's card ends just under Pin). So
+        // scroll like a reader would before concluding the message is missing.
+        let error = element(app, "postOptions.error")
+        if !error.waitForExistence(timeout: 10) { app.swipeUp(velocity: .fast) }
+        XCTAssertTrue(error.waitForExistence(timeout: 30),
+                      "a refused pin must be drawn in the sheet, not swallowed:\n\(app.debugDescription)")
+        XCTAssertTrue(error.label.contains("pin"),
+                      "the copy must name the action that failed; it says \"\(error.label)\"")
+        XCTAssertTrue(optionsScreen(app, postID: postID) != nil,
+                      "the screen must stay open after a refusal:\n\(app.debugDescription)")
+        attachment(app, named: "release-lookup-refused-pin")
     }
 
     // MARK: - 5. The escape hatch hands the workspace to the webview
@@ -976,6 +1165,245 @@ final class T93BNativeByDefaultUITests: XCTestCase {
             if let hit = drawn() { return hit }
         }
         return drawn()
+    }
+
+    /// A row of the Saved list or the pinned sheet, swiped into view if it is below the fold.
+    ///
+    /// The `List`'s own identifier is not always in the tree on this runtime (T636 finding F3), so the
+    /// swipe target falls back to the pane that hosts the list.
+    private func revealSavedOrPinned(_ app: XCUIApplication,
+                                     identifier: String,
+                                     pane: String,
+                                     maxSwipes: Int = 10) -> XCUIElement {
+        let target = element(app, identifier)
+        if target.exists { return target }
+        let container = element(app, pane)
+        for _ in 0..<maxSwipes {
+            if container.exists, container.isHittable { container.swipeUp(velocity: .fast) } else { app.swipeUp() }
+            if target.exists { return target }
+        }
+        return target
+    }
+
+    /// The first of `identifiers` the options screen draws, swiping the sheet when the row is below
+    /// the `.medium` detent. Returns the identifier so a caller can assert **which** option it was.
+    private func revealAnyOption(_ app: XCUIApplication,
+                                 _ identifiers: [String],
+                                 maxSwipes: Int = 4,
+                                 timeout: TimeInterval = 30) -> String? {
+        func drawn() -> String? {
+            identifiers.first { element(app, $0).exists }
+        }
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let hit = drawn() { return hit }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        for _ in 0..<maxSwipes {
+            app.swipeUp(velocity: .fast)
+            if let hit = drawn() { return hit }
+        }
+        return drawn()
+    }
+
+    /// Which of `postIDs` the Saved list actually drew, swiping the list until one is built.
+    ///
+    /// The fixture can hold more than one candidate (one per team, see `seedSearchTargets`), and the
+    /// Saved list is team-scoped, so the test measures the row the pane can see rather than assuming
+    /// which team the shell is on.
+    private func revealAnySavedRow(_ app: XCUIApplication, postIDs: [String],
+                                   pane: String, maxSwipes: Int = 10) -> String? {
+        func drawn() -> String? {
+            postIDs.first { element(app, "savedPosts.row.\($0)").exists }
+        }
+        if let hit = drawn() { return hit }
+        let container = element(app, pane)
+        for _ in 0..<maxSwipes {
+            if container.exists, container.isHittable {
+                container.swipeUp(velocity: .fast)
+            } else {
+                app.swipeUp()
+            }
+            if let hit = drawn() { return hit }
+        }
+        return drawn()
+    }
+
+    /// The options screen for `postID`, in whichever form its host uses.
+    ///
+    /// The compact layout's tabs host it as a **sheet** (`postOptions.<id>`); a host that is already
+    /// a presentation — the regular layout's lookup sheet, the pinned sheet — gets it **pushed** on
+    /// that stack, and the pushed form is named by its wrapper (`postOptionsPush`, the same rule
+    /// `profilePush` states) because a `List` identifier is not reliably in this runtime's tree once
+    /// the list is a push destination (T636 §F3, `revealSavedOrPinned`). The option rows carry
+    /// `postOptions.<option>` in both forms, which is what the card's acceptance asks for.
+    private func optionsScreen(_ app: XCUIApplication, postID: String) -> XCUIElement? {
+        let sheetForm = element(app, "postOptions.\(postID)")
+        if sheetForm.exists { return sheetForm }
+        let pushedForm = element(app, "postOptionsPush")
+        if pushedForm.exists { return pushedForm }
+        return nil
+    }
+
+    private func waitForOptionsScreen(_ app: XCUIApplication, postID: String,
+                                      timeout: TimeInterval = 45) -> Bool {
+        waitUntil(timeout: timeout) { optionsScreen(app, postID: postID) != nil }
+    }
+
+    /// The ellipsis of a row **inside `pane`**, re-resolved while the result list settles.
+    ///
+    /// The search list can draw a broader result set for a beat and then redraw the team-scoped one
+    /// (measured on the iPad: `searchResult.<a>` existed at the first look and was gone two seconds
+    /// later), so one sample of "which row is drawn" is not a stable thing to hand a menu query. This
+    /// asks again, up to `timeout`, and returns the id and the menu it actually found.
+    ///
+    /// Scoped to `pane` because the same post may also be in the channel behind the lookup sheet, and
+    /// both rows legitimately draw `post.<id>.menu` — an app-wide query then matches two elements and
+    /// `.tap()` refuses ("Multiple matching elements found").
+    private func optionsMenu(_ app: XCUIApplication, pane: String, postIDs: [String],
+                             timeout: TimeInterval = 45) -> (String, XCUIElement)? {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if let (postID, row) = revealAnyResult(app, postIDs: postIDs), row.exists {
+                let menu = element(app, in: pane, "post.\(postID).menu")
+                if menu.exists { return (postID, menu) }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        } while Date() < deadline
+        return nil
+    }
+
+    /// Open one named channel in the shipped shell, through the reader's own controls: the rail (to
+    /// make `name` a channel of the team in view), the sidebar when the split layout collapsed it, and
+    /// the quick switcher for the channel itself.
+    ///
+    /// The id is the caller's REST answer, so the switcher's result row cannot be confused with a DM
+    /// of the same display name.
+    private func openFixtureChannel(_ app: XCUIApplication,
+                                    named name: String,
+                                    displayName: String,
+                                    teamID: String,
+                                    channelID: String) -> Bool {
+        returnToTabs(app)
+        // `.label` on a query that matches nothing throws in XCUITest ("Failed to get matching
+        // snapshot"), which turned a slow first draw into a failure at the helper's first line
+        // (measured: the pinned-row row, `t48r1-iphone-b1`). Existence is the question here.
+        let existingTitle = element(app, "nativeChannelTitle")
+        if existingTitle.exists,
+           existingTitle.label == displayName,
+           element(app, "channelPostList").exists {
+            return true
+        }
+        openSidebarIfCollapsed(app)
+        // Make the fixture's team the team in view. The rail row is the control a reader uses, and
+        // on the regular layout `sidebarCurrentTeam` is not in the tree (the rail lives inside the
+        // split view's sidebar), which used to skip this step entirely and leave the quick switcher
+        // scoped to another team — measured on the iPad: "No channel matches \"t36-threads\"".
+        let rail = element(app, "teamSidebar.team.\(teamID)")
+        if rail.waitForExistence(timeout: 20), !rail.isSelected {
+            rail.tap()
+            _ = element(app, "channelPostList").waitForExistence(timeout: 30)
+        }
+        let opener = element(app, "channelSidebar.quickSwitcher")
+        guard opener.waitForExistence(timeout: 30) else {
+            print("[t48r1] no quick switcher on this layout")
+            return false
+        }
+        opener.tap()
+        let field = app.textFields["channelSidebar.quickSwitcher.field"]
+        guard field.waitForExistence(timeout: 20) else { return false }
+        field.tap()
+        field.typeText(name)
+        let result = element(app, "channelSidebar.quickSwitcher.result.\(channelID)")
+        guard result.waitForExistence(timeout: 30) else {
+            print("[t48r1] the quick switcher did not offer \(name) (\(channelID))")
+            return false
+        }
+        result.tap()
+        guard element(app, "channelPostList").waitForExistence(timeout: 60) else { return false }
+        let title = element(app, "nativeChannelTitle")
+        return title.exists && title.label == displayName
+    }
+
+    // MARK: - The lookup rows' writes (T48-AV-R1), read back from the server
+
+    /// `GET /teams/{team}/channels/name/{name}` → the channel id, or a skip when the fixture is absent.
+    private func fixtureChannel(named name: String, teamID: String,
+                                on server: LiveServer) throws -> String {
+        let channel = try getJSON(url: server.url,
+                                  path: "/api/v4/teams/\(teamID)/channels/name/\(name)",
+                                  token: server.token) as? [String: Any] ?? [:]
+        guard let id = channel["id"] as? String else {
+            throw XCTSkip("the fixture has no #\(name) — run scripts/t36_thread_seed.py")
+        }
+        return id
+    }
+
+    /// Create one post in a named channel (the search fixture's post always goes to town-square).
+    private func createPost(inChannel channelID: String, word: String,
+                            on server: LiveServer) throws -> String {
+        let body = try sendJSON(url: server.url, method: "POST", path: "/api/v4/posts",
+                                body: ["channel_id": channelID,
+                                       "message": "t48 lookup menu \(word)"],
+                                token: server.token) as? [String: Any] ?? [:]
+        guard let id = body["id"] as? String else {
+            throw XCTSkip("the fixture server did not accept a post")
+        }
+        return id
+    }
+
+    /// `PUT /users/me/preferences` — exactly the `flagged_post` row the Saved list is built from.
+    private func setSavedPreference(postID: String, saved: Bool, on server: LiveServer) throws {
+        var preference: [String: Any] = ["user_id": server.userID,
+                                         "category": "flagged_post",
+                                         "name": postID,
+                                         "value": "true"]
+        if !saved { preference["value"] = "false" }
+        _ = try sendJSON(url: server.url, method: "PUT", path: "/api/v4/users/me/preferences",
+                         body: [preference], token: server.token)
+    }
+
+    private func isSavedOnServer(_ postID: String, on server: LiveServer) throws -> Bool {
+        let rows = try getJSON(url: server.url, path: "/api/v4/users/me/preferences",
+                               token: server.token) as? [[String: Any]] ?? []
+        return rows.contains { ($0["category"] as? String) == "flagged_post"
+            && ($0["name"] as? String) == postID
+            && ($0["value"] as? String) != "false" }
+    }
+
+    private func setPinned(postID: String, pinned: Bool, on server: LiveServer) throws {
+        _ = try sendJSON(url: server.url, method: "POST",
+                         path: "/api/v4/posts/\(postID)/\(pinned ? "pin" : "unpin")",
+                         body: nil, token: server.token)
+    }
+
+    private func isPinnedOnServer(_ postID: String, on server: LiveServer) throws -> Bool {
+        let post = try getJSON(url: server.url, path: "/api/v4/posts/\(postID)",
+                               token: server.token) as? [String: Any] ?? [:]
+        return post["is_pinned"] as? Bool ?? false
+    }
+
+    private func deletePost(_ postID: String, on server: LiveServer) throws {
+        _ = try sendJSON(url: server.url, method: "DELETE", path: "/api/v4/posts/\(postID)",
+                         body: nil, token: server.token)
+    }
+
+    private func isDeletedOnServer(_ postID: String, on server: LiveServer) throws -> Bool {
+        // Asked with the same session the suite writes with, and read the way the server answers a
+        // regular user: Mattermost answers **404** for a soft-deleted post (the row is still there
+        // with `delete_at` set, but a non-admin cannot read it), so a 404 *is* the deleted state and
+        // must not be turned into a skip by `getJSON`'s 2xx guard. A surviving 200 without
+        // `delete_at` is the only "not deleted" answer.
+        var request = URLRequest(url: server.url.appendingPathComponent("/api/v4/posts/\(postID)"))
+        request.setValue("Bearer \(server.token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try synchronous(request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 404 || status == 403 { return true }
+        guard (200..<300).contains(status) else {
+            throw XCTSkip("GET /api/v4/posts/\(postID) answered \(status)")
+        }
+        let post = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        return (post["delete_at"] as? Int64 ?? Int64(post["delete_at"] as? Int ?? 0)) != 0
     }
 
     // MARK: - Opening a channel on the regular layout

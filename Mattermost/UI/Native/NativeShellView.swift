@@ -215,6 +215,10 @@ struct NativeShellView: View {
                 // `ProfilePresentationHost` reads this value in the three panes; the compact layout's
                 // tabs (no stack above them) deliberately keep the default `.sheet`.
                 .environment(\.profilePresentation, .push)
+                // T48-AV-R1: same rule for a post options screen opened from a lookup row —
+                // presented from inside this sheet, so it is **pushed on this stack**, never a
+                // second sheet (`PostOptionsPresentationMode`).
+                .environment(\.postOptionsPresentation, .push)
             }
         }
     }
