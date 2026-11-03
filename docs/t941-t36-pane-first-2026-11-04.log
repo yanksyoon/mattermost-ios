@@ -1,0 +1,1723 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=iOS Simulator,id=9C883EB3-B410-4859-A443-A38A910F3396" -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941 -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/TestResults/t941-t36-pub2-3bcd493-5f8976.xcresult -only-testing MattermostUITests/T36ThreadsUITests
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift @ 7.11.1
+
+Writing result bundle at path:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/TestResults/t941-t36-pub2-3bcd493-5f8976.xcresult
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, arch:arm64, id:9C883EB3-B410-4859-A443-A38A910F3396, OS:18.3.1, name:iPhone 16 Pro t941e3d3 }
+{ platform:iOS Simulator, arch:x86_64, id:9C883EB3-B410-4859-A443-A38A910F3396, OS:18.3.1, name:iPhone 16 Pro t941e3d3 }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (7 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDBSQLite' in project 'GRDB'
+    Target 'GRDBSQLite' in project 'GRDB' (no dependencies)
+    Target 'GRDB_GRDB' in project 'GRDB' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/Mattermost/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
+
+Build description signature: d7418605b1e003eb3e7073c9aebe7002
+Build description path: /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/XCBuildData/d7418605b1e003eb3e7073c9aebe7002.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist (in target 'GRDB_GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist -producttype com.apple.product-type.framework -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/Mattermost/Info.plist (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-infoPlistUtility /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/Mattermost/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/WebRTC.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -format binary -platform iphonesimulator -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+2026-11-04 05:36:34.791245+0800 MattermostUITests-Runner[91066:43773599] [Default] Running tests...
+Test Suite 'Selected tests' started at 2026-11-04 05:36:35.506.
+Test Suite 'MattermostUITests.xctest' started at 2026-11-04 05:36:35.506.
+Test Suite 'T36ThreadsUITests' started at 2026-11-04 05:36:35.507.
+Test Case '-[MattermostUITests.T36ThreadsUITests testFollowPersistsAndTheFollowedThreadsListPages]' started.
+    t =     0.00s Start Test at 2026-11-04 05:36:35.507
+    t =     0.06s Set Up
+    t =     0.91s Open com.mattermost.ios
+    t =     0.91s     Launch com.mattermost.ios
+2026-11-04 05:36:36.871 xcodebuild[90983:43772390] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 05:36:36.871 xcodebuild[90983:43772390] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.59s         Setting up automation session
+    t =     3.84s         Wait for com.mattermost.ios to idle
+    t =     6.03s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     7.06s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     7.06s         Checking existence of `"loginIDField" TextField`
+    t =     7.18s Tap "loginIDField" TextField
+    t =     7.18s     Wait for com.mattermost.ios to idle
+    t =     7.19s     Find the "loginIDField" TextField
+    t =     7.21s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     7.24s     Synthesize event
+    t =     7.65s     Wait for com.mattermost.ios to idle
+    t =     8.06s Type 'perfprobe' into "loginIDField" TextField
+    t =     8.06s     Wait for com.mattermost.ios to idle
+    t =     8.11s     Find the "loginIDField" TextField
+    t =     8.17s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     8.20s     Synthesize event
+    t =     8.55s     Wait for com.mattermost.ios to idle
+    t =     9.03s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     9.07s Tap "loginPasswordField" SecureTextField
+    t =     9.07s     Wait for com.mattermost.ios to idle
+    t =     9.07s     Find the "loginPasswordField" SecureTextField
+    t =     9.11s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     9.14s     Synthesize event
+    t =     9.44s     Wait for com.mattermost.ios to idle
+    t =     9.87s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     9.87s     Wait for com.mattermost.ios to idle
+    t =     9.87s     Find the "loginPasswordField" SecureTextField
+    t =     9.92s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     9.95s     Synthesize event
+    t =    10.63s     Wait for com.mattermost.ios to idle
+    t =    10.64s Tap "loginSubmitButton" Button
+    t =    10.64s     Wait for com.mattermost.ios to idle
+    t =    10.64s     Find the "loginSubmitButton" Button
+    t =    10.67s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =    10.70s     Synthesize event
+    t =    10.99s     Wait for com.mattermost.ios to idle
+    t =    11.47s Waiting 40.0s for "nativeShell" Any to exist
+    t =    12.50s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    12.51s         Checking existence of `"nativeShell" Any`
+    t =    12.85s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    12.97s Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.23s Checking existence of `CollectionView (First Match)`
+    t =    13.48s Checking existence of `"channelSidebar.scroll" Any`
+[shellsettle] no sidebar scroll surface: cannot scroll to channelSidebar.channel.psw97y5zqpfnpembwxraizuije
+    t =    13.73s Get number of matches for: Elements matching predicate 'identifier BEGINSWITH "channelSidebar.channel."'
+    t =    13.77s Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any to exist
+    t =    14.81s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.81s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.13s         Capturing element debug description
+    t =    15.84s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.84s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.10s         Capturing element debug description
+    t =    16.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.83s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.10s         Capturing element debug description
+    t =    17.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.83s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.10s         Capturing element debug description
+    t =    18.85s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.85s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.18s         Capturing element debug description
+    t =    19.81s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.82s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.08s         Capturing element debug description
+    t =    20.81s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.82s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.07s         Capturing element debug description
+    t =    21.79s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.08s         Capturing element debug description
+    t =    22.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    23.07s         Capturing element debug description
+    t =    23.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    23.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.09s         Capturing element debug description
+    t =    24.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    25.04s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    25.41s         Capturing element debug description
+    t =    25.82s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    25.82s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.14s         Capturing element debug description
+    t =    26.86s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.86s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.18s         Capturing element debug description
+    t =    27.81s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.81s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.07s         Capturing element debug description
+    t =    28.81s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.81s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.11s         Capturing element debug description
+    t =    29.85s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.85s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.12s         Capturing element debug description
+    t =    30.84s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.85s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.13s         Capturing element debug description
+    t =    31.86s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.86s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.14s         Capturing element debug description
+    t =    32.84s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.84s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.12s         Capturing element debug description
+    t =    33.86s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.86s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.15s         Capturing element debug description
+    t =    34.78s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.78s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.08s         Capturing element debug description
+    t =    35.81s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.81s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.06s         Capturing element debug description
+    t =    36.79s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.05s         Capturing element debug description
+    t =    37.78s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.78s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.03s         Capturing element debug description
+    t =    38.84s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.85s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.11s         Capturing element debug description
+    t =    39.83s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.83s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.08s         Capturing element debug description
+    t =    40.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    41.06s         Capturing element debug description
+    t =    41.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    41.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.06s         Capturing element debug description
+    t =    42.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    43.05s         Capturing element debug description
+    t =    43.78s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    43.78s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.08s         Capturing element debug description
+    t =    44.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.06s         Capturing element debug description
+    t =    45.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.06s         Capturing element debug description
+    t =    46.79s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.06s         Capturing element debug description
+    t =    47.79s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.06s         Capturing element debug description
+    t =    48.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    49.06s         Capturing element debug description
+    t =    49.80s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    49.80s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.05s         Capturing element debug description
+    t =    50.78s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.78s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.04s         Capturing element debug description
+    t =    51.86s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.86s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    52.13s         Capturing element debug description
+    t =    52.85s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    52.85s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    53.12s         Capturing element debug description
+    t =    53.78s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    53.78s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    54.05s         Capturing element debug description
+    t =    54.05s     Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    54.31s Collecting debug information to assist test failure triage
+    t =    54.31s     Requesting snapshot of accessibility hierarchy for app with pid 91086
+    t =    54.43s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    54.68s Requesting snapshot of accessibility hierarchy for app with pid 91086
+    t =    54.98s Requesting snapshot of accessibility hierarchy for app with pid 91086
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:811: error: -[MattermostUITests.T36ThreadsUITests testFollowPersistsAndTheFollowedThreadsListPages] : XCTAssertTrue failed - the sidebar must list channel psw97y5zqpfnpembwxraizuije (not realised after 0 swipe(s) of the sidebar, 0 channel row(s) drawn at the end):
+Attributes: Application, 0x10223dc60, pid: 91086, label: 'Mattermost'
+Element subtree:
+ →Application, 0x10223dc60, pid: 91086, label: 'Mattermost'
+    Window (Main), 0x10223dd80, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x10223e140, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x10223e260, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x10223dea0, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x10223dfc0, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x10223e380, {{0.0, 0.0}, {402.0, 874.0}}
+                NavigationBar, 0x10223e4a0, {{0.0, 56.3}, {402.0, 96.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+                  Button, 0x10223e5c0, {{0.0, 56.3}, {68.0, 44.0}}, label: 'Back'
+                  Other, 0x10223e6e0, {{92.3, 56.3}, {155.3, 44.0}}
+                    Other, 0x10223e800, {{92.3, 56.3}, {155.3, 44.0}}
+                      Button, 0x10223e920, {{92.3, 56.3}, {155.3, 44.0}}, identifier: 'serverSwitcher', label: 'Local Mattermost'
+                        Button, 0x10223ea40, {{92.3, 56.3}, {155.3, 44.0}}
+                          Other, 0x10223eb60, {{92.3, 56.3}, {155.3, 44.0}}
+                            StaticText, 0x10223ec80, {{92.3, 56.3}, {155.3, 44.0}}, label: 'Local Mattermost'
+                  Other, 0x10223eda0, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                    Other, 0x10223eec0, {{253.7, 61.3}, {42.0, 34.0}}
+                      Button, 0x10223efe0, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                  Other, 0x10223f100, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                    Other, 0x10223f220, {{303.7, 61.0}, {43.0, 35.0}}
+                      Button, 0x10223f340, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                  Other, 0x10223f460, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                    Other, 0x10223f580, {{354.7, 63.3}, {31.3, 30.0}}
+                      Button, 0x10223f6a0, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                  StaticText, 0x10223f7c0, {{16.0, 104.0}, {7.3, 40.7}}, label: ' '
+                Other, 0x10223f8e0, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x10223fa00, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x10223fb20, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x10223fc40, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x10223fd60, {{0.0, 162.3}, {402.0, 711.7}}, identifier: 'nativeChannelPane'
+                          StaticText, 0x10223fe80, {{18.0, 162.7}, {128.0, 20.3}}, identifier: 'nativeChannelTitle', label: 'Town Square'
+                          Button, 0x10223ffa0, {{280.7, 163.3}, {19.7, 19.0}}, identifier: 'nativeProfileButton', label: 'My profile'
+                          Button, 0x1022400c0, {{308.3, 162.3}, {19.7, 21.7}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x1022401e0, {{336.0, 164.0}, {19.7, 17.7}}, identifier: 'calls.joinButton', label: 'Start call', value: idle
+                          Button, 0x102240300, {{363.7, 163.7}, {22.3, 19.3}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x102240420, {{0.0, 194.3}, {402.0, 489.3}}, identifier: 'channelPostList'
+                            Other, 0x102240540, {{0.0, -2094.3}, {402.0, 2778.0}}
+                              Other, 0x102240660, {{0.0, -334.3}, {402.0, 1006.0}}
+                                Other, 0x102240780, {{0.0, -334.3}, {402.0, 73.0}}
+                                Other, 0x1022408a0, {{12.0, -328.3}, {368.0, 61.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa'
+                                  Button, 0x1022409c0, {{12.0, -328.3}, {36.0, 36.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x102240ae0, {{21.5, -318.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x102240c00, {{12.0, -328.3}, {36.0, 36.0}}
+                                  Button, 0x102240d20, {{58.0, -328.3}, {76.3, 18.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.author', label: 'Perf Probe'
+                                  StaticText, 0x102240e40, {{140.3, -324.3}, {48.0, 13.3}}, label: '10:34 PM'
+                                  StaticText, 0x102240f60, {{58.0, -306.3}, {170.3, 39.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.body.block0', label: 't636 ship-shaped query t48r1saved1793716436'
+                                  Button, 0x102241080, {{352.0, -328.3}, {28.0, 28.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.menu', label: 'Message actions'
+                                Other, 0x1022411a0, {{0.0, -261.3}, {402.0, 43.0}}
+                                Other, 0x1022412c0, {{16.7, -259.3}, {363.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor'
+                                  StaticText, 0x1022413e0, {{16.7, -256.3}, {31.3, 26.3}}, label: '10:34 PM'
+                                  StaticText, 0x102241500, {{58.0, -259.3}, {170.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.body.block0', label: 't636 ship-shaped query t636options1793716458'
+                                  Button, 0x102241620, {{352.0, -259.3}, {28.0, 28.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.menu', label: 'Message actions'
+                                Other, 0x102241740, {{0.0, -218.3}, {402.0, 43.0}}
+                                Other, 0x102241860, {{16.7, -216.3}, {363.3, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr'
+                                  StaticText, 0x102241980, {{16.7, -213.3}, {31.3, 26.3}}, label: '10:38 PM'
+                                  StaticText, 0x102241aa0, {{58.0, -216.3}, {172.0, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.body.block0', label: 't636 ship-shaped query t48r1refused1793716702'
+                                  Button, 0x102241bc0, {{352.0, -216.3}, {28.0, 28.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.menu', label: 'Message actions'
+                                Other, 0x102011830, {{0.0, -175.3}, {402.0, 43.0}}
+                                Other, 0x10200bf30, {{18.7, -173.3}, {361.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w'
+                                  StaticText, 0x102016fd0, {{18.7, -170.3}, {29.3, 26.3}}, label: '10:41 PM'
+                                  StaticText, 0x1020170f0, {{58.0, -173.3}, {170.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.body.block0', label: 't636 ship-shaped query t48r1saved1793716870'
+                                  Button, 0x102017210, {{352.0, -173.3}, {28.0, 28.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.menu', label: 'Message actions'
+                                Other, 0x102017630, {{0.0, -132.3}, {402.0, 43.0}}
+                                Other, 0x102017750, {{17.0, -130.3}, {363.0, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r'
+                                  StaticText, 0x102017870, {{17.0, -127.3}, {31.0, 26.3}}, label: '10:42 PM'
+                                  StaticText, 0x102017990, {{58.0, -130.3}, {170.3, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.body.block0', label: 't636 ship-shaped query t636options1793716914'
+                                  Button, 0x102017ab0, {{352.0, -130.3}, {28.0, 28.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.menu', label: 'Message actions'
+                                Other, 0x102017bd0, {{0.0, -89.3}, {402.0, 73.0}}
+                                Other, 0x102017cf0, {{12.0, -83.3}, {368.0, 61.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke'
+                                  Button, 0x102017e10, {{12.0, -83.3}, {36.0, 36.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x102017f30, {{21.5, -73.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x102018050, {{12.0, -83.3}, {36.0, 36.0}}
+                                  Button, 0x102018170, {{58.0, -83.3}, {76.3, 18.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.author', label: 'Perf Probe'
+                                  StaticText, 0x102018290, {{140.3, -79.3}, {47.3, 13.3}}, label: '10:47 PM'
+                                  StaticText, 0x1020183b0, {{58.0, -61.3}, {170.3, 39.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.body.block0', label: 't636 ship-shaped query t48r1saved1793717215'
+                                  Button, 0x1020184d0, {{352.0, -83.3}, {28.0, 28.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.menu', label: 'Message actions'
+                                Other, 0x1020185f0, {{0.0, -16.3}, {402.0, 43.0}}
+                                Other, 0x102018710, {{18.7, -14.3}, {361.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr'
+                                  StaticText, 0x102018830, {{18.7, -11.3}, {29.3, 26.3}}, label: '10:51 PM'
+                                  StaticText, 0x102018950, {{58.0, -14.3}, {170.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.body.block0', label: 't636 ship-shaped query t48r1saved1793717476'
+                                  Button, 0x102018a70, {{352.0, -14.3}, {28.0, 28.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.menu', label: 'Message actions'
+                                Other, 0x102018b90, {{0.0, 26.7}, {402.0, 43.0}}
+                                Other, 0x102018cb0, {{16.7, 28.7}, {363.3, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r'
+                                  StaticText, 0x102018dd0, {{16.7, 31.7}, {31.3, 26.3}}, label: '10:55 PM'
+                                  StaticText, 0x102018ef0, {{58.0, 28.7}, {171.0, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.body.block0', label: 't636 ship-shaped query t48r1refused1793717677'
+                                  Button, 0x102019010, {{352.0, 28.7}, {28.0, 28.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.menu', label: 'Message actions'
+                                Other, 0x102019130, {{0.0, 69.7}, {402.0, 43.0}}
+                                Other, 0x102019250, {{16.7, 71.7}, {363.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py'
+                                  StaticText, 0x102019370, {{16.7, 74.7}, {31.3, 26.3}}, label: '10:56 PM'
+                                  StaticText, 0x102019490, {{58.0, 71.7}, {170.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.body.block0', label: 't636 ship-shaped query t48r1saved1793717764'
+                                  Button, 0x1020195b0, {{352.0, 71.7}, {28.0, 28.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.menu', label: 'Message actions'
+                                Other, 0x1020196d0, {{0.0, 112.7}, {402.0, 43.0}}
+                                Other, 0x1020197f0, {{17.3, 114.7}, {362.7, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r'
+                                  StaticText, 0x102019910, {{17.3, 117.7}, {30.7, 26.3}}, label: '10:57 PM'
+                                  StaticText, 0x102019a30, {{58.0, 114.7}, {170.3, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.body.block0', label: 't636 ship-shaped query t636options1793717800'
+                                  Button, 0x102019b50, {{352.0, 114.7}, {28.0, 28.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.menu', label: 'Message actions'
+                                Other, 0x102019c70, {{0.0, 155.7}, {402.0, 43.0}}
+                                Other, 0x102019d90, {{13.3, 157.7}, {366.7, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo'
+                                  StaticText, 0x102019eb0, {{13.3, 160.7}, {34.7, 26.3}}, label: '11:01 PM'
+                                  StaticText, 0x102019fd0, {{58.0, 157.7}, {173.0, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.body.block0', label: 't636 ship-shaped query t48r1refused1793718067'
+                                  Button, 0x10201a0f0, {{352.0, 157.7}, {28.0, 28.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.menu', label: 'Message actions'
+                                Other, 0x10201a210, {{0.0, 198.7}, {402.0, 43.0}}
+                                Other, 0x10201a330, {{18.7, 200.7}, {361.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro'
+                                  StaticText, 0x10201a450, {{18.7, 203.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x10201a570, {{58.0, 200.7}, {170.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.body.block0', label: 't636 ship-shaped query t48r1saved1793718155'
+                                  Button, 0x10201a690, {{352.0, 200.7}, {28.0, 28.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.menu', label: 'Message actions'
+                                Other, 0x10201a7b0, {{0.0, 241.7}, {402.0, 43.0}}
+                                Other, 0x10201a8d0, {{18.7, 243.7}, {361.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o'
+                                  StaticText, 0x10201a9f0, {{18.7, 246.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x10201ab10, {{58.0, 243.7}, {170.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.body.block0', label: 't636 ship-shaped query t636options1793718192'
+                                  Button, 0x10201ac30, {{352.0, 243.7}, {28.0, 28.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.menu', label: 'Message actions'
+                                Other, 0x10201ad50, {{0.0, 284.7}, {402.0, 43.0}}
+                                Other, 0x10201afc0, {{12.3, 286.7}, {367.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo'
+                                  StaticText, 0x10201b0e0, {{12.3, 289.7}, {35.7, 26.3}}, label: '11:07 PM'
+                                  StaticText, 0x10201b200, {{58.0, 286.7}, {173.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.body.block0', label: 't636 ship-shaped query t48r1refused1793718426'
+                                  Button, 0x10201b320, {{352.0, 286.7}, {28.0, 28.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.menu', label: 'Message actions'
+                                Other, 0x10201b440, {{0.0, 327.7}, {402.0, 43.0}}
+                                Other, 0x10201b560, {{18.3, 329.7}, {361.7, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo'
+                                  StaticText, 0x10201b680, {{18.3, 332.7}, {29.7, 26.3}}, label: '11:08 PM'
+                                  StaticText, 0x10201b7a0, {{58.0, 329.7}, {170.3, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.body.block0', label: 't636 ship-shaped query t636options1793718498'
+                                  Button, 0x10201b8c0, {{352.0, 329.7}, {28.0, 28.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.menu', label: 'Message actions'
+                                Other, 0x10201b9e0, {{0.0, 370.7}, {402.0, 43.0}}
+                                Other, 0x10201bb00, {{15.3, 372.7}, {364.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo'
+                                  StaticText, 0x10201bc20, {{15.3, 375.7}, {32.7, 26.3}}, label: '11:11 PM'
+                                  StaticText, 0x10201bd40, {{58.0, 372.7}, {173.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.body.block0', label: 't636 ship-shaped query t48r1refused1793718645'
+                                  Button, 0x10201be60, {{352.0, 372.7}, {28.0, 28.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.menu', label: 'Message actions'
+                                Other, 0x10201bf80, {{0.0, 413.7}, {402.0, 43.0}}
+                                Other, 0x10201c0a0, {{13.7, 415.7}, {366.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw'
+                                  StaticText, 0x10201c1c0, {{13.7, 418.7}, {34.3, 26.3}}, label: '11:12 PM'
+                                  StaticText, 0x10201c2e0, {{58.0, 415.7}, {170.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.body.block0', label: 't636 ship-shaped query t48r1refused1793718710'
+                                  Button, 0x10201c400, {{352.0, 415.7}, {28.0, 28.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.menu', label: 'Message actions'
+                                Other, 0x10201c520, {{0.0, 456.7}, {402.0, 43.0}}
+                                Other, 0x10201c640, {{13.3, 458.7}, {366.7, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic'
+                                  StaticText, 0x10201c760, {{13.3, 461.7}, {34.7, 26.3}}, label: '11:13 PM'
+                                  StaticText, 0x10201c880, {{58.0, 458.7}, {170.3, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.body.block0', label: 't636 ship-shaped query t48r1saved1793718792'
+                                  Button, 0x10201c9a0, {{352.0, 458.7}, {28.0, 28.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.menu', label: 'Message actions'
+                                Other, 0x10201cac0, {{0.0, 499.7}, {402.0, 43.0}}
+                                Other, 0x10201cbe0, {{13.3, 501.7}, {366.7, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha'
+                                  StaticText, 0x10201cd00, {{13.3, 504.7}, {34.7, 26.3}}, label: '11:14 PM'
+                                  StaticText, 0x10201ce20, {{58.0, 501.7}, {170.3, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.body.block0', label: 't636 ship-shaped query t636options1793718830'
+                                  Button, 0x10201cf40, {{352.0, 501.7}, {28.0, 28.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.menu', label: 'Message actions'
+                                Other, 0x10201d060, {{0.0, 542.7}, {402.0, 43.0}}
+                                Other, 0x10201d180, {{13.3, 544.7}, {366.7, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy'
+                                  StaticText, 0x10201d2a0, {{13.3, 547.7}, {34.7, 26.3}}, label: '11:18 PM'
+                                  StaticText, 0x10201d3c0, {{58.0, 544.7}, {168.0, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.body.block0', label: 't48 lookup menu t48r1pinned1793719095'
+                                  Button, 0x10201d4e0, {{352.0, 544.7}, {28.0, 28.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.menu', label: 'Message actions'
+                                Other, 0x10201d600, {{0.0, 585.7}, {402.0, 43.0}}
+                                Other, 0x10201d720, {{13.3, 587.7}, {366.7, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y'
+                                  StaticText, 0x10201d840, {{13.3, 590.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x10201d960, {{58.0, 587.7}, {170.3, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.body.block0', label: 't636 ship-shaped query t48r1saved1793719139'
+                                  Button, 0x10201da80, {{352.0, 587.7}, {28.0, 28.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.menu', label: 'Message actions'
+                                Other, 0x10201dba0, {{0.0, 628.7}, {402.0, 43.0}}
+                                Other, 0x10201ae70, {{13.3, 630.7}, {366.7, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w'
+                                  StaticText, 0x10201dee0, {{13.3, 633.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x10201e000, {{58.0, 630.7}, {170.3, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.body.block0', label: 't636 ship-shaped query t636options1793719159'
+                                  Button, 0x10201e120, {{352.0, 630.7}, {28.0, 28.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.menu', label: 'Message actions'
+                              Other, 0x10201e440, {{201.0, -2094.3}, {0.0, 0.0}}
+                            Other, 0x10201e560, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x10201e680, {{396.0, 595.7}, {3.0, 85.0}}
+                            Other, 0x10201e7a0, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x10201e8c0, {{396.0, 595.7}, {3.0, 85.0}}
+                          Other, 0x10201e9e0, {{0.0, 684.0}, {402.0, 190.0}}, identifier: 'channelComposer'
+                            Button, 0x10201eb00, {{10.0, 808.3}, {22.0, 22.0}}, identifier: 'channelComposer.attach', label: 'Add an attachment'
+                            Button, 0x10201ec20, {{42.0, 809.7}, {21.0, 21.0}}, identifier: 'channelComposer.emoji', label: 'Add emoji'
+                            StaticText, 0x10201ed40, {{73.0, 698.0}, {68.7, 20.3}}, label: 'Message'
+                            TextView, 0x10201ee60, {{71.0, 692.0}, {254.3, 140.0}}, identifier: 'channelComposer.input', label: 'Message'
+                              Other, 0x10201ef80, {{292.3, 692.0}, {30.0, 140.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                Other, 0x10201f0a0, {{319.3, 695.0}, {3.0, 134.0}}
+                              Other, 0x10201f1c0, {{71.0, 799.0}, {254.3, 30.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                                Other, 0x10201f2e0, {{74.0, 826.0}, {248.3, 3.0}}
+                            Button, 0x10201f400, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'channelComposer.menu', label: 'Formatting and preview'
+                              Button, 0x10201f520, {{331.3, 806.7}, {26.0, 25.3}}
+                                Other, 0x10201f640, {{331.3, 806.7}, {26.0, 25.3}}
+                                  Image, 0x10201f760, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'ellipsis.circle', label: 'More'
+                            Button, 0x10201f880, {{365.7, 804.3}, {26.0, 26.0}}, identifier: 'channelComposer.send', label: 'Send', Disabled
+    Window, 0x10201f9a0, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x10201fac0, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x10201fbe0, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x10201fd00, {{0.0, 874.0}, {402.0, 233.0}}
+Path to element:
+ →Application, 0x10223dc60, pid: 91086, label: 'Mattermost'
+Query chain:
+ →Find: Target Application 'com.mattermost.ios'
+  Output: {
+    Application, 0x10222e6e0, pid: 91086, label: 'Mattermost'
+  }
+
+    t =    55.56s Tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    55.56s     Wait for com.mattermost.ios to idle
+    t =    55.56s     Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    56.82s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 1)
+    t =    58.10s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 2)
+    t =    58.35s Requesting snapshot of accessibility hierarchy for app with pid 91086
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:814: error: -[MattermostUITests.T36ThreadsUITests testFollowPersistsAndTheFollowedThreadsListPages] : Failed to tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" IN identifiers'`, given input App element pid: 91086
+    t =    58.46s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testFollowPersistsAndTheFollowedThreadsListPages]' failed (58.720 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies]' started.
+    t =     0.00s Start Test at 2026-11-04 05:37:34.228
+    t =     0.04s Set Up
+    t =     0.54s Open com.mattermost.ios
+    t =     0.54s     Launch com.mattermost.ios
+    t =     0.54s         Terminate com.mattermost.ios:91086
+2026-11-04 05:37:35.851 xcodebuild[90983:43772390] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 05:37:35.851 xcodebuild[90983:43772390] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.84s         Setting up automation session
+    t =     3.05s         Wait for com.mattermost.ios to idle
+    t =     5.13s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     6.17s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     6.18s         Checking existence of `"loginIDField" TextField`
+    t =     6.33s Tap "loginIDField" TextField
+    t =     6.33s     Wait for com.mattermost.ios to idle
+    t =     6.33s     Find the "loginIDField" TextField
+    t =     6.35s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.37s     Synthesize event
+    t =     6.67s     Wait for com.mattermost.ios to idle
+    t =     6.84s Type 'perfprobe' into "loginIDField" TextField
+    t =     6.85s     Wait for com.mattermost.ios to idle
+    t =     6.87s     Find the "loginIDField" TextField
+    t =     6.91s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.94s     Synthesize event
+    t =     7.29s     Wait for com.mattermost.ios to idle
+    t =     7.51s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     7.56s Tap "loginPasswordField" SecureTextField
+    t =     7.56s     Wait for com.mattermost.ios to idle
+    t =     7.56s     Find the "loginPasswordField" SecureTextField
+    t =     7.59s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.62s     Synthesize event
+    t =     7.91s     Wait for com.mattermost.ios to idle
+    t =     8.36s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     8.36s     Wait for com.mattermost.ios to idle
+    t =     8.36s     Find the "loginPasswordField" SecureTextField
+    t =     8.41s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     8.44s     Synthesize event
+    t =     9.13s     Wait for com.mattermost.ios to idle
+    t =     9.13s Tap "loginSubmitButton" Button
+    t =     9.13s     Wait for com.mattermost.ios to idle
+    t =     9.13s     Find the "loginSubmitButton" Button
+    t =     9.16s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     9.19s     Synthesize event
+    t =     9.49s     Wait for com.mattermost.ios to idle
+    t =     9.91s Waiting 40.0s for "nativeShell" Any to exist
+    t =    10.94s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    10.94s         Checking existence of `"nativeShell" Any`
+    t =    11.28s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    11.40s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.65s Checking existence of `CollectionView (First Match)`
+    t =    11.94s Checking existence of `"channelSidebar.scroll" Any`
+[shellsettle] no sidebar scroll surface: cannot scroll to channelSidebar.channel.psw97y5zqpfnpembwxraizuije
+    t =    12.20s Get number of matches for: Elements matching predicate 'identifier BEGINSWITH "channelSidebar.channel."'
+    t =    12.25s Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any to exist
+    t =    13.27s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    13.28s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    13.53s         Capturing element debug description
+    t =    14.25s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.25s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.53s         Capturing element debug description
+    t =    15.25s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.25s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.52s         Capturing element debug description
+    t =    16.25s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.26s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.51s         Capturing element debug description
+    t =    17.34s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.35s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.62s         Capturing element debug description
+    t =    18.25s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.25s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.51s         Capturing element debug description
+    t =    19.34s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.34s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.62s         Capturing element debug description
+    t =    20.25s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.25s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.51s         Capturing element debug description
+    t =    21.34s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.34s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.72s         Capturing element debug description
+    t =    22.34s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.34s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.63s         Capturing element debug description
+    t =    23.34s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    23.34s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    23.61s         Capturing element debug description
+    t =    24.25s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.25s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.54s         Capturing element debug description
+    t =    25.26s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    25.26s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    25.55s         Capturing element debug description
+    t =    26.29s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.30s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.64s         Capturing element debug description
+    t =    27.26s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.26s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.53s         Capturing element debug description
+    t =    28.26s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.26s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.56s         Capturing element debug description
+    t =    29.28s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.28s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.56s         Capturing element debug description
+    t =    30.27s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.28s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.52s         Capturing element debug description
+    t =    31.35s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.35s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.63s         Capturing element debug description
+    t =    32.25s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.25s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.50s         Capturing element debug description
+    t =    33.34s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.34s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.60s         Capturing element debug description
+    t =    34.33s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.33s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.60s         Capturing element debug description
+    t =    35.33s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.33s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.61s         Capturing element debug description
+    t =    36.34s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.34s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.60s         Capturing element debug description
+    t =    37.33s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.33s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.60s         Capturing element debug description
+    t =    38.31s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.31s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.60s         Capturing element debug description
+    t =    39.32s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.32s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.57s         Capturing element debug description
+    t =    40.29s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.29s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.56s         Capturing element debug description
+    t =    41.29s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    41.29s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    41.56s         Capturing element debug description
+    t =    42.29s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.29s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.55s         Capturing element debug description
+    t =    43.27s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    43.28s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    43.55s         Capturing element debug description
+    t =    44.28s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.28s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.57s         Capturing element debug description
+    t =    45.29s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.29s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.55s         Capturing element debug description
+    t =    46.28s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.28s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.55s         Capturing element debug description
+    t =    47.28s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.28s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.53s         Capturing element debug description
+    t =    48.27s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.27s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.52s         Capturing element debug description
+    t =    49.34s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    49.34s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    49.60s         Capturing element debug description
+    t =    50.34s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.34s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.65s         Capturing element debug description
+    t =    51.28s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.28s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.52s         Capturing element debug description
+    t =    52.25s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    52.25s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    52.51s         Capturing element debug description
+    t =    52.52s     Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    52.76s Collecting debug information to assist test failure triage
+    t =    52.76s     Requesting snapshot of accessibility hierarchy for app with pid 91424
+    t =    52.87s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    53.13s Requesting snapshot of accessibility hierarchy for app with pid 91424
+    t =    53.41s Requesting snapshot of accessibility hierarchy for app with pid 91424
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:811: error: -[MattermostUITests.T36ThreadsUITests testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies] : XCTAssertTrue failed - the sidebar must list channel psw97y5zqpfnpembwxraizuije (not realised after 0 swipe(s) of the sidebar, 0 channel row(s) drawn at the end):
+Attributes: Application, 0x102243390, pid: 91424, label: 'Mattermost'
+Element subtree:
+ →Application, 0x102243390, pid: 91424, label: 'Mattermost'
+    Window (Main), 0x102236aa0, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x102236e60, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x102236f80, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x102237520, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x102236bc0, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x102236ce0, {{0.0, 0.0}, {402.0, 874.0}}
+                NavigationBar, 0x1022370a0, {{0.0, 56.3}, {402.0, 96.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+                  Button, 0x1022371c0, {{0.0, 56.3}, {68.0, 44.0}}, label: 'Back'
+                  Other, 0x1022372e0, {{92.3, 56.3}, {155.3, 44.0}}
+                    Other, 0x102237400, {{92.3, 56.3}, {155.3, 44.0}}
+                      Button, 0x102243560, {{92.3, 56.3}, {155.3, 44.0}}, identifier: 'serverSwitcher', label: 'Local Mattermost'
+                        Button, 0x102243680, {{92.3, 56.3}, {155.3, 44.0}}
+                          Other, 0x1022437a0, {{92.3, 56.3}, {155.3, 44.0}}
+                            StaticText, 0x1022438c0, {{92.3, 56.3}, {155.3, 44.0}}, label: 'Local Mattermost'
+                  Other, 0x1022439e0, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                    Other, 0x102243b00, {{253.7, 61.3}, {42.0, 34.0}}
+                      Button, 0x102243c20, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                  Other, 0x102243d40, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                    Other, 0x102243e60, {{303.7, 61.0}, {43.0, 35.0}}
+                      Button, 0x102243f80, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                  Other, 0x1022440a0, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                    Other, 0x1022441c0, {{354.7, 63.3}, {31.3, 30.0}}
+                      Button, 0x1022442e0, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                  StaticText, 0x102244400, {{16.0, 104.0}, {7.3, 40.7}}, label: ' '
+                Other, 0x102244520, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x102244640, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x102244760, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x102244880, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x1022449a0, {{0.0, 162.3}, {402.0, 711.7}}, identifier: 'nativeChannelPane'
+                          StaticText, 0x102244ac0, {{18.0, 162.7}, {128.0, 20.3}}, identifier: 'nativeChannelTitle', label: 'Town Square'
+                          Button, 0x102244be0, {{280.7, 163.3}, {19.7, 19.0}}, identifier: 'nativeProfileButton', label: 'My profile'
+                          Button, 0x102244d00, {{308.3, 162.3}, {19.7, 21.7}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x102244e20, {{336.0, 164.0}, {19.7, 17.7}}, identifier: 'calls.joinButton', label: 'Start call', value: idle
+                          Button, 0x102244f40, {{363.7, 163.7}, {22.3, 19.3}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x102245060, {{0.0, 194.3}, {402.0, 489.3}}, identifier: 'channelPostList'
+                            Other, 0x102245180, {{0.0, -2094.3}, {402.0, 2778.0}}
+                              Other, 0x101650d00, {{0.0, -334.3}, {402.0, 1006.0}}
+                                Other, 0x101650e20, {{0.0, -334.3}, {402.0, 73.0}}
+                                Other, 0x1022452a0, {{12.0, -328.3}, {368.0, 61.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa'
+                                  Button, 0x1022453c0, {{12.0, -328.3}, {36.0, 36.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x1022454e0, {{21.5, -318.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x102245600, {{12.0, -328.3}, {36.0, 36.0}}
+                                  Button, 0x102245720, {{58.0, -328.3}, {76.3, 18.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.author', label: 'Perf Probe'
+                                  StaticText, 0x102245840, {{140.3, -324.3}, {48.0, 13.3}}, label: '10:34 PM'
+                                  StaticText, 0x102245960, {{58.0, -306.3}, {170.3, 39.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.body.block0', label: 't636 ship-shaped query t48r1saved1793716436'
+                                  Button, 0x101650f40, {{352.0, -328.3}, {28.0, 28.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.menu', label: 'Message actions'
+                                Other, 0x101651060, {{0.0, -261.3}, {402.0, 43.0}}
+                                Other, 0x101651180, {{16.7, -259.3}, {363.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor'
+                                  StaticText, 0x1016512a0, {{16.7, -256.3}, {31.3, 26.3}}, label: '10:34 PM'
+                                  StaticText, 0x1016513c0, {{58.0, -259.3}, {170.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.body.block0', label: 't636 ship-shaped query t636options1793716458'
+                                  Button, 0x1016514e0, {{352.0, -259.3}, {28.0, 28.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.menu', label: 'Message actions'
+                                Other, 0x101651600, {{0.0, -218.3}, {402.0, 43.0}}
+                                Other, 0x101651720, {{16.7, -216.3}, {363.3, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr'
+                                  StaticText, 0x101651840, {{16.7, -213.3}, {31.3, 26.3}}, label: '10:38 PM'
+                                  StaticText, 0x101651960, {{58.0, -216.3}, {172.0, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.body.block0', label: 't636 ship-shaped query t48r1refused1793716702'
+                                  Button, 0x101651a80, {{352.0, -216.3}, {28.0, 28.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.menu', label: 'Message actions'
+                                Other, 0x101651ba0, {{0.0, -175.3}, {402.0, 43.0}}
+                                Other, 0x101651cc0, {{18.7, -173.3}, {361.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w'
+                                  StaticText, 0x101651de0, {{18.7, -170.3}, {29.3, 26.3}}, label: '10:41 PM'
+                                  StaticText, 0x101651f00, {{58.0, -173.3}, {170.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.body.block0', label: 't636 ship-shaped query t48r1saved1793716870'
+                                  Button, 0x101652020, {{352.0, -173.3}, {28.0, 28.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.menu', label: 'Message actions'
+                                Other, 0x101652140, {{0.0, -132.3}, {402.0, 43.0}}
+                                Other, 0x101652260, {{17.0, -130.3}, {363.0, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r'
+                                  StaticText, 0x101652380, {{17.0, -127.3}, {31.0, 26.3}}, label: '10:42 PM'
+                                  StaticText, 0x1016524a0, {{58.0, -130.3}, {170.3, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.body.block0', label: 't636 ship-shaped query t636options1793716914'
+                                  Button, 0x1016525c0, {{352.0, -130.3}, {28.0, 28.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.menu', label: 'Message actions'
+                                Other, 0x1016526e0, {{0.0, -89.3}, {402.0, 73.0}}
+                                Other, 0x101652800, {{12.0, -83.3}, {368.0, 61.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke'
+                                  Button, 0x101652920, {{12.0, -83.3}, {36.0, 36.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x101652a40, {{21.5, -73.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x101652b60, {{12.0, -83.3}, {36.0, 36.0}}
+                                  Button, 0x101652c80, {{58.0, -83.3}, {76.3, 18.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.author', label: 'Perf Probe'
+                                  StaticText, 0x101652da0, {{140.3, -79.3}, {47.3, 13.3}}, label: '10:47 PM'
+                                  StaticText, 0x101652ec0, {{58.0, -61.3}, {170.3, 39.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.body.block0', label: 't636 ship-shaped query t48r1saved1793717215'
+                                  Button, 0x101652fe0, {{352.0, -83.3}, {28.0, 28.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.menu', label: 'Message actions'
+                                Other, 0x101653100, {{0.0, -16.3}, {402.0, 43.0}}
+                                Other, 0x101653220, {{18.7, -14.3}, {361.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr'
+                                  StaticText, 0x101653340, {{18.7, -11.3}, {29.3, 26.3}}, label: '10:51 PM'
+                                  StaticText, 0x101653460, {{58.0, -14.3}, {170.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.body.block0', label: 't636 ship-shaped query t48r1saved1793717476'
+                                  Button, 0x101653580, {{352.0, -14.3}, {28.0, 28.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.menu', label: 'Message actions'
+                                Other, 0x1016536a0, {{0.0, 26.7}, {402.0, 43.0}}
+                                Other, 0x1016537c0, {{16.7, 28.7}, {363.3, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r'
+                                  StaticText, 0x1016538e0, {{16.7, 31.7}, {31.3, 26.3}}, label: '10:55 PM'
+                                  StaticText, 0x101653a00, {{58.0, 28.7}, {171.0, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.body.block0', label: 't636 ship-shaped query t48r1refused1793717677'
+                                  Button, 0x101653b20, {{352.0, 28.7}, {28.0, 28.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.menu', label: 'Message actions'
+                                Other, 0x101653c40, {{0.0, 69.7}, {402.0, 43.0}}
+                                Other, 0x101653d60, {{16.7, 71.7}, {363.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py'
+                                  StaticText, 0x101653e80, {{16.7, 74.7}, {31.3, 26.3}}, label: '10:56 PM'
+                                  StaticText, 0x101653fa0, {{58.0, 71.7}, {170.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.body.block0', label: 't636 ship-shaped query t48r1saved1793717764'
+                                  Button, 0x1016540c0, {{352.0, 71.7}, {28.0, 28.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.menu', label: 'Message actions'
+                                Other, 0x1016541e0, {{0.0, 112.7}, {402.0, 43.0}}
+                                Other, 0x101654300, {{17.3, 114.7}, {362.7, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r'
+                                  StaticText, 0x101654420, {{17.3, 117.7}, {30.7, 26.3}}, label: '10:57 PM'
+                                  StaticText, 0x101654540, {{58.0, 114.7}, {170.3, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.body.block0', label: 't636 ship-shaped query t636options1793717800'
+                                  Button, 0x101654660, {{352.0, 114.7}, {28.0, 28.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.menu', label: 'Message actions'
+                                Other, 0x101654780, {{0.0, 155.7}, {402.0, 43.0}}
+                                Other, 0x1016548a0, {{13.3, 157.7}, {366.7, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo'
+                                  StaticText, 0x1016549c0, {{13.3, 160.7}, {34.7, 26.3}}, label: '11:01 PM'
+                                  StaticText, 0x101654ae0, {{58.0, 157.7}, {173.0, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.body.block0', label: 't636 ship-shaped query t48r1refused1793718067'
+                                  Button, 0x101654c00, {{352.0, 157.7}, {28.0, 28.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.menu', label: 'Message actions'
+                                Other, 0x101654d20, {{0.0, 198.7}, {402.0, 43.0}}
+                                Other, 0x101654e40, {{18.7, 200.7}, {361.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro'
+                                  StaticText, 0x101654f60, {{18.7, 203.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x101655080, {{58.0, 200.7}, {170.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.body.block0', label: 't636 ship-shaped query t48r1saved1793718155'
+                                  Button, 0x1016551a0, {{352.0, 200.7}, {28.0, 28.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.menu', label: 'Message actions'
+                                Other, 0x1016552c0, {{0.0, 241.7}, {402.0, 43.0}}
+                                Other, 0x1016553e0, {{18.7, 243.7}, {361.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o'
+                                  StaticText, 0x101655500, {{18.7, 246.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x101655620, {{58.0, 243.7}, {170.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.body.block0', label: 't636 ship-shaped query t636options1793718192'
+                                  Button, 0x101655740, {{352.0, 243.7}, {28.0, 28.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.menu', label: 'Message actions'
+                                Other, 0x101655860, {{0.0, 284.7}, {402.0, 43.0}}
+                                Other, 0x101655ad0, {{12.3, 286.7}, {367.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo'
+                                  StaticText, 0x101655bf0, {{12.3, 289.7}, {35.7, 26.3}}, label: '11:07 PM'
+                                  StaticText, 0x101655d10, {{58.0, 286.7}, {173.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.body.block0', label: 't636 ship-shaped query t48r1refused1793718426'
+                                  Button, 0x101655e30, {{352.0, 286.7}, {28.0, 28.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.menu', label: 'Message actions'
+                                Other, 0x101655f50, {{0.0, 327.7}, {402.0, 43.0}}
+                                Other, 0x101656070, {{18.3, 329.7}, {361.7, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo'
+                                  StaticText, 0x101656190, {{18.3, 332.7}, {29.7, 26.3}}, label: '11:08 PM'
+                                  StaticText, 0x1016562b0, {{58.0, 329.7}, {170.3, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.body.block0', label: 't636 ship-shaped query t636options1793718498'
+                                  Button, 0x1016563d0, {{352.0, 329.7}, {28.0, 28.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.menu', label: 'Message actions'
+                                Other, 0x1016564f0, {{0.0, 370.7}, {402.0, 43.0}}
+                                Other, 0x101656610, {{15.3, 372.7}, {364.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo'
+                                  StaticText, 0x101656730, {{15.3, 375.7}, {32.7, 26.3}}, label: '11:11 PM'
+                                  StaticText, 0x101656850, {{58.0, 372.7}, {173.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.body.block0', label: 't636 ship-shaped query t48r1refused1793718645'
+                                  Button, 0x101656970, {{352.0, 372.7}, {28.0, 28.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.menu', label: 'Message actions'
+                                Other, 0x101656a90, {{0.0, 413.7}, {402.0, 43.0}}
+                                Other, 0x101656bb0, {{13.7, 415.7}, {366.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw'
+                                  StaticText, 0x101656cd0, {{13.7, 418.7}, {34.3, 26.3}}, label: '11:12 PM'
+                                  StaticText, 0x101656df0, {{58.0, 415.7}, {170.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.body.block0', label: 't636 ship-shaped query t48r1refused1793718710'
+                                  Button, 0x101656f10, {{352.0, 415.7}, {28.0, 28.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.menu', label: 'Message actions'
+                                Other, 0x101657030, {{0.0, 456.7}, {402.0, 43.0}}
+                                Other, 0x101657150, {{13.3, 458.7}, {366.7, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic'
+                                  StaticText, 0x101657270, {{13.3, 461.7}, {34.7, 26.3}}, label: '11:13 PM'
+                                  StaticText, 0x101657390, {{58.0, 458.7}, {170.3, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.body.block0', label: 't636 ship-shaped query t48r1saved1793718792'
+                                  Button, 0x1016574b0, {{352.0, 458.7}, {28.0, 28.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.menu', label: 'Message actions'
+                                Other, 0x1016575d0, {{0.0, 499.7}, {402.0, 43.0}}
+                                Other, 0x1016576f0, {{13.3, 501.7}, {366.7, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha'
+                                  StaticText, 0x101657810, {{13.3, 504.7}, {34.7, 26.3}}, label: '11:14 PM'
+                                  StaticText, 0x101657930, {{58.0, 501.7}, {170.3, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.body.block0', label: 't636 ship-shaped query t636options1793718830'
+                                  Button, 0x101657a50, {{352.0, 501.7}, {28.0, 28.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.menu', label: 'Message actions'
+                                Other, 0x101657b70, {{0.0, 542.7}, {402.0, 43.0}}
+                                Other, 0x101657c90, {{13.3, 544.7}, {366.7, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy'
+                                  StaticText, 0x101657db0, {{13.3, 547.7}, {34.7, 26.3}}, label: '11:18 PM'
+                                  StaticText, 0x101657ed0, {{58.0, 544.7}, {168.0, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.body.block0', label: 't48 lookup menu t48r1pinned1793719095'
+                                  Button, 0x101657ff0, {{352.0, 544.7}, {28.0, 28.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.menu', label: 'Message actions'
+                                Other, 0x101658110, {{0.0, 585.7}, {402.0, 43.0}}
+                                Other, 0x101658230, {{13.3, 587.7}, {366.7, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y'
+                                  StaticText, 0x101658350, {{13.3, 590.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x101658470, {{58.0, 587.7}, {170.3, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.body.block0', label: 't636 ship-shaped query t48r1saved1793719139'
+                                  Button, 0x101658590, {{352.0, 587.7}, {28.0, 28.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.menu', label: 'Message actions'
+                                Other, 0x1016586b0, {{0.0, 628.7}, {402.0, 43.0}}
+                                Other, 0x101655980, {{13.3, 630.7}, {366.7, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w'
+                                  StaticText, 0x102245a80, {{13.3, 633.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x1016589f0, {{58.0, 630.7}, {170.3, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.body.block0', label: 't636 ship-shaped query t636options1793719159'
+                                  Button, 0x101658b10, {{352.0, 630.7}, {28.0, 28.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.menu', label: 'Message actions'
+                              Other, 0x101658e30, {{201.0, -2094.3}, {0.0, 0.0}}
+                            Other, 0x101658f50, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x101659070, {{396.0, 595.7}, {3.0, 85.0}}
+                            Other, 0x101659190, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x1016592b0, {{396.0, 595.7}, {3.0, 85.0}}
+                          Other, 0x1016593d0, {{0.0, 684.0}, {402.0, 190.0}}, identifier: 'channelComposer'
+                            Button, 0x1016594f0, {{10.0, 808.3}, {22.0, 22.0}}, identifier: 'channelComposer.attach', label: 'Add an attachment'
+                            Button, 0x101659610, {{42.0, 809.7}, {21.0, 21.0}}, identifier: 'channelComposer.emoji', label: 'Add emoji'
+                            StaticText, 0x101659730, {{73.0, 698.0}, {68.7, 20.3}}, label: 'Message'
+                            TextView, 0x101659850, {{71.0, 692.0}, {254.3, 140.0}}, identifier: 'channelComposer.input', label: 'Message'
+                              Other, 0x101659970, {{292.3, 692.0}, {30.0, 140.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                Other, 0x101659a90, {{319.3, 695.0}, {3.0, 134.0}}
+                              Other, 0x101659bb0, {{71.0, 799.0}, {254.3, 30.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                                Other, 0x101659cd0, {{74.0, 826.0}, {248.3, 3.0}}
+                            Button, 0x101659df0, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'channelComposer.menu', label: 'Formatting and preview'
+                              Button, 0x101659f10, {{331.3, 806.7}, {26.0, 25.3}}
+                                Other, 0x10165a030, {{331.3, 806.7}, {26.0, 25.3}}
+                                  Image, 0x10165a150, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'ellipsis.circle', label: 'More'
+                            Button, 0x10165a270, {{365.7, 804.3}, {26.0, 26.0}}, identifier: 'channelComposer.send', label: 'Send', Disabled
+    Window, 0x10165a390, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x10165a4b0, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x10165a5d0, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x10165a6f0, {{0.0, 874.0}, {402.0, 233.0}}
+Path to element:
+ →Application, 0x102243390, pid: 91424, label: 'Mattermost'
+Query chain:
+ →Find: Target Application 'com.mattermost.ios'
+  Output: {
+    Application, 0x102237d20, pid: 91424, label: 'Mattermost'
+  }
+
+    t =    53.52s Tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    53.52s     Wait for com.mattermost.ios to idle
+    t =    53.52s     Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    54.79s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 1)
+    t =    56.08s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 2)
+    t =    56.35s Requesting snapshot of accessibility hierarchy for app with pid 91424
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:814: error: -[MattermostUITests.T36ThreadsUITests testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies] : Failed to tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" IN identifiers'`, given input App element pid: 91424
+    t =    56.46s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies]' failed (56.699 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply]' started.
+    t =     0.00s Start Test at 2026-11-04 05:38:30.929
+    t =     0.05s Set Up
+    t =     1.15s Added attachment named 't36-server-order-vs-chronology'
+    t =     1.20s Open com.mattermost.ios
+    t =     1.20s     Launch com.mattermost.ios
+    t =     1.20s         Terminate com.mattermost.ios:91424
+2026-11-04 05:38:33.211 xcodebuild[90983:43772390] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 05:38:33.211 xcodebuild[90983:43772390] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.71s         Setting up automation session
+    t =     3.97s         Wait for com.mattermost.ios to idle
+    t =     5.83s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     6.84s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     6.84s         Checking existence of `"loginIDField" TextField`
+    t =     6.96s Tap "loginIDField" TextField
+    t =     6.96s     Wait for com.mattermost.ios to idle
+    t =     6.97s     Find the "loginIDField" TextField
+    t =     6.99s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     7.01s     Synthesize event
+    t =     7.32s     Wait for com.mattermost.ios to idle
+    t =     7.48s Type 'perfprobe' into "loginIDField" TextField
+    t =     7.48s     Wait for com.mattermost.ios to idle
+    t =     7.51s     Find the "loginIDField" TextField
+    t =     7.54s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     7.57s     Synthesize event
+    t =     7.91s     Wait for com.mattermost.ios to idle
+    t =     8.13s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     8.24s Tap "loginPasswordField" SecureTextField
+    t =     8.24s     Wait for com.mattermost.ios to idle
+    t =     8.25s     Find the "loginPasswordField" SecureTextField
+    t =     8.30s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     8.35s     Synthesize event
+    t =     8.66s     Wait for com.mattermost.ios to idle
+    t =     9.11s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     9.11s     Wait for com.mattermost.ios to idle
+    t =     9.11s     Find the "loginPasswordField" SecureTextField
+    t =     9.16s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     9.19s     Synthesize event
+    t =     9.87s     Wait for com.mattermost.ios to idle
+    t =     9.87s Tap "loginSubmitButton" Button
+    t =     9.87s     Wait for com.mattermost.ios to idle
+    t =     9.87s     Find the "loginSubmitButton" Button
+    t =     9.92s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     9.96s     Synthesize event
+    t =    10.26s     Wait for com.mattermost.ios to idle
+    t =    10.65s Waiting 40.0s for "nativeShell" Any to exist
+    t =    11.67s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    11.68s         Checking existence of `"nativeShell" Any`
+    t =    11.97s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    12.08s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.35s Checking existence of `CollectionView (First Match)`
+    t =    12.59s Checking existence of `"channelSidebar.scroll" Any`
+[shellsettle] no sidebar scroll surface: cannot scroll to channelSidebar.channel.psw97y5zqpfnpembwxraizuije
+    t =    12.85s Get number of matches for: Elements matching predicate 'identifier BEGINSWITH "channelSidebar.channel."'
+    t =    12.89s Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any to exist
+    t =    13.92s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    13.93s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.19s         Capturing element debug description
+    t =    14.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.18s         Capturing element debug description
+    t =    15.89s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.90s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.15s         Capturing element debug description
+    t =    16.89s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.90s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.15s         Capturing element debug description
+    t =    17.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.27s         Capturing element debug description
+    t =    18.89s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.89s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.18s         Capturing element debug description
+    t =    19.89s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.89s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.17s         Capturing element debug description
+    t =    20.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.17s         Capturing element debug description
+    t =    21.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.19s         Capturing element debug description
+    t =    22.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    23.18s         Capturing element debug description
+    t =    23.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    23.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.28s         Capturing element debug description
+    t =    24.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    25.17s         Capturing element debug description
+    t =    25.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    25.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.18s         Capturing element debug description
+    t =    26.92s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.92s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.17s         Capturing element debug description
+    t =    27.89s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.89s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.16s         Capturing element debug description
+    t =    28.89s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.90s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.57s         Capturing element debug description
+    t =    29.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.25s         Capturing element debug description
+    t =    30.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.24s         Capturing element debug description
+    t =    31.96s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.96s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.25s         Capturing element debug description
+    t =    32.97s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.97s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.22s         Capturing element debug description
+    t =    33.94s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.94s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.19s         Capturing element debug description
+    t =    34.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.20s         Capturing element debug description
+    t =    35.92s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.92s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.18s         Capturing element debug description
+    t =    36.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.16s         Capturing element debug description
+    t =    37.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.23s         Capturing element debug description
+    t =    38.94s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.94s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.20s         Capturing element debug description
+    t =    39.93s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.93s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.19s         Capturing element debug description
+    t =    40.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    41.17s         Capturing element debug description
+    t =    41.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    41.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.16s         Capturing element debug description
+    t =    42.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    43.25s         Capturing element debug description
+    t =    43.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    43.99s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.27s         Capturing element debug description
+    t =    44.89s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.89s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.14s         Capturing element debug description
+    t =    45.96s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.96s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.25s         Capturing element debug description
+    t =    46.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.24s         Capturing element debug description
+    t =    47.96s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.96s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.20s         Capturing element debug description
+    t =    48.92s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.93s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    49.22s         Capturing element debug description
+    t =    49.94s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    49.95s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.24s         Capturing element debug description
+    t =    50.96s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.96s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.23s         Capturing element debug description
+    t =    51.96s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.96s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    52.20s         Capturing element debug description
+    t =    52.90s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    52.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    53.18s         Capturing element debug description
+    t =    53.18s     Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    53.42s Collecting debug information to assist test failure triage
+    t =    53.42s     Requesting snapshot of accessibility hierarchy for app with pid 91752
+    t =    53.55s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    53.80s Requesting snapshot of accessibility hierarchy for app with pid 91752
+    t =    54.10s Requesting snapshot of accessibility hierarchy for app with pid 91752
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:811: error: -[MattermostUITests.T36ThreadsUITests testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply] : XCTAssertTrue failed - the sidebar must list channel psw97y5zqpfnpembwxraizuije (not realised after 0 swipe(s) of the sidebar, 0 channel row(s) drawn at the end):
+Attributes: Application, 0x10165de50, pid: 91752, label: 'Mattermost'
+Element subtree:
+ →Application, 0x10165de50, pid: 91752, label: 'Mattermost'
+    Window (Main), 0x101661120, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x1016614e0, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x101661600, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x101661240, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x101661360, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x10165e590, {{0.0, 0.0}, {402.0, 874.0}}
+                NavigationBar, 0x10165e6b0, {{0.0, 56.3}, {402.0, 96.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+                  Button, 0x10165e7d0, {{0.0, 56.3}, {68.0, 44.0}}, label: 'Back'
+                  Other, 0x10165e8f0, {{92.3, 56.3}, {155.3, 44.0}}
+                    Other, 0x10165ea10, {{92.3, 56.3}, {155.3, 44.0}}
+                      Button, 0x10165eb30, {{92.3, 56.3}, {155.3, 44.0}}, identifier: 'serverSwitcher', label: 'Local Mattermost'
+                        Button, 0x10165ec50, {{92.3, 56.3}, {155.3, 44.0}}
+                          Other, 0x10165ed70, {{92.3, 56.3}, {155.3, 44.0}}
+                            StaticText, 0x10165ee90, {{92.3, 56.3}, {155.3, 44.0}}, label: 'Local Mattermost'
+                  Other, 0x1053085d0, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                    Other, 0x105304410, {{253.7, 61.3}, {42.0, 34.0}}
+                      Button, 0x105305860, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                  Other, 0x105309680, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                    Other, 0x1053097a0, {{303.7, 61.0}, {43.0, 35.0}}
+                      Button, 0x1053098c0, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                  Other, 0x1053099e0, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                    Other, 0x105309b00, {{354.7, 63.3}, {31.3, 30.0}}
+                      Button, 0x105309c20, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                  StaticText, 0x105309d40, {{16.0, 104.0}, {7.3, 40.7}}, label: ' '
+                Other, 0x105309e60, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x105309f80, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x10530a0a0, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x10530a1c0, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x10530a2e0, {{0.0, 162.3}, {402.0, 711.7}}, identifier: 'nativeChannelPane'
+                          StaticText, 0x10530a400, {{18.0, 162.7}, {128.0, 20.3}}, identifier: 'nativeChannelTitle', label: 'Town Square'
+                          Button, 0x10530a520, {{280.7, 163.3}, {19.7, 19.0}}, identifier: 'nativeProfileButton', label: 'My profile'
+                          Button, 0x10530a640, {{308.3, 162.3}, {19.7, 21.7}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x10530a760, {{336.0, 164.0}, {19.7, 17.7}}, identifier: 'calls.joinButton', label: 'Start call', value: idle
+                          Button, 0x10530a880, {{363.7, 163.7}, {22.3, 19.3}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x10530a9a0, {{0.0, 194.3}, {402.0, 489.3}}, identifier: 'channelPostList'
+                            Other, 0x10530aac0, {{0.0, -2094.3}, {402.0, 2778.0}}
+                              Other, 0x10530abe0, {{0.0, -334.3}, {402.0, 1006.0}}
+                                Other, 0x10530ad00, {{0.0, -334.3}, {402.0, 73.0}}
+                                Other, 0x10530ae20, {{12.0, -328.3}, {368.0, 61.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa'
+                                  Button, 0x10530af40, {{12.0, -328.3}, {36.0, 36.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x10530b060, {{21.5, -318.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x10530b180, {{12.0, -328.3}, {36.0, 36.0}}
+                                  Button, 0x10530b2a0, {{58.0, -328.3}, {76.3, 18.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.author', label: 'Perf Probe'
+                                  StaticText, 0x10530b3c0, {{140.3, -324.3}, {48.0, 13.3}}, label: '10:34 PM'
+                                  StaticText, 0x10530b4e0, {{58.0, -306.3}, {170.3, 39.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.body.block0', label: 't636 ship-shaped query t48r1saved1793716436'
+                                  Button, 0x10530b600, {{352.0, -328.3}, {28.0, 28.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.menu', label: 'Message actions'
+                                Other, 0x10530b720, {{0.0, -261.3}, {402.0, 43.0}}
+                                Other, 0x10530b840, {{16.7, -259.3}, {363.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor'
+                                  StaticText, 0x10530b960, {{16.7, -256.3}, {31.3, 26.3}}, label: '10:34 PM'
+                                  StaticText, 0x10530ba80, {{58.0, -259.3}, {170.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.body.block0', label: 't636 ship-shaped query t636options1793716458'
+                                  Button, 0x10530bba0, {{352.0, -259.3}, {28.0, 28.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.menu', label: 'Message actions'
+                                Other, 0x10530bcc0, {{0.0, -218.3}, {402.0, 43.0}}
+                                Other, 0x10530bde0, {{16.7, -216.3}, {363.3, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr'
+                                  StaticText, 0x10530bf00, {{16.7, -213.3}, {31.3, 26.3}}, label: '10:38 PM'
+                                  StaticText, 0x10530c020, {{58.0, -216.3}, {172.0, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.body.block0', label: 't636 ship-shaped query t48r1refused1793716702'
+                                  Button, 0x10530c140, {{352.0, -216.3}, {28.0, 28.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.menu', label: 'Message actions'
+                                Other, 0x10530c260, {{0.0, -175.3}, {402.0, 43.0}}
+                                Other, 0x10530c380, {{18.7, -173.3}, {361.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w'
+                                  StaticText, 0x10530c4a0, {{18.7, -170.3}, {29.3, 26.3}}, label: '10:41 PM'
+                                  StaticText, 0x10530c5c0, {{58.0, -173.3}, {170.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.body.block0', label: 't636 ship-shaped query t48r1saved1793716870'
+                                  Button, 0x10530c6e0, {{352.0, -173.3}, {28.0, 28.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.menu', label: 'Message actions'
+                                Other, 0x10530c800, {{0.0, -132.3}, {402.0, 43.0}}
+                                Other, 0x105306390, {{17.0, -130.3}, {363.0, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r'
+                                  StaticText, 0x1053064b0, {{17.0, -127.3}, {31.0, 26.3}}, label: '10:42 PM'
+                                  StaticText, 0x1053065d0, {{58.0, -130.3}, {170.3, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.body.block0', label: 't636 ship-shaped query t636options1793716914'
+                                  Button, 0x1053066f0, {{352.0, -130.3}, {28.0, 28.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.menu', label: 'Message actions'
+                                Other, 0x105306810, {{0.0, -89.3}, {402.0, 73.0}}
+                                Other, 0x105306930, {{12.0, -83.3}, {368.0, 61.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke'
+                                  Button, 0x105307c80, {{12.0, -83.3}, {36.0, 36.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x105307da0, {{21.5, -73.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x105307ec0, {{12.0, -83.3}, {36.0, 36.0}}
+                                  Button, 0x105307fe0, {{58.0, -83.3}, {76.3, 18.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.author', label: 'Perf Probe'
+                                  StaticText, 0x105308100, {{140.3, -79.3}, {47.3, 13.3}}, label: '10:47 PM'
+                                  StaticText, 0x1053052f0, {{58.0, -61.3}, {170.3, 39.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.body.block0', label: 't636 ship-shaped query t48r1saved1793717215'
+                                  Button, 0x105305410, {{352.0, -83.3}, {28.0, 28.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.menu', label: 'Message actions'
+                                Other, 0x105305530, {{0.0, -16.3}, {402.0, 43.0}}
+                                Other, 0x10530cb80, {{18.7, -14.3}, {361.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr'
+                                  StaticText, 0x10530cca0, {{18.7, -11.3}, {29.3, 26.3}}, label: '10:51 PM'
+                                  StaticText, 0x10530cdc0, {{58.0, -14.3}, {170.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.body.block0', label: 't636 ship-shaped query t48r1saved1793717476'
+                                  Button, 0x10530cee0, {{352.0, -14.3}, {28.0, 28.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.menu', label: 'Message actions'
+                                Other, 0x10530d000, {{0.0, 26.7}, {402.0, 43.0}}
+                                Other, 0x10530d120, {{16.7, 28.7}, {363.3, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r'
+                                  StaticText, 0x10530d240, {{16.7, 31.7}, {31.3, 26.3}}, label: '10:55 PM'
+                                  StaticText, 0x10530d360, {{58.0, 28.7}, {171.0, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.body.block0', label: 't636 ship-shaped query t48r1refused1793717677'
+                                  Button, 0x10530d480, {{352.0, 28.7}, {28.0, 28.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.menu', label: 'Message actions'
+                                Other, 0x10530d5a0, {{0.0, 69.7}, {402.0, 43.0}}
+                                Other, 0x10530d6c0, {{16.7, 71.7}, {363.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py'
+                                  StaticText, 0x10530d7e0, {{16.7, 74.7}, {31.3, 26.3}}, label: '10:56 PM'
+                                  StaticText, 0x10530d900, {{58.0, 71.7}, {170.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.body.block0', label: 't636 ship-shaped query t48r1saved1793717764'
+                                  Button, 0x10530da20, {{352.0, 71.7}, {28.0, 28.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.menu', label: 'Message actions'
+                                Other, 0x10530db40, {{0.0, 112.7}, {402.0, 43.0}}
+                                Other, 0x10530dc60, {{17.3, 114.7}, {362.7, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r'
+                                  StaticText, 0x10530dd80, {{17.3, 117.7}, {30.7, 26.3}}, label: '10:57 PM'
+                                  StaticText, 0x10530dea0, {{58.0, 114.7}, {170.3, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.body.block0', label: 't636 ship-shaped query t636options1793717800'
+                                  Button, 0x10530dfc0, {{352.0, 114.7}, {28.0, 28.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.menu', label: 'Message actions'
+                                Other, 0x10530e0e0, {{0.0, 155.7}, {402.0, 43.0}}
+                                Other, 0x10530e200, {{13.3, 157.7}, {366.7, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo'
+                                  StaticText, 0x10530e320, {{13.3, 160.7}, {34.7, 26.3}}, label: '11:01 PM'
+                                  StaticText, 0x10530e440, {{58.0, 157.7}, {173.0, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.body.block0', label: 't636 ship-shaped query t48r1refused1793718067'
+                                  Button, 0x10530e560, {{352.0, 157.7}, {28.0, 28.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.menu', label: 'Message actions'
+                                Other, 0x10530e680, {{0.0, 198.7}, {402.0, 43.0}}
+                                Other, 0x10530e7a0, {{18.7, 200.7}, {361.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro'
+                                  StaticText, 0x10530e8c0, {{18.7, 203.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x10530e9e0, {{58.0, 200.7}, {170.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.body.block0', label: 't636 ship-shaped query t48r1saved1793718155'
+                                  Button, 0x10530eb00, {{352.0, 200.7}, {28.0, 28.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.menu', label: 'Message actions'
+                                Other, 0x10530ec20, {{0.0, 241.7}, {402.0, 43.0}}
+                                Other, 0x10530ed40, {{18.7, 243.7}, {361.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o'
+                                  StaticText, 0x10530ee60, {{18.7, 246.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x10530ef80, {{58.0, 243.7}, {170.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.body.block0', label: 't636 ship-shaped query t636options1793718192'
+                                  Button, 0x10530f0a0, {{352.0, 243.7}, {28.0, 28.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.menu', label: 'Message actions'
+                                Other, 0x10530f1c0, {{0.0, 284.7}, {402.0, 43.0}}
+                                Other, 0x10530f430, {{12.3, 286.7}, {367.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo'
+                                  StaticText, 0x10530f550, {{12.3, 289.7}, {35.7, 26.3}}, label: '11:07 PM'
+                                  StaticText, 0x10530f670, {{58.0, 286.7}, {173.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.body.block0', label: 't636 ship-shaped query t48r1refused1793718426'
+                                  Button, 0x10530f790, {{352.0, 286.7}, {28.0, 28.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.menu', label: 'Message actions'
+                                Other, 0x10530f8b0, {{0.0, 327.7}, {402.0, 43.0}}
+                                Other, 0x10530f9d0, {{18.3, 329.7}, {361.7, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo'
+                                  StaticText, 0x10530faf0, {{18.3, 332.7}, {29.7, 26.3}}, label: '11:08 PM'
+                                  StaticText, 0x10530fc10, {{58.0, 329.7}, {170.3, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.body.block0', label: 't636 ship-shaped query t636options1793718498'
+                                  Button, 0x10530fd30, {{352.0, 329.7}, {28.0, 28.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.menu', label: 'Message actions'
+                                Other, 0x10530fe50, {{0.0, 370.7}, {402.0, 43.0}}
+                                Other, 0x10530ff70, {{15.3, 372.7}, {364.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo'
+                                  StaticText, 0x105310090, {{15.3, 375.7}, {32.7, 26.3}}, label: '11:11 PM'
+                                  StaticText, 0x1053101b0, {{58.0, 372.7}, {173.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.body.block0', label: 't636 ship-shaped query t48r1refused1793718645'
+                                  Button, 0x1053102d0, {{352.0, 372.7}, {28.0, 28.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.menu', label: 'Message actions'
+                                Other, 0x1053103f0, {{0.0, 413.7}, {402.0, 43.0}}
+                                Other, 0x105310510, {{13.7, 415.7}, {366.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw'
+                                  StaticText, 0x105310630, {{13.7, 418.7}, {34.3, 26.3}}, label: '11:12 PM'
+                                  StaticText, 0x105310750, {{58.0, 415.7}, {170.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.body.block0', label: 't636 ship-shaped query t48r1refused1793718710'
+                                  Button, 0x105310870, {{352.0, 415.7}, {28.0, 28.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.menu', label: 'Message actions'
+                                Other, 0x105310990, {{0.0, 456.7}, {402.0, 43.0}}
+                                Other, 0x105310ab0, {{13.3, 458.7}, {366.7, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic'
+                                  StaticText, 0x105310bd0, {{13.3, 461.7}, {34.7, 26.3}}, label: '11:13 PM'
+                                  StaticText, 0x105310cf0, {{58.0, 458.7}, {170.3, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.body.block0', label: 't636 ship-shaped query t48r1saved1793718792'
+                                  Button, 0x105310e10, {{352.0, 458.7}, {28.0, 28.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.menu', label: 'Message actions'
+                                Other, 0x105310f30, {{0.0, 499.7}, {402.0, 43.0}}
+                                Other, 0x105311050, {{13.3, 501.7}, {366.7, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha'
+                                  StaticText, 0x105311170, {{13.3, 504.7}, {34.7, 26.3}}, label: '11:14 PM'
+                                  StaticText, 0x105311290, {{58.0, 501.7}, {170.3, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.body.block0', label: 't636 ship-shaped query t636options1793718830'
+                                  Button, 0x1053113b0, {{352.0, 501.7}, {28.0, 28.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.menu', label: 'Message actions'
+                                Other, 0x1053114d0, {{0.0, 542.7}, {402.0, 43.0}}
+                                Other, 0x1053115f0, {{13.3, 544.7}, {366.7, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy'
+                                  StaticText, 0x105311710, {{13.3, 547.7}, {34.7, 26.3}}, label: '11:18 PM'
+                                  StaticText, 0x105311830, {{58.0, 544.7}, {168.0, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.body.block0', label: 't48 lookup menu t48r1pinned1793719095'
+                                  Button, 0x105311950, {{352.0, 544.7}, {28.0, 28.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.menu', label: 'Message actions'
+                                Other, 0x105311a70, {{0.0, 585.7}, {402.0, 43.0}}
+                                Other, 0x105311b90, {{13.3, 587.7}, {366.7, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y'
+                                  StaticText, 0x105311cb0, {{13.3, 590.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x105311dd0, {{58.0, 587.7}, {170.3, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.body.block0', label: 't636 ship-shaped query t48r1saved1793719139'
+                                  Button, 0x105311ef0, {{352.0, 587.7}, {28.0, 28.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.menu', label: 'Message actions'
+                                Other, 0x105312010, {{0.0, 628.7}, {402.0, 43.0}}
+                                Other, 0x10530f2e0, {{13.3, 630.7}, {366.7, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w'
+                                  StaticText, 0x105312350, {{13.3, 633.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x105312470, {{58.0, 630.7}, {170.3, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.body.block0', label: 't636 ship-shaped query t636options1793719159'
+                                  Button, 0x105312590, {{352.0, 630.7}, {28.0, 28.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.menu', label: 'Message actions'
+                              Other, 0x1053128b0, {{201.0, -2094.3}, {0.0, 0.0}}
+                            Other, 0x1053129d0, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x105312af0, {{396.0, 595.7}, {3.0, 85.0}}
+                            Other, 0x105312c10, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x105312d30, {{396.0, 595.7}, {3.0, 85.0}}
+                          Other, 0x105312e50, {{0.0, 684.0}, {402.0, 190.0}}, identifier: 'channelComposer'
+                            Button, 0x105312f70, {{10.0, 808.3}, {22.0, 22.0}}, identifier: 'channelComposer.attach', label: 'Add an attachment'
+                            Button, 0x105313090, {{42.0, 809.7}, {21.0, 21.0}}, identifier: 'channelComposer.emoji', label: 'Add emoji'
+                            StaticText, 0x1053131b0, {{73.0, 698.0}, {68.7, 20.3}}, label: 'Message'
+                            TextView, 0x1053132d0, {{71.0, 692.0}, {254.3, 140.0}}, identifier: 'channelComposer.input', label: 'Message'
+                              Other, 0x1053133f0, {{292.3, 692.0}, {30.0, 140.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                Other, 0x105313510, {{319.3, 695.0}, {3.0, 134.0}}
+                              Other, 0x105313630, {{71.0, 799.0}, {254.3, 30.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                                Other, 0x105313750, {{74.0, 826.0}, {248.3, 3.0}}
+                            Button, 0x105313870, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'channelComposer.menu', label: 'Formatting and preview'
+                              Button, 0x105313990, {{331.3, 806.7}, {26.0, 25.3}}
+                                Other, 0x105313ab0, {{331.3, 806.7}, {26.0, 25.3}}
+                                  Image, 0x105313bd0, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'ellipsis.circle', label: 'More'
+                            Button, 0x105313cf0, {{365.7, 804.3}, {26.0, 26.0}}, identifier: 'channelComposer.send', label: 'Send', Disabled
+    Window, 0x105313e10, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x105313f30, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x105314050, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x105314170, {{0.0, 874.0}, {402.0, 233.0}}
+Path to element:
+ →Application, 0x10165de50, pid: 91752, label: 'Mattermost'
+Query chain:
+ →Find: Target Application 'com.mattermost.ios'
+  Output: {
+    Application, 0x102242220, pid: 91752, label: 'Mattermost'
+  }
+
+    t =    54.20s Tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    54.20s     Wait for com.mattermost.ios to idle
+    t =    54.20s     Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    55.46s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 1)
+    t =    56.75s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 2)
+    t =    57.04s Requesting snapshot of accessibility hierarchy for app with pid 91752
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:814: error: -[MattermostUITests.T36ThreadsUITests testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply] : Failed to tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" IN identifiers'`, given input App element pid: 91752
+    t =    57.16s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply]' failed (57.479 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheUnreadThreadStateIsTheServers]' started.
+    t =     0.00s Start Test at 2026-11-04 05:39:28.409
+    t =     0.06s Set Up
+    t =     0.46s Open com.mattermost.ios
+    t =     0.46s     Launch com.mattermost.ios
+    t =     0.46s         Terminate com.mattermost.ios:91752
+2026-11-04 05:39:29.962 xcodebuild[90983:43772390] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 05:39:29.962 xcodebuild[90983:43772390] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.78s         Setting up automation session
+    t =     3.16s         Wait for com.mattermost.ios to idle
+    t =     5.04s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     6.08s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     6.08s         Checking existence of `"loginIDField" TextField`
+    t =     6.19s Tap "loginIDField" TextField
+    t =     6.19s     Wait for com.mattermost.ios to idle
+    t =     6.20s     Find the "loginIDField" TextField
+    t =     6.21s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.25s     Synthesize event
+    t =     6.55s     Wait for com.mattermost.ios to idle
+    t =     6.74s Type 'perfprobe' into "loginIDField" TextField
+    t =     6.74s     Wait for com.mattermost.ios to idle
+    t =     6.76s     Find the "loginIDField" TextField
+    t =     6.80s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.83s     Synthesize event
+    t =     7.18s     Wait for com.mattermost.ios to idle
+    t =     7.39s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     7.42s Tap "loginPasswordField" SecureTextField
+    t =     7.42s     Wait for com.mattermost.ios to idle
+    t =     7.42s     Find the "loginPasswordField" SecureTextField
+    t =     7.45s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.48s     Synthesize event
+    t =     7.77s     Wait for com.mattermost.ios to idle
+    t =     8.20s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     8.20s     Wait for com.mattermost.ios to idle
+    t =     8.21s     Find the "loginPasswordField" SecureTextField
+    t =     8.24s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     8.27s     Synthesize event
+    t =     8.96s     Wait for com.mattermost.ios to idle
+    t =     8.97s Tap "loginSubmitButton" Button
+    t =     8.97s     Wait for com.mattermost.ios to idle
+    t =     8.97s     Find the "loginSubmitButton" Button
+    t =     9.00s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     9.03s     Synthesize event
+    t =     9.32s     Wait for com.mattermost.ios to idle
+    t =     9.71s Waiting 40.0s for "nativeShell" Any to exist
+    t =    10.74s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    10.74s         Checking existence of `"nativeShell" Any`
+    t =    11.02s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    11.12s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.37s Checking existence of `CollectionView (First Match)`
+    t =    11.61s Checking existence of `"channelSidebar.scroll" Any`
+[shellsettle] no sidebar scroll surface: cannot scroll to channelSidebar.channel.psw97y5zqpfnpembwxraizuije
+    t =    11.86s Get number of matches for: Elements matching predicate 'identifier BEGINSWITH "channelSidebar.channel."'
+    t =    11.90s Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any to exist
+    t =    12.93s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    12.93s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    13.18s         Capturing element debug description
+    t =    13.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    13.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.19s         Capturing element debug description
+    t =    14.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.20s         Capturing element debug description
+    t =    15.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.18s         Capturing element debug description
+    t =    16.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.20s         Capturing element debug description
+    t =    17.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.91s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.18s         Capturing element debug description
+    t =    19.00s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.00s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:811: error: -[MattermostUITests.T36ThreadsUITests testTheUnreadThreadStateIsTheServers] : Failed to get matching snapshots: Lost connection to the application (pid 92074). (Underlying Error: Couldn’t communicate with a helper application. Try your operation again. If that fails, quit and relaunch the application and try again. connection to service created from an endpoint)
+    t =    19.25s         Capturing element debug description
+    t =    19.25s Tear Down
+    t =    19.31s     Checking for crash reports corresponding to unexpected termination of com.mattermost.ios
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheUnreadThreadStateIsTheServers]' failed (26.323 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread]' started.
+    t =     0.00s Start Test at 2026-11-04 05:39:54.733
+    t =     0.03s Set Up
+    t =     0.59s     Open com.mattermost.ios
+    t =     0.59s         Launch com.mattermost.ios
+2026-11-04 05:39:55.328 xcodebuild[90983:43772390] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 05:39:55.328 xcodebuild[90983:43772390] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.07s             Setting up automation session
+    t =     2.49s             Wait for com.mattermost.ios to idle
+    t =     4.42s     Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.45s         Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.48s             Checking existence of `"loginIDField" TextField`
+    t =     5.73s     Tap "loginIDField" TextField
+    t =     5.73s         Wait for com.mattermost.ios to idle
+    t =     5.73s         Find the "loginIDField" TextField
+    t =     5.75s         Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.78s         Synthesize event
+    t =     6.10s         Wait for com.mattermost.ios to idle
+    t =     6.29s     Type 'perfprobe' into "loginIDField" TextField
+    t =     6.29s         Wait for com.mattermost.ios to idle
+    t =     6.32s         Find the "loginIDField" TextField
+    t =     6.36s         Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.38s         Synthesize event
+    t =     6.73s         Wait for com.mattermost.ios to idle
+    t =     6.94s     Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.98s     Tap "loginPasswordField" SecureTextField
+    t =     6.98s         Wait for com.mattermost.ios to idle
+    t =     6.98s         Find the "loginPasswordField" SecureTextField
+    t =     7.01s         Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.04s         Synthesize event
+    t =     7.32s         Wait for com.mattermost.ios to idle
+    t =     7.77s     Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.77s         Wait for com.mattermost.ios to idle
+    t =     7.78s         Find the "loginPasswordField" SecureTextField
+    t =     7.81s         Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.85s         Synthesize event
+    t =     8.53s         Wait for com.mattermost.ios to idle
+    t =     8.53s     Tap "loginSubmitButton" Button
+    t =     8.53s         Wait for com.mattermost.ios to idle
+    t =     8.53s         Find the "loginSubmitButton" Button
+    t =     8.57s         Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.62s         Synthesize event
+    t =     8.91s         Wait for com.mattermost.ios to idle
+    t =     9.36s     Waiting 40.0s for "nativeShell" Any to exist
+    t =    10.41s         Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    10.41s             Checking existence of `"nativeShell" Any`
+    t =    10.70s     Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    10.79s     Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.05s     Checking existence of `CollectionView (First Match)`
+    t =    11.30s     Checking existence of `"channelSidebar.scroll" Any`
+[shellsettle] no sidebar scroll surface: cannot scroll to channelSidebar.channel.psw97y5zqpfnpembwxraizuije
+    t =    11.55s     Get number of matches for: Elements matching predicate 'identifier BEGINSWITH "channelSidebar.channel."'
+    t =    11.59s     Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any to exist
+    t =    12.62s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    12.62s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    12.88s             Capturing element debug description
+    t =    13.60s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    13.60s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    13.85s             Capturing element debug description
+    t =    14.60s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.60s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.86s             Capturing element debug description
+    t =    15.69s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.69s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.01s             Capturing element debug description
+    t =    16.62s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.62s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.89s             Capturing element debug description
+    t =    17.62s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.62s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.88s             Capturing element debug description
+    t =    18.61s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.61s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.87s             Capturing element debug description
+    t =    19.61s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.61s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.90s             Capturing element debug description
+    t =    20.62s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.62s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.90s             Capturing element debug description
+    t =    21.63s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.63s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.94s             Capturing element debug description
+    t =    22.66s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.66s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.92s             Capturing element debug description
+    t =    23.64s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    23.64s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    23.89s             Capturing element debug description
+    t =    24.61s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.61s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.91s             Capturing element debug description
+    t =    25.66s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    25.66s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    25.94s             Capturing element debug description
+    t =    26.66s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.66s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.91s             Capturing element debug description
+    t =    27.65s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.65s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.93s             Capturing element debug description
+    t =    28.66s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.66s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.93s             Capturing element debug description
+    t =    29.66s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.66s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.98s             Capturing element debug description
+    t =    30.59s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.59s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.86s             Capturing element debug description
+    t =    31.61s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.61s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.87s             Capturing element debug description
+    t =    32.60s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.61s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.89s             Capturing element debug description
+    t =    33.63s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.63s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.91s             Capturing element debug description
+    t =    34.64s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.64s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.92s             Capturing element debug description
+    t =    35.64s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.64s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.91s             Capturing element debug description
+    t =    36.62s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.62s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.92s             Capturing element debug description
+    t =    37.63s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.63s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.91s             Capturing element debug description
+    t =    38.62s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.62s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.89s             Capturing element debug description
+    t =    39.61s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.61s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.90s             Capturing element debug description
+    t =    40.62s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.62s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.91s             Capturing element debug description
+    t =    41.62s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    41.62s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    41.89s             Capturing element debug description
+    t =    42.62s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.62s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.89s             Capturing element debug description
+    t =    43.62s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    43.62s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.00s             Capturing element debug description
+    t =    44.62s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.63s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.90s             Capturing element debug description
+    t =    45.63s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.63s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.95s             Capturing element debug description
+    t =    46.68s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.68s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.97s             Capturing element debug description
+    t =    47.69s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.69s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.95s             Capturing element debug description
+    t =    48.67s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.67s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.92s             Capturing element debug description
+    t =    49.66s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    49.66s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    49.92s             Capturing element debug description
+    t =    50.65s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.65s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.96s             Capturing element debug description
+    t =    51.61s         Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.61s             Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.88s             Capturing element debug description
+    t =    51.88s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    52.13s     Collecting debug information to assist test failure triage
+    t =    52.13s         Requesting snapshot of accessibility hierarchy for app with pid 92213
+    t =    52.24s     Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    52.50s     Requesting snapshot of accessibility hierarchy for app with pid 92213
+    t =    52.78s     Requesting snapshot of accessibility hierarchy for app with pid 92213
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:811: error: -[MattermostUITests.T36ThreadsUITests testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread] : XCTAssertTrue failed - the sidebar must list channel psw97y5zqpfnpembwxraizuije (not realised after 0 swipe(s) of the sidebar, 0 channel row(s) drawn at the end):
+Attributes: Application, 0x10161e100, pid: 92213, label: 'Mattermost'
+Element subtree:
+ →Application, 0x10161e100, pid: 92213, label: 'Mattermost'
+    Window (Main), 0x101624590, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x101623970, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x101623a90, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x101613e00, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x10165d8f0, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x10165e1a0, {{0.0, 0.0}, {402.0, 874.0}}
+                NavigationBar, 0x101613bc0, {{0.0, 56.3}, {402.0, 96.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+                  Button, 0x101613ce0, {{0.0, 56.3}, {68.0, 44.0}}, label: 'Back'
+                  Other, 0x10160e840, {{92.3, 56.3}, {155.3, 44.0}}
+                    Other, 0x10160e960, {{92.3, 56.3}, {155.3, 44.0}}
+                      Button, 0x10165f8a0, {{92.3, 56.3}, {155.3, 44.0}}, identifier: 'serverSwitcher', label: 'Local Mattermost'
+                        Button, 0x10165f9c0, {{92.3, 56.3}, {155.3, 44.0}}
+                          Other, 0x10165fae0, {{92.3, 56.3}, {155.3, 44.0}}
+                            StaticText, 0x101665e10, {{92.3, 56.3}, {155.3, 44.0}}, label: 'Local Mattermost'
+                  Other, 0x101665f30, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                    Other, 0x101666050, {{253.7, 61.3}, {42.0, 34.0}}
+                      Button, 0x101670c00, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                  Other, 0x101670d20, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                    Other, 0x101670e40, {{303.7, 61.0}, {43.0, 35.0}}
+                      Button, 0x101670f60, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                  Other, 0x101671080, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                    Other, 0x1016711a0, {{354.7, 63.3}, {31.3, 30.0}}
+                      Button, 0x1016712c0, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                  StaticText, 0x1016713e0, {{16.0, 104.0}, {7.3, 40.7}}, label: ' '
+                Other, 0x101671500, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x101671620, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x101671740, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x101671860, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x101671980, {{0.0, 162.3}, {402.0, 711.7}}, identifier: 'nativeChannelPane'
+                          StaticText, 0x101671aa0, {{18.0, 162.7}, {128.0, 20.3}}, identifier: 'nativeChannelTitle', label: 'Town Square'
+                          Button, 0x101671bc0, {{280.7, 163.3}, {19.7, 19.0}}, identifier: 'nativeProfileButton', label: 'My profile'
+                          Button, 0x101671ce0, {{308.3, 162.3}, {19.7, 21.7}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x101671e00, {{336.0, 164.0}, {19.7, 17.7}}, identifier: 'calls.joinButton', label: 'Start call', value: idle
+                          Button, 0x101671f20, {{363.7, 163.7}, {22.3, 19.3}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x101672040, {{0.0, 194.3}, {402.0, 489.3}}, identifier: 'channelPostList'
+                            Other, 0x101672160, {{0.0, -2094.3}, {402.0, 2778.0}}
+                              Other, 0x101672280, {{0.0, -334.3}, {402.0, 1006.0}}
+                                Other, 0x1016723a0, {{0.0, -334.3}, {402.0, 73.0}}
+                                Other, 0x1016724c0, {{12.0, -328.3}, {368.0, 61.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa'
+                                  Button, 0x1016725e0, {{12.0, -328.3}, {36.0, 36.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x101672700, {{21.5, -318.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x101672820, {{12.0, -328.3}, {36.0, 36.0}}
+                                  Button, 0x101672940, {{58.0, -328.3}, {76.3, 18.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.author', label: 'Perf Probe'
+                                  StaticText, 0x101672a60, {{140.3, -324.3}, {48.0, 13.3}}, label: '10:34 PM'
+                                  StaticText, 0x101672b80, {{58.0, -306.3}, {170.3, 39.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.body.block0', label: 't636 ship-shaped query t48r1saved1793716436'
+                                  Button, 0x101672ca0, {{352.0, -328.3}, {28.0, 28.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.menu', label: 'Message actions'
+                                Other, 0x101672dc0, {{0.0, -261.3}, {402.0, 43.0}}
+                                Other, 0x101672ee0, {{16.7, -259.3}, {363.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor'
+                                  StaticText, 0x101673000, {{16.7, -256.3}, {31.3, 26.3}}, label: '10:34 PM'
+                                  StaticText, 0x101673120, {{58.0, -259.3}, {170.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.body.block0', label: 't636 ship-shaped query t636options1793716458'
+                                  Button, 0x101673240, {{352.0, -259.3}, {28.0, 28.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.menu', label: 'Message actions'
+                                Other, 0x101673360, {{0.0, -218.3}, {402.0, 43.0}}
+                                Other, 0x101673480, {{16.7, -216.3}, {363.3, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr'
+                                  StaticText, 0x1016735a0, {{16.7, -213.3}, {31.3, 26.3}}, label: '10:38 PM'
+                                  StaticText, 0x1016736c0, {{58.0, -216.3}, {172.0, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.body.block0', label: 't636 ship-shaped query t48r1refused1793716702'
+                                  Button, 0x1016737e0, {{352.0, -216.3}, {28.0, 28.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.menu', label: 'Message actions'
+                                Other, 0x101673900, {{0.0, -175.3}, {402.0, 43.0}}
+                                Other, 0x101673a20, {{18.7, -173.3}, {361.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w'
+                                  StaticText, 0x101673b40, {{18.7, -170.3}, {29.3, 26.3}}, label: '10:41 PM'
+                                  StaticText, 0x101673c60, {{58.0, -173.3}, {170.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.body.block0', label: 't636 ship-shaped query t48r1saved1793716870'
+                                  Button, 0x101673d80, {{352.0, -173.3}, {28.0, 28.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.menu', label: 'Message actions'
+                                Other, 0x101673ea0, {{0.0, -132.3}, {402.0, 43.0}}
+                                Other, 0x101673fc0, {{17.0, -130.3}, {363.0, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r'
+                                  StaticText, 0x1016740e0, {{17.0, -127.3}, {31.0, 26.3}}, label: '10:42 PM'
+                                  StaticText, 0x101674200, {{58.0, -130.3}, {170.3, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.body.block0', label: 't636 ship-shaped query t636options1793716914'
+                                  Button, 0x101674320, {{352.0, -130.3}, {28.0, 28.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.menu', label: 'Message actions'
+                                Other, 0x101674440, {{0.0, -89.3}, {402.0, 73.0}}
+                                Other, 0x101674560, {{12.0, -83.3}, {368.0, 61.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke'
+                                  Button, 0x101674680, {{12.0, -83.3}, {36.0, 36.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x1016747a0, {{21.5, -73.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x1016748c0, {{12.0, -83.3}, {36.0, 36.0}}
+                                  Button, 0x1016749e0, {{58.0, -83.3}, {76.3, 18.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.author', label: 'Perf Probe'
+                                  StaticText, 0x101674b00, {{140.3, -79.3}, {47.3, 13.3}}, label: '10:47 PM'
+                                  StaticText, 0x101674c20, {{58.0, -61.3}, {170.3, 39.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.body.block0', label: 't636 ship-shaped query t48r1saved1793717215'
+                                  Button, 0x101674d40, {{352.0, -83.3}, {28.0, 28.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.menu', label: 'Message actions'
+                                Other, 0x101674e60, {{0.0, -16.3}, {402.0, 43.0}}
+                                Other, 0x101674f80, {{18.7, -14.3}, {361.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr'
+                                  StaticText, 0x1016750a0, {{18.7, -11.3}, {29.3, 26.3}}, label: '10:51 PM'
+                                  StaticText, 0x1016751c0, {{58.0, -14.3}, {170.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.body.block0', label: 't636 ship-shaped query t48r1saved1793717476'
+                                  Button, 0x1016752e0, {{352.0, -14.3}, {28.0, 28.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.menu', label: 'Message actions'
+                                Other, 0x101675400, {{0.0, 26.7}, {402.0, 43.0}}
+                                Other, 0x101675520, {{16.7, 28.7}, {363.3, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r'
+                                  StaticText, 0x101675640, {{16.7, 31.7}, {31.3, 26.3}}, label: '10:55 PM'
+                                  StaticText, 0x101675760, {{58.0, 28.7}, {171.0, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.body.block0', label: 't636 ship-shaped query t48r1refused1793717677'
+                                  Button, 0x101675880, {{352.0, 28.7}, {28.0, 28.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.menu', label: 'Message actions'
+                                Other, 0x1016759a0, {{0.0, 69.7}, {402.0, 43.0}}
+                                Other, 0x101675ac0, {{16.7, 71.7}, {363.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py'
+                                  StaticText, 0x101675be0, {{16.7, 74.7}, {31.3, 26.3}}, label: '10:56 PM'
+                                  StaticText, 0x101675d00, {{58.0, 71.7}, {170.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.body.block0', label: 't636 ship-shaped query t48r1saved1793717764'
+                                  Button, 0x101675e20, {{352.0, 71.7}, {28.0, 28.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.menu', label: 'Message actions'
+                                Other, 0x101675f40, {{0.0, 112.7}, {402.0, 43.0}}
+                                Other, 0x101676060, {{17.3, 114.7}, {362.7, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r'
+                                  StaticText, 0x101676180, {{17.3, 117.7}, {30.7, 26.3}}, label: '10:57 PM'
+                                  StaticText, 0x1016762a0, {{58.0, 114.7}, {170.3, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.body.block0', label: 't636 ship-shaped query t636options1793717800'
+                                  Button, 0x1016763c0, {{352.0, 114.7}, {28.0, 28.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.menu', label: 'Message actions'
+                                Other, 0x1016764e0, {{0.0, 155.7}, {402.0, 43.0}}
+                                Other, 0x101676600, {{13.3, 157.7}, {366.7, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo'
+                                  StaticText, 0x101676720, {{13.3, 160.7}, {34.7, 26.3}}, label: '11:01 PM'
+                                  StaticText, 0x101676840, {{58.0, 157.7}, {173.0, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.body.block0', label: 't636 ship-shaped query t48r1refused1793718067'
+                                  Button, 0x101676960, {{352.0, 157.7}, {28.0, 28.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.menu', label: 'Message actions'
+                                Other, 0x101676a80, {{0.0, 198.7}, {402.0, 43.0}}
+                                Other, 0x101676ba0, {{18.7, 200.7}, {361.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro'
+                                  StaticText, 0x101676cc0, {{18.7, 203.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x101676de0, {{58.0, 200.7}, {170.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.body.block0', label: 't636 ship-shaped query t48r1saved1793718155'
+                                  Button, 0x101676f00, {{352.0, 200.7}, {28.0, 28.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.menu', label: 'Message actions'
+                                Other, 0x101677020, {{0.0, 241.7}, {402.0, 43.0}}
+                                Other, 0x101677140, {{18.7, 243.7}, {361.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o'
+                                  StaticText, 0x101677260, {{18.7, 246.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x101677380, {{58.0, 243.7}, {170.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.body.block0', label: 't636 ship-shaped query t636options1793718192'
+                                  Button, 0x1016774a0, {{352.0, 243.7}, {28.0, 28.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.menu', label: 'Message actions'
+                                Other, 0x1016775c0, {{0.0, 284.7}, {402.0, 43.0}}
+                                Other, 0x101677830, {{12.3, 286.7}, {367.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo'
+                                  StaticText, 0x101677950, {{12.3, 289.7}, {35.7, 26.3}}, label: '11:07 PM'
+                                  StaticText, 0x101677a70, {{58.0, 286.7}, {173.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.body.block0', label: 't636 ship-shaped query t48r1refused1793718426'
+                                  Button, 0x101677b90, {{352.0, 286.7}, {28.0, 28.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.menu', label: 'Message actions'
+                                Other, 0x101677cb0, {{0.0, 327.7}, {402.0, 43.0}}
+                                Other, 0x101677dd0, {{18.3, 329.7}, {361.7, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo'
+                                  StaticText, 0x101677ef0, {{18.3, 332.7}, {29.7, 26.3}}, label: '11:08 PM'
+                                  StaticText, 0x101678010, {{58.0, 329.7}, {170.3, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.body.block0', label: 't636 ship-shaped query t636options1793718498'
+                                  Button, 0x101678130, {{352.0, 329.7}, {28.0, 28.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.menu', label: 'Message actions'
+                                Other, 0x101678250, {{0.0, 370.7}, {402.0, 43.0}}
+                                Other, 0x101678370, {{15.3, 372.7}, {364.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo'
+                                  StaticText, 0x101678490, {{15.3, 375.7}, {32.7, 26.3}}, label: '11:11 PM'
+                                  StaticText, 0x1016785b0, {{58.0, 372.7}, {173.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.body.block0', label: 't636 ship-shaped query t48r1refused1793718645'
+                                  Button, 0x1016786d0, {{352.0, 372.7}, {28.0, 28.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.menu', label: 'Message actions'
+                                Other, 0x1016787f0, {{0.0, 413.7}, {402.0, 43.0}}
+                                Other, 0x101678910, {{13.7, 415.7}, {366.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw'
+                                  StaticText, 0x101678a30, {{13.7, 418.7}, {34.3, 26.3}}, label: '11:12 PM'
+                                  StaticText, 0x101678b50, {{58.0, 415.7}, {170.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.body.block0', label: 't636 ship-shaped query t48r1refused1793718710'
+                                  Button, 0x101678c70, {{352.0, 415.7}, {28.0, 28.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.menu', label: 'Message actions'
+                                Other, 0x101678d90, {{0.0, 456.7}, {402.0, 43.0}}
+                                Other, 0x101678eb0, {{13.3, 458.7}, {366.7, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic'
+                                  StaticText, 0x101678fd0, {{13.3, 461.7}, {34.7, 26.3}}, label: '11:13 PM'
+                                  StaticText, 0x1016790f0, {{58.0, 458.7}, {170.3, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.body.block0', label: 't636 ship-shaped query t48r1saved1793718792'
+                                  Button, 0x101679210, {{352.0, 458.7}, {28.0, 28.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.menu', label: 'Message actions'
+                                Other, 0x101679330, {{0.0, 499.7}, {402.0, 43.0}}
+                                Other, 0x101679450, {{13.3, 501.7}, {366.7, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha'
+                                  StaticText, 0x101679570, {{13.3, 504.7}, {34.7, 26.3}}, label: '11:14 PM'
+                                  StaticText, 0x101679690, {{58.0, 501.7}, {170.3, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.body.block0', label: 't636 ship-shaped query t636options1793718830'
+                                  Button, 0x1016797b0, {{352.0, 501.7}, {28.0, 28.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.menu', label: 'Message actions'
+                                Other, 0x1016798d0, {{0.0, 542.7}, {402.0, 43.0}}
+                                Other, 0x1016799f0, {{13.3, 544.7}, {366.7, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy'
+                                  StaticText, 0x101679b10, {{13.3, 547.7}, {34.7, 26.3}}, label: '11:18 PM'
+                                  StaticText, 0x101679c30, {{58.0, 544.7}, {168.0, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.body.block0', label: 't48 lookup menu t48r1pinned1793719095'
+                                  Button, 0x101679d50, {{352.0, 544.7}, {28.0, 28.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.menu', label: 'Message actions'
+                                Other, 0x101679e70, {{0.0, 585.7}, {402.0, 43.0}}
+                                Other, 0x101679f90, {{13.3, 587.7}, {366.7, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y'
+                                  StaticText, 0x10167a0b0, {{13.3, 590.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x10167a1d0, {{58.0, 587.7}, {170.3, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.body.block0', label: 't636 ship-shaped query t48r1saved1793719139'
+                                  Button, 0x10167a2f0, {{352.0, 587.7}, {28.0, 28.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.menu', label: 'Message actions'
+                                Other, 0x10167a410, {{0.0, 628.7}, {402.0, 43.0}}
+                                Other, 0x1016776e0, {{13.3, 630.7}, {366.7, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w'
+                                  StaticText, 0x10167a750, {{13.3, 633.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x10167a870, {{58.0, 630.7}, {170.3, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.body.block0', label: 't636 ship-shaped query t636options1793719159'
+                                  Button, 0x10167a990, {{352.0, 630.7}, {28.0, 28.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.menu', label: 'Message actions'
+                              Other, 0x10167acb0, {{201.0, -2094.3}, {0.0, 0.0}}
+                            Other, 0x10167add0, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x10167aef0, {{396.0, 595.7}, {3.0, 85.0}}
+                            Other, 0x10167b010, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x10167b130, {{396.0, 595.7}, {3.0, 85.0}}
+                          Other, 0x10167b250, {{0.0, 684.0}, {402.0, 190.0}}, identifier: 'channelComposer'
+                            Button, 0x10167b370, {{10.0, 808.3}, {22.0, 22.0}}, identifier: 'channelComposer.attach', label: 'Add an attachment'
+                            Button, 0x10167b490, {{42.0, 809.7}, {21.0, 21.0}}, identifier: 'channelComposer.emoji', label: 'Add emoji'
+                            StaticText, 0x10167b5b0, {{73.0, 698.0}, {68.7, 20.3}}, label: 'Message'
+                            TextView, 0x10167b6d0, {{71.0, 692.0}, {254.3, 140.0}}, identifier: 'channelComposer.input', label: 'Message'
+                              Other, 0x10167b7f0, {{292.3, 692.0}, {30.0, 140.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                Other, 0x10167b910, {{319.3, 695.0}, {3.0, 134.0}}
+                              Other, 0x10167ba30, {{71.0, 799.0}, {254.3, 30.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                                Other, 0x10167bb50, {{74.0, 826.0}, {248.3, 3.0}}
+                            Button, 0x10167bc70, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'channelComposer.menu', label: 'Formatting and preview'
+                              Button, 0x10167bd90, {{331.3, 806.7}, {26.0, 25.3}}
+                                Other, 0x10167beb0, {{331.3, 806.7}, {26.0, 25.3}}
+                                  Image, 0x10167bfd0, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'ellipsis.circle', label: 'More'
+                            Button, 0x10167c0f0, {{365.7, 804.3}, {26.0, 26.0}}, identifier: 'channelComposer.send', label: 'Send', Disabled
+    Window, 0x10167c210, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x10167c330, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x10167c450, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x10167c570, {{0.0, 874.0}, {402.0, 233.0}}
+Path to element:
+ →Application, 0x10161e100, pid: 92213, label: 'Mattermost'
+Query chain:
+ →Find: Target Application 'com.mattermost.ios'
+  Output: {
+    Application, 0x102249b20, pid: 92213, label: 'Mattermost'
+  }
+
+    t =    52.87s     Tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    52.87s         Wait for com.mattermost.ios to idle
+    t =    52.88s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    54.14s             Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 1)
+    t =    55.40s             Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 2)
+    t =    55.65s     Requesting snapshot of accessibility hierarchy for app with pid 92213
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:814: error: -[MattermostUITests.T36ThreadsUITests testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread] : Failed to tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" IN identifiers'`, given input App element pid: 92213
+    t =    55.76s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread]' failed (56.022 seconds).
+Test Suite 'T36ThreadsUITests' failed at 2026-11-04 05:40:50.755.
+	 Executed 5 tests, with 9 failures (0 unexpected) in 255.244 (255.249) seconds
+Test Suite 'MattermostUITests.xctest' failed at 2026-11-04 05:40:50.756.
+	 Executed 5 tests, with 9 failures (0 unexpected) in 255.244 (255.250) seconds
+Test Suite 'Selected tests' failed at 2026-11-04 05:40:50.757.
+	 Executed 5 tests, with 9 failures (0 unexpected) in 255.244 (255.251) seconds
+2026-11-04 05:41:12.015 xcodebuild[90983:43772390] [MT] IDETestOperationsObserverDebug: 279.472 elapsed -- Testing started completed.
+2026-11-04 05:41:12.016 xcodebuild[90983:43772390] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-04 05:41:12.016 xcodebuild[90983:43772390] [MT] IDETestOperationsObserverDebug: 279.472 sec, +279.472 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/TestResults/t941-t36-pub2-3bcd493-5f8976.xcresult
+
+Failing tests:
+	T36ThreadsUITests.testFollowPersistsAndTheFollowedThreadsListPages()
+	T36ThreadsUITests.testFollowPersistsAndTheFollowedThreadsListPages()
+	T36ThreadsUITests.testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies()
+	T36ThreadsUITests.testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies()
+	T36ThreadsUITests.testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply()
+	T36ThreadsUITests.testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply()
+	T36ThreadsUITests.testTheUnreadThreadStateIsTheServers()
+	T36ThreadsUITests.testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread()
+	T36ThreadsUITests.testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread()
+
+** TEST FAILED **
+
+Testing started

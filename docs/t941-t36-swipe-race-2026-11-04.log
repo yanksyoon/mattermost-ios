@@ -1,0 +1,1157 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=iOS Simulator,id=9C883EB3-B410-4859-A443-A38A910F3396" -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941 -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/TestResults/t941-t36-pub4-bf7ee0.xcresult -only-testing MattermostUITests/T36ThreadsUITests
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift @ 7.11.1
+
+Writing result bundle at path:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/TestResults/t941-t36-pub4-bf7ee0.xcresult
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, arch:arm64, id:9C883EB3-B410-4859-A443-A38A910F3396, OS:18.3.1, name:iPhone 16 Pro t941e3d3 }
+{ platform:iOS Simulator, arch:x86_64, id:9C883EB3-B410-4859-A443-A38A910F3396, OS:18.3.1, name:iPhone 16 Pro t941e3d3 }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (7 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDBSQLite' in project 'GRDB'
+    Target 'GRDBSQLite' in project 'GRDB' (no dependencies)
+    Target 'GRDB_GRDB' in project 'GRDB' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/Mattermost/Assets.xcassets
+
+ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+Build description signature: 081d78c52581dbddd23a45b869c35806
+Build description path: /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/XCBuildData/081d78c52581dbddd23a45b869c35806.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist (in target 'GRDB_GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist -producttype com.apple.product-type.framework -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/Mattermost/Info.plist (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-infoPlistUtility /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/Mattermost/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/WebRTC.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+SwiftDriver MattermostUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostUITests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-Swift.h -working-directory /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub -experimental-emit-module-separately -disable-cmo
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -format binary -platform iphonesimulator -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist
+
+SwiftCompile normal arm64 Compiling\ T36-ThreadsUITests.swift /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift (in target 'MattermostUITests' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:635:50: warning: coercion of implicitly unwrappable value of type 'String?' to 'Any' does not unwrap optional
+        var body: [String: Any] = ["channel_id": channelID, "message": message]
+                                                 ^~~~~~~~~
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:49:17: note: implicitly unwrapped property 'channelID' declared here
+    private var channelID: String!
+                ^
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:635:50: note: provide a default value to avoid this warning
+        var body: [String: Any] = ["channel_id": channelID, "message": message]
+                                                 ^~~~~~~~~
+                                                           ?? <#default value#>
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:635:50: note: force-unwrap the value to avoid this warning
+        var body: [String: Any] = ["channel_id": channelID, "message": message]
+                                                 ^~~~~~~~~
+                                                          !
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:635:50: note: explicitly cast to 'Any' with 'as Any' to silence this warning
+        var body: [String: Any] = ["channel_id": channelID, "message": message]
+                                                 ^~~~~~~~~
+                                                           as Any
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ MattermostUITests (in target 'MattermostUITests' from project 'Mattermost')
+
+EmitSwiftModule normal arm64 (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    
+
+SwiftCompile normal arm64 Compiling\ T44DCallsUITests.swift /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T44DCallsUITests.swift (in target 'MattermostUITests' from project 'Mattermost')
+
+SwiftCompile normal arm64 /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T44DCallsUITests.swift (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for MattermostUITests (in target 'MattermostUITests' from project 'Mattermost')
+
+SwiftDriver\ Compilation\ Requirements MattermostUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostUITests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-Swift.h -working-directory /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub -experimental-emit-module-separately -disable-cmo
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftsourceinfo (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftsourceinfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests.swiftmodule/Project/arm64-apple-ios-simulator.swiftsourceinfo
+
+Copy /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests.swiftmodule/arm64-apple-ios-simulator.abi.json /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.abi.json (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.abi.json /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests.swiftmodule/arm64-apple-ios-simulator.abi.json
+
+SwiftDriverJobDiscovery normal arm64 Compiling T44DCallsUITests.swift (in target 'MattermostUITests' from project 'Mattermost')
+
+SwiftDriverJobDiscovery normal arm64 Compiling T36-ThreadsUITests.swift (in target 'MattermostUITests' from project 'Mattermost')
+
+SwiftDriver\ Compilation MattermostUITests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MattermostUITests -Onone @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList -DDEBUG -module-alias Testing\=_Testing_Unavailable -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -target arm64-apple-ios17.0-simulator -g -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache -output-file-map /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex -sdk-module-cache-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_const_extract_protocols.json -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-generated-files.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-own-target-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost-02dcba32bd803ae3bca739aec077d006-VFS-iphonesimulator/all-product-headers.yaml -Xcc -iquote -Xcc /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests-project-headers.hmap -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/include -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources-normal/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources/arm64 -Xcc -I/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-Swift.h -working-directory /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub -experimental-emit-module-separately -disable-cmo
+
+Ld /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests normal (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios17.0-simulator -bundle -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -O0 -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -L/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator -L/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphonesimulator -F/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk/Developer/Library/Frameworks -filelist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @loader_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -objc_abi_version -Xlinker 2 -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_dependency_info.dat -fobjc-link-runtime -fprofile-instr-generate -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.swiftmodule @/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests-linker-args.resp -Xlinker -needed_framework -Xlinker XCTest -framework XCTest -Xlinker -needed-lXCTestSwiftSupport -lXCTestSwiftSupport -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __entitlements -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.xctest-Simulated.xcent -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __ents_der -Xlinker /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.xctest-Simulated.xcent.der -Xlinker -no_adhoc_codesign -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests
+
+ExtractAppIntentsMetadata (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name MattermostUITests --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 17.0 --bundle-identifier com.mattermost.iosUITests --output /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest --target-triple arm64-apple-ios17.0-simulator --binary-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --dependency-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests_dependency_info.dat --stringsdata-file /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftFileList --metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.DependencyMetadataFileList --static-metadata-file-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/MattermostUITests.DependencyStaticMetadataFileList --swift-const-vals-list /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/Objects-normal/arm64/MattermostUITests.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-11-04 05:51:22.611 appintentsmetadataprocessor[96576:43858195] Starting appintentsmetadataprocessor export
+2026-11-04 05:51:22.618 appintentsmetadataprocessor[96576:43858195] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest
+
+CodeSign /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app: replacing existing signature
+
+2026-11-04 05:51:25.312942+0800 MattermostUITests-Runner[96587:43858527] [Default] Running tests...
+Test Suite 'Selected tests' started at 2026-11-04 05:51:26.291.
+Test Suite 'MattermostUITests.xctest' started at 2026-11-04 05:51:26.291.
+Test Suite 'T36ThreadsUITests' started at 2026-11-04 05:51:26.292.
+Test Case '-[MattermostUITests.T36ThreadsUITests testFollowPersistsAndTheFollowedThreadsListPages]' started.
+    t =     0.00s Start Test at 2026-11-04 05:51:26.292
+    t =     0.07s Set Up
+    t =     0.72s Open com.mattermost.ios
+    t =     0.72s     Launch com.mattermost.ios
+2026-11-04 05:51:27.516 xcodebuild[96491:43857072] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 05:51:27.517 xcodebuild[96491:43857072] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.05s         Setting up automation session
+    t =     3.15s         Wait for com.mattermost.ios to idle
+    t =     5.13s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     6.19s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     6.19s         Checking existence of `"loginIDField" TextField`
+    t =     6.37s Tap "loginIDField" TextField
+    t =     6.37s     Wait for com.mattermost.ios to idle
+    t =     6.37s     Find the "loginIDField" TextField
+    t =     6.39s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.43s     Synthesize event
+    t =     6.73s     Wait for com.mattermost.ios to idle
+    t =     6.91s Type 'perfprobe' into "loginIDField" TextField
+    t =     6.91s     Wait for com.mattermost.ios to idle
+    t =     6.93s     Find the "loginIDField" TextField
+    t =     6.97s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     7.00s     Synthesize event
+    t =     7.35s     Wait for com.mattermost.ios to idle
+    t =     7.56s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     7.61s Tap "loginPasswordField" SecureTextField
+    t =     7.61s     Wait for com.mattermost.ios to idle
+    t =     7.61s     Find the "loginPasswordField" SecureTextField
+    t =     7.66s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.70s     Synthesize event
+    t =     8.00s     Wait for com.mattermost.ios to idle
+    t =     8.41s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     8.41s     Wait for com.mattermost.ios to idle
+    t =     8.42s     Find the "loginPasswordField" SecureTextField
+    t =     8.47s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     8.50s     Synthesize event
+    t =     9.18s     Wait for com.mattermost.ios to idle
+    t =     9.19s Tap "loginSubmitButton" Button
+    t =     9.19s     Wait for com.mattermost.ios to idle
+    t =     9.19s     Find the "loginSubmitButton" Button
+    t =     9.23s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     9.26s     Synthesize event
+    t =     9.57s     Wait for com.mattermost.ios to idle
+    t =     9.97s Checking existence of `"loginIDField" TextField`
+    t =    10.05s Checking existence of `"nativeShell" Other`
+    t =    10.29s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    10.35s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.42s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.49s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.57s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.18s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    11.26s Swipe up "channelSidebar.scroll" Any
+    t =    11.26s     Wait for com.mattermost.ios to idle
+    t =    11.46s     Find the "channelSidebar.scroll" Any
+    t =    12.75s         Find the "channelSidebar.scroll" Any (retry 1)
+    t =    14.04s         Find the "channelSidebar.scroll" Any (retry 2)
+    t =    14.36s Requesting snapshot of accessibility hierarchy for app with pid 96615
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/ShellSettle.swift:222: error: -[MattermostUITests.T36ThreadsUITests testFollowPersistsAndTheFollowedThreadsListPages] : Failed to swipe up "channelSidebar.scroll" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.scroll" IN identifiers'`, given input App element pid: 96615
+    t =    14.71s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testFollowPersistsAndTheFollowedThreadsListPages]' failed (14.990 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies]' started.
+    t =     0.00s Start Test at 2026-11-04 05:51:41.283
+    t =     0.02s Set Up
+2026-11-04 05:51:41.661244+0800 MattermostUITests-Runner[96587:43858668] [connection] nw_connection_add_timestamp_locked_on_nw_queue [C1] Hit maximum timestamp count, will start dropping events
+    t =     0.53s Open com.mattermost.ios
+    t =     0.53s     Launch com.mattermost.ios
+    t =     0.53s         Terminate com.mattermost.ios:96615
+2026-11-04 05:51:42.886 xcodebuild[96491:43857072] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 05:51:42.887 xcodebuild[96491:43857072] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.82s         Setting up automation session
+    t =     2.89s         Wait for com.mattermost.ios to idle
+    t =     4.41s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.46s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.46s         Checking existence of `"loginIDField" TextField`
+    t =     5.54s Tap "loginIDField" TextField
+    t =     5.54s     Wait for com.mattermost.ios to idle
+    t =     5.54s     Find the "loginIDField" TextField
+    t =     5.56s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.58s     Synthesize event
+    t =     5.88s     Wait for com.mattermost.ios to idle
+    t =     5.93s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.93s     Wait for com.mattermost.ios to idle
+    t =     5.94s     Find the "loginIDField" TextField
+    t =     5.99s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.02s     Synthesize event
+    t =     6.37s     Wait for com.mattermost.ios to idle
+    t =     6.58s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.63s Tap "loginPasswordField" SecureTextField
+    t =     6.63s     Wait for com.mattermost.ios to idle
+    t =     6.63s     Find the "loginPasswordField" SecureTextField
+    t =     6.66s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.72s     Synthesize event
+    t =     7.03s     Wait for com.mattermost.ios to idle
+    t =     7.46s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.46s     Wait for com.mattermost.ios to idle
+    t =     7.46s     Find the "loginPasswordField" SecureTextField
+    t =     7.50s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.52s     Synthesize event
+    t =     8.21s     Wait for com.mattermost.ios to idle
+    t =     8.21s Tap "loginSubmitButton" Button
+    t =     8.21s     Wait for com.mattermost.ios to idle
+    t =     8.22s     Find the "loginSubmitButton" Button
+    t =     8.28s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.30s     Synthesize event
+    t =     8.60s     Wait for com.mattermost.ios to idle
+    t =     8.93s Checking existence of `"loginIDField" TextField`
+    t =     9.01s Checking existence of `"nativeShell" Other`
+    t =     9.34s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =     9.58s Checking existence of `"channelSidebar.scroll" Any`
+    t =     9.72s Checking existence of `"channelSidebar.scroll" Any`
+    t =     9.94s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.07s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.39s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    10.45s Swipe up "channelSidebar.scroll" Any
+    t =    10.45s     Wait for com.mattermost.ios to idle
+    t =    10.46s     Find the "channelSidebar.scroll" Any
+    t =    11.72s         Find the "channelSidebar.scroll" Any (retry 1)
+    t =    12.99s         Find the "channelSidebar.scroll" Any (retry 2)
+    t =    13.27s Requesting snapshot of accessibility hierarchy for app with pid 96712
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/ShellSettle.swift:222: error: -[MattermostUITests.T36ThreadsUITests testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies] : Failed to swipe up "channelSidebar.scroll" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.scroll" IN identifiers'`, given input App element pid: 96712
+    t =    13.38s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies]' failed (13.649 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply]' started.
+    t =     0.00s Start Test at 2026-11-04 05:51:54.933
+    t =     0.02s Set Up
+    t =     1.17s Added attachment named 't36-server-order-vs-chronology'
+    t =     1.24s Open com.mattermost.ios
+    t =     1.24s     Launch com.mattermost.ios
+    t =     1.24s         Terminate com.mattermost.ios:96712
+2026-11-04 05:51:57.258 xcodebuild[96491:43857072] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 05:51:57.258 xcodebuild[96491:43857072] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.53s         Setting up automation session
+    t =     3.58s         Wait for com.mattermost.ios to idle
+    t =     5.10s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     6.15s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     6.16s         Checking existence of `"loginIDField" TextField`
+    t =     6.28s Tap "loginIDField" TextField
+    t =     6.28s     Wait for com.mattermost.ios to idle
+    t =     6.29s     Find the "loginIDField" TextField
+    t =     6.32s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.35s     Synthesize event
+    t =     6.65s     Wait for com.mattermost.ios to idle
+    t =     6.71s Type 'perfprobe' into "loginIDField" TextField
+    t =     6.71s     Wait for com.mattermost.ios to idle
+    t =     6.71s     Find the "loginIDField" TextField
+    t =     6.76s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.78s     Synthesize event
+    t =     7.14s     Wait for com.mattermost.ios to idle
+    t =     7.35s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     7.39s Tap "loginPasswordField" SecureTextField
+    t =     7.39s     Wait for com.mattermost.ios to idle
+    t =     7.39s     Find the "loginPasswordField" SecureTextField
+    t =     7.43s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.45s     Synthesize event
+    t =     7.75s     Wait for com.mattermost.ios to idle
+    t =     8.18s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     8.18s     Wait for com.mattermost.ios to idle
+    t =     8.18s     Find the "loginPasswordField" SecureTextField
+    t =     8.23s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     8.27s     Synthesize event
+    t =     8.95s     Wait for com.mattermost.ios to idle
+    t =     8.95s Tap "loginSubmitButton" Button
+    t =     8.95s     Wait for com.mattermost.ios to idle
+    t =     8.96s     Find the "loginSubmitButton" Button
+    t =     8.99s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     9.02s     Synthesize event
+    t =     9.32s     Wait for com.mattermost.ios to idle
+    t =     9.67s Checking existence of `"loginIDField" TextField`
+    t =     9.76s Checking existence of `"nativeShell" Other`
+    t =    10.00s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    10.31s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.47s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.68s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.80s Checking existence of `"channelSidebar.scroll" Any`
+[shellsettle] no sidebar scroll surface after 0 Back tap(s): cannot scroll to channelSidebar.channel.psw97y5zqpfnpembwxraizuije
+    t =    10.89s Get number of matches for: Elements matching predicate 'identifier BEGINSWITH "channelSidebar.channel."'
+    t =    10.94s Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any to exist
+    t =    11.99s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    11.99s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    12.29s         Capturing element debug description
+    t =    13.01s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    13.01s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    13.28s         Capturing element debug description
+    t =    14.01s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.01s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.28s         Capturing element debug description
+    t =    14.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.25s         Capturing element debug description
+    t =    15.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.31s         Capturing element debug description
+    t =    17.02s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.03s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.28s         Capturing element debug description
+    t =    18.00s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.00s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.28s         Capturing element debug description
+    t =    19.01s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.01s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.27s         Capturing element debug description
+    t =    19.99s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.99s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.25s         Capturing element debug description
+    t =    20.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.24s         Capturing element debug description
+    t =    21.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.23s         Capturing element debug description
+    t =    22.94s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.95s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    23.21s         Capturing element debug description
+    t =    24.02s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.02s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.32s         Capturing element debug description
+    t =    24.94s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.95s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    25.21s         Capturing element debug description
+    t =    26.03s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.03s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.30s         Capturing element debug description
+    t =    27.02s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.02s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.29s         Capturing element debug description
+    t =    28.02s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.02s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.28s         Capturing element debug description
+    t =    29.01s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.01s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.29s         Capturing element debug description
+    t =    30.02s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.02s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.29s         Capturing element debug description
+    t =    31.01s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.01s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.30s         Capturing element debug description
+    t =    32.02s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.02s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.30s         Capturing element debug description
+    t =    33.02s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.03s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.30s         Capturing element debug description
+    t =    34.01s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.01s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.28s         Capturing element debug description
+    t =    34.99s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.00s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.26s         Capturing element debug description
+    t =    35.99s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.99s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.26s         Capturing element debug description
+    t =    36.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.25s         Capturing element debug description
+    t =    37.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.25s         Capturing element debug description
+    t =    38.96s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.96s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.23s         Capturing element debug description
+    t =    39.96s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.96s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.24s         Capturing element debug description
+    t =    40.94s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.95s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    41.20s         Capturing element debug description
+    t =    42.03s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.03s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.35s         Capturing element debug description
+    t =    42.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    43.27s         Capturing element debug description
+    t =    43.99s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.00s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.27s         Capturing element debug description
+    t =    45.00s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.00s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.27s         Capturing element debug description
+    t =    45.99s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.99s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.26s         Capturing element debug description
+    t =    46.99s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.99s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.25s         Capturing element debug description
+    t =    47.98s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.98s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.26s         Capturing element debug description
+    t =    48.99s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.99s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    49.25s         Capturing element debug description
+    t =    49.96s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    49.96s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.23s         Capturing element debug description
+    t =    50.95s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.95s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.22s         Capturing element debug description
+    t =    51.22s     Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.47s Collecting debug information to assist test failure triage
+    t =    51.47s     Requesting snapshot of accessibility hierarchy for app with pid 96801
+    t =    51.58s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.83s Requesting snapshot of accessibility hierarchy for app with pid 96801
+    t =    52.12s Requesting snapshot of accessibility hierarchy for app with pid 96801
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:816: error: -[MattermostUITests.T36ThreadsUITests testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply] : XCTAssertTrue failed - the sidebar must list channel psw97y5zqpfnpembwxraizuije (not realised after 0 swipe(s) of the sidebar, 0 channel row(s) drawn at the end):
+Attributes: Application, 0x104726bc0, pid: 96801, label: 'Mattermost'
+Element subtree:
+ →Application, 0x104726bc0, pid: 96801, label: 'Mattermost'
+    Window (Main), 0x104726ce0, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x104727d10, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x104727e30, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x104727bc0, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x104726e00, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x104727f50, {{0.0, 0.0}, {402.0, 874.0}}
+                NavigationBar, 0x104728070, {{0.0, 56.3}, {402.0, 96.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+                  Button, 0x104728190, {{0.0, 56.3}, {68.0, 44.0}}, label: 'Back'
+                  Other, 0x1047282b0, {{92.3, 56.3}, {155.3, 44.0}}
+                    Other, 0x104727600, {{92.3, 56.3}, {155.3, 44.0}}
+                      Button, 0x104727720, {{92.3, 56.3}, {155.3, 44.0}}, identifier: 'serverSwitcher', label: 'Local Mattermost'
+                        Button, 0x104727840, {{92.3, 56.3}, {155.3, 44.0}}
+                          Other, 0x1047285c0, {{92.3, 56.3}, {155.3, 44.0}}
+                            StaticText, 0x1047286e0, {{92.3, 56.3}, {155.3, 44.0}}, label: 'Local Mattermost'
+                  Other, 0x104728800, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                    Other, 0x104728920, {{253.7, 61.3}, {42.0, 34.0}}
+                      Button, 0x104728a40, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                  Other, 0x104728b60, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                    Other, 0x104728c80, {{303.7, 61.0}, {43.0, 35.0}}
+                      Button, 0x104728da0, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                  Other, 0x104728ec0, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                    Other, 0x104728fe0, {{354.7, 63.3}, {31.3, 30.0}}
+                      Button, 0x104729100, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                  StaticText, 0x104729220, {{16.0, 104.0}, {7.3, 40.7}}, label: ' '
+                Other, 0x104729340, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x104729460, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x104729580, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x1047296a0, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x1047297c0, {{0.0, 162.3}, {402.0, 711.7}}, identifier: 'nativeChannelPane'
+                          StaticText, 0x1047298e0, {{18.0, 162.7}, {128.0, 20.3}}, identifier: 'nativeChannelTitle', label: 'Town Square'
+                          Button, 0x104729a00, {{280.7, 163.3}, {19.7, 19.0}}, identifier: 'nativeProfileButton', label: 'My profile'
+                          Button, 0x104729b20, {{308.3, 162.3}, {19.7, 21.7}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x104729c40, {{336.0, 164.0}, {19.7, 17.7}}, identifier: 'calls.joinButton', label: 'Start call', value: idle
+                          Button, 0x104729d60, {{363.7, 163.7}, {22.3, 19.3}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x104729e80, {{0.0, 194.3}, {402.0, 489.3}}, identifier: 'channelPostList'
+                            Other, 0x104729fa0, {{0.0, -2094.3}, {402.0, 2778.0}}
+                              Other, 0x10472a0c0, {{0.0, -334.3}, {402.0, 1006.0}}
+                                Other, 0x10472a1e0, {{0.0, -334.3}, {402.0, 73.0}}
+                                Other, 0x10472a300, {{12.0, -328.3}, {368.0, 61.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa'
+                                  Button, 0x10472a420, {{12.0, -328.3}, {36.0, 36.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x10472a540, {{21.5, -318.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x10472a660, {{12.0, -328.3}, {36.0, 36.0}}
+                                  Button, 0x10472a780, {{58.0, -328.3}, {76.3, 18.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.author', label: 'Perf Probe'
+                                  StaticText, 0x10472a8a0, {{140.3, -324.3}, {48.0, 13.3}}, label: '10:34 PM'
+                                  StaticText, 0x10472a9c0, {{58.0, -306.3}, {170.3, 39.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.body.block0', label: 't636 ship-shaped query t48r1saved1793716436'
+                                  Button, 0x10472aae0, {{352.0, -328.3}, {28.0, 28.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.menu', label: 'Message actions'
+                                Other, 0x10472ac00, {{0.0, -261.3}, {402.0, 43.0}}
+                                Other, 0x10472ad20, {{16.7, -259.3}, {363.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor'
+                                  StaticText, 0x10472ae40, {{16.7, -256.3}, {31.3, 26.3}}, label: '10:34 PM'
+                                  StaticText, 0x10472af60, {{58.0, -259.3}, {170.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.body.block0', label: 't636 ship-shaped query t636options1793716458'
+                                  Button, 0x10472b080, {{352.0, -259.3}, {28.0, 28.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.menu', label: 'Message actions'
+                                Other, 0x10472b1a0, {{0.0, -218.3}, {402.0, 43.0}}
+                                Other, 0x10472b2c0, {{16.7, -216.3}, {363.3, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr'
+                                  StaticText, 0x10472b3e0, {{16.7, -213.3}, {31.3, 26.3}}, label: '10:38 PM'
+                                  StaticText, 0x10472b500, {{58.0, -216.3}, {172.0, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.body.block0', label: 't636 ship-shaped query t48r1refused1793716702'
+                                  Button, 0x10472b620, {{352.0, -216.3}, {28.0, 28.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.menu', label: 'Message actions'
+                                Other, 0x10472b740, {{0.0, -175.3}, {402.0, 43.0}}
+                                Other, 0x10472b860, {{18.7, -173.3}, {361.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w'
+                                  StaticText, 0x10472b980, {{18.7, -170.3}, {29.3, 26.3}}, label: '10:41 PM'
+                                  StaticText, 0x10472baa0, {{58.0, -173.3}, {170.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.body.block0', label: 't636 ship-shaped query t48r1saved1793716870'
+                                  Button, 0x10472bbc0, {{352.0, -173.3}, {28.0, 28.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.menu', label: 'Message actions'
+                                Other, 0x104469a40, {{0.0, -132.3}, {402.0, 43.0}}
+                                Other, 0x1044696d0, {{17.0, -130.3}, {363.0, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r'
+                                  StaticText, 0x104469da0, {{17.0, -127.3}, {31.0, 26.3}}, label: '10:42 PM'
+                                  StaticText, 0x10446a7e0, {{58.0, -130.3}, {170.3, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.body.block0', label: 't636 ship-shaped query t636options1793716914'
+                                  Button, 0x10446ab70, {{352.0, -130.3}, {28.0, 28.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.menu', label: 'Message actions'
+                                Other, 0x10446af10, {{0.0, -89.3}, {402.0, 73.0}}
+                                Other, 0x10446b2a0, {{12.0, -83.3}, {368.0, 61.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke'
+                                  Button, 0x10446b620, {{12.0, -83.3}, {36.0, 36.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x10446b9b0, {{21.5, -73.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x10446bd30, {{12.0, -83.3}, {36.0, 36.0}}
+                                  Button, 0x10446c0c0, {{58.0, -83.3}, {76.3, 18.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.author', label: 'Perf Probe'
+                                  StaticText, 0x10446c450, {{140.3, -79.3}, {47.3, 13.3}}, label: '10:47 PM'
+                                  StaticText, 0x10446cea0, {{58.0, -61.3}, {170.3, 39.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.body.block0', label: 't636 ship-shaped query t48r1saved1793717215'
+                                  Button, 0x10446d220, {{352.0, -83.3}, {28.0, 28.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.menu', label: 'Message actions'
+                                Other, 0x10446d5c0, {{0.0, -16.3}, {402.0, 43.0}}
+                                Other, 0x10446d930, {{18.7, -14.3}, {361.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr'
+                                  StaticText, 0x10446dc80, {{18.7, -11.3}, {29.3, 26.3}}, label: '10:51 PM'
+                                  StaticText, 0x10446dff0, {{58.0, -14.3}, {170.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.body.block0', label: 't636 ship-shaped query t48r1saved1793717476'
+                                  Button, 0x10446e380, {{352.0, -14.3}, {28.0, 28.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.menu', label: 'Message actions'
+                                Other, 0x10446e6f0, {{0.0, 26.7}, {402.0, 43.0}}
+                                Other, 0x10446ea40, {{16.7, 28.7}, {363.3, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r'
+                                  StaticText, 0x10446edd0, {{16.7, 31.7}, {31.3, 26.3}}, label: '10:55 PM'
+                                  StaticText, 0x10446f130, {{58.0, 28.7}, {171.0, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.body.block0', label: 't636 ship-shaped query t48r1refused1793717677'
+                                  Button, 0x10446f4d0, {{352.0, 28.7}, {28.0, 28.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.menu', label: 'Message actions'
+                                Other, 0x10446f840, {{0.0, 69.7}, {402.0, 43.0}}
+                                Other, 0x10446fba0, {{16.7, 71.7}, {363.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py'
+                                  StaticText, 0x10446ff30, {{16.7, 74.7}, {31.3, 26.3}}, label: '10:56 PM'
+                                  StaticText, 0x1044702a0, {{58.0, 71.7}, {170.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.body.block0', label: 't636 ship-shaped query t48r1saved1793717764'
+                                  Button, 0x104479810, {{352.0, 71.7}, {28.0, 28.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.menu', label: 'Message actions'
+                                Other, 0x1044786c0, {{0.0, 112.7}, {402.0, 43.0}}
+                                Other, 0x10448c210, {{17.3, 114.7}, {362.7, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r'
+                                  StaticText, 0x10448b370, {{17.3, 117.7}, {30.7, 26.3}}, label: '10:57 PM'
+                                  StaticText, 0x10448c850, {{58.0, 114.7}, {170.3, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.body.block0', label: 't636 ship-shaped query t636options1793717800'
+                                  Button, 0x10448c970, {{352.0, 114.7}, {28.0, 28.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.menu', label: 'Message actions'
+                                Other, 0x10448ccb0, {{0.0, 155.7}, {402.0, 43.0}}
+                                Other, 0x10448cdd0, {{13.3, 157.7}, {366.7, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo'
+                                  StaticText, 0x10448cef0, {{13.3, 160.7}, {34.7, 26.3}}, label: '11:01 PM'
+                                  StaticText, 0x10448d010, {{58.0, 157.7}, {173.0, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.body.block0', label: 't636 ship-shaped query t48r1refused1793718067'
+                                  Button, 0x10448d130, {{352.0, 157.7}, {28.0, 28.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.menu', label: 'Message actions'
+                                Other, 0x10448d250, {{0.0, 198.7}, {402.0, 43.0}}
+                                Other, 0x10448d370, {{18.7, 200.7}, {361.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro'
+                                  StaticText, 0x10448d490, {{18.7, 203.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x10448d5b0, {{58.0, 200.7}, {170.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.body.block0', label: 't636 ship-shaped query t48r1saved1793718155'
+                                  Button, 0x10448d6d0, {{352.0, 200.7}, {28.0, 28.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.menu', label: 'Message actions'
+                                Other, 0x10448d7f0, {{0.0, 241.7}, {402.0, 43.0}}
+                                Other, 0x10448d910, {{18.7, 243.7}, {361.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o'
+                                  StaticText, 0x10448da30, {{18.7, 246.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x10448db50, {{58.0, 243.7}, {170.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.body.block0', label: 't636 ship-shaped query t636options1793718192'
+                                  Button, 0x10448dc70, {{352.0, 243.7}, {28.0, 28.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.menu', label: 'Message actions'
+                                Other, 0x10448dd90, {{0.0, 284.7}, {402.0, 43.0}}
+                                Other, 0x10448e000, {{12.3, 286.7}, {367.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo'
+                                  StaticText, 0x10448e120, {{12.3, 289.7}, {35.7, 26.3}}, label: '11:07 PM'
+                                  StaticText, 0x10448e240, {{58.0, 286.7}, {173.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.body.block0', label: 't636 ship-shaped query t48r1refused1793718426'
+                                  Button, 0x10448e360, {{352.0, 286.7}, {28.0, 28.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.menu', label: 'Message actions'
+                                Other, 0x10448e480, {{0.0, 327.7}, {402.0, 43.0}}
+                                Other, 0x10448e5a0, {{18.3, 329.7}, {361.7, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo'
+                                  StaticText, 0x10448e6c0, {{18.3, 332.7}, {29.7, 26.3}}, label: '11:08 PM'
+                                  StaticText, 0x10448e7e0, {{58.0, 329.7}, {170.3, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.body.block0', label: 't636 ship-shaped query t636options1793718498'
+                                  Button, 0x10448e900, {{352.0, 329.7}, {28.0, 28.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.menu', label: 'Message actions'
+                                Other, 0x10448ea20, {{0.0, 370.7}, {402.0, 43.0}}
+                                Other, 0x10448eb40, {{15.3, 372.7}, {364.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo'
+                                  StaticText, 0x10448ec60, {{15.3, 375.7}, {32.7, 26.3}}, label: '11:11 PM'
+                                  StaticText, 0x10448ed80, {{58.0, 372.7}, {173.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.body.block0', label: 't636 ship-shaped query t48r1refused1793718645'
+                                  Button, 0x10448eea0, {{352.0, 372.7}, {28.0, 28.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.menu', label: 'Message actions'
+                                Other, 0x10448efc0, {{0.0, 413.7}, {402.0, 43.0}}
+                                Other, 0x10448f0e0, {{13.7, 415.7}, {366.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw'
+                                  StaticText, 0x10448f200, {{13.7, 418.7}, {34.3, 26.3}}, label: '11:12 PM'
+                                  StaticText, 0x10448f320, {{58.0, 415.7}, {170.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.body.block0', label: 't636 ship-shaped query t48r1refused1793718710'
+                                  Button, 0x10448f440, {{352.0, 415.7}, {28.0, 28.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.menu', label: 'Message actions'
+                                Other, 0x10448f560, {{0.0, 456.7}, {402.0, 43.0}}
+                                Other, 0x10448f680, {{13.3, 458.7}, {366.7, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic'
+                                  StaticText, 0x10448f7a0, {{13.3, 461.7}, {34.7, 26.3}}, label: '11:13 PM'
+                                  StaticText, 0x10448f8c0, {{58.0, 458.7}, {170.3, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.body.block0', label: 't636 ship-shaped query t48r1saved1793718792'
+                                  Button, 0x10448f9e0, {{352.0, 458.7}, {28.0, 28.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.menu', label: 'Message actions'
+                                Other, 0x10448fb00, {{0.0, 499.7}, {402.0, 43.0}}
+                                Other, 0x10448fc20, {{13.3, 501.7}, {366.7, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha'
+                                  StaticText, 0x10448fd40, {{13.3, 504.7}, {34.7, 26.3}}, label: '11:14 PM'
+                                  StaticText, 0x10448fe60, {{58.0, 501.7}, {170.3, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.body.block0', label: 't636 ship-shaped query t636options1793718830'
+                                  Button, 0x10448ff80, {{352.0, 501.7}, {28.0, 28.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.menu', label: 'Message actions'
+                                Other, 0x1044900a0, {{0.0, 542.7}, {402.0, 43.0}}
+                                Other, 0x1044901c0, {{13.3, 544.7}, {366.7, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy'
+                                  StaticText, 0x1044902e0, {{13.3, 547.7}, {34.7, 26.3}}, label: '11:18 PM'
+                                  StaticText, 0x104490400, {{58.0, 544.7}, {168.0, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.body.block0', label: 't48 lookup menu t48r1pinned1793719095'
+                                  Button, 0x104490520, {{352.0, 544.7}, {28.0, 28.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.menu', label: 'Message actions'
+                                Other, 0x104490640, {{0.0, 585.7}, {402.0, 43.0}}
+                                Other, 0x104490760, {{13.3, 587.7}, {366.7, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y'
+                                  StaticText, 0x104490880, {{13.3, 590.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x1044909a0, {{58.0, 587.7}, {170.3, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.body.block0', label: 't636 ship-shaped query t48r1saved1793719139'
+                                  Button, 0x104490ac0, {{352.0, 587.7}, {28.0, 28.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.menu', label: 'Message actions'
+                                Other, 0x104490be0, {{0.0, 628.7}, {402.0, 43.0}}
+                                Other, 0x10448deb0, {{13.3, 630.7}, {366.7, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w'
+                                  StaticText, 0x104490f20, {{13.3, 633.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x104491040, {{58.0, 630.7}, {170.3, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.body.block0', label: 't636 ship-shaped query t636options1793719159'
+                                  Button, 0x104491160, {{352.0, 630.7}, {28.0, 28.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.menu', label: 'Message actions'
+                              Other, 0x104491480, {{201.0, -2094.3}, {0.0, 0.0}}
+                            Other, 0x1044915a0, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x1044916c0, {{396.0, 595.7}, {3.0, 85.0}}
+                            Other, 0x1044917e0, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x104491900, {{396.0, 595.7}, {3.0, 85.0}}
+                          Other, 0x104491a20, {{0.0, 684.0}, {402.0, 190.0}}, identifier: 'channelComposer'
+                            Button, 0x104491b40, {{10.0, 808.3}, {22.0, 22.0}}, identifier: 'channelComposer.attach', label: 'Add an attachment'
+                            Button, 0x104491c60, {{42.0, 809.7}, {21.0, 21.0}}, identifier: 'channelComposer.emoji', label: 'Add emoji'
+                            StaticText, 0x104491d80, {{73.0, 698.0}, {68.7, 20.3}}, label: 'Message'
+                            TextView, 0x104491ea0, {{71.0, 692.0}, {254.3, 140.0}}, identifier: 'channelComposer.input', label: 'Message'
+                              Other, 0x104491fc0, {{292.3, 692.0}, {30.0, 140.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                Other, 0x1044920e0, {{319.3, 695.0}, {3.0, 134.0}}
+                              Other, 0x104492200, {{71.0, 799.0}, {254.3, 30.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                                Other, 0x104492320, {{74.0, 826.0}, {248.3, 3.0}}
+                            Button, 0x104492440, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'channelComposer.menu', label: 'Formatting and preview'
+                              Button, 0x104492560, {{331.3, 806.7}, {26.0, 25.3}}
+                                Other, 0x104492680, {{331.3, 806.7}, {26.0, 25.3}}
+                                  Image, 0x1044927a0, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'ellipsis.circle', label: 'More'
+                            Button, 0x1044928c0, {{365.7, 804.3}, {26.0, 26.0}}, identifier: 'channelComposer.send', label: 'Send', Disabled
+    Window, 0x1044929e0, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x104492b00, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x10600cfa0, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x1060315d0, {{0.0, 874.0}, {402.0, 233.0}}
+Path to element:
+ →Application, 0x104726bc0, pid: 96801, label: 'Mattermost'
+Query chain:
+ →Find: Target Application 'com.mattermost.ios'
+  Output: {
+    Application, 0x10472c8c0, pid: 96801, label: 'Mattermost'
+  }
+
+    t =    52.22s Tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    52.22s     Wait for com.mattermost.ios to idle
+    t =    52.22s     Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    53.54s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 1)
+    t =    54.79s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 2)
+    t =    55.07s Requesting snapshot of accessibility hierarchy for app with pid 96801
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:819: error: -[MattermostUITests.T36ThreadsUITests testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply] : Failed to tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" IN identifiers'`, given input App element pid: 96801
+    t =    55.18s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply]' failed (55.419 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheUnreadThreadStateIsTheServers]' started.
+    t =     0.00s Start Test at 2026-11-04 05:52:50.353
+    t =     0.03s Set Up
+    t =     0.43s Open com.mattermost.ios
+    t =     0.43s     Launch com.mattermost.ios
+    t =     0.43s         Terminate com.mattermost.ios:96801
+2026-11-04 05:52:51.846 xcodebuild[96491:43857072] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 05:52:51.846 xcodebuild[96491:43857072] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.71s         Setting up automation session
+    t =     2.74s         Wait for com.mattermost.ios to idle
+    t =     4.26s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.31s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.31s         Checking existence of `"loginIDField" TextField`
+    t =     5.40s Tap "loginIDField" TextField
+    t =     5.40s     Wait for com.mattermost.ios to idle
+    t =     5.40s     Find the "loginIDField" TextField
+    t =     5.43s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.45s     Synthesize event
+    t =     5.76s     Wait for com.mattermost.ios to idle
+    t =     5.80s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.80s     Wait for com.mattermost.ios to idle
+    t =     5.80s     Find the "loginIDField" TextField
+    t =     5.83s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.86s     Synthesize event
+    t =     6.21s     Wait for com.mattermost.ios to idle
+    t =     6.43s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.46s Tap "loginPasswordField" SecureTextField
+    t =     6.46s     Wait for com.mattermost.ios to idle
+    t =     6.47s     Find the "loginPasswordField" SecureTextField
+    t =     6.50s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.55s     Synthesize event
+    t =     6.84s     Wait for com.mattermost.ios to idle
+    t =     7.27s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.27s     Wait for com.mattermost.ios to idle
+    t =     7.28s     Find the "loginPasswordField" SecureTextField
+    t =     7.32s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.36s     Synthesize event
+    t =     8.04s     Wait for com.mattermost.ios to idle
+    t =     8.04s Tap "loginSubmitButton" Button
+    t =     8.04s     Wait for com.mattermost.ios to idle
+    t =     8.05s     Find the "loginSubmitButton" Button
+    t =     8.08s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.11s     Synthesize event
+    t =     8.39s     Wait for com.mattermost.ios to idle
+    t =     8.75s Checking existence of `"loginIDField" TextField`
+    t =     8.83s Checking existence of `"nativeShell" Other`
+    t =     9.16s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =     9.41s Checking existence of `"channelSidebar.scroll" Any`
+    t =     9.58s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.21s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.39s Checking existence of `CollectionView (First Match)`
+    t =    10.55s Checking existence of `"channelSidebar.scroll" Any`
+[shellsettle] no sidebar scroll surface after 0 Back tap(s): cannot scroll to channelSidebar.channel.psw97y5zqpfnpembwxraizuije
+    t =    10.66s Get number of matches for: Elements matching predicate 'identifier BEGINSWITH "channelSidebar.channel."'
+    t =    10.70s Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any to exist
+    t =    11.72s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    11.73s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    12.02s         Capturing element debug description
+    t =    12.74s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    12.74s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    13.02s         Capturing element debug description
+    t =    13.74s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    13.74s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.00s         Capturing element debug description
+    t =    14.73s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    14.73s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.00s         Capturing element debug description
+    t =    15.74s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    15.74s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.01s         Capturing element debug description
+    t =    16.72s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.72s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    16.99s         Capturing element debug description
+    t =    17.72s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.72s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    17.96s         Capturing element debug description
+    t =    18.79s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    18.79s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.04s         Capturing element debug description
+    t =    19.77s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    19.78s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.07s         Capturing element debug description
+    t =    20.71s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.71s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    20.96s         Capturing element debug description
+    t =    21.71s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.71s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    21.98s         Capturing element debug description
+    t =    22.71s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.71s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    22.97s         Capturing element debug description
+    t =    23.71s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    23.71s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    23.98s         Capturing element debug description
+    t =    24.71s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.71s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    24.96s         Capturing element debug description
+    t =    25.79s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    25.79s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.04s         Capturing element debug description
+    t =    26.77s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    26.77s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.04s         Capturing element debug description
+    t =    27.76s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    27.76s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.05s         Capturing element debug description
+    t =    28.76s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    28.77s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.02s         Capturing element debug description
+    t =    29.75s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    29.75s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.04s         Capturing element debug description
+    t =    30.76s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    30.76s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.03s         Capturing element debug description
+    t =    31.76s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    31.76s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.04s         Capturing element debug description
+    t =    32.76s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    32.76s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.06s         Capturing element debug description
+    t =    33.77s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    33.77s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.05s         Capturing element debug description
+    t =    34.79s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    34.79s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.04s         Capturing element debug description
+    t =    35.78s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    35.78s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.09s         Capturing element debug description
+    t =    36.71s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    36.71s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.11s         Capturing element debug description
+    t =    37.72s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    37.72s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.01s         Capturing element debug description
+    t =    38.73s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    38.73s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.00s         Capturing element debug description
+    t =    39.74s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    39.74s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.01s         Capturing element debug description
+    t =    40.72s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    40.72s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    41.00s         Capturing element debug description
+    t =    41.73s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    41.73s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.00s         Capturing element debug description
+    t =    42.74s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    42.74s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    43.01s         Capturing element debug description
+    t =    43.74s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    43.74s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.00s         Capturing element debug description
+    t =    44.72s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    44.72s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.00s         Capturing element debug description
+    t =    45.73s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    45.73s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.01s         Capturing element debug description
+    t =    46.74s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    46.74s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.00s         Capturing element debug description
+    t =    47.72s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.72s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    47.98s         Capturing element debug description
+    t =    48.71s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.71s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    48.95s         Capturing element debug description
+    t =    49.79s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    49.79s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.08s         Capturing element debug description
+    t =    50.71s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.71s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    50.98s         Capturing element debug description
+    t =    50.98s     Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.23s Collecting debug information to assist test failure triage
+    t =    51.23s     Requesting snapshot of accessibility hierarchy for app with pid 97094
+    t =    51.35s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any`
+    t =    51.60s Requesting snapshot of accessibility hierarchy for app with pid 97094
+    t =    51.89s Requesting snapshot of accessibility hierarchy for app with pid 97094
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:816: error: -[MattermostUITests.T36ThreadsUITests testTheUnreadThreadStateIsTheServers] : XCTAssertTrue failed - the sidebar must list channel psw97y5zqpfnpembwxraizuije (not realised after 0 swipe(s) of the sidebar, 0 channel row(s) drawn at the end):
+Attributes: Application, 0x1047271e0, pid: 97094, label: 'Mattermost'
+Element subtree:
+ →Application, 0x1047271e0, pid: 97094, label: 'Mattermost'
+    Window (Main), 0x104730940, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x104730d00, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x104730e20, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x104730a60, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x104730b80, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x104730f40, {{0.0, 0.0}, {402.0, 874.0}}
+                NavigationBar, 0x104731060, {{0.0, 56.3}, {402.0, 96.0}}, identifier: '_TtGC7SwiftUI32NavigationStackHosting'
+                  Button, 0x104731180, {{0.0, 56.3}, {68.0, 44.0}}, label: 'Back'
+                  Other, 0x1047312a0, {{92.3, 56.3}, {155.3, 44.0}}
+                    Other, 0x1047313c0, {{92.3, 56.3}, {155.3, 44.0}}
+                      Button, 0x1047314e0, {{92.3, 56.3}, {155.3, 44.0}}, identifier: 'serverSwitcher', label: 'Local Mattermost'
+                        Button, 0x104731600, {{92.3, 56.3}, {155.3, 44.0}}
+                          Other, 0x104731720, {{92.3, 56.3}, {155.3, 44.0}}
+                            StaticText, 0x104731840, {{92.3, 56.3}, {155.3, 44.0}}, label: 'Local Mattermost'
+                  Other, 0x104731960, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                    Other, 0x104731a80, {{253.7, 61.3}, {42.0, 34.0}}
+                      Button, 0x104731ba0, {{253.7, 61.3}, {42.0, 34.0}}, identifier: 'downloadsToolbarButton', label: 'Downloads'
+                  Other, 0x104731cc0, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                    Other, 0x104731de0, {{303.7, 61.0}, {43.0, 35.0}}
+                      Button, 0x104731f00, {{303.7, 61.0}, {43.0, 35.0}}, identifier: 'settingsToolbarButton', label: 'Settings'
+                  Other, 0x104732020, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                    Other, 0x104732140, {{354.7, 63.3}, {31.3, 30.0}}
+                      Button, 0x104732260, {{354.7, 63.3}, {31.3, 30.0}}, identifier: 'addServerToolbarButton', label: 'Add server'
+                  StaticText, 0x104732380, {{16.0, 104.0}, {7.3, 40.7}}, label: ' '
+                Other, 0x1047324a0, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x1047325c0, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x1047326e0, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x104732800, {{0.0, 0.0}, {402.0, 874.0}}
+                        Other, 0x104732920, {{0.0, 162.3}, {402.0, 711.7}}, identifier: 'nativeChannelPane'
+                          StaticText, 0x104732a40, {{18.0, 162.7}, {128.0, 20.3}}, identifier: 'nativeChannelTitle', label: 'Town Square'
+                          Button, 0x104732b60, {{280.7, 163.3}, {19.7, 19.0}}, identifier: 'nativeProfileButton', label: 'My profile'
+                          Button, 0x104732c80, {{308.3, 162.3}, {19.7, 21.7}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x104732da0, {{336.0, 164.0}, {19.7, 17.7}}, identifier: 'calls.joinButton', label: 'Start call', value: idle
+                          Button, 0x104732ec0, {{363.7, 163.7}, {22.3, 19.3}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x104732fe0, {{0.0, 194.3}, {402.0, 489.3}}, identifier: 'channelPostList'
+                            Other, 0x104733100, {{0.0, -2094.3}, {402.0, 2778.0}}
+                              Other, 0x104733220, {{0.0, -334.3}, {402.0, 1006.0}}
+                                Other, 0x104733340, {{0.0, -334.3}, {402.0, 73.0}}
+                                Other, 0x104733460, {{12.0, -328.3}, {368.0, 61.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa'
+                                  Button, 0x104733580, {{12.0, -328.3}, {36.0, 36.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x1047336a0, {{21.5, -318.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x1047337c0, {{12.0, -328.3}, {36.0, 36.0}}
+                                  Button, 0x1047338e0, {{58.0, -328.3}, {76.3, 18.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.author', label: 'Perf Probe'
+                                  StaticText, 0x104733a00, {{140.3, -324.3}, {48.0, 13.3}}, label: '10:34 PM'
+                                  StaticText, 0x104733b20, {{58.0, -306.3}, {170.3, 39.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.body.block0', label: 't636 ship-shaped query t48r1saved1793716436'
+                                  Button, 0x104733c40, {{352.0, -328.3}, {28.0, 28.0}}, identifier: 'post.1nuytpoesbntjnmcehhaue5asa.menu', label: 'Message actions'
+                                Other, 0x104733d60, {{0.0, -261.3}, {402.0, 43.0}}
+                                Other, 0x104733e80, {{16.7, -259.3}, {363.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor'
+                                  StaticText, 0x104733fa0, {{16.7, -256.3}, {31.3, 26.3}}, label: '10:34 PM'
+                                  StaticText, 0x1047340c0, {{58.0, -259.3}, {170.3, 39.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.body.block0', label: 't636 ship-shaped query t636options1793716458'
+                                  Button, 0x1047341e0, {{352.0, -259.3}, {28.0, 28.0}}, identifier: 'post.aparbqxz7inx3ntai6wgzqucor.menu', label: 'Message actions'
+                                Other, 0x104734300, {{0.0, -218.3}, {402.0, 43.0}}
+                                Other, 0x104734420, {{16.7, -216.3}, {363.3, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr'
+                                  StaticText, 0x104734540, {{16.7, -213.3}, {31.3, 26.3}}, label: '10:38 PM'
+                                  StaticText, 0x104734660, {{58.0, -216.3}, {172.0, 39.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.body.block0', label: 't636 ship-shaped query t48r1refused1793716702'
+                                  Button, 0x104734780, {{352.0, -216.3}, {28.0, 28.0}}, identifier: 'post.pc3ky7d4opgrmyibgz35tiprdr.menu', label: 'Message actions'
+                                Other, 0x1047348a0, {{0.0, -175.3}, {402.0, 43.0}}
+                                Other, 0x1047349c0, {{18.7, -173.3}, {361.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w'
+                                  StaticText, 0x104734ae0, {{18.7, -170.3}, {29.3, 26.3}}, label: '10:41 PM'
+                                  StaticText, 0x104734c00, {{58.0, -173.3}, {170.3, 39.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.body.block0', label: 't636 ship-shaped query t48r1saved1793716870'
+                                  Button, 0x104734d20, {{352.0, -173.3}, {28.0, 28.0}}, identifier: 'post.sw36uz5bb7n3i81p7bxrq1t31w.menu', label: 'Message actions'
+                                Other, 0x104734e40, {{0.0, -132.3}, {402.0, 43.0}}
+                                Other, 0x104734f60, {{17.0, -130.3}, {363.0, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r'
+                                  StaticText, 0x104735080, {{17.0, -127.3}, {31.0, 26.3}}, label: '10:42 PM'
+                                  StaticText, 0x1047351a0, {{58.0, -130.3}, {170.3, 39.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.body.block0', label: 't636 ship-shaped query t636options1793716914'
+                                  Button, 0x1047352c0, {{352.0, -130.3}, {28.0, 28.0}}, identifier: 'post.rauww3r8xfdumcb8tnug43xs3r.menu', label: 'Message actions'
+                                Other, 0x1047353e0, {{0.0, -89.3}, {402.0, 73.0}}
+                                Other, 0x104735500, {{12.0, -83.3}, {368.0, 61.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke'
+                                  Button, 0x104735620, {{12.0, -83.3}, {36.0, 36.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.avatar', label: 'Perf Probe profile'
+                                    StaticText, 0x104735740, {{21.5, -73.2}, {17.0, 15.7}}, label: 'PP'
+                                    Image, 0x104735860, {{12.0, -83.3}, {36.0, 36.0}}
+                                  Button, 0x104735980, {{58.0, -83.3}, {76.3, 18.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.author', label: 'Perf Probe'
+                                  StaticText, 0x104735aa0, {{140.3, -79.3}, {47.3, 13.3}}, label: '10:47 PM'
+                                  StaticText, 0x104735bc0, {{58.0, -61.3}, {170.3, 39.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.body.block0', label: 't636 ship-shaped query t48r1saved1793717215'
+                                  Button, 0x104735ce0, {{352.0, -83.3}, {28.0, 28.0}}, identifier: 'post.bx94adbp53g79fc1xcaar6pfke.menu', label: 'Message actions'
+                                Other, 0x104735e00, {{0.0, -16.3}, {402.0, 43.0}}
+                                Other, 0x104735f20, {{18.7, -14.3}, {361.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr'
+                                  StaticText, 0x104736040, {{18.7, -11.3}, {29.3, 26.3}}, label: '10:51 PM'
+                                  StaticText, 0x104736160, {{58.0, -14.3}, {170.3, 39.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.body.block0', label: 't636 ship-shaped query t48r1saved1793717476'
+                                  Button, 0x104736280, {{352.0, -14.3}, {28.0, 28.0}}, identifier: 'post.gxw3eo6hkfbhin1fpzu9fq59pr.menu', label: 'Message actions'
+                                Other, 0x1047363a0, {{0.0, 26.7}, {402.0, 43.0}}
+                                Other, 0x10468b4e0, {{16.7, 28.7}, {363.3, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r'
+                                  StaticText, 0x10468b600, {{16.7, 31.7}, {31.3, 26.3}}, label: '10:55 PM'
+                                  StaticText, 0x10468b720, {{58.0, 28.7}, {171.0, 39.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.body.block0', label: 't636 ship-shaped query t48r1refused1793717677'
+                                  Button, 0x10468b840, {{352.0, 28.7}, {28.0, 28.0}}, identifier: 'post.j9j1bafit78e7yai5b6hqgdi4r.menu', label: 'Message actions'
+                                Other, 0x10468b960, {{0.0, 69.7}, {402.0, 43.0}}
+                                Other, 0x10468ba80, {{16.7, 71.7}, {363.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py'
+                                  StaticText, 0x10468bba0, {{16.7, 74.7}, {31.3, 26.3}}, label: '10:56 PM'
+                                  StaticText, 0x10468bcc0, {{58.0, 71.7}, {170.3, 39.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.body.block0', label: 't636 ship-shaped query t48r1saved1793717764'
+                                  Button, 0x10468bde0, {{352.0, 71.7}, {28.0, 28.0}}, identifier: 'post.iqam1skbxtgx9mfyc5xach14py.menu', label: 'Message actions'
+                                Other, 0x10468bf00, {{0.0, 112.7}, {402.0, 43.0}}
+                                Other, 0x10468c020, {{17.3, 114.7}, {362.7, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r'
+                                  StaticText, 0x10468c140, {{17.3, 117.7}, {30.7, 26.3}}, label: '10:57 PM'
+                                  StaticText, 0x10468c260, {{58.0, 114.7}, {170.3, 39.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.body.block0', label: 't636 ship-shaped query t636options1793717800'
+                                  Button, 0x10468c380, {{352.0, 114.7}, {28.0, 28.0}}, identifier: 'post.ty6epxjenjyqmjfq9f7im3ym9r.menu', label: 'Message actions'
+                                Other, 0x10468c4a0, {{0.0, 155.7}, {402.0, 43.0}}
+                                Other, 0x10468c5c0, {{13.3, 157.7}, {366.7, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo'
+                                  StaticText, 0x10468c6e0, {{13.3, 160.7}, {34.7, 26.3}}, label: '11:01 PM'
+                                  StaticText, 0x10468c800, {{58.0, 157.7}, {173.0, 39.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.body.block0', label: 't636 ship-shaped query t48r1refused1793718067'
+                                  Button, 0x10468c920, {{352.0, 157.7}, {28.0, 28.0}}, identifier: 'post.qtjpbmq1gi8xfbfauhbayow6bo.menu', label: 'Message actions'
+                                Other, 0x10468ca40, {{0.0, 198.7}, {402.0, 43.0}}
+                                Other, 0x10468cb60, {{18.7, 200.7}, {361.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro'
+                                  StaticText, 0x10468cc80, {{18.7, 203.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x10468cda0, {{58.0, 200.7}, {170.3, 39.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.body.block0', label: 't636 ship-shaped query t48r1saved1793718155'
+                                  Button, 0x10468cec0, {{352.0, 200.7}, {28.0, 28.0}}, identifier: 'post.i493xuyzo3rrikyk8yax4jizro.menu', label: 'Message actions'
+                                Other, 0x10468cfe0, {{0.0, 241.7}, {402.0, 43.0}}
+                                Other, 0x10468d100, {{18.7, 243.7}, {361.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o'
+                                  StaticText, 0x10468d220, {{18.7, 246.7}, {29.3, 26.3}}, label: '11:03 PM'
+                                  StaticText, 0x10468d340, {{58.0, 243.7}, {170.3, 39.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.body.block0', label: 't636 ship-shaped query t636options1793718192'
+                                  Button, 0x10468d460, {{352.0, 243.7}, {28.0, 28.0}}, identifier: 'post.pepgpn7oo7ymireb7q16ozdk6o.menu', label: 'Message actions'
+                                Other, 0x10468d580, {{0.0, 284.7}, {402.0, 43.0}}
+                                Other, 0x10468d7f0, {{12.3, 286.7}, {367.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo'
+                                  StaticText, 0x10468d910, {{12.3, 289.7}, {35.7, 26.3}}, label: '11:07 PM'
+                                  StaticText, 0x10468da30, {{58.0, 286.7}, {173.7, 39.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.body.block0', label: 't636 ship-shaped query t48r1refused1793718426'
+                                  Button, 0x10468db50, {{352.0, 286.7}, {28.0, 28.0}}, identifier: 'post.suu3d96etfyx3e8f1dt5q8teyo.menu', label: 'Message actions'
+                                Other, 0x10468dc70, {{0.0, 327.7}, {402.0, 43.0}}
+                                Other, 0x10468dd90, {{18.3, 329.7}, {361.7, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo'
+                                  StaticText, 0x1047364c0, {{18.3, 332.7}, {29.7, 26.3}}, label: '11:08 PM'
+                                  StaticText, 0x10468deb0, {{58.0, 329.7}, {170.3, 39.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.body.block0', label: 't636 ship-shaped query t636options1793718498'
+                                  Button, 0x10468dfd0, {{352.0, 329.7}, {28.0, 28.0}}, identifier: 'post.z8nzg1akpbra5ese8uo7oxhupo.menu', label: 'Message actions'
+                                Other, 0x10468e0f0, {{0.0, 370.7}, {402.0, 43.0}}
+                                Other, 0x10468e210, {{15.3, 372.7}, {364.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo'
+                                  StaticText, 0x10468e330, {{15.3, 375.7}, {32.7, 26.3}}, label: '11:11 PM'
+                                  StaticText, 0x10468e450, {{58.0, 372.7}, {173.7, 39.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.body.block0', label: 't636 ship-shaped query t48r1refused1793718645'
+                                  Button, 0x10468e570, {{352.0, 372.7}, {28.0, 28.0}}, identifier: 'post.f7xpg8ecijbg9y93qqdiyjaquo.menu', label: 'Message actions'
+                                Other, 0x10468e690, {{0.0, 413.7}, {402.0, 43.0}}
+                                Other, 0x10468e7b0, {{13.7, 415.7}, {366.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw'
+                                  StaticText, 0x10468e8d0, {{13.7, 418.7}, {34.3, 26.3}}, label: '11:12 PM'
+                                  StaticText, 0x10468e9f0, {{58.0, 415.7}, {170.3, 39.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.body.block0', label: 't636 ship-shaped query t48r1refused1793718710'
+                                  Button, 0x10468eb10, {{352.0, 415.7}, {28.0, 28.0}}, identifier: 'post.fhckfo9rgt8etrqkosyya7tfbw.menu', label: 'Message actions'
+                                Other, 0x10468ec30, {{0.0, 456.7}, {402.0, 43.0}}
+                                Other, 0x10468ed50, {{13.3, 458.7}, {366.7, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic'
+                                  StaticText, 0x10468ee70, {{13.3, 461.7}, {34.7, 26.3}}, label: '11:13 PM'
+                                  StaticText, 0x10468ef90, {{58.0, 458.7}, {170.3, 39.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.body.block0', label: 't636 ship-shaped query t48r1saved1793718792'
+                                  Button, 0x10468f0b0, {{352.0, 458.7}, {28.0, 28.0}}, identifier: 'post.majueux8sb8duqx7m7fjenu9ic.menu', label: 'Message actions'
+                                Other, 0x10468f1d0, {{0.0, 499.7}, {402.0, 43.0}}
+                                Other, 0x10468f2f0, {{13.3, 501.7}, {366.7, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha'
+                                  StaticText, 0x10468f410, {{13.3, 504.7}, {34.7, 26.3}}, label: '11:14 PM'
+                                  StaticText, 0x10468f530, {{58.0, 501.7}, {170.3, 39.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.body.block0', label: 't636 ship-shaped query t636options1793718830'
+                                  Button, 0x10468f650, {{352.0, 501.7}, {28.0, 28.0}}, identifier: 'post.gbimewy6kj8pijktpko7ghriha.menu', label: 'Message actions'
+                                Other, 0x10468f770, {{0.0, 542.7}, {402.0, 43.0}}
+                                Other, 0x10468f890, {{13.3, 544.7}, {366.7, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy'
+                                  StaticText, 0x10468f9b0, {{13.3, 547.7}, {34.7, 26.3}}, label: '11:18 PM'
+                                  StaticText, 0x10468fad0, {{58.0, 544.7}, {168.0, 39.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.body.block0', label: 't48 lookup menu t48r1pinned1793719095'
+                                  Button, 0x10468fbf0, {{352.0, 544.7}, {28.0, 28.0}}, identifier: 'post.h6mntqtsc3dh5dtc47uuzko7fy.menu', label: 'Message actions'
+                                Other, 0x10468fd10, {{0.0, 585.7}, {402.0, 43.0}}
+                                Other, 0x10468fe30, {{13.3, 587.7}, {366.7, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y'
+                                  StaticText, 0x10468ff50, {{13.3, 590.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x104690070, {{58.0, 587.7}, {170.3, 39.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.body.block0', label: 't636 ship-shaped query t48r1saved1793719139'
+                                  Button, 0x104690190, {{352.0, 587.7}, {28.0, 28.0}}, identifier: 'post.xxz5htng8f8fx86abfbosykd9y.menu', label: 'Message actions'
+                                Other, 0x1046902b0, {{0.0, 628.7}, {402.0, 43.0}}
+                                Other, 0x10468d6a0, {{13.3, 630.7}, {366.7, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w'
+                                  StaticText, 0x1046905f0, {{13.3, 633.7}, {34.7, 26.3}}, label: '11:19 PM'
+                                  StaticText, 0x104690710, {{58.0, 630.7}, {170.3, 39.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.body.block0', label: 't636 ship-shaped query t636options1793719159'
+                                  Button, 0x104690830, {{352.0, 630.7}, {28.0, 28.0}}, identifier: 'post.mzkucoqcdbn6ir5r6kgnpdeb7w.menu', label: 'Message actions'
+                              Other, 0x104690b50, {{201.0, -2094.3}, {0.0, 0.0}}
+                            Other, 0x104690c70, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x104690d90, {{396.0, 595.7}, {3.0, 85.0}}
+                            Other, 0x104690eb0, {{369.0, 194.3}, {30.0, 489.3}}, label: 'Vertical scroll bar, 6 pages', value: 100%
+                              Other, 0x104690fd0, {{396.0, 595.7}, {3.0, 85.0}}
+                          Other, 0x1046910f0, {{0.0, 684.0}, {402.0, 190.0}}, identifier: 'channelComposer'
+                            Button, 0x104691210, {{10.0, 808.3}, {22.0, 22.0}}, identifier: 'channelComposer.attach', label: 'Add an attachment'
+                            Button, 0x104691330, {{42.0, 809.7}, {21.0, 21.0}}, identifier: 'channelComposer.emoji', label: 'Add emoji'
+                            StaticText, 0x104691450, {{73.0, 698.0}, {68.7, 20.3}}, label: 'Message'
+                            TextView, 0x104691570, {{71.0, 692.0}, {254.3, 140.0}}, identifier: 'channelComposer.input', label: 'Message'
+                              Other, 0x104691690, {{292.3, 692.0}, {30.0, 140.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                                Other, 0x1046917b0, {{319.3, 695.0}, {3.0, 134.0}}
+                              Other, 0x1046918d0, {{71.0, 799.0}, {254.3, 30.0}}, label: 'Horizontal scroll bar, 1 page', value: 0%
+                                Other, 0x1046919f0, {{74.0, 826.0}, {248.3, 3.0}}
+                            Button, 0x104691b10, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'channelComposer.menu', label: 'Formatting and preview'
+                              Button, 0x104691c30, {{331.3, 806.7}, {26.0, 25.3}}
+                                Other, 0x104691d50, {{331.3, 806.7}, {26.0, 25.3}}
+                                  Image, 0x104691e70, {{331.3, 806.7}, {26.0, 25.3}}, identifier: 'ellipsis.circle', label: 'More'
+                            Button, 0x104691f90, {{365.7, 804.3}, {26.0, 26.0}}, identifier: 'channelComposer.send', label: 'Send', Disabled
+    Window, 0x1046920b0, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x1046921d0, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x1046922f0, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x104692410, {{0.0, 874.0}, {402.0, 233.0}}
+Path to element:
+ →Application, 0x1047271e0, pid: 97094, label: 'Mattermost'
+Query chain:
+ →Find: Target Application 'com.mattermost.ios'
+  Output: {
+    Application, 0x104725600, pid: 97094, label: 'Mattermost'
+  }
+
+    t =    51.99s Tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    51.99s     Wait for com.mattermost.ios to idle
+    t =    52.00s     Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any
+    t =    53.26s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 1)
+    t =    54.56s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any (retry 2)
+    t =    54.81s Requesting snapshot of accessibility hierarchy for app with pid 97094
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/T36-ThreadsUITests.swift:819: error: -[MattermostUITests.T36ThreadsUITests testTheUnreadThreadStateIsTheServers] : Failed to tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" IN identifiers'`, given input App element pid: 97094
+    t =    54.92s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheUnreadThreadStateIsTheServers]' failed (55.141 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread]' started.
+    t =     0.00s Start Test at 2026-11-04 05:53:45.495
+    t =     0.03s Set Up
+    t =     0.52s Open com.mattermost.ios
+    t =     0.53s     Launch com.mattermost.ios
+    t =     0.53s         Terminate com.mattermost.ios:97094
+2026-11-04 05:53:47.075 xcodebuild[96491:43857072] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 05:53:47.076 xcodebuild[96491:43857072] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.01s         Setting up automation session
+    t =     2.96s         Wait for com.mattermost.ios to idle
+    t =     4.53s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.57s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.57s         Checking existence of `"loginIDField" TextField`
+    t =     5.78s Tap "loginIDField" TextField
+    t =     5.78s     Wait for com.mattermost.ios to idle
+    t =     5.78s     Find the "loginIDField" TextField
+    t =     5.81s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.83s     Synthesize event
+    t =     6.13s     Wait for com.mattermost.ios to idle
+    t =     6.34s Type 'perfprobe' into "loginIDField" TextField
+    t =     6.34s     Wait for com.mattermost.ios to idle
+    t =     6.37s     Find the "loginIDField" TextField
+    t =     6.40s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.42s     Synthesize event
+    t =     6.78s     Wait for com.mattermost.ios to idle
+    t =     7.01s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     7.05s Tap "loginPasswordField" SecureTextField
+    t =     7.05s     Wait for com.mattermost.ios to idle
+    t =     7.05s     Find the "loginPasswordField" SecureTextField
+    t =     7.12s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.15s     Synthesize event
+    t =     7.43s     Wait for com.mattermost.ios to idle
+    t =     7.86s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.86s     Wait for com.mattermost.ios to idle
+    t =     7.86s     Find the "loginPasswordField" SecureTextField
+    t =     7.90s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.93s     Synthesize event
+    t =     8.62s     Wait for com.mattermost.ios to idle
+    t =     8.62s Tap "loginSubmitButton" Button
+    t =     8.62s     Wait for com.mattermost.ios to idle
+    t =     8.62s     Find the "loginSubmitButton" Button
+    t =     8.65s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.68s     Synthesize event
+    t =     8.97s     Wait for com.mattermost.ios to idle
+    t =     9.36s Checking existence of `"loginIDField" TextField`
+    t =     9.45s Checking existence of `"nativeShell" Other`
+    t =     9.70s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =     9.74s Checking existence of `"channelSidebar.scroll" Any`
+    t =     9.82s Checking existence of `"channelSidebar.scroll" Any`
+    t =     9.90s Checking existence of `"channelSidebar.scroll" Any`
+    t =     9.99s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.65s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    10.73s Swipe up "channelSidebar.scroll" Any
+    t =    10.73s     Wait for com.mattermost.ios to idle
+    t =    10.90s     Find the "channelSidebar.scroll" Any
+    t =    12.23s         Find the "channelSidebar.scroll" Any (retry 1)
+    t =    13.50s         Find the "channelSidebar.scroll" Any (retry 2)
+    t =    13.86s Requesting snapshot of accessibility hierarchy for app with pid 97401
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-pub/MattermostUITests/ShellSettle.swift:222: error: -[MattermostUITests.T36ThreadsUITests testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread] : Failed to swipe up "channelSidebar.scroll" Any: No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate '"channelSidebar.scroll" IN identifiers'`, given input App element pid: 97401
+    t =    13.98s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread]' failed (14.195 seconds).
+Test Suite 'T36ThreadsUITests' failed at 2026-11-04 05:53:59.691.
+	 Executed 5 tests, with 7 failures (0 unexpected) in 153.395 (153.399) seconds
+Test Suite 'MattermostUITests.xctest' failed at 2026-11-04 05:53:59.692.
+	 Executed 5 tests, with 7 failures (0 unexpected) in 153.395 (153.400) seconds
+Test Suite 'Selected tests' failed at 2026-11-04 05:53:59.692.
+	 Executed 5 tests, with 7 failures (0 unexpected) in 153.395 (153.402) seconds
+2026-11-04 05:54:21.260 xcodebuild[96491:43857072] [MT] IDETestOperationsObserverDebug: 178.408 elapsed -- Testing started completed.
+2026-11-04 05:54:21.260 xcodebuild[96491:43857072] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-04 05:54:21.260 xcodebuild[96491:43857072] [MT] IDETestOperationsObserverDebug: 178.408 sec, +178.408 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/TestResults/t941-t36-pub4-bf7ee0.xcresult
+
+Failing tests:
+	T36ThreadsUITests.testFollowPersistsAndTheFollowedThreadsListPages()
+	T36ThreadsUITests.testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies()
+	T36ThreadsUITests.testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply()
+	T36ThreadsUITests.testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply()
+	T36ThreadsUITests.testTheUnreadThreadStateIsTheServers()
+	T36ThreadsUITests.testTheUnreadThreadStateIsTheServers()
+	T36ThreadsUITests.testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread()
+
+** TEST FAILED **
+
+Testing started
