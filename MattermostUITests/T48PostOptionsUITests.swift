@@ -255,12 +255,14 @@ final class T48PostOptionsUITests: XCTestCase {
         }, "post_edited must turn the open sheet's Pin into Unpin:\n\(app.debugDescription)")
 
         // …and this reader's own preference, written from another session, turns Save into Remove.
+        //
+        // This hop was the card's known gap (t_fddfb0d5): it stayed red while the pin hop above was
+        // green, because `preferences_changed` carries `data.preferences` as a **JSON string** and the
+        // decoder guarded on `arrayValue` — the frame was dropped, so the model's `.preferencesChanged`
+        // branch was unreachable against a live server (T48-AV §F2). The decoder now accepts both
+        // shapes (MattermostTests/T48PreferencesSocketTests feeds this exact wire form), and the
+        // expectation wrapper that recorded the gap is gone: the assertion is the product's again.
         try saveViaAPI(postID)
-        // Known gap, measured live: the pin→Unpin hop above lands, the save hop does not — the open
-        // sheet keeps offering Save after the server holds the flag, so the model's
-        // `.preferencesChanged` branch is not reaching this menu on 9.11.19. Tracked as an expected
-        // failure rather than deleted, so the gap stays visible and the fix has a test to flip.
-        XCTExpectFailure("T48 gap: a second session's save does not move the open menu (socket)")
         XCTAssertTrue(waitUntil(timeout: 40) {
             self.revealOption(app, "postOptions.unsave").exists
         }, "preferences_changed must turn the open sheet's Save into Remove from saved:\n"

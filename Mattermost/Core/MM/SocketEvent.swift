@@ -416,13 +416,11 @@ enum SocketEvent: Equatable, Sendable {
                 userID: frame.data?["user_id"]?.stringValue ?? "",
                 status: frame.data?["status"]?.stringValue ?? ""))
         case "preferences_changed":
-            guard let raw = frame.data?["preferences"], let value = raw.arrayValue else { return nil }
-            let preferences = value.compactMap { try? MMRawJSON($0).decode(MMPreference.self) }
+            guard let preferences = Self.preferences(from: frame.data) else { return nil }
             self = .preferencesChanged(preferences)
         case "preferences_deleted":
             // Measured (T48): the unsave direction is its own frame name, with the same array shape.
-            guard let raw = frame.data?["preferences"], let value = raw.arrayValue else { return nil }
-            let preferences = value.compactMap { try? MMRawJSON($0).decode(MMPreference.self) }
+            guard let preferences = Self.preferences(from: frame.data) else { return nil }
             self = .preferencesDeleted(preferences)
         case "user_updated":
             guard let raw = frame.data?["user"],
@@ -536,6 +534,22 @@ enum SocketEvent: Equatable, Sendable {
                 self = .unhandled(name: name)
             }
         }
+    }
+
+    /// `data.preferences` → the preference rows, in either wire shape.
+    ///
+    /// Measured on 9.11.19 (T48-AV §F2, `scripts/t48_av_probe.py`): `preferences_changed` and
+    /// `preferences_deleted` carry the list as a **JSON string** — `preferences_type: "str"`,
+    /// `data.preferences == "[{\"user_id\":…,\"category\":\"flagged_post\",…}]"` — not as a JSON
+    /// array. The previous `arrayValue` guard was nil for a string, so every live preference frame
+    /// was dropped before it existed as an event: the menu's Save→Remove hop never landed while the
+    /// pin hop (a `post_edited` object payload) did. Both shapes are accepted here; a frame whose
+    /// payload is neither is still dropped.
+    private static func preferences(from data: MMRawJSON?) -> [MMPreference]? {
+        guard let raw = data?["preferences"] else { return nil }
+        // `jsonStringOrObject` already parses the escaping string form used by `posted` /
+        // `reaction_added` / `updatedCategories`, which is the same shape the preference frames use.
+        return try? jsonStringOrObject(raw).decode([MMPreference].self)
     }
 
     /// A payload that may be a JSON **string** (the escaping `posted`/`reaction_added`/`category`
