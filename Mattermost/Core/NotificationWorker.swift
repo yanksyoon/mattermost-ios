@@ -121,6 +121,25 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         authorizationStatus = await scheduling.authorizationStatus()
     }
 
+    /// Ask for notification authorization exactly once per install, and report the answer.
+    ///
+    /// This is the first-mention prompt T8 specifies. It is a method of its own because T54's in-app
+    /// banner is a delivery that schedules nothing: the banner path still has to ask, or an install whose
+    /// mentions all arrive in the foreground would never be authorized and its first *backgrounded* mention
+    /// would be dropped by `.authorizationNotDetermined` (and written to the ledger as handled).
+    @discardableResult
+    func prepareAuthorization() async -> UNAuthorizationStatus {
+        let statusBefore = await scheduling.authorizationStatus()
+        if statusBefore == .notDetermined && !hasRequestedAuthorization {
+            hasRequestedAuthorization = true
+            preferences.set(true, forKey: AppPreferences.Keys.notificationPermissionRequested)
+            _ = try? await scheduling.requestAuthorization(options: [.alert, .sound, .badge])
+        }
+        let status = await scheduling.authorizationStatus()
+        authorizationStatus = status
+        return status
+    }
+
     // MARK: - Mention -> UNNotificationRequest (desktop displayMention)
 
     /// Handle one `notify_mention` bridge event. Returns the scheduling outcome for tests /
@@ -158,13 +177,7 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
 
         // First mention -> ask once, and only when the OS hasn't already decided (task T8 spec:
         // request permission on first mention; never re-prompt an already-granted/denied state).
-        let statusBefore = await scheduling.authorizationStatus()
-        if statusBefore == .notDetermined && !hasRequestedAuthorization {
-            hasRequestedAuthorization = true
-            preferences.set(true, forKey: AppPreferences.Keys.notificationPermissionRequested)
-            _ = try? await scheduling.requestAuthorization(options: [.alert, .sound, .badge])
-        }
-        switch await scheduling.authorizationStatus() {
+        switch await prepareAuthorization() {
         case .authorized, .provisional, .ephemeral:
             break
         case .denied:

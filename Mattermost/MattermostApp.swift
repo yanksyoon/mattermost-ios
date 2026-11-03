@@ -72,6 +72,10 @@ struct MattermostApp: App {
     /// the badge hand-off. Owned here for the same reason every coordinator above is: it is fed by the
     /// rail's single socket, which no view can subscribe to, and it must outlive a view re-creation.
     @StateObject private var notificationFeed: NativeNotificationFeed
+    /// T54: the app's one in-app mention banner slot (inventory S25). App-scoped because a mention can
+    /// arrive while any screen — or none — is on screen, and `RootView` mounts the slot above the whole
+    /// navigation stack; it holds at most the banner currently visible, never a notification ledger.
+    @StateObject private var mentionBanner: InAppMentionBannerCenter
     /// T44d: the calls surface's owner — the "is there a call here" fact the channel header renders,
     /// and the one live call's model. App-scoped because a rotation, a channel switch or a sheet must
     /// not drop a call, and because the transport it uses is the rail's single socket per server.
@@ -210,6 +214,25 @@ struct MattermostApp: App {
         // store seams are bound in `bindShellStores()`.
         _notificationPath = StateObject(wrappedValue: NotificationPathStore())
         _notificationFeed = StateObject(wrappedValue: NativeNotificationFeed())
+        // T54: the one in-app banner slot. Created here (not in a view) because a mention can arrive while
+        // no shell view is on screen — a pushed channel, a sheet, a background fetch finishing as the app
+        // foregrounds — and `RootView` mounts the slot over the whole navigation stack. Its `onOpen` funnel
+        // is bound in `bindShellStores()` for the same `@StateObject` reason as every other owner here.
+        _mentionBanner = StateObject(wrappedValue: {
+            let center = InAppMentionBannerCenter()
+            #if DEBUG
+            // UI-test seam: `-uiTestBannerDuration <seconds>` widens (or shortens) how long a banner stays.
+            // A live test has to interact with the banner — type into the composer, then tap it — and the
+            // shipping six seconds are not a reliable window on a loaded simulator. The bound itself is
+            // unit-tested (`testTheBannerHidesItselfAfterABoundedTime`); this only moves the window.
+            if let idx = args.firstIndex(of: "-uiTestBannerDuration"),
+               args.indices.contains(idx + 1),
+               let seconds = Double(args[idx + 1]) {
+                center.visibleDuration = seconds
+            }
+            #endif
+            return center
+        }())
         // T44d: the calls surface's owner, bound in `bindShellStores()` like the rest.
         _callsCoordinator = StateObject(wrappedValue: CallsCoordinator())
         #if DEBUG
@@ -357,6 +380,8 @@ struct MattermostApp: App {
                 // input is live) and the native input's own read-out (last mention, delivered/dropped).
                 .environmentObject(notificationPath)
                 .environmentObject(notificationFeed)
+                // T54: the one in-app banner slot; `RootView` mounts it over the whole navigation stack.
+                .environmentObject(mentionBanner)
                 .environmentObject(callsCoordinator)
                 // T31: the SSO hand-off mounts the server's existing webview inside a sheet, so the
                 // store owner has to be reachable from the environment too (the pane's web branch
@@ -597,7 +622,7 @@ struct MattermostApp: App {
         // T43: the native mention input. It resolves the same session every other native service does
         // (per call, so a service built before the session restored is not permanently signed out), is fed
         // by the rail's single socket below, and shares **one** high-water mark with the T14 poller.
-        notificationFeed.bind(serverStore: serverStore, sessionStore: sessionStore)
+        notificationFeed.bind(serverStore: serverStore, sessionStore: sessionStore, viewStore: viewStore)
         // T44d: the calls surface resolves its service from the same session, sends and reads on the
         // rail's **one** socket per server (never a second connection), and is fed by the rail below.
         callsCoordinator.bind(auth: authCoordinator, serverStore: serverStore)
@@ -624,12 +649,36 @@ struct MattermostApp: App {
             .sink { mode in NotificationInputRouting.shared.setMode(mode) }
         // The worker's foreground rule compares the channel on screen, when the shell can say which one it
         // is. A webview-rendered pane answers `.unknown`, which keeps T8's whole-server rule for Path A.
-        notificationWorker.visibleChannel = { [weak nativeNavigation] serverID -> VisibleChannel in
+        let visibleChannel: (UUID) -> VisibleChannel = { [weak nativeNavigation] serverID -> VisibleChannel in
             guard let nativeNavigation, nativeNavigation.acceptsNativeRouting else { return .unknown }
             let location = nativeNavigation.location
             guard location.serverID == serverID else { return .noChannel }
             guard let channelID = location.channelID, !channelID.isEmpty else { return .noChannel }
             return .channel(channelID)
+        }
+        notificationWorker.visibleChannel = visibleChannel
+        // T54: the in-app banner reads the **same** answer, so the system path and the in-app path cannot
+        // disagree about "the conversation the reader is looking at" (that is the whole reason one surface
+        // can suppress where the other notifies). The app-active reading is shared the same way.
+        let appIsActive: () -> Bool = { UIApplication.shared.applicationState == .active }
+        notificationFeed.visibleChannel = visibleChannel
+        notificationFeed.isAppActive = appIsActive
+        notificationWorker.isAppActive = appIsActive
+        notificationFeed.bannerCenter = mentionBanner
+        // A banner schedules nothing, but the first-mention permission prompt still has to happen (T8):
+        // otherwise an install whose mentions are all foreground would never be authorized, and its first
+        // backgrounded mention would be dropped. Same object, same once-per-install rule.
+        let worker = notificationWorker
+        notificationFeed.askForNotificationPermission = { await worker.prepareAuthorization() }
+        // The banner's tap goes through the **same funnel** a system-notification tap uses
+        // (`NativeNavigation.routeMention`), post id included, so a banner lands on the message that named
+        // the reader — a channel route with the post focused.
+        let navigation = nativeNavigation
+        mentionBanner.onOpen = { banner in
+            navigation.routeMention(serverID: banner.serverID,
+                                    channelID: banner.channelID,
+                                    teamID: banner.teamID,
+                                    postID: banner.postID)
         }
         teamSidebarCoordinator.onTeamEvent = { [weak channelSidebarCoordinator, weak channelPaneCoordinator,
                                                 weak threadCoordinator, weak searchCoordinator,

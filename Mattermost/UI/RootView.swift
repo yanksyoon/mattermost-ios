@@ -24,6 +24,10 @@ struct RootView: View {
     /// compact layout pushes onto (a channel view is a push on a phone, a detail column on a wide
     /// layout — see `NativeShellView`'s layout decision).
     @EnvironmentObject private var navigation: NativeNavigation
+    /// T54: the app's one in-app mention banner slot (owned by `MattermostApp`). The banner is mounted by
+    /// this view because this is the only view above every layout — the compact push and the regular split
+    /// view are both inside its `NavigationStack`.
+    @EnvironmentObject private var mentionBanner: InAppMentionBannerCenter
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
 
@@ -333,6 +337,12 @@ struct RootView: View {
                 }
             }
         }
+        // T54: the one in-app mention banner, mounted **above the whole navigation stack** — not inside a
+        // screen. That is what makes it reachable from the sidebar, from a pushed channel and from either
+        // layout: a compact push and a regular split view are both inside this stack. Applied outside the
+        // stack's content so a pushed pane cannot cover it; the host adds no view (and no hit-test area)
+        // while no mention is showing.
+        .inAppMentionBanner(mentionBanner)
     }
 
     // MARK: Scenes

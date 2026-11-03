@@ -84,7 +84,8 @@ struct NotificationInputSection: View {
                 }
                 .accessibilityIdentifier("notificationPath.lastMention")
                 .accessibilityValue("post=\(record.postID) channel=\(record.channelID) "
-                                    + "outcome=\(record.outcome)")
+                                    + "outcome=\(record.outcome) "
+                                    + "surface=\(record.surface.isEmpty ? "none" : record.surface)")
             } else {
                 Text("No mention has arrived over the socket since launch.")
                     .font(.caption)

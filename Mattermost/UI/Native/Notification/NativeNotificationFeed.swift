@@ -28,6 +28,7 @@
 
 import Foundation
 import Combine
+import UIKit
 
 @MainActor
 final class NativeNotificationFeed: ObservableObject {
@@ -46,6 +47,9 @@ final class NativeNotificationFeed: ObservableObject {
         var outcome: String
         var delivered: Bool
         var at: Date
+        /// T54: which surface showed it — "in-app banner" or "system notification". Empty for a drop, so
+        /// the read-out can say *where* a delivered mention went instead of only that one was delivered.
+        var surface: String = ""
         var id: String { postID }
     }
 
@@ -55,6 +59,11 @@ final class NativeNotificationFeed: ObservableObject {
 
     weak var serverStore: ServerStore?
     weak var sessionStore: SessionStore?
+    /// T54: the shell's active server, for the presentation decision's "is anything of this mention's
+    /// server on screen" question. Optional: a feed built without one simply never treats a mention's
+    /// server as primary, which answers "show the banner" — the visible-surface decision is then made by
+    /// `visibleChannel` alone.
+    weak var viewStore: ViewStore?
 
     /// The arbitration state both inputs read (mode, per-server socket liveness, counters).
     let routing: NotificationInputRouting
@@ -64,6 +73,25 @@ final class NativeNotificationFeed: ObservableObject {
     /// Test seams, in the shape the rest of the shell uses (`serviceFactory` / injected delivery).
     var serviceFactory: ((ServerConfig) -> ActivityServing)?
     var deliverMention: ((MentionNotification, UUID) async -> NotificationWorker.PresentOutcome)?
+
+    /// T54: the app's one in-app banner slot. **`nil` means "this process has no in-app surface"**, and
+    /// then the feed behaves exactly as it did before T54: every delivered mention goes to
+    /// `NotificationWorker`. That is the unit-test host and any shell that has not mounted a banner — the
+    /// app always installs one (`MattermostApp.bindShellStores`).
+    weak var bannerCenter: InAppMentionBannerCenter?
+
+    /// The channel on screen for a server — the **same** closure `NotificationWorker.visibleChannel` reads,
+    /// installed once by `MattermostApp`, so the two surfaces cannot disagree about it.
+    var visibleChannel: (@MainActor (UUID) -> VisibleChannel)?
+
+    /// Whether the app is foreground. Same closure the worker uses (`NotificationWorker.isAppActive`).
+    var isAppActive: () -> Bool = { UIApplication.shared.applicationState == .active }
+
+    /// T54: ask for notification permission the way the first *system* mention would, without scheduling
+    /// anything. A banner needs no permission, but if every mention a reader ever receives is foreground
+    /// the OS prompt would never be asked — and the first backgrounded mention would then be dropped
+    /// undelivered. Calling this on the banner path keeps T8's "asked once, on the first mention" promise.
+    var askForNotificationPermission: (@MainActor () async -> Void)?
 
     /// Injectable clock so a record's timestamp is assertable.
     var now: () -> Date = Date.init
@@ -90,9 +118,10 @@ final class NativeNotificationFeed: ObservableObject {
     // MARK: - Wiring
 
     /// The app's binding point (idempotent, called from `MattermostApp.bindShellStores`).
-    func bind(serverStore: ServerStore?, sessionStore: SessionStore?) {
+    func bind(serverStore: ServerStore?, sessionStore: SessionStore?, viewStore: ViewStore? = nil) {
         self.serverStore = serverStore
         self.sessionStore = sessionStore
+        self.viewStore = viewStore
     }
 
     /// The rail's pump reporting its own lifetime. Under `.socket` mode a live pump is what makes this
@@ -224,35 +253,113 @@ final class NativeNotificationFeed: ObservableObject {
                 teamID: channel.teamId,
                 serverURL: server.url.absoluteString,
                 silent: silent)
-            let outcome = await deliver(mention, serverID: server.id)
-            // Record the attempt whatever the outcome, the poller's rule: a denied permission must not be
-            // retried on every message, and the ring is "already handled", not "already shown".
+
+            // **T54: one decision, two presentations.**
             //
-            // T43-R (F1): this is the **only** place the socket input writes the ring, and it is written
-            // by the delivery that actually happened — which is what makes the ledger honest for the
-            // poller that reads it.
-            ledger.observe(postID: post.id, createAt: post.createAt, for: server.id)
-            switch outcome {
-            case .scheduled:
+            // The `decision` above is the only mention rule in the app. This second, smaller decision asks
+            // *where* to show it, from facts about what the reader is looking at. With no banner surface in
+            // the process (`bannerCenter == nil` — a unit host, or a shell that has not mounted one) the
+            // answer is the pre-T54 one: hand it to `NotificationWorker`.
+            let bannerCenter = self.bannerCenter
+            let presentation = bannerCenter == nil
+                ? MentionPresentation.systemNotification(silent: silent)
+                : MentionPresentationPolicy.presentation(for: decision,
+                                                         channelID: post.channelId,
+                                                         surface: surfaceContext(for: server))
+            switch presentation {
+            case .inAppBanner:
+                // The in-app surface. The ledger is written by the surface that **did** show it (T43-R F1),
+                // which is what stops the T14 poll from turning the same post into a second banner.
+                ledger.observe(postID: post.id, createAt: post.createAt, for: server.id)
+                let banner = MentionBanner(serverID: server.id,
+                                           serverName: server.name,
+                                           teamID: channel.teamId,
+                                           channelID: post.channelId,
+                                           channelLabel: channel.displayName,
+                                           postID: post.id,
+                                           author: username,
+                                           body: mention.body,
+                                           silent: silent,
+                                           receivedAt: now())
+                let shown = bannerCenter?.present(banner) ?? .ignoredIncomplete
+                let refusal = "the in-app banner refused it (" + shown.label + ")"
                 record(Record(postID: post.id, channelID: post.channelId,
                               channelLabel: channel.displayName, serverID: server.id,
                               serverName: server.name, title: mention.title, body: mention.body,
-                              outcome: "delivered", delivered: true, at: now()),
-                       delivered: true, reason: nil)
-            case .notSent(let reason):
-                let label = Self.label(for: reason)
+                              outcome: shown == .ignoredIncomplete ? refusal : "delivered",
+                              delivered: shown != .ignoredIncomplete, at: now(),
+                              surface: "in-app banner"),
+                       delivered: shown != .ignoredIncomplete,
+                       reason: shown == .ignoredIncomplete ? shown.label : nil)
+                if shown != .ignoredIncomplete { scheduleBadgeRefresh(server: server) }
+
+                // T8's once-per-install permission prompt still has to happen (a banner needs none, but the
+                // first *backgrounded* mention would otherwise be dropped), and it must **not** gate the
+                // banner: `requestAuthorization` suspends until the reader answers the modal system alert.
+                // Awaiting it here held the first mention's banner back for as long as the alert was up —
+                // measured on the live run (the app sat behind the alert with no `mentionBanner` element for
+                // the whole 45 s wait, while later runs with the permission already answered showed it at
+                // once). So the ask is fired *after* the banner is on screen, off the delivery path.
+                if let askForNotificationPermission {
+                    Task { await askForNotificationPermission() }
+                }
+
+            case .suppressed(let block):
+                // Both surfaces are the wrong answer: this is the conversation on screen (or, in Path A, the
+                // page owns it). T43's rule is kept verbatim — the drop is recorded, and the post counts as
+                // handled, because the worker's own `viewShouldNotNotify` denial used to write the ring for
+                // exactly the same reason.
+                ledger.observe(postID: post.id, createAt: post.createAt, for: server.id)
                 record(Record(postID: post.id, channelID: post.channelId,
                               channelLabel: channel.displayName, serverID: server.id,
-                              serverName: server.name, title: mention.title, body: mention.body,
-                              outcome: label, delivered: false, at: now()),
-                       delivered: false, reason: label)
+                              serverName: server.name, title: "", body: "",
+                              outcome: block.label, delivered: false, at: now()),
+                       delivered: false, reason: block.label)
+
+            case .systemNotification:
+                let outcome = await deliver(mention, serverID: server.id)
+                // Record the attempt whatever the outcome, the poller's rule: a denied permission must not be
+                // retried on every message, and the ring is "already handled", not "already shown".
+                //
+                // T43-R (F1): this is the **only** place the socket input writes the ring, and it is written
+                // by the delivery that actually happened — which is what makes the ledger honest for the
+                // poller that reads it.
+                ledger.observe(postID: post.id, createAt: post.createAt, for: server.id)
+                switch outcome {
+                case .scheduled:
+                    record(Record(postID: post.id, channelID: post.channelId,
+                                  channelLabel: channel.displayName, serverID: server.id,
+                                  serverName: server.name, title: mention.title, body: mention.body,
+                                  outcome: "delivered", delivered: true, at: now(),
+                                  surface: "system notification"),
+                           delivered: true, reason: nil)
+                case .notSent(let reason):
+                    let label = Self.label(for: reason)
+                    record(Record(postID: post.id, channelID: post.channelId,
+                                  channelLabel: channel.displayName, serverID: server.id,
+                                  serverName: server.name, title: mention.title, body: mention.body,
+                                  outcome: label, delivered: false, at: now()),
+                           delivered: false, reason: label)
+                }
+                // The badge follows the same server counters the poller reads (never a local increment).
+                scheduleBadgeRefresh(server: server)
             }
-            // The badge follows the same server counters the poller reads (never a local increment).
-            scheduleBadgeRefresh(server: server)
         }
     }
 
     // MARK: - Badge
+
+    /// What the shell is showing for a server, in the terms `MentionPresentationPolicy` reads.
+    ///
+    /// Both facts come from the shell's own objects, never from a guess: the primary server is the
+    /// `ViewStore`'s (the same value the notification worker compares against), and the conversation on
+    /// screen is the closure `MattermostApp` installs on **both** this feed and the worker.
+    private func surfaceContext(for server: ServerConfig) -> MentionSurfaceContext {
+        let primary = viewStore?.primaryServerID ?? serverStore?.activeServerID
+        return MentionSurfaceContext(appIsActive: isAppActive(),
+                                     isPrimaryServer: primary == server.id,
+                                     onScreen: visibleChannel?(server.id) ?? .unknown)
+    }
 
     /// One `GET /users/me/teams/unread` per burst, applied through `SessionStore`'s single arithmetic.
     private func scheduleBadgeRefresh(server: ServerConfig) {
