@@ -227,7 +227,7 @@ Supporting changes, in `MattermostUITests/ShellSettle.swift`:
 | T31 harvest, seeded reader | line 84, `nativeShell` (§5) | `docs/t4528b67e-t31-live-2-landing-2026-11-04.log` |
 | T31 harvest, `waitForSignedIn` | line 107, grouping (§5) | `docs/t4528b67e-t31-live-3-grouping-2026-11-04.log` |
 | **T31 harvest, final** | **2 run / 0 skipped / 0 failed, 17.097 s** | `docs/t4528b67e-t31-live-2026-11-04.log` |
-| **T31 harvest, repeat** | **2 run / 0 skipped / 0 failed, 17.987 s** | `docs/t4528b67e-t31-live-2-2026-11-04.log` |
+| **T31 harvest, repeat** | **2 run / 0 skipped / 0 failed, 17.987 s** | `docs/t4528b67e-t31-live-repeat-2026-11-04.log` |
 | T36 + T44d (shared sidebar helper) | **7 run / 0 skipped / 0 failed, 620 s** | `docs/t4528b67e-sidebar-regression-2026-11-04.log` |
 
 The three failing runs above are kept on purpose: they are the measurement chain, not noise.
