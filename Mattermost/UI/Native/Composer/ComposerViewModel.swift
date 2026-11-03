@@ -849,6 +849,32 @@ final class ComposerViewModel: ObservableObject {
         await writePendingDraft()
     }
 
+    /// The drafts list deleted this composer's stored row (S26/T51).
+    ///
+    /// A warm composer is kept per channel, so deleting a draft from the global list while its
+    /// composer is alive would otherwise leave the words in memory: opening that channel again would
+    /// show text whose row is gone, and the next keystroke would write it back — the delete would
+    /// undo itself. Dropping the text here keeps the two facts ("the row is gone" and "the composer
+    /// shows nothing") in agreement. Edit mode owns no row and is untouched.
+    func discardStoredDraft() {
+        guard draftRootID != nil else { return }
+        draftGeneration += 1
+        pendingDraftWrite = nil
+        draftLeadTask?.cancel()
+        draftLeadTask = nil
+        draftWriteInFlight = false
+        draftWriteQueued = false
+        didRestoreDraft = true
+        guard !text.isEmpty || !attachments.isEmpty else { return }
+        text = ""
+        caret = 0
+        attachments = []
+        uploadData.removeAll()
+        suggestions = []
+        activeTrigger = nil
+        phase = .idle
+    }
+
     /// A draft write, captured **when the change happened**.
     ///
     /// The key and the text have to be captured together, at the change, and not read when the write
@@ -918,7 +944,8 @@ final class ComposerViewModel: ObservableObject {
                                   rootID: rootID,
                                   message: snapshot.message,
                                   files: snapshot.files,
-                                  updateAt: ComposerDraft.now(now()))
+                                  updateAt: ComposerDraft.now(now()),
+                                  teamID: teamID)
         if draft.isEmpty {
             await drafts.delete(channelID: channelID, rootID: rootID)
         } else {

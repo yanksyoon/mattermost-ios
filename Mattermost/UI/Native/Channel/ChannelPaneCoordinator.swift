@@ -259,6 +259,23 @@ final class ChannelPaneCoordinator: ObservableObject {
         composers[serverID]?[channelID] = nil
     }
 
+    /// The per-server draft store the composer writes into.
+    ///
+    /// T51 (S26): the global drafts list reads **this** store, not a second one, so "the composer's
+    /// half-typed message" and "the row the list shows" are the same record by construction.
+    func draftsStore(for server: ServerConfig) -> ComposerDraftStoring {
+        draftStore(for: server)
+    }
+
+    /// T51 (S26): the drafts list deleted this channel's row — drop the warm composer's copy too.
+    ///
+    /// Only the channel's own draft (`rootID == ""`): a thread draft lives in the thread composer,
+    /// which `ThreadCoordinator` owns (`discardDraft` there).
+    func discardDraft(serverID: UUID, channelID: String, rootID: String) {
+        guard rootID.isEmpty else { return }
+        composers[serverID]?[channelID]?.discardStoredDraft()
+    }
+
     /// The appearance pass: point the model at the channel on screen and load it once.
     @discardableResult
     func activate(server: ServerConfig,

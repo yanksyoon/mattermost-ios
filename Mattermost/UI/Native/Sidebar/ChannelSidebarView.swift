@@ -35,6 +35,9 @@ struct NativeChannelSidebarContent: View {
     /// **menu** and the create **form** must agree about what this reader may create, and the permission
     /// answer is one value — so both read the same model.
     @EnvironmentObject private var channelInfo: ChannelInfoCoordinator
+    /// T51 (S26): the pane coordinator owns the per-server draft database the composer writes into;
+    /// the drafts list reads **that** store rather than opening a second one.
+    @EnvironmentObject private var panes: ChannelPaneCoordinator
     /// T8f: the phone draws the channel list on the grouped background `List(.sidebar)` used; the
     /// regular layout keeps the pane's own background.
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -51,6 +54,11 @@ struct NativeChannelSidebarContent: View {
     @State private var newDirectMessagePresented = false
     @State private var createModel: ChannelCreateViewModel?
     @State private var directMessageModel: NewDirectMessageViewModel?
+    /// T51 (S26): the global drafts list — presented from the Workspace block, above the categories.
+    /// `pendingDraft` is the row the reader tapped; it is opened in `onDismiss`, i.e. **after** the
+    /// sheet has finished going away, so the push cannot race the dismissal.
+    @State private var draftsPresented = false
+    @State private var pendingDraft: GlobalDraftRow?
 
     /// T46: the permanent-web escape hatch (`docs/dual-render.md` §13). One item-based presentation
     /// holds both the plugin-id prompt and the surface sheet: the prompt hands its id to
@@ -176,6 +184,19 @@ struct NativeChannelSidebarContent: View {
                 }
             }
         }
+        // T51 (S26): the global drafts list. Opened from the Workspace block's **Drafts** row; a row
+        // tap closes the sheet and the pending draft is opened in `onDismiss`, after the dismissal,
+        // so the push lands on a sidebar that is really back on screen.
+        .sheet(isPresented: $draftsPresented, onDismiss: openPendingDraft) {
+            GlobalDraftsView(teamID: model.teamID,
+                             drafts: panes.draftsStore(for: server),
+                             labels: draftLabels,
+                             onOpen: { row in
+                                 pendingDraft = row
+                                 draftsPresented = false
+                             },
+                             onDiscard: discardDraft)
+        }
         // T46: the permanent-web surfaces. One item-based presentation for the id prompt and the
         // surface itself; the prompt hands its answer to `pendingFallback` and `onDismiss` opens it,
         // so the second presentation starts only after the first has finished going away.
@@ -215,6 +236,41 @@ struct NativeChannelSidebarContent: View {
                                                         channelID: channel.id,
                                                         channelName: channel.name))
         }
+    }
+
+    // MARK: - Drafts (S26/T51)
+
+    /// Every channel this team's loaded list knows, keyed by id — what the drafts rows are labelled
+    /// from. The list is the only local channel directory the shell holds, and it is the screen the
+    /// drafts sheet is opened from, so it is by definition the reader's current view of the team.
+    private var draftLabels: [String: DraftChannelLabel] {
+        var labels: [String: DraftChannelLabel] = [:]
+        for entry in model.allEntries {
+            labels[entry.id] = DraftChannelLabel(entry: entry, teamID: model.teamID)
+        }
+        return labels
+    }
+
+    /// Open the draft the reader tapped, once the sheet has gone away.
+    ///
+    /// A channel draft lands on that channel's own composer (keyed `(channel, "")`); a thread draft
+    /// lands on the thread pane at its root (keyed `(channel, root)`), which is where its composer
+    /// restores from. Both routes go through `NativeNavigation` — the shell's one funnel — so the
+    /// phone push and the split layout's detail column cannot disagree.
+    private func openPendingDraft() {
+        guard let row = pendingDraft else { return }
+        pendingDraft = nil
+        if row.isThreadDraft {
+            navigation.openThreads(row.request(serverID: server.id))
+        } else {
+            navigation.openChannel(row.request(serverID: server.id))
+        }
+    }
+
+    /// The drafts list deleted a row: drop every warm composer that still holds the same words.
+    private func discardDraft(_ row: GlobalDraftRow) {
+        panes.discardDraft(serverID: server.id, channelID: row.channelID, rootID: row.rootID)
+        threads.discardDraft(serverID: server.id, channelID: row.channelID, rootID: row.rootID)
     }
 
     // MARK: The web escape hatch's presentation
@@ -331,6 +387,23 @@ struct NativeChannelSidebarContent: View {
             // see unread threads" — is what that looks like from the outside).
             threadsEntry
                 .channelSidebarRowSurface()
+
+            // T51 (S26): the global drafts list. In the Workspace block, not below the categories:
+            // a lazy list does not build a row that has not been scrolled to, and a draft is exactly
+            // what a reader comes to this list to find (the same argument that moved Threads up).
+            Button {
+                pendingDraft = nil
+                draftsPresented = true
+            } label: {
+                HStack(spacing: 6) {
+                    Label("Drafts", systemImage: "square.and.pencil")
+                    Spacer(minLength: 4)
+                }
+                .channelSidebarRowContent()
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("channelSidebar.drafts")
+            .channelSidebarRowSurface()
 
             Button {
                 quickSwitcherPresented = true

@@ -401,17 +401,27 @@ struct ComposerDraft: Equatable, Sendable {
     var message: String
     var files: [ComposerStoredFile]
     var updateAt: Int64
+    /// The team the channel belongs to, when the composer knows it.
+    ///
+    /// T51 (S26) added this: the global drafts list is **team-scoped** ("every draft for the
+    /// server+team"), and a channel id alone does not say which team it belongs to. It is stored in
+    /// the row's `metadata` JSON (`{"team_id": …}`), so the `draft` table keeps its shape; a row
+    /// written before T51 has no `team_id` and the list treats it as unfiled rather than guessing a
+    /// team from the channel name.
+    var teamID: String?
 
     init(channelID: String,
          rootID: String = "",
          message: String = "",
          files: [ComposerStoredFile] = [],
-         updateAt: Int64 = 0) {
+         updateAt: Int64 = 0,
+         teamID: String? = nil) {
         self.channelID = channelID
         self.rootID = rootID
         self.message = message
         self.files = files
         self.updateAt = updateAt
+        self.teamID = teamID
     }
 
     /// Whether this draft is worth a row on disk: an empty message with no files is the same as no

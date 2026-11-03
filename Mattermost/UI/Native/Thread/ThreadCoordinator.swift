@@ -106,6 +106,13 @@ final class ThreadCoordinator: ObservableObject {
         composers[serverID]?["\(rootID)"] = nil
     }
 
+    /// T51 (S26): the drafts list deleted this thread's draft row — drop the warm composer's copy,
+    /// so re-opening the thread does not show text whose row is gone.
+    func discardDraft(serverID: UUID, channelID: String, rootID: String) {
+        guard !rootID.isEmpty else { return }
+        composers[serverID]?["\(channelID)/\(rootID)"]?.discardStoredDraft()
+    }
+
     // MARK: - The thread's composer
 
     /// The composer that replies into one thread.

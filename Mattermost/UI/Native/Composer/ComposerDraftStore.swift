@@ -40,12 +40,16 @@ enum ComposerDraftMapping {
     /// The attachment descriptors go into `files` as a JSON array of
     /// `{id, name, mime_type, size}`: that is what makes "uploaded, not sent" survive a relaunch, and
     /// it keeps the row's `message` a plain string (upstream's draft row does the same).
+    ///
+    /// T51 uses the row's otherwise-unused `metadata` column for the draft's team
+    /// (`{"team_id": …}`), because the global drafts list is team-scoped and the draft table has no
+    /// team column. No schema change: `metadata` was already a JSON column and already persisted.
     static func row(_ draft: ComposerDraft) -> MMDraft {
         MMDraft(channelId: draft.channelID,
                 rootId: draft.rootID,
                 message: draft.message,
                 files: jsonValue(of: draft.files),
-                metadata: nil,
+                metadata: metadata(teamID: draft.teamID),
                 type: "",
                 updateAt: draft.updateAt)
     }
@@ -57,7 +61,24 @@ enum ComposerDraftMapping {
                       rootID: row.rootId,
                       message: row.message,
                       files: storedFiles(from: row.files),
-                      updateAt: row.updateAt)
+                      updateAt: row.updateAt,
+                      teamID: teamID(from: row.metadata))
+    }
+
+    /// `{"team_id": "<id>"}`, or `nil` when the composer does not know the team (an older row, or a
+    /// caller that never had one). A nil metadata is written as SQL NULL, not as `{}`.
+    static func metadata(teamID: String?) -> JSONValue? {
+        guard let teamID, !teamID.isEmpty else { return nil }
+        return .object(["team_id": .string(teamID)])
+    }
+
+    /// Reads the team back, tolerating anything in the column: a malformed or older `metadata` is
+    /// "team unknown", never a decode failure that would lose the draft's text.
+    static func teamID(from metadata: JSONValue?) -> String? {
+        guard case .object(let object)? = metadata,
+              case .string(let teamID)? = object["team_id"],
+              !teamID.isEmpty else { return nil }
+        return teamID
     }
 
     static func jsonValue(of files: [ComposerStoredFile]) -> JSONValue? {
