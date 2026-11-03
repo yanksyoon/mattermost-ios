@@ -188,3 +188,10 @@ MattermostTests/T54MentionBannerTests.swift                         (new)
 MattermostUITests/T54MentionBannerUITests.swift                     (new)
 docs/t54-shots/*.png                                                (live evidence)
 ```
+
+## 9. Publish
+
+Code commit `f497d58` (on `origin/main` at `11c49c7`), pushed; `git ls-remote origin
+refs/heads/main` answered `f497d5848e09969af131a7215c345858aedc153d` == local `git rev-parse HEAD`.
+This note is the follow-up docs commit that names it; the SHA stated in the task's closing comment is
+the `refs/heads/main` tip after that commit.
