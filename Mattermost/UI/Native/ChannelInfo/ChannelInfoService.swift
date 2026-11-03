@@ -61,6 +61,18 @@ protocol ChannelInfoServing: AnyObject {
     /// The DM/GM "close": the `direct_channel_show` preference, **not** a membership delete.
     func closeDirectChannel(userID: String, channelID: String) async throws
 
+    /// T52: `PUT /channels/{id}/members/{uid}/notify_props` with only the changed fields.
+    ///
+    /// Required, not defaulted: a fake that does not model the write must fail loudly rather than
+    /// produce a green test in which a "save" never sent anything (the T40-AV F1 failure mode).
+    func setNotifyProps(channelID: String, userID: String, fields: [String: String]) async throws
+
+    /// T52: `POST /teams/{tid}/files/search` with `in:<channel-name>` — one page of the channel's files.
+    func channelFiles(teamID: String, channelName: String, page: Int, perPage: Int) async throws -> ChannelFileSearchResult
+
+    /// T52: `GET /channels/{id}/common_teams` — the teams a group message's members share.
+    func commonTeams(channelID: String) async throws -> [MMTeam]
+
     /// The channels I am in on this team (`GET /users/me/teams/{tid}/channels`) — the browser's "joined"
     /// set, and the id set the browser needs to split its two sections.
     func myTeamChannels(teamID: String) async throws -> [MMChannel]
@@ -101,6 +113,24 @@ extension ChannelInfoServing {
     /// same degradation rule as `ChannelServing.users`).
     func users(ids: [String]) async throws -> [MMUser] { [] }
     func statuses(ids: [String]) async throws -> [MMStatus] { [] }
+
+    /// T52 defaults.
+    ///
+    /// `setNotifyProps` **throws** rather than succeeding: a fake that does not model the write must
+    /// not be able to produce a green test in which a "save" sent nothing (T40-AV F1's failure mode).
+    /// The two reads default to "nothing", which is the honest answer for a service that does not
+    /// model files or shared teams — a screen then draws its empty state, not a fabricated row.
+    func setNotifyProps(channelID: String, userID: String, fields: [String: String]) async throws {
+        throw MMError.server(status: 501,
+                             message: "this service does not implement notification preferences")
+    }
+
+    func channelFiles(teamID: String, channelName: String,
+                      page: Int, perPage: Int) async throws -> ChannelFileSearchResult {
+        ChannelFileSearchResult()
+    }
+
+    func commonTeams(channelID: String) async throws -> [MMTeam] { [] }
 }
 
 /// The production implementation: the server's own `AuthSession.client`, resolved **per call** so a
@@ -201,6 +231,24 @@ final class SessionChannelInfoService: ChannelInfoServing {
 
     func closeDirectChannel(userID: String, channelID: String) async throws {
         try await client().setDirectChannelVisible(userID: userID, channelID: channelID, visible: false)
+    }
+
+    // MARK: T52
+
+    func setNotifyProps(channelID: String, userID: String, fields: [String: String]) async throws {
+        try await client().setChannelNotifyProps(channelID: channelID, userID: userID, fields: fields)
+    }
+
+    func channelFiles(teamID: String, channelName: String,
+                      page: Int, perPage: Int) async throws -> ChannelFileSearchResult {
+        try await client().searchChannelFiles(teamID: teamID, channelName: channelName,
+                                              page: page, perPage: perPage)
+    }
+
+    func commonTeams(channelID: String) async throws -> [MMTeam] {
+        // A direct message or a public channel answers 400 here (measured); the caller only asks for a
+        // group message, and any failure is "no shared-teams row", which is the honest empty answer.
+        (try? await client().channelCommonTeams(channelID: channelID)) ?? []
     }
 
     // MARK: Browser

@@ -240,6 +240,12 @@ struct ChannelInfoCapabilities: Equatable, Sendable {
     /// Every gated action this screen can draw, in the order the screen draws them. One list, so a test
     /// can assert "a user with no channel permissions is offered nothing" exhaustively instead of
     /// remembering each row.
+    ///
+    /// T52 inserts three rows that are **not** permission-gated on the server's channel permissions:
+    /// every member may set their own notification preferences, read the channel's files and open its
+    /// pinned messages. `files` is withheld for a direct/group message because the server's only
+    /// channel-filtered file route (`POST /teams/{tid}/files/search` with `in:<name>`) cannot name a
+    /// DM/GM — measured: a GM with one file answers zero (docs/t52-build-note.md §2).
     var offeredActions: [ChannelInfoActionID] {
         // No channel, nothing to offer. (Every other flag is already closed in that state; the member
         // list is the one row that is not permission-gated, so it needs this check explicitly.)
@@ -247,6 +253,9 @@ struct ChannelInfoCapabilities: Equatable, Sendable {
         var actions: [ChannelInfoActionID] = []
         if canManageMembers { actions.append(.addMembers) }
         actions.append(.members)                       // the member list itself is not gated
+        actions.append(.notifications)                 // my own preferences, not an admin write
+        if !kind.isDirectOrGroup { actions.append(.files) }
+        actions.append(.pinned)
         if canManageSettings { actions.append(.settings) }
         if canArchive { actions.append(.archive) }
         if canUnarchive { actions.append(.unarchive) }
@@ -259,6 +268,12 @@ struct ChannelInfoCapabilities: Equatable, Sendable {
 enum ChannelInfoActionID: String, Equatable, Sendable, CaseIterable {
     case addMembers
     case members
+    /// T52: the per-channel notification preferences screen.
+    case notifications
+    /// T52: the channel's files.
+    case files
+    /// T52: opens the existing pinned-messages sheet.
+    case pinned
     case settings
     case archive
     case unarchive
@@ -516,6 +531,35 @@ struct ChannelPatchDraft: Equatable, Sendable {
         if purpose != channel.purpose { patch.purpose = purpose }
         if header != channel.header { patch.header = header }
         return patch
+    }
+}
+
+// MARK: - Shared channels (T52)
+
+/// The row a group message gets when `GET /channels/{id}/common_teams` names teams.
+///
+/// Measured on 9.11.19 (docs/t52-build-note.md §2): the route answers **400**
+/// `app.channel.get_common_teams.incorrect_channel_type` for every channel type except `G` — an open
+/// channel is not "shared with" anything, and the server says so. On this single-team fixture a plain
+/// GM answers the one team its members have in common, so the row is drawn from the server's answer
+/// rather than from a guess about Connected Workspaces: the server decides what is common.
+enum ChannelSharedTeamsDerivation {
+    /// The team names to draw: the display name, falling back to the URL name, deduplicated. An empty
+    /// or deleted team row contributes nothing (a blank name is not a team).
+    static func names(_ teams: [MMTeam]) -> [String] {
+        var seen = Set<String>()
+        return teams.compactMap { team in
+            guard team.deleteAt == 0 else { return nil }
+            let name = team.displayName.isEmpty ? team.name : team.displayName
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { return nil }
+            return trimmed
+        }
+    }
+
+    /// "Perf, Ops" — the row's value line; empty when there is nothing to say (and then no row).
+    static func summary(_ teams: [MMTeam]) -> String {
+        names(teams).joined(separator: ", ")
     }
 }
 

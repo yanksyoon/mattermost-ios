@@ -279,6 +279,52 @@ extension APIClient {
         try await putForResponse(path: "/users/\(userID)/preferences", body: [preference])
     }
 
+    // MARK: - Notification preferences (T52)
+
+    /// `PUT /channels/{channel_id}/members/{user_id}/notify_props` — the per-channel notification
+    /// preferences.
+    ///
+    /// The body is a **partial** object: measured, the server merges it (`{desktop: "mention"}` left
+    /// `mark_unread` and `ignore_channel_mentions` untouched). The caller sends only what changed, so
+    /// this method does not read the membership first. The answer is `{"status":"OK"}`; the caller
+    /// **re-reads** `GET …/members/{user_id}` because a 200 is not proof of the stored value (the
+    /// server accepts levels it does not know).
+    func setChannelNotifyProps(channelID: String, userID: String, fields: [String: String]) async throws {
+        try await putForResponse(path: "/channels/\(channelID)/members/\(userID)/notify_props",
+                                 body: fields)
+    }
+
+    // MARK: - The channel's files (T52)
+
+    /// `POST /teams/{team_id}/files/search` with `terms: "in:<channel-name>"` — the channel's files.
+    ///
+    /// There is no `GET /channels/{id}/files` on 9.11.19 (404, measured), and `channel_id:<id>` is not
+    /// an operator this server's file search understands (200 with no files). `in:<name>` is, and its
+    /// answer agrees exactly with the file ids in the channel's posts (measured 16/16 and 40/40).
+    ///
+    /// An empty term is refused by the server (`400 Invalid or missing terms`), so this always sends
+    /// the `in:` term.
+    func searchChannelFiles(teamID: String,
+                            channelName: String,
+                            page: Int,
+                            perPage: Int) async throws -> ChannelFileSearchResult {
+        try await post(ChannelFileSearchResult.self,
+                       path: "/teams/\(teamID)/files/search",
+                       body: FileSearchBody(terms: "in:\(channelName)",
+                                            page: max(0, page),
+                                            perPage: max(1, perPage)))
+    }
+
+    /// `GET /channels/{channel_id}/common_teams` — the teams the conversation's members share.
+    ///
+    /// Measured: only a **group message** answers 200; every other channel type answers
+    /// `400 app.channel.get_common_teams.incorrect_channel_type`, so the caller asks only for `G`.
+    func channelCommonTeams(channelID: String) async throws -> [MMTeam] {
+        try await get([MMTeam].self,
+                      path: "/channels/\(channelID)/common_teams",
+                      useETag: false)
+    }
+
     // MARK: - Bodies
 
     private struct AddMemberBody: Encodable {
@@ -319,6 +365,20 @@ extension APIClient {
             case teamID = "team_id"
             case perPage = "per_page"
             case allowInactive = "allow_inactive"
+        }
+    }
+
+    /// `FileSearchRequest` as the channel-files list sends it: a channel-name term and paging. The
+    /// zero-valued fields of the full struct (`time_zone_offset`, `include_deleted_channels`) are
+    /// omitted rather than sent as defaults this app did not measure.
+    private struct FileSearchBody: Encodable {
+        let terms: String
+        let page: Int
+        let perPage: Int
+
+        enum CodingKeys: String, CodingKey {
+            case terms, page
+            case perPage = "per_page"
         }
     }
 }

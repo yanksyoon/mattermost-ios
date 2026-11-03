@@ -29,6 +29,12 @@ struct ChannelInfoSheet: View {
     var teamID: String = ""
     /// The pane's title, used for a DM/GM (their `display_name` is empty on the server).
     let fallbackTitle: String?
+    /// T52: the channel pane's navigation model, image store and download coordinator. The pinned row
+    /// needs the first (it opens T38/T39's own sheet), and the files list hands the last two to T38's
+    /// preview so a file opened from here is the same preview a post attachment opens.
+    var navigation: NativeNavigation? = nil
+    var imageStore: ChannelImageStore? = nil
+    var downloads: AttachmentDownloads? = nil
 
     @EnvironmentObject private var coordinator: ChannelInfoCoordinator
     @Environment(\.dismiss) private var dismiss
@@ -38,7 +44,12 @@ struct ChannelInfoSheet: View {
         NavigationStack {
             Group {
                 if let model {
-                    ChannelInfoView(model: model, server: server, onClose: { dismiss() })
+                    ChannelInfoView(model: model,
+                                    server: server,
+                                    navigation: navigation,
+                                    imageStore: imageStore,
+                                    downloads: downloads,
+                                    onClose: { dismiss() })
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -72,6 +83,12 @@ struct ChannelInfoSheet: View {
 struct ChannelInfoView: View {
     @ObservedObject var model: ChannelInfoViewModel
     let server: ServerConfig
+    /// T52: needed by the pinned row (it opens the existing pinned sheet, which navigates) and by the
+    /// files list (T38's preview). Optional so a preview host that has no navigation still draws the
+    /// screen — the pinned row is then simply not drawn.
+    var navigation: NativeNavigation? = nil
+    var imageStore: ChannelImageStore? = nil
+    var downloads: AttachmentDownloads? = nil
     let onClose: () -> Void
 
     @EnvironmentObject private var coordinator: ChannelInfoCoordinator
@@ -81,6 +98,11 @@ struct ChannelInfoView: View {
     @State private var showsAddMembers = false
     @State private var showsMembers = false
     @State private var showsSettings = false
+    @State private var showsNotifications = false
+    @State private var showsFiles = false
+    /// Built from the row's own tap, so the pushed screen always has its model (T52-R3).
+    @State private var filesModel: ChannelFilesViewModel?
+    @State private var showsPinned = false
 
     var body: some View {
         List {
@@ -109,6 +131,7 @@ struct ChannelInfoView: View {
                     }
                 }
                 actionsSection
+                sharedTeamsSection
                 if let banner = model.banner {
                     Section {
                         Text(banner)
@@ -136,6 +159,29 @@ struct ChannelInfoView: View {
         }
         .navigationDestination(isPresented: $showsSettings) {
             ChannelSettingsView(model: model)
+        }
+        // T52: the notification-preference screen and the channel's files are pushes inside the same
+        // navigation stack the sheet already owns — the reader keeps the info screen's Back.
+        .navigationDestination(isPresented: $showsNotifications) {
+            ChannelNotificationsView(model: model)
+        }
+        .navigationDestination(isPresented: $showsFiles) {
+            if let filesModel {
+                ChannelFilesView(files: filesModel,
+                                 channelID: model.channelID,
+                                 imageStore: imageStore,
+                                 downloads: downloads)
+            }
+        }
+        // T52: the pinned row opens T39's existing sheet, not a second pinned list.
+        .sheet(isPresented: $showsPinned) {
+            if let navigation {
+                PinnedPostsView(server: server,
+                                channelID: model.channelID,
+                                channelName: model.channel?.name,
+                                navigation: navigation,
+                                onClose: { showsPinned = false })
+            }
         }
         .sheet(isPresented: $showsAddMembers) {
             AddMembersView(model: model, server: server)
@@ -269,6 +315,49 @@ struct ChannelInfoView: View {
                 }
             }
             .accessibilityIdentifier(action.identifier)
+        // T52 rows. All three are the reader's own view of the channel, not an administrator write, so
+        // no permission gates them beyond `hasChannel` (`ChannelInfoCapabilities.offeredActions`).
+        case .notifications:
+            Button {
+                showsNotifications = true
+            } label: {
+                HStack {
+                    rowLabel("Notification preferences", systemImage: "bell")
+                    Spacer()
+                    if !model.notificationSummary.isEmpty {
+                        Text(model.notificationSummary)
+                            .foregroundStyle(.secondary)
+                            .mmLineLimit(1)
+                    }
+                }
+            }
+            .accessibilityIdentifier(action.identifier)
+        case .files:
+            Button {
+                // T52-R3: the model is built here, from the tap, and the push only happens when it
+                // exists — the earlier shape pushed first and left a permanent spinner when the model
+                // could not be built (and nothing in the tree said which of the two had happened).
+                if let created = model.makeChannelFilesModel() {
+                    filesModel = created
+                    showsFiles = true
+                } else {
+                    model.reportFilesUnavailable()
+                }
+            } label: {
+                rowLabel("Files", systemImage: "paperclip")
+            }
+            .accessibilityIdentifier(action.identifier)
+        case .pinned:
+            // The sheet is T39's and it navigates, so a host with no navigation model gets no row
+            // (rather than a row whose tap presents nothing).
+            if navigation != nil {
+                Button {
+                    showsPinned = true
+                } label: {
+                    rowLabel("Pinned messages", systemImage: "pin")
+                }
+                .accessibilityIdentifier(action.identifier)
+            }
         case .settings:
             Button {
                 showsSettings = true
@@ -303,6 +392,25 @@ struct ChannelInfoView: View {
 
     private func rowLabel(_ title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
+    }
+
+    /// T52: the teams a group message's members share, drawn only when the server named one.
+    ///
+    /// The route is measured to answer 400 for every channel type except `G`, so the model asks only
+    /// for a group message and this section is empty everywhere else. On this single-team fixture the
+    /// answer for a GM is the one team its members have in common — the server decides what is common,
+    /// and the row repeats its answer rather than guessing at Connected Workspaces.
+    @ViewBuilder
+    private var sharedTeamsSection: some View {
+        let summary = ChannelSharedTeamsDerivation.summary(model.commonTeams)
+        if !summary.isEmpty {
+            Section {
+                Label(summary, systemImage: "arrow.left.arrow.right")
+                    .accessibilityIdentifier("channelInfo.sharedTeams")
+            } header: {
+                Text("Shared with")
+            }
+        }
     }
 
     // MARK: Copy

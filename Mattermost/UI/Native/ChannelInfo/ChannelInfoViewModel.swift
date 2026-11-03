@@ -66,6 +66,18 @@ final class ChannelInfoViewModel: ObservableObject {
     /// Whether the permission lookup answered. `false` renders the screen read-only with a note.
     @Published private(set) var permissionsAvailable = false
 
+    // MARK: T52 state
+
+    /// My own `notify_props` for this channel, as the server sent them. `nil` until the membership read
+    /// answers (and `notifyPropsAvailable` is then false) — the screen shows "could not read" rather
+    /// than drawing defaults the reader never chose.
+    @Published private(set) var notifyDraft: ChannelNotifyDraft?
+    /// Whether the membership read that carries `notify_props` answered at all.
+    @Published private(set) var notifyPropsAvailable = false
+    /// The teams a **group message**'s members share (`GET /channels/{id}/common_teams`). Empty for
+    /// every other channel type, and empty when the route refuses — no row is drawn for an empty list.
+    @Published private(set) var commonTeams: [MMTeam] = []
+
     /// The member list's own search field (upstream `manage_channel_members`'s search box).
     @Published var memberSearch: String = ""
 
@@ -174,10 +186,16 @@ final class ChannelInfoViewModel: ObservableObject {
         }
         guard token == generation else { return }
         self.myUserID = principal?.id
+        // T52: the same membership read carries my `notify_props`; a failure here is "unreadable", not
+        // "default", so the notifications screen can say so instead of drawing a guess.
+        self.notifyPropsAvailable = membership != nil
+        if let membership { self.notifyDraft = ChannelNotifyDraft(member: membership) }
         await refreshPermissions(principal: principal,
                                  teamMembership: teamMembership,
                                  channelMembership: membership,
                                  token: token)
+        guard token == generation else { return }
+        await loadCommonTeams(token: token)
         guard token == generation else { return }
         await loadMembers(reset: true, token: token)
     }
@@ -186,6 +204,104 @@ final class ChannelInfoViewModel: ObservableObject {
     func refreshChannel() async {
         guard let channel = try? await service.channel(id: channelID) else { return }
         apply(channel: channel)
+    }
+
+    // MARK: T52 — notification preferences, files, shared teams
+
+    /// Whether the reader's own notification preferences are known. `false` means the membership read
+    /// failed, and the notifications screen then offers a Retry instead of drawing defaults.
+    var notificationsReadable: Bool { notifyDraft?.isReadable == true }
+
+    /// The subtitle the "Notification preferences" row draws ("Muted", a level, or the server's raw
+    /// value when this build does not know it).
+    var notificationSummary: String { ChannelNotifyRowSummary.subtitle(for: notifyDraft) }
+
+    /// Re-read my membership for its `notify_props` (the notifications screen's Retry, and the path the
+    /// screen takes when the info load's membership read failed).
+    func refreshNotifyProps() async {
+        guard let myUserID else {
+            notifyPropsAvailable = false
+            notifyDraft = nil
+            return
+        }
+        do {
+            let member = try await service.member(channelID: channelID, userID: myUserID)
+            notifyDraft = ChannelNotifyDraft(member: member)
+            notifyPropsAvailable = true
+        } catch {
+            notifyPropsAvailable = false
+            banner = Self.copy(for: error, fallback: "Your notification preferences could not be read.")
+        }
+    }
+
+    /// Save the three per-channel preferences. Answers whether the server accepted the write.
+    ///
+    /// The write is proven by a **read**: the body carries only the fields that changed to a known
+    /// value (`ChannelNotifyDraft.changedFields`), and the draft is then replaced with what
+    /// `GET …/members/{uid}` says — never with the optimistic guess. A server that stores an
+    /// unrecognised value therefore shows up as unrecognised on the screen, which is the honest state.
+    @discardableResult
+    func saveNotifyProps(_ draft: ChannelNotifyDraft) async -> Bool {
+        guard let myUserID else {
+            refuse("Your notification preferences could not be read.")
+            return false
+        }
+        guard let serverDraft = notifyDraft, serverDraft.isReadable else {
+            refuse("Your notification preferences could not be read.")
+            return false
+        }
+        let fields = draft.changedFields(comparedTo: serverDraft)
+        guard !fields.isEmpty else { return true }
+        busyAction = .notifications
+        banner = nil
+        refusedMessage = nil
+        defer { busyAction = nil }
+        do {
+            try await service.setNotifyProps(channelID: channelID, userID: myUserID, fields: fields)
+            let member = try await service.member(channelID: channelID, userID: myUserID)
+            notifyDraft = ChannelNotifyDraft(member: member)
+            notifyPropsAvailable = true
+            return true
+        } catch {
+            banner = Self.copy(for: error, fallback: "Your notification preferences could not be saved.")
+            return false
+        }
+    }
+
+    /// A fresh files model for the channel (the screen owns it for as long as it is open).
+    ///
+    /// Nil when the channel has no team or no URL name: the file search is keyed by both, and a search
+    /// for the wrong term would be a list of somebody else's files. The team comes from the channel
+    /// object when the model was created without one (a deep link, or a model made before the channel
+    /// was read) — T52-R3 measured the empty-team guard leaving a pushed screen on a spinner.
+    func makeChannelFilesModel() -> ChannelFilesViewModel? {
+        // The channel object is authoritative for the team: a model created before the channel was read
+        // (or from a deep link that knew only the channel id) has an empty `teamID`, and the files
+        // route needs one. T52-R3: the guard used to read `!teamID.isEmpty` and a model created in that
+        // state left the pushed screen on a spinner with no request sent.
+        guard let channel, !capabilities.kind.isDirectOrGroup, !channel.name.isEmpty else { return nil }
+        let resolvedTeam = channel.teamId.isEmpty ? teamID : channel.teamId
+        guard !resolvedTeam.isEmpty else { return nil }
+        return ChannelFilesViewModel(channelID: channelID,
+                                     teamID: resolvedTeam,
+                                     channelName: channel.name,
+                                     service: service)
+    }
+
+    /// The files row's tap when the list cannot be built: say so in the screen's banner, rather than a
+    /// tap that silently does nothing.
+    func reportFilesUnavailable() {
+        banner = "Files are not available for this conversation."
+    }
+
+    private func loadCommonTeams(token: Int) async {
+        guard capabilities.kind == .group else {
+            commonTeams = []
+            return
+        }
+        let teams = await (try? service.commonTeams(channelID: channelID)) ?? []
+        guard token == generation else { return }
+        commonTeams = teams
     }
 
     // MARK: Permissions
@@ -522,6 +638,9 @@ final class ChannelInfoViewModel: ObservableObject {
         capabilities = ChannelInfoCapabilities.derive(channel: updated,
                                                       permissions: permissions,
                                                       isGuest: myIsGuest)
+        // A channel that is no longer a group message has no shared-teams row; keeping the old list
+        // would draw a row about a conversation this is no longer.
+        if capabilities.kind != .group { commonTeams = [] }
     }
 
     private func applyArchived(at deleteAt: Int64) {

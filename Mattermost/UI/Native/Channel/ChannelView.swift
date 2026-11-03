@@ -893,7 +893,10 @@ struct ChannelPaneContent: View {
         .sheet(isPresented: $showsChannelInfo) {
             ChannelInfoSheet(server: server,
                              channelID: channelID,
-                             fallbackTitle: title)
+                             fallbackTitle: title,
+                             navigation: navigation,
+                             imageStore: imageStore,
+                             downloads: attachmentDownloads)
         }
         // T41: the profile popover. Its own item-bound sheet (the header's own avatar and a tapped
         // message author share it), and the account it opens for is the only state it carries.

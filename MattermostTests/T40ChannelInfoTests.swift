@@ -250,7 +250,8 @@ final class T40ChannelInfoTests: XCTestCase {
         XCTAssertTrue(caps.canBrowseChannels)
         XCTAssertTrue(caps.canJoinPublicChannels)
         XCTAssertEqual(caps.offeredActions,
-                       [.addMembers, .members, .settings, .archive, .leave])
+                       [.addMembers, .members, .notifications, .files, .pinned, .settings,
+                        .archive, .leave])
     }
 
     /// A stock member's permission set: the member list is offered, nothing else. This is the assertion
@@ -266,7 +267,7 @@ final class T40ChannelInfoTests: XCTestCase {
         XCTAssertFalse(caps.canArchive)
         XCTAssertFalse(caps.canUnarchive)
         XCTAssertTrue(caps.canLeave)
-        XCTAssertEqual(caps.offeredActions, [.members, .leave])
+        XCTAssertEqual(caps.offeredActions, [.members, .notifications, .files, .pinned, .leave])
     }
 
     /// The role-name trap: a role called `channel_admin` whose permission array is empty grants nothing.
@@ -281,7 +282,7 @@ final class T40ChannelInfoTests: XCTestCase {
             channel: MMChannel(id: channelID, name: "off-topic", type: "O"),
             permissions: permissions,
             isGuest: false)
-        XCTAssertEqual(caps.offeredActions, [.members, .leave])
+        XCTAssertEqual(caps.offeredActions, [.members, .notifications, .files, .pinned, .leave])
     }
 
     func testAPermissiveRoleNamedUserStillGrantsItsPermissions() {
@@ -315,7 +316,7 @@ final class T40ChannelInfoTests: XCTestCase {
             XCTAssertFalse(caps.canArchive, "type \(type)")
             XCTAssertFalse(caps.canUnarchive, "type \(type)")
             XCTAssertTrue(caps.canLeave, "type \(type)")
-            XCTAssertEqual(caps.offeredActions, [.members, .leave], "type \(type)")
+            XCTAssertEqual(caps.offeredActions, [.members, .notifications, .pinned, .leave], "type \(type)")
         }
     }
 
@@ -327,7 +328,7 @@ final class T40ChannelInfoTests: XCTestCase {
         XCTAssertFalse(member.canManageMembers)
         XCTAssertFalse(member.canLeave)
         XCTAssertFalse(member.canArchive)
-        XCTAssertEqual(member.offeredActions, [.members, .settings])
+        XCTAssertEqual(member.offeredActions, [.members, .notifications, .files, .pinned, .settings])
 
         let guest = ChannelInfoCapabilities.derive(
             channel: MMChannel(id: channelID, name: "town-square", type: "O"),
@@ -350,13 +351,13 @@ final class T40ChannelInfoTests: XCTestCase {
         XCTAssertFalse(admin.canManageSettings)
         XCTAssertFalse(admin.canArchive)
         XCTAssertTrue(admin.canUnarchive)
-        XCTAssertEqual(admin.offeredActions, [.members, .unarchive, .leave])
+        XCTAssertEqual(admin.offeredActions, [.members, .notifications, .files, .pinned, .unarchive, .leave])
 
         let member = ChannelInfoCapabilities.derive(channel: archived,
                                                     permissions: [ChannelPermissionID.readChannel],
                                                     isGuest: false)
         XCTAssertFalse(member.canUnarchive)
-        XCTAssertEqual(member.offeredActions, [.members, .leave])
+        XCTAssertEqual(member.offeredActions, [.members, .notifications, .files, .pinned, .leave])
     }
 
     /// The private-channel gates are separate ids: holding the *public* ones must not unlock a private
@@ -620,7 +621,8 @@ final class T40ChannelInfoTests: XCTestCase {
         XCTAssertEqual(model.phase, .ready)
         XCTAssertFalse(model.permissionsAvailable)
         XCTAssertFalse(model.capabilities.canManageMembers)
-        XCTAssertEqual(model.offeredActionsForTest, [.members, .leave])
+        XCTAssertEqual(model.offeredActionsForTest,
+                       [.members, .notifications, .files, .pinned, .leave])
         XCTAssertEqual(model.readOnlyNote,
                        "Actions are unavailable right now. Your permissions could not be checked.")
     }
