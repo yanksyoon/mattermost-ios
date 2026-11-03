@@ -88,6 +88,11 @@ Host note: this run happened while several other workers were building in the sa
 one with "Invalid device state" — both runner/host failures, neither a test result; the card's own
 simulator (`te73iPhone16Pro`, 4BB9CE43…) was created to stop sharing a device with them.
 
-The whole-target run also compiled other cards' uncommitted work (this tree is shared), so the 2155 is
-that target's number at this commit's moment, not a claim about the 1793 base C1 measured.
+The whole-target run also compiled sibling cards' work that was uncommitted in this tree at the time
+and has since landed on `main` (byte-identical), so 2155 is the target's size on that base — not a
+claim about the 1793 that C1 measured before them.
+
+**Published:** `2a79dc8` on `main`, rebased onto `bd13ca5` and pushed to `origin/main`, verified with
+`git ls-remote` (`2a79dc8…` = `refs/heads/main`). The focused pair was re-run on that published tree:
+**59 run / 0 skipped / 0 failed** (`build/logs/te73-units-thread8.log`).
 
