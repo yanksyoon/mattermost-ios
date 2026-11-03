@@ -200,6 +200,10 @@ says they assert.
   tree being the one committed.
 * The earlier tree's runs are kept above (`t34live-t34-all` 19/19, `t34live-units-final` 2152/11/1) so the two
   derivations can be compared; the rebase added 25 tests from other cards and changed none of ours.
+* **Published.** Code and docs are `4785275` on `origin/main`, rebased onto `f0dc3d8`; the three T34 files were
+  re-run on that published tree — **19 run, 0 failed** (`build/logs/t34live-published-t34-all.log`) — and
+  `git ls-remote origin refs/heads/main` was asserted equal to the local `HEAD` (`4785275`). The push is the
+  card's gate, not a convenience: the earlier attempt had no commit at all.
 
 ## 8. Repro
 
