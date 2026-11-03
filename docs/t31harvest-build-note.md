@@ -61,6 +61,14 @@ This note is the harvest.
 
 ### 2.2 `Mattermost/MattermostApp.swift` (DEBUG only)
 
+> **Superseded 2026-11-04 by `t_4528b67e` — see `docs/t_4528b67e-build-note.md` §2 and §4.**
+> The seam below was measured not to work: a `WKHTTPCookieStore.setCookie` issued while the store's
+> WebKit Networking process is launching is **silently dropped**, so the launch resolved signed out
+> while the seam logged "planted"; and once the installer verified the write, starting that process
+> inside an XCUITest run killed the app (`runtime_issue_os_log_fault_callback`). The argument is now
+> `-uiTestSeedWebSessionToken` and it arms the harvest's reader instead of writing a cookie. The rest
+> of this note stands for everything except that mechanism.
+
 * `-uiTestSeedWebSessionCookie <token>`: plants an `MMAUTHTOKEN` in the **seeded** server's
   `WKWebsiteDataStore(forIdentifier: server.id)` — the store `ViewStore.ensureStore(for:)` gives that
   server's webview, i.e. the exact copy a webview sign-in leaves. It runs inside the root `.task`

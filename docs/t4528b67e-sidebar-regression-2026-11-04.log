@@ -1,0 +1,2048 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=iOS Simulator,id=9C883EB3-B410-4859-A443-A38A910F3396" -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t4528b67e-sidebar-regression-9e0f0b.xcresult -only-testing MattermostUITests/T36ThreadsUITests -only-testing MattermostUITests/T44DCallsUITests
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift @ 7.11.1
+
+Writing result bundle at path:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t4528b67e-sidebar-regression-9e0f0b.xcresult
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, arch:arm64, id:9C883EB3-B410-4859-A443-A38A910F3396, OS:18.3.1, name:iPhone 16 Pro t941e3d3 }
+{ platform:iOS Simulator, arch:x86_64, id:9C883EB3-B410-4859-A443-A38A910F3396, OS:18.3.1, name:iPhone 16 Pro t941e3d3 }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (7 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDBSQLite' in project 'GRDB'
+    Target 'GRDBSQLite' in project 'GRDB' (no dependencies)
+    Target 'GRDB_GRDB' in project 'GRDB' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Assets.xcassets
+
+ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+Build description signature: cc91e3292321745ba00803278db4a3eb
+Build description path: /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/XCBuildData/cc91e3292321745ba00803278db4a3eb.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist (in target 'GRDB_GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist -producttype com.apple.product-type.framework -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/WebRTC.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -format binary -platform iphonesimulator -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+2026-11-04 06:52:19.038640+0800 MattermostUITests-Runner[22692:44212384] [Default] Running tests...
+Test Suite 'Selected tests' started at 2026-11-04 06:52:19.596.
+Test Suite 'MattermostUITests.xctest' started at 2026-11-04 06:52:19.596.
+Test Suite 'T36ThreadsUITests' started at 2026-11-04 06:52:19.596.
+Test Case '-[MattermostUITests.T36ThreadsUITests testFollowPersistsAndTheFollowedThreadsListPages]' started.
+    t =     0.00s Start Test at 2026-11-04 06:52:19.597
+    t =     0.02s Set Up
+    t =     0.63s Open com.mattermost.ios
+    t =     0.63s     Launch com.mattermost.ios
+2026-11-04 06:52:20.547 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 06:52:20.547 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.76s         Setting up automation session
+    t =     2.64s         Wait for com.mattermost.ios to idle
+    t =     4.18s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.24s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.24s         Checking existence of `"loginIDField" TextField`
+    t =     5.35s Tap "loginIDField" TextField
+    t =     5.35s     Wait for com.mattermost.ios to idle
+    t =     5.36s     Find the "loginIDField" TextField
+    t =     5.37s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.39s     Synthesize event
+    t =     5.69s     Wait for com.mattermost.ios to idle
+    t =     5.90s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.90s     Wait for com.mattermost.ios to idle
+    t =     6.49s     Find the "loginIDField" TextField
+    t =     6.56s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.59s     Synthesize event
+    t =     6.93s     Wait for com.mattermost.ios to idle
+    t =     7.15s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     7.20s Tap "loginPasswordField" SecureTextField
+    t =     7.20s     Wait for com.mattermost.ios to idle
+    t =     7.20s     Find the "loginPasswordField" SecureTextField
+    t =     7.23s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.26s     Synthesize event
+    t =     7.56s     Wait for com.mattermost.ios to idle
+    t =     7.99s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.99s     Wait for com.mattermost.ios to idle
+    t =     7.99s     Find the "loginPasswordField" SecureTextField
+    t =     8.03s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     8.06s     Synthesize event
+    t =     8.75s     Wait for com.mattermost.ios to idle
+    t =     8.75s Tap "loginSubmitButton" Button
+    t =     8.75s     Wait for com.mattermost.ios to idle
+    t =     8.75s     Find the "loginSubmitButton" Button
+    t =     8.79s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.82s     Synthesize event
+    t =     9.11s     Wait for com.mattermost.ios to idle
+    t =     9.45s Checking existence of `"loginIDField" TextField`
+    t =     9.58s Checking existence of `"nativeShell" Other`
+    t =     9.85s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    10.08s Waiting 6.0s for "nativeChannelPane" Other to exist
+    t =    11.11s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelPane" Other`
+    t =    11.11s         Checking existence of `"nativeChannelPane" Other`
+    t =    11.22s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.47s Checking existence of `CollectionView (First Match)`
+    t =    11.72s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.97s Checking existence of `"Back" Button`
+    t =    12.02s Find the "Back" Button
+    t =    12.08s Tap "Back" Button
+    t =    12.08s     Wait for com.mattermost.ios to idle
+    t =    12.08s     Find the "Back" Button
+    t =    12.13s     Check for interrupting elements affecting "Back" Button
+    t =    12.18s     Synthesize event
+    t =    12.48s     Wait for com.mattermost.ios to idle
+    t =    12.91s Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.00s Waiting 10.0s for "channelSidebar.scroll" Any to exist
+    t =    14.04s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.scroll" Any`
+    t =    14.04s         Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.16s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.23s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.71s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.80s Checking existence of `"channelSidebar.scroll" Any`
+    t =    15.09s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    15.13s Swipe up "channelSidebar.scroll" Any
+    t =    15.13s     Wait for com.mattermost.ios to idle
+    t =    15.14s     Find the "channelSidebar.scroll" Any
+    t =    15.21s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    15.27s     Synthesize event
+    t =    15.71s     Wait for com.mattermost.ios to idle
+    t =    18.13s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    18.20s Swipe up "channelSidebar.scroll" ScrollView
+    t =    18.20s     Wait for com.mattermost.ios to idle
+    t =    18.20s     Find the "channelSidebar.scroll" ScrollView
+    t =    18.28s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    18.34s     Synthesize event
+    t =    18.77s     Wait for com.mattermost.ios to idle
+    t =    21.22s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    21.27s Swipe up "channelSidebar.scroll" ScrollView
+    t =    21.27s     Wait for com.mattermost.ios to idle
+    t =    21.28s     Find the "channelSidebar.scroll" ScrollView
+    t =    21.35s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    21.41s     Synthesize event
+    t =    21.84s     Wait for com.mattermost.ios to idle
+    t =    24.29s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    24.36s Swipe up "channelSidebar.scroll" ScrollView
+    t =    24.36s     Wait for com.mattermost.ios to idle
+    t =    24.36s     Find the "channelSidebar.scroll" ScrollView
+    t =    24.43s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    24.50s     Synthesize event
+    t =    24.93s     Wait for com.mattermost.ios to idle
+    t =    27.37s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    27.43s Swipe up "channelSidebar.scroll" ScrollView
+    t =    27.43s     Wait for com.mattermost.ios to idle
+    t =    27.43s     Find the "channelSidebar.scroll" ScrollView
+    t =    27.51s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    27.57s     Synthesize event
+    t =    28.00s     Wait for com.mattermost.ios to idle
+    t =    30.43s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    30.50s Swipe up "channelSidebar.scroll" ScrollView
+    t =    30.50s     Wait for com.mattermost.ios to idle
+    t =    30.50s     Find the "channelSidebar.scroll" ScrollView
+    t =    30.59s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    30.65s     Synthesize event
+    t =    31.08s     Wait for com.mattermost.ios to idle
+    t =    33.53s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    33.59s Swipe up "channelSidebar.scroll" ScrollView
+    t =    33.59s     Wait for com.mattermost.ios to idle
+    t =    33.59s     Find the "channelSidebar.scroll" ScrollView
+    t =    33.67s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    33.73s     Synthesize event
+    t =    34.16s     Wait for com.mattermost.ios to idle
+    t =    36.58s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    36.64s Swipe up "channelSidebar.scroll" ScrollView
+    t =    36.64s     Wait for com.mattermost.ios to idle
+    t =    36.65s     Find the "channelSidebar.scroll" ScrollView
+    t =    36.72s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    36.78s     Synthesize event
+    t =    37.21s     Wait for com.mattermost.ios to idle
+    t =    39.64s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    39.72s Swipe up "channelSidebar.scroll" ScrollView
+    t =    39.72s     Wait for com.mattermost.ios to idle
+    t =    39.73s     Find the "channelSidebar.scroll" ScrollView
+    t =    39.84s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    39.91s     Synthesize event
+    t =    40.33s     Wait for com.mattermost.ios to idle
+    t =    42.76s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    42.83s Swipe up "channelSidebar.scroll" ScrollView
+    t =    42.83s     Wait for com.mattermost.ios to idle
+    t =    42.83s     Find the "channelSidebar.scroll" ScrollView
+    t =    42.91s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    42.98s     Synthesize event
+    t =    43.42s     Wait for com.mattermost.ios to idle
+    t =    45.83s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    45.89s Swipe up "channelSidebar.scroll" ScrollView
+    t =    45.89s     Wait for com.mattermost.ios to idle
+    t =    45.89s     Find the "channelSidebar.scroll" ScrollView
+    t =    45.97s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    46.03s     Synthesize event
+    t =    46.46s     Wait for com.mattermost.ios to idle
+    t =    48.90s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    48.96s Swipe up "channelSidebar.scroll" ScrollView
+    t =    48.96s     Wait for com.mattermost.ios to idle
+    t =    48.97s     Find the "channelSidebar.scroll" ScrollView
+    t =    49.04s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    49.10s     Synthesize event
+    t =    49.54s     Wait for com.mattermost.ios to idle
+    t =    51.96s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    52.03s Swipe up "channelSidebar.scroll" ScrollView
+    t =    52.03s     Wait for com.mattermost.ios to idle
+    t =    52.04s     Find the "channelSidebar.scroll" ScrollView
+    t =    52.11s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    52.17s     Synthesize event
+    t =    52.61s     Wait for com.mattermost.ios to idle
+    t =    55.04s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    55.11s Swipe up "channelSidebar.scroll" ScrollView
+    t =    55.11s     Wait for com.mattermost.ios to idle
+    t =    55.11s     Find the "channelSidebar.scroll" ScrollView
+    t =    55.19s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    55.25s     Synthesize event
+    t =    55.68s     Wait for com.mattermost.ios to idle
+    t =    58.11s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    58.18s Swipe up "channelSidebar.scroll" ScrollView
+    t =    58.18s     Wait for com.mattermost.ios to idle
+    t =    58.18s     Find the "channelSidebar.scroll" ScrollView
+    t =    58.25s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    58.31s     Synthesize event
+    t =    58.74s     Wait for com.mattermost.ios to idle
+    t =    61.16s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    61.24s Swipe up "channelSidebar.scroll" ScrollView
+    t =    61.24s     Wait for com.mattermost.ios to idle
+    t =    61.24s     Find the "channelSidebar.scroll" ScrollView
+    t =    61.31s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    61.37s     Synthesize event
+    t =    61.80s     Wait for com.mattermost.ios to idle
+    t =    64.25s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    64.31s Swipe up "channelSidebar.scroll" ScrollView
+    t =    64.31s     Wait for com.mattermost.ios to idle
+    t =    64.31s     Find the "channelSidebar.scroll" ScrollView
+    t =    64.39s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    64.46s     Synthesize event
+    t =    64.89s     Wait for com.mattermost.ios to idle
+    t =    67.32s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    67.38s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+[shellsettle] channelSidebar.channel.psw97y5zqpfnpembwxraizuije: realised after 17 swipe(s) of the sidebar, after 1 Back tap(s) to the channel list
+    t =    67.42s Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button to exist
+    t =    68.44s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    68.45s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    68.51s Tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.51s     Wait for com.mattermost.ios to idle
+    t =    68.51s     Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.58s     Check for interrupting elements affecting "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.62s     Synthesize event
+    t =    68.63s         Scroll element to visible
+    t =    68.63s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.71s         Computed hit point {233, 768.99999999999943} after scrolling to visible
+    t =    69.00s     Wait for com.mattermost.ios to idle
+    t =    69.47s Waiting 40.0s for "channelPostList" Any to exist
+    t =    70.48s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    70.48s         Checking existence of `"channelPostList" Any`
+    t =    70.66s Tap "nativeChannelThreadsButton" Any
+    t =    70.66s     Wait for com.mattermost.ios to idle
+    t =    70.67s     Find the "nativeChannelThreadsButton" Any
+    t =    70.74s     Check for interrupting elements affecting "nativeChannelThreadsButton" Button
+    t =    70.83s     Synthesize event
+    t =    71.11s     Wait for com.mattermost.ios to idle
+    t =    71.25s Waiting 40.0s for "nativeThreadsList" Any to exist
+    t =    72.30s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeThreadsList" Any`
+    t =    72.30s         Checking existence of `"nativeThreadsList" Any`
+    t =    72.38s Waiting 20.0s for "globalThreads.subtitle" Any to exist
+    t =    73.40s     Checking `Expect predicate `existsNoRetry == 1` for object "globalThreads.subtitle" Any`
+    t =    73.40s         Checking existence of `"globalThreads.subtitle" Any`
+    t =    73.47s Get number of matches for: Elements matching predicate 'identifier BEGINSWITH "globalThreads.row."'
+    t =    73.52s Find the Any (Element at index 0)
+    t =    73.57s Find the Any (Element at index 1)
+    t =    73.61s Find the Any (Element at index 2)
+    t =    73.66s Find the Any (Element at index 3)
+    t =    73.71s Find the Any (Element at index 4)
+    t =    73.76s Find the Any (Element at index 5)
+    t =    73.81s Find the Any (Element at index 6)
+    t =    73.85s Find the Any (Element at index 7)
+    t =    73.90s Find the Any (Element at index 8)
+    t =    73.95s Find the Any (Element at index 9)
+    t =    73.99s Find the Any (Element at index 10)
+    t =    74.04s Find the Any (Element at index 11)
+    t =    74.10s Find the Any (Element at index 12)
+    t =    74.14s Find the Any (Element at index 13)
+    t =    74.21s Find the Any (Element at index 14)
+    t =    74.26s Find the Any (Element at index 15)
+    t =    74.32s Find the Any (Element at index 16)
+    t =    74.37s Find the "globalThreads.subtitle" Any
+    t =    74.42s Find the "globalThreads.subtitle" StaticText
+    t =    74.48s Find the Target Application 'com.mattermost.ios'
+    t =    74.60s Added attachment named 't36-08-global-threads'
+    t =    74.60s Waiting 30.0s for "globalThreads.row.1rs34fh6qpdfzr5zonz94cq9ie" Any to exist
+    t =    75.63s     Checking `Expect predicate `existsNoRetry == 1` for object "globalThreads.row.1rs34fh6qpdfzr5zonz94cq9ie" Any`
+    t =    75.63s         Checking existence of `"globalThreads.row.1rs34fh6qpdfzr5zonz94cq9ie" Any`
+    t =    75.71s Find the "globalThreads.row.1rs34fh6qpdfzr5zonz94cq9ie" Any
+    t =    75.78s Tap "globalThreads.row.1rs34fh6qpdfzr5zonz94cq9ie" Button
+    t =    75.78s     Wait for com.mattermost.ios to idle
+    t =    75.78s     Find the "globalThreads.row.1rs34fh6qpdfzr5zonz94cq9ie" Button
+    t =    75.86s     Check for interrupting elements affecting "globalThreads.row.1rs34fh6qpdfzr5zonz94cq9ie" Button
+    t =    75.92s     Synthesize event
+    t =    76.22s     Wait for com.mattermost.ios to idle
+    t =    76.68s Waiting 40.0s for "threadPane" Any to exist
+    t =    77.71s     Checking `Expect predicate `existsNoRetry == 1` for object "threadPane" Any`
+    t =    77.71s         Checking existence of `"threadPane" Any`
+    t =    77.78s Waiting 30.0s for "threadPane.follow" Any to exist
+    t =    78.80s     Checking `Expect predicate `existsNoRetry == 1` for object "threadPane.follow" Any`
+    t =    78.80s         Checking existence of `"threadPane.follow" Any`
+    t =    78.88s Find the "threadPane.follow" Any
+    t =    78.94s Tap "threadPane.follow" Button
+    t =    78.94s     Wait for com.mattermost.ios to idle
+    t =    78.94s     Find the "threadPane.follow" Button
+    t =    78.99s     Check for interrupting elements affecting "threadPane.follow" Button
+    t =    79.04s     Synthesize event
+    t =    79.33s     Wait for com.mattermost.ios to idle
+    t =    79.35s Find the "threadPane.follow" Button
+    t =    79.41s Find the Target Application 'com.mattermost.ios'
+    t =    79.53s Added attachment named 't36-09-unfollowed'
+    t =    79.53s Tap "threadPane.follow" Button
+    t =    79.53s     Wait for com.mattermost.ios to idle
+    t =    79.53s     Find the "threadPane.follow" Button
+    t =    79.60s     Check for interrupting elements affecting "threadPane.follow" Button
+    t =    79.65s     Synthesize event
+    t =    79.94s     Wait for com.mattermost.ios to idle
+    t =    79.96s Find the "threadPane.follow" Button
+    t =    80.03s Get number of matches for: Elements matching predicate 'label == "Back"'
+    t =    80.07s Checking existence of `Button (Element at index 0)`
+    t =    80.10s Find the Button (Element at index 0)
+    t =    80.13s Tap "Back" Button
+    t =    80.13s     Wait for com.mattermost.ios to idle
+    t =    80.14s     Find the "Back" Button
+    t =    80.17s     Check for interrupting elements affecting "Back" Button
+    t =    80.21s     Synthesize event
+    t =    80.51s     Wait for com.mattermost.ios to idle
+    t =    80.89s Waiting 30.0s for "nativeThreadsList" Any to exist
+    t =    81.93s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeThreadsList" Any`
+    t =    81.93s         Checking existence of `"nativeThreadsList" Any`
+    t =    82.01s Checking existence of `"globalThreads.row.553zuunm77d7iqxky4zzkh4q1y" Any`
+    t =    82.29s Swipe up "globalThreads.postList" Any
+    t =    82.29s     Wait for com.mattermost.ios to idle
+    t =    82.29s     Find the "globalThreads.postList" Any
+    t =    82.35s     Check for interrupting elements affecting "globalThreads.postList" ScrollView
+    t =    82.40s     Synthesize event
+    t =    82.82s     Wait for com.mattermost.ios to idle
+    t =    85.06s Checking existence of `"globalThreads.row.553zuunm77d7iqxky4zzkh4q1y" Any`
+    t =    85.46s Swipe up "globalThreads.postList" ScrollView
+    t =    85.46s     Wait for com.mattermost.ios to idle
+    t =    85.46s     Find the "globalThreads.postList" ScrollView
+    t =    85.52s     Check for interrupting elements affecting "globalThreads.postList" ScrollView
+    t =    85.59s     Synthesize event
+    t =    86.00s     Wait for com.mattermost.ios to idle
+    t =    88.25s Checking existence of `"globalThreads.row.553zuunm77d7iqxky4zzkh4q1y" Any`
+    t =    88.64s Swipe up "globalThreads.postList" ScrollView
+    t =    88.64s     Wait for com.mattermost.ios to idle
+    t =    88.64s     Find the "globalThreads.postList" ScrollView
+    t =    88.70s     Check for interrupting elements affecting "globalThreads.postList" ScrollView
+    t =    88.77s     Synthesize event
+    t =    89.18s     Wait for com.mattermost.ios to idle
+    t =    91.43s Checking existence of `"globalThreads.row.553zuunm77d7iqxky4zzkh4q1y" Any`
+    t =    91.84s Swipe up "globalThreads.postList" ScrollView
+    t =    91.84s     Wait for com.mattermost.ios to idle
+    t =    91.84s     Find the "globalThreads.postList" ScrollView
+    t =    91.90s     Check for interrupting elements affecting "globalThreads.postList" ScrollView
+    t =    91.97s     Synthesize event
+    t =    92.39s     Wait for com.mattermost.ios to idle
+    t =    94.61s Checking existence of `"globalThreads.row.553zuunm77d7iqxky4zzkh4q1y" Any`
+    t =    95.04s Swipe up "globalThreads.postList" ScrollView
+    t =    95.04s     Wait for com.mattermost.ios to idle
+    t =    95.04s     Find the "globalThreads.postList" ScrollView
+    t =    95.10s     Check for interrupting elements affecting "globalThreads.postList" ScrollView
+    t =    95.17s     Synthesize event
+    t =    95.58s     Wait for com.mattermost.ios to idle
+    t =    97.85s Checking existence of `"globalThreads.row.553zuunm77d7iqxky4zzkh4q1y" Any`
+    t =    97.95s Checking existence of `"globalThreads.row.553zuunm77d7iqxky4zzkh4q1y" Any`
+    t =    98.04s Find the Target Application 'com.mattermost.ios'
+    t =    98.17s Added attachment named 't36-10-paged'
+    t =    98.17s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testFollowPersistsAndTheFollowedThreadsListPages]' passed (98.395 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies]' started.
+    t =     0.00s Start Test at 2026-11-04 06:53:57.994
+    t =     0.03s Set Up
+    t =     0.48s Open com.mattermost.ios
+    t =     0.48s     Launch com.mattermost.ios
+    t =     0.48s         Terminate com.mattermost.ios:22713
+2026-11-04 06:53:59.543 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 06:53:59.543 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.77s         Setting up automation session
+    t =     2.96s         Wait for com.mattermost.ios to idle
+    t =     4.48s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.51s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.51s         Checking existence of `"loginIDField" TextField`
+    t =     5.61s Tap "loginIDField" TextField
+    t =     5.61s     Wait for com.mattermost.ios to idle
+    t =     5.61s     Find the "loginIDField" TextField
+    t =     5.62s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.64s     Synthesize event
+    t =     5.93s     Wait for com.mattermost.ios to idle
+    t =     5.98s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.98s     Wait for com.mattermost.ios to idle
+    t =     5.98s     Find the "loginIDField" TextField
+    t =     6.01s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.04s     Synthesize event
+    t =     6.38s     Wait for com.mattermost.ios to idle
+    t =     6.60s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.64s Tap "loginPasswordField" SecureTextField
+    t =     6.64s     Wait for com.mattermost.ios to idle
+    t =     6.64s     Find the "loginPasswordField" SecureTextField
+    t =     6.67s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.70s     Synthesize event
+    t =     7.00s     Wait for com.mattermost.ios to idle
+    t =     7.41s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.41s     Wait for com.mattermost.ios to idle
+    t =     7.42s     Find the "loginPasswordField" SecureTextField
+    t =     7.46s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.50s     Synthesize event
+    t =     8.18s     Wait for com.mattermost.ios to idle
+    t =     8.18s Tap "loginSubmitButton" Button
+    t =     8.18s     Wait for com.mattermost.ios to idle
+    t =     8.19s     Find the "loginSubmitButton" Button
+    t =     8.23s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.26s     Synthesize event
+    t =     8.55s     Wait for com.mattermost.ios to idle
+    t =     8.90s Checking existence of `"loginIDField" TextField`
+    t =     8.98s Checking existence of `"nativeShell" Other`
+    t =     9.22s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =     9.53s Waiting 6.0s for "nativeChannelPane" Other to exist
+    t =    10.57s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelPane" Other`
+    t =    10.57s         Checking existence of `"nativeChannelPane" Other`
+    t =    10.67s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.92s Checking existence of `CollectionView (First Match)`
+    t =    11.16s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.39s Checking existence of `"Back" Button`
+    t =    11.44s Find the "Back" Button
+    t =    11.51s Tap "Back" Button
+    t =    11.51s     Wait for com.mattermost.ios to idle
+    t =    11.51s     Find the "Back" Button
+    t =    11.56s     Check for interrupting elements affecting "Back" Button
+    t =    11.61s     Synthesize event
+    t =    11.91s     Wait for com.mattermost.ios to idle
+    t =    12.36s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.45s Waiting 10.0s for "channelSidebar.scroll" Any to exist
+    t =    13.47s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.scroll" Any`
+    t =    13.47s         Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.55s Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.62s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.10s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.17s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.45s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    14.50s Swipe up "channelSidebar.scroll" Any
+    t =    14.50s     Wait for com.mattermost.ios to idle
+    t =    14.50s     Find the "channelSidebar.scroll" Any
+    t =    14.59s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    14.65s     Synthesize event
+    t =    15.08s     Wait for com.mattermost.ios to idle
+    t =    17.52s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    17.59s Swipe up "channelSidebar.scroll" ScrollView
+    t =    17.59s     Wait for com.mattermost.ios to idle
+    t =    17.59s     Find the "channelSidebar.scroll" ScrollView
+    t =    17.67s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    17.73s     Synthesize event
+    t =    18.17s     Wait for com.mattermost.ios to idle
+    t =    20.58s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    20.65s Swipe up "channelSidebar.scroll" ScrollView
+    t =    20.65s     Wait for com.mattermost.ios to idle
+    t =    20.65s     Find the "channelSidebar.scroll" ScrollView
+    t =    20.73s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    20.79s     Synthesize event
+    t =    21.21s     Wait for com.mattermost.ios to idle
+    t =    23.68s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    23.76s Swipe up "channelSidebar.scroll" ScrollView
+    t =    23.76s     Wait for com.mattermost.ios to idle
+    t =    23.76s     Find the "channelSidebar.scroll" ScrollView
+    t =    23.83s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    23.89s     Synthesize event
+    t =    24.32s     Wait for com.mattermost.ios to idle
+    t =    26.77s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    26.82s Swipe up "channelSidebar.scroll" ScrollView
+    t =    26.82s     Wait for com.mattermost.ios to idle
+    t =    26.83s     Find the "channelSidebar.scroll" ScrollView
+    t =    26.90s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    26.96s     Synthesize event
+    t =    27.39s     Wait for com.mattermost.ios to idle
+    t =    29.82s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    29.89s Swipe up "channelSidebar.scroll" ScrollView
+    t =    29.89s     Wait for com.mattermost.ios to idle
+    t =    29.89s     Find the "channelSidebar.scroll" ScrollView
+    t =    29.97s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    30.04s     Synthesize event
+    t =    30.47s     Wait for com.mattermost.ios to idle
+    t =    32.90s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    32.97s Swipe up "channelSidebar.scroll" ScrollView
+    t =    32.97s     Wait for com.mattermost.ios to idle
+    t =    32.97s     Find the "channelSidebar.scroll" ScrollView
+    t =    33.04s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    33.10s     Synthesize event
+    t =    33.54s     Wait for com.mattermost.ios to idle
+    t =    35.97s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    36.04s Swipe up "channelSidebar.scroll" ScrollView
+    t =    36.04s     Wait for com.mattermost.ios to idle
+    t =    36.04s     Find the "channelSidebar.scroll" ScrollView
+    t =    36.12s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    36.18s     Synthesize event
+    t =    36.62s     Wait for com.mattermost.ios to idle
+    t =    39.05s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    39.11s Swipe up "channelSidebar.scroll" ScrollView
+    t =    39.11s     Wait for com.mattermost.ios to idle
+    t =    39.11s     Find the "channelSidebar.scroll" ScrollView
+    t =    39.18s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    39.24s     Synthesize event
+    t =    39.68s     Wait for com.mattermost.ios to idle
+    t =    42.10s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    42.16s Swipe up "channelSidebar.scroll" ScrollView
+    t =    42.16s     Wait for com.mattermost.ios to idle
+    t =    42.17s     Find the "channelSidebar.scroll" ScrollView
+    t =    42.25s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    42.31s     Synthesize event
+    t =    42.77s     Wait for com.mattermost.ios to idle
+    t =    45.19s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    45.24s Swipe up "channelSidebar.scroll" ScrollView
+    t =    45.24s     Wait for com.mattermost.ios to idle
+    t =    45.25s     Find the "channelSidebar.scroll" ScrollView
+    t =    45.32s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    45.38s     Synthesize event
+    t =    45.81s     Wait for com.mattermost.ios to idle
+    t =    48.23s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    48.30s Swipe up "channelSidebar.scroll" ScrollView
+    t =    48.30s     Wait for com.mattermost.ios to idle
+    t =    48.31s     Find the "channelSidebar.scroll" ScrollView
+    t =    48.38s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    48.44s     Synthesize event
+    t =    48.87s     Wait for com.mattermost.ios to idle
+    t =    51.29s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    51.36s Swipe up "channelSidebar.scroll" ScrollView
+    t =    51.36s     Wait for com.mattermost.ios to idle
+    t =    51.36s     Find the "channelSidebar.scroll" ScrollView
+    t =    51.43s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    51.50s     Synthesize event
+    t =    51.93s     Wait for com.mattermost.ios to idle
+    t =    54.35s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    54.41s Swipe up "channelSidebar.scroll" ScrollView
+    t =    54.41s     Wait for com.mattermost.ios to idle
+    t =    54.41s     Find the "channelSidebar.scroll" ScrollView
+    t =    54.48s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    54.54s     Synthesize event
+    t =    54.97s     Wait for com.mattermost.ios to idle
+    t =    57.40s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    57.47s Swipe up "channelSidebar.scroll" ScrollView
+    t =    57.47s     Wait for com.mattermost.ios to idle
+    t =    57.47s     Find the "channelSidebar.scroll" ScrollView
+    t =    57.54s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    57.60s     Synthesize event
+    t =    58.03s     Wait for com.mattermost.ios to idle
+    t =    60.49s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    60.55s Swipe up "channelSidebar.scroll" ScrollView
+    t =    60.55s     Wait for com.mattermost.ios to idle
+    t =    60.55s     Find the "channelSidebar.scroll" ScrollView
+    t =    60.62s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    60.68s     Synthesize event
+    t =    61.12s     Wait for com.mattermost.ios to idle
+    t =    63.55s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    63.61s Swipe up "channelSidebar.scroll" ScrollView
+    t =    63.61s     Wait for com.mattermost.ios to idle
+    t =    63.61s     Find the "channelSidebar.scroll" ScrollView
+    t =    63.70s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    63.76s     Synthesize event
+    t =    64.20s     Wait for com.mattermost.ios to idle
+    t =    66.66s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    66.74s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+[shellsettle] channelSidebar.channel.psw97y5zqpfnpembwxraizuije: realised after 17 swipe(s) of the sidebar, after 1 Back tap(s) to the channel list
+    t =    66.79s Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button to exist
+    t =    67.81s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    67.82s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    67.88s Tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    67.88s     Wait for com.mattermost.ios to idle
+    t =    67.88s     Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    67.94s     Check for interrupting elements affecting "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    67.98s     Synthesize event
+    t =    67.99s         Scroll element to visible
+    t =    67.99s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.08s         Computed hit point {233, 768.99999999999943} after scrolling to visible
+    t =    68.37s     Wait for com.mattermost.ios to idle
+    t =    68.84s Waiting 40.0s for "channelPostList" Any to exist
+    t =    69.87s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    69.87s         Checking existence of `"channelPostList" Any`
+    t =    69.98s Checking existence of `"post.76dm6nwcni8x5kzks5tktgscfa" Any`
+    t =    70.10s Checking existence of `"post.76dm6nwcni8x5kzks5tktgscfa" Any`
+    t =    70.30s Waiting 30.0s for "post.76dm6nwcni8x5kzks5tktgscfa.replyCount" Any to exist
+    t =    71.33s     Checking `Expect predicate `existsNoRetry == 1` for object "post.76dm6nwcni8x5kzks5tktgscfa.replyCount" Any`
+    t =    71.33s         Checking existence of `"post.76dm6nwcni8x5kzks5tktgscfa.replyCount" Any`
+    t =    71.63s Tap "post.76dm6nwcni8x5kzks5tktgscfa.replyCount" Any
+    t =    71.63s     Wait for com.mattermost.ios to idle
+    t =    71.63s     Find the "post.76dm6nwcni8x5kzks5tktgscfa.replyCount" Any
+    t =    71.86s     Check for interrupting elements affecting "post.76dm6nwcni8x5kzks5tktgscfa.replyCount" Button
+    t =    71.95s     Synthesize event
+    t =    72.23s     Wait for com.mattermost.ios to idle
+    t =    72.27s Waiting 40.0s for "threadPane" Any to exist
+    t =    73.29s     Checking `Expect predicate `existsNoRetry == 1` for object "threadPane" Any`
+    t =    73.29s         Checking existence of `"threadPane" Any`
+    t =    73.37s Waiting 40.0s for "threadPostList" Any to exist
+    t =    74.40s     Checking `Expect predicate `existsNoRetry == 1` for object "threadPostList" Any`
+    t =    74.40s         Checking existence of `"threadPostList" Any`
+    t =    74.50s Waiting 30.0s for "channelComposer.input" Any to exist
+    t =    75.52s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    75.52s         Checking existence of `"channelComposer.input" Any`
+    t =    75.60s Tap "channelComposer.input" Any
+    t =    75.60s     Wait for com.mattermost.ios to idle
+    t =    75.60s     Find the "channelComposer.input" Any
+    t =    75.68s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    75.73s     Synthesize event
+    t =    76.02s     Wait for com.mattermost.ios to idle
+    t =    76.02s Type 't36 reply from the...' into "channelComposer.input" TextView
+    t =    76.02s     Wait for com.mattermost.ios to idle
+    t =    76.03s     Find the "channelComposer.input" TextView
+    t =    76.18s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    76.24s     Synthesize event
+    t =    76.99s     Wait for com.mattermost.ios to idle
+    t =    76.99s Find the Target Application 'com.mattermost.ios'
+    t =    77.12s Added attachment named 't36-04-reply-typed'
+    t =    77.12s Waiting 10.0s for "channelComposer.send" Any to exist
+    t =    78.18s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.send" Any`
+    t =    78.18s         Checking existence of `"channelComposer.send" Any`
+    t =    78.33s Find the "channelComposer.send" Any
+    t =    78.51s Tap "channelComposer.send" Button
+    t =    78.51s     Wait for com.mattermost.ios to idle
+    t =    78.51s     Find the "channelComposer.send" Button
+    t =    78.67s     Check for interrupting elements affecting "channelComposer.send" Button
+    t =    78.73s     Synthesize event
+    t =    79.04s     Wait for com.mattermost.ios to idle
+    t =    79.14s Checking existence of `"thread.post.o7nqoynqz38t5gwazz3j66nhbw" Any`
+    t =    79.34s Find the Target Application 'com.mattermost.ios'
+    t =    79.48s Added attachment named 't36-05-reply-sent'
+    t =    79.52s Checking existence of `"thread.post.p4n44hp4p3rgtpz6dxeu83ewmw" Any`
+    t =    79.72s Find the Target Application 'com.mattermost.ios'
+    t =    79.86s Added attachment named 't36-06-socket-reply'
+    t =    79.88s Waiting 20.0s for "Back" Button to exist
+    t =    80.91s     Checking `Expect predicate `existsNoRetry == 1` for object "Back" Button`
+    t =    80.91s         Checking existence of `"Back" Button`
+    t =    80.99s Get number of matches for: Elements matching predicate 'label == "Back"'
+    t =    81.04s Checking existence of `Button (Element at index 0)`
+    t =    81.10s Find the Button (Element at index 0)
+    t =    81.16s Tap "Back" Button
+    t =    81.16s     Wait for com.mattermost.ios to idle
+    t =    81.16s     Find the "Back" Button
+    t =    81.23s     Check for interrupting elements affecting "Back" Button
+    t =    81.31s     Synthesize event
+    t =    81.60s     Wait for com.mattermost.ios to idle
+    t =    82.06s Waiting 30.0s for "channelPostList" Any to exist
+    t =    83.09s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    83.09s         Checking existence of `"channelPostList" Any`
+    t =    83.17s Find the "post.76dm6nwcni8x5kzks5tktgscfa.replyCount" Any
+    t =    83.41s Find the Target Application 'com.mattermost.ios'
+    t =    83.55s Added attachment named 't36-07-channel-reply-line'
+    t =    83.55s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies]' passed (83.798 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply]' started.
+    t =     0.00s Start Test at 2026-11-04 06:55:21.794
+    t =     0.02s Set Up
+    t =     1.02s Added attachment named 't36-server-order-vs-chronology'
+    t =     1.08s Open com.mattermost.ios
+    t =     1.08s     Launch com.mattermost.ios
+    t =     1.08s         Terminate com.mattermost.ios:23264
+2026-11-04 06:55:23.939 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 06:55:23.939 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.36s         Setting up automation session
+    t =     3.41s         Wait for com.mattermost.ios to idle
+    t =     4.94s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.97s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.97s         Checking existence of `"loginIDField" TextField`
+    t =     6.06s Tap "loginIDField" TextField
+    t =     6.06s     Wait for com.mattermost.ios to idle
+    t =     6.07s     Find the "loginIDField" TextField
+    t =     6.09s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.11s     Synthesize event
+    t =     6.42s     Wait for com.mattermost.ios to idle
+    t =     6.44s Type 'perfprobe' into "loginIDField" TextField
+    t =     6.44s     Wait for com.mattermost.ios to idle
+    t =     6.44s     Find the "loginIDField" TextField
+    t =     6.48s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     6.50s     Synthesize event
+    t =     6.86s     Wait for com.mattermost.ios to idle
+    t =     7.07s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     7.11s Tap "loginPasswordField" SecureTextField
+    t =     7.11s     Wait for com.mattermost.ios to idle
+    t =     7.11s     Find the "loginPasswordField" SecureTextField
+    t =     7.14s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.16s     Synthesize event
+    t =     7.46s     Wait for com.mattermost.ios to idle
+    t =     7.88s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.88s     Wait for com.mattermost.ios to idle
+    t =     7.89s     Find the "loginPasswordField" SecureTextField
+    t =     7.95s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.99s     Synthesize event
+    t =     8.67s     Wait for com.mattermost.ios to idle
+    t =     8.67s Tap "loginSubmitButton" Button
+    t =     8.67s     Wait for com.mattermost.ios to idle
+    t =     8.68s     Find the "loginSubmitButton" Button
+    t =     8.71s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.73s     Synthesize event
+    t =     9.03s     Wait for com.mattermost.ios to idle
+    t =     9.44s Checking existence of `"loginIDField" TextField`
+    t =     9.56s Checking existence of `"nativeShell" Other`
+    t =     9.83s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    10.00s Waiting 6.0s for "nativeChannelPane" Other to exist
+    t =    11.05s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelPane" Other`
+    t =    11.05s         Checking existence of `"nativeChannelPane" Other`
+    t =    11.11s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.37s Checking existence of `CollectionView (First Match)`
+    t =    11.62s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.87s Checking existence of `"Back" Button`
+    t =    11.91s Find the "Back" Button
+    t =    11.98s Tap "Back" Button
+    t =    11.98s     Wait for com.mattermost.ios to idle
+    t =    11.98s     Find the "Back" Button
+    t =    12.03s     Check for interrupting elements affecting "Back" Button
+    t =    12.08s     Synthesize event
+    t =    12.37s     Wait for com.mattermost.ios to idle
+    t =    12.81s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.89s Waiting 10.0s for "channelSidebar.scroll" Any to exist
+    t =    13.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.scroll" Any`
+    t =    13.91s         Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.99s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.06s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.53s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.62s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.89s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    14.97s Swipe up "channelSidebar.scroll" Any
+    t =    14.97s     Wait for com.mattermost.ios to idle
+    t =    14.98s     Find the "channelSidebar.scroll" Any
+    t =    15.05s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    15.11s     Synthesize event
+    t =    15.55s     Wait for com.mattermost.ios to idle
+    t =    17.97s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    18.03s Swipe up "channelSidebar.scroll" ScrollView
+    t =    18.03s     Wait for com.mattermost.ios to idle
+    t =    18.03s     Find the "channelSidebar.scroll" ScrollView
+    t =    18.10s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    18.16s     Synthesize event
+    t =    18.60s     Wait for com.mattermost.ios to idle
+    t =    21.04s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    21.11s Swipe up "channelSidebar.scroll" ScrollView
+    t =    21.11s     Wait for com.mattermost.ios to idle
+    t =    21.11s     Find the "channelSidebar.scroll" ScrollView
+    t =    21.18s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    21.25s     Synthesize event
+    t =    21.68s     Wait for com.mattermost.ios to idle
+    t =    24.13s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    24.20s Swipe up "channelSidebar.scroll" ScrollView
+    t =    24.20s     Wait for com.mattermost.ios to idle
+    t =    24.20s     Find the "channelSidebar.scroll" ScrollView
+    t =    24.28s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    24.34s     Synthesize event
+    t =    24.77s     Wait for com.mattermost.ios to idle
+    t =    27.20s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    27.27s Swipe up "channelSidebar.scroll" ScrollView
+    t =    27.27s     Wait for com.mattermost.ios to idle
+    t =    27.27s     Find the "channelSidebar.scroll" ScrollView
+    t =    27.35s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    27.42s     Synthesize event
+    t =    27.87s     Wait for com.mattermost.ios to idle
+    t =    30.30s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    30.35s Swipe up "channelSidebar.scroll" ScrollView
+    t =    30.35s     Wait for com.mattermost.ios to idle
+    t =    30.35s     Find the "channelSidebar.scroll" ScrollView
+    t =    30.42s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    30.49s     Synthesize event
+    t =    30.93s     Wait for com.mattermost.ios to idle
+    t =    33.35s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    33.43s Swipe up "channelSidebar.scroll" ScrollView
+    t =    33.43s     Wait for com.mattermost.ios to idle
+    t =    33.44s     Find the "channelSidebar.scroll" ScrollView
+    t =    33.51s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    33.58s     Synthesize event
+    t =    34.02s     Wait for com.mattermost.ios to idle
+    t =    36.43s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    36.51s Swipe up "channelSidebar.scroll" ScrollView
+    t =    36.51s     Wait for com.mattermost.ios to idle
+    t =    36.51s     Find the "channelSidebar.scroll" ScrollView
+    t =    36.59s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    36.65s     Synthesize event
+    t =    37.09s     Wait for com.mattermost.ios to idle
+    t =    39.52s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    39.58s Swipe up "channelSidebar.scroll" ScrollView
+    t =    39.58s     Wait for com.mattermost.ios to idle
+    t =    39.59s     Find the "channelSidebar.scroll" ScrollView
+    t =    39.67s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    39.73s     Synthesize event
+    t =    40.17s     Wait for com.mattermost.ios to idle
+    t =    42.63s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    42.69s Swipe up "channelSidebar.scroll" ScrollView
+    t =    42.69s     Wait for com.mattermost.ios to idle
+    t =    42.70s     Find the "channelSidebar.scroll" ScrollView
+    t =    42.77s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    42.83s     Synthesize event
+    t =    43.27s     Wait for com.mattermost.ios to idle
+    t =    45.69s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    45.77s Swipe up "channelSidebar.scroll" ScrollView
+    t =    45.77s     Wait for com.mattermost.ios to idle
+    t =    45.77s     Find the "channelSidebar.scroll" ScrollView
+    t =    45.84s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    45.91s     Synthesize event
+    t =    46.34s     Wait for com.mattermost.ios to idle
+    t =    48.80s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    48.88s Swipe up "channelSidebar.scroll" ScrollView
+    t =    48.88s     Wait for com.mattermost.ios to idle
+    t =    48.88s     Find the "channelSidebar.scroll" ScrollView
+    t =    48.95s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    49.02s     Synthesize event
+    t =    49.45s     Wait for com.mattermost.ios to idle
+    t =    51.88s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    51.94s Swipe up "channelSidebar.scroll" ScrollView
+    t =    51.94s     Wait for com.mattermost.ios to idle
+    t =    51.94s     Find the "channelSidebar.scroll" ScrollView
+    t =    52.03s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    52.10s     Synthesize event
+    t =    52.54s     Wait for com.mattermost.ios to idle
+    t =    54.96s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    55.02s Swipe up "channelSidebar.scroll" ScrollView
+    t =    55.02s     Wait for com.mattermost.ios to idle
+    t =    55.02s     Find the "channelSidebar.scroll" ScrollView
+    t =    55.12s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    55.18s     Synthesize event
+    t =    55.62s     Wait for com.mattermost.ios to idle
+    t =    58.05s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    58.11s Swipe up "channelSidebar.scroll" ScrollView
+    t =    58.11s     Wait for com.mattermost.ios to idle
+    t =    58.11s     Find the "channelSidebar.scroll" ScrollView
+    t =    58.19s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    58.26s     Synthesize event
+    t =    58.68s     Wait for com.mattermost.ios to idle
+    t =    61.12s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    61.19s Swipe up "channelSidebar.scroll" ScrollView
+    t =    61.19s     Wait for com.mattermost.ios to idle
+    t =    61.20s     Find the "channelSidebar.scroll" ScrollView
+    t =    61.27s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    61.34s     Synthesize event
+    t =    61.77s     Wait for com.mattermost.ios to idle
+    t =    64.20s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    64.27s Swipe up "channelSidebar.scroll" ScrollView
+    t =    64.27s     Wait for com.mattermost.ios to idle
+    t =    64.27s     Find the "channelSidebar.scroll" ScrollView
+    t =    64.35s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    64.42s     Synthesize event
+    t =    64.85s     Wait for com.mattermost.ios to idle
+    t =    67.28s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    67.34s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+[shellsettle] channelSidebar.channel.psw97y5zqpfnpembwxraizuije: realised after 17 swipe(s) of the sidebar, after 1 Back tap(s) to the channel list
+    t =    67.39s Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button to exist
+    t =    68.42s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    68.42s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    68.46s Tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.46s     Wait for com.mattermost.ios to idle
+    t =    68.47s     Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.51s     Check for interrupting elements affecting "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.56s     Synthesize event
+    t =    68.57s         Scroll element to visible
+    t =    68.57s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.65s         Computed hit point {233, 768.99999999999943} after scrolling to visible
+    t =    68.94s     Wait for com.mattermost.ios to idle
+    t =    69.41s Waiting 40.0s for "channelPostList" Any to exist
+    t =    70.43s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    70.43s         Checking existence of `"channelPostList" Any`
+    t =    70.57s Checking existence of `"post.cqzxqc6erjrm5jrzyzdwaico3y" Any`
+    t =    70.70s Checking existence of `"post.cqzxqc6erjrm5jrzyzdwaico3y" Any`
+    t =    70.82s Checking existence of `"post.gwmwwz7pgpfo9xrqsztoc6mbse" Any`
+    t =    71.22s Checking existence of `"post.rfspp87rbtff7fmwj7s4on1qtc" Any`
+    t =    71.61s Checking existence of `"post.ya3h6nk333gebj6wyc4885wuma" Any`
+    t =    72.01s Find the Target Application 'com.mattermost.ios'
+    t =    72.15s Added attachment named 't36-01-channel-collapsed'
+    t =    72.15s Checking existence of `"post.cqzxqc6erjrm5jrzyzdwaico3y" Any`
+    t =    72.27s Checking existence of `"post.cqzxqc6erjrm5jrzyzdwaico3y" Any`
+    t =    72.39s Waiting 30.0s for "post.cqzxqc6erjrm5jrzyzdwaico3y.replyCount" Any to exist
+    t =    73.41s     Checking `Expect predicate `existsNoRetry == 1` for object "post.cqzxqc6erjrm5jrzyzdwaico3y.replyCount" Any`
+    t =    73.41s         Checking existence of `"post.cqzxqc6erjrm5jrzyzdwaico3y.replyCount" Any`
+    t =    73.65s Tap "post.cqzxqc6erjrm5jrzyzdwaico3y.replyCount" Any
+    t =    73.65s     Wait for com.mattermost.ios to idle
+    t =    73.65s     Find the "post.cqzxqc6erjrm5jrzyzdwaico3y.replyCount" Any
+    t =    73.91s     Check for interrupting elements affecting "post.cqzxqc6erjrm5jrzyzdwaico3y.replyCount" Button
+    t =    73.99s     Synthesize event
+    t =    74.29s     Wait for com.mattermost.ios to idle
+    t =    74.30s Waiting 40.0s for "threadPane" Any to exist
+    t =    75.35s     Checking `Expect predicate `existsNoRetry == 1` for object "threadPane" Any`
+    t =    75.35s         Checking existence of `"threadPane" Any`
+    t =    75.43s Waiting 40.0s for "threadPostList" Any to exist
+    t =    76.45s     Checking `Expect predicate `existsNoRetry == 1` for object "threadPostList" Any`
+    t =    76.45s         Checking existence of `"threadPostList" Any`
+    t =    76.54s Checking existence of `"thread.post.cqzxqc6erjrm5jrzyzdwaico3y" Any`
+    t =    76.64s Checking existence of `"thread.post.cqzxqc6erjrm5jrzyzdwaico3y" Any`
+    t =    76.73s Checking existence of `"thread.post.ya3h6nk333gebj6wyc4885wuma" Any`
+    t =    76.82s Checking existence of `"thread.post.ya3h6nk333gebj6wyc4885wuma" Any`
+    t =    76.91s Checking existence of `"thread.post.gwmwwz7pgpfo9xrqsztoc6mbse" Any`
+    t =    77.00s Checking existence of `"thread.post.gwmwwz7pgpfo9xrqsztoc6mbse" Any`
+    t =    77.09s Checking existence of `"thread.post.rfspp87rbtff7fmwj7s4on1qtc" Any`
+    t =    77.18s Checking existence of `"thread.post.rfspp87rbtff7fmwj7s4on1qtc" Any`
+    t =    77.28s Swipe down "threadPostList" Any
+    t =    77.28s     Wait for com.mattermost.ios to idle
+    t =    77.28s     Find the "threadPostList" Any
+    t =    77.34s     Check for interrupting elements affecting "threadPostList" ScrollView
+    t =    77.39s     Synthesize event
+    t =    77.80s     Wait for com.mattermost.ios to idle
+    t =    78.32s Swipe down "threadPostList" ScrollView
+    t =    78.32s     Wait for com.mattermost.ios to idle
+    t =    78.33s     Find the "threadPostList" ScrollView
+    t =    78.40s     Check for interrupting elements affecting "threadPostList" ScrollView
+    t =    78.45s     Synthesize event
+    t =    78.87s     Wait for com.mattermost.ios to idle
+    t =    79.39s Swipe down "threadPostList" ScrollView
+    t =    79.39s     Wait for com.mattermost.ios to idle
+    t =    79.39s     Find the "threadPostList" ScrollView
+    t =    79.46s     Check for interrupting elements affecting "threadPostList" ScrollView
+    t =    79.52s     Synthesize event
+    t =    79.95s     Wait for com.mattermost.ios to idle
+    t =    80.47s Swipe down "threadPostList" ScrollView
+    t =    80.48s     Wait for com.mattermost.ios to idle
+    t =    80.48s     Find the "threadPostList" ScrollView
+    t =    80.56s     Check for interrupting elements affecting "threadPostList" ScrollView
+    t =    80.61s     Synthesize event
+    t =    81.03s     Wait for com.mattermost.ios to idle
+    t =    81.54s Find the "thread.post.cqzxqc6erjrm5jrzyzdwaico3y" Any
+    t =    81.65s Find the "thread.post.ya3h6nk333gebj6wyc4885wuma" Any
+    t =    81.75s Find the "thread.post.gwmwwz7pgpfo9xrqsztoc6mbse" Any
+    t =    81.86s Find the "thread.post.rfspp87rbtff7fmwj7s4on1qtc" Any
+    t =    81.96s Find the Target Application 'com.mattermost.ios'
+    t =    82.08s Added attachment named 't36-02-thread-chain'
+    t =    82.17s Checking existence of `"thread.post.atjuxa63rj8bmrtqkycne7ukay" Any`
+    t =    82.58s Checking existence of `"thread.post.atjuxa63rj8bmrtqkycne7ukay" Any`
+    t =    82.76s Checking existence of `"thread.post.atjuxa63rj8bmrtqkycne7ukay" Any`
+    t =    82.87s Checking existence of `"post.atjuxa63rj8bmrtqkycne7ukay.deleted" Any`
+    t =    83.02s Find the Target Application 'com.mattermost.ios'
+    t =    83.14s Added attachment named 't36-03-deleted-reply'
+    t =    83.14s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheThreadDrawsTheWholeChainInOrderIncludingTheCollapsedAndDeletedReply]' passed (83.350 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheUnreadThreadStateIsTheServers]' started.
+    t =     0.00s Start Test at 2026-11-04 06:56:45.144
+    t =     0.02s Set Up
+    t =     0.38s Open com.mattermost.ios
+    t =     0.38s     Launch com.mattermost.ios
+    t =     0.38s         Terminate com.mattermost.ios:23737
+2026-11-04 06:56:46.604 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 06:56:46.605 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.67s         Setting up automation session
+    t =     2.70s         Wait for com.mattermost.ios to idle
+    t =     4.23s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.26s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.27s         Checking existence of `"loginIDField" TextField`
+    t =     5.36s Tap "loginIDField" TextField
+    t =     5.36s     Wait for com.mattermost.ios to idle
+    t =     5.36s     Find the "loginIDField" TextField
+    t =     5.39s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.41s     Synthesize event
+    t =     5.71s     Wait for com.mattermost.ios to idle
+    t =     5.75s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.75s     Wait for com.mattermost.ios to idle
+    t =     5.75s     Find the "loginIDField" TextField
+    t =     5.78s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.81s     Synthesize event
+    t =     6.16s     Wait for com.mattermost.ios to idle
+    t =     6.37s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.41s Tap "loginPasswordField" SecureTextField
+    t =     6.41s     Wait for com.mattermost.ios to idle
+    t =     6.41s     Find the "loginPasswordField" SecureTextField
+    t =     6.47s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.51s     Synthesize event
+    t =     6.80s     Wait for com.mattermost.ios to idle
+    t =     7.23s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.23s     Wait for com.mattermost.ios to idle
+    t =     7.23s     Find the "loginPasswordField" SecureTextField
+    t =     7.26s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.29s     Synthesize event
+    t =     7.97s     Wait for com.mattermost.ios to idle
+    t =     7.97s Tap "loginSubmitButton" Button
+    t =     7.97s     Wait for com.mattermost.ios to idle
+    t =     7.98s     Find the "loginSubmitButton" Button
+    t =     8.02s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.04s     Synthesize event
+    t =     8.33s     Wait for com.mattermost.ios to idle
+    t =     8.69s Checking existence of `"loginIDField" TextField`
+    t =     8.84s Checking existence of `"nativeShell" Other`
+    t =     9.11s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =     9.28s Waiting 6.0s for "nativeChannelPane" Other to exist
+    t =    10.31s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelPane" Other`
+    t =    10.31s         Checking existence of `"nativeChannelPane" Other`
+    t =    10.41s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.67s Checking existence of `CollectionView (First Match)`
+    t =    10.92s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.16s Checking existence of `"Back" Button`
+    t =    11.21s Find the "Back" Button
+    t =    11.27s Tap "Back" Button
+    t =    11.27s     Wait for com.mattermost.ios to idle
+    t =    11.27s     Find the "Back" Button
+    t =    11.32s     Check for interrupting elements affecting "Back" Button
+    t =    11.36s     Synthesize event
+    t =    11.66s     Wait for com.mattermost.ios to idle
+    t =    12.10s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.17s Waiting 10.0s for "channelSidebar.scroll" Any to exist
+    t =    13.20s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.scroll" Any`
+    t =    13.20s         Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.27s Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.34s Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.82s Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.89s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.16s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    14.23s Swipe up "channelSidebar.scroll" Any
+    t =    14.23s     Wait for com.mattermost.ios to idle
+    t =    14.23s     Find the "channelSidebar.scroll" Any
+    t =    14.34s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    14.40s     Synthesize event
+    t =    14.83s     Wait for com.mattermost.ios to idle
+    t =    17.26s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    17.34s Swipe up "channelSidebar.scroll" ScrollView
+    t =    17.34s     Wait for com.mattermost.ios to idle
+    t =    17.34s     Find the "channelSidebar.scroll" ScrollView
+    t =    17.42s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    17.50s     Synthesize event
+    t =    17.93s     Wait for com.mattermost.ios to idle
+    t =    20.37s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    20.44s Swipe up "channelSidebar.scroll" ScrollView
+    t =    20.44s     Wait for com.mattermost.ios to idle
+    t =    20.44s     Find the "channelSidebar.scroll" ScrollView
+    t =    20.52s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    20.58s     Synthesize event
+    t =    21.02s     Wait for com.mattermost.ios to idle
+    t =    23.44s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    23.50s Swipe up "channelSidebar.scroll" ScrollView
+    t =    23.50s     Wait for com.mattermost.ios to idle
+    t =    23.50s     Find the "channelSidebar.scroll" ScrollView
+    t =    23.59s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    23.65s     Synthesize event
+    t =    24.09s     Wait for com.mattermost.ios to idle
+    t =    26.51s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    26.63s Swipe up "channelSidebar.scroll" ScrollView
+    t =    26.63s     Wait for com.mattermost.ios to idle
+    t =    26.64s     Find the "channelSidebar.scroll" ScrollView
+    t =    26.71s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    26.78s     Synthesize event
+    t =    27.21s     Wait for com.mattermost.ios to idle
+    t =    29.63s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    29.73s Swipe up "channelSidebar.scroll" ScrollView
+    t =    29.73s     Wait for com.mattermost.ios to idle
+    t =    29.73s     Find the "channelSidebar.scroll" ScrollView
+    t =    29.80s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    29.87s     Synthesize event
+    t =    30.30s     Wait for com.mattermost.ios to idle
+    t =    32.73s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    32.80s Swipe up "channelSidebar.scroll" ScrollView
+    t =    32.80s     Wait for com.mattermost.ios to idle
+    t =    32.81s     Find the "channelSidebar.scroll" ScrollView
+    t =    32.88s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    32.94s     Synthesize event
+    t =    33.37s     Wait for com.mattermost.ios to idle
+    t =    35.83s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    35.91s Swipe up "channelSidebar.scroll" ScrollView
+    t =    35.91s     Wait for com.mattermost.ios to idle
+    t =    35.91s     Find the "channelSidebar.scroll" ScrollView
+    t =    35.99s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    36.05s     Synthesize event
+    t =    36.48s     Wait for com.mattermost.ios to idle
+    t =    38.95s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    39.02s Swipe up "channelSidebar.scroll" ScrollView
+    t =    39.02s     Wait for com.mattermost.ios to idle
+    t =    39.02s     Find the "channelSidebar.scroll" ScrollView
+    t =    39.13s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    39.19s     Synthesize event
+    t =    39.62s     Wait for com.mattermost.ios to idle
+    t =    42.08s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    42.14s Swipe up "channelSidebar.scroll" ScrollView
+    t =    42.14s     Wait for com.mattermost.ios to idle
+    t =    42.14s     Find the "channelSidebar.scroll" ScrollView
+    t =    42.22s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    42.29s     Synthesize event
+    t =    42.72s     Wait for com.mattermost.ios to idle
+    t =    45.14s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    45.20s Swipe up "channelSidebar.scroll" ScrollView
+    t =    45.20s     Wait for com.mattermost.ios to idle
+    t =    45.20s     Find the "channelSidebar.scroll" ScrollView
+    t =    45.27s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    45.33s     Synthesize event
+    t =    45.76s     Wait for com.mattermost.ios to idle
+    t =    48.20s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    48.27s Swipe up "channelSidebar.scroll" ScrollView
+    t =    48.27s     Wait for com.mattermost.ios to idle
+    t =    48.27s     Find the "channelSidebar.scroll" ScrollView
+    t =    48.36s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    48.42s     Synthesize event
+    t =    48.85s     Wait for com.mattermost.ios to idle
+    t =    51.32s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    51.38s Swipe up "channelSidebar.scroll" ScrollView
+    t =    51.38s     Wait for com.mattermost.ios to idle
+    t =    51.38s     Find the "channelSidebar.scroll" ScrollView
+    t =    51.45s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    51.51s     Synthesize event
+    t =    51.95s     Wait for com.mattermost.ios to idle
+    t =    54.39s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    54.44s Swipe up "channelSidebar.scroll" ScrollView
+    t =    54.44s     Wait for com.mattermost.ios to idle
+    t =    54.45s     Find the "channelSidebar.scroll" ScrollView
+    t =    54.52s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    54.58s     Synthesize event
+    t =    55.02s     Wait for com.mattermost.ios to idle
+    t =    57.45s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    57.52s Swipe up "channelSidebar.scroll" ScrollView
+    t =    57.52s     Wait for com.mattermost.ios to idle
+    t =    57.52s     Find the "channelSidebar.scroll" ScrollView
+    t =    57.59s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    57.66s     Synthesize event
+    t =    58.09s     Wait for com.mattermost.ios to idle
+    t =    60.53s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    60.60s Swipe up "channelSidebar.scroll" ScrollView
+    t =    60.60s     Wait for com.mattermost.ios to idle
+    t =    60.60s     Find the "channelSidebar.scroll" ScrollView
+    t =    60.67s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    60.74s     Synthesize event
+    t =    61.17s     Wait for com.mattermost.ios to idle
+    t =    63.62s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    63.69s Swipe up "channelSidebar.scroll" ScrollView
+    t =    63.69s     Wait for com.mattermost.ios to idle
+    t =    63.69s     Find the "channelSidebar.scroll" ScrollView
+    t =    63.77s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    63.83s     Synthesize event
+    t =    64.25s     Wait for com.mattermost.ios to idle
+    t =    66.70s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    66.75s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+[shellsettle] channelSidebar.channel.psw97y5zqpfnpembwxraizuije: realised after 17 swipe(s) of the sidebar, after 1 Back tap(s) to the channel list
+    t =    66.80s Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button to exist
+    t =    67.84s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    67.84s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    67.89s Tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    67.89s     Wait for com.mattermost.ios to idle
+    t =    67.89s     Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    67.95s     Check for interrupting elements affecting "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.02s     Synthesize event
+    t =    68.04s         Scroll element to visible
+    t =    68.04s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.11s         Computed hit point {233, 768.99999999999943} after scrolling to visible
+    t =    68.40s     Wait for com.mattermost.ios to idle
+    t =    68.87s Waiting 40.0s for "channelPostList" Any to exist
+    t =    69.90s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    69.90s         Checking existence of `"channelPostList" Any`
+    t =    70.04s Tap "nativeChannelThreadsButton" Any
+    t =    70.04s     Wait for com.mattermost.ios to idle
+    t =    70.05s     Find the "nativeChannelThreadsButton" Any
+    t =    70.12s     Check for interrupting elements affecting "nativeChannelThreadsButton" Button
+    t =    70.21s     Synthesize event
+    t =    70.50s     Wait for com.mattermost.ios to idle
+    t =    70.62s Waiting 40.0s for "nativeThreadsList" Any to exist
+    t =    71.65s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeThreadsList" Any`
+    t =    71.65s         Checking existence of `"nativeThreadsList" Any`
+    t =    72.26s Waiting 30.0s for "globalThreads.unread.f4cu3mzsztyxxyx6qzbg4wjtmr" Any to exist
+    t =    73.28s     Checking `Expect predicate `existsNoRetry == 1` for object "globalThreads.unread.f4cu3mzsztyxxyx6qzbg4wjtmr" Any`
+    t =    73.28s         Checking existence of `"globalThreads.unread.f4cu3mzsztyxxyx6qzbg4wjtmr" Any`
+    t =    73.41s Find the "globalThreads.unread.f4cu3mzsztyxxyx6qzbg4wjtmr" Any
+    t =    73.53s Find the Target Application 'com.mattermost.ios'
+    t =    73.68s Added attachment named 't36-11-unread-badge'
+    t =    73.70s Tap "Unreads" Button
+    t =    73.70s     Wait for com.mattermost.ios to idle
+    t =    73.70s     Find the "Unreads" Button
+    t =    73.76s     Check for interrupting elements affecting "Unreads" Button
+    t =    73.82s     Synthesize event
+    t =    74.12s     Wait for com.mattermost.ios to idle
+    t =    74.35s Waiting 30.0s for "globalThreads.row.f4cu3mzsztyxxyx6qzbg4wjtmr" Any to exist
+    t =    75.40s     Checking `Expect predicate `existsNoRetry == 1` for object "globalThreads.row.f4cu3mzsztyxxyx6qzbg4wjtmr" Any`
+    t =    75.40s         Checking existence of `"globalThreads.row.f4cu3mzsztyxxyx6qzbg4wjtmr" Any`
+    t =    75.49s Find the Target Application 'com.mattermost.ios'
+    t =    75.61s Added attachment named 't36-12-unreads-tab'
+    t =    75.61s Tap "globalThreads.row.f4cu3mzsztyxxyx6qzbg4wjtmr" Any
+    t =    75.61s     Wait for com.mattermost.ios to idle
+    t =    75.61s     Find the "globalThreads.row.f4cu3mzsztyxxyx6qzbg4wjtmr" Any
+    t =    75.71s     Check for interrupting elements affecting "globalThreads.row.f4cu3mzsztyxxyx6qzbg4wjtmr" Button
+    t =    75.76s     Synthesize event
+    t =    76.05s     Wait for com.mattermost.ios to idle
+    t =    76.50s Waiting 40.0s for "threadPane" Any to exist
+    t =    77.53s     Checking `Expect predicate `existsNoRetry == 1` for object "threadPane" Any`
+    t =    77.53s         Checking existence of `"threadPane" Any`
+    t =    77.64s Get number of matches for: Elements matching predicate 'label == "Back"'
+    t =    77.68s Checking existence of `Button (Element at index 0)`
+    t =    77.71s Find the Button (Element at index 0)
+    t =    77.76s Tap "Back" Button
+    t =    77.76s     Wait for com.mattermost.ios to idle
+    t =    77.76s     Find the "Back" Button
+    t =    77.80s     Check for interrupting elements affecting "Back" Button
+    t =    77.83s     Synthesize event
+    t =    78.12s     Wait for com.mattermost.ios to idle
+    t =    78.50s Checking existence of `"globalThreads.unread.f4cu3mzsztyxxyx6qzbg4wjtmr" Any`
+    t =    78.62s Find the Target Application 'com.mattermost.ios'
+    t =    78.73s Added attachment named 't36-13-read-cleared'
+    t =    78.73s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testTheUnreadThreadStateIsTheServers]' passed (79.000 seconds).
+Test Case '-[MattermostUITests.T36ThreadsUITests testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread]' started.
+    t =     0.00s Start Test at 2026-11-04 06:58:04.146
+    t =     0.03s Set Up
+    t =     0.48s Open com.mattermost.ios
+    t =     0.48s     Launch com.mattermost.ios
+    t =     0.48s         Terminate com.mattermost.ios:24254
+2026-11-04 06:58:05.682 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 06:58:05.682 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.75s         Setting up automation session
+    t =     2.81s         Wait for com.mattermost.ios to idle
+    t =     4.37s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.38s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.38s         Checking existence of `"loginIDField" TextField`
+    t =     5.47s Tap "loginIDField" TextField
+    t =     5.47s     Wait for com.mattermost.ios to idle
+    t =     5.47s     Find the "loginIDField" TextField
+    t =     5.49s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.51s     Synthesize event
+    t =     5.80s     Wait for com.mattermost.ios to idle
+    t =     5.85s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.85s     Wait for com.mattermost.ios to idle
+    t =     5.85s     Find the "loginIDField" TextField
+    t =     5.89s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.91s     Synthesize event
+    t =     6.27s     Wait for com.mattermost.ios to idle
+    t =     6.48s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.52s Tap "loginPasswordField" SecureTextField
+    t =     6.52s     Wait for com.mattermost.ios to idle
+    t =     6.52s     Find the "loginPasswordField" SecureTextField
+    t =     6.55s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.59s     Synthesize event
+    t =     6.90s     Wait for com.mattermost.ios to idle
+    t =     7.31s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     7.31s     Wait for com.mattermost.ios to idle
+    t =     7.31s     Find the "loginPasswordField" SecureTextField
+    t =     7.36s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     7.38s     Synthesize event
+    t =     8.07s     Wait for com.mattermost.ios to idle
+    t =     8.07s Tap "loginSubmitButton" Button
+    t =     8.07s     Wait for com.mattermost.ios to idle
+    t =     8.07s     Find the "loginSubmitButton" Button
+    t =     8.10s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     8.13s     Synthesize event
+    t =     8.42s     Wait for com.mattermost.ios to idle
+    t =     8.77s Checking existence of `"loginIDField" TextField`
+    t =     8.89s Checking existence of `"nativeShell" Other`
+    t =     9.16s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =     9.39s Waiting 6.0s for "nativeChannelPane" Other to exist
+    t =    10.41s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelPane" Other`
+    t =    10.42s         Checking existence of `"nativeChannelPane" Other`
+    t =    10.51s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.76s Checking existence of `CollectionView (First Match)`
+    t =    11.01s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.26s Checking existence of `"Back" Button`
+    t =    11.30s Find the "Back" Button
+    t =    11.37s Tap "Back" Button
+    t =    11.37s     Wait for com.mattermost.ios to idle
+    t =    11.37s     Find the "Back" Button
+    t =    11.42s     Check for interrupting elements affecting "Back" Button
+    t =    11.47s     Synthesize event
+    t =    11.75s     Wait for com.mattermost.ios to idle
+    t =    12.21s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.28s Waiting 10.0s for "channelSidebar.scroll" Any to exist
+    t =    13.31s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.scroll" Any`
+    t =    13.31s         Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.40s Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.47s Checking existence of `"channelSidebar.scroll" Any`
+    t =    13.96s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.05s Checking existence of `"channelSidebar.scroll" Any`
+    t =    14.32s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    14.36s Swipe up "channelSidebar.scroll" Any
+    t =    14.36s     Wait for com.mattermost.ios to idle
+    t =    14.37s     Find the "channelSidebar.scroll" Any
+    t =    14.44s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    14.50s     Synthesize event
+    t =    14.94s     Wait for com.mattermost.ios to idle
+    t =    17.37s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    17.44s Swipe up "channelSidebar.scroll" ScrollView
+    t =    17.44s     Wait for com.mattermost.ios to idle
+    t =    17.44s     Find the "channelSidebar.scroll" ScrollView
+    t =    17.52s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    17.59s     Synthesize event
+    t =    18.02s     Wait for com.mattermost.ios to idle
+    t =    20.45s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    20.51s Swipe up "channelSidebar.scroll" ScrollView
+    t =    20.51s     Wait for com.mattermost.ios to idle
+    t =    20.51s     Find the "channelSidebar.scroll" ScrollView
+    t =    20.59s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    20.65s     Synthesize event
+    t =    21.09s     Wait for com.mattermost.ios to idle
+    t =    23.53s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    23.59s Swipe up "channelSidebar.scroll" ScrollView
+    t =    23.59s     Wait for com.mattermost.ios to idle
+    t =    23.59s     Find the "channelSidebar.scroll" ScrollView
+    t =    23.66s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    23.73s     Synthesize event
+    t =    24.16s     Wait for com.mattermost.ios to idle
+    t =    26.60s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    26.66s Swipe up "channelSidebar.scroll" ScrollView
+    t =    26.66s     Wait for com.mattermost.ios to idle
+    t =    26.66s     Find the "channelSidebar.scroll" ScrollView
+    t =    26.74s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    26.80s     Synthesize event
+    t =    27.23s     Wait for com.mattermost.ios to idle
+    t =    29.65s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    29.73s Swipe up "channelSidebar.scroll" ScrollView
+    t =    29.73s     Wait for com.mattermost.ios to idle
+    t =    29.73s     Find the "channelSidebar.scroll" ScrollView
+    t =    29.80s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    29.87s     Synthesize event
+    t =    30.31s     Wait for com.mattermost.ios to idle
+    t =    32.74s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    32.80s Swipe up "channelSidebar.scroll" ScrollView
+    t =    32.80s     Wait for com.mattermost.ios to idle
+    t =    32.80s     Find the "channelSidebar.scroll" ScrollView
+    t =    32.88s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    32.94s     Synthesize event
+    t =    33.37s     Wait for com.mattermost.ios to idle
+    t =    35.80s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    35.87s Swipe up "channelSidebar.scroll" ScrollView
+    t =    35.87s     Wait for com.mattermost.ios to idle
+    t =    35.87s     Find the "channelSidebar.scroll" ScrollView
+    t =    35.94s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    36.01s     Synthesize event
+    t =    36.44s     Wait for com.mattermost.ios to idle
+    t =    38.89s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    38.96s Swipe up "channelSidebar.scroll" ScrollView
+    t =    38.96s     Wait for com.mattermost.ios to idle
+    t =    38.96s     Find the "channelSidebar.scroll" ScrollView
+    t =    39.05s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    39.12s     Synthesize event
+    t =    39.56s     Wait for com.mattermost.ios to idle
+    t =    41.98s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    42.05s Swipe up "channelSidebar.scroll" ScrollView
+    t =    42.05s     Wait for com.mattermost.ios to idle
+    t =    42.05s     Find the "channelSidebar.scroll" ScrollView
+    t =    42.13s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    42.20s     Synthesize event
+    t =    42.65s     Wait for com.mattermost.ios to idle
+    t =    45.07s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    45.12s Swipe up "channelSidebar.scroll" ScrollView
+    t =    45.12s     Wait for com.mattermost.ios to idle
+    t =    45.12s     Find the "channelSidebar.scroll" ScrollView
+    t =    45.20s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    45.26s     Synthesize event
+    t =    45.70s     Wait for com.mattermost.ios to idle
+    t =    48.12s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    48.16s Swipe up "channelSidebar.scroll" ScrollView
+    t =    48.17s     Wait for com.mattermost.ios to idle
+    t =    48.17s     Find the "channelSidebar.scroll" ScrollView
+    t =    48.24s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    48.31s     Synthesize event
+    t =    48.74s     Wait for com.mattermost.ios to idle
+    t =    51.17s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    51.23s Swipe up "channelSidebar.scroll" ScrollView
+    t =    51.23s     Wait for com.mattermost.ios to idle
+    t =    51.23s     Find the "channelSidebar.scroll" ScrollView
+    t =    51.31s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    51.38s     Synthesize event
+    t =    51.81s     Wait for com.mattermost.ios to idle
+    t =    54.23s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    54.32s Swipe up "channelSidebar.scroll" ScrollView
+    t =    54.32s     Wait for com.mattermost.ios to idle
+    t =    54.32s     Find the "channelSidebar.scroll" ScrollView
+    t =    54.39s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    54.46s     Synthesize event
+    t =    54.89s     Wait for com.mattermost.ios to idle
+    t =    57.32s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    57.37s Swipe up "channelSidebar.scroll" ScrollView
+    t =    57.37s     Wait for com.mattermost.ios to idle
+    t =    57.37s     Find the "channelSidebar.scroll" ScrollView
+    t =    57.50s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    57.56s     Synthesize event
+    t =    58.00s     Wait for com.mattermost.ios to idle
+    t =    60.43s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    60.50s Swipe up "channelSidebar.scroll" ScrollView
+    t =    60.50s     Wait for com.mattermost.ios to idle
+    t =    60.50s     Find the "channelSidebar.scroll" ScrollView
+    t =    60.58s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    60.64s     Synthesize event
+    t =    61.08s     Wait for com.mattermost.ios to idle
+    t =    63.52s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    63.58s Swipe up "channelSidebar.scroll" ScrollView
+    t =    63.58s     Wait for com.mattermost.ios to idle
+    t =    63.59s     Find the "channelSidebar.scroll" ScrollView
+    t =    63.69s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    63.76s     Synthesize event
+    t =    64.18s     Wait for com.mattermost.ios to idle
+    t =    66.62s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    66.69s Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+[shellsettle] channelSidebar.channel.psw97y5zqpfnpembwxraizuije: realised after 17 swipe(s) of the sidebar, after 1 Back tap(s) to the channel list
+    t =    66.74s Waiting 40.0s for "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button to exist
+    t =    67.76s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    67.77s         Checking existence of `"channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button`
+    t =    67.84s Tap "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    67.84s     Wait for com.mattermost.ios to idle
+    t =    67.84s     Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    67.91s     Check for interrupting elements affecting "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    67.95s     Synthesize event
+    t =    67.96s         Scroll element to visible
+    t =    67.96s         Find the "channelSidebar.channel.psw97y5zqpfnpembwxraizuije" Button
+    t =    68.06s         Computed hit point {233, 768.99999999999943} after scrolling to visible
+    t =    68.34s     Wait for com.mattermost.ios to idle
+    t =    68.82s Waiting 40.0s for "channelPostList" Any to exist
+    t =    69.85s     Checking `Expect predicate `existsNoRetry == 1` for object "channelPostList" Any`
+    t =    69.85s         Checking existence of `"channelPostList" Any`
+    t =    69.94s Checking existence of `"post.x8ybtao3gpdpxnuofd4hy6ej7c" Any`
+    t =    70.06s Checking existence of `"post.x8ybtao3gpdpxnuofd4hy6ej7c" Any`
+    t =    70.18s Waiting 30.0s for "post.x8ybtao3gpdpxnuofd4hy6ej7c.replyCount" Any to exist
+    t =    71.23s     Checking `Expect predicate `existsNoRetry == 1` for object "post.x8ybtao3gpdpxnuofd4hy6ej7c.replyCount" Any`
+    t =    71.23s         Checking existence of `"post.x8ybtao3gpdpxnuofd4hy6ej7c.replyCount" Any`
+    t =    71.51s Tap "post.x8ybtao3gpdpxnuofd4hy6ej7c.replyCount" Any
+    t =    71.51s     Wait for com.mattermost.ios to idle
+    t =    71.51s     Find the "post.x8ybtao3gpdpxnuofd4hy6ej7c.replyCount" Any
+    t =    71.75s     Check for interrupting elements affecting "post.x8ybtao3gpdpxnuofd4hy6ej7c.replyCount" Button
+    t =    71.84s     Synthesize event
+    t =    72.13s     Wait for com.mattermost.ios to idle
+    t =    72.17s Waiting 40.0s for "threadPane" Any to exist
+    t =    73.18s     Checking `Expect predicate `existsNoRetry == 1` for object "threadPane" Any`
+    t =    73.18s         Checking existence of `"threadPane" Any`
+    t =    73.28s Waiting 40.0s for "threadPostList" Any to exist
+    t =    74.31s     Checking `Expect predicate `existsNoRetry == 1` for object "threadPostList" Any`
+    t =    74.31s         Checking existence of `"threadPostList" Any`
+    t =    74.38s Waiting 30.0s for "channelComposer.input" Any to exist
+    t =    75.41s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    75.42s         Checking existence of `"channelComposer.input" Any`
+    t =    75.51s Tap "channelComposer.input" Any
+    t =    75.51s     Wait for com.mattermost.ios to idle
+    t =    75.51s     Find the "channelComposer.input" Any
+    t =    75.58s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    75.63s     Synthesize event
+    t =    75.92s     Wait for com.mattermost.ios to idle
+    t =    75.92s Type 't56159748 first re...' into "channelComposer.input" TextView
+    t =    75.92s     Wait for com.mattermost.ios to idle
+    t =    75.92s     Find the "channelComposer.input" TextView
+    t =    76.08s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    76.14s     Synthesize event
+    t =    76.88s     Wait for com.mattermost.ios to idle
+    t =    76.88s Waiting 10.0s for "channelComposer.send" Any to exist
+    t =    77.93s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.send" Any`
+    t =    77.93s         Checking existence of `"channelComposer.send" Any`
+    t =    78.11s Find the "channelComposer.send" Any
+    t =    78.27s Tap "channelComposer.send" Button
+    t =    78.27s     Wait for com.mattermost.ios to idle
+    t =    78.28s     Find the "channelComposer.send" Button
+    t =    78.44s     Check for interrupting elements affecting "channelComposer.send" Button
+    t =    78.49s     Synthesize event
+    t =    78.79s     Wait for com.mattermost.ios to idle
+    t =    78.86s Find the "channelComposer.input" TextView
+    t =    79.10s Waiting 30.0s for "channelComposer.input" Any to exist
+    t =    80.13s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.input" Any`
+    t =    80.13s         Checking existence of `"channelComposer.input" Any`
+    t =    80.30s Tap "channelComposer.input" Any
+    t =    80.31s     Wait for com.mattermost.ios to idle
+    t =    80.32s     Find the "channelComposer.input" Any
+    t =    80.50s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    80.60s     Synthesize event
+    t =    80.89s     Wait for com.mattermost.ios to idle
+    t =    80.89s Type 't56159748 second r...' into "channelComposer.input" TextView
+    t =    80.89s     Wait for com.mattermost.ios to idle
+    t =    80.90s     Find the "channelComposer.input" TextView
+    t =    81.09s     Check for interrupting elements affecting "channelComposer.input" TextView
+    t =    81.22s     Synthesize event
+    t =    81.97s     Wait for com.mattermost.ios to idle
+    t =    81.98s Waiting 10.0s for "channelComposer.send" Any to exist
+    t =    83.00s     Checking `Expect predicate `existsNoRetry == 1` for object "channelComposer.send" Any`
+    t =    83.00s         Checking existence of `"channelComposer.send" Any`
+    t =    83.17s Find the "channelComposer.send" Any
+    t =    83.34s Tap "channelComposer.send" Button
+    t =    83.34s     Wait for com.mattermost.ios to idle
+    t =    83.34s     Find the "channelComposer.send" Button
+    t =    83.50s     Check for interrupting elements affecting "channelComposer.send" Button
+    t =    83.56s     Synthesize event
+    t =    83.85s     Wait for com.mattermost.ios to idle
+    t =    83.87s Find the "channelComposer.input" TextView
+    t =    84.11s Find the Target Application 'com.mattermost.ios'
+    t =    84.24s Added attachment named 't56159748-01-second-reply'
+    t =    84.27s Tear Down
+Test Case '-[MattermostUITests.T36ThreadsUITests testTwoRepliesInARowFromTheThreadComposerBothLandInTheThread]' passed (84.515 seconds).
+Test Suite 'T36ThreadsUITests' passed at 2026-11-04 06:59:28.662.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 429.059 (429.065) seconds
+Test Suite 'T44DCallsUITests' started at 2026-11-04 06:59:28.663.
+Test Case '-[MattermostUITests.T44DCallsUITests testMuteSurvivesTheSnapshotAndLeaveEndsTheCall]' started.
+    t =     0.00s Start Test at 2026-11-04 06:59:28.664
+    t =     0.02s Set Up
+    t =     0.24s Open com.mattermost.ios
+    t =     0.24s     Launch com.mattermost.ios
+    t =     0.24s         Terminate com.mattermost.ios:24701
+2026-11-04 06:59:30.002 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 06:59:30.003 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.56s         Setting up automation session
+    t =     2.56s         Wait for com.mattermost.ios to idle
+    t =     4.07s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.12s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.12s         Checking existence of `"loginIDField" TextField`
+    t =     5.20s Tap "loginIDField" TextField
+    t =     5.20s     Wait for com.mattermost.ios to idle
+    t =     5.20s     Find the "loginIDField" TextField
+    t =     5.22s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.23s     Synthesize event
+    t =     5.53s     Wait for com.mattermost.ios to idle
+    t =     5.55s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.55s     Wait for com.mattermost.ios to idle
+    t =     5.55s     Find the "loginIDField" TextField
+    t =     5.58s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.60s     Synthesize event
+    t =     5.95s     Wait for com.mattermost.ios to idle
+    t =     6.15s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.19s Tap "loginPasswordField" SecureTextField
+    t =     6.19s     Wait for com.mattermost.ios to idle
+    t =     6.19s     Find the "loginPasswordField" SecureTextField
+    t =     6.21s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.24s     Synthesize event
+    t =     6.53s     Wait for com.mattermost.ios to idle
+    t =     6.94s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     6.95s     Wait for com.mattermost.ios to idle
+    t =     6.95s     Find the "loginPasswordField" SecureTextField
+    t =     6.97s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.99s     Synthesize event
+    t =     7.67s     Wait for com.mattermost.ios to idle
+    t =     7.68s Tap "loginSubmitButton" Button
+    t =     7.68s     Wait for com.mattermost.ios to idle
+    t =     7.68s     Find the "loginSubmitButton" Button
+    t =     7.70s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     7.72s     Synthesize event
+    t =     8.01s     Wait for com.mattermost.ios to idle
+    t =     8.43s Checking existence of `"loginIDField" TextField`
+    t =     8.52s Checking existence of `"nativeShell" Other`
+    t =     8.76s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =     8.94s Waiting 6.0s for "nativeChannelPane" Other to exist
+    t =     9.97s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelPane" Other`
+    t =     9.97s         Checking existence of `"nativeChannelPane" Other`
+    t =    10.05s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.10s Checking existence of `CollectionView (First Match)`
+    t =    10.15s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.21s Checking existence of `"Back" Button`
+    t =    10.25s Find the "Back" Button
+    t =    10.30s Tap "Back" Button
+    t =    10.30s     Wait for com.mattermost.ios to idle
+    t =    10.30s     Find the "Back" Button
+    t =    10.34s     Check for interrupting elements affecting "Back" Button
+    t =    10.39s     Synthesize event
+    t =    10.69s     Wait for com.mattermost.ios to idle
+    t =    11.12s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.14s Waiting 10.0s for "channelSidebar.scroll" Any to exist
+    t =    12.16s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.scroll" Any`
+    t =    12.16s         Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.20s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.22s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.64s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.66s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.89s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    12.93s Swipe up "channelSidebar.scroll" Any
+    t =    12.93s     Wait for com.mattermost.ios to idle
+    t =    12.94s     Find the "channelSidebar.scroll" Any
+    t =    12.96s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    13.00s     Synthesize event
+    t =    13.42s     Wait for com.mattermost.ios to idle
+    t =    15.85s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    15.90s Swipe up "channelSidebar.scroll" ScrollView
+    t =    15.90s     Wait for com.mattermost.ios to idle
+    t =    15.90s     Find the "channelSidebar.scroll" ScrollView
+    t =    15.92s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    15.97s     Synthesize event
+    t =    16.40s     Wait for com.mattermost.ios to idle
+    t =    18.85s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    18.91s Swipe up "channelSidebar.scroll" ScrollView
+    t =    18.91s     Wait for com.mattermost.ios to idle
+    t =    18.91s     Find the "channelSidebar.scroll" ScrollView
+    t =    18.93s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    18.98s     Synthesize event
+    t =    19.40s     Wait for com.mattermost.ios to idle
+    t =    21.83s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    21.88s Swipe up "channelSidebar.scroll" ScrollView
+    t =    21.88s     Wait for com.mattermost.ios to idle
+    t =    21.89s     Find the "channelSidebar.scroll" ScrollView
+    t =    21.91s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    21.96s     Synthesize event
+    t =    22.38s     Wait for com.mattermost.ios to idle
+    t =    24.82s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    24.86s Swipe up "channelSidebar.scroll" ScrollView
+    t =    24.86s     Wait for com.mattermost.ios to idle
+    t =    24.86s     Find the "channelSidebar.scroll" ScrollView
+    t =    24.89s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    24.94s     Synthesize event
+    t =    25.37s     Wait for com.mattermost.ios to idle
+    t =    27.78s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    27.82s Swipe up "channelSidebar.scroll" ScrollView
+    t =    27.82s     Wait for com.mattermost.ios to idle
+    t =    27.83s     Find the "channelSidebar.scroll" ScrollView
+    t =    27.85s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    27.90s     Synthesize event
+    t =    28.32s     Wait for com.mattermost.ios to idle
+    t =    30.75s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    30.79s Swipe up "channelSidebar.scroll" ScrollView
+    t =    30.79s     Wait for com.mattermost.ios to idle
+    t =    30.79s     Find the "channelSidebar.scroll" ScrollView
+    t =    30.81s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    30.87s     Synthesize event
+    t =    31.29s     Wait for com.mattermost.ios to idle
+    t =    33.74s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    33.81s Swipe up "channelSidebar.scroll" ScrollView
+    t =    33.81s     Wait for com.mattermost.ios to idle
+    t =    33.81s     Find the "channelSidebar.scroll" ScrollView
+    t =    33.83s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    33.92s     Synthesize event
+    t =    34.35s     Wait for com.mattermost.ios to idle
+    t =    36.77s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    36.81s Swipe up "channelSidebar.scroll" ScrollView
+    t =    36.81s     Wait for com.mattermost.ios to idle
+    t =    36.82s     Find the "channelSidebar.scroll" ScrollView
+    t =    36.84s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    36.89s     Synthesize event
+    t =    37.31s     Wait for com.mattermost.ios to idle
+    t =    39.74s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    39.78s Swipe up "channelSidebar.scroll" ScrollView
+    t =    39.78s     Wait for com.mattermost.ios to idle
+    t =    39.79s     Find the "channelSidebar.scroll" ScrollView
+    t =    39.81s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    39.86s     Synthesize event
+    t =    40.28s     Wait for com.mattermost.ios to idle
+    t =    42.72s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    42.76s Swipe up "channelSidebar.scroll" ScrollView
+    t =    42.76s     Wait for com.mattermost.ios to idle
+    t =    42.76s     Find the "channelSidebar.scroll" ScrollView
+    t =    42.78s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    42.83s     Synthesize event
+    t =    43.26s     Wait for com.mattermost.ios to idle
+    t =    45.70s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    45.75s Swipe up "channelSidebar.scroll" ScrollView
+    t =    45.75s     Wait for com.mattermost.ios to idle
+    t =    45.75s     Find the "channelSidebar.scroll" ScrollView
+    t =    45.77s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    45.83s     Synthesize event
+    t =    46.25s     Wait for com.mattermost.ios to idle
+    t =    48.68s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    48.72s Swipe up "channelSidebar.scroll" ScrollView
+    t =    48.72s     Wait for com.mattermost.ios to idle
+    t =    48.73s     Find the "channelSidebar.scroll" ScrollView
+    t =    48.75s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    48.80s     Synthesize event
+    t =    49.22s     Wait for com.mattermost.ios to idle
+    t =    51.66s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    51.71s Swipe up "channelSidebar.scroll" ScrollView
+    t =    51.71s     Wait for com.mattermost.ios to idle
+    t =    51.71s     Find the "channelSidebar.scroll" ScrollView
+    t =    51.73s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    51.78s     Synthesize event
+    t =    52.21s     Wait for com.mattermost.ios to idle
+    t =    54.63s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    54.68s Swipe up "channelSidebar.scroll" ScrollView
+    t =    54.68s     Wait for com.mattermost.ios to idle
+    t =    54.68s     Find the "channelSidebar.scroll" ScrollView
+    t =    54.70s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    54.75s     Synthesize event
+    t =    55.17s     Wait for com.mattermost.ios to idle
+    t =    57.62s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    57.66s Swipe up "channelSidebar.scroll" ScrollView
+    t =    57.66s     Wait for com.mattermost.ios to idle
+    t =    57.66s     Find the "channelSidebar.scroll" ScrollView
+    t =    57.68s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    57.73s     Synthesize event
+    t =    58.16s     Wait for com.mattermost.ios to idle
+    t =    60.58s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    60.63s Swipe up "channelSidebar.scroll" ScrollView
+    t =    60.63s     Wait for com.mattermost.ios to idle
+    t =    60.63s     Find the "channelSidebar.scroll" ScrollView
+    t =    60.65s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    60.71s     Synthesize event
+    t =    61.13s     Wait for com.mattermost.ios to idle
+    t =    63.57s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    63.61s Swipe up "channelSidebar.scroll" ScrollView
+    t =    63.61s     Wait for com.mattermost.ios to idle
+    t =    63.62s     Find the "channelSidebar.scroll" ScrollView
+    t =    63.64s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    63.69s     Synthesize event
+    t =    64.11s     Wait for com.mattermost.ios to idle
+    t =    66.55s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    66.59s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+[shellsettle] channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph: realised after 18 swipe(s) of the sidebar, after 1 Back tap(s) to the channel list
+    t =    66.63s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    66.67s Waiting 40.0s for "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button to exist
+    t =    67.70s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    67.70s         Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    67.74s Tap "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button
+    t =    67.74s     Wait for com.mattermost.ios to idle
+    t =    67.74s     Find the "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button
+    t =    67.78s     Check for interrupting elements affecting "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button
+    t =    67.81s     Synthesize event
+    t =    67.82s         Scroll element to visible
+    t =    67.83s         Find the "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button
+    t =    67.90s         Computed hit point {233, 768.99999999999943} after scrolling to visible
+    t =    68.18s     Wait for com.mattermost.ios to idle
+    t =    68.67s Waiting 30.0s for "nativeChannelTitle" Any to exist
+    t =    69.71s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelTitle" Any`
+    t =    69.71s         Checking existence of `"nativeChannelTitle" Any`
+    t =    69.75s Waiting 30.0s for "calls.joinButton" Any to exist
+    t =    70.78s     Checking `Expect predicate `existsNoRetry == 1` for object "calls.joinButton" Any`
+    t =    70.78s         Checking existence of `"calls.joinButton" Any`
+    t =    70.80s Tap "calls.joinButton" Any
+    t =    70.80s     Wait for com.mattermost.ios to idle
+    t =    70.81s     Find the "calls.joinButton" Any
+    t =    70.83s     Check for interrupting elements affecting "calls.joinButton" Button
+    t =    70.89s     Synthesize event
+    t =    71.18s     Wait for com.mattermost.ios to idle
+    t =    71.18s Waiting 30.0s for "callsSurface" Any to exist
+    t =    72.23s     Checking `Expect predicate `existsNoRetry == 1` for object "callsSurface" Any`
+    t =    72.23s         Checking existence of `"callsSurface" Any`
+    t =    72.25s Waiting 30.0s for "calls.muteButton" Any to exist
+    t =    73.29s     Checking `Expect predicate `existsNoRetry == 1` for object "calls.muteButton" Any`
+    t =    73.29s         Checking existence of `"calls.muteButton" Any`
+    t =    73.29s Find the "calls.muteButton" Any
+    t =    73.30s Find the "calls.muteButton" Button
+    t =    73.31s Tap "calls.muteButton" Button
+    t =    73.31s     Wait for com.mattermost.ios to idle
+    t =    73.31s     Find the "calls.muteButton" Button
+    t =    73.32s     Check for interrupting elements affecting "calls.muteButton" Button
+    t =    73.37s     Synthesize event
+    t =    73.67s     Wait for com.mattermost.ios to idle
+    t =    73.67s Find the "calls.muteButton" Button
+    t =    73.67s Find the "calls.muteButton" Button
+    t =    73.68s Find the Target Application 'com.mattermost.ios'
+    t =    73.81s Added attachment named '05-unmuted'
+    t =    73.81s Tap "calls.muteButton" Button
+    t =    73.81s     Wait for com.mattermost.ios to idle
+    t =    73.81s     Find the "calls.muteButton" Button
+    t =    73.82s     Check for interrupting elements affecting "calls.muteButton" Button
+    t =    73.87s     Synthesize event
+    t =    74.17s     Wait for com.mattermost.ios to idle
+    t =    74.17s Find the "calls.muteButton" Button
+    t =    77.18s Find the "calls.muteButton" Button
+    t =    77.19s Find the Target Application 'com.mattermost.ios'
+    t =    77.32s Added attachment named '06-muted-after-roundtrip'
+    t =    77.32s Tap "calls.leaveButton" Any
+    t =    77.32s     Wait for com.mattermost.ios to idle
+    t =    77.32s     Find the "calls.leaveButton" Any
+    t =    77.33s     Check for interrupting elements affecting "calls.leaveButton" Button
+    t =    77.38s     Synthesize event
+    t =    77.67s     Wait for com.mattermost.ios to idle
+    t =    78.08s Checking existence of `"callsSurface" Any`
+    t =    78.17s Tear Down
+2026-11-04 07:00:46.835811+0800 MattermostUITests-Runner[22692:44236826] [connection] nw_socket_output_finished [C8:2] shutdown(8, SHUT_WR) [57: Socket is not connected]
+Test Case '-[MattermostUITests.T44DCallsUITests testMuteSurvivesTheSnapshotAndLeaveEndsTheCall]' passed (78.488 seconds).
+Test Case '-[MattermostUITests.T44DCallsUITests testStartCallCreatesTheCallOnTheServerAndLeaveEndsIt]' started.
+    t =     0.00s Start Test at 2026-11-04 07:00:47.152
+    t =     0.03s Set Up
+    t =     0.07s Open com.mattermost.ios
+    t =     0.07s     Launch com.mattermost.ios
+    t =     0.07s         Terminate com.mattermost.ios:25198
+2026-11-04 07:00:48.286 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 07:00:48.286 xcodebuild[22635:44211521] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.35s         Setting up automation session
+    t =     2.41s         Wait for com.mattermost.ios to idle
+    t =     3.96s Waiting 20.0s for "loginIDField" TextField to exist
+    t =     5.01s     Checking `Expect predicate `existsNoRetry == 1` for object "loginIDField" TextField`
+    t =     5.01s         Checking existence of `"loginIDField" TextField`
+    t =     5.09s Tap "loginIDField" TextField
+    t =     5.09s     Wait for com.mattermost.ios to idle
+    t =     5.09s     Find the "loginIDField" TextField
+    t =     5.11s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.12s     Synthesize event
+    t =     5.43s     Wait for com.mattermost.ios to idle
+    t =     5.48s Type 'perfprobe' into "loginIDField" TextField
+    t =     5.48s     Wait for com.mattermost.ios to idle
+    t =     5.49s     Find the "loginIDField" TextField
+    t =     5.51s     Check for interrupting elements affecting "loginIDField" TextField
+    t =     5.53s     Synthesize event
+    t =     5.88s     Wait for com.mattermost.ios to idle
+    t =     6.09s Checking existence of `"loginPasswordField" SecureTextField`
+    t =     6.12s Tap "loginPasswordField" SecureTextField
+    t =     6.12s     Wait for com.mattermost.ios to idle
+    t =     6.12s     Find the "loginPasswordField" SecureTextField
+    t =     6.14s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.17s     Synthesize event
+    t =     6.46s     Wait for com.mattermost.ios to idle
+    t =     6.87s Type 'PerfProbe-Not-A-Re...' into "loginPasswordField" SecureTextField
+    t =     6.87s     Wait for com.mattermost.ios to idle
+    t =     6.87s     Find the "loginPasswordField" SecureTextField
+    t =     6.89s     Check for interrupting elements affecting "loginPasswordField" SecureTextField
+    t =     6.91s     Synthesize event
+    t =     7.59s     Wait for com.mattermost.ios to idle
+    t =     7.60s Tap "loginSubmitButton" Button
+    t =     7.60s     Wait for com.mattermost.ios to idle
+    t =     7.60s     Find the "loginSubmitButton" Button
+    t =     7.62s     Check for interrupting elements affecting "loginSubmitButton" Button
+    t =     7.64s     Synthesize event
+    t =     7.93s     Wait for com.mattermost.ios to idle
+    t =     8.28s Checking existence of `"loginIDField" TextField`
+    t =     8.34s Checking existence of `"nativeShell" Other`
+    t =     8.58s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =     8.61s Waiting 6.0s for "nativeChannelPane" Other to exist
+    t =     9.64s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelPane" Other`
+    t =     9.64s         Checking existence of `"nativeChannelPane" Other`
+    t =     9.71s Checking existence of `"channelSidebar.scroll" Any`
+    t =     9.77s Checking existence of `CollectionView (First Match)`
+    t =     9.82s Checking existence of `"channelSidebar.scroll" Any`
+    t =     9.87s Checking existence of `"Back" Button`
+    t =     9.91s Find the "Back" Button
+    t =     9.97s Tap "Back" Button
+    t =     9.97s     Wait for com.mattermost.ios to idle
+    t =     9.97s     Find the "Back" Button
+    t =    10.01s     Check for interrupting elements affecting "Back" Button
+    t =    10.05s     Synthesize event
+    t =    10.35s     Wait for com.mattermost.ios to idle
+    t =    10.78s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.80s Waiting 10.0s for "channelSidebar.scroll" Any to exist
+    t =    11.84s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.scroll" Any`
+    t =    11.84s         Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.87s Checking existence of `"channelSidebar.scroll" Any`
+    t =    11.89s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.32s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.34s Checking existence of `"channelSidebar.scroll" Any`
+    t =    12.56s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    12.60s Swipe up "channelSidebar.scroll" Any
+    t =    12.60s     Wait for com.mattermost.ios to idle
+    t =    12.60s     Find the "channelSidebar.scroll" Any
+    t =    12.63s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    12.67s     Synthesize event
+    t =    13.17s     Wait for com.mattermost.ios to idle
+    t =    15.57s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    15.64s Swipe up "channelSidebar.scroll" ScrollView
+    t =    15.64s     Wait for com.mattermost.ios to idle
+    t =    15.64s     Find the "channelSidebar.scroll" ScrollView
+    t =    15.66s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    15.74s     Synthesize event
+    t =    16.18s     Wait for com.mattermost.ios to idle
+    t =    18.59s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    18.64s Swipe up "channelSidebar.scroll" ScrollView
+    t =    18.64s     Wait for com.mattermost.ios to idle
+    t =    18.64s     Find the "channelSidebar.scroll" ScrollView
+    t =    18.66s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    18.71s     Synthesize event
+    t =    19.13s     Wait for com.mattermost.ios to idle
+    t =    21.59s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    21.64s Swipe up "channelSidebar.scroll" ScrollView
+    t =    21.64s     Wait for com.mattermost.ios to idle
+    t =    21.64s     Find the "channelSidebar.scroll" ScrollView
+    t =    21.66s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    21.71s     Synthesize event
+    t =    22.14s     Wait for com.mattermost.ios to idle
+    t =    24.56s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    24.60s Swipe up "channelSidebar.scroll" ScrollView
+    t =    24.60s     Wait for com.mattermost.ios to idle
+    t =    24.60s     Find the "channelSidebar.scroll" ScrollView
+    t =    24.63s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    24.68s     Synthesize event
+    t =    25.10s     Wait for com.mattermost.ios to idle
+    t =    27.53s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    27.57s Swipe up "channelSidebar.scroll" ScrollView
+    t =    27.57s     Wait for com.mattermost.ios to idle
+    t =    27.57s     Find the "channelSidebar.scroll" ScrollView
+    t =    27.60s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    27.65s     Synthesize event
+    t =    28.07s     Wait for com.mattermost.ios to idle
+    t =    30.49s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    30.54s Swipe up "channelSidebar.scroll" ScrollView
+    t =    30.54s     Wait for com.mattermost.ios to idle
+    t =    30.54s     Find the "channelSidebar.scroll" ScrollView
+    t =    30.56s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    30.61s     Synthesize event
+    t =    31.04s     Wait for com.mattermost.ios to idle
+    t =    33.48s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    33.52s Swipe up "channelSidebar.scroll" ScrollView
+    t =    33.52s     Wait for com.mattermost.ios to idle
+    t =    33.52s     Find the "channelSidebar.scroll" ScrollView
+    t =    33.54s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    33.59s     Synthesize event
+    t =    34.02s     Wait for com.mattermost.ios to idle
+    t =    36.44s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    36.48s Swipe up "channelSidebar.scroll" ScrollView
+    t =    36.48s     Wait for com.mattermost.ios to idle
+    t =    36.49s     Find the "channelSidebar.scroll" ScrollView
+    t =    36.51s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    36.56s     Synthesize event
+    t =    36.99s     Wait for com.mattermost.ios to idle
+    t =    39.40s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    39.44s Swipe up "channelSidebar.scroll" ScrollView
+    t =    39.44s     Wait for com.mattermost.ios to idle
+    t =    39.44s     Find the "channelSidebar.scroll" ScrollView
+    t =    39.47s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    39.52s     Synthesize event
+    t =    39.95s     Wait for com.mattermost.ios to idle
+    t =    42.36s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    42.41s Swipe up "channelSidebar.scroll" ScrollView
+    t =    42.41s     Wait for com.mattermost.ios to idle
+    t =    42.41s     Find the "channelSidebar.scroll" ScrollView
+    t =    42.43s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    42.48s     Synthesize event
+    t =    42.91s     Wait for com.mattermost.ios to idle
+    t =    45.35s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    45.39s Swipe up "channelSidebar.scroll" ScrollView
+    t =    45.39s     Wait for com.mattermost.ios to idle
+    t =    45.39s     Find the "channelSidebar.scroll" ScrollView
+    t =    45.41s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    45.47s     Synthesize event
+    t =    45.89s     Wait for com.mattermost.ios to idle
+    t =    48.35s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    48.39s Swipe up "channelSidebar.scroll" ScrollView
+    t =    48.39s     Wait for com.mattermost.ios to idle
+    t =    48.39s     Find the "channelSidebar.scroll" ScrollView
+    t =    48.41s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    48.47s     Synthesize event
+    t =    48.90s     Wait for com.mattermost.ios to idle
+    t =    51.33s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    51.38s Swipe up "channelSidebar.scroll" ScrollView
+    t =    51.38s     Wait for com.mattermost.ios to idle
+    t =    51.38s     Find the "channelSidebar.scroll" ScrollView
+    t =    51.40s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    51.45s     Synthesize event
+    t =    51.88s     Wait for com.mattermost.ios to idle
+    t =    54.33s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    54.37s Swipe up "channelSidebar.scroll" ScrollView
+    t =    54.37s     Wait for com.mattermost.ios to idle
+    t =    54.37s     Find the "channelSidebar.scroll" ScrollView
+    t =    54.40s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    54.45s     Synthesize event
+    t =    54.87s     Wait for com.mattermost.ios to idle
+    t =    57.30s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    57.34s Swipe up "channelSidebar.scroll" ScrollView
+    t =    57.34s     Wait for com.mattermost.ios to idle
+    t =    57.34s     Find the "channelSidebar.scroll" ScrollView
+    t =    57.36s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    57.41s     Synthesize event
+    t =    57.83s     Wait for com.mattermost.ios to idle
+    t =    60.24s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    60.29s Swipe up "channelSidebar.scroll" ScrollView
+    t =    60.29s     Wait for com.mattermost.ios to idle
+    t =    60.29s     Find the "channelSidebar.scroll" ScrollView
+    t =    60.31s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    60.36s     Synthesize event
+    t =    60.79s     Wait for com.mattermost.ios to idle
+    t =    63.23s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    63.27s Swipe up "channelSidebar.scroll" ScrollView
+    t =    63.27s     Wait for com.mattermost.ios to idle
+    t =    63.27s     Find the "channelSidebar.scroll" ScrollView
+    t =    63.29s     Check for interrupting elements affecting "channelSidebar.scroll" ScrollView
+    t =    63.35s     Synthesize event
+    t =    63.78s     Wait for com.mattermost.ios to idle
+    t =    66.20s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    66.24s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+[shellsettle] channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph: realised after 18 swipe(s) of the sidebar, after 1 Back tap(s) to the channel list
+    t =    66.28s Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    66.32s Waiting 40.0s for "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button to exist
+    t =    67.33s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    67.33s         Checking existence of `"channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button`
+    t =    67.37s Tap "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button
+    t =    67.37s     Wait for com.mattermost.ios to idle
+    t =    67.37s     Find the "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button
+    t =    67.41s     Check for interrupting elements affecting "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button
+    t =    67.44s     Synthesize event
+    t =    67.45s         Scroll element to visible
+    t =    67.46s         Find the "channelSidebar.channel.wikybttr8tnfzkxge9rk7aipph" Button
+    t =    67.53s         Computed hit point {233, 768.99999999999943} after scrolling to visible
+    t =    67.81s     Wait for com.mattermost.ios to idle
+    t =    68.32s Waiting 30.0s for "nativeChannelTitle" Any to exist
+    t =    69.37s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelTitle" Any`
+    t =    69.38s         Checking existence of `"nativeChannelTitle" Any`
+    t =    69.41s Waiting 30.0s for "calls.joinButton" Any to exist
+    t =    70.42s     Checking `Expect predicate `existsNoRetry == 1` for object "calls.joinButton" Any`
+    t =    70.42s         Checking existence of `"calls.joinButton" Any`
+    t =    70.45s Find the "calls.joinButton" Any
+    t =    70.46s Find the "calls.joinButton" Button
+    t =    70.48s Find the Target Application 'com.mattermost.ios'
+    t =    70.62s Added attachment named '01-header-start'
+    t =    70.62s Tap "calls.joinButton" Button
+    t =    70.62s     Wait for com.mattermost.ios to idle
+    t =    70.62s     Find the "calls.joinButton" Button
+    t =    70.64s     Check for interrupting elements affecting "calls.joinButton" Button
+    t =    70.69s     Synthesize event
+    t =    70.98s     Wait for com.mattermost.ios to idle
+    t =    70.98s Waiting 30.0s for "callsSurface" Any to exist
+    t =    72.02s     Checking `Expect predicate `existsNoRetry == 1` for object "callsSurface" Any`
+    t =    72.03s         Checking existence of `"callsSurface" Any`
+    t =    72.04s Find the Target Application 'com.mattermost.ios'
+    t =    72.17s Added attachment named '02-surface-joining'
+    t =    72.17s Waiting 30.0s for "calls.tile.jruqqzxtobg7tn4wehwmwjjo5c" Any to exist
+    t =    73.21s     Checking `Expect predicate `existsNoRetry == 1` for object "calls.tile.jruqqzxtobg7tn4wehwmwjjo5c" Any`
+    t =    73.21s         Checking existence of `"calls.tile.jruqqzxtobg7tn4wehwmwjjo5c" Any`
+    t =    73.26s Find the "calls.tile.jruqqzxtobg7tn4wehwmwjjo5c" Any
+    t =    73.28s Checking existence of `"calls.participants" Any`
+    t =    73.30s Waiting 20.0s for "calls.state" Any to exist
+    t =    74.36s     Checking `Expect predicate `existsNoRetry == 1` for object "calls.state" Any`
+    t =    74.36s         Checking existence of `"calls.state" Any`
+    t =    74.37s Find the "calls.state" Any
+    t =    74.38s Find the Target Application 'com.mattermost.ios'
+    t =    74.51s Added attachment named '03-surface-In-call'
+    t =    74.51s Tap "calls.leaveButton" Any
+    t =    74.51s     Wait for com.mattermost.ios to idle
+    t =    74.52s     Find the "calls.leaveButton" Any
+    t =    74.52s     Check for interrupting elements affecting "calls.leaveButton" Button
+    t =    74.58s     Synthesize event
+    t =    74.88s     Wait for com.mattermost.ios to idle
+    t =    75.33s Checking existence of `"callsSurface" Any`
+    t =    75.43s Find the Target Application 'com.mattermost.ios'
+    t =    75.55s Added attachment named '04-after-leave'
+    t =    75.56s Tear Down
+Test Case '-[MattermostUITests.T44DCallsUITests testStartCallCreatesTheCallOnTheServerAndLeaveEndsIt]' passed (75.842 seconds).
+Test Suite 'T44DCallsUITests' passed at 2026-11-04 07:02:02.995.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 154.330 (154.333) seconds
+Test Suite 'MattermostUITests.xctest' passed at 2026-11-04 07:02:02.997.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 583.388 (583.401) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 07:02:02.998.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 583.388 (583.403) seconds
+2026-11-04 07:02:24.265 xcodebuild[22635:44211521] [MT] IDETestOperationsObserverDebug: 606.965 elapsed -- Testing started completed.
+2026-11-04 07:02:24.265 xcodebuild[22635:44211521] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-04 07:02:24.265 xcodebuild[22635:44211521] [MT] IDETestOperationsObserverDebug: 606.965 sec, +606.965 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t4528b67e-sidebar-regression-9e0f0b.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started
