@@ -70,6 +70,14 @@ tightened: it now requires the reply's `post.<replyID>.author` to have a **non-e
 **hittable**, and taps **that** element (it used to settle for the avatar, which shares the callback)
 before asserting the sheet shows the server's username for the reply's author.
 
+Its **landing premise** was repaired on the re-verification (2026-11-04, §5): since `t_295b0a32` a
+signed-in launch opens a channel and pushes it over the list, so `nativeShell` is not in the
+accessibility tree and `channelSidebar.*` (the team rail) is only there after `Back`. The test now
+waits with `ShellSettle.waitForSignedIn` and pops to the list with `ShellSettle.revealChannelList`
+before the quick-switcher route it already had. Nothing was skipped or weakened: the reply's name is
+still asserted non-empty, hittable and tapped, and the sheet is still checked against the **server's**
+username for that reply's author.
+
 ## 4. Evidence
 
 All runs on this tree, iPhone 16 Pro simulator (`id=4BB9CE43…`, iOS 18.3), `scripts/qa-test.py`,
@@ -95,4 +103,40 @@ claim about the 1793 that C1 measured before them.
 **Published:** `2a79dc8` on `main`, rebased onto `bd13ca5` and pushed to `origin/main`, verified with
 `git ls-remote` (`2a79dc8…` = `refs/heads/main`). The focused pair was re-run on that published tree:
 **59 run / 0 skipped / 0 failed** (`build/logs/te73-units-thread8.log`).
+
+## 5. Re-verification at the tip (`886a087`, 2026-11-04)
+
+The card had been reclaimed mid-flight, so this pass **verified** rather than rebuilt: `2a79dc8` (code)
+and `365e7ce` (docs) are both ancestors of `HEAD = origin/main = 886a087…` (`git ls-remote` agrees),
+and the guards are where the handoff says (`MMUser.hasProfileDetails`,
+`ThreadViewModel.loadProfiles` / `apply(thread:)`, `PostListDerivation.author(for:users:)`).
+
+| gate | command | result |
+|---|---|---|
+| focused pair | `xcodebuild test … -only-testing MattermostTests/T36ThreadViewModelTests -only-testing MattermostTests/T36ThreadModelsTests` | **59 run / 0 skipped / 0 failed** (`build/logs/te73-units-verify2.log`); `testAnIdOnlyParticipantNeverLeavesABlankReplyAuthorAndIsStillAskedFor` and `testAFullParticipantProfileIsNotOverwrittenByALaterStub` both pass by name |
+| whole unit target | `xcodebuild test … -only-testing MattermostTests` (qa derived data, `-destination "platform=iOS Simulator,name=iPhone 16 Pro"`) | **2184 run / 10 skipped / 0 failed** (`build/logs/te73-units-verify7.log`) |
+| dual-render gates | `bash scripts/verify-dual-render-gates.sh --allow-approved-registry` | `RESULT: PASS — dual-render debug affordances cannot reach a Release build.` |
+| the tightened live test | `xcodebuild test … -only-testing MattermostUITests/T5449ThreadProfileUITests` with `TEST_RUNNER_MM_AUTH_SERVER/_LOGIN/_PASSWORD` | **1 run / 0 skipped / 0 failed**, 29.7 s (`build/logs/te73-live-verify4.log`) — after the landing repair below |
+
+Two measured obstacles, both recorded rather than worked around silently:
+
+1. **The whole target SIGTRAPs in `T31HarvestCookieInstallTests` when run from this card's reused
+   derived-data directory** — 4/4 attempts (`te73-units-verify1/3/5/6.log`), while the class alone is
+   **6 run / 0 failed** (`build/logs/te73-t31-cookie-verify1.log`) and the very same target is green
+   from the `mattermost-ios-qa` derived data (`verify7`). The crash report is not an assertion failure
+   but a WebKit breakpoint: `EXC_BREAKPOINT (SIGTRAP)` on
+   `WKHTTPCookieStore setCookie:` → `WebKit::allDataStores()` →
+   `parametersFromEachWebsiteDataStore()` (`~/Library/Logs/DiagnosticReports/Mattermost-2026-11-04-073134.ips`).
+   Both simulators tried (`4BB9CE43…`, `81A7F251…`) reproduce it; the class's own file arrived at
+   `285ebf0` (07:08) and `2a79dc8` (04:39) precedes it, so this is a host/target interaction that
+   post-dates and does not touch this card's code. It reddens a *whole-suite* run on some
+   configurations, which is why `verify7`'s green run is quoted as the gate.
+2. **The live test's landing premise no longer held at this tip** — 3/3 failures at
+   `the team rail must list #perf` (`te73-live-verify1/2/3.log`), with `nativeChannelPane`
+   "Town Square" pushed over the list and `Back` in the navigation bar: since `t_295b0a32` a
+   signed-in launch opens a channel, so `nativeShell` is not in the tree and `channelSidebar.*` is
+   only there after a pop. Repaired in the test, not the product, with the target's own helpers —
+   `ShellSettle.waitForSignedIn` and `ShellSettle.revealChannelList` (§3) — and the test then passes
+   in 29.7 s, still asserting and tapping `post.<replyID>.author`.
+
 

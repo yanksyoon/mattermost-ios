@@ -198,16 +198,27 @@ final class T5449ThreadProfileUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 60),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, and the push replaces the root, so `nativeShell` is not in the tree at
+        // all (`ShellSettle.waitForSignedIn`, which is the target's one answer to "are we in?" for
+        // both landings). Measured on this card's re-run at `886a087`: waiting on `nativeShell` alone
+        // failed here on 3/3 attempts, with `nativeChannelPane` "Town Square" in the tree.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 60),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
     /// Open the fixture channel through the quick switcher, the way a person would on a workspace
     /// whose sidebar is longer than one screen (T70's measured reason).
     private func openChannel(_ app: XCUIApplication) {
+        // The channel list, not the pane that launch pushed: `Back` is what a reader taps, and
+        // `channelSidebar.*` (the team rail below included) is only in the tree once the list is on
+        // screen. Same landing repair every live sidebar suite needed (`ShellSettle.revealChannelList`,
+        // T95-B / t941) — the quick-switcher route below is unchanged.
+        let pops = ShellSettle.revealChannelList(app)
         let teamRow = element(app, "teamSidebar.team.\(teamID!)")
         XCTAssertTrue(teamRow.waitForExistence(timeout: 40),
-                      "the team rail must list #perf:\n\(app.debugDescription)")
+                      "the team rail must list #perf (after \(pops) Back tap(s) to the channel list):\n"
+                      + "\(app.debugDescription)")
         if !(teamRow.value as? String ?? "").contains("Selected") { teamRow.tap() }
 
         let switcher = app.buttons["channelSidebar.quickSwitcher"]
