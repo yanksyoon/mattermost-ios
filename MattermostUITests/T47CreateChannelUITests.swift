@@ -129,10 +129,12 @@ final class T47CreateChannelUITests: XCTestCase {
         }
         guard serverURL != nil, token != nil else { return }
 
-        // Belt and braces: a name this run minted but the oracle never recorded is looked up now.
+        // Belt and braces: a name this run minted but the oracle never recorded is looked up now — and
+        // waited for, because a failure between the tap and the lookup leaves the app's `POST /channels`
+        // in flight (10 s, then give up loudly: the archive below is the thing that must not be silent).
         for name in attemptedChannelNames
         where !createdChannels.contains(where: { $0.name == name }) {
-            if let found = try? findChannelNamedAnywhere(name) {
+            if let found = try? waitForChannelNamedAnywhere(name, timeout: 10) {
                 createdChannels.append(CreatedChannel(id: found.channel["id"] as? String ?? "",
                                                       name: name,
                                                       teamID: found.teamID))
@@ -624,21 +626,6 @@ final class T47CreateChannelUITests: XCTestCase {
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         } while Date() < deadline
-        return nil
-    }
-
-    /// The same lookup, once, without waiting: used by `tearDownWithError` to resolve an id a failed run
-    /// never recorded.
-    private func findChannelNamedAnywhere(_ name: String) throws -> (channel: [String: Any],
-                                                                     teamID: String)? {
-        let teams = accountTeams.isEmpty ? try teamsOnTheAccount() : accountTeams
-        for team in teams {
-            guard let id = team["id"] as? String else { continue }
-            if let channel = try channelNamed(name, in: id),
-               !(channel["id"] as? String ?? "").isEmpty {
-                return (channel, id)
-            }
-        }
         return nil
     }
 
