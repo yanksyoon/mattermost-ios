@@ -189,3 +189,17 @@ in `~/Library/Developer/Xcode/DerivedData/mmios-t53/TestResults/`.
   needs a recording session (a future voice-message recorder) must set its own category, or this file's
   activation must move behind a shared audio-session owner.
 * PiP and full-screen are configured but not asserted (see §5).
+
+## 9. Publish
+
+Committed on `t53/media-playback` (worktree `.worktrees/t_bfbbcbed`) from `origin/main` `b4ff722` and
+fast-forwarded onto `main`; pushed. `git ls-remote origin refs/heads/main` was asserted equal to local
+`HEAD` after the push:
+
+```
+9ecd9c3dbc231b7df260a72d3876bea34f034137  refs/heads/main
+9ecd9c3dbc231b7df260a72d3876bea34f034137  HEAD
+```
+
+Staged by `git add -A` in the worktree; the tree contained only this card's paths (13 modified, 7 new),
+with no build artefacts — `build/logs/` and the derived data live outside the repository.
