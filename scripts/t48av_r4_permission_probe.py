@@ -71,3 +71,14 @@ for pid in ("create_post", "edit_post", "delete_post", "delete_others_posts",
 
 # Also list ids that look related, so a missing id is not a spelling mistake on my side.
 print("ids containing 'post':", sorted(p for p in union if "post" in p))
+
+# The gate must not hide the rows from an *ordinary* member either: `edit_post`/`delete_post` are
+# system_user grants on every release, so a plain account still sees Edit/Delete on its own post.
+print()
+base_roles = call("/api/v4/roles/names", token, body=["system_user", "channel_user", "team_user"])
+for role in base_roles:
+    perms = set(role.get("permissions") or [])
+    hits = sorted(pid for pid in ("create_post", "edit_post", "delete_post",
+                                  "delete_others_posts") if pid in perms)
+    print(f"role {role.get('name'):14} {len(perms):3} ids  edit/delete ids present: {hits}")
+

@@ -177,7 +177,11 @@ Both ids are real — measured, so the repair is a straight port of upstream's r
 another fallback like `canPin`'s. `scripts/t48av_r4_permission_probe.py` reads the same
 `perfprobe` union the live suites sign in as: **271 ids, `edit_post` YES, `delete_post` YES,
 `delete_others_posts` YES** (`pin_post`/`unpin_post` still absent, consistent with §1). So the gate
-cannot hide Edit/Delete from the live T35 edit/delete test or from this pass's own-post UI test.
+cannot hide Edit/Delete from the live T35 edit/delete test or from this pass's own-post UI test. The
+same probe answers the ordinary-member question: **`channel_user` (27 ids) carries `create_post`,
+`edit_post` and `delete_post`**, while `system_user` (13) and `team_user` (10) carry none of the
+three. Edit and Delete therefore stay visible for every member whose channel role is intact, and are
+withheld exactly where the grant is missing — the account the defect was about.
 
 The rule now lives in one place, `PostOptionsGate`:
 
