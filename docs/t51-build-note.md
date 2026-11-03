@@ -103,37 +103,64 @@ never claims a delete that did not happen (`testAVetoedDeleteKeepsTheRowAndSaysS
 
 ## 5. Live results
 
-Run on the tree this note ships with: **487ffb0**, rebased onto `origin/main` `bde77c5`.
+Run on the tree this note ships with (rebased onto `origin/main` `2b81b2f`; the published commit is
+named in the card's closing comment, because a commit cannot name its own SHA).
 Server: the pinned fixture at `127.0.0.1:8065` (Mattermost **9.11.19** Team Edition, account
-`perfprobe`). Simulator: iPhone 16 Pro, iOS 18.3.1 (`01027E41-0F01-43B9-87A4-266FC0292B62`),
-`parallel-testing-enabled NO`. The host was under extreme load during the run (load average
-270–1000 on 10 cores, swap ~16 of 19 GB); every run below is a real one, and the two earlier
-attempts that failed were XCTest failing to bootstrap its host ("Early unexpected exit … Test
-crashed with signal kill"), not product failures — the successful runs are the ones cited.
+`perfprobe`). Simulator: iPhone 16 Pro, iOS 18.3.1, `parallel-testing-enabled NO`. The host was under
+extreme load for much of the session (load average into the hundreds, swap nearly full, ~60 MB free
+of 16 GB); every number below is a real run, and the attempts that did not finish were XCTest
+failing to bootstrap its host ("Early unexpected exit … Test crashed with signal kill") or being
+killed by the stall watchdog, not product failures — the successful runs are the ones cited.
 
-Command (the env supplies the fixture account; each test **skips**, never fails, without it):
+Command (the env supplies the fixture account; each live test **skips**, never fails, without it):
 
 ```
 TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 \
 TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
 TEST_RUNNER_MM_AUTH_PASSWORD=<fixture password> \
-python3 scripts/qa-test.py --platform ios --sim "id=01027E41-0F01-43B9-87A4-266FC0292B62" \
+python3 scripts/qa-test.py --platform ios --sim "id=81A7F251-8B31-4945-8783-5A264C14B8D5" \
   --derived-data ~/Library/Developer/Xcode/DerivedData/mmios-t51 \
-  --only-testing MattermostUITests/T51GlobalDraftsUITests --label t51-live \
+  --only-testing MattermostTests/T51GlobalDraftsTests \
+  --only-testing MattermostUITests/T51GlobalDraftsUITests --label t51-final1 \
   -- -parallel-testing-enabled NO
 ```
 
-`build/logs/t51-live.log` — `T51GlobalDraftsUITests` **2 tests, 0 failures, 0 skipped, 244.9 s**,
-`** TEST SUCCEEDED **`:
+`build/logs/t51-final1.log` — **one invocation, `** TEST SUCCEEDED **`, 333.3 s**:
 
-| Test | Time | What it proves |
-| --- | --- | --- |
-| `testADraftIsFoundInTheListOpenedInItsChannelAndDeleted` | 116.97 s | a draft typed in `#t51-drafts` is listed after the channel is left; tapping the row opens that channel and the composer restores the text; Delete removes the row, and a new process still does not show it |
-| `testADraftSurvivesARelaunchAndIsReachableFromTheList` | 127.91 s | the app is killed and relaunched without the reset flag; the draft is found from the list alone and a **fresh** composer (this process never opened the channel) restores the text |
+| Suite | Result |
+| --- | --- |
+| `MattermostTests/T51GlobalDraftsTests` | 26 tests, 0 failures (0.58 s) |
+| `MattermostUITests/T51GlobalDraftsUITests` | 2 tests, 0 failures (220.9 s) |
 
-Whole unit bundle, same tree, same simulator (`build/logs/t51-all-units.log`): **2020 tests,
-8 skipped, 0 failures** in 599.0 s, `** TEST SUCCEEDED **`. The 26 T51 tests are inside that
-number (`Test Suite 'T51GlobalDraftsTests' passed`, 26 tests, 0 failures).
+`build/logs/t51-live.log` — the same live class on its own, **2 tests, 0 failures, 244.9 s**:
+`testADraftIsFoundInTheListOpenedInItsChannelAndDeleted` (117.0 s) and
+`testADraftSurvivesARelaunchAndIsReachableFromTheList` (127.9 s, 110.4 s in the suite run).
+`build/logs/t51-all-units.log` — the whole unit bundle on this tree: **2020 tests, 8 skipped,
+0 failures** in 599.0 s.
+
+What the two live tests prove:
+
+1. `testADraftIsFoundInTheListOpenedInItsChannelAndDeleted` — a draft typed in `#t51-drafts` is
+   listed after the channel is left; tapping the row opens that channel and the composer restores the
+   text; Delete removes the row, and a **new process** still does not show it.
+2. `testADraftSurvivesARelaunchAndIsReachableFromTheList` — the app is killed and relaunched without
+   the reset flag (same server row, same session, same per-server draft database); the draft is found
+   from the list alone and a **fresh** composer (this process never opened the channel) restores the
+   text. The app's container confirms the row directly, in
+   `Library/Application Support/MattermostStores/<serverID>.sqlite`, table `draft`:
+
+```
+channel_id=9rzho77t37f6xqg1n7zuykejsh root_id= message="t51 relaunch 1793694846 — never sent"
+update_at=1793694889191 metadata={"team_id":"ocz148uck3r88dcjikj497bosh"}
+```
+
+**One finding the live run forced.** The row's first shape gave each line its own identifier, and the
+live test found the row container but not its lines: SwiftUI collapses a subtree carrying
+`.accessibilityAddTraits` into a single element, so per-line identifiers do not surface. The row is
+now **one accessibility element** — glyph + title + snippet + age, labelled
+`"<title>, <kind>, <snippet>, <edited>"`, which is also what VoiceOver reads — with the delete button
+deliberately outside that element so it stays separately addressable. The tests assert the row's
+label, which is how a reader hears the same words.
 
 ## 6. Scheduled posts (S40): the measured refusal
 

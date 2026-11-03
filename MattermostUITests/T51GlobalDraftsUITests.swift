@@ -73,10 +73,10 @@ final class T51GlobalDraftsUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 20),
                       "a draft typed in #\(channelName) must be listed:\n\(app.debugDescription)")
         attach(app, "t51-01-draft-listed")
-        let snippet = element(app, "globalDrafts.row.\(channelID!).snippet")
-        XCTAssertTrue(snippet.waitForExistence(timeout: 5))
-        XCTAssertTrue(snippet.label.contains(draft),
-                      "the row must show the draft's own words, was \(snippet.label)")
+        // The row is one accessibility element (glyph + three lines combined), so its label carries
+        // the title, the snippet and the age — the draft's own words are in that sentence.
+        XCTAssertTrue(row.label.contains(draft),
+                      "the row must show the draft's own words, was \(row.label)")
 
         // Tap the row: the sheet closes and the channel opens with the draft in its composer.
         row.tap()
@@ -131,10 +131,8 @@ final class T51GlobalDraftsUITests: XCTestCase {
         let row = element(relaunched, "globalDrafts.row.\(channelID!)")
         XCTAssertTrue(row.waitForExistence(timeout: 25),
                       "a draft must survive a relaunch and be listed:\n\(relaunched.debugDescription)")
-        let snippet = element(relaunched, "globalDrafts.row.\(channelID!).snippet")
-        XCTAssertTrue(snippet.waitForExistence(timeout: 5))
-        XCTAssertTrue(snippet.label.contains(draft),
-                      "the listed draft must be the one typed before the relaunch, was \(snippet.label)")
+        XCTAssertTrue(row.label.contains(draft),
+                      "the listed draft must be the one typed before the relaunch, was \(row.label)")
         attach(relaunched, "t51-05-listed-after-relaunch")
 
         // Opening it lands on a **fresh** composer (this process never opened the channel), so the
@@ -198,7 +196,24 @@ final class T51GlobalDraftsUITests: XCTestCase {
     private func openTeamAndChannel(_ app: XCUIApplication) {
         showSidebar(app)
         pickTeam(app)
-        openViaQuickSwitcher(app)
+        // The sidebar is a lazy list and `perf` holds hundreds of channels, so a specific row may
+        // never be built. The quick switcher searches the whole loaded list, not the built rows —
+        // and typing the name is a path a person takes to reach a channel that is far down.
+        let opener = element(app, "channelSidebar.quickSwitcher")
+        XCTAssertTrue(opener.waitForExistence(timeout: 20),
+                      "the sidebar must offer the quick switcher:\n\(app.debugDescription)")
+        opener.tap()
+        let field = app.textFields["channelSidebar.quickSwitcher.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10),
+                      "the quick switcher must focus a field:\n\(app.debugDescription)")
+        field.tap()
+        field.typeText(channelName)
+        let result = element(app, "channelSidebar.quickSwitcher.result.\(channelID!)")
+        XCTAssertTrue(result.waitForExistence(timeout: 30),
+                      "the quick switcher must find #\(channelName):\n\(app.debugDescription)")
+        result.tap()
+        XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 40),
+                      "the channel must mount:\n\(app.debugDescription)")
     }
 
     /// Return to the channel sidebar. On a phone the channel view is pushed over the tabs, so Back
@@ -219,23 +234,6 @@ final class T51GlobalDraftsUITests: XCTestCase {
         rail.tap()
         XCTAssertTrue(element(app, "channelSidebar.quickSwitcher").waitForExistence(timeout: 30),
                       "the team's sidebar must mount:\n\(app.debugDescription)")
-    }
-
-    private func openViaQuickSwitcher(_ app: XCUIApplication) {
-        let opener = element(app, "channelSidebar.quickSwitcher")
-        XCTAssertTrue(opener.waitForExistence(timeout: 20),
-                      "the sidebar must offer the quick switcher:\n\(app.debugDescription)")
-        opener.tap()
-        let field = app.textFields["channelSidebar.quickSwitcher.field"]
-        XCTAssertTrue(field.waitForExistence(timeout: 10))
-        field.tap()
-        field.typeText(channelName)
-        let result = element(app, "channelSidebar.quickSwitcher.result.\(channelID!)")
-        XCTAssertTrue(result.waitForExistence(timeout: 20),
-                      "the quick switcher must find #\(channelName):\n\(app.debugDescription)")
-        result.tap()
-        XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 40),
-                      "the channel must mount:\n\(app.debugDescription)")
     }
 
     private func openDrafts(_ app: XCUIApplication) {
@@ -297,14 +295,15 @@ final class T51GlobalDraftsUITests: XCTestCase {
 
     /// The fixture's `perf` team, or the account's first team, or a team this test creates.
     private func ensureTeam() throws -> Team {
-        let rows = try getJSON("/api/v4/users/me/teams") as? [[String: Any]] ?? []
+        let (status, object) = try getJSON("/users/me/teams")
+        let rows = status == 200 ? (object as? [[String: Any]] ?? []) : []
         let teams = rows.compactMap { row -> Team? in
             guard let id = row["id"] as? String, let name = row["name"] as? String else { return nil }
             return Team(id: id, name: name)
         }
         if let perf = teams.first(where: { $0.name == "perf" }) { return perf }
         if let first = teams.first { return first }
-        let created = try sendJSON("POST", "/api/v4/teams",
+        let created = try sendJSON("POST", "/teams",
                                    body: ["name": "t51", "display_name": "T51", "type": "O"])
         guard let id = created["id"] as? String else {
             throw XCTSkip("the fixture account has no team and cannot create one")
@@ -313,11 +312,11 @@ final class T51GlobalDraftsUITests: XCTestCase {
     }
 
     private func ensureChannel(named name: String, in team: String) throws -> String {
-        if let row = try? getJSON("/api/v4/teams/\(team)/channels/name/\(name)") as? [String: Any],
-           let id = row["id"] as? String {
+        let (status, object) = try getJSON("/teams/\(team)/channels/name/\(name)")
+        if status == 200, let row = object as? [String: Any], let id = row["id"] as? String {
             return id
         }
-        let created = try sendJSON("POST", "/api/v4/channels",
+        let created = try sendJSON("POST", "/channels",
                                    body: ["team_id": team, "name": name,
                                           "display_name": "T51 Drafts", "type": "O"])
         guard let id = created["id"] as? String else {
@@ -326,27 +325,42 @@ final class T51GlobalDraftsUITests: XCTestCase {
         return id
     }
 
-    private func getJSON(_ pathWithQuery: String) throws -> Any {
+    /// `(status, object)`. The status matters: a 404 body carries an error object whose `id` is
+    /// `app.channel.get_by_name.missing.app_error`, and treating *that* as a channel id is how a test
+    /// ends up searching for a channel that was never created.
+    private func getJSON(_ pathWithQuery: String) throws -> (Int, Any) {
+        var request = URLRequest(url: try url(for: pathWithQuery))
+        request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try synchronous(request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let object = (try? JSONSerialization.jsonObject(with: data)) ?? [:]
+        return (status, object)
+    }
+
+    private func url(for pathWithQuery: String) throws -> URL {
         let parts = pathWithQuery.split(separator: "?", maxSplits: 1,
                                         omittingEmptySubsequences: false)
-        var components = URLComponents(url: serverURL.appendingPathComponent(String(parts[0])),
+        var path = String(parts[0])
+        while path.hasPrefix("/") { path.removeFirst() }
+        // Callers pass paths relative to `/api/v4`; the prefix lives here, once, so a helper cannot
+        // silently miss it (a missing prefix is a Go `404 page not found`, not an API error).
+        var components = URLComponents(url: serverURL.appendingPathComponent("api/v4/" + path),
                                        resolvingAgainstBaseURL: false)
         if parts.count > 1 { components?.query = String(parts[1]) }
-        let url = try XCTUnwrap(components?.url)
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
-        let (data, _) = try synchronous(request)
-        return try JSONSerialization.jsonObject(with: data)
+        return try XCTUnwrap(components?.url)
     }
 
     private func sendJSON(_ method: String, _ path: String,
                           body: [String: Any]) throws -> [String: Any] {
-        var request = URLRequest(url: serverURL.appendingPathComponent(String(path.dropFirst())))
+        var request = URLRequest(url: try url(for: path))
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        let (data, _) = try synchronous(request)
+        let (data, response) = try synchronous(request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        XCTAssertTrue((200..<300).contains(status),
+                      "\(method) \(path) answered \(status): \(String(data: data, encoding: .utf8) ?? "")")
         return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
     }
 

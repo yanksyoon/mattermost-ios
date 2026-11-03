@@ -105,6 +105,18 @@ struct GlobalDraftsView: View {
 
     private func rowView(_ row: GlobalDraftRow) -> some View {
         HStack(alignment: .top, spacing: 10) {
+            rowContent(row)
+            Spacer(minLength: 0)
+            deleteButton(row)
+        }
+    }
+
+    /// The tappable part of the row: one accessibility element (glyph + three lines) with one
+    /// sentence, which is also what a VoiceOver reader hears. It wraps **only** the content, so the
+    /// delete control beside it stays its own element and can be addressed on its own — a row that
+    /// combined *its* children too would swallow the delete button (T50's shared-row trap).
+    private func rowContent(_ row: GlobalDraftRow) -> some View {
+        HStack(alignment: .top, spacing: 10) {
             Image(systemName: glyph(row))
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
@@ -115,38 +127,38 @@ struct GlobalDraftsView: View {
                 Text(row.title)
                     .font(.scaled(15, weight: .medium))
                     .mmLineLimit(1)
-                    .accessibilityIdentifier("globalDrafts.row.\(row.id).title")
                 Text(row.snippet)
                     .font(.scaled(14))
                     .foregroundStyle(.secondary)
                     .mmLineLimit(2)
-                    .accessibilityIdentifier("globalDrafts.row.\(row.id).snippet")
                 Text(subtitle(row))
                     .font(.scaled(12))
                     .foregroundStyle(.tertiary)
                     .mmLineLimit(1)
-                    .accessibilityIdentifier("globalDrafts.row.\(row.id).meta")
             }
-
-            Spacer(minLength: 0)
-
-            Button {
-                delete(row)
-            } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 15))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 34, height: 34)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("Delete draft in \(row.title)")
-            .accessibilityIdentifier("globalDrafts.row.\(row.id).delete")
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .onTapGesture { onOpen(row) }
+        .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(row.accessibilityLabel(now: now))
         .accessibilityIdentifier("globalDrafts.row.\(row.id)")
+    }
+
+    private func deleteButton(_ row: GlobalDraftRow) -> some View {
+        Button {
+            delete(row)
+        } label: {
+            Image(systemName: "trash")
+                .font(.system(size: 15))
+                .foregroundStyle(.secondary)
+                .frame(width: 34, height: 34)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Delete draft in \(row.title)")
+        .accessibilityIdentifier("globalDrafts.row.\(row.id).delete")
     }
 
     private func glyph(_ row: GlobalDraftRow) -> String {
