@@ -9,17 +9,31 @@
 //   5. the channel is still there after a relaunch, because it came from the server's channel list.
 //
 // The oracle for 2–5 is the server, read back through its own API with the same account the app signs in
-// as: `GET /teams/{tid}/channels/name/{name}` answers 404 **before** the tap and the created channel
-// afterwards, with `creator_id` = the signed-in user, `type` = `P` and the `display_name` typed into the
-// app. A name that did not exist before and carries a per-run token cannot arrive from a refresh.
+// as: a name that did not exist before the run and carries a per-run token cannot arrive from a refresh.
 //
-// The suite carries both halves of the card:
+// Harness repairs (T47-AV-R4, card `t_40082af1`, evidence `docs/t47-av-verdict.md` §1.2, §6 F7/F8):
 //
-//   * `testTheCreateMenuSendsPostChannelsAndTheNewChannelSurvivesRelaunch` — the private-channel form,
-//     `POST /channels`, landing in the pane, the sidebar row, and the row surviving a relaunch;
-//   * `testTheCreateMenuStartsADirectMessageWithATeammate` — the picker, its search, one tap, and the
-//     server's record of the pair (`POST /channels/direct`, type `D`, name `<id>__<id>`). Its oracle
-//     call is create-or-find, so it reads the conversation the tap opened rather than writing a new one.
+//   * **The team is pinned from the app, not from the API's order.** The shell opens on
+//     `TeamSwitchViewModel.entries.first` (the rail's order) while `GET /users/me/teams[0]` answers the
+//     API's order. When they disagreed (T47-AV run A opened on Operations), the create landed in
+//     Operations, the oracle looked in Perf, and the test said "POST /channels never landed" — false.
+//     `pinTeam` reads `sidebarCurrentTeam` off the screen, matches it to a team id, and every oracle
+//     call below uses **that** id.
+//   * **`revealSidebarRow` scrolls the sidebar that exists.** It used to ask for
+//     `app.collectionViews.firstMatch`; the sidebar has been a `ScrollView` + `LazyVStack`
+//     (`channelSidebar.scroll`) since T8f, so the query found nothing and the guard returned without a
+//     single swipe (F7). It now drives `ShellSettle.channelSidebarScroll` (falling back to the app) and
+//     attaches a note with the surface and the swipe counts.
+//   * **The created id is recorded from the server's answer, before any UI assertion, and the archive is
+//     proven.** The id comes from the name-keyed lookup (independent of the sidebar and of the pane), any
+//     name this run may have minted is re-resolved in `tearDownWithError`, `DELETE`'s status is asserted,
+//     and the channel is read back to prove `delete_at` moved. A run that cannot archive fails by name,
+//     with the channel id that is still live (F8).
+//   * **The DM half creates nothing.** A direct channel cannot be deleted (`DELETE /channels/{id}` →
+//     400 `api.channel.delete_channel.type.invalid`, measured on three probe DMs), so the pair is
+//     resolved *before* the tap from `GET /users/me/channels` (read-only) and an **existing** pair is
+//     preferred; only a fixture with no pair at all gets a pre-tap `POST /channels/direct`, and that DM
+//     is then reported in the log as a permanent fixture mutation.
 //
 // Run (local throwaway server; same credentials as T34/T39/T40):
 //
@@ -35,12 +49,12 @@
 // `docs/t47-relay-witness-2026-10-27.log`. That run is evidence, not a second verdict (the same split
 // T40 documents for its relay). One caveat learned the hard way: the relay's first version split each
 // read on CRLF, so when a read ended mid-header the next request line arrived glued to that header and
-// was dropped from the log (`Authorization: Bearer …POST /api/v4/channels HTTP/1.1`). The log that
+// was dropped from the log (`Authorization: Bearer *** /api/v4/channels HTTP/1.1`). The log that
 // missed the create was the relay's bug, not the app's behaviour; the script now searches each
-// connection's stream for request lines instead.
+// connection's stream for request lines.
 //
-// The suite creates one channel per run and archives it at the end; a name is never recycled by the
-// server, so every run uses a fresh one.
+// The suite creates one channel per run and archives it at the end, proving the archive; a name is never
+// recycled by the server, so every run uses a fresh one.
 
 import XCTest
 
@@ -54,11 +68,30 @@ final class T47CreateChannelUITests: XCTestCase {
     private var password: String!
     private var token: String!
     private var userID: String!
-    private var teamID: String!
 
-    /// The channels this run created, archived in `tearDown` (a channel name is not reusable after an
-    /// archive, so a leftover would poison the next run's name space).
-    private var createdChannelIDs: [String] = []
+    /// The team the **app** is on, read off the screen once per test (`pinTeam`). Every oracle call
+    /// about "the team" uses this, never `GET /users/me/teams[0]` (F7).
+    private var teamID: String!
+    /// The account's teams as the server lists them, captured when the team was pinned.
+    private var accountTeams: [[String: Any]] = []
+
+    /// A channel this run created: the id the server answered, the name this run minted, and the team the
+    /// server says it is in (which may not be the pinned one — that is asserted, then archived).
+    private struct CreatedChannel {
+        let id: String
+        let name: String
+        let teamID: String
+    }
+
+    /// Channels this run created, archived (and proven archived) in `tearDownWithError`. The id comes
+    /// from the server's answer, recorded before any pane/sidebar assertion (F8).
+    private var createdChannels: [CreatedChannel] = []
+    /// Names this run may have minted. `tearDownWithError` re-resolves any of them the oracle did not
+    /// record, so a run that failed before its lookup — or whose lookup threw — cannot leak a channel.
+    private var attemptedChannelNames: [String] = []
+    /// What this run wrote that the server will not let it take back (a direct channel). Reported, not
+    /// hidden: the suite's "every run archives what it created" cannot be true of a DM.
+    private var permanentFixtureMutations: [String] = []
 
     override func setUpWithError() throws {
         let env = ProcessInfo.processInfo.environment
@@ -81,12 +114,32 @@ final class T47CreateChannelUITests: XCTestCase {
             userID = session.userID
             Self.cachedSession = (server: raw, token: session.token, userID: session.userID)
         }
-        teamID = try firstTeamID()
     }
 
+    /// Cleanup that cannot lie: every channel this run may have created is resolved and archived, the
+    /// `DELETE`'s status is asserted, the archive is read back, and a channel that survives is named in a
+    /// failure (T47-AV run A left `t47-ui-1793648428` live through `try?` + `allowFailure: true`).
     override func tearDownWithError() throws {
-        for channelID in createdChannelIDs {
-            _ = try? sendJSON("DELETE", "/api/v4/channels/\(channelID)", body: nil, allowFailure: true)
+        for mutation in permanentFixtureMutations {
+            print("T47 FIXTURE MUTATION — \(mutation)")
+            let note = XCTAttachment(string: mutation)
+            note.name = "permanent-fixture-mutation"
+            note.lifetime = .keepAlways
+            add(note)
+        }
+        guard serverURL != nil, token != nil else { return }
+
+        // Belt and braces: a name this run minted but the oracle never recorded is looked up now.
+        for name in attemptedChannelNames
+        where !createdChannels.contains(where: { $0.name == name }) {
+            if let found = try? findChannelNamedAnywhere(name) {
+                createdChannels.append(CreatedChannel(id: found.channel["id"] as? String ?? "",
+                                                      name: name,
+                                                      teamID: found.teamID))
+            }
+        }
+        for created in createdChannels {
+            archive(created)
         }
     }
 
@@ -99,13 +152,20 @@ final class T47CreateChannelUITests: XCTestCase {
         let displayName = "T47 UI \(stamp)"
         let urlName = "t47-ui-\(stamp)"
         let startedAt = Int(Date().timeIntervalSince1970 * 1000)
-
-        // The premise, measured: the channel does not exist yet.
-        XCTAssertEqual(try statusOfChannelNamed(urlName), 404,
-                       "the fixture must not already have \(urlName)")
+        // Registered before the app is even launched: if this test throws anywhere below, tearDown still
+        // knows the one name a leaked channel could carry.
+        attemptedChannelNames.append(urlName)
 
         let app = launchApp()
         showSidebar(app)
+
+        // 0. The team the app is actually on — asserted once, up front, and used by every oracle call.
+        try pinTeam(app)
+
+        // The premise, measured: the channel does not exist yet, in any team.
+        let preexisting = try teamsHoldingChannelNamed(urlName)
+        XCTAssertTrue(preexisting.isEmpty,
+                      "the fixture must not already have \(urlName); the server answered it in \(preexisting)")
 
         // 1. The create menu, from the `+` in the channel list header.
         let plus = control(app, "nativeSidebarCreateMenu")
@@ -141,10 +201,26 @@ final class T47CreateChannelUITests: XCTestCase {
 
         // 3. The oracle: `POST /channels` happened. The channel exists, it is mine, it is private, and it
         //    carries the display name typed into the app.
-        let channel = try waitForChannel(named: urlName, timeout: 30)
+        //
+        //    The id is recorded here — from the server's answer to a lookup keyed by the name this run
+        //    minted — before the pane and the sidebar are touched. A failure below can no longer lose the
+        //    id, and a channel that landed in a different team is found and named instead of being
+        //    reported as "never landed" (T47-AV §1.2).
+        guard let created = try waitForChannelNamedAnywhere(urlName, timeout: 30) else {
+            XCTFail("no channel named \(urlName) appeared in any team within 30 s — POST /channels never"
+                    + " landed (teams: \(teamNames); the app was on \(teamNames[teamID] ?? teamID ?? "?"))")
+            return
+        }
+        let channel = created.channel
         let channelID = channel["id"] as? String ?? ""
         XCTAssertFalse(channelID.isEmpty, "the server must answer the created channel")
-        createdChannelIDs.append(channelID)
+        if !channelID.isEmpty {
+            createdChannels.append(CreatedChannel(id: channelID, name: urlName, teamID: created.teamID))
+        }
+        XCTAssertEqual(created.teamID, teamID,
+                       "the channel landed in team \(teamNames[created.teamID] ?? created.teamID),"
+                       + " not in \(teamNames[teamID] ?? teamID ?? "?") — the team the sidebar shows;"
+                       + " the app must create in the team it is on")
         XCTAssertEqual(channel["creator_id"] as? String, userID,
                        "the creator is the signed-in user — the server's record of who sent POST /channels")
         XCTAssertEqual(channel["type"] as? String, "P", "the form asked for a private channel")
@@ -177,6 +253,12 @@ final class T47CreateChannelUITests: XCTestCase {
         app.terminate()
         let relaunched = launchApp(keepingState: true)
         showSidebar(relaunched)
+        // The relaunch must not have moved the app to another team, or the row below would be looked for
+        // in the wrong list (and "it came from the server for this team" would be unproven).
+        XCTAssertEqual(element(relaunched, "sidebarCurrentTeam").label
+                        .trimmingCharacters(in: .whitespacesAndNewlines),
+                       teamNames[teamID] ?? "",
+                       "the relaunch must return to the same team:\n\(relaunched.debugDescription)")
         let rowAfterRelaunch = revealSidebarRow(relaunched,
                                                 identifier: "channelSidebar.channel.\(channelID)")
         XCTAssertTrue(rowAfterRelaunch.waitForExistence(timeout: 40),
@@ -199,15 +281,28 @@ final class T47CreateChannelUITests: XCTestCase {
     /// (measured: `201` on both paths, the same channel id either way), so asking it after the tap is a
     /// read of "this DM exists" rather than a second write. Its `name` is the two user ids sorted and
     /// joined by `__`, which is exactly what the app's tap asked the server for.
+    ///
+    /// The tap must not be what creates the conversation: a DM cannot be archived, so the pair is
+    /// resolved *before* the app is touched (read-only, from `GET /users/me/channels`) and an existing
+    /// one is preferred. A fixture with no pair at all gets a pre-tap `POST /channels/direct`, and that
+    /// created DM is reported as a permanent fixture mutation rather than pretended away.
     func testTheCreateMenuStartsADirectMessageWithATeammate() throws {
-        let teammate = try teammateOnTheTeam()
-        let teammateID = teammate["id"] as? String ?? ""
-        let username = teammate["username"] as? String ?? ""
-        let person = teammate["nickname"] as? String ?? ""
-        XCTAssertFalse(teammateID.isEmpty, "a team with one member cannot exercise the picker")
+        let startedAt = Int(Date().timeIntervalSince1970 * 1000)
 
         let app = launchApp()
         showSidebar(app)
+        try pinTeam(app)
+
+        // 0. The pair, before the tap.
+        let pair = try conversationPair()
+        let channelID = pair.channel["id"] as? String ?? ""
+        XCTAssertFalse(channelID.isEmpty, "the server must answer the pair's conversation")
+        if pair.createdNow {
+            permanentFixtureMutations.append(
+                "direct channel \(pair.channelName) (\(channelID)) with @\(pair.username): created by this"
+                + " run's pre-tap POST /channels/direct because the fixture had no pair; the server refuses"
+                + " to delete a direct channel (400 api.channel.delete_channel.type.invalid)")
+        }
 
         // 1. The `+` → the DM entry. The row exists only if the reader may create direct channels.
         let plus = control(app, "nativeSidebarCreateMenu")
@@ -230,11 +325,11 @@ final class T47CreateChannelUITests: XCTestCase {
         let search = app.searchFields.firstMatch
         if search.waitForExistence(timeout: 10) {
             search.tap()
-            search.typeText(username)
+            search.typeText(pair.username)
         }
-        let row = element(app, "newDM.row.\(teammateID)")
+        let row = element(app, "newDM.row.\(pair.teammateID)")
         XCTAssertTrue(row.waitForExistence(timeout: 20),
-                      "the picker must list @\(username):\n\(app.debugDescription)")
+                      "the picker must list @\(pair.username):\n\(app.debugDescription)")
         attach(app, "06-dm-picker")
         row.tap()
 
@@ -242,23 +337,31 @@ final class T47CreateChannelUITests: XCTestCase {
         let title = element(app, "nativeChannelTitle")
         XCTAssertTrue(title.waitForExistence(timeout: 30),
                       "starting a DM must land in the conversation:\n\(app.debugDescription)")
-        let wanted = [username, person].filter { !$0.isEmpty }.map { $0.lowercased() }
+        let wanted = [pair.username, pair.nickname].filter { !$0.isEmpty }.map { $0.lowercased() }
         XCTAssertTrue(waitUntil(timeout: 20) {
             let label = title.label.lowercased()
             return wanted.contains { label.contains($0) }
-        }, "the DM pane must be titled with the person (@\(username)); it says \"\(title.label)\"")
+        }, "the DM pane must be titled with the person (@\(pair.username)); it says \"\(title.label)\"")
         attach(app, "07-dm-open")
 
-        // 4. The server's record of the pair.
-        let channel = try directChannel(with: teammateID)
-        let channelID = channel["id"] as? String ?? ""
+        // 4. The server's record of the pair — create-or-find again, and it must be the *same*
+        //    conversation the pre-tap check named.
+        let channel = try directChannel(with: pair.teammateID)
         XCTAssertFalse(channelID.isEmpty, "the server must answer the DM channel")
+        XCTAssertEqual(channel["id"] as? String, channelID,
+                       "the tap must open the pair's conversation, not a second one for the same two people")
         XCTAssertEqual(channel["type"] as? String, "D", "a direct message is type D")
-        XCTAssertEqual(channel["name"] as? String, directChannelName(with: teammateID),
+        XCTAssertEqual(channel["name"] as? String, pair.channelName,
                        "the DM channel is named after both users")
+        let createAt = channel["create_at"] as? Int ?? 0
+        if !pair.createdNow {
+            XCTAssertLessThan(createAt, startedAt,
+                              "the pair predates this run (\(createAt) < \(startedAt)): the tap opened the"
+                              + " existing conversation and wrote nothing new")
+        }
         let members = try getJSON("/api/v4/channels/\(channelID)/members") as? [[String: Any]] ?? []
         let memberIDs = Set(members.compactMap { $0["user_id"] as? String })
-        XCTAssertTrue(memberIDs.contains(teammateID) && memberIDs.contains(userID!),
+        XCTAssertTrue(memberIDs.contains(pair.teammateID) && memberIDs.contains(userID!),
                       "the conversation has exactly the two people in it: \(memberIDs)")
 
         // 5. …and it is in the sidebar, read back from the server after the relaunch-free refresh.
@@ -347,20 +450,98 @@ final class T47CreateChannelUITests: XCTestCase {
                       "the shell must be back on the channel sidebar:\n\(app.debugDescription)")
     }
 
-    /// Scroll the sidebar until `identifier` exists (a lazy `List` only builds its viewport).
+    /// Scroll the sidebar until `identifier` exists, and say what was scrolled (T47-AV-R4, F7).
+    ///
+    /// The sidebar is a `ScrollView` + `LazyVStack` since T8f (`channelSidebar.scroll`): there is **no**
+    /// collection view there, and the old helper's `app.collectionViews.firstMatch` guard returned
+    /// silently without a single swipe — which is why every sidebar assertion in this suite failed at
+    /// HEAD. Swipe the surface that exists — the sidebar's own scroll view
+    /// (`ShellSettle.channelSidebarScroll`), or the app when even that is missing — up first (the list is
+    /// long; a new channel sits far below the fold) and then back down, and leave the counts in the
+    /// result bundle so a red run says whether it scrolled at all.
     @discardableResult
     private func revealSidebarRow(_ app: XCUIApplication, identifier: String,
                                   maxSwipes: Int = 25) -> XCUIElement {
         let target = element(app, identifier)
         if target.waitForExistence(timeout: 15) { return target }
-        let container = app.collectionViews.firstMatch
-        guard container.exists else { return target }
-        var swipes = 0
-        while !target.exists, swipes < maxSwipes {
-            container.swipeUp(velocity: .fast)
-            swipes += 1
+
+        let scroller = ShellSettle.channelSidebarScroll(app)
+        let surface: XCUIElement = scroller.exists ? scroller : app
+        let surfaceName = scroller.exists ? "channelSidebar.scroll" : "app"
+        var swipesUp = 0
+        var swipesDown = 0
+        while !target.exists, swipesUp < maxSwipes {
+            surface.swipeUp(velocity: .fast)
+            swipesUp += 1
+        }
+        while !target.exists, swipesDown < maxSwipes {
+            surface.swipeDown(velocity: .fast)
+            swipesDown += 1
+        }
+        XCTContext.runActivity(named: "revealSidebarRow \(identifier)") { activity in
+            let note = XCTAttachment(string: "surface=\(surfaceName) swipesUp=\(swipesUp)"
+                                     + " swipesDown=\(swipesDown) found=\(target.exists)")
+            note.name = "sidebar-scroll"
+            note.lifetime = .keepAlways
+            activity.add(note)
         }
         return target
+    }
+
+    // MARK: - Team pinning
+
+    /// The team the app is **on**, resolved from the screen to the server's id, and used by every oracle
+    /// call in this test.
+    ///
+    /// The shell opens on the team rail's first entry; the API's `GET /users/me/teams` order is not the
+    /// rail's. Reading `sidebarCurrentTeam` and matching its label to a team id is the only way the oracle
+    /// and the app are guaranteed to be talking about one team (T47-AV F7: they disagreed once and the
+    /// suite blamed the server).
+    @discardableResult
+    private func pinTeam(_ app: XCUIApplication) throws -> String {
+        let current = element(app, "sidebarCurrentTeam")
+        XCTAssertTrue(current.waitForExistence(timeout: 40),
+                      "the sidebar must name the team it is showing:\n\(app.debugDescription)")
+        let shown = current.label.trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertFalse(shown.isEmpty, "the sidebar's team label is empty:\n\(app.debugDescription)")
+
+        accountTeams = try teamsOnTheAccount()
+        let matches = accountTeams.filter { team in
+            let display = (team["display_name"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let urlName = (team["name"] as? String ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return !shown.isEmpty && (display == shown || urlName == shown)
+        }
+        guard matches.count == 1, let id = matches.first?["id"] as? String, !id.isEmpty else {
+            let listed = accountTeams.map {
+                "\($0["display_name"] as? String ?? "?")/\($0["name"] as? String ?? "?")"
+            }
+            throw OracleFailure(message: "the sidebar shows team \"\(shown)\" but the account's teams are"
+                               + " \(listed) — the oracle cannot be pointed at the team the app is on")
+        }
+        teamID = id
+        let note = XCTAttachment(string: "app team = \(shown) -> \(id) (of \(teamNames))")
+        note.name = "pinned-team"
+        note.lifetime = .keepAlways
+        add(note)
+        return id
+    }
+
+    /// Team ids to their display names, for readable failure messages.
+    private var teamNames: [String: String] {
+        var names: [String: String] = [:]
+        for team in accountTeams {
+            if let id = team["id"] as? String {
+                names[id] = team["display_name"] as? String ?? team["name"] as? String ?? id
+            }
+        }
+        return names
+    }
+
+    private struct OracleFailure: LocalizedError {
+        let message: String
+        var errorDescription: String? { message }
     }
 
     // MARK: - Server
@@ -392,48 +573,146 @@ final class T47CreateChannelUITests: XCTestCase {
         return (issued, id)
     }
 
-    private func firstTeamID() throws -> String {
+    private func teamsOnTheAccount() throws -> [[String: Any]] {
         let teams = try getJSON("/api/v4/users/me/teams") as? [[String: Any]] ?? []
-        guard let team = teams.first, let id = team["id"] as? String else {
-            throw XCTSkip("the fixture account has no team")
-        }
-        return id
+        guard !teams.isEmpty else { throw XCTSkip("the fixture account has no team") }
+        return teams
     }
 
-    /// The status of `GET /teams/{tid}/channels/name/{name}`: 404 before the tap, 200 after.
-    private func statusOfChannelNamed(_ name: String) throws -> Int {
-        var request = URLRequest(url: url(for: "/api/v4/teams/\(teamID!)/channels/name/\(name)"))
+    /// The server's answer for a channel name in one team: the channel, or nil on 404.
+    ///
+    /// Anything else is an error, not a "no": a 403 or a 500 swallowed into "does not exist" is how a
+    /// wrong oracle becomes a wrong verdict.
+    private func channelNamed(_ name: String, in team: String) throws -> [String: Any]? {
+        var request = URLRequest(url: url(for: "/api/v4/teams/\(team)/channels/name/\(name)"))
         request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
-        let (_, response) = try synchronous(request)
-        return (response as? HTTPURLResponse)?.statusCode ?? 0
+        let (data, response) = try synchronous(request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 404 { return nil }
+        guard status == 200,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw OracleFailure(message: "GET /teams/\(team)/channels/name/\(name) -> HTTP \(status)"
+                                + " \(String(decoding: data.prefix(200), as: UTF8.self))")
+        }
+        return json
     }
 
-    /// Wait for the channel to exist, then answer its server record.
-    private func waitForChannel(named name: String, timeout: TimeInterval) throws -> [String: Any] {
+    /// Every team that answers this name — the premise check, widened to the whole account so a leaked
+    /// name from an earlier run cannot hide in a team the oracle is not looking at.
+    private func teamsHoldingChannelNamed(_ name: String) throws -> [String] {
+        var holders: [String] = []
+        for team in accountTeams {
+            guard let id = team["id"] as? String else { continue }
+            if try channelNamed(name, in: id) != nil { holders.append(id) }
+        }
+        return holders
+    }
+
+    /// Poll every team for the name, so a create that landed in the wrong team is **found and named**
+    /// rather than reported as "POST /channels never landed" (T47-AV §1.2).
+    private func waitForChannelNamedAnywhere(_ name: String,
+                                             timeout: TimeInterval) throws -> (channel: [String: Any],
+                                                                               teamID: String)? {
         let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if let channel = try? getJSON("/api/v4/teams/\(teamID!)/channels/name/\(name)") as? [String: Any],
-               let id = channel["id"] as? String, !id.isEmpty {
-                return channel
+        repeat {
+            for team in accountTeams {
+                guard let id = team["id"] as? String else { continue }
+                if let channel = try channelNamed(name, in: id),
+                   !(channel["id"] as? String ?? "").isEmpty {
+                    return (channel, id)
+                }
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-        }
-        XCTFail("no channel named \(name) appeared within \(Int(timeout))s — POST /channels never landed")
-        return [:]
+        } while Date() < deadline
+        return nil
     }
 
-    /// A teammate the picker can offer: on the team, not me, not a bot, not deactivated.
-    private func teammateOnTheTeam() throws -> [String: Any] {
-        let users = try getJSON("/api/v4/users?in_team=\(teamID!)&page=0&per_page=60") as? [[String: Any]] ?? []
-        let candidate = users.first { user in
+    /// The same lookup, once, without waiting: used by `tearDownWithError` to resolve an id a failed run
+    /// never recorded.
+    private func findChannelNamedAnywhere(_ name: String) throws -> (channel: [String: Any],
+                                                                     teamID: String)? {
+        let teams = accountTeams.isEmpty ? try teamsOnTheAccount() : accountTeams
+        for team in teams {
+            guard let id = team["id"] as? String else { continue }
+            if let channel = try channelNamed(name, in: id),
+               !(channel["id"] as? String ?? "").isEmpty {
+                return (channel, id)
+            }
+        }
+        return nil
+    }
+
+    /// Teammates the picker can offer: on the pinned team, not me, not deactivated, not a bot.
+    private func teammatesOnTheTeam() throws -> [[String: Any]] {
+        let users = try getJSON("/api/v4/users?in_team=\(teamID!)&page=0&per_page=60")
+            as? [[String: Any]] ?? []
+        let candidates = users.filter { user in
             (user["id"] as? String) != userID
                 && (user["delete_at"] as? Int ?? 0) == 0
                 && (user["is_bot"] as? Bool ?? false) == false
         }
-        guard let candidate else {
+        guard !candidates.isEmpty else {
             throw XCTSkip("the fixture team has no second member to start a DM with")
         }
-        return candidate
+        return candidates
+    }
+
+    private struct DMPair {
+        let teammateID: String
+        let username: String
+        let nickname: String
+        let channelName: String
+        let channel: [String: Any]
+        /// `true` only when the fixture had no conversation for the pair and this run's pre-tap
+        /// `POST /channels/direct` made one — a write the server will not let this run undo.
+        let createdNow: Bool
+    }
+
+    /// The pair the tap is going to open, resolved **before** the tap.
+    ///
+    /// `GET /users/me/channels` is the read that answers "does this pair already have a conversation"
+    /// without writing anything: it lists direct channels (type `D`, named `<id>__<id>` with the ids
+    /// sorted) for the signed-in user. An existing pair is used as-is, so the app's tap is a
+    /// create-or-find that finds — the only shape in which "the run archives what it created" stays true
+    /// for a DM, which the server refuses to delete.
+    private func conversationPair() throws -> DMPair {
+        let candidates = try teammatesOnTheTeam()
+        let existing = try directChannels()
+
+        for teammate in candidates {
+            let otherID = teammate["id"] as? String ?? ""
+            guard !otherID.isEmpty else { continue }
+            let pairName = directChannelName(with: otherID)
+            if let channel = existing.first(where: { ($0["name"] as? String) == pairName }) {
+                return DMPair(teammateID: otherID,
+                              username: teammate["username"] as? String ?? "",
+                              nickname: teammate["nickname"] as? String ?? "",
+                              channelName: pairName,
+                              channel: channel,
+                              createdNow: false)
+            }
+        }
+
+        // No pair on the fixture: create the conversation now, before the app's tap, and say so.
+        let teammate = candidates[0]
+        let otherID = teammate["id"] as? String ?? ""
+        let channel = try directChannel(with: otherID)
+        return DMPair(teammateID: otherID,
+                      username: teammate["username"] as? String ?? "",
+                      nickname: teammate["nickname"] as? String ?? "",
+                      channelName: directChannelName(with: otherID),
+                      channel: channel,
+                      createdNow: true)
+    }
+
+    /// The signed-in user's live direct channels (`GET /users/me/channels`).
+    private func directChannels() throws -> [[String: Any]] {
+        let channels = try getJSON("/api/v4/users/me/channels") as? [[String: Any]] ?? []
+        return channels.filter { channel in
+            (channel["type"] as? String) == "D"
+                && (channel["delete_at"] as? Int ?? 0) == 0
+                && !(channel["name"] as? String ?? "").isEmpty
+        }
     }
 
     /// The DM channel for a pair — create-or-find, so this answers the existing conversation unchanged.
@@ -445,6 +724,44 @@ final class T47CreateChannelUITests: XCTestCase {
     /// `POST /channels/direct` names the pair's channel `<id>__<id>`, ids sorted (measured).
     private func directChannelName(with otherID: String) -> String {
         [userID, otherID].sorted().joined(separator: "__")
+    }
+
+    // MARK: - The archive
+
+    /// Archive one channel and prove it: `DELETE`'s status is asserted, then the channel is read back and
+    /// `delete_at` must have moved. No `try?`, no `allowFailure` — a red run either archives its channel or
+    /// fails with the id that is still live (T47-AV F8).
+    private func archive(_ created: CreatedChannel) {
+        guard !created.id.isEmpty else {
+            XCTFail("this run recorded no id for \(created.name); nothing could be archived — check the"
+                    + " fixture for a channel with that name")
+            return
+        }
+        let teamName = teamNames[created.teamID] ?? created.teamID
+        do {
+            let status = try deleteChannel(created.id)
+            XCTAssertEqual(status, 200,
+                           "archiving \(created.name) (\(created.id), team \(teamName)) answered"
+                           + " HTTP \(status) — the channel is STILL LIVE")
+            guard status == 200 else { return }
+            let after = try getJSON("/api/v4/channels/\(created.id)") as? [String: Any] ?? [:]
+            let deleteAt = after["delete_at"] as? Int ?? 0
+            XCTAssertGreaterThan(deleteAt, 0,
+                                 "DELETE answered 200 but \(created.name) (\(created.id)) still reports"
+                                 + " delete_at 0 — the archive did not take")
+        } catch {
+            XCTFail("archiving \(created.name) (\(created.id), team \(teamName)) FAILED: \(error)"
+                    + " — the channel is STILL LIVE")
+        }
+    }
+
+    /// The raw status of `DELETE /channels/{id}` (200 on success, 400 for a DM).
+    private func deleteChannel(_ id: String) throws -> Int {
+        var request = URLRequest(url: url(for: "/api/v4/channels/\(id)"))
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
+        let (_, response) = try synchronous(request)
+        return (response as? HTTPURLResponse)?.statusCode ?? 0
     }
 
     private func url(for path: String) -> URL {
@@ -548,16 +865,6 @@ final class T47CreateChannelUITests: XCTestCase {
             if plus.waitForExistence(timeout: 10), plus.isHittable { plus.tap() }
         }
         XCTFail("the create menu must offer \(identifier):\n\(app.debugDescription)")
-    }
-
-    private func tapControl(_ app: XCUIApplication, _ identifier: String) {
-        let typed = app.buttons.matching(identifier: identifier).firstMatch
-        if typed.waitForExistence(timeout: 5), typed.isHittable {
-            typed.tap()
-            return
-        }
-        let fallback = element(app, identifier)
-        if fallback.waitForExistence(timeout: 5) { fallback.tap() }
     }
 
     private func waitUntil(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
