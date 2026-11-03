@@ -52,8 +52,6 @@ final class T47CreateChannelTests: XCTestCase {
         var directChannelAnswer = MMChannel(id: "chan-dm000000000000000001", name: "dm",
                                             displayName: "", type: "D")
         var directChannelFailure: Error?
-        /// `GET /users/me` failing (a network failure, or a session the server no longer honours).
-        var principalFailure: Error?
 
         private(set) var bodies: [MMChannelCreate] = []
         private(set) var roleRequests: [[String]] = []

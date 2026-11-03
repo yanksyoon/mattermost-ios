@@ -2,7 +2,8 @@
 
 Card: `t_4067a703` (T47-AV-R2), filed by `t_e1ddfba4` from `docs/t47-av-verdict.md` §1.3, §2, §3
 (mutation row 4), §6 (F2, F3, F5). Worktree: `…/kanban/boards/mattermost-ios/workspaces/t_4067a703`,
-detached at `origin/main` = `4cd5bdc`, branch `t47avr2`.
+branch `t47avr2`, cut from `origin/main` = `4cd5bdc` and published on top of `ff1f907` (T47-AV-R1,
+which landed on `2c3b7f1`/`d4aadac`) — see §2 for what each rebase forced.
 
 Fixture: `mm-perf` (Mattermost 9.11.19) on `http://127.0.0.1:8065`, account `perfprobe` (password in
 `scripts/perf_seed.py`), restricted probe account `t47av-restricted` (password in
@@ -65,20 +66,41 @@ the cause was the network.
 
 ## 2. Measurements
 
-Units, final tree (worktree, private derived data):
+Everything below was run on the **final** tree: this card rebased onto `origin/main` = `ff1f907`
+(T47-AV-R1), which itself sits on `2c3b7f1` (T47-AV-R4) and `d4aadac` (T47-AV-R3). `origin/main` moved
+under this card three times while it ran; the first publish target was `2c3b7f1`, and each rebase was
+re-verified rather than assumed:
+
+```
+git log --oneline -5        # final tree
+  c2fb136 docs(t47-av-r2): the probe ships with the note …
+  916f6f1 docs(t47-av-r2): the picker repair's measurements, its two mutations, and what is not proven
+  4e7006e fix(channelInfo): the DM picker says Unknown, offers no deactivated account, and never offers the reader
+  ff1f907 fix(channelInfo): the create menu loads beside the threads read … (t_f2ae238e)
+```
+
+The merge with T47-AV-R1 needed one fix: both cards added a `principalFailure` knob to the test fake
+(`FakeCreateService`), and the merged file failed to compile until the duplicate was removed
+(`t47avr2-units-final2.log:286: invalid redeclaration of 'principalFailure'`). That is recorded because
+the first post-rebase unit run is in the log as a **build failure**, not a test result.
+
+Units, final tree (private derived data, own simulator):
 
 ```
 python3 scripts/qa-test.py --platform ios --sim id=4844768F-… --derived-data …/t47avr2-dd \
-  --only-testing MattermostTests/T47CreateChannelTests --label t47avr2-units-final
-# -> 39 run, 0 skipped, 0 failed                                  RESULT: PASS   (build/logs/t47avr2-units-final.log)
+  --only-testing MattermostTests/T47CreateChannelTests --label t47avr2-units-final3
+# -> 46 run, 0 skipped, 0 failed                                  RESULT: PASS   (build/logs/t47avr2-units-final3.log)
 ```
 
-34 of those are the AV's originals; 5 are new (`testThePickerDoesNotOfferADeactivatedTeamMember`,
-`testThePickerDoesNotBuildAListWithoutThePrincipal`, `testThePickerNamesAnExpiredSessionRatherThanANetworkFailure`,
-`testThePickerTreatsAnEmptyPrincipalAsSignedOut`, `testThePickerRetriesTheLoadOnceThePrincipalReads`), and
-`testThePickerCarriesPresenceAndSaysUnknownRatherThanOffline` gained the "never empty" assertions.
+46 = the AV's 34 originals + this card's 5 (`testThePickerDoesNotOfferADeactivatedTeamMember`,
+`testThePickerDoesNotBuildAListWithoutThePrincipal`,
+`testThePickerNamesAnExpiredSessionRatherThanANetworkFailure`,
+`testThePickerTreatsAnEmptyPrincipalAsSignedOut`, `testThePickerRetriesTheLoadOnceThePrincipalReads`) +
+T47-AV-R3's 2 + T47-AV-R1's 5. With only this card on `2c3b7f1` the class was 41 run / 0 failed
+(`t47avr2-units-rebased.log`); `testThePickerCarriesPresenceAndSaysUnknownRatherThanOffline` also gained
+the "never empty" assertions.
 
-Live, the flipped test alone (the repaired behaviour):
+Live, the flipped test alone (the repaired behaviour, first measurement on the pre-rebase tree):
 
 ```
 TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 TEST_RUNNER_MM_AUTH_LOGIN=perfprobe … \
@@ -95,35 +117,44 @@ The test reads the team the app is actually on off the rail (`teamSidebar.team.<
 value says "Current team") and switches to the oracle's team when they differ — the F7 class of
 mismatch, not repaired here (that is T47-AV-R4's card) but kept out of this test's way.
 
-Live, the whole suite (the card's fourth acceptance point):
+Live, the whole suite (the card's fourth acceptance point), final tree:
 
 ```
 TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
 TEST_RUNNER_MM_AUTH_PASSWORD=… TEST_RUNNER_MM_AV_RESTRICTED_LOGIN=t47av-restricted \
 TEST_RUNNER_MM_AV_RESTRICTED_PASSWORD=… \
   python3 scripts/qa-test.py --platform ios --sim id=4844768F-… --derived-data …/t47avr2-dd \
-  --only-testing MattermostUITests/T47CreateChannelAVUITests --label t47avr2-ui-suite-attempt1
-# -> Executed 4 tests, with 0 failures (0 unexpected) in 527.818 s    RESULT: PASS
+  --only-testing MattermostUITests/T47CreateChannelAVUITests --label t47avr2-ui-final1
+# -> Executed 6 tests, with 2 tests skipped and 0 failures (0 unexpected) in 196.632 s   RESULT: PASS
+#    testTheServerRefusesACreateAfterTheTeamRoleIsRevoked            passed (19.764 s)
+#    testThePickerDoesNotOfferADeactivatedTeamMemberThatSearchHides  passed (23.792 s)
+#    testAHalfTypedDraftDoesNotSurviveARelaunchAndNothingIsSent      passed (34.793 s)
+#    testOpeningTheSameConversationTwiceFindsOneChannel              passed (117.510 s)
+#    testTheCreateMenuAppearsWhileTheThreadsReadIsStalled            SKIPPED (needs TEST_RUNNER_MM_AV_STALL_SERVER)
+#    testAFailedPermissionReadOffersARetryThatActuallyReloads         SKIPPED (needs TEST_RUNNER_MM_AV_PERMISSION_SERVER)
 #    T47-AV-R2: deactivated @t429gone (dgsywreb67bs8p6s9eu8w8fskw) absent over a 1-swipe sweep;
 #                last active row 74gs84fwhb85mdpfqjzuku6hsr reached
 #    T47-AV-R2: first row zph6uw3t6if69p89wcihf1nd5c reads "Cleo Busy, @t41av3, Do not disturb";
 #                the server says "Do not disturb"
-#    (build/logs/t47avr2-ui-suite-attempt1.log:777, :782, :912)
+#    (build/logs/t47avr2-ui-final1.log:824, :793, :798, :929)
 ```
 
-Two earlier attempts at the same suite are **not** counted as measurements of this change and are kept
-in the log for what they are: `t47avr2-ui-suite.log` (4 run, 1 skipped, 4 failures) and
-`t47avr2-ui-suite-b.log` (3 failures) lost the sidebar's `+` menu ("the create menu must be offered"),
-lost one login keystroke ("Failed to tap loginIDField TextField: Timed out while synthesizing event") and
-timed out waiting for `nativeChannelTitle` after a successful tap — all while the host carried four other
-cards' simulator builds (load average 878–1003, measured). The first of the two also *skipped* test 1
-because the restricted account's credentials reach a UI test only as `TEST_RUNNER_MM_AV_RESTRICTED_*`,
-not `MM_AV_RESTRICTED_*`; the green run passes them correctly and test 1 ran.
+The suite is six tests now, not four: T47-AV-R1 added the two proxy-backed ones, and they skip unless
+its fixture proxy is running (they are R1's measurement, published in `docs/t47-av-r1-repair.md`). The
+card's four are the four `passed` lines above.
 
-The rebase target matters. `origin/main` moved under this card while it ran — T47-AV-R3 (`d4aadac`,
-`create()`'s frozen kind) and T47-AV-R4 (`2c3b7f1`, the shipped suite's scroll/team/archive) published
-first — so the work was rebased onto `2c3b7f1`; the suite and unit numbers above are from the rebased
-tree (`git log --oneline -2` = `53353c9`/`e35c121` on top of `2c3b7f1`).
+Attempts that are **not** counted as measurements of this change, kept in the log for what they are
+(the host carried three or four other cards' simulator builds throughout — load average 488–1003,
+measured):
+
+| log | outcome | cause |
+|---|---|---|
+| `t47avr2-ui-suite.log` | 4 run, 1 skipped, 4 failures | `+` menu drew no row / sheet never mounted; test 1 skipped because the restricted credentials reach a UI test only as `TEST_RUNNER_MM_AV_RESTRICTED_*` |
+| `t47avr2-ui-suite-b.log` | 3 failures | the above plus one lost login keystroke (`Failed to tap loginIDField TextField: Timed out while synthesizing event`) |
+| `t47avr2-ui-suite-attempt1.log` | 4 run, 0 failed, 527.8 s | **green**, pre-rebase tree (`2c3b7f1`) |
+| `t47avr2-ui-suite-rebased1.log` | 4 run, 1 failure | my test died in `signIn` with `Unable to monitor event loop` — the automation session, not the test |
+| `t47avr2-ui-suite-rebased2.log`, `…rebased3.log` | 4 run, 1 failure each | `testOpeningTheSameConversationTwiceFindsOneChannel` lost the create menu's row under load (F1, fixed by R1 after these runs) |
+| `t47avr2-ui-suite-rebased4.log` | aborted | this card rebased onto R1's publish instead of finishing a run against a tree that was about to be replaced |
 
 ### Mutations — is the flipped test load-bearing?
 
