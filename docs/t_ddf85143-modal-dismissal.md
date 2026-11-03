@@ -106,3 +106,38 @@ python3 scripts/qa-test.py --platform ios --sim "iPhone 16 Pro" \
 ```
 
 Both tests skip (never fail) when the environment or the fixture is missing.
+
+## 6. After publish: re-measured at the current tip
+
+The fix was published as `3fc9bd8` (+ this note as `f0dc3d8`) and has since been carried forward by
+other cards. Re-run against the tree as it stands now (`a21bca1`, `origin/main` at the time of the
+run), so the gate is not a claim about a commit nobody is running any more:
+
+```
+qa-test.py --platform ios --sim "iPhone 16 Pro" \
+  --only-testing MattermostUITests/TModalDismissUITests
+→ outcome finished (xcodebuild rc=0, 428 s), tests: 2 run, 0 skipped, 0 failed, RESULT: PASS
+build/logs/tdf85143-tip-a21bca1.log
+```
+
+Every row of the table above is reproduced in that log, one line each, from the test itself:
+
+```
+MODAL-CLOSE postOptions.cancel: closed
+MODAL-CLOSE channelInfo.done: closed
+MODAL-CLOSE pinnedClose: closed
+MODAL-CLOSE profile.done: closed
+MODAL-CLOSE emojiPicker.close: closed
+MODAL-CLOSE addMembers.cancel: closed
+MODAL-CLOSE channelInfo.done (after nested): closed
+MODAL-CLOSE pinnedClose (from channel info): closed
+MODAL-CLOSE channelInfo.done (after pinned): closed
+MODAL-DISMISS SHIPPED MATRIX postOptions.cancel (shipped)=closed
+```
+
+CI on the publish tip `f0dc3d8` (run 41719495855): `guard (tip + change scope)` success,
+`test (ios-simulator)` **success** — the platform this change is measured on — and
+`test (catalyst)` red on `T53MediaFootprintTests.testAStagedPayloadIsWrittenToDiskRatherThanHeldInMemory`,
+a pre-existing main-branch failure recorded in `docs/t_ecfda04e-build-note.md` §"2141 passed, 11
+skipped, 1 failed"; this card touches no media staging code.
+
