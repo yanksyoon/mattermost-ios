@@ -95,6 +95,36 @@ The test reads the team the app is actually on off the rail (`teamSidebar.team.<
 value says "Current team") and switches to the oracle's team when they differ — the F7 class of
 mismatch, not repaired here (that is T47-AV-R4's card) but kept out of this test's way.
 
+Live, the whole suite (the card's fourth acceptance point):
+
+```
+TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
+TEST_RUNNER_MM_AUTH_PASSWORD=… TEST_RUNNER_MM_AV_RESTRICTED_LOGIN=t47av-restricted \
+TEST_RUNNER_MM_AV_RESTRICTED_PASSWORD=… \
+  python3 scripts/qa-test.py --platform ios --sim id=4844768F-… --derived-data …/t47avr2-dd \
+  --only-testing MattermostUITests/T47CreateChannelAVUITests --label t47avr2-ui-suite-attempt1
+# -> Executed 4 tests, with 0 failures (0 unexpected) in 527.818 s    RESULT: PASS
+#    T47-AV-R2: deactivated @t429gone (dgsywreb67bs8p6s9eu8w8fskw) absent over a 1-swipe sweep;
+#                last active row 74gs84fwhb85mdpfqjzuku6hsr reached
+#    T47-AV-R2: first row zph6uw3t6if69p89wcihf1nd5c reads "Cleo Busy, @t41av3, Do not disturb";
+#                the server says "Do not disturb"
+#    (build/logs/t47avr2-ui-suite-attempt1.log:777, :782, :912)
+```
+
+Two earlier attempts at the same suite are **not** counted as measurements of this change and are kept
+in the log for what they are: `t47avr2-ui-suite.log` (4 run, 1 skipped, 4 failures) and
+`t47avr2-ui-suite-b.log` (3 failures) lost the sidebar's `+` menu ("the create menu must be offered"),
+lost one login keystroke ("Failed to tap loginIDField TextField: Timed out while synthesizing event") and
+timed out waiting for `nativeChannelTitle` after a successful tap — all while the host carried four other
+cards' simulator builds (load average 878–1003, measured). The first of the two also *skipped* test 1
+because the restricted account's credentials reach a UI test only as `TEST_RUNNER_MM_AV_RESTRICTED_*`,
+not `MM_AV_RESTRICTED_*`; the green run passes them correctly and test 1 ran.
+
+The rebase target matters. `origin/main` moved under this card while it ran — T47-AV-R3 (`d4aadac`,
+`create()`'s frozen kind) and T47-AV-R4 (`2c3b7f1`, the shipped suite's scroll/team/archive) published
+first — so the work was rebased onto `2c3b7f1`; the suite and unit numbers above are from the rebased
+tree (`git log --oneline -2` = `53353c9`/`e35c121` on top of `2c3b7f1`).
+
 ### Mutations — is the flipped test load-bearing?
 
 | mutation (applied, run, reverted) | expected | measured |
