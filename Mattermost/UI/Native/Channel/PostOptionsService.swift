@@ -51,6 +51,16 @@ protocol PostOptionsServing: AnyObject {
 
     /// `PUT|DELETE /users/me/teams/{team}/threads/{root}/following`.
     func setFollowing(teamID: String, rootID: String, following: Bool) async throws
+
+    /// Whether this root's thread is followed, **as the server currently holds it**, or `nil` when the
+    /// question could not be answered (a team-less channel, a failed read).
+    ///
+    /// This is the only follow answer 9.11.19 publishes (measured — `scripts/t48_follow_probe.py`,
+    /// T48-AV-R3): no post or thread object carries `is_following`, so the menu cannot read the flag
+    /// off the row. `GET /users/me/teams/{team}/threads/{root}` answers **200 while the thread is
+    /// followed and 404 once it is not**, and the team threads list contains the thread only while it
+    /// is — membership *is* following.
+    func isFollowing(teamID: String, rootID: String) async throws -> Bool?
 }
 
 /// The production implementation: the session's `APIClient`, resolved **per call** so a service built
@@ -150,5 +160,22 @@ final class SessionPostOptionsService: PostOptionsServing {
 
     func setFollowing(teamID: String, rootID: String, following: Bool) async throws {
         try await client().followThread(teamID: teamID, threadID: rootID, following: following)
+    }
+
+    /// The CRT thread row **is** the follow answer: `APIClient.followedThread` maps the server's 404 to
+    /// `nil` (not a member of that thread, i.e. not following) and rethrows everything else, so an
+    /// offline read is "unknown" here rather than a confident "not following".
+    ///
+    /// Measured (`scripts/t48_follow_probe.py`, log `build/logs/t48r3-follow-probe.log`):
+    /// `thread_endpoint http` = 404 never-followed, 200 after `PUT …/following`, 404 after
+    /// `DELETE …/following`; no surface carried an `is_following` key at any point.
+    func isFollowing(teamID: String, rootID: String) async throws -> Bool? {
+        guard !teamID.isEmpty, !rootID.isEmpty else { return nil }
+        do {
+            return try await client().followedThread(teamID: teamID, threadID: rootID) != nil
+        } catch {
+            Logger.error("T48", "follow read failed for thread \(rootID) in team \(teamID): \(error)")
+            throw error
+        }
     }
 }

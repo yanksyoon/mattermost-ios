@@ -17,7 +17,8 @@
 //     else, so "this row offers nothing I cannot perform" is a property of one function.
 //   * every gate that is not a post fact is read from the server's own data: permission **ids** for
 //     pinning, the resolved team **name** for the permalink, the `flagged_post` preference for
-//     saved state, the thread object for follow state. Nothing is guessed from a role name.
+//     saved state, the CRT thread row's **membership** for follow state. Nothing is guessed from a
+//     role name, and nothing is read from a key the server does not send.
 //
 // Measured on the pinned 9.11.19 server (`scripts/t48_post_options_probe.py`,
 // `scripts/t48_post_options_probe2.py`, `scripts/t48_post_options_socket_probe.py`; logs in
@@ -29,6 +30,13 @@
 //   * saving publishes `preferences_changed`, unsaving publishes **`preferences_deleted`** (a frame of
 //     its own — `SocketEvent.preferencesDeleted`), and both carry `flagged_post` rows.
 //   * `thread_follow_changed` carries `{thread_id, state, reply_count}`.
+//   * **no surface publishes `is_following`** (T48-AV-R3, `scripts/t48_follow_probe.py`): the channel
+//     page's root row, `GET /posts/{root}` and the thread object all lack the key before a follow,
+//     after one, and after an unfollow. Following is **membership**: the CRT endpoint
+//     `GET /users/me/teams/{team}/threads/{root}` answers 404 while unfollowed and 200 while
+//     followed, and `GET /users/me/teams/{team}/threads` contains the row only while followed. The
+//     sheet reads the former (`PostOptionsServing.isFollowing`) every time it opens, because an
+//     in-memory patch cannot survive a relaunch.
 //   * `GET /users/me/teams/{team}/threads/{root}` answers 200 only once the root **has replies**:
 //     9.11.19 has no thread row for a root with none (404), which is why Follow is offered only for a
 //     root whose reply count is above zero.
@@ -421,15 +429,26 @@ enum SavedPostDerivation {
 // MARK: - Thread follow state
 
 /// Where the sheet's follow answer comes from.
+///
+/// **Measured on 9.11.19 (`scripts/t48_follow_probe.py`, log `build/logs/t48r3-follow-probe.log`): no
+/// surface publishes `is_following`.** The channel page's root row, `GET /posts/{root}` and the CRT
+/// thread object all carried no such key before a follow, after a follow and after an unfollow
+/// (`is_following_key_anywhere: false`). What *does* move is membership of the CRT endpoint:
+/// `GET /users/me/teams/{team}/threads/{root}` → **404** never followed, **200** after `PUT
+/// …/following`, **404** after `DELETE …/following` (and the team threads list contains the row only
+/// while followed). That 200/404 is the read `PostOptionsServing.isFollowing` performs.
+///
+/// The build before this repair derived the state from `row.post.isFollowing` — a non-Optional Bool
+/// that decodes a key the server never sends, so it was always `false`: every sheet opened after a
+/// relaunch offered Follow Thread and never Unfollow Thread (T48-AV §F3, card `t_b28e8cfc`).
 enum ThreadFollowDerivation {
-    /// The row's own `is_following` (measured: the channel page carries it per root, and it flips when
-    /// a follow write lands) unless the socket has since patched it.
+    /// The answer the sheet draws, or `nil` when nothing has answered.
     ///
-    /// The thread object itself carries **no** follow flag on 9.11.19 (measured:
-    /// `GET /users/me/teams/{team}/threads/{root}` answers `{id, reply_count, participants, post, …}`
-    /// with no `is_following`, and the same 200 for a thread I do not follow), which is why there is
-    /// no read call here: the answer is already on the post the sheet was opened for.
-    static func state(socketPatched: Bool?, row: Bool) -> Bool {
-        socketPatched ?? row
+    /// `socketPatched` is this device's own write or a `thread_follow_changed` frame: both are newer
+    /// than any read that was in flight, so they win. With neither, the server's read answers; with
+    /// no answer at all the option is **absent**, never a guess — the same closed direction the
+    /// permission and team-name gates use.
+    static func state(socketPatched: Bool?, serverRead: Bool?) -> Bool? {
+        socketPatched ?? serverRead
     }
 }

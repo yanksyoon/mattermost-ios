@@ -249,6 +249,64 @@ final class T48PostOptionsUITests: XCTestCase {
         try unsave(postID)
     }
 
+    // MARK: - 6. A followed thread still offers Unfollow after a relaunch (T48-AV-R3)
+
+    /// The card's acceptance: with a root this account already follows, the sheet opened **after a
+    /// relaunch** offers Unfollow Message and not Follow Message; unfollowing it turns the row back
+    /// into Follow Message; and the answer is the server's, not an in-memory patch.
+    ///
+    /// The relaunch is real (`terminate()` then `launch()`): the follow dictionary the view model keeps
+    /// dies with the process, so the only thing that can still answer is the read. That read is the CRT
+    /// thread row — `GET …/threads/{root}` is 200 while followed and 404 once not, which is what
+    /// `scripts/t48_follow_probe.py` measured (no surface carries `is_following`). Each assertion is
+    /// taken twice: from the menu, and from the server through the same endpoint.
+    func testAFollowedRootStillOffersUnfollowAfterARelaunch() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let postID = try createPost(message: "t48r3 follow target \(stamp)", as: secondToken)
+        // One reply gives the root a thread; 9.11.19 has no thread row for a root without one.
+        _ = try createPost(message: "t48r3 follow reply \(stamp)", rootID: postID, as: secondToken)
+        try setFollowed(postID, following: true)
+        XCTAssertEqual(try isFollowed(postID), true, "the premise: the server holds the follow")
+
+        var app = try launchOnFixtureChannel()
+        XCTAssertTrue(revealPost(app, postID).waitForExistence(timeout: 30),
+                      "the fixture post must be a row of the presented channel")
+        openMenu(app, postID: postID)
+        var state = followRowState(app)
+        XCTAssertTrue(state.unfollow, "the first launch must offer Unfollow Message:\n\(app.debugDescription)")
+        XCTAssertFalse(state.follow)
+        attach(app, "t48-08-followed-first-launch")
+
+        // A genuine relaunch: a new process, no in-memory follow state, the same server.
+        app.terminate()
+        app = try launchOnFixtureChannel()
+        XCTAssertTrue(revealPost(app, postID).waitForExistence(timeout: 30))
+        openMenu(app, postID: postID)
+        state = followRowState(app)
+        XCTAssertTrue(state.unfollow,
+                      "after a relaunch the sheet must still offer Unfollow Message — the answer has to "
+                      + "come from the server, because no socket frame or write has happened since:\n"
+                      + app.debugDescription)
+        XCTAssertFalse(state.follow,
+                       "offering Follow Message on a followed thread is the T48-AV F3 defect")
+        attach(app, "t48-09-followed-after-relaunch")
+
+        // Unfollow from the menu: the server stops holding the follow, and the re-opened sheet offers
+        // Follow Message again.
+        revealOption(app, "postOptions.unfollowThread").tap()
+        XCTAssertTrue(waitUntil(timeout: 30) { !self.element(app, "postOptions.cancel").exists },
+                      "a successful unfollow must dismiss the sheet:\n\(app.debugDescription)")
+        XCTAssertTrue(waitUntil(timeout: 20) { (try? self.isFollowed(postID)) == false },
+                      "DELETE …/threads/{root}/following must leave the server holding no follow")
+
+        openMenu(app, postID: postID)
+        state = followRowState(app)
+        XCTAssertTrue(state.follow, "unfollowing must turn the row back into Follow Message:\n"
+                      + app.debugDescription)
+        XCTAssertFalse(state.unfollow)
+        attach(app, "t48-10-unfollowed")
+    }
+
     // MARK: - App helpers
 
     /// Launch into the shell and land on the fixture channel through the app's own deep-link seam.
@@ -377,6 +435,20 @@ final class T48PostOptionsUITests: XCTestCase {
         menu.tap()
         XCTAssertTrue(element(app, "postOptions.cancel").waitForExistence(timeout: 25),
                       "the options sheet must open:\n\(app.debugDescription)")
+    }
+
+    /// Which follow direction the open sheet is drawing.
+    ///
+    /// The answer is a request (`loadFollowState`), so the row is not there on the sheet's first frame:
+    /// this waits for either direction instead of reading one frame. They are mutually exclusive by
+    /// construction (`offeredOptions` appends one of the two), so "not drawn while the other is" is a
+    /// real absence rather than a row that happens to be below the fold.
+    private func followRowState(_ app: XCUIApplication,
+                                timeout: TimeInterval = 25) -> (follow: Bool, unfollow: Bool) {
+        let follow = element(app, "postOptions.followThread")
+        let unfollow = element(app, "postOptions.unfollowThread")
+        _ = waitUntil(timeout: timeout) { follow.exists || unfollow.exists }
+        return (follow.exists, unfollow.exists)
     }
 
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
@@ -528,6 +600,28 @@ final class T48PostOptionsUITests: XCTestCase {
     private func isPinned(_ postID: String) throws -> Bool {
         let post = try getJSON("/api/v4/posts/\(postID)", token: token) as? [String: Any] ?? [:]
         return (post["is_pinned"] as? Bool) ?? false
+    }
+
+    /// Follow or unfollow this reader's thread from **outside** the app, the way a previous session (or
+    /// another client) would have left it.
+    private func setFollowed(_ postID: String, following: Bool) throws {
+        let path = "/api/v4/users/me/teams/\(teamID!)/threads/\(postID)/following"
+        if following {
+            _ = try putJSON(path, body: ["state": true], token: token)
+        } else {
+            _ = try sendJSON("DELETE", path, body: nil, token: token)
+        }
+    }
+
+    /// The server's own answer to "do I follow this thread?" — measured
+    /// (`scripts/t48_follow_probe.py`): the CRT thread row answers **200 while followed and 404 once
+    /// not**, and no post or thread object carries `is_following`.
+    private func isFollowed(_ postID: String) throws -> Bool {
+        var request = URLRequest(url: serverURL.appendingPathComponent(
+            "api/v4/users/me/teams/\(teamID!)/threads/\(postID)"))
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (_, response) = try synchronous(request)
+        return (response as? HTTPURLResponse)?.statusCode == 200
     }
 
     // MARK: - HTTP
