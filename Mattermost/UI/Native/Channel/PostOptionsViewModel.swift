@@ -58,8 +58,13 @@ final class PostOptionsViewModel: ObservableObject {
     @Published private(set) var permissions: Set<String>?
     /// The posts the server holds as saved for me (`flagged_post` preferences).
     @Published private(set) var savedPostIDs: Set<String> = []
-    /// `root post id -> following`, patched by `thread_follow_changed` and by this device's own writes.
+    /// `root post id -> following`, patched by `thread_follow_changed` and by this device's own
+    /// writes. Always newer than a read, so the derivation prefers it (T48-AV-R3).
     @Published private(set) var followStates: [String: Bool] = [:]
+    /// `root post id -> following`, **as the server answered it** — `GET …/threads/{root}`'s 200/404,
+    /// the only follow signal 9.11.19 publishes (see `ThreadFollowDerivation`). An absent entry means
+    /// "not answered", not "not following": the sheet then offers neither direction.
+    @Published private(set) var followReads: [String: Bool] = [:]
     /// `post id -> pinned`, patched by `post_edited` and by this device's own writes, so a sheet that
     /// is already open moves when another client pins.
     @Published private(set) var pinStates: [String: Bool] = [:]
@@ -89,6 +94,9 @@ final class PostOptionsViewModel: ObservableObject {
     private var activatedKey: String?
     /// Every activation and write bumps this, so a late answer cannot overwrite a newer one.
     private var generation = 0
+    /// `root post id -> the newest follow mutation this model made or received`. A read that started
+    /// before a mutation is dropped instead of being applied over a newer answer.
+    private var followEpochs: [String: Int] = [:]
 
     init(channelID: String,
          serverURL: String,
@@ -119,7 +127,7 @@ final class PostOptionsViewModel: ObservableObject {
         facts.replyCount = row.replyCount
         if row.post.rootId.isEmpty, row.replyCount > 0 {
             facts.threadFollowing = ThreadFollowDerivation.state(socketPatched: followStates[row.id],
-                                                                 row: row.post.isFollowing)
+                                                                 serverRead: followReads[row.id])
         }
         facts.message = row.post.message
         facts.canReact = actions.canReact
@@ -226,6 +234,41 @@ final class PostOptionsViewModel: ObservableObject {
         didActivate = true
     }
 
+    // MARK: The follow answer (read from the server)
+
+    /// Ask the server whether this root's thread is followed, and remember the answer.
+    ///
+    /// This is the piece T48-AV found missing (§F3): `MMPost.isFollowing` was decoded from a key
+    /// 9.11.19 never sends, so after a relaunch — no socket frame, no local write — every sheet offered
+    /// **Follow Thread** even on a thread the reader follows. The only server-side answer is the CRT
+    /// thread row's membership (200 = following, 404 = not), which `service.isFollowing` reads.
+    ///
+    /// Degrades **closed**: a failed read leaves the root unanswered, and `PostOptionsCapabilities`
+    /// then offers neither direction rather than claiming "not following". A read that was in flight
+    /// when a newer answer arrived (the reader's own write, or `thread_follow_changed`) is dropped.
+    func loadFollowState(rootID: String) async {
+        guard !rootID.isEmpty, !teamID.isEmpty else { return }
+        let epoch = followEpochs[rootID, default: 0]
+        do {
+            let answered = try await service.isFollowing(teamID: teamID, rootID: rootID)
+            guard followEpochs[rootID, default: 0] == epoch else { return }
+            if let answered { followReads[rootID] = answered }
+        } catch {
+            // Unknown, not "not following": the sheet withholds the Follow row instead of guessing.
+            Logger.error("T48", "could not read the follow state of \\(rootID): \\(error)")
+        }
+    }
+
+    /// Record a follow answer this model produced (a write) or received (a socket frame).
+    ///
+    /// The epoch is bumped **before** the value lands, so any read already in flight for this root is
+    /// discarded when it returns: a stale answer must never undo a newer one.
+    private func applyFollowPatch(rootID: String, following: Bool) {
+        followEpochs[rootID, default: 0] += 1
+        followStates[rootID] = following
+        onFollowChange?(rootID, following)
+    }
+
     // MARK: The writes
 
     /// Perform one option for one post.
@@ -291,8 +334,7 @@ final class PostOptionsViewModel: ObservableObject {
                     return .failed("This thread's team is not known yet. Try again once the message has loaded.")
                 }
                 try await service.setFollowing(teamID: teamID, rootID: rootID, following: following)
-                followStates[rootID] = following
-                onFollowChange?(rootID, following)
+                applyFollowPatch(rootID: rootID, following: following)
             default:
                 return .failed("This action is not available in this window.")
             }
@@ -328,8 +370,7 @@ final class PostOptionsViewModel: ObservableObject {
                                                        with: preferences,
                                                        deleted: true)
         case .threadFollowChanged(let change):
-            followStates[change.threadID] = change.state
-            onFollowChange?(change.threadID, change.state)
+            applyFollowPatch(rootID: change.threadID, following: change.state)
         case .postEdited(let post):
             pinStates[post.id] = post.isPinned
         case .hello, .posted, .postDeleted, .channelViewed, .multipleChannelsViewed, .typing,

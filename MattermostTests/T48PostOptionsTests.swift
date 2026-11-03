@@ -339,6 +339,21 @@ final class T48PostOptionsTests: XCTestCase {
         private(set) var pinnedCalls: [(postID: String, pinned: Bool)] = []
         private(set) var unreadCalls: [(postID: String, userID: String)] = []
         private(set) var followCalls: [(teamID: String, rootID: String, following: Bool)] = []
+        /// What the server answers for a root's follow state. `nil` = the read failed/questions
+        /// unanswerable.
+        var followAnswer: Bool? = false
+        /// How long the read takes, so a test can land a write while it is in flight.
+        var followReadDelay: TimeInterval = 0
+        private(set) var followRequests: [(teamID: String, rootID: String)] = []
+
+        func isFollowing(teamID: String, rootID: String) async throws -> Bool? {
+            followRequests.append((teamID, rootID))
+            if followReadDelay > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(followReadDelay * 1_000_000_000))
+            }
+            if let failure { throw failure }
+            return followAnswer
+        }
 
         func permissions(channelID: String, teamID: String, userID: String) async throws -> Set<String> {
             if let failure { throw failure }
@@ -439,6 +454,9 @@ final class T48PostOptionsTests: XCTestCase {
         let options = model(service)
         let row = row(replyCount: 1)
         await options.activate(teamID: teamID, teamName: "perf")
+        // T48-AV-R3: the follow answer is read from the server (the CRT thread row's membership), not
+        // taken from the root row's `is_following` — a key 9.11.19 never sends.
+        await options.loadFollowState(rootID: row.id)
 
         var offered = options.offeredOptions(for: row, actions: actions(), surface: .channel)
         XCTAssertTrue(offered.contains(.copyLink))
@@ -488,6 +506,7 @@ final class T48PostOptionsTests: XCTestCase {
         let options = model(service)
         let row = row(replyCount: 1)
         await options.activate(teamID: teamID, teamName: "perf")
+        await options.loadFollowState(rootID: row.id)
 
         // Only the options this test can attribute to the fake: the host closures (reply/edit/delete/
         // react) are the pane's, and are asserted by their own tests.
@@ -553,13 +572,17 @@ final class T48PostOptionsTests: XCTestCase {
     func testAnArchivedChannelWithholdsTheWrites() async {
         let service = FakePostOptionsService()
         service.archived = true
+        // The follow answer is known and positive: the archived gate must still withhold it.
+        service.followAnswer = true
         let options = model(service)
         let row = row(replyCount: 1)
         await options.activate(teamID: teamID, teamName: "perf")
+        await options.loadFollowState(rootID: row.id)
         let offered = options.offeredOptions(for: row, actions: actions(), surface: .channel)
         XCTAssertFalse(offered.contains(.pin))
         XCTAssertFalse(offered.contains(.markUnread))
         XCTAssertFalse(offered.contains(.followThread))
+        XCTAssertFalse(offered.contains(.unfollowThread), "an archived channel offers no follow write")
         XCTAssertTrue(offered.contains(.save), "a saved-post preference is not a channel write")
         XCTAssertTrue(offered.contains(.copyLink), "reading a link is not a write")
     }
@@ -662,5 +685,114 @@ final class T48PostOptionsTests: XCTestCase {
         let line = lines.first ?? ""
         XCTAssertTrue(line.contains("save"), "the line must name the option: \(line)")
         XCTAssertTrue(line.contains("HTTP none"), "a timeout has no status, and must not fake one: \(line)")
+    }
+
+    // MARK: - Follow state is read from the server (T48-AV-R3, §F3)
+
+    /// The card's headline: **after a relaunch** — no socket frame, no local write — a root this
+    /// reader follows must offer Unfollow Thread. The row's own `is_following` is a key 9.11.19 never
+    /// sends (measured, `scripts/t48_follow_probe.py`), so it must not decide anything: the answer is
+    /// the CRT thread row's membership, read when the sheet opens.
+    func testAFollowedRootOffersUnfollowFromTheServerEvenWithAStaleRowFlag() async {
+        let service = FakePostOptionsService()
+        // The server says followed; the row (as a relaunched channel page draws it) says false.
+        service.followAnswer = true
+        let options = model(service)
+        let row = row(replyCount: 1, isFollowing: false)
+        await options.activate(teamID: teamID, teamName: "perf")
+
+        await options.loadFollowState(rootID: row.id)
+
+        XCTAssertEqual(service.followRequests.count, 1)
+        XCTAssertEqual(service.followRequests.first?.teamID, teamID,
+                       "the read is team-scoped: GET /users/me/teams/{team}/threads/{root}")
+        XCTAssertEqual(service.followRequests.first?.rootID, row.id)
+        let offered = options.offeredOptions(for: row, actions: actions(), surface: .channel)
+        XCTAssertTrue(offered.contains(.unfollowThread),
+                      "a followed root must offer Unfollow Thread after a relaunch; got \(offered)")
+        XCTAssertFalse(offered.contains(.followThread))
+
+        // …and the same row with the server saying "not followed" offers Follow Thread, whatever the
+        // row's own (never-sent) flag says.
+        service.followAnswer = false
+        await options.loadFollowState(rootID: row.id)
+        let notFollowing = options.offeredOptions(for: row, actions: actions(), surface: .channel)
+        XCTAssertTrue(notFollowing.contains(.followThread))
+        XCTAssertFalse(notFollowing.contains(.unfollowThread))
+    }
+
+    /// A read that fails answers **nothing**: the sheet withholds both directions rather than claiming
+    /// "not following" (the same closed direction the permission and team-name gates use).
+    func testAFailedFollowReadOffersNeitherDirection() async {
+        let service = FakePostOptionsService()
+        service.failure = URLError(.notConnectedToInternet)
+        let options = model(service)
+        let row = row(replyCount: 1)
+        await options.activate(teamID: teamID, teamName: "perf")
+
+        await options.loadFollowState(rootID: row.id)
+
+        let offered = options.offeredOptions(for: row, actions: actions(), surface: .channel)
+        XCTAssertFalse(offered.contains(.followThread), "no answer is not \"not following\"")
+        XCTAssertFalse(offered.contains(.unfollowThread))
+        XCTAssertTrue(offered.contains(.save), "the unrelated rows are unaffected")
+    }
+
+    /// Unfollowing from the sheet turns the row back into Follow Thread, and the server agrees: the
+    /// next read (a fresh sheet open) answers "not followed" rather than the model's own memory.
+    func testUnfollowingTurnsTheRowBackIntoFollowThread() async {
+        let service = FakePostOptionsService()
+        service.followAnswer = true
+        let options = model(service)
+        let row = row(replyCount: 1)
+        await options.activate(teamID: teamID, teamName: "perf")
+        await options.loadFollowState(rootID: row.id)
+        XCTAssertTrue(options.offeredOptions(for: row, actions: actions(), surface: .channel)
+            .contains(.unfollowThread), "the premise: the reader follows this thread")
+
+        let outcome = await options.perform(.unfollowThread, row: row)
+        XCTAssertEqual(outcome, .performed)
+        XCTAssertEqual(service.followCalls.map(\.following), [false],
+                       "the write must be DELETE …/threads/{root}/following")
+        XCTAssertEqual(service.followCalls.first?.rootID, row.id)
+        XCTAssertTrue(options.offeredOptions(for: row, actions: actions(), surface: .channel)
+            .contains(.followThread))
+
+        // A fresh open re-reads the server, which now answers "not followed".
+        service.followAnswer = false
+        await options.loadFollowState(rootID: row.id)
+        let reopened = options.offeredOptions(for: row, actions: actions(), surface: .channel)
+        XCTAssertTrue(reopened.contains(.followThread))
+        XCTAssertFalse(reopened.contains(.unfollowThread))
+    }
+
+    /// A read that was already in flight when the reader's own write landed must not undo it: the
+    /// epoch on the root discards the stale answer.
+    func testAStaleFollowReadCannotUndoANewerWrite() async {
+        let service = FakePostOptionsService()
+        service.followAnswer = true          // the read will answer "followed" …
+        service.followReadDelay = 0.3        // … but only after the unfollow below has landed
+        let options = model(service)
+        let row = row(replyCount: 1)
+        await options.activate(teamID: teamID, teamName: "perf")
+
+        let inFlight = Task { await options.loadFollowState(rootID: row.id) }
+        // Yield once so the read is really in flight before the write.
+        await Task.yield()
+        let write = await options.perform(.unfollowThread, row: row)
+        XCTAssertEqual(write, .performed)
+        await inFlight.value
+
+        let offered = options.offeredOptions(for: row, actions: actions(), surface: .channel)
+        XCTAssertTrue(offered.contains(.followThread),
+                      "a stale read must not re-offer Unfollow; got \(offered)")
+    }
+
+    func testTheFollowDerivationPrefersTheNewerPatchAndAnswersNothingWithoutOne() {
+        XCTAssertEqual(ThreadFollowDerivation.state(socketPatched: true, serverRead: false), true)
+        XCTAssertEqual(ThreadFollowDerivation.state(socketPatched: false, serverRead: true), false)
+        XCTAssertEqual(ThreadFollowDerivation.state(socketPatched: nil, serverRead: true), true)
+        XCTAssertNil(ThreadFollowDerivation.state(socketPatched: nil, serverRead: nil),
+                     "no answer means no Follow row, not \"not following\"")
     }
 }

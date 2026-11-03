@@ -112,6 +112,12 @@ final class T48PostOptionsAVTests: XCTestCase {
                             userId: userID, lastViewedAt: 1, msgCount: 41)
         }
         func setFollowing(teamID: String, rootID: String, following: Bool) async throws {}
+
+        /// T48-AV-R3: the follow answer is the server's (CRT thread-row membership). The default is the
+        /// "not followed" answer, which is what the fixture posts in this suite are.
+        var followAnswer: Bool? = false
+
+        func isFollowing(teamID: String, rootID: String) async throws -> Bool? { followAnswer }
     }
 
     /// Mark a finding as a known defect: with the marker in place the suite stays green while the

@@ -645,6 +645,15 @@ struct PostOptionsSheet: View {
             .accessibilityIdentifier("postOptions.\(rowID)")
         }
         .presentationDetents([.medium, .large])
+        // T48-AV-R3: the follow answer is the **server's**, read when the sheet opens. The root row's
+        // `is_following` is a key 9.11.19 never sends, so before this the sheet always offered Follow
+        // Thread — even on a thread this reader follows, on every open after a relaunch. The read only
+        // applies to a root that has a thread on the channel surface; elsewhere Follow is not offered
+        // at all, so it would be a request for nothing.
+        .task(id: rowID) {
+            guard surface == .channel, row.post.rootId.isEmpty, row.replyCount > 0 else { return }
+            await options.loadFollowState(rootID: row.id)
+        }
     }
 
     private func row(for option: PostOptionID) -> some View {

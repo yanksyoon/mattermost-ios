@@ -129,6 +129,14 @@ final class T48R1LookupPostOptionsTests: XCTestCase {
         func setFollowing(teamID: String, rootID: String, following: Bool) async throws {
             if let failure { throw failure }
         }
+
+        /// The follow *read* (T48-AV-R3): this suite measures which channel a row's menu resolves
+        /// against, not follow state, so it answers "unknown" — the sheet then withholds both
+        /// directions rather than guessing, which is the protocol's own closed default.
+        func isFollowing(teamID: String, rootID: String) async throws -> Bool? {
+            if let failure { throw failure }
+            return nil
+        }
     }
 
     // MARK: - 1. The row's own channel
