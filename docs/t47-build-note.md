@@ -158,34 +158,42 @@ on a `CheckedContinuation` inside the fake instead of sleeping.
 > ("POST /channels never landed") and left `t47-ui-1793648428` live. Evidence:
 > `docs/t47-av-verdict.md` §1.2, §6 (F7/F8).
 >
-> **T47-AV-R4 repaired the harness at `e2e3802` and the paragraph below reproduces again** — `2 run /
+> **T47-AV-R4 repaired the harness at `be991dc` and the paragraph below reproduces again** — `2 run /
 > 0 failed`, with the scroll, the team and the archive measured instead of assumed.
 
 ```
 TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
 TEST_RUNNER_MM_AUTH_PASSWORD=… python3 scripts/qa-test.py --platform ios \
-  --sim id=81A7F251-… --only-testing MattermostUITests/T47CreateChannelUITests --label t47r4-ui3 \
+  --sim id=81A7F251-… --only-testing MattermostUITests/T47CreateChannelUITests --label t47r4-ui4 \
   -- -clonedSourcePackagesDirPath ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages
-# -> Test Case '…SendsPostChannelsAndTheNewChannelSurvivesRelaunch' passed (238.402 seconds)
-# -> Test Case '…StartsADirectMessageWithATeammate' passed (124.893 seconds)
-# -> Executed 2 tests, with 0 failures (0 unexpected) in 363.296 (363.304) seconds
-# -> outcome: finished (xcodebuild rc=0, 507s) / tests: 2 run, 0 skipped, 0 failed / RESULT: PASS
+# -> Test Case '…SendsPostChannelsAndTheNewChannelSurvivesRelaunch' passed (153.873 seconds)
+# -> Test Case '…StartsADirectMessageWithATeammate' passed (122.131 seconds)
+# -> Executed 2 tests, with 0 failures (0 unexpected) in 276.004 (276.010) seconds
+# -> outcome: finished (xcodebuild rc=0, 321s) / tests: 2 run, 0 skipped, 0 failed / RESULT: PASS
 ```
 
 Simulator `81A7F251-…` (iPhone 16 Pro, iOS 18.3.1), fixture 9.11.19 on `127.0.0.1:8065`,
-log `build/logs/t47r4-ui3.log`. Three things that run proves about the harness itself, from the
-attachments in the `.xcresult`:
+log `build/logs/t47r4-ui4.log`. (The same suite was already 2/0 at `e2e3802`, labels `t47r4-ui3`; the run
+above is the re-run after `tearDown` was given ten seconds to see an in-flight create.) Four things that
+run proves about the harness itself, from the attachments in the `.xcresult`:
 
 - **the team is the team the app is on.** `pinned-team`: `app team = Perf -> ocz148uck3r88dcjikj497bosh`,
   read from `sidebarCurrentTeam` and matched against `GET /users/me/teams` — not `teams[0]`, whose order
   is the API's and not the rail's. Both tests pinned the same team before creating or opening anything.
 - **the sidebar scrolled.** `sidebar-scroll`: `surface=channelSidebar.scroll swipesUp=4 … found=true` for
-  the created row, the same again after the relaunch, and `swipesUp=20 … found=true` for the DM row. The
-  old helper logged no swipe at all, which is why the same three assertions failed at `8643fbf`.
+  the created row, `swipesUp=5 … found=true` after the relaunch, and `swipesUp=20 … found=true` for the
+  DM row. The old helper logged no swipe at all, which is why the same three assertions failed at
+  `8643fbf`.
 - **the archive is proven.** `DELETE /channels/{id}` must answer 200, and the channel is then read back
   with `delete_at` moved; a channel that survives is named in a failure with its id.
   `scripts/t47r4_fixture_audit.py` (added here) reports **0 live** `t47-ui-*` channels afterwards, and the
-  run's own `t47-ui-1793674737` archived (`delete_at 1793674974641`).
+  run's own `t47-ui-1793675656` archived (`delete_at 1793675809223`).
+- **a red run cannot leak.** A deliberately red run (`--label t47r4-red1`) abandoned the test with an
+  `XCTFail` immediately after `submit.tap()` — before the oracle could record anything, which is exactly
+  the F8 path that leaked `t47-ui-1793648428` at `8643fbf`: `Executed 1 test, with 1 failure` (only the
+  deliberate one), and the server's records show the channel the run had just created,
+  `t47-ui-1793675489` (`ax5ht43fs78kjfos3w3ww8s8qr`), archived 3 s after its `create_at`
+  (`delete_at 1793675579485`). Audit afterwards: still 0 live.
 
 What the first test asserts, against the server's own records: the private channel
 `t47-ui-<stamp>` was **404 before** the tap and afterwards exists with `creator_id` = the signed-in
