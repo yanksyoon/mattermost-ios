@@ -35,6 +35,9 @@ struct SettingsView: View {
     /// the native session lives in this object, so a sign-out here and a 401 anywhere else are the
     /// same state change.
     @EnvironmentObject private var auth: AuthCoordinator
+    /// T50: the profile owner, read for the signed-in account's id (Settings → Account is one of the
+    /// two ways into the edit form; the reader's own profile is the other).
+    @EnvironmentObject private var profiles: ProfileCoordinator
 
     @Environment(\.dismiss) private var dismiss
     /// T45-AV-R: the download-location row stacks at accessibility text sizes (see
@@ -47,6 +50,8 @@ struct SettingsView: View {
     @State private var serverPendingRemoval: ServerConfig?
     /// Non-nil while the sign-out confirmation is up for that server.
     @State private var serverPendingSignOut: ServerConfig?
+    /// T50: the account whose edit-profile sheet is up, if any.
+    @State private var editProfileTarget: EditProfileTarget?
 
     // T19a: diagnostics report state (generated report files for the ShareLinks).
     @State private var diagnosticsReportURLs: [URL]?
@@ -71,6 +76,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                accountSection
                 generalSection
                 notificationsSection
                 notificationInputSection
@@ -92,6 +98,9 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $isPresentingServerForm) {
                 ServerFormView(serverStore: serverStore, viewStore: viewStore, editing: editingServer)
+            }
+            .sheet(item: $editProfileTarget) { target in
+                EditProfileSheet(server: target.server, userID: target.userID)
             }
             #if DEBUG
             .sheet(isPresented: $isPresentingSurfaceInspector) {
@@ -143,6 +152,47 @@ struct SettingsView: View {
             }
         }
         .accessibilityIdentifier("settingsView")
+    }
+
+    // MARK: - Account (T50: edit profile / picture / custom fields)
+
+    /// The reader's own account, per server: the entry point the card measures (Settings → Account).
+    ///
+    /// Only servers with a native session appear, for the same reason the Session section lists only
+    /// those: a webview-only sign-in has no account this shell can write, and a row that would fail
+    /// is worse than an absent one.
+    @ViewBuilder
+    private var accountSection: some View {
+        let signedIn = serverStore.servers.filter { auth.authState(for: $0) == .signedIn }
+        let entries = signedIn.compactMap { server -> (server: ServerConfig, userID: String)? in
+            guard let id = profiles.myUserID(for: server), !id.isEmpty else { return nil }
+            return (server, id)
+        }
+        if !entries.isEmpty {
+            Section {
+                ForEach(entries, id: \.server.id) { entry in
+                    Button {
+                        editProfileTarget = EditProfileTarget(server: entry.server,
+                                                              userID: entry.userID)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Edit profile", systemImage: "person.crop.circle")
+                            if serverStore.servers.count > 1 {
+                                Text(entry.server.name)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier("settings.editProfile.\(entry.server.id.uuidString)")
+                }
+            } header: {
+                Text("Account")
+            } footer: {
+                Text("Change your name, position, picture and the profile fields this server offers.")
+                    .font(.caption)
+            }
+        }
     }
 
     // MARK: - General (desktop `general` category)

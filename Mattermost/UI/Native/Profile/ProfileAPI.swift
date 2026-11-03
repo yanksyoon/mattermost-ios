@@ -91,10 +91,21 @@ extension APIClient {
     /// Behind the session, so it goes through the same `APIClient` as every other call (an
     /// `AsyncImage` cannot send the bearer token). The cache-buster is the user's `update_at`, which
     /// is what the server changes when a picture is replaced.
-    func userProfileImagePath(userID: String) -> String { "/users/\(userID)/profile_image" }
+    ///
+    /// **T50 correction (measured):** this used to read `/users/{id}/profile_image`, which answers
+    /// `404` for *every* account on 9.11.19 — with a picture and without one (`scripts/t50_profile_probe.py`
+    /// §2). The picture lives at `/users/{id}/image`, which is the same route `AvatarImageStore`
+    /// draws from. The T41 profile sheet therefore never showed a face on this server; it drew the
+    /// app's initials, and an upload could not appear there. `/profile_image` is kept out of this
+    /// client: a route that always 404s is not a fallback, it is a silent failure.
+    func userProfileImagePath(userID: String) -> String { "/users/\(userID)/image" }
 
-    /// The avatar bytes, or `nil` when the account has no picture (measured: `404` for an account
-    /// without one — the normal case for a fixture, so it must not read as an error on screen).
+    /// The avatar bytes as the server serves them.
+    ///
+    /// Measured on 9.11.19: `/users/{id}/image` answers **200 with a generated fallback** for an
+    /// account that has no picture (a 128×128 PNG of the account's initial — 626 bytes on the
+    /// fixture), so `nil` here means the request failed, not "no picture". Callers draw their own
+    /// initials only when this returns nothing.
     func userProfileImage(userID: String, lastUpdateAt: Int64) async -> Data? {
         var query: [URLQueryItem] = []
         if lastUpdateAt > 0 {

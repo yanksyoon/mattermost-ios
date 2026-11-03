@@ -193,19 +193,31 @@ final class T41ProfileAPITests: XCTestCase {
 
     // MARK: - The avatar
 
-    func testAMissingProfileImageIsAnAnswerNotAnError() async throws {
-        // Measured: an account without a picture answers 404, and that is the normal case — the screen
-        // draws initials. `userProfileImage` therefore swallows the failure.
+    func testTheProfileImageComesFromUsersImageWithTheAccountsUpdateAt() async throws {
+        // Measured twice on 9.11.19: `/users/{id}/profile_image` is **404 api.context.404.app_error**
+        // (there is no such route in this server), while `/users/{id}/image` answers 200 — with a
+        // generated 128×128 initial avatar when the account has no picture. So "no picture" is not a
+        // 404 to swallow: it is an image the reader should see.
         let transport = FakeAPITransport(stubs: [
-            .ok(.json(["id": "api.context.404.app_error", "message": "not found"], status: 404)),
+            .ok(APIResponse(statusCode: 200, headers: ["Content-Type": "image/png"],
+                            body: Data([0x89, 0x50, 0x4E, 0x47]))),
         ])
         let client = try client(transport)
 
         let bytes = await client.userProfileImage(userID: otherID, lastUpdateAt: 1_790_000_000_000)
-        XCTAssertNil(bytes)
+        XCTAssertNotNil(bytes)
         let request = try XCTUnwrap(transport.lastRequest)
-        XCTAssertEqual(request.url.path, "/api/v4/users/\(otherID)/profile_image")
-        XCTAssertTrue(request.url.query?.contains("_=1790000000000") ?? false,
-                      "the cache-buster is the account's update_at: \(request.url.absoluteString)")
+        XCTAssertEqual(request.url.path, "/api/v4/users/\(otherID)/image")
+        XCTAssertEqual(queryValue(request, "_"), "1790000000000",
+                       "the cache-buster is the account's update_at: \(request.url.absoluteString)")
+    }
+
+    func testAMissingProfileImageIsStillAnAnswerNotAnError() async throws {
+        // A transport failure for one account must not take the surface down.
+        let transport = FakeAPITransport(repeatingError: .offline)
+        let client = try client(transport)
+
+        let bytes = await client.userProfileImage(userID: otherID, lastUpdateAt: 1_790_000_000_000)
+        XCTAssertNil(bytes)
     }
 }

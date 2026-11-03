@@ -373,6 +373,15 @@ final class ProfileCoordinator: ObservableObject {
 
     // MARK: Internals
 
+    /// The service one server's profile surfaces write through.
+    ///
+    /// Exposed for T50's edit form: it must be handed the **same** object the profile sheet uses, so
+    /// the coordinator's `serviceFactory` test seam covers the form too, and the form cannot build a
+    /// second client beside the session.
+    func profileService(for server: ServerConfig) -> ProfileServing {
+        service(for: server)
+    }
+
     private func service(for server: ServerConfig) -> ProfileServing {
         if let serviceFactory { return serviceFactory(server) }
         let auth = self.auth

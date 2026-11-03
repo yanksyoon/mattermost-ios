@@ -21,6 +21,7 @@
 
 import SwiftUI
 import UIKit
+import Combine
 
 /// The on-disk half of the avatar cache: one file per account, under `Caches/`.
 ///
@@ -162,6 +163,12 @@ final class AvatarImageStore: ObservableObject {
     /// One in-flight request per account: every avatar of the same author waits on the same task.
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
 
+    /// Fires when one account's picture is **known to have changed** (T50: an upload or a removal on
+    /// the edit-profile form). It is a separate signal rather than `objectWillChange` because a view
+    /// that already drew a face holds the `UIImage` in its own `@State`: it has to drop it and re-read,
+    /// and "some avatar somewhere changed" is not enough information to decide that.
+    let pictureInvalidations = PassthroughSubject<String, Never>()
+
     init(load: @escaping (String) async throws -> Data,
          disk: AvatarDiskCache? = nil,
          ttl: TimeInterval = AvatarImageStore.diskTTL,
@@ -226,6 +233,27 @@ final class AvatarImageStore: ObservableObject {
     func clearFailures() {
         misses.removeAll()
         retryAfter.removeAll()
+    }
+
+    /// One account's picture changed (T50: an upload or a removal just succeeded).
+    ///
+    /// Both halves of the cache are dropped — the decoded picture **and** the file on disk — because
+    /// the disk copy outlives the process: leaving it would make the next launch draw the old face
+    /// for up to `diskTTL` (a week), and an upload that is invisible after a relaunch is an upload the
+    /// reader will report as failed. The account's miss/retry bookkeeping is cleared too: a picture
+    /// that was a `404` a minute ago is exactly what an upload just changed.
+    ///
+    /// Then `pictureInvalidations` tells the views that already drew a face to drop it and re-read.
+    func invalidate(_ userID: String) async {
+        guard !userID.isEmpty else { return }
+        inFlight[userID]?.cancel()
+        inFlight[userID] = nil
+        pictures[userID] = nil
+        order.removeAll { $0 == userID }
+        misses.remove(userID)
+        retryAfter[userID] = nil
+        await disk?.remove(userID)
+        pictureInvalidations.send(userID)
     }
 
     // MARK: - Diagnostics
@@ -354,6 +382,14 @@ struct AvatarPicture: View {
             // fetch, never draw the wrong person while it loads.
             picture = nil
         }
+        .onReceive(invalidations) { changed in
+            // T50: this account's picture was uploaded or removed while the row is on screen. The
+            // `UIImage` in `@State` is the *old* face; drop it and read the store again, which now
+            // answers from the server rather than from the cache that was just invalidated.
+            guard changed == userID, let avatars else { return }
+            picture = nil
+            Task { picture = await avatars.image(for: userID) }
+        }
         .task(id: userID) {
             guard let avatars, !userID.isEmpty else { return }
             if let cached = avatars.cached(userID) {
@@ -362,6 +398,13 @@ struct AvatarPicture: View {
             }
             picture = await avatars.image(for: userID)
         }
+    }
+
+    /// The store's invalidation signal, or nothing when no store is mounted (previews, a bare test
+    /// host) — a view without a session must still build.
+    private var invalidations: AnyPublisher<String, Never> {
+        avatars?.pictureInvalidations.eraseToAnyPublisher()
+            ?? Empty<String, Never>().eraseToAnyPublisher()
     }
 }
 

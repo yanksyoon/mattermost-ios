@@ -176,6 +176,8 @@ struct ProfileScreen: View {
     @State private var showsStatusSetter = false
     @State private var showsCustomStatusEditor = false
     @State private var showsAddToChannel = false
+    /// T50: my own profile can be edited from here (a push, never a nested sheet).
+    @State private var showsEditProfile = false
 
     private var now: Date { Date() }
 
@@ -213,6 +215,17 @@ struct ProfileScreen: View {
                                        userID: model.userID,
                                        userDisplayName: model.profile?.displayName ?? "")
             }
+        }
+        // T50: my own profile is the second way into the edit form (Settings → Account is the first).
+        // A **push** on this sheet's own stack — a nested sheet is T40's measured failure.
+        .navigationDestination(isPresented: $showsEditProfile) {
+            EditProfileContent(server: server,
+                               userID: model.userID,
+                               onSaved: { updated, picture in
+                                   model.applySavedProfile(updated, avatar: picture)
+                               })
+                .navigationTitle("Edit profile")
+                .navigationBarTitleDisplayMode(.inline)
         }
         .onChange(of: model.conversation) { _, channel in
             guard let channel else { return }
@@ -420,6 +433,16 @@ struct ProfileScreen: View {
                 bannerView(failure)
             }
             if model.actions.offers(.setStatus) {
+                // T50: the reader's own profile is where they change their name and picture.
+                Button {
+                    showsEditProfile = true
+                } label: {
+                    Label("Edit profile", systemImage: "pencil")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("profile.editProfile")
+
                 Button {
                     showsStatusSetter = true
                 } label: {

@@ -178,13 +178,22 @@ final class APIClient: @unchecked Sendable {
     /// is the re-read category list, and the web/native clients both rely on the server's answer
     /// rather than on an optimistic local guess. No ETag on a write (there is nothing to
     /// conditionally revalidate).
+    ///
+    /// `sessionExpiryOnUnauthorized` exists for **one** endpoint, and its default is the safe answer.
+    /// `PUT /users/{id}/patch` answers `401 api.user.check_user_password.invalid.app_error` when an
+    /// email change carries the wrong current password — measured on 9.11.19. That 401 is about the
+    /// *password in this body*, not about the session, and treating it as expiry would sign the
+    /// reader out for mistyping their password in a profile form. `updateProfile` therefore passes
+    /// `false`; every other call in the app keeps the funnel that turns a 401 into re-auth.
     func put<T: Decodable, Body: Encodable>(_ type: T.Type,
                                             path: String,
-                                            body: Body) async throws -> T {
+                                            body: Body,
+                                            sessionExpiryOnUnauthorized: Bool = true) async throws -> T {
         let data = try encode(body)
         let response = try await perform(method: .put, path: path, query: [],
                                          body: data, requiresAuth: true,
-                                         useETag: false)
+                                         useETag: false,
+                                         sessionExpiryOn401: sessionExpiryOnUnauthorized)
         return try decode(type, from: response)
     }
 
@@ -196,6 +205,30 @@ final class APIClient: @unchecked Sendable {
         return try await perform(method: .put, path: path, query: [],
                                  body: data, requiresAuth: true,
                                  useETag: false)
+    }
+
+    /// PATCH is deliberately not offered: Mattermost's update-user route is `PUT
+    /// /users/{id}/patch` (measured: `PATCH` on it answers `404 api.context.404.app_error`, `PUT`
+    /// answers 200 with the user). A generic `patch` method with no caller is a trap for the next
+    /// screen.
+
+    /// `POST` with a multipart body whose answer the caller does not decode.
+    ///
+    /// `POST /users/{id}/image` answers `{"status":"OK"}` — there is no model to decode, and asking
+    /// a caller to invent one would be noise. Everything else (Content-Type, timeout, no retry,
+    /// progress) is `uploadMultipart`'s path, so the avatar upload is the same request shape as a
+    /// file upload.
+    @discardableResult
+    func uploadMultipartResponse(path: String,
+                                 fields: [MMMultipart.Field],
+                                 file: MMMultipart.File) async throws -> APIResponse {
+        let encoded = MMMultipart.encode(fields: fields, files: [file],
+                                         boundary: MMMultipart.makeBoundary())
+        return try await perform(method: .post, path: path, query: [],
+                                 body: encoded.body, requiresAuth: true,
+                                 useETag: false,
+                                 contentType: encoded.contentType,
+                                 timeout: 120)
     }
 
     /// POST returning the full response (login needs the `Token` header, not just the body).
@@ -300,6 +333,7 @@ final class APIClient: @unchecked Sendable {
                          contentType: String? = nil,
                          timeout: TimeInterval? = nil,
                          outsideAPIV4: Bool = false,
+                         sessionExpiryOn401: Bool = true,
                          onProgress: (@Sendable (Int64, Int64) -> Void)? = nil) async throws -> APIResponse {
         guard let url = outsideAPIV4 ? baseURL.absolute(path) : baseURL.apiV4(path, query: query) else {
             throw MMError.invalidURL(path)
@@ -326,7 +360,9 @@ final class APIClient: @unchecked Sendable {
             attempt += 1
             var request = APIRequest(method: method, url: url, headers: headers, body: body)
             if let timeout { request.timeout = timeout }
-            let outcome = try await makeAttempt(request, useETag: useETag, onProgress: onProgress)
+            let outcome = try await makeAttempt(request, useETag: useETag,
+                                                sessionExpiryOn401: sessionExpiryOn401,
+                                                onProgress: onProgress)
             switch outcome {
             case .success(let response):
                 return response
@@ -357,6 +393,7 @@ final class APIClient: @unchecked Sendable {
 
     private func makeAttempt(_ request: APIRequest,
                              useETag: Bool,
+                             sessionExpiryOn401: Bool = true,
                              onProgress: (@Sendable (Int64, Int64) -> Void)? = nil) async throws -> AttemptOutcome {
         let response: APIResponse
         do {
@@ -394,6 +431,12 @@ final class APIClient: @unchecked Sendable {
             let payload = Self.errorPayload(in: response.body)
             if payload?.id == MMServerErrorPayload.mfaRequiredID {
                 throw MMError.mfaRequired(message: payload?.message)
+            }
+            // The one caller that passes `false` is the profile patch, whose 401 is the server
+            // rejecting the *current password in the body* (`api.user.check_user_password.invalid`)
+            // rather than the session. It must surface as a form sentence, not as re-auth.
+            guard sessionExpiryOn401 else {
+                throw MMError.client(status: 401, message: payload?.message)
             }
             onUnauthorized?()
             throw MMError.unauthorized(message: payload?.message)

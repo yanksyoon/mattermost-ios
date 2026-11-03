@@ -208,6 +208,34 @@ final class ProfileViewModel: ObservableObject {
         avatar = await service.profileImage(userID: profile.id, lastUpdateAt: profile.updateAt)
     }
 
+    // MARK: - T50: a save from the edit form, and a picture that changed
+
+    /// Draw the profile the edit form just saved, without a second read.
+    ///
+    /// The form's answer **is** the server's own user object (`PUT /users/{id}/patch` replies with
+    /// it), so re-reading would only race it. `avatar` is handed in because the form already fetched
+    /// the bytes the server now serves — a second fetch here would be the same picture over the wire
+    /// twice.
+    func applySavedProfile(_ updated: MMUserProfile, avatar data: Data?) {
+        guard updated.id == userID else { return }
+        profile = updated
+        avatar = data
+        if phase != .loaded { phase = .loaded }
+        banner = nil
+    }
+
+    /// Re-read the picture after an upload or a removal.
+    ///
+    /// `update_at` is the cache-buster `userProfileImage` sends, and the server changes it when the
+    /// picture changes — so the read must carry the **new** profile, not the one this screen held
+    /// when it opened. The caller refreshes the profile first (`EditProfileViewModel` re-reads after
+    /// the avatar write), and this method simply asks for the bytes against whatever it now holds.
+    func reloadAvatar() async {
+        guard let profile else { return }
+        avatar = nil
+        avatar = await service.profileImage(userID: profile.id, lastUpdateAt: profile.updateAt)
+    }
+
     // MARK: Presence refresh — why a socket cannot carry a colleague's status
 
     /// How often an open profile re-reads presence.

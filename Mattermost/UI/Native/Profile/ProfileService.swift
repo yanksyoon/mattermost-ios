@@ -31,9 +31,24 @@ protocol ProfileServing: AnyObject {
     func clearCustomStatus(userID: String) async throws
     /// `POST /channels/direct`.
     func directChannel(myUserID: String, otherUserID: String) async throws -> MMChannel
-    /// The avatar bytes; `nil` means "no picture", not "the request failed" (the server answers 404
-    /// for an account without one).
+    /// The avatar bytes; `nil` means the read failed — **not** "there is no picture". Measured on
+    /// 9.11.19: `/users/{id}/image` answers a generated initial for an account without one (T50 §3).
     func profileImage(userID: String, lastUpdateAt: Int64) async -> Data?
+
+    // MARK: - T50: the reader's own profile
+
+    /// `PUT /users/{id}/patch` — save the fields the edit form changed.
+    func updateProfile(userID: String, patch: MMProfilePatch) async throws -> MMUserProfile
+    /// `POST /users/{id}/image` — one multipart part named `image`.
+    func uploadProfileImage(userID: String, data: Data, filename: String, mimeType: String) async throws
+    /// `DELETE /users/{id}/image` — back to the server's generated fallback.
+    func removeProfileImage(userID: String) async throws
+    /// `GET /custom_profile_attributes/fields` (S39).
+    func customProfileAttributeFields() async throws -> [MMCustomProfileAttributeField]
+    /// `GET /users/{id}/custom_profile_attributes`.
+    func customProfileAttributeValues(userID: String) async throws -> MMCustomProfileAttributeValues
+    /// `PUT /users/{id}/custom_profile_attributes`.
+    func setCustomProfileAttributeValues(userID: String, values: [String: String]) async throws
 }
 
 extension ProfileServing {
@@ -50,6 +65,29 @@ extension ProfileServing {
     /// A service with no avatar support draws initials. Profile images are optional in Mattermost, so
     /// this is a legitimate answer rather than a degraded one.
     func profileImage(userID: String, lastUpdateAt: Int64) async -> Data? { nil }
+
+    // T50 defaults: a service that does not implement profile editing refuses the writes rather
+    // than pretending they landed. The fakes in the T41/T5449 suites do not implement them and are
+    // not asked to; only the T50 tests drive these.
+    func updateProfile(userID: String, patch: MMProfilePatch) async throws -> MMUserProfile {
+        throw MMError.client(status: 501, message: "This service cannot edit a profile.")
+    }
+    func uploadProfileImage(userID: String, data: Data,
+                            filename: String, mimeType: String) async throws {
+        throw MMError.client(status: 501, message: "This service cannot change a profile picture.")
+    }
+    func removeProfileImage(userID: String) async throws {
+        throw MMError.client(status: 501, message: "This service cannot remove a profile picture.")
+    }
+    /// No custom profile attributes: `.absent` is the correct answer for a server that has no such
+    /// feature, which is exactly this default (the card: an absent section, not an empty form).
+    func customProfileAttributeFields() async throws -> [MMCustomProfileAttributeField] { [] }
+    func customProfileAttributeValues(userID: String) async throws -> MMCustomProfileAttributeValues {
+        MMCustomProfileAttributeValues()
+    }
+    func setCustomProfileAttributeValues(userID: String, values: [String: String]) async throws {
+        throw MMError.client(status: 501, message: "This service cannot save profile attributes.")
+    }
 }
 
 /// The production implementation: the server's own `AuthSession.client`, resolved **per call** so a
@@ -105,5 +143,33 @@ final class SessionProfileService: ProfileServing {
         // purpose rather than turned into a banner over a profile that loaded fine.
         guard let client = try? client() else { return nil }
         return await client.userProfileImage(userID: userID, lastUpdateAt: lastUpdateAt)
+    }
+
+    // MARK: - T50
+
+    func updateProfile(userID: String, patch: MMProfilePatch) async throws -> MMUserProfile {
+        try await client().updateProfile(userID: userID, patch: patch)
+    }
+
+    func uploadProfileImage(userID: String, data: Data,
+                            filename: String, mimeType: String) async throws {
+        try await client().uploadProfileImage(userID: userID, data: data,
+                                              filename: filename, mimeType: mimeType)
+    }
+
+    func removeProfileImage(userID: String) async throws {
+        try await client().removeProfileImage(userID: userID)
+    }
+
+    func customProfileAttributeFields() async throws -> [MMCustomProfileAttributeField] {
+        try await client().customProfileAttributeFields()
+    }
+
+    func customProfileAttributeValues(userID: String) async throws -> MMCustomProfileAttributeValues {
+        try await client().customProfileAttributeValues(userID: userID)
+    }
+
+    func setCustomProfileAttributeValues(userID: String, values: [String: String]) async throws {
+        try await client().setCustomProfileAttributeValues(userID: userID, values: values)
     }
 }
