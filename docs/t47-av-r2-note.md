@@ -86,6 +86,11 @@ TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 TEST_RUNNER_MM_AUTH_LOGIN=perfp
 # -> 1 run, 0 skipped, 0 failed, 59.7 s                            RESULT: PASS   (build/logs/t47avr2-ui-t2a.log)
 ```
 
+The test was renamed from `testThePickerOffersADeactivatedTeamMemberThatSearchHides`: the old name
+described the behaviour it recorded, and the recorded behaviour is gone. The old name is still in
+`docs/t47-av-verdict.md` §1.3, which is the parent card's record of the run it made — not rewritten
+here.
+
 The test reads the team the app is actually on off the rail (`teamSidebar.team.<id>`'s accessibility
 value says "Current team") and switches to the oracle's team when they differ — the F7 class of
 mismatch, not repaired here (that is T47-AV-R4's card) but kept out of this test's way.
@@ -140,3 +145,18 @@ which failure it saw, with a retry that works (unit).
 - **Fixture state.** This card's runs left no channel behind: the repaired test never taps a row, and
   the two mutation runs never opened a conversation. The DM leaks listed in the verdict §5 are the
   parent card's, and are permanent by design (`DELETE /channels/{id}` refuses D and G).
+
+## 4. A sibling defect, filed rather than fixed here
+
+`AddMembersViewModel.absorb` (`Mattermost/UI/Native/ChannelInfo/AddMembersViewModel.swift:190`) maps
+`GET /users?in_team=&not_in_channel=` with no `delete_at` check — the same F3 shape on the add-people
+picker. Measured with `scratch/t47avr2_addmembers_probe.py`:
+
+```
+perf-feed      not-in-channel rows= 16 deactivated=1 -> ['t429gone']
+probe-roles-2  not-in-channel rows= 17 deactivated=1 -> ['t429gone']
+```
+
+Filed as `t_e65e6018` (child of this card) rather than repaired here: it is a different surface, and
+its fix belongs with its own test.
+
