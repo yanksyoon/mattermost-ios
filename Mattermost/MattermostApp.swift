@@ -714,27 +714,54 @@ struct MattermostApp: App {
         // permanent until relaunch (measured: a `posted` that reached no pane in five of eight T34-R5
         // runs; the rail's `SocketClient` had carried a `resync` seam nothing passed).
         //
-        // Only the channel pane resyncs today: it is the surface T34 owns the window of, and
-        // `ChannelViewModel.resyncAfterReconnect` is the merge rule that keeps a reader's older pages.
-        // The thread pane, the mentions feed and channel info still repair only on their next appearance
-        // — a documented limit (docs/parity.md, T34 row) rather than a claim that they are live-correct.
-        teamSidebarCoordinator.onSocketResync = { [weak channelPaneCoordinator] serverID in
+        // T34-R5b: three panes now repair on a gap, each with its own **merge** — never a `reload()`,
+        // which would blank the reader's list to a spinner and drop the older pages it holds:
+        //  * the channel pane's warm windows (`ChannelViewModel.resyncAfterReconnect`);
+        //  * the open thread panes and the threads lists (`ThreadCoordinator.resync` →
+        //    `ThreadViewModel`/`GlobalThreadsViewModel.resyncAfterGap`);
+        //  * the mentions feed (`ActivityCoordinator.resync` → `MentionsViewModel.resyncAfterGap`).
+        //
+        // Each pane gets **its own `Task`** on purpose: `SocketClient` awaits this handler on its open
+        // path, before the receive loop reads the next frame, so the handler must return promptly and
+        // never hold the socket up on a page request. Nothing here awaits another pane either — one slow
+        // feed must not delay the channel window's repair.
+        teamSidebarCoordinator.onSocketResync = { [weak channelPaneCoordinator, weak threadCoordinator,
+                                                   weak activityCoordinator] serverID in
             Task { await channelPaneCoordinator?.resync(serverID: serverID) }
+            Task { await threadCoordinator?.resync(serverID: serverID) }
+            Task { @MainActor in await activityCoordinator?.resync(serverID: serverID) }
         }
         // T34-R5 follow-up: the delivery watchdog (`SocketClient.StallWatchdog`) has to know whether
         // anybody is looking at data this socket feeds, because a socket that is open, pingable and
         // silent is only a *fault* when a reader is staring at the stale window it should be updating.
-        // The shell answers with the facts it owns: the app is in the foreground, the location names a
-        // channel on **this** server, the native pane is the one rendering it, and that pane holds a
-        // loaded window for it. Anything else answers `false`, which keeps the watchdog from spending a
-        // page fetch on an idle-but-healthy socket — the limit the card asks for.
-        teamSidebarCoordinator.isSurfaceVisible = { [weak nativeNavigation, weak channelPaneCoordinator] serverID in
-            guard UIApplication.shared.applicationState == .active else { return false }
-            guard let nativeNavigation, nativeNavigation.acceptsNativeRouting else { return false }
-            let location = nativeNavigation.location
-            guard location.serverID == serverID,
-                  let channelID = location.channelID, !channelID.isEmpty else { return false }
-            return channelPaneCoordinator?.hasLoadedWindow(serverID: serverID, channelID: channelID) ?? false
+        // The shell answers with the facts it owns: the app is in the foreground, native routing is on,
+        // and the visible surface — the mentions feed, a thread pane, the threads list, or the channel
+        // pane — holds a **loaded** window for *this* server. Anything else answers `false`, which keeps
+        // the watchdog from spending page fetches on an idle-but-healthy socket.
+        //
+        // T34-R5b moved the rule into `NativeSurfaceVisibility` so the unit target can exercise it: this
+        // closure is now one literal binding, and the rules themselves are tested
+        // (`T34LivePaneResyncTests`).
+        let surfaceVisibility = NativeSurfaceVisibility(
+            appIsActive: { UIApplication.shared.applicationState == .active },
+            acceptsNativeRouting: { [weak nativeNavigation] in
+                nativeNavigation?.acceptsNativeRouting ?? false
+            },
+            location: { [weak nativeNavigation] in nativeNavigation?.location ?? NativeLocation() },
+            channelWindowLoaded: { [weak channelPaneCoordinator] serverID, channelID in
+                channelPaneCoordinator?.hasLoadedWindow(serverID: serverID, channelID: channelID) ?? false
+            },
+            threadLoaded: { [weak threadCoordinator] serverID, rootID in
+                threadCoordinator?.hasLoadedThread(serverID: serverID, rootID: rootID) ?? false
+            },
+            threadListLoaded: { [weak threadCoordinator] serverID in
+                threadCoordinator?.hasLoadedThreadList(serverID: serverID) ?? false
+            },
+            feedOnScreen: { [weak activityCoordinator] serverID in
+                activityCoordinator?.hasLoadedFeedOnScreen(serverID: serverID) ?? false
+            })
+        teamSidebarCoordinator.isSurfaceVisible = { serverID in
+            surfaceVisibility.isVisible(serverID: serverID)
         }
         // T30 reserved this seam for S08: with a channel list loaded, a deep link's channel *name*
         // and a tapped mention's channel *id* resolve to the same `NativeLocation`.

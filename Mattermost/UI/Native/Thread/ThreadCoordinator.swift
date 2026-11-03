@@ -238,6 +238,52 @@ final class ThreadCoordinator: ObservableObject {
 
     // MARK: - Socket
 
+    /// Repair this server's open thread panes and thread lists after a socket gap.
+    ///
+    /// The socket is **server-scoped**, so a gap loses frames for every thread the session keeps warm
+    /// (up to `warmThreadLimit` chains and one list per team), not only the one on screen — a thread
+    /// switched to afterwards that quietly lacks a reply is the same defect one tap away. That is the
+    /// rule `ChannelPaneCoordinator.resync` already states for its six warm windows.
+    ///
+    /// Only `.loaded` models are swept: an unopened thread's first load is its fetch, and a `.failed`
+    /// one is waiting for the reader's retry, not for a repair. Each model merges (see
+    /// `ThreadViewModel.resyncAfterGap` / `GlobalThreadsViewModel.resyncAfterGap`), so a sweep never
+    /// blanks a pane or drops an older page.
+    ///
+    /// Returns how many models were swept.
+    @discardableResult
+    func resync(serverID: UUID) async -> Int {
+        var repaired = 0
+        for (_, model) in (models[serverID] ?? [:]).sorted(by: { $0.key < $1.key }) where model.phase == .loaded {
+            _ = await model.resyncAfterGap()
+            repaired += 1
+        }
+        for (_, list) in (globalModels[serverID] ?? [:]).sorted(by: { $0.key < $1.key }) where list.phase == .loaded {
+            _ = await list.resyncAfterGap()
+            repaired += 1
+        }
+        if repaired > 0 { resyncCount += 1 }
+        return repaired
+    }
+
+    /// How many gap sweeps this coordinator ran (diagnostics/tests).
+    private(set) var resyncCount = 0
+
+    /// Whether this server holds a **loaded** chain for that thread right now.
+    ///
+    /// The delivery watchdog asks this before it treats a silent-but-open socket as a wedge: a thread
+    /// pane on screen with a chain is a surface a lost frame corrupts; one that is still loading has its
+    /// own fetch to do it, and one that failed has nothing a refetch could put right.
+    func hasLoadedThread(serverID: UUID, rootID: String) -> Bool {
+        models[serverID]?[rootID]?.phase == .loaded
+    }
+
+    /// Whether any of this server's thread lists (`/…/threads`) is loaded — the threads pane without a
+    /// post is the global list, whose team the gate does not need to know to answer this.
+    func hasLoadedThreadList(serverID: UUID) -> Bool {
+        (globalModels[serverID] ?? [:]).values.contains { $0.phase == .loaded }
+    }
+
     /// One event from the server's socket (already scoped to the team on screen by the rail).
     ///
     /// Delivered to every warm thread model and to the global lists of that server; each model keeps

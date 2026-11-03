@@ -71,6 +71,50 @@ final class ActivityCoordinator: ObservableObject {
 
     // MARK: - The socket
 
+    /// Repair the feed after a socket gap (a reconnect, or the delivery watchdog's confirmed stall).
+    ///
+    /// One model per server, and the merge (`MentionsViewModel.resyncAfterGap`) keeps every row it holds
+    /// — the whole reason this is not a `reload()`: a gap is not a reason to blank the reader's list to a
+    /// spinner and drop the mentions the socket or an extra page had added.
+    ///
+    /// Returns how many models were swept (`0` when the feed was never loaded — its own first load is the
+    /// fetch, and there is no window a gap could have corrupted).
+    @discardableResult
+    func resync(serverID: UUID) async -> Int {
+        guard let model = models[serverID], model.phase == .loaded else { return 0 }
+        _ = await model.resyncAfterGap()
+        resyncCount += 1
+        return 1
+    }
+
+    /// How many gap sweeps this coordinator ran (diagnostics/tests).
+    private(set) var resyncCount = 0
+
+    // MARK: - On screen
+
+    /// The servers whose mentions feed is mounted on screen right now.
+    ///
+    /// "The feed is visible" is not a fact the navigation model owns: the feed is a top-level tab on a
+    /// phone and a sheet in the regular layout, and neither writes a `NativeLocation`. The only object
+    /// that knows is the view drawing it, so `ActivityFeedView` reports its appearance here and the
+    /// delivery watchdog's gate reads it (see `NativeSurfaceVisibility`).
+    private var feedsOnScreen: Set<UUID> = []
+
+    func setFeedOnScreen(_ serverID: UUID, _ onScreen: Bool) {
+        if onScreen { feedsOnScreen.insert(serverID) } else { feedsOnScreen.remove(serverID) }
+    }
+
+    func isFeedOnScreen(serverID: UUID) -> Bool { feedsOnScreen.contains(serverID) }
+
+    /// Whether that server's feed is **on screen and loaded** — the one fact the watchdog's gate needs.
+    ///
+    /// The two halves are deliberately not separable at the call site: a feed that is on screen but never
+    /// loaded has its own first fetch to do it, and a loaded feed nobody is looking at must not be
+    /// swept. Answering `true` for either alone is how a gate becomes a poll.
+    func hasLoadedFeedOnScreen(serverID: UUID) -> Bool {
+        feedsOnScreen.contains(serverID) && models[serverID]?.phase == .loaded
+    }
+
     /// One event from the server's socket (already scoped to a team by the rail).
     ///
     /// The feed is not team-scoped — a mention from another team still belongs in it — so every event

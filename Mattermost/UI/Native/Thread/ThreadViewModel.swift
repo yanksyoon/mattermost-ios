@@ -81,6 +81,16 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     /// True once the pane has asked the server to mark this thread read.
     @Published private(set) var didMarkRead = false
 
+    /// How many gap sweeps this pane ran, and how many replies the last one inserted.
+    ///
+    /// Diagnostics and tests, the same pair `ChannelViewModel` carries: "never resyncs" and "resyncs
+    /// on every gap" look identical on screen until one of them is counted, and the difference is what
+    /// a lost reply costs. A failed refetch counts as an attempt (`lastResyncInsertedCount` stays 0);
+    /// only the phase and the chain are left alone, because the rows on screen are still the server's
+    /// page as of the last load.
+    private(set) var resyncCount = 0
+    private(set) var lastResyncInsertedCount = 0
+
     var isFollowing: Bool { followState == .following }
 
     /// The root's author as the composer's reply banner names them ("Replying to Ana").
@@ -285,6 +295,114 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
             guard requested == generation else { return false }
             loadEarlierError = Self.message(for: error)
             return false
+        }
+    }
+
+    /// Repair this chain after a socket gap (a reconnect, or a delivery stall the watchdog confirmed).
+    ///
+    /// The seam is the same one the channel pane uses (`TeamSidebarCoordinator.onSocketResync`), and
+    /// the rule is the same rule T34-R5 chose there: **merge, never reload**. Joining the seam with
+    /// `reload()` would blank the reader's chain to a spinner on every reconnect and every confirmed
+    /// stall, and would drop every older page `loadEarlier()` had fetched.
+    ///
+    /// What it does, and what it deliberately does not:
+    ///  - it refetches the **newest page** of `GET /posts/{root}/thread` and merges it: a reply it does
+    ///    not hold is inserted, a reply it holds is replaced by the server's copy (an edit made while
+    ///    the socket was down), and **nothing is dropped** — the older pages the reader scrolled back
+    ///    through stay exactly where they were;
+    ///  - a reply the pane holds as a **tombstone** stays a tombstone: the server omits deleted posts
+    ///    from later fetches (measured), so "the server no longer returns it" can never mean "undraw
+    ///    it" — the same rule `ThreadDerivation.chain` states;
+    ///  - it refreshes the root post, the server's `reply_count` / `last_reply_at`, and the
+    ///    follow/unread row, adopting a `last_viewed_at` that moved **forward** only (the thread was
+    ///    read on another client) — never moving the unread divider back;
+    ///  - it leaves `phase` alone: the chain on screen is still the server's page as of the last load,
+    ///    so a failed sweep costs a retry on the next gap, not an error screen;
+    ///  - it is a no-op on a pane that never loaded (its first load is the fetch).
+    ///
+    /// Returns how many replies were added (`0` when the chain was already current or the request
+    /// failed).
+    @discardableResult
+    func resyncAfterGap() async -> Int {
+        guard phase == .loaded else { return 0 }
+        let requested = generation
+        // Counted before the request: a diagnostic needs to see the attempt, and a refetch that fails
+        // is still a refetch the app made.
+        resyncCount += 1
+        lastResyncInsertedCount = 0
+        do {
+            let page = try await service.thread(postID: rootID, fromPost: nil,
+                                                fromCreateAt: nil, perPage: service.pageSize)
+            guard requested == generation else { return 0 }
+            let ordered = page.orderedPosts
+            let held = Set(replies.map(\.id))
+            // A held tombstone is never replaced by a server copy: the endpoint omits deleted posts,
+            // so a copy of one can only be a stale read that would resurrect the row.
+            let tombstones = Set(replies.filter { $0.deleteAt > 0 }.map(\.id))
+            let incoming = ordered.filter { $0.id != rootID && !tombstones.contains($0.id) }
+            replies = ThreadDerivation.merge(existing: replies, page: incoming, rootID: rootID)
+            for reply in replies { repliesByID[reply.id] = reply }
+            let inserted = replies.filter { !held.contains($0.id) }
+
+            let serverRoot = page.posts[rootID] ?? ordered.first(where: { $0.id == rootID })
+            if let serverRoot, serverRoot.deleteAt == 0 {
+                // The root the server returns is the truth for its body, `reply_count` and
+                // `last_reply_at`; the count is re-derived below once the row has answered too.
+                var merged = serverRoot
+                merged.replyCount = max(serverRoot.replyCount, replyCount)
+                merged.lastReplyAt = max(serverRoot.lastReplyAt, root?.lastReplyAt ?? 0)
+                root = merged
+                if channelID.isEmpty { channelID = serverRoot.channelId }
+            }
+
+            await loadProfiles(for: Set(inserted.map(\.userId))
+                .union((root?.participants ?? []).map(\.id)))
+            guard requested == generation else { return 0 }
+            await refreshThreadRowAfterGap()
+            guard requested == generation else { return 0 }
+
+            replyCount = ThreadDerivation.replyCount(root: root ?? MMPost(id: rootID),
+                                                     replies: replies, serverCount: replyCount)
+            if var current = root {
+                // The thread row's `last_reply_at` is the server's statement about the chain even when
+                // the root post the page carried lags behind it.
+                current.replyCount = replyCount
+                current.lastReplyAt = max(current.lastReplyAt, threadRow?.lastReplyAt ?? 0)
+                root = current
+            }
+            rebuild()
+            notifyReplyActivity()
+            lastResyncInsertedCount = inserted.count
+            return inserted.count
+        } catch {
+            return 0
+        }
+    }
+
+    /// Re-read the follow/unread row for a gap sweep.
+    ///
+    /// Different from `loadThreadRow()` in two ways that matter for a repair: a **404 is an answer**
+    /// (the thread was unfollowed, on this device or another, while the socket was down) and moves the
+    /// state to "not following"; a **failed request** is not an answer and leaves the row's state as
+    /// the last read stated it — a sweep must never turn a known "Following" into "unknown".
+    private func refreshThreadRowAfterGap() async {
+        do {
+            let row = try await service.followedThread(teamID: teamID, threadID: rootID)
+            guard let row else {
+                threadRow = nil
+                followState = .notFollowing
+                unread = .none
+                return
+            }
+            threadRow = row
+            followState = .following
+            unread = row.unread
+            lastViewedAt = max(lastViewedAt ?? 0, row.lastViewedAt)
+            replyCount = ThreadDerivation.replyCount(root: root ?? MMPost(id: rootID),
+                                                     replies: replies,
+                                                     serverCount: max(row.replyCount, replyCount))
+        } catch {
+            // Leave the state exactly as it was.
         }
     }
 

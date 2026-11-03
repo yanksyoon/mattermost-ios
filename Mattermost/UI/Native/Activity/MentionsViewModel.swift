@@ -73,6 +73,11 @@ final class MentionsViewModel: ObservableObject {
     @Published private(set) var insertedRowID: String?
     @Published private(set) var lastEventOutcome: EventOutcome = .ignored
 
+    /// How many gap sweeps this feed ran, and how many rows the last one added (diagnostics/tests; the
+    /// same pair `ChannelViewModel` carries). A failed sweep is still an attempt.
+    private(set) var resyncCount = 0
+    private(set) var lastResyncInsertedCount = 0
+
     /// Diagnostics.
     var loadedCount: Int { rows.count }
     var loadedPostIDs: [String] { rows.map(\.postID) }
@@ -171,6 +176,68 @@ final class MentionsViewModel: ObservableObject {
         }
     }
 
+    /// Repair this feed after a socket gap (a reconnect, or a delivery stall the watchdog confirmed).
+    ///
+    /// `reload()` is the wrong tool for a gap: it sets `phase = .loading` (the reader's list blanks to a
+    /// spinner) and rebuilds `rows` from one page, dropping every row a live `posted` frame or an extra
+    /// search page had added. So the feed joins `TeamSidebarCoordinator.onSocketResync` with the same
+    /// merge rule the channel pane chose in T34-R5:
+    ///
+    ///  - it fetches the **newest page** (page 0) and merges it into the rows it holds: a mention it
+    ///    already draws is re-derived from the server's copy, a mention it does not have is inserted;
+    ///  - rows the feed holds are **never dropped**. A mention deleted while the socket was down stays
+    ///    drawn until a `post_deleted` frame or the next `reload()` — the same limit the channel pane
+    ///    states for a post deleted during an outage;
+    ///  - the read cursors it has already adopted are re-read for the window and adopted **forward
+    ///    only**, so a mention read on another client during the gap stops drawing as unread and a stale
+    ///    replica cannot move the reader's cursor backwards;
+    ///  - `phase` is left alone, and a failed sweep costs a retry on the next gap, not an error screen.
+    ///
+    /// Returns how many rows were added.
+    @discardableResult
+    func resyncAfterGap() async -> Int {
+        guard phase == .loaded else { return 0 }
+        let requested = generation
+        resyncCount += 1
+        lastResyncInsertedCount = 0
+        do {
+            guard let reader = try? await self.reader(requested: requested) else { return 0 }
+            guard requested == generation else { return 0 }
+            let window = try await service.mentions(terms: reader.keys.searchTerms,
+                                                    page: 0,
+                                                    perPage: service.pageSize)
+            guard requested == generation else { return 0 }
+            let fetched = window.orderedPosts
+            await loadContext(for: fetched, requested: requested)
+            guard requested == generation else { return 0 }
+            await loadReadState(for: fetched, requested: requested, force: true)
+            guard requested == generation else { return 0 }
+
+            let held = Set(rows.map(\.postID))
+            let inserted = fetched.filter { !held.contains($0.id) }
+            // Posts, not rows: the rows are derived from them, so a held row's unread state is
+            // recomputed against the cursors just re-adopted instead of being carried forward blind.
+            var posts = rows.map(\.model.post)
+            for post in fetched {
+                if let index = posts.firstIndex(where: { $0.id == post.id }) {
+                    posts[index] = post
+                } else {
+                    posts.append(post)
+                }
+            }
+            rows = ActivityDerivation.rows(posts: posts, channels: channels, users: users,
+                                           myUserID: reader.profile.id,
+                                           cursors: cursors, threadUnread: threadUnread)
+            if !inserted.isEmpty { insertedRowID = inserted.first?.id }
+            publish()
+            lastResyncInsertedCount = inserted.count
+            await refreshBadge()
+            return inserted.count
+        } catch {
+            return 0
+        }
+    }
+
     /// The reader's profile + keys, fetched once per model (they change only in settings, and a mentions
     /// window is not the settings screen).
     private func reader(requested: Int) async throws -> (profile: ActivityProfile, keys: MentionKeys) {
@@ -206,20 +273,26 @@ final class MentionsViewModel: ObservableObject {
     /// with a per-channel fallback for a row whose channel belongs to no team list (a DM/GM). Threads come
     /// from `?unread=true`, one request per team: under collapsed threads a reply's read state is *only*
     /// there, because reading a thread does not move the channel cursor.
-    private func loadReadState(for posts: [MMPost], requested: Int) async {
+    ///
+    /// - Parameter force: re-read the state for every team the window names, ignoring the per-load cache,
+    ///   and adopt a cursor only when it moved **forward**. That is what a gap sweep needs: a mention
+    ///   read on another client while the socket was down has to stop drawing as unread, and a stale read
+    ///   replica must never walk the reader's cursor backwards. A first load passes `false`, keeping its
+    ///   "ask once per team" cost and its plain adoption (nothing is held yet, so there is no cursor to
+    ///   move backwards).
+    private func loadReadState(for posts: [MMPost], requested: Int, force: Bool = false) async {
         guard let userID = readerID else { return }
         let teams = Set(posts.compactMap { channels[$0.channelId]?.teamId }.filter { !$0.isEmpty })
-        for teamID in teams.sorted() where !loadedReadTeams.contains(teamID) {
+        for teamID in teams.sorted() where force || !loadedReadTeams.contains(teamID) {
             guard requested == generation else { return }
             if let members = try? await service.channelReads(teamID: teamID, userID: userID) {
-                for member in members {
-                    cursors[member.channelId] = ActivityChannelCursor(channelID: member.channelId,
-                                                                     lastViewedAt: member.lastViewedAt,
-                                                                     mentionCount: Int(member.mentionCount))
-                }
+                adopt(members, forwardOnly: force)
                 loadedReadTeams.insert(teamID)
             }
             if let threads = try? await service.unreadThreads(teamID: teamID) {
+                // Additive, like `reload()`: the server lists the threads that are unread, and a thread
+                // that fell off that list is read (the frame that would have said so may be the one the
+                // gap lost) — so a listed thread's counters are taken and an absent one is left alone.
                 for thread in threads { threadUnread[thread.rootID] = thread }
             }
         }
@@ -228,10 +301,20 @@ final class MentionsViewModel: ObservableObject {
         for channelID in Set(posts.map(\.channelId)) where cursors[channelID] == nil {
             guard requested == generation else { return }
             if let member = try? await service.channelRead(channelID: channelID, userID: userID) {
-                cursors[channelID] = ActivityChannelCursor(channelID: channelID,
-                                                          lastViewedAt: member.lastViewedAt,
-                                                          mentionCount: Int(member.mentionCount))
+                adopt([member], forwardOnly: force)
             }
+        }
+    }
+
+    /// Take the server's channel cursors. `forwardOnly` never moves a cursor backwards — the rule the
+    /// channel pane states for `last_viewed_at` when it resyncs.
+    private func adopt(_ members: [MMChannelMember], forwardOnly: Bool) {
+        for member in members {
+            let held = cursors[member.channelId]?.lastViewedAt ?? 0
+            let viewedAt = forwardOnly ? max(held, member.lastViewedAt) : member.lastViewedAt
+            cursors[member.channelId] = ActivityChannelCursor(channelID: member.channelId,
+                                                             lastViewedAt: viewedAt,
+                                                             mentionCount: Int(member.mentionCount))
         }
     }
 

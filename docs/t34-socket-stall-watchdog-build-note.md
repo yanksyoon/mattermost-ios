@@ -82,9 +82,12 @@ MattermostApp.bindShellStores:
 ```
 
 A `.loading` / `.failed` model answers `false` on purpose: its own load is the fetch, and a window that
-never loaded has nothing a refetch could put right. This also means the gate matches the repair exactly:
-today the only pane that refetches is the channel pane, so the only thing that counts as "visible" is a
-loaded channel window.
+never loaded has nothing a refetch could put right. When this note was written the gate matched the repair
+exactly: the only pane that refetched was the channel pane, so a loaded channel window was the only thing
+that counted as "visible". **That was the state of `t_d2eace51`; the rule has since grown** — a thread
+pane, the threads list and the mentions feed are surfaces too, and `NativeSurfaceVisibility`
+(`docs/t34-live-pane-resync-build-note.md` §4) now answers for all of them, because all of them repair on
+the same gap.
 
 ## 4. Tests, and the runs that back them
 
@@ -140,9 +143,14 @@ not join `onSocketResync` in this card.** The reasons are concrete, not a shrug:
   to sweep every profile the process remembers (a request per user) to repair something that repairs
   itself on the next event.
 
-Until then the watchdog's **gate names the channel pane only** (`hasLoadedWindow`), so the watchdog stays
-quiet while a thread pane covers the channel — the sweep it would run repairs windows nobody is looking
-at, and the thread pane's own repair is the follow-up card.
+**Superseded** (card `t_e0077228`, `docs/t34-live-pane-resync-build-note.md`): the thread pane, the threads
+list and the mentions feed now join the sweep, and the watchdog's gate names all three. The paragraph below
+is kept as the state this note shipped, and its reasoning — a repairless pane is not a surface — is why the
+three panes had to be built before the gate could name them.
+
+Until then the watchdog's **gate named the channel pane only** (`hasLoadedWindow`), so the watchdog stayed
+quiet while a thread pane covered the channel — the sweep it would run repairs windows nobody is looking
+at, and the thread pane's own repair was the follow-up card.
 
 ## 6. What this does **not** prove, and the limits that stay
 

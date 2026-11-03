@@ -96,6 +96,12 @@ struct ActivityFeedView: View {
     /// with the channel pane and the other lookup lists).
     @EnvironmentObject private var panes: ChannelPaneCoordinator
 
+    /// T34-R5b: the feed is the one surface the navigation model cannot see — it is a tab on a phone and
+    /// a sheet in the regular layout, and neither writes a `NativeLocation`. Reporting its appearance
+    /// here is what lets the delivery watchdog's gate answer "the reader is looking at the feed" instead
+    /// of only "a channel window is warm behind it".
+    @EnvironmentObject private var coordinator: ActivityCoordinator
+
     private var offersAuthorProfile: Bool {
         ProfilePopoverPolicy.offersAuthorTap(rowHost: resolver.resolvedMode(for: .activity))
     }
@@ -115,6 +121,10 @@ struct ActivityFeedView: View {
         .task {
             await model.load(ifNeeded: false)
         }
+        // T34-R5b: the feed tells the coordinator while it is on screen, so the socket's delivery
+        // watchdog knows a gap would corrupt something the reader is looking at (and refetch it).
+        .onAppear { coordinator.setFeedOnScreen(server.id, true) }
+        .onDisappear { coordinator.setFeedOnScreen(server.id, false) }
         // T5449: the rows' author tap. The container decides how it presents (spec §2.2): a sheet from
         // the compact tab, a push inside the regular layout's lookup sheet.
         .profilePresentationHost($profilePopover, server: server, navigation: navigation)

@@ -60,6 +60,11 @@ final class GlobalThreadsViewModel: ObservableObject {
     /// The last socket event's effect (diagnostics/tests; never rendered).
     @Published private(set) var lastEventOutcome: EventOutcome = .ignored
 
+    /// How many gap sweeps this list ran, and how many threads the last one added (diagnostics/tests;
+    /// the same pair `ChannelViewModel` carries).
+    private(set) var resyncCount = 0
+    private(set) var lastResyncInsertedCount = 0
+
     /// Diagnostics/tests.
     var loadedCount: Int { threads.count }
     var loadedThreadIDs: [String] { threads.map(\.id) }
@@ -221,6 +226,59 @@ final class GlobalThreadsViewModel: ObservableObject {
             Logger.error("Threads", diagnostic)
             loadMoreError = Self.message(for: error)
             return false
+        }
+    }
+
+    /// Repair this list after a socket gap (a reconnect, or a delivery stall the watchdog confirmed).
+    ///
+    /// **Decision (this card): the Threads list joins the gap sweep.** Its socket is the same
+    /// server-scoped one, and the fact a gap can lose here is a thread the reader started following on
+    /// another client: `thread_updated` only reaches a follower, and the list's only other refetch is
+    /// `reload()` (which blanks the list and drops every older `before` page). So it gets the same
+    /// merge treatment as the panes, with a rule shaped by its paging:
+    ///
+    ///  - the newest page is fetched (`before: nil`, the same tab: an `unreads` list merges unread
+    ///    threads only, or it would draw read rows under "Unreads");
+    ///  - only threads **newer than the newest held thread** are inserted; a thread whose activity is
+    ///    not newer belongs somewhere inside the window the `before` cursor has already walked past, and
+    ///    placing it by guess would make the list claim an order its paging cannot keep;
+    ///  - **held rows are not replaced.** A held thread's counters are the socket's, patched as frames
+    ///    arrive; a newest-page copy is older than the last frame and replacing it would walk the row
+    ///    (and the header's counter) backwards;
+    ///  - the paging cursor (`before`), `hasMore` and `phase` are untouched, so the older end stays
+    ///    reachable and a sweep can neither blank the list nor move the reader.
+    ///
+    /// The server's team counters are taken from the page (`total`, `total_unread_threads`, …), because
+    /// they describe the whole team and a gap is exactly when they drifted.
+    ///
+    /// Returns how many threads were added.
+    @discardableResult
+    func resyncAfterGap() async -> Int {
+        guard phase == .loaded, !teamID.isEmpty else { return 0 }
+        let requested = generation
+        resyncCount += 1
+        lastResyncInsertedCount = 0
+        do {
+            let page = try await service.threads(teamID: teamID, before: nil,
+                                                 perPage: service.pageSize,
+                                                 unreadOnly: tab == .unreads)
+            guard requested == generation else { return 0 }
+            let held = Set(threads.map(\.id))
+            let newestHeld = threads.map(ThreadDerivation.activityAt).max()
+            var fresh = page.threads.filter { !held.contains($0.id) }
+            if tab == .unreads { fresh = fresh.filter { $0.unread.isUnread } }
+            if let newestHeld { fresh = fresh.filter { ThreadDerivation.activityAt($0) > newestHeld } }
+            if !fresh.isEmpty { threads += fresh }
+            apply(totals: page)
+            await loadProfiles(for: GlobalThreadsDerivation.profileIDs(in: fresh))
+            guard requested == generation else { return 0 }
+            publish()
+            lastResyncInsertedCount = fresh.count
+            return fresh.count
+        } catch {
+            // A failed sweep leaves the list and the phase alone: the rows on screen are still the
+            // server's page as of the last load, and the next gap tries again.
+            return 0
         }
     }
 

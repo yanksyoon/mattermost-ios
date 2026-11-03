@@ -75,6 +75,7 @@
 		F3000000000000000000002C /* SurfaceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000048 /* SurfaceHost.swift */; };
 		F3000000000000000000002D /* SurfaceInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000049 /* SurfaceInspector.swift */; };
 		F300000000000000000000B0 /* NativeNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000000000000000000B0 /* NativeNavigation.swift */; };
+		F30000000000000000000C01 /* NativeSurfaceVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000C01 /* NativeSurfaceVisibility.swift */; };
 		F30000000000000000000090 /* MMStoreModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000090 /* MMStoreModels.swift */; };
 		F30000000000000000000091 /* MMSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000091 /* MMSchema.swift */; };
 		F30000000000000000000092 /* MMMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000092 /* MMMigrator.swift */; };
@@ -177,6 +178,7 @@
 		F20000000000000000000048 /* SurfaceHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceHost.swift; sourceTree = "<group>"; };
 		F20000000000000000000049 /* SurfaceInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceInspector.swift; sourceTree = "<group>"; };
 		F200000000000000000000B0 /* NativeNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeNavigation.swift; sourceTree = "<group>"; };
+		F20000000000000000000C01 /* NativeSurfaceVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSurfaceVisibility.swift; sourceTree = "<group>"; };
 		F20000000000000000000060 /* MMLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMLog.swift; sourceTree = "<group>"; };
 		F20000000000000000000061 /* MMJSON.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMJSON.swift; sourceTree = "<group>"; };
 		F20000000000000000000062 /* MMTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMTypes.swift; sourceTree = "<group>"; };
@@ -396,6 +398,7 @@
 			isa = PBXGroup;
 			children = (
 				F200000000000000000000B0 /* NativeNavigation.swift */,
+				F20000000000000000000C01 /* NativeSurfaceVisibility.swift */,
 			);
 			path = Native;
 			sourceTree = "<group>";
@@ -621,6 +624,7 @@
 				F3000000000000000000002C /* SurfaceHost.swift in Sources */,
 				F3000000000000000000002D /* SurfaceInspector.swift in Sources */,
 				F300000000000000000000B0 /* NativeNavigation.swift in Sources */,
+				F30000000000000000000C01 /* NativeSurfaceVisibility.swift in Sources */,
 				F3000000000000000000002F /* PerfProbe.swift in Sources */,
 				F30000000000000000000060 /* MMLog.swift in Sources */,
 				F30000000000000000000061 /* MMJSON.swift in Sources */,
