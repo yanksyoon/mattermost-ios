@@ -139,4 +139,10 @@ Two measured obstacles, both recorded rather than worked around silently:
    `ShellSettle.waitForSignedIn` and `ShellSettle.revealChannelList` (§3) — and the test then passes
    in 29.7 s, still asserting and tapping `post.<replyID>.author`.
 
+**Published on `origin/main`: `f306d2a`** — the test-premise repair on top of `886a087`, with this
+section in it (`git ls-remote` agrees; this paragraph is the only later change, docs-only). Re-run on
+that published tree: whole unit target **2184 run / 10 skipped / 0 failed**
+(`build/logs/te73-units-verify8.log`, 54.1 s) and `T5449ThreadProfileUITests` **1 run / 0 failed**,
+30.7 s (`build/logs/te73-live-verify5.log`).
+
 
