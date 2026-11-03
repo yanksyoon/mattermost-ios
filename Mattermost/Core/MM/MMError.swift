@@ -65,6 +65,28 @@ extension MMError: LocalizedError {
     }
 }
 
+extension MMError {
+    /// The HTTP status this failure came from, when it came from one.
+    ///
+    /// The reader-facing copy does not need it (it is the same sentence for a 403 and a 404), but a
+    /// log line does: a live test that says "the server does not hold the write" cannot be diagnosed
+    /// from the sheet alone, and a transport failure that never reached the server must not be
+    /// mistaken for a refusal (T48-AV §F6). `nil` means "no HTTP answer" — offline, timeout, a decode
+    /// failure — not "unknown status".
+    var httpStatus: Int? {
+        switch self {
+        case .unauthorized, .mfaRequired, .invalidMFA: return 401
+        case .forbidden: return 403
+        case .notFound: return 404
+        case .rateLimited: return 429
+        case .server(let status, _), .client(let status, _): return status
+        case .timeout, .offline, .certificateUntrusted, .cancelled, .malformedResponse, .transport,
+             .invalidURL, .notSignedIn:
+            return nil
+        }
+    }
+}
+
 /// Transport-level failures, before any HTTP semantics exist. Kept separate from `MMError` so the
 /// retry policy can decide on `APITransportError` alone, and so a test fake can return exactly
 /// the failure a real `URLSession` would.

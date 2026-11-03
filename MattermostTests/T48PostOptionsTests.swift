@@ -606,4 +606,61 @@ final class T48PostOptionsTests: XCTestCase {
         XCTAssertTrue(offered.contains(.edit), "my own post, `edit_post`, not archived")
         XCTAssertTrue(offered.contains(.delete), "my own post, `delete_post`, not archived")
     }
+
+    // MARK: - A refused write is diagnosable from the log (T48-AV §F6)
+
+    /// The mapping a log line depends on: a refusal names the status it came from, and a failure
+    /// that never reached the server says so rather than inventing one.
+    func testTheHttpStatusIsTheOneTheRefusalCameFrom() {
+        XCTAssertEqual(MMError.forbidden(message: nil).httpStatus, 403)
+        XCTAssertEqual(MMError.unauthorized(message: nil).httpStatus, 401)
+        XCTAssertEqual(MMError.notFound.httpStatus, 404)
+        XCTAssertEqual(MMError.rateLimited(retryAfter: 3).httpStatus, 429)
+        XCTAssertEqual(MMError.server(status: 503, message: nil).httpStatus, 503)
+        XCTAssertEqual(MMError.client(status: 422, message: nil).httpStatus, 422)
+        XCTAssertNil(MMError.timeout.httpStatus, "no HTTP answer is not a status")
+        XCTAssertNil(MMError.offline.httpStatus)
+    }
+
+    /// A live run that says "the server does not hold it" must be traceable in the app's own log:
+    /// the option, the post and the status, at error level, once per refused write.
+    func testARefusedWriteLogsTheOptionTheStatusAndThePost() async {
+        let service = FakePostOptionsService()
+        let options = model(service)
+        let row = row()
+        await options.activate(teamID: teamID, teamName: "perf")
+        service.failure = MMError.forbidden(message: nil)
+
+        var lines: [String] = []
+        let previous = Logger.testSink
+        Logger.testSink = { lines.append($0) }
+        defer { Logger.testSink = previous }
+
+        guard case .failed = await options.perform(.pin, row: row) else {
+            return XCTFail("a refused pin must come back as .failed")
+        }
+        XCTAssertEqual(lines.count, 1, "one error line per refused write, got \(lines)")
+        let line = lines.first ?? ""
+        XCTAssertTrue(line.contains("pin"), "the line must name the option: \(line)")
+        XCTAssertTrue(line.contains(row.id), "the line must name the post: \(line)")
+        XCTAssertTrue(line.contains("403"), "the line must name the HTTP status: \(line)")
+    }
+
+    func testAWriteThatNeverReachedTheServerLogsNoStatus() async {
+        let service = FakePostOptionsService()
+        let options = model(service)
+        let row = row()
+        await options.activate(teamID: teamID, teamName: "perf")
+        service.failure = MMError.timeout
+
+        var lines: [String] = []
+        let previous = Logger.testSink
+        Logger.testSink = { lines.append($0) }
+        defer { Logger.testSink = previous }
+
+        _ = await options.perform(.save, row: row)
+        let line = lines.first ?? ""
+        XCTAssertTrue(line.contains("save"), "the line must name the option: \(line)")
+        XCTAssertTrue(line.contains("HTTP none"), "a timeout has no status, and must not fake one: \(line)")
+    }
 }

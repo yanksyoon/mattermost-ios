@@ -539,6 +539,13 @@ struct PostRowView: View {
 /// ordered derivation (T48/S38) — so the sheet cannot draw an option the host cannot perform, and the
 /// order is upstream's `post_options.tsx`.
 ///
+/// It has two forms, and they differ in one thing only: **how they are dismissed.** A host that is
+/// the root of a presentation gets it as a sheet (Cancel in the toolbar); a host already inside a
+/// presentation — the regular layout's lookup sheet, the pinned sheet — gets it **pushed** on that
+/// stack (`PostOptionsLookup.swift`, `showsCancel: false`, the stack's back button). See
+/// `PostOptionsPresentationMode` for the measured reason (a nested sheet's confirmation action is the
+/// shape T40 measured failing).
+///
 /// The sheet **observes** the options model rather than taking a snapshot of the row's state, because
 /// half of what decides the rows arrives after the first draw (`GET /roles/names`, the `flagged_post`
 /// preferences) and the other half moves over the socket (a pin or a save from another client). A
@@ -556,6 +563,15 @@ struct PostOptionsSheet: View {
     let surface: PostOptionsSurface
     @ObservedObject var options: PostOptionsViewModel
     var onDismiss: () -> Void = {}
+    /// Whether this form draws its own Cancel. False when the sheet is **pushed** onto a stack that
+    /// already carries a presentation: the stack's back button is the dismissal, and a second
+    /// cancel-shaped control on a push is a control that does not exist anywhere else in this app
+    /// (`PushedProfileScreen` has the same rule).
+    var showsCancel: Bool = true
+    /// A write that landed (`.performed` only — a copy is not a write), before the dismissal, so a
+    /// host list can settle itself. Lookup hosts use it to drop an unsaved/unpinned row; the channel
+    /// pane passes nothing, because its own socket patch already moved the row.
+    var onPerformed: ((PostOptionID, String) -> Void)? = nil
 
     /// The option whose write is in flight (sheet-local so the list's rows can be disabled one at a
     /// time without the model publishing mid-dismiss).
@@ -617,9 +633,11 @@ struct PostOptionsSheet: View {
             .navigationTitle("Message actions")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { onDismiss() }
-                        .accessibilityIdentifier("postOptions.cancel")
+                if showsCancel {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { onDismiss() }
+                            .accessibilityIdentifier("postOptions.cancel")
+                    }
                 }
             }
             .accessibilityIdentifier("postOptions.\(rowID)")
@@ -680,17 +698,31 @@ struct PostOptionsSheet: View {
         case .copied(let text):
             // The pasteboard is the effect: the model decided *what* the link is (from the server's own
             // team name), this puts it where the reader can paste it. The value is shown at once and
-            // then verified on the next turn — UIPasteboard's write reaches the system pasteboard
-            // asynchronously, so an immediate read-back can answer the *previous* string.
+            // then verified — `UIPasteboard`'s write reaches the system pasteboard asynchronously, so
+            // an immediate read-back can answer the *previous* string.
+            //
+            // One read 400 ms later is not enough (T48-AV §F6: Copy Link matched the server's own
+            // permalink and Copy Text, the same mechanism one tap later, reported "not copied" for a
+            // string that had landed). Poll while the window is open and withdraw the row only when
+            // it closes with the string still absent — the row is the only evidence the suite accepts
+            // for a copy, and a false negative makes a working product look broken.
             UIPasteboard.general.string = text
             copied = text
             Task {
-                try? await Task.sleep(nanoseconds: 400_000_000)
+                let deadline = Date().addingTimeInterval(2)
+                while Date() < deadline {
+                    if UIPasteboard.general.string == text { return }
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                }
                 guard UIPasteboard.general.string != text else { return }
                 copied = nil
                 failure = "Could not put this on the clipboard."
             }
         case .performed:
+            // The host list hears about a landed write before this screen goes away: an unsave on
+            // the Saved tab or an unpin in the pinned sheet has to leave the list, and the only
+            // moment that is still reliable is before the dismissal animation.
+            onPerformed?(option, rowID)
             onDismiss()
         case .failed(let message):
             failure = message

@@ -53,7 +53,26 @@ final class T48PostOptionsUITests: XCTestCase {
     private var secondToken: String!
     private var secondUserID: String!
 
+    /// The app this run drove, so a red run can attach what was on screen.
+    private var app: XCUIApplication?
+
     override func setUpWithError() throws {
+        // A failure must carry the screen it failed on. Every `attach` call in this file sits on the
+        // success path — before this block, a red run said "the row never appeared" and nothing
+        // about what the app was drawing instead (T48-AV §F6).
+        //
+        // `totalFailureCount` is read in teardown, before XCTest settles the case: `hasSucceeded` is
+        // still false there for a test that passed, so keying on it attached a screenshot to every
+        // green test as well (measured on this host, run 1 — five `t48-failure-…` images, four of
+        // them green).
+        addTeardownBlock { [weak self] in
+            guard let self, let app = self.app, app.state != .notRunning,
+                  (self.testRun?.totalFailureCount ?? 0) > 0 else { return }
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "t48-failure-\(self.name)"
+            shot.lifetime = .keepAlways
+            self.add(shot)
+        }
         let env = ProcessInfo.processInfo.environment
         let raw = env["MM_AUTH_SERVER"] ?? ""
         loginID = env["MM_AUTH_LOGIN"] ?? ""
@@ -111,7 +130,7 @@ final class T48PostOptionsUITests: XCTestCase {
 
         // Copy Link — the string shown is read back from the pasteboard by the sheet itself.
         revealOption(app, "postOptions.copyLink").tap()
-        let copied = revealOption(app, "postOptions.copied")
+        let copied = revealAppendedRow(app, "postOptions.copied")
         XCTAssertTrue(copied.exists,
                       "a copy that did not reach the pasteboard must not claim it did:\n"
                       + app.debugDescription)
@@ -125,11 +144,14 @@ final class T48PostOptionsUITests: XCTestCase {
         attach(app, "t48-02-copied-link")
         revealOption(app, "postOptions.done").tap()
 
-        // Copy Text — the message body.
+        // Copy Text — the message body, through the same pasteboard read-back.
         openMenu(app, postID: postID)
         revealOption(app, "postOptions.copyText").tap()
-        XCTAssertTrue(revealOption(app, "postOptions.copied").waitForExistence(timeout: 20))
-        XCTAssertEqual(copied.label, message, "Copy Text must copy the message, not the permalink")
+        let copiedText = revealAppendedRow(app, "postOptions.copied")
+        XCTAssertTrue(copiedText.exists,
+                      "Copy Text must show the row that only appears after the app read the string "
+                      + "back out of the pasteboard:\n\(app.debugDescription)")
+        XCTAssertEqual(copiedText.label, message, "Copy Text must copy the message, not the permalink")
         revealOption(app, "postOptions.done").tap()
     }
 
@@ -259,6 +281,7 @@ final class T48PostOptionsUITests: XCTestCase {
     /// only when the form is actually up.
     private func launchOnFixtureChannel() throws -> XCUIApplication {
         let app = XCUIApplication()
+        self.app = app
         app.launchArguments = ["-uiTestResetPersistedState",
                                "-uiTestForgetSession", serverURL.absoluteString,
                                "-uiTestSeedServer", serverURL.absoluteString,
@@ -392,6 +415,25 @@ final class T48PostOptionsUITests: XCTestCase {
         return condition()
     }
 
+    /// A sheet row that is appended **after** an asynchronous step — `postOptions.copied` appears only
+    /// once the app has read the string back out of the pasteboard, up to ~2 s after the tap.
+    ///
+    /// A single `revealOption` cannot express this: it bursts its swipes while the row does not exist
+    /// yet and then stops, so the row is drawn below the fold with nothing left to scroll. Poll and
+    /// scroll together, and stop the moment it exists.
+    @discardableResult
+    private func revealAppendedRow(_ app: XCUIApplication, _ identifier: String,
+                                   timeout: TimeInterval = 20) -> XCUIElement {
+        let target = element(app, identifier)
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if target.exists { return target }
+            app.swipeUp()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+        return target
+    }
+
     /// A channel row that may be outside the viewport (`LazyVStack`: an off-screen row is not in the
     /// tree at all).
     @discardableResult
@@ -453,7 +495,11 @@ final class T48PostOptionsUITests: XCTestCase {
         let (data, response) = try synchronous(request)
         let http = response as? HTTPURLResponse
         let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let token = (body?["token"] as? String) ?? http?.value(forHTTPHeaderField: "Token")
+        // The session's own header, not the body copy: this is the credential every later request
+        // sends, and the header is the form T47-AV measured as surviving a cookie-free session
+        // (`T47CreateChannelAVUITests.authenticate`). The body copy is only a fallback for a server
+        // that omits the header.
+        let token = http?.value(forHTTPHeaderField: "Token") ?? (body?["token"] as? String)
         guard http?.statusCode == 200, let token, let id = body?["id"] as? String else {
             throw XCTSkip("could not sign in as \(login) on the live server")
         }
@@ -566,10 +612,24 @@ final class T48PostOptionsUITests: XCTestCase {
         return json
     }
 
+    /// This suite's own REST session — **no cookie store**.
+    ///
+    /// `URLSession.shared` carries `MMAUTHTOKEN` between tests in one runner process; T47-AV measured
+    /// that a stale cookie makes a *correct* login answer 401 (`docs/t47-av-build-note.md`, and
+    /// `T47CreateChannelAVUITests.restSession` for the fix). The Authorization header this file builds
+    /// is the only credential a request should carry.
+    private static let restSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieAcceptPolicy = .never
+        return URLSession(configuration: configuration)
+    }()
+
     private func synchronous(_ request: URLRequest) throws -> (Data, URLResponse) {
         let semaphore = DispatchSemaphore(value: 0)
         var result: Result<(Data, URLResponse), Error>?
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        Self.restSession.dataTask(with: request) { data, response, error in
             if let error {
                 result = .failure(error)
             } else {

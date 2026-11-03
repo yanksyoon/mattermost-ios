@@ -292,6 +292,13 @@ final class PostOptionsViewModel: ObservableObject {
             }
             return .performed
         } catch {
+            // The sheet draws the reader's sentence; the log is what tells a refused write from a
+            // tap that never reached the action. Without the status, a live run that says "the
+            // server does not hold it" cannot be traced to a 403, a 401 or a timeout (T48-AV §F6).
+            let status = (error as? MMError)?.httpStatus
+            Logger.error("T48",
+                         "post option \(option.rawValue) failed for post \(row.id) in channel "
+                         + "\(channelID): HTTP \(status.map(String.init) ?? "none") — \(error)")
             return .failed(Self.writeMessage(for: error, option: option))
         }
     }
