@@ -42,6 +42,13 @@ struct CreateChannelView: View {
             // answer); loading twice would be two `POST /roles/names`.
             if model.phase != .ready { await model.load() }
         }
+        .onDisappear {
+            // T47-AV F6: the model outlives this sheet (one per server+team in
+            // `ChannelInfoCoordinator`, because the sidebar's `+` reads the same permission answer),
+            // so the sheet is what tells it the attempt is over. Cancel, a swipe-down and a
+            // successful create all end here — reopening must show an empty form.
+            model.resetDraft()
+        }
         .accessibilityIdentifier("createChannel.sheet")
     }
 }

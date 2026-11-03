@@ -124,19 +124,29 @@ struct NativeChannelSidebarContent: View {
         // The unread-thread count is the threads list's own view of the world — the same endpoint the
         // pane pages, asked once for the sidebar (and reused when the pane opens, so it is not paid
         // for twice). No team yet means nothing to count; the task re-runs when the team resolves.
+        //
+        // T47-AV F1: this is its **own** task, deliberately. It used to be the first statement of the
+        // task that also loaded the create model, which meant one slow `GET …/threads` left the
+        // sidebar without a `+` for as long as it ran (measured: 30 s after sign-in, no
+        // `nativeSidebarCreateMenu`). Two `.task`s are two tasks; neither read can starve the other.
         .task(id: model.teamID) {
             guard let teamID = model.teamID, !teamID.isEmpty else { return }
             let resolved = threads.globalModel(for: server, teamID: teamID)
             globalThreads = resolved
             await resolved.load(ifNeeded: true)
-            // T47: resolve the create menu's model (and its permission answer) for the team on screen.
-            // Loaded here rather than when the menu opens so the `+` is drawn only once the server has
-            // said what this reader may create — the menu never lists an action that would be refused.
+        }
+        // T47: resolve the create menu's model (and its permission answer) for the team on screen.
+        // Loaded here rather than when the menu opens so the `+` is drawn only once the server has
+        // said what this reader may create — the menu never lists an action that would be refused.
+        // The models are handed over **before** the first `await`, so the header has them as soon as
+        // this task is scheduled, and the permission read runs concurrently with the threads read.
+        .task(id: model.teamID) {
+            guard let teamID = model.teamID, !teamID.isEmpty else { return }
             let create = channelInfo.createModel(for: server, teamID: teamID)
             createModel = create
-            if create.phase != .ready { await create.load() }
             let directMessages = channelInfo.directMessageModel(for: server, teamID: teamID)
             directMessageModel = directMessages
+            if create.phase != .ready { await create.load() }
         }
         .sheet(isPresented: $quickSwitcherPresented) {
             QuickSwitcherView(model: model) { entry in
@@ -874,6 +884,11 @@ private struct ThreadsRailRow: View {
 ///
 /// A model that has answered and offers nothing draws no `+` at all: a create entry that opens an empty
 /// sheet is worse than no entry.
+///
+/// A model whose permission read **failed** is the other case, and it used to draw no `+` either — the
+/// same shape as "you may not", with the failure's own retry locked inside the sheet this button opens
+/// (T47-AV F1). It now draws the `+` and says which of the two it is: the menu carries the failure
+/// sentence and a "Try again" that re-runs `load()`.
 private struct ChannelCreateMenuButton: View {
     @ObservedObject var model: ChannelCreateViewModel
     @Binding var createChannel: Bool
@@ -883,13 +898,33 @@ private struct ChannelCreateMenuButton: View {
     @State private var menuPresented = false
 
     var body: some View {
-        if !model.menuActions.isEmpty {
+        if let failure = model.failureMessage {
             Button {
                 menuPresented = true
             } label: {
-                Image(systemName: "plus")
-                    .font(.footnote.weight(.semibold))
-                    .contentShape(Rectangle())
+                plus
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Create")
+            .accessibilityValue(failure)
+            .accessibilityHint("Your permissions could not be read. Try again.")
+            .accessibilityIdentifier("nativeSidebarCreateMenu")
+            .confirmationDialog("Create", isPresented: $menuPresented, titleVisibility: .visible) {
+                Button("Try again") {
+                    // The retry the form used to own, where it was unreachable. `load()` re-runs the
+                    // same reads; on success `failureMessage` clears and the ordinary menu returns.
+                    Task { await model.load() }
+                }
+                .accessibilityIdentifier("nativeSidebarCreateRetry")
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(failure)
+            }
+        } else if !model.menuActions.isEmpty {
+            Button {
+                menuPresented = true
+            } label: {
+                plus
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Create")
@@ -918,6 +953,13 @@ private struct ChannelCreateMenuButton: View {
                 Button("Cancel", role: .cancel) {}
             }
         }
+    }
+
+    /// The `+` itself — one shape for both states, so the two cannot drift apart on screen.
+    private var plus: some View {
+        Image(systemName: "plus")
+            .font(.footnote.weight(.semibold))
+            .contentShape(Rectangle())
     }
 }
 

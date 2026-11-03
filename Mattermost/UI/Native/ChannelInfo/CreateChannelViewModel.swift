@@ -77,6 +77,18 @@ final class ChannelCreateViewModel: ObservableObject {
     /// Whether the kind toggle is drawn at all: one creatable kind means nothing to choose.
     var showsKindToggle: Bool { creatableKinds.count > 1 }
 
+    /// The permission lookup's own failure sentence, or `nil`.
+    ///
+    /// It exists so the sidebar can tell the two empty menus apart: `permissions == .none` after a
+    /// `.ready` answer means "this reader may not create", while a `.failed` answer means "the server
+    /// could not be asked". Drawing no `+` for both made the failure unreachable — its retry lived in
+    /// the sheet the `+` opens (T47-AV F1, measured: a `+` absent for a whole 30 s session while the
+    /// permission reads were failing, and nothing said why).
+    var failureMessage: String? {
+        if case .failed(let message) = phase { return message }
+        return nil
+    }
+
     // MARK: Loading
 
     /// Resolve the permission union: my system roles (`GET /users/me`), the team membership's roles, and
@@ -88,12 +100,19 @@ final class ChannelCreateViewModel: ObservableObject {
         errorMessage = nil
         do {
             let principal = try await service.principal()
-            let teamMembership = try? await service.myTeamMembership(teamID: teamID)
+            // Both of these reads are required, and both must be able to fail the load.
+            //
+            // `try?` on either one turned a failed read into "your roles confer nothing", i.e.
+            // `permissions == .none`, which is indistinguishable from "you may not create" — the `+`
+            // was not drawn and the retry inside the form was behind the `+` (T47-AV F1). A role the
+            // server *answers without* still contributes nothing (the service drops unknown names);
+            // a read that did not happen is now a `.failed` phase with a reachable retry.
+            let teamMembership = try await service.myTeamMembership(teamID: teamID)
             guard token == generation else { return }
             let roleNames = ChannelPermissions.roleNames(systemRoles: principal.roles,
-                                                         teamRoles: teamMembership?.roles ?? "",
+                                                         teamRoles: teamMembership.roles,
                                                          channelRoles: "")
-            let roles = (try? await service.rolePermissions(names: roleNames)) ?? []
+            let roles = try await service.rolePermissions(names: roleNames)
             guard token == generation else { return }
             let permissions = ChannelCreatePermissions.derive(from: ChannelPermissions.union(roles: roles))
             self.permissions = permissions
@@ -176,8 +195,21 @@ final class ChannelCreateViewModel: ObservableObject {
         }
     }
 
-    /// Forget the created channel once the host has navigated (a re-presented sheet must not re-open it).
-    func consumeCreatedChannel() { createdChannel = nil }
+    /// Start over: an empty draft, no error sentence, nothing left to consume.
+    ///
+    /// The model is one per (server, team) in `ChannelInfoCoordinator` — it outlives the sheet on
+    /// purpose, because its permission answer is what the sidebar's `+` draws from. The sheet is
+    /// therefore what tells it the attempt is over: `CreateChannelView` calls this when it goes away,
+    /// so Cancel, a swipe-down and a completed create all leave an empty form behind (T47-AV F6,
+    /// measured: a half-typed name and its derived URL survived Cancel → reopen).
+    ///
+    /// The fresh draft opens on the first kind the reader may actually create, the same rule `load()`
+    /// applies to the very first draft — reopening must not offer a kind the submit would refuse.
+    func resetDraft() {
+        draft = ChannelCreateDraft(kind: permissions.creatableKinds.first ?? .open)
+        errorMessage = nil
+        createdChannel = nil
+    }
 
     /// The failure copy. The duplicate-name case is the one a reader can act on, and the server's own
     /// sentence for it is already exact ("A channel with that name already exists on the same team."),
@@ -337,8 +369,6 @@ final class NewDirectMessageViewModel: ObservableObject {
             return nil
         }
     }
-
-    func consumeOpenedChannel() { openedChannel = nil }
 
     // MARK: Helpers
 

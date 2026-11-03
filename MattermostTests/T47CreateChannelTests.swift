@@ -34,6 +34,10 @@ final class T47CreateChannelTests: XCTestCase {
                                          roles: "system_user")
         var teamRoles = "team_user"
         var rolesByName: [String: MMRole] = [:]
+        /// Failures for the permission path, so "could not ask" can be told apart from "may not".
+        var principalFailure: Error?
+        var teamMembershipFailure: Error?
+        var rolesFailure: Error?
         var createFailure: Error?
         var createAnswer: (MMChannelCreate) -> MMChannel = { body in
             MMChannel(id: "chan0000000000000000000001",
@@ -106,10 +110,14 @@ final class T47CreateChannelTests: XCTestCase {
 
         func channel(id: String) async throws -> MMChannel { throw MMError.notFound }
         func stats(channelID: String) async throws -> MMChannelStats { MMChannelStats(channelID: channelID) }
-        func principal() async throws -> MMPrincipal { principalValue }
+        func principal() async throws -> MMPrincipal {
+            if let principalFailure { throw principalFailure }
+            return principalValue
+        }
         func myMembership(channelID: String) async throws -> MMChannelMember { throw MMError.notFound }
         func myTeamMembership(teamID: String) async throws -> MMTeamMembership {
-            MMTeamMembership(userId: principalValue.id, teamId: teamID, roles: teamRoles)
+            if let teamMembershipFailure { throw teamMembershipFailure }
+            return MMTeamMembership(userId: principalValue.id, teamId: teamID, roles: teamRoles)
         }
         /// This fake only answers about its own principal (see `T40ChannelInfoTests`' note).
         func teamMembership(teamID: String, userID: String) async throws -> MMTeamMembership {
@@ -119,6 +127,7 @@ final class T47CreateChannelTests: XCTestCase {
         }
         func rolePermissions(names: [String]) async throws -> [MMRole] {
             roleRequests.append(names)
+            if let rolesFailure { throw rolesFailure }
             return names.compactMap { rolesByName[$0] }
         }
         func members(channelID: String, page: Int, perPage: Int) async throws -> [MMChannelMember] { [] }
@@ -559,6 +568,126 @@ final class T47CreateChannelTests: XCTestCase {
         XCTAssertNil(channel, "Public was requested; a Private answer is not the requested channel")
         XCTAssertNil(model.createdChannel)
         XCTAssertEqual(model.errorMessage, "The server answered a channel this app did not ask for.")
+    }
+
+    // MARK: - 5c. A failed permission read is not "no permission" (T47-AV F1)
+
+    /// The two empty menus must not look alike. `load()` used to swallow a failed `POST /roles/names`
+    /// (and a failed team-membership read) into an empty permission set, which is exactly what a reader
+    /// with no create permission has: the sidebar then drew no `+` and said nothing. Now the phase says
+    /// *why* it is empty, and `failureMessage` is what the sidebar draws the retry from.
+    func testAFailedRoleReadIsAFailureAndNotAnEmptyMenuOfNoPermission() async {
+        let service = FakeCreateService()
+        service.grant([ChannelCreatePermissionID.createPublicChannel])
+        service.rolesFailure = MMError.offline
+        let model = makeModel(service)
+
+        await model.load()
+
+        XCTAssertTrue(isFailed(model), "a read that did not happen must not be reported as an answer")
+        XCTAssertNotNil(model.failureMessage)
+        XCTAssertFalse(model.menuActions.contains(.createChannel),
+                       "the grant was never learned, so no action is honest")
+
+        // The reader who *did* get an answer that grants nothing is the other case: `.ready`, no
+        // failure sentence, an empty menu. Both draw no action — only one of them may claim "you may
+        // not", and this one is the one that may.
+        let denied = makeModel(FakeCreateService())
+        await denied.load()
+        XCTAssertFalse(isFailed(denied))
+        XCTAssertNil(denied.failureMessage)
+        XCTAssertEqual(denied.phase, .ready)
+        XCTAssertTrue(denied.menuActions.isEmpty)
+    }
+
+    /// The retry must re-run the read, not re-render the old answer: after the failure clears, the very
+    /// same model — the object the sidebar's `+` observes — becomes `.ready` and offers the menu.
+    func testARetryAfterAFailedReadLoadsAgainAndOffersTheMenu() async {
+        let service = FakeCreateService()
+        service.grant([ChannelCreatePermissionID.createPublicChannel])
+        service.rolesFailure = MMError.timeout
+        let model = makeModel(service)
+
+        await model.load()
+        XCTAssertNotNil(model.failureMessage)
+
+        service.rolesFailure = nil
+        await model.load()          // what the menu's "Try again" runs
+
+        XCTAssertNil(model.failureMessage)
+        XCTAssertEqual(model.phase, .ready)
+        XCTAssertEqual(model.menuActions, [.createChannel])
+        XCTAssertEqual(service.roleRequests.count, 2, "the retry made a second POST /roles/names")
+    }
+
+    /// The team-membership read is the other half of the union. It used to be `try?`-swallowed, so a
+    /// failure silently dropped the team roles and could hide a permission the reader holds.
+    func testAFailedTeamMembershipReadFailsTheLoadInsteadOfDroppingTheTeamRoles() async {
+        let service = FakeCreateService()
+        service.grant([ChannelCreatePermissionID.createPublicChannel], to: ["team_user"])
+        service.teamMembershipFailure = MMError.offline
+        let model = makeModel(service)
+
+        await model.load()
+
+        XCTAssertTrue(isFailed(model))
+        XCTAssertNotNil(model.failureMessage)
+        XCTAssertTrue(service.roleRequests.isEmpty,
+                      "nothing is asked about roles that were never named")
+
+        service.teamMembershipFailure = nil
+        await model.load()
+        XCTAssertEqual(model.menuActions, [.createChannel], "the team grant survives a successful read")
+    }
+
+    // MARK: - 5d. A dismissed draft starts over (T47-AV F6)
+
+    /// Measured live: a half-typed name and its derived URL survived Cancel → reopen, because the model
+    /// is one per (server, team) and nothing reset it. `resetDraft()` is what the sheet runs when it
+    /// goes away; it must leave nothing of the previous attempt behind — fields, error, or channel.
+    func testResetDraftEmptiesTheFieldsTheErrorAndTheCreatedChannel() async {
+        let service = FakeCreateService()
+        service.grant([ChannelCreatePermissionID.createPublicChannel])
+        let model = makeModel(service)
+        await model.load()
+
+        model.draft.setDisplayName("T47 Half Typed")
+        model.draft.purpose = "half a purpose"
+        model.draft.header = "half a header"
+        XCTAssertEqual(model.draft.urlName, "t47-half-typed", "the URL follows the name before the reset")
+        let channel = await model.create()
+        XCTAssertEqual(channel?.id, "chan0000000000000000000001")
+        XCTAssertNotNil(model.createdChannel)
+
+        model.resetDraft()
+
+        XCTAssertEqual(model.draft.displayName, "")
+        XCTAssertEqual(model.draft.urlName, "", "the derived URL goes with the name")
+        XCTAssertFalse(model.draft.urlNameEdited)
+        XCTAssertEqual(model.draft.purpose, "")
+        XCTAssertEqual(model.draft.header, "")
+        XCTAssertNil(model.createdChannel, "a completed create does not stay published either")
+        XCTAssertNil(model.errorMessage)
+    }
+
+    /// A reset form must not open on a kind the submit would refuse — the same rule the first draft
+    /// follows when the reader may only create private channels.
+    func testAResetDraftOpensOnAKindTheReaderMayCreate() async {
+        let service = FakeCreateService()
+        service.grant([ChannelCreatePermissionID.createPrivateChannel])
+        let model = makeModel(service)
+        await model.load()
+        XCTAssertEqual(model.draft.kind, .privateChannel)
+
+        model.resetDraft()
+
+        XCTAssertEqual(model.draft.kind, .privateChannel)
+        XCTAssertTrue(model.permissions.canCreate(model.draft.kind))
+    }
+
+    private func isFailed(_ model: ChannelCreateViewModel) -> Bool {
+        if case .failed = model.phase { return true }
+        return false
     }
 
     // MARK: - 6. The direct-message picker

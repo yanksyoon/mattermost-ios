@@ -14,6 +14,11 @@
 //      nothing is sent by the relaunch.
 //   4. **one tap, twice.** `POST /channels/direct` is create-or-find; opening the same conversation a
 //      second time must not leave a second channel behind.
+//   5. **the `+` under a stalled read** (T47-AV-R1 F1a) and **a failed permission read's retry**
+//      (F1b): both need a transport that bends one endpoint, which is
+//      `scripts/t47_r1_fixture_proxy.py`. They skip unless `TEST_RUNNER_MM_AV_STALL_SERVER` /
+//      `TEST_RUNNER_MM_AV_PERMISSION_SERVER` point at it.
+//   6. **a dismissed draft** (F6) is asserted by test 3: Cancel → reopen shows an empty form.
 //
 // Run (the fixture and account from docs/t47-av-build-note.md):
 //
@@ -38,6 +43,10 @@ final class T47CreateChannelAVUITests: XCTestCase {
     private var adminPassword: String!
     private var restrictedLogin: String!
     private var restrictedPassword: String!
+    /// Optional fixtures for the two T47-AV-R1 repairs (`scripts/t47_r1_fixture_proxy.py`). Absent
+    /// values skip the two tests that need them rather than inventing a result.
+    private var stallServer: String!
+    private var permissionServer: String!
     private var token: String!
     private var userID: String!
     private var teamID: String!
@@ -51,6 +60,8 @@ final class T47CreateChannelAVUITests: XCTestCase {
         adminPassword = env["MM_AUTH_PASSWORD"] ?? ""
         restrictedLogin = env["MM_AV_RESTRICTED_LOGIN"] ?? ""
         restrictedPassword = env["MM_AV_RESTRICTED_PASSWORD"] ?? ""
+        stallServer = env["MM_AV_STALL_SERVER"] ?? ""
+        permissionServer = env["MM_AV_PERMISSION_SERVER"] ?? ""
         try XCTSkipUnless(!raw.isEmpty && !adminLogin.isEmpty && !adminPassword.isEmpty,
                           "Live create-channel AV test: set TEST_RUNNER_MM_AUTH_SERVER / _LOGIN / _PASSWORD")
         guard let url = URL(string: raw), url.host != nil else {
@@ -213,17 +224,26 @@ final class T47CreateChannelAVUITests: XCTestCase {
         XCTAssertEqual(app.textFields["createChannel.urlName"].value as? String, urlName)
         XCTAssertEqual(try statusOfChannelNamed(urlName), 404, "nothing may have been sent yet")
 
-        // Cancel and reopen: the coordinator keeps one model per (server, team), and nothing resets
-        // its draft on dismiss, so the cancelled form comes back with what was typed. RECORDED
-        // BEHAVIOUR (see the AV note); a repair card is filed to reset it.
+        // Cancel and reopen. The model is one per (server, team) in `ChannelInfoCoordinator` — it
+        // outlives the sheet, because the sidebar's `+` draws from the same permission answer — so the
+        // sheet is what tells it the attempt is over (T47-AV-R1, F6). The reopened form must be empty:
+        // neither the typed name nor the URL it derived may come back.
         app.buttons["createChannel.cancel"].tap()
         XCTAssertTrue(waitUntil(timeout: 10) { !element(app, "createChannel.sheet").exists })
         control(app, "nativeSidebarCreateMenu").tap()
         openCreateMenuRow(app, "nativeSidebarCreate.createChannel")
         let reopened = app.textFields["createChannel.displayName"]
         XCTAssertTrue(reopened.waitForExistence(timeout: 20))
-        XCTAssertEqual(reopened.value as? String, displayName,
-                       "RECORDED BEHAVIOUR: a cancelled draft is kept by the coordinator's model")
+        // XCUITest reports an empty text field's placeholder as its `value`, so the assertion is the
+        // absence of the draft (and a disabled Create), not the presence of an empty string.
+        let reopenedName = (reopened.value as? String) ?? ""
+        XCTAssertFalse(reopenedName.contains(displayName),
+                       "a cancelled draft must not survive: the name field shows \"\(reopenedName)\"")
+        let reopenedURL = (app.textFields["createChannel.urlName"].value as? String) ?? ""
+        XCTAssertFalse(reopenedURL.contains(urlName),
+                       "the derived URL went with the name; the field shows \"\(reopenedURL)\"")
+        XCTAssertFalse(app.buttons["createChannel.submit"].isEnabled,
+                       "an empty draft cannot be submitted")
         XCTAssertEqual(try statusOfChannelNamed(urlName), 404, "reopening must not send it")
 
         app.terminate()
@@ -294,12 +314,114 @@ final class T47CreateChannelAVUITests: XCTestCase {
         attach(app, "av4-one-conversation")
     }
 
+    // MARK: - 5. The `+` does not wait behind an unrelated read (T47-AV-R1, F1a)
+
+    /// `ChannelSidebarView` used to load the create model as the second statement of the task that
+    /// first *awaited* `GET /users/me/teams/{id}/threads`, so one slow threads read starved the `+`
+    /// for as long as it ran (measured: 30 s after sign-in, `channelSidebar.loading` still spinning and
+    /// no `nativeSidebarCreateMenu`). The two reads are separate tasks now.
+    ///
+    /// The stall is real, not injected into the app: `scripts/t47_r1_fixture_proxy.py` holds that one
+    /// path for `--threads-delay` seconds and forwards everything else. The app is pointed at the
+    /// proxy, and the fixture's own counters prove the threads read was still in flight when the `+`
+    /// appeared — the claim is read from the thing that did the stalling.
+    func testTheCreateMenuAppearsWhileTheThreadsReadIsStalled() throws {
+        try XCTSkipUnless(!stallServer.isEmpty,
+                          "set TEST_RUNNER_MM_AV_STALL_SERVER "
+                          + "(python3 scripts/t47_r1_fixture_proxy.py --listen 8076 --threads-delay 60)")
+        guard let proxy = URL(string: stallServer) else {
+            throw XCTSkip("MM_AV_STALL_SERVER is not a URL: \(stallServer ?? "")")
+        }
+
+        let app = launchApp(logIn: adminLogin, password: adminPassword, server: proxy)
+        showSidebar(app)
+        let started = Date()
+        let plus = control(app, "nativeSidebarCreateMenu")
+        XCTAssertTrue(plus.waitForExistence(timeout: 25),
+                      "the `+` must not wait behind the threads read:\n\(app.debugDescription)")
+        let elapsed = Date().timeIntervalSince(started)
+        XCTAssertLessThan(elapsed, 45,
+                          "the `+` appeared only after \(elapsed)s — the threads read is stalled for 60s")
+
+        let status = try fixtureStatus(proxy)
+        XCTAssertGreaterThanOrEqual(status["threads_delayed"] as? Int ?? 0, 1,
+                                    "the fixture must have held the threads read")
+        XCTAssertGreaterThanOrEqual(status["threads_in_flight"] as? Int ?? 0, 1,
+                                    "the `+` arrived while a threads read was still in flight")
+        attach(app, "r1a-create-menu-while-threads-stalled")
+
+        // A menu, not a decoration: the create row opens the form.
+        plus.tap()
+        openCreateMenuRow(app, "nativeSidebarCreate.createChannel")
+        XCTAssertTrue(app.textFields["createChannel.displayName"].waitForExistence(timeout: 20),
+                      "the `+` drawn under a stalled read must still open the form:\n\(app.debugDescription)")
+    }
+
+    // MARK: - 6. A failed permission read is not "no permission" (T47-AV-R1, F1b)
+
+    /// `load()` turned a failed `POST /roles/names` (and a failed `GET …/members/me`) into an empty
+    /// permission set — the same state as a reader who may not create. The `+` was not drawn for
+    /// either, so the model's failure sentence and its retry lived in a sheet the `+` is the only way
+    /// into: unreachable.
+    ///
+    /// The fixture (`--fail-permission-reads 1`) refuses the first attempt and forwards the second, so
+    /// this test observes the retry's *effect*: the same `+`, opened again, is the real menu.
+    func testAFailedPermissionReadOffersARetryThatActuallyReloads() throws {
+        try XCTSkipUnless(!permissionServer.isEmpty,
+                          "set TEST_RUNNER_MM_AV_PERMISSION_SERVER "
+                          + "(python3 scripts/t47_r1_fixture_proxy.py --listen 8077 --fail-permission-reads 1)")
+        guard let proxy = URL(string: permissionServer) else {
+            throw XCTSkip("MM_AV_PERMISSION_SERVER is not a URL: \(permissionServer ?? "")")
+        }
+
+        let app = launchApp(logIn: adminLogin, password: adminPassword, server: proxy)
+        showSidebar(app)
+
+        // The answer failed, so the menu is honest about it — but it is drawn, and it can retry.
+        let plus = control(app, "nativeSidebarCreateMenu")
+        XCTAssertTrue(plus.waitForExistence(timeout: 30),
+                      "a failed permission read must not look like \"you may not\":\n\(app.debugDescription)")
+        plus.tap()
+        let retry = app.buttons.matching(identifier: "nativeSidebarCreateRetry").firstMatch
+        XCTAssertTrue(retry.waitForExistence(timeout: 10),
+                      "the failure must offer a reachable retry:\n\(app.debugDescription)")
+        let before = try fixtureStatus(proxy)
+        attach(app, "r1b-permission-read-failed-retry")
+        retry.tap()
+
+        // The retry re-ran the reads (the fixture forwards them now), so the real menu comes back.
+        XCTAssertTrue(waitUntil(timeout: 30) {
+            let plus = control(app, "nativeSidebarCreateMenu")
+            return plus.exists && plus.isHittable
+        }, "the `+` must come back after the retry:\n\(app.debugDescription)")
+        let createRow = app.buttons.matching(identifier: "nativeSidebarCreate.createChannel").firstMatch
+        var opened = 0
+        while !createRow.exists && opened < 3 {
+            let plus = control(app, "nativeSidebarCreateMenu")
+            if plus.exists && plus.isHittable { plus.tap() }
+            _ = createRow.waitForExistence(timeout: 6)
+            opened += 1
+        }
+        XCTAssertTrue(createRow.waitForExistence(timeout: 10),
+                      "the retry must re-run load() and offer the real menu:\n\(app.debugDescription)")
+
+        let after = try fixtureStatus(proxy)
+        XCTAssertGreaterThanOrEqual(after["permission_requests"] as? Int ?? 0,
+                                    (before["permission_requests"] as? Int ?? 0) + 1,
+                                    "the retry must have asked the server again, not re-rendered the old answer")
+        attach(app, "r1b-menu-after-retry")
+    }
+
     // MARK: - App driving
 
     private func launchApp(logIn login: String, password: String,
-                           keepingState: Bool = false) -> XCUIApplication {
+                           keepingState: Bool = false,
+                           server: URL? = nil) -> XCUIApplication {
+        // A test that points the app at a fixture proxy passes it here; everything the suite itself
+        // asks the server goes to `serverURL` (the real one) unless the proxy is transparent.
+        let target = server ?? serverURL!
         let app = XCUIApplication()
-        var arguments = ["-uiTestSeedServer", serverURL.absoluteString,
+        var arguments = ["-uiTestSeedServer", target.absoluteString,
                          "-uiTestSeedServerName", "Local Mattermost",
                          "-surfaceMode", "shell=native",
                          "-surfaceMode", "auth=native",
@@ -309,7 +431,7 @@ final class T47CreateChannelAVUITests: XCTestCase {
                          "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         if !keepingState {
             arguments = ["-uiTestResetPersistedState",
-                         "-uiTestForgetSession", serverURL.absoluteString] + arguments
+                         "-uiTestForgetSession", target.absoluteString] + arguments
         }
         app.launchArguments = arguments
         app.launchEnvironment["OS_ACTIVITY_MODE"] = "disable"
@@ -463,6 +585,19 @@ final class T47CreateChannelAVUITests: XCTestCase {
         request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
         let (_, response) = try synchronous(request)
         return (response as? HTTPURLResponse)?.statusCode ?? 0
+    }
+
+    /// The fixture proxy's own counters (`scripts/t47_r1_fixture_proxy.py`) — a timing claim is read
+    /// from the process that did the stalling, not from the screen it produced.
+    private func fixtureStatus(_ proxy: URL) throws -> [String: Any] {
+        var request = URLRequest(url: proxy.appendingPathComponent("__fixture/status"))
+        request.timeoutInterval = 5
+        let (data, response) = try synchronous(request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw XCTSkip("the fixture proxy at \(proxy.absoluteString) has no /__fixture/status")
+        }
+        return json
     }
 
     private func teammateOnTheTeam() throws -> [String: Any] {
