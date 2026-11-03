@@ -14,7 +14,7 @@ data dir (`~/Library/Developer/Xcode/DerivedData/t47avr2-dd`), not the shared
 `mattermost-ios-qa` one.
 
 **Fixture correction.** The card says "ops team has a deactivated member". Measured today
-(`scratch/t47avr2_fixture_probe.py`): **Ops has 9 active members and none deactivated**; the deactivated
+(`scripts/t47_avr2_probe.py`): **Ops has 9 active members and none deactivated**; the deactivated
 member is in **Perf**, the account this run's oracle uses —
 `@t429gone` (`dgsywreb67bs8p6s9eu8w8fskw`, `delete_at 1793303134446`), Perf being `GET
 /users/me/teams[0]` for `perfprobe`.
@@ -180,7 +180,7 @@ which failure it saw, with a retry that works (unit).
 
 `AddMembersViewModel.absorb` (`Mattermost/UI/Native/ChannelInfo/AddMembersViewModel.swift:190`) maps
 `GET /users?in_team=&not_in_channel=` with no `delete_at` check — the same F3 shape on the add-people
-picker. Measured with `scratch/t47avr2_addmembers_probe.py`:
+picker. Measured with `scripts/t47_avr2_probe.py` (the `add-people list` lines):
 
 ```
 perf-feed      not-in-channel rows= 16 deactivated=1 -> ['t429gone']
