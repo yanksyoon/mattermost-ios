@@ -103,10 +103,37 @@ never claims a delete that did not happen (`testAVetoedDeleteKeepsTheRowAndSaysS
 
 ## 5. Live results
 
-Filled from the run on the pinned fixture (see §8 for the exact command and the tree it ran on):
-`T51GlobalDraftsUITests` — the numbers below are the last run's.
+Run on the tree this note ships with: **487ffb0**, rebased onto `origin/main` `bde77c5`.
+Server: the pinned fixture at `127.0.0.1:8065` (Mattermost **9.11.19** Team Edition, account
+`perfprobe`). Simulator: iPhone 16 Pro, iOS 18.3.1 (`01027E41-0F01-43B9-87A4-266FC0292B62`),
+`parallel-testing-enabled NO`. The host was under extreme load during the run (load average
+270–1000 on 10 cores, swap ~16 of 19 GB); every run below is a real one, and the two earlier
+attempts that failed were XCTest failing to bootstrap its host ("Early unexpected exit … Test
+crashed with signal kill"), not product failures — the successful runs are the ones cited.
 
-TBD
+Command (the env supplies the fixture account; each test **skips**, never fails, without it):
+
+```
+TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 \
+TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
+TEST_RUNNER_MM_AUTH_PASSWORD=<fixture password> \
+python3 scripts/qa-test.py --platform ios --sim "id=01027E41-0F01-43B9-87A4-266FC0292B62" \
+  --derived-data ~/Library/Developer/Xcode/DerivedData/mmios-t51 \
+  --only-testing MattermostUITests/T51GlobalDraftsUITests --label t51-live \
+  -- -parallel-testing-enabled NO
+```
+
+`build/logs/t51-live.log` — `T51GlobalDraftsUITests` **2 tests, 0 failures, 0 skipped, 244.9 s**,
+`** TEST SUCCEEDED **`:
+
+| Test | Time | What it proves |
+| --- | --- | --- |
+| `testADraftIsFoundInTheListOpenedInItsChannelAndDeleted` | 116.97 s | a draft typed in `#t51-drafts` is listed after the channel is left; tapping the row opens that channel and the composer restores the text; Delete removes the row, and a new process still does not show it |
+| `testADraftSurvivesARelaunchAndIsReachableFromTheList` | 127.91 s | the app is killed and relaunched without the reset flag; the draft is found from the list alone and a **fresh** composer (this process never opened the channel) restores the text |
+
+Whole unit bundle, same tree, same simulator (`build/logs/t51-all-units.log`): **2020 tests,
+8 skipped, 0 failures** in 599.0 s, `** TEST SUCCEEDED **`. The 26 T51 tests are inside that
+number (`Test Suite 'T51GlobalDraftsTests' passed`, 26 tests, 0 failures).
 
 ## 6. Scheduled posts (S40): the measured refusal
 
@@ -137,9 +164,9 @@ Per the card's own branch, **no scheduling request ships in this tree**. Shippin
 shapes with nothing but a 404 to test against would be exactly the "untested requests" the card
 forbids. The scheduled half — the date/time picker converted to the server's offset, the pure
 derivation with its unit tests and mutation check, the four routes, the socket patches — is a named
-follow-up card created from this one (`T51-S: scheduled posts — the fixture answers 404 on every
-route; needs a licensed server`), carrying this measurement and the acceptance criteria from the
-original card's §2–§4.
+follow-up card created from this one (`T51-S`, card `t_e5f917f9`: *scheduled posts — the fixture
+answers 404 on every route; needs a licensed server*), carrying this measurement and the acceptance
+criteria from the original card's §2–§4.
 
 What the *drafts* half already gives that follow-up: `ComposerDraft.teamID` (§3) is the same fact a
 scheduled post needs, and `GlobalDraftDerivation.editedCopy` is the pure time-formatting precedent
@@ -168,4 +195,8 @@ the scheduling derivation should follow.
 
 ## 8. Publish
 
-Filled at commit time: see the closing comment on the card for the SHA and the `ls-remote` assertion.
+The code these numbers were measured on is commit `487ffb0`, rebased onto `origin/main` `bde77c5`.
+The publish commit (this note's final revision) and the assertion
+`git ls-remote origin refs/heads/main` == local `git rev-parse HEAD` are recorded in the card's
+closing comment, because a commit cannot name its own SHA. Staged by pathspec: the T51 paths only —
+the sibling cards' in-flight edits in the shared checkout were neither staged nor committed.
