@@ -1,32 +1,29 @@
 // T95-A — the phone shell's launch shape, asserted as **parity** rather than as a bug.
 //
-// Two claims, both from the decision record `docs/t95-shell-tab-bar-decision.md` (§2 D1, §3 D2):
+// Three claims, from the decision record `docs/t95-shell-tab-bar-decision.md` (§2 D1, §3 D2) as
+// amended by card `t_295b0a32` (the product owner's 2026-10-27 instruction: "launch into last opened
+// channel, or default to town hall"):
 //
-//   1. a launch with nothing saved lands on the channel list, with its tab bar — upstream's cold
-//      start restores the last thread, else the last channel, else `HOME`
-//      (`mattermost-mobile` v2.45.0 = `162f2560`, `app/init/launch.ts:245-262`, `:290-294`). There is
-//      no town-hall or first-channel fallback, so a reset launch (`-uiTestResetPersistedState` wipes
-//      `mm.native.lastChannel`) must show the tabs and **not** a pushed channel pane;
-//   2. opening a channel from the sidebar **covers** the tab bar (a `Back` chevron instead), and
-//      `Back` brings the bar back — upstream keeps its `Stack` above the `Tabs`, so a channel is a
-//      sibling route pushed over the tab navigator, and the Mobile v2 design slides the bar off in a
-//      channel on phone.
+//   1. a launch with nothing saved opens the team's **town hall** — not "No channel selected" and
+//      not an empty detail column. Upstream's cold start restores the last thread, else the last
+//      channel, else `HOME` (`mattermost-mobile` v2.45.0 = `162f2560`, `app/init/launch.ts:245-262`,
+//      `:290-294`) and has no town-hall fallback; T95-A followed it and the owner called the result a
+//      regression. The fallback is back (`LaunchDestination`), so this is the assertion that pins it;
+//   2. opening a channel from the sidebar **covers** the tab bar on compact (a `Back` chevron
+//      instead), and `Back` brings the bar back — upstream keeps its `Stack` above the `Tabs`, so a
+//      channel is a sibling route pushed over the tab navigator, and the Mobile v2 design slides the
+//      bar off in a channel on phone;
+//   3. on the regular layout the same launch selects the town hall in the **detail column** and the
+//      shell (split view) stays on screen.
 //
-// This test is the falsifier for both halves of the compact layout: reinstating the town-hall push
-// makes step 1 red (a `nativeChannelPane` at launch, no tab bar), and a future "keep the tab bar in
-// a channel" change makes step 2 red (tab bar still on screen under the pane). Both reds have been
-// **executed**, not assumed:
+// The falsifiers are real: deleting the fallback from `LaunchDestination.resolve` makes step 1 red
+// (`nativeChannelPane` never appears; the title never names the town hall), and a future "keep the
+// tab bar in a channel" change makes step 2 red (`app.tabBars.count == 0` while the pane is open).
+// Both reds were executed for T95-A's inverse policy (`docs/t95a-av2-build-note.md` §1–§2) and are
+// the same measurements run the other way.
 //
-//   * step 1's launch window (`firstMoment(within: launchWindow)`) reds when the town-hall fallback
-//     is reinstated in `LaunchDestination.request` — measured, with the elapsed time in the failure
-//     message (`docs/t95a-av2-build-note.md` §1);
-//   * step 2's `app.tabBars.count == 0` reds when the compact layout keeps the bar in a channel —
-//     the per-tab-stack mutant (a `NavigationStack` inside the Channels tab instead of above the
-//     `TabView`) was rendered for one run and this assertion failed on it
-//     (`docs/t95a-av2-build-note.md` §2).
-//
-// The regular half of D2 is a second test in this file,
-// `testTheRegularLayoutLandsOnTheSplitViewWithAnEmptyDetail`, and runs on an iPad destination; this
+// The regular half of the layout is a second test in this file,
+// `testTheRegularLayoutOpensTheTownHallInTheDetailColumn`, and runs on an iPad destination; this
 // method asserts the compact/phone half and skips elsewhere. Both share this file's fixture code —
 // no second fixture, no second helper.
 //
@@ -54,15 +51,6 @@ final class T95ShellLayoutUITests: XCTestCase {
     /// defaults, `town-hall` on the measured fixture (renamed by the admins). Read from the server,
     /// never hard-coded — and falling back to any public channel so a renamed default still runs.
     private var townHall: (id: String, name: String, displayName: String)!
-
-    /// How long "no destination at launch" is held for, once the channel directory is on screen.
-    ///
-    /// The shell decides its launch destination more than once (appearance, directory arrival, any
-    /// location change), so the claim has to be held across the interval in which a decide can still
-    /// land rather than sampled once. 20 s is well past the measured directory-arrival decide
-    /// (rows on screen ~1.5 s after sign-in) while keeping the green run at ~1 min; the reinstated
-    /// fallback reds inside 1 s of the window starting (`docs/t95a-av2-build-note.md` §1).
-    private let launchWindow: TimeInterval = 20
 
     /// A cookie-free session for the fixture reads: `URLSession.shared` carries a stale
     /// `MMAUTHTOKEN` in its cookie jar, which makes `POST /users/login` answer 401 `api.context.*`
@@ -95,70 +83,28 @@ final class T95ShellLayoutUITests: XCTestCase {
 
     // MARK: - The test
 
-    func testALaunchWithNothingSavedShowsTheTabBarAndAChannelPushCoversIt() throws {
+    func testTheCompactLaunchOpensTheTownHallAndItsPushCoversTheTabBar() throws {
         // D1 is the **phone** layout: tabs, and a channel pushed over them. The regular layout has no
         // tab bar at all (`NativeShellView.regularLayout`, deviation D-1 in the decision doc), so
         // this half is asserted on an iPhone destination and the split-view half in
-        // `testTheRegularLayoutLandsOnTheSplitViewWithAnEmptyDetail`.
+        // `testTheRegularLayoutOpensTheTownHallInTheDetailColumn`.
         try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone,
                       "D1 is the phone layout — run this method on an iPhone destination")
 
+        // A reset launch (`-uiTestResetPersistedState` wipes `mm.native.lastChannel`) has nothing
+        // saved. The owner's instruction says that launch lands on the team's town hall, so the
+        // town-hall push is the *expected* destination — this file is its falsifier.
         let app = launchAndSignIn()
 
-        // 1. Nothing saved → the channel list and its tab bar; no channel is invented.
-        let tabBar = app.tabBars.firstMatch
-        XCTAssertTrue(waitUntil(timeout: 60) { tabBar.exists },
-                      "a launch with nothing saved must land on the channel list, whose tab bar is "
-                      + "on screen (upstream routes to HOME with no conversation saved):\n"
-                      + app.debugDescription)
-        attach(app, "t95a-1-launch-nothing-saved")
-        XCTAssertTrue(app.tabBars.buttons["Search"].exists,
-                      "the bar must be the shell's own five tabs, not an empty container:\n"
-                      + app.debugDescription)
-
-        // 1b. The "no destination" claim is a **window**, not a moment, and the window has to start
-        //     after the channel directory is on screen.
-        //
-        //     The shell decides its launch destination more than once: on appearance
-        //     (`ChannelSidebarCoordinator.activate`, where the team can still be unknown), again when
-        //     the channel directory arrives (`model(for:)`'s `$groups` sink, `:143-146`), and once
-        //     more from any location change (`apply(_:)`). A `waitForExistence(timeout: 5)` started
-        //     before the directory is on screen can therefore close *before* the decide that would
-        //     open a channel — that is exactly how this assertion used to pass on the tree that had
-        //     the town-hall fallback (`docs/t95a-av2-build-note.md` §1). Waiting for the list first,
-        //     then holding the assertion over a window, is the same claim with the race removed.
-        let firstChannelRow = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "channelSidebar.channel."))
-            .firstMatch
-        XCTAssertTrue(waitUntil(timeout: 60) { firstChannelRow.exists },
-                      "the channel directory must be on screen before this test can tell \"nothing "
-                      + "was opened\" from \"nothing has arrived yet\":\n" + app.debugDescription)
-
-        let paneAt = firstMoment(within: launchWindow) { otherElement(app, "nativeChannelPane").exists }
-        XCTAssertNil(paneAt,
-                     "a launch with nothing saved must NOT open a channel — LaunchDestination "
-                     + "restores the last channel and nothing else, so no town hall may be pushed "
-                     + "(this is the assertion a reinstated fallback breaks). A nativeChannelPane "
-                     + "appeared \(paneAt.map { String(format: "%.1f", $0) } ?? "?") s after the "
-                     + "channel directory was on screen:\n" + app.debugDescription)
-        XCTAssertTrue(tabBar.exists,
-                      "the tab bar must still be on screen at the end of the launch window — a bar "
-                      + "that leaves without a channel pushed means the shell lost its tabs:\n"
-                      + app.debugDescription)
-        attach(app, "t95a-1b-launch-window-held")
-
-        // 2. Open the team's default channel the way a reader does: tap its sidebar row.
-        let row = revealSidebarRow(app, identifier: "channelSidebar.channel.\(townHall.id)")
-        XCTAssertTrue(row.waitForExistence(timeout: 40),
-                      "the sidebar must list #\(townHall.name) so the test can open it:\n"
-                      + app.debugDescription)
-        row.tap()
-
+        // 1. The town hall's pane, pushed over the tab bar, with its own title.
         let pane = otherElement(app, "nativeChannelPane")
-        XCTAssertTrue(pane.waitForExistence(timeout: 40),
-                      "tapping a sidebar row must push the channel pane:\n" + app.debugDescription)
+        XCTAssertTrue(pane.waitForExistence(timeout: 60),
+                      "a launch with nothing saved must open the team's town hall — "
+                      + "`LaunchDestination`'s fallback chain is what this asserts; a shell that "
+                      + "stays on the channel list is the regression card t_295b0a32 was filed for:\n"
+                      + app.debugDescription)
         let title = element(app, "nativeChannelTitle")
-        XCTAssertTrue(title.waitForExistence(timeout: 10),
+        XCTAssertTrue(title.waitForExistence(timeout: 15),
                       "the pushed pane must name the channel it opened:\n" + app.debugDescription)
         // The header starts as the slug the shell was handed and `loadChannelHeader()` replaces it
         // with the server's display name a beat later (T40's `ChannelPaneTitle`), so either spelling
@@ -166,17 +112,18 @@ final class T95ShellLayoutUITests: XCTestCase {
         XCTAssertTrue(waitUntil(timeout: 30) {
             let label = title.exists ? title.label : ""
             return label == self.townHall.displayName || label == self.townHall.name
-        }, "the pane must show the channel whose row was tapped (#\(townHall.name) / "
-           + "#\(townHall.displayName)), got '\(title.exists ? title.label : "nil")'")
+        }, "the launch must land on #\(townHall.name) / #\(townHall.displayName) (the team's "
+           + "default), got '\(title.exists ? title.label : "nil")':\n" + app.debugDescription)
+        attach(app, "t295-1-launch-opens-the-town-hall")
 
-        // ...and the push covers the tab bar: the compact layout's stack sits above the TabView,
-        // exactly as upstream's `Stack` wraps `Tabs` (design doc: the bar slides off in a channel).
+        // 2. The push covers the tab bar: the compact layout's stack sits above the TabView,
+        //    exactly as upstream's `Stack` wraps `Tabs` (design doc: the bar slides off in a channel).
         //
-        // Mutation-tested (T95-A-AV F2): a per-tab stack — a `NavigationStack` *inside* the Channels
-        // tab instead of above the `TabView` — keeps the bar on screen under the channel pane, and
-        // the `app.tabBars.count == 0` below fails on it. So this is not an assertion that merely
-        // describes the current implementation; it reds on the one change it is about
-        // (`docs/t95a-av2-build-note.md` §2).
+        //    Mutation-tested (T95-A-AV F2): a per-tab stack — a `NavigationStack` *inside* the
+        //    Channels tab instead of above the `TabView` — keeps the bar on screen under the channel
+        //    pane, and the `app.tabBars.count == 0` below fails on it. So this is not an assertion
+        //    that merely describes the current implementation; it reds on the one change it is about
+        //    (`docs/t95a-av2-build-note.md` §2).
         let back = app.navigationBars.buttons["Back"]
         XCTAssertTrue(back.waitForExistence(timeout: 10),
                       "a pushed channel offers Back — on upstream too, its phone channel header "
@@ -185,7 +132,7 @@ final class T95ShellLayoutUITests: XCTestCase {
                       "the pushed pane covers the tab bar (upstream parity, D1); a tab bar still on "
                       + "screen here means someone changed the shell's structure — that is a "
                       + "deviation card, not a bug fix:\n" + app.debugDescription)
-        attach(app, "t95a-2-channel-covers-the-bar")
+        attach(app, "t295-2-channel-covers-the-bar")
 
         // 3. Back → the bar is back, and no channel pane is left behind.
         back.tap()
@@ -193,49 +140,70 @@ final class T95ShellLayoutUITests: XCTestCase {
                       "Back must return to the channel list with its tab bar:\n" + app.debugDescription)
         XCTAssertFalse(otherElement(app, "nativeChannelPane").exists,
                        "the popped destination must not stay in the hierarchy:\n" + app.debugDescription)
-        attach(app, "t95a-3-back-restores-the-bar")
+        attach(app, "t295-3-back-restores-the-bar")
+
+        // 4. And opening the town hall by its own row still works: the fallback did not replace the
+        //    reader's route to a conversation.
+        let row = revealSidebarRow(app, identifier: "channelSidebar.channel.\(townHall.id)")
+        XCTAssertTrue(row.waitForExistence(timeout: 40),
+                      "the sidebar must list #\(townHall.name) so the test can open it:\n"
+                      + app.debugDescription)
+        row.tap()
+        XCTAssertTrue(otherElement(app, "nativeChannelPane").waitForExistence(timeout: 40),
+                      "tapping a sidebar row must push the channel pane:\n" + app.debugDescription)
+        XCTAssertTrue(waitUntil(timeout: 30) {
+            let label = title.exists ? title.label : ""
+            return label == self.townHall.displayName || label == self.townHall.name
+        }, "the pane must show the channel whose row was tapped (#\(townHall.name) / "
+           + "#\(townHall.displayName)), got '\(title.exists ? title.label : "nil")'")
     }
 
-    /// The **regular** half of D2 (`docs/t95-shell-tab-bar-decision.md` §3): a launch with nothing
-    /// saved lands on the split view, with the empty detail column — not on an invented channel.
+    /// The **regular** half of the layout (`docs/t95-shell-tab-bar-decision.md` §3, D-1): a launch
+    /// with nothing saved opens the team's town hall in the split view's **detail column**, and the
+    /// shell stays on screen — the regular layout never pushes.
     ///
-    /// Nothing asserted that before this test: the compact method above is phone-only (it needs
-    /// `app.tabBars`, which the regular layout does not draw), and `LastChannelLaunchTests` is
-    /// layout-independent — it measures `LaunchDestination.request` and first-tap behaviour, never
-    /// which pane the shell renders. So a regular layout that opened the town hall on launch would
-    /// have left every suite green. That is the gap this method closes (T95-A-AV F3).
+    /// `LastChannelLaunchTests` is layout-independent: it pins `LaunchDestination.resolve` and never
+    /// which pane the shell renders. This method pins what the regular shell draws for that decision,
+    /// so a split view that ignored the destination could not stay green.
     ///
     /// Runs on an iPad destination, landscape so both columns are on screen; skips on a phone
     /// destination, where the split view does not exist.
-    func testTheRegularLayoutLandsOnTheSplitViewWithAnEmptyDetail() throws {
+    func testTheRegularLayoutOpensTheTownHallInTheDetailColumn() throws {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad,
-                          "the regular half of D2 needs a regular-width destination (an iPad)")
+                          "the regular half of the layout needs a regular-width destination (an iPad)")
         XCUIDevice.shared.orientation = .landscapeLeft
         defer { XCUIDevice.shared.orientation = .portrait }
 
         let app = launchAndSignIn()
 
-        // The split view is the shell: it **stays** (nothing is pushed over it, so `nativeShell`
-        // remains in the tree — on compact a pushed pane is what removes it).
+        // The split view is the shell: it **stays** (nothing is pushed over it on regular width, so
+        // `nativeShell` remains in the tree — on compact a pushed pane is what removes it).
         let shell = element(app, "nativeShell")
         XCTAssertTrue(waitUntil(timeout: 60) { shell.exists },
                       "the regular layout must keep the shell on screen — a launch that pushes a "
                       + "destination instead of selecting the detail column is the compact shape on "
                       + "the wrong device:\n" + app.debugDescription)
 
-        // The detail column is the empty destination: "nothing saved" means "nothing selected".
-        let emptyDetail = element(app, "nativeEmptyDestination")
-        XCTAssertTrue(emptyDetail.waitForExistence(timeout: 30),
-                      "a launch with nothing saved must leave the detail column empty "
-                      + "(NativeEmptyDestinationView), upstream's tablet shape for \"no current "
-                      + "channel\":\n" + app.debugDescription)
-        XCTAssertTrue(waitUntil(timeout: 10) {
-            app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@",
-                                                   "No channel selected")).firstMatch.exists
-        }, "the empty detail must say so instead of rendering a blank pane:\n" + app.debugDescription)
+        // The detail column holds the town hall: the owner's "default to town hall" as the regular
+        // layout renders it.
+        let pane = otherElement(app, "nativeChannelPane")
+        XCTAssertTrue(pane.waitForExistence(timeout: 60),
+                      "a launch with nothing saved must select the team's town hall in the detail "
+                      + "column, not leave it empty (card t_295b0a32):\n" + app.debugDescription)
+        let title = element(app, "nativeChannelTitle")
+        XCTAssertTrue(title.waitForExistence(timeout: 15),
+                      "the detail column must name the channel it opened:\n" + app.debugDescription)
+        XCTAssertTrue(waitUntil(timeout: 30) {
+            let label = title.exists ? title.label : ""
+            return label == self.townHall.displayName || label == self.townHall.name
+        }, "the detail column must show #\(townHall.name) / #\(townHall.displayName), got "
+           + "'\(title.exists ? title.label : "nil")':\n" + app.debugDescription)
+        XCTAssertFalse(element(app, "nativeEmptyDestination").exists,
+                       "the empty destination is exactly what a fallback launch must not draw:\n"
+                       + app.debugDescription)
 
         // The sidebar column is on screen and lists the team's channels — that is the split view
-        // being a *split* view, not an empty detail stretched over the window. The column's own team
+        // being a *split* view, not a detail column stretched over the window. The column's own team
         // row names the team; any channel row proves the list is populated. (Deliberately not "the
         // town hall row": this fixture's team has ~40 channels, and scrolling the *detail* column
         // with `app.swipeUp()` would never reach it — the landing claim does not need that row.)
@@ -254,19 +222,7 @@ final class T95ShellLayoutUITests: XCTestCase {
                        "the regular layout draws no tab bar (decision doc D-1); one on screen means "
                        + "the layout changed shape:\n" + app.debugDescription)
 
-        // And nothing opens over the detail inside the launch window, for the same reason as the
-        // compact test's step 1b: the launch decides again when the directory arrives.
-        let paneAt = firstMoment(within: launchWindow) {
-            otherElement(app, "nativeChannelPane").exists || app.staticTexts["nativeChannelTitle"].exists
-        }
-        XCTAssertNil(paneAt,
-                     "the regular layout must not invent a destination: a channel pane/title "
-                     + "appeared \(paneAt.map { String(format: "%.1f", $0) } ?? "?") s after the "
-                     + "channel directory was on screen:\n" + app.debugDescription)
-        XCTAssertTrue(emptyDetail.exists,
-                      "the detail column must still be the empty destination after the launch "
-                      + "window:\n" + app.debugDescription)
-        attach(app, "t95a-av2-regular-launch-empty-detail")
+        attach(app, "t295-regular-launch-town-hall")
     }
 
     // MARK: - Launch
@@ -429,26 +385,6 @@ final class T95ShellLayoutUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
         return condition()
-    }
-
-    /// The first moment (seconds from this call) at which `condition` holds, sampled every
-    /// `sampling` seconds, or `nil` when it never does inside `window`.
-    ///
-    /// This is how a *window* is asserted instead of a moment. `waitForExistence(timeout:)` answers
-    /// "was it there when I last looked, having polled for N seconds"; for a shell that re-decides
-    /// its launch destination asynchronously, the interesting claim is "it never appeared across the
-    /// interval in which a decide could land". Returning the elapsed time also puts the timing in the
-    /// failure message, so a red says *when* the destination arrived.
-    private func firstMoment(within window: TimeInterval,
-                             sampling: TimeInterval = 0.1,
-                             _ condition: () -> Bool) -> TimeInterval? {
-        let start = Date()
-        let deadline = start.addingTimeInterval(window)
-        while Date() < deadline {
-            if condition() { return Date().timeIntervalSince(start) }
-            RunLoop.current.run(until: Date().addingTimeInterval(sampling))
-        }
-        return condition() ? Date().timeIntervalSince(start) : nil
     }
 
     private func attach(_ app: XCUIApplication, _ name: String) {

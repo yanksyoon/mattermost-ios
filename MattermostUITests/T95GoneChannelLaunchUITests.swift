@@ -1,32 +1,25 @@
-// T95-A-AV-R follow-up (card t_fcbd5cc8) — **measurement**, not a fix.
+// T95-A-AV-R follow-up — **the fall-through**, measured. Card `t_295b0a32`, building on the
+// measurement card `t_fcbd5cc8`.
 //
-// The question: `ChannelSidebarCoordinator.model(for:)` drives the launch decide from
-// `model.$groups.sink { … applyLaunchDestinationIfNeeded(…) }`, and Combine publishes `@Published`
-// in **willSet** — so inside that sink `model.groups` is still the *previous* value. With nothing
-// saved the stale-empty read is harmless (`LaunchDestination.request` answers `nil` for "nothing
-// saved" anyway). With a **saved channel that is gone** `request(saved:available:)` trusts the saved
-// record when `available.isEmpty` ("not loaded yet — the pane is the judge"), so the stale read is
-// the one case where it can hand back a channel the reader has left.
+// The policy under test (`docs/t95-shell-tab-bar-decision.md` §3, amended by t_295b0a32): a launch
+// opens the last channel the reader was in; if that channel is gone (left, archived, deleted) it
+// falls through to the team's **town hall**. It must never open the gone channel's pane (the reader
+// is no longer a member) and it must never leave the reader on "No channel selected".
 //
-// The unit tests cover `request()` directly; they cannot see which `available` the coordinator hands
-// it. This test drives the real launch path instead:
+// The unit tests cover `LaunchDestination.resolve` directly; they cannot see which `available` the
+// coordinator hands it. This test drives the real launch path instead:
 //
 //   1. sign in on a wiped store, open a freshly created channel, terminate  → the product's own
 //      `LastChannelStore` now holds that channel (no store bytes are fabricated here);
 //   2. leave the channel over the API and confirm it is gone from the account's channel list;
 //   3. relaunch **without** `-uiTestResetPersistedState` (that seam wipes the store) and measure
-//      whether the shell opens the gone channel's pane on the directory-arrival decide.
+//      whether the shell opens the gone channel's pane or the town hall's.
 //
 // What it records (evidence, in the xcodebuild log *and* in the run's log file):
 //   * `MEASURE …` lines — when the directory arrived, when/if the pane appeared, and the pane title;
 //   * the `launch=` field of the `-shellSnapshot` diagnostics file, read from the host afterwards
-//     (`… `launch=entries=0 saved=<id> -> <outcome>` is the decide that ran);
+//     (`… launch=entries=<n> saved=<gone id> townhall=<id> fallback=<id> -> town-hall -> …`);
 //   * two screenshots attached to the test result.
-//
-// Verdict semantics: the test asserts the **policy** (`docs/t95a-build-note.md`: a saved channel
-// that is no longer in the list opens nothing). While the willSet read is unfixed the assertion is
-// expected to fail, and the failure message carries the measurement. That is the point of this card:
-// it produces the number, it does not paper over it with a pass.
 //
 // Run (local fixture; credentials come from the environment, never from this file):
 //
@@ -79,6 +72,9 @@ final class T95GoneChannelLaunchUITests: XCTestCase {
 
     private var probe: (id: String, name: String, displayName: String)!
 
+    /// The team's default channel as the server names it — what the fall-through must open.
+    private var townHall: (id: String, name: String, displayName: String)!
+
     override func setUpWithError() throws {
         continueAfterFailure = false
         let env = ProcessInfo.processInfo.environment
@@ -96,11 +92,12 @@ final class T95GoneChannelLaunchUITests: XCTestCase {
         token = session.token
         userID = session.userID
         teamID = try firstTeamID()
+        townHall = try defaultChannel()
     }
 
     // MARK: - The measurement
 
-    func testAGoneSavedChannelIsNotOpenedOnRelaunch() throws {
+    func testAGoneSavedChannelFallsThroughToTheTownHall() throws {
         try XCTSkipIf(UIDevice.current.userInterfaceIdiom != .phone,
                       "the launch destination pushes a pane over the phone shell; run on an iPhone")
 
@@ -192,6 +189,10 @@ final class T95GoneChannelLaunchUITests: XCTestCase {
         var trace: [String] = []
         var paneAt: TimeInterval?
         var paneTitleAtFirstSight = "-"
+        var lastTitle = "-"
+        /// Set if any sample names the channel the account has left — the one outcome that is a
+        /// regression even though a pane is expected now.
+        var namedTheGoneChannel = false
         var rowsAt: TimeInterval?
         var landing: Landing = .neither
         var landingAt: TimeInterval?
@@ -209,6 +210,10 @@ final class T95GoneChannelLaunchUITests: XCTestCase {
             // Title and tab bars are read only where they mean something: a title without a pane, or
             // a tab-bar count on every tick, multiplies snapshots for no extra information.
             let titleNow = paneNow && relaunchTitle.exists ? relaunchTitle.label : "-"
+            if titleNow != "-" {
+                lastTitle = titleNow
+                if titleNow == probe.displayName || titleNow == probe.name { namedTheGoneChannel = true }
+            }
             let tabs = paneNow ? app.tabBars.count : -1
             let shell = paneNow ? false : element(app, "nativeShell").exists
             let signIn = (paneNow || shell) ? false : app.textFields["loginIDField"].exists
@@ -276,42 +281,34 @@ final class T95GoneChannelLaunchUITests: XCTestCase {
                   + "title='\(titleLabel)' tabBarsNow=\(tabBars)")
         attach(app, "t95gone-2-relaunch-after-leaving")
 
-        // The policy under test (`docs/t95a-build-note.md`, `docs/t95-shell-tab-bar-decision.md` §3):
-        // a saved channel that is no longer in the list opens nothing — the launch stays on the
-        // channel list.
-        //
-        // This is a **measured, unfixed** product defect (card t_fcbd5cc8; the repair card is
-        // `docs/t95a-gone-channel-build-note.md` §3). The expectation below is deliberate: the
-        // falsifier has to exist while the bug does, and `XCTExpectFailure` is **strict** by default —
-        // once the fix lands these assertions stop failing, the expectation goes unmatched and *this
-        // test fails*, which is the signal to delete the wrapper (not the assertions).
-        //
-        // `continueAfterFailure` is raised here (not in `setUp`) so that all three observations are
-        // recorded in one run: a matched expected failure still stops the test otherwise, and the
-        // title/tab-bar half of the claim would then never be measured.
-        continueAfterFailure = true
-        XCTExpectFailure("""
-            Known defect (card t_fcbd5cc8, measured 2026-10-28): a relaunch whose saved channel the \
-            account has already left opens that channel's pane instead of the channel list. The \
-            launch decide reads an empty `available` (the directory has not arrived, and the \
-            `$groups` willSet read is one publish behind), which `LaunchDestination.request` trusts.
-            """)
-        XCTAssertNil(paneAt,
-                     "the shell opened a channel pane \(paneAt.map { String(format: "%.2f", $0) } ?? "?") "
-                     + "s after the relaunch, on a launch whose saved channel "
-                     + "#\(probe.name) the account had already left (stillJoined=false). "
-                     + "title='\(titleLabel)' tabBars=\(tabBars). A saved channel that is gone must "
-                     + "open nothing: `LaunchDestination.request` only refuses it when `available` is "
-                     + "loaded, and the launch decides run before (and, through the `$groups` willSet "
-                     + "read, during) the directory's arrival."
-                     + "\n" + app.debugDescription)
-        XCTAssertFalse(titleLabel == probe.displayName || titleLabel == probe.name,
+        // The policy under test (`docs/t95-shell-tab-bar-decision.md` §3, as amended by
+        // t_295b0a32): a saved channel that is gone falls **through** to the team's town hall. Both
+        // halves matter — the reader must not be sent back into a conversation they left, and must
+        // not be left on "No channel selected".
+        XCTAssertTrue(paneAt != nil,
+                      "the relaunch opened no channel: a saved channel that is gone must fall through "
+                      + "to #\(townHall.name) rather than land on \"No channel selected\". "
+                      + "Trace: \(trace.joined(separator: " | "))\n" + app.debugDescription)
+        XCTAssertFalse(namedTheGoneChannel,
+                       "the pane named the channel the account has left (#\(probe.name)) at some "
+                       + "point in the launch window — the reader was sent back into a conversation "
+                       + "they are no longer a member of. Last title='\(lastTitle)'"
+                       + "\n" + app.debugDescription)
+        XCTAssertFalse(lastTitle == probe.displayName || lastTitle == probe.name,
                        "the pane at launch names the channel the account has left "
-                       + "(#\(probe.name)); the reader was sent back into a conversation they are "
-                       + "no longer a member of")
-        XCTAssertGreaterThan(tabBars, 0,
-                            "a launch that lands on the channel list keeps its tab bar (D1); "
-                            + "\(tabBars) bar(s) with no channel open means the shell lost its tabs")
+                       + "(#\(probe.name)); the fall-through must not hand it to the pane")
+        XCTAssertTrue(lastTitle == townHall.displayName || lastTitle == townHall.name,
+                      "the fall-through must open the team's town hall (#\(townHall.name) / "
+                      + "#\(townHall.displayName)), got '\(lastTitle)'. A different channel is not the "
+                      + "owner's rule (\"last opened channel, or default to town hall\")."
+                      + "\n" + app.debugDescription)
+        // A channel is open on compact, so the push covers the tab bar (D1 parity) — the bar being
+        // absent here is the expected shape, not a lost tab bar.
+        XCTAssertEqual(tabBars, 0,
+                       "the compact push covers the tab bar while a channel is open (D1); "
+                       + "\(tabBars) bar(s) on screen under the pane means the shell's shape changed")
+        markEpoch("MEASURE fall-through title='\(lastTitle)' expected='#\(townHall.name)' "
+                  + "goneChannelNamed=\(namedTheGoneChannel)")
 
         // 5. Keep the process alive past the `-shellSnapshot` diagnostics write (~65 s in a native
         //    shell: the probe waits 60×1 s for a webview that never commits), so the forensic
@@ -363,6 +360,22 @@ final class T95GoneChannelLaunchUITests: XCTestCase {
             throw XCTSkip("the fixture account is in no team")
         }
         return id
+    }
+
+    /// The team's default channel: `town-square`/`town-hall` when the server has one, else its first
+    /// public channel — so a fixture whose default was renamed still exercises the same row.
+    private func defaultChannel() throws -> (id: String, name: String, displayName: String) {
+        let (data, _) = try synchronous(get: "/api/v4/users/me/teams/\(teamID!)/channels", token: token)
+        let rows = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] ?? []
+        let channels = rows.compactMap { row -> (id: String, name: String, displayName: String, type: String)? in
+            guard let id = row["id"] as? String, let name = row["name"] as? String else { return nil }
+            let display = (row["display_name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? name
+            return (id, name, display, row["type"] as? String ?? "")
+        }
+        let pickup = channels.first { $0.name == "town-square" || $0.name == "town-hall" }
+            ?? channels.first { $0.type == "O" }
+        guard let pickup else { throw XCTSkip("the fixture team has no channel to open") }
+        return (pickup.id, pickup.name, pickup.displayName)
     }
 
     private func createChannel(named name: String) throws -> (id: String, name: String, displayName: String) {

@@ -142,7 +142,12 @@ final class ChannelSidebarCoordinator: ObservableObject {
         model.$groups
             .sink { [weak self, weak model] groups in
                 guard !groups.isEmpty, let self, let model else { return }
-                self.applyLaunchDestinationIfNeeded(for: server, model: model)
+                // The arriving value, not `model.groups`: Combine publishes `@Published` in
+                // **willSet**, so re-reading the model here hands the decide the *previous* list
+                // (measured in `docs/t95a-gone-channel-build-note.md` §2 — that stale read is what
+                // opened a channel the reader had left). The sink is the one caller that has the
+                // new value in hand.
+                self.applyLaunchDestinationIfNeeded(for: server, model: model, groups: groups)
             }
             .store(in: &launchSinks)
         return model
@@ -160,19 +165,26 @@ final class ChannelSidebarCoordinator: ObservableObject {
         if let teamID = model.teamID { loadedTeams[server.id] = teamID }
         publishChannelTeams(for: server, model: model)
         await applyPendingTeam(for: server, model: model)
-        applyLaunchDestinationIfNeeded(for: server, model: model)
+        applyLaunchDestinationIfNeeded(for: server, model: model, groups: model.groups)
     }
 
     /// Open what the shell should show when it starts with nowhere to go: the conversation the reader
-    /// was last in — and nothing else.
+    /// was last in, else the team's town hall, else the team's first ordinary channel.
+    ///
+    /// The product owner's requirement (2026-10-27): "launch into last opened channel, or default to
+    /// town hall" — see `LaunchDestination` for the chain and for what survives from T95-A.
     ///
     /// Only when the shell has no destination of its own — a deep link, a tapped mention or a restored
     /// route always wins over a remembered channel. A saved channel that is no longer in the list
-    /// (left, archived, deleted) opens nothing rather than something that will error, and a launch
-    /// with nothing saved stays on the channel list. Upstream's cold start does the same: last thread,
-    /// else last channel, else `HOME` (`app/init/launch.ts:245-262`, `:290-294`) — there is no
-    /// town-hall fallback to reproduce (`docs/t95-shell-tab-bar-decision.md` §3).
-    private func applyLaunchDestinationIfNeeded(for server: ServerConfig, model: ChannelListViewModel) {
+    /// (left, archived, deleted) falls through to the town hall rather than opening something that
+    /// will error.
+    ///
+    /// - Parameter groups: the list to decide against. The `$groups` sink passes the value it was
+    ///   handed (a `@Published` read inside the sink is still the previous publish); every other
+    ///   caller passes `model.groups`.
+    private func applyLaunchDestinationIfNeeded(for server: ServerConfig,
+                                                model: ChannelListViewModel,
+                                                groups: [ChannelSidebarGroup]) {
         guard let navigation else {
             lastLaunchDecision = "no-navigation"
             return
@@ -182,21 +194,30 @@ final class ChannelSidebarCoordinator: ObservableObject {
         if let current = location.serverID, current != server.id { return }
         guard let teamID = model.teamID ?? location.teamID else { return }
 
-        let entries = model.groups.flatMap(\.entries)
+        let entries = groups.flatMap(\.entries)
         let available = Set(entries.map(\.id))
-        lastLaunchDecision = "entries=\(entries.count) saved=\(navigation.savedChannel(for: server.id)?.channelID ?? "-")"
-        guard let request = LaunchDestination.request(saved: navigation.savedChannel(for: server.id),
-                                                     available: available,
-                                                     serverID: server.id,
-                                                     teamID: teamID,
-                                                     teamName: location.teamName) else {
-            // Nothing saved, or the saved channel is gone: the list is the destination (upstream's
-            // `HOME`). Recorded so a diagnostic can tell "decided none" from "never decided".
+        let townHallRow = entries.first { entry in
+            LaunchDestination.townHallNames.contains(entry.name.lowercased())
+        }
+        let ordinaryRow = entries.first { !$0.kind.isDirect && $0.id != townHallRow?.id }
+        let townHall = townHallRow.map { LaunchDestination.Candidate(id: $0.id, name: $0.name) }
+        let fallback = ordinaryRow.map { LaunchDestination.Candidate(id: $0.id, name: $0.name) }
+        lastLaunchDecision = "entries=\(entries.count) saved=\(navigation.savedChannel(for: server.id)?.channelID ?? "-") townhall=\(townHall?.id ?? "-") fallback=\(fallback?.id ?? "-")"
+        guard let resolution = LaunchDestination.resolve(saved: navigation.savedChannel(for: server.id),
+                                                         available: available,
+                                                         townHall: townHall,
+                                                         fallback: fallback,
+                                                         serverID: server.id,
+                                                         teamID: teamID,
+                                                         teamName: location.teamName) else {
+            // Nothing saved and nothing to fall back to (the list has not loaded, or the team has no
+            // channels yet): the list is the destination. Recorded so a diagnostic can tell "decided
+            // none" from "never decided".
             lastLaunchDecision? += " -> none"
             return
         }
-        let outcome = navigation.openChannel(request)
-        lastLaunchDecision? += " -> \(outcome)"
+        let outcome = navigation.openChannel(resolution.request)
+        lastLaunchDecision? += " -> \(resolution.origin.label) -> \(outcome)"
     }
 
     /// The auth coordinator's phase for one server changed.
@@ -263,7 +284,8 @@ final class ChannelSidebarCoordinator: ObservableObject {
         defer {
             if !location.opensADestination, let serverStore,
                let server = serverStore.servers.first(where: { $0.id == location.serverID }) {
-                applyLaunchDestinationIfNeeded(for: server, model: model(for: server))
+                let model = model(for: server)
+                applyLaunchDestinationIfNeeded(for: server, model: model, groups: model.groups)
             }
         }
         guard let serverID = location.serverID else { return }

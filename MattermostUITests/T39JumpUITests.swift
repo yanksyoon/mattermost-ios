@@ -232,14 +232,14 @@ final class T39JumpUITests: XCTestCase {
 
     /// The regular layout reaches search from the detail toolbar, the compact layout from a tab.
     ///
-    /// The compact shell **pushes** a channel above the tabs whenever the launch restored one — and
-    /// the launch restores the last channel **only** (`LaunchDestination`, after T95-A: no town-hall
-    /// fallback), so a launch with nothing saved lands on the channel list with its tab bar and a
-    /// launch that restored a channel shows a pushed pane with `Back`. `RootView`'s navigation stack
-    /// sits above the `TabView`, so the pushed pane covers the bar; that is upstream's own shape
-    /// (`Stack` above `Tabs`; the Mobile v2 design slides the bar away in a channel), not a defect —
-    /// `docs/t95-shell-tab-bar-decision.md` §2. `ShellSettle.tapTab` is that reader's route: pop the
-    /// pane with `Back`, then tap the tab. It is the one helper every suite uses (T95-B).
+    /// The compact shell **pushes** a channel above the tabs on launch: `LaunchDestination` opens
+    /// the saved channel, else the team's town hall, else its first ordinary channel (the fallback
+    /// chain re-instated by t_295b0a32 — before that card a launch with nothing saved stayed on the
+    /// channel list). `RootView`'s navigation stack sits above the `TabView`, so the pushed pane
+    /// covers the bar; that is upstream's own shape (`Stack` above `Tabs`; the Mobile v2 design
+    /// slides the bar away in a channel), not a defect — `docs/t95-shell-tab-bar-decision.md` §2.
+    /// `ShellSettle.tapTab` is that reader's route: pop the pane with `Back`, then tap the tab. It is
+    /// the one helper every suite uses (T95-B).
     private func openSearch(_ app: XCUIApplication) {
         if !ShellSettle.tapTab(ShellSettle.Tab.search, in: app) {
             let toolbarButton = element(app, "shellSearchButton")

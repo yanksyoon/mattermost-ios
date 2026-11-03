@@ -5,9 +5,9 @@
 // `NavigationStack` above the `TabView`, so a channel is pushed **over** the tabs and the bottom bar
 // leaves the screen while it is open — the same thing the Mobile v2 design does on a phone (the bar
 // slides off inside a channel, and only tablets keep it). The reader's route from a channel to a tab
-// is therefore `Back`, then the tab; after T95-A the shell no longer invents a town-hall channel at
-// launch (§3 D2), so a reset launch lands on the channel list with its bar and a launch that restored
-// the last channel shows the pushed pane with `Back`.
+// is therefore `Back`, then the tab. Launch opens a channel too: the saved one, else the team's town
+// hall (t_295b0a32 restored that fallback), so a reset launch lands on a pushed pane and only a
+// launch whose list has not loaded lands on the channel list with its bar.
 //
 // A suite must not care which of the two it got. It says `ShellSettle.tapTab("Search", in: app)` and
 // this file does what a reader does: tap the tab when the bar is on screen, otherwise pop the pushed
@@ -122,10 +122,11 @@ enum ShellSettle {
 
     /// Wait until the app is signed in, whichever landing the launch produced.
     ///
-    /// A launch with `-uiTestResetPersistedState` lands on the channel list (tab bar up); a launch
-    /// **without** it restores the last channel and shows the pushed pane, where `nativeShell` is
-    /// not in the accessibility tree at all (the push replaces the root — T37-R2 F1b, and after
-    /// T95-A the restore is the last channel or nothing, `docs/t95-shell-tab-bar-decision.md` §3).
+    /// A launch with `-uiTestResetPersistedState` has nothing saved: since t_295b0a32 it opens the
+    /// team's town hall (a pushed pane with `Back`), and only a launch whose channel list has not
+    /// loaded lands on the channel list (bar up). A launch **without** the reset restores the last
+    /// channel and shows the pushed pane, where `nativeShell` is not in the accessibility tree at all
+    /// (the push replaces the root — T37-R2 F1b).
     /// A relaunch helper that waits on `nativeShell` alone therefore decides the test's outcome
     /// inside the helper: it fails on the very configuration the test set up. This is the one place
     /// that answers "are we in?" for both shapes.
