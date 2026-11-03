@@ -121,31 +121,34 @@ final class T5449ThreadProfileUITests: XCTestCase {
 
     /// A reply's author, tapped in the thread pane, opens **that author's** profile.
     ///
-    /// The tap goes through the reply's **avatar** (`post.<id>.avatar`), one of the two affordances
-    /// upstream offers; the avatar and the name share **one** callback, so this exercises the same
-    /// route. In this build the reply row's name button is wired and addressable
-    /// (`post.<id>.author`, asserted below) but draws empty — the thread pane resolves no profile for
-    /// that reply's author, so the name is a 0×0 target and cannot be tapped. That is a separate defect
-    /// from this card's (the popover opens either way) and is recorded, measured, in
-    /// `docs/t_8f9f5449-c1-build-note.md` §5.
+    /// The tap goes through the reply's **name** (`post.<id>.author`) — the affordance a reader who
+    /// sees the buddy's name actually taps. Until t_e73f31ce that element was a 0×0 leftover (the
+    /// thread model kept an id-only participant stub as if it were a profile), so this test had to
+    /// settle for the avatar, which shares the same callback. The fix is what makes the name a real
+    /// target, and tapping it is the proof.
     func testTheAuthorOfAThreadReplyOpensTheirProfile() throws {
         let app = launchApp()
         openChannel(app)
         openThread(app)
 
-        // The wiring itself: both affordances are addressable in this host. `PostRowView` keeps its own
-        // identifiers inside the thread row's container, which T36 measured (the tombstone marker still
-        // resolves as `post.<id>.deleted` under `thread.post.<id>`) — so the element is
-        // `post.<replyID>.author`, not the card's assumed `thread.post.<replyID>.author`.
+        // `PostRowView` keeps its own identifiers inside the thread row's container, which T36
+        // measured (the tombstone marker still resolves as `post.<id>.deleted` under
+        // `thread.post.<id>`) — so the element is `post.<replyID>.author`, not the card's assumed
+        // `thread.post.<replyID>.author`.
         let name = element(app, "post.\(replyPostID!).author")
         XCTAssertTrue(name.waitForExistence(timeout: 60),
-                      "a reply's author name must be wired in the thread pane — this is the defect this "
-                      + "card fixes:\n\(app.debugDescription)")
-        let avatar = element(app, "post.\(replyPostID!).avatar")
-        XCTAssertTrue(avatar.waitForExistence(timeout: 20),
-                      "a reply's author avatar must be an affordance in the thread pane:\n"
+                      "a reply's author name must be wired in the thread pane:\n"
                       + "\(app.debugDescription)")
-        avatar.tap()
+        // The defect: a present element that drew an empty label at 0×0. Both halves are asserted,
+        // because either one alone still leaves the row untappable or nameless.
+        XCTAssertFalse(name.label.isEmpty,
+                       "a reply's author name must not draw empty (t_e73f31ce):\n"
+                       + "\(app.debugDescription)")
+        XCTAssertTrue(name.isHittable,
+                      "a reply's author name must be a real tap target, not a 0×0 button "
+                      + "(t_e73f31ce):\n\(app.debugDescription)")
+
+        name.tap()
 
         XCTAssertTrue(element(app, "profileSheet").waitForExistence(timeout: 20),
                       "the author tap must open the profile from the thread host:\n"

@@ -236,7 +236,11 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     }
 
     private func loadProfiles(for ids: Set<String>) async {
-        let wanted = ProfileBatch.clean(Array(ids)).filter { users[$0] == nil }
+        // A stored **stub** does not count as known (`MMUser.hasProfileDetails`). Filtering on
+        // `users[$0] == nil` meant an id-only participant — which `apply(thread:)` stored from a
+        // `thread_updated` frame's `participants` — blocked the very request that would have named
+        // the reply's author, leaving a blank, 0×0 name button (t_e73f31ce).
+        let wanted = ProfileBatch.clean(Array(ids)).filter { users[$0]?.hasProfileDetails != true }
         guard !wanted.isEmpty else { return }
         let report = await ProfileBatch.load(wanted, fetch: { [service] chunk in
             try await service.users(ids: chunk)
@@ -479,7 +483,16 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
             // Participants are profiles in the thread endpoints (`extended=true`); keep them for the
             // avatar stack even when the chain itself is short.
             root?.participants = thread.participants
-            for participant in thread.participants { users[participant.id] = participant }
+            // But a participant can also be an **id-only stub** — the non-extended form a
+            // `thread_updated` frame may carry. Storing one over a real profile is what blanked a
+            // reply's author name (t_e73f31ce), so a stub may only fill a hole; and any participant
+            // the map still cannot name is asked for, because a stub is not "known".
+            for participant in thread.participants where !participant.id.isEmpty {
+                if !participant.isIdOnlyStub || users[participant.id] == nil {
+                    users[participant.id] = participant
+                }
+            }
+            scheduleProfileLoad(for: thread.participants.map(\.id))
         }
         if !thread.post.id.isEmpty {
             // The thread's own `post` is the root; its `reply_count` may lag (measured 2 vs 0), so the
@@ -529,10 +542,20 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     }
 
     private func scheduleProfileLoad(for userID: String) {
-        guard !userID.isEmpty, users[userID] == nil else { return }
+        scheduleProfileLoad(for: [userID])
+    }
+
+    /// Ask the server for every id this model cannot name yet.
+    ///
+    /// A stored **stub** is not a name (`MMUser.hasProfileDetails`), so it does not count as known —
+    /// that is the defect t_e73f31ce: an id-only participant blocked the request that would have
+    /// replaced it, and a reply's author name stayed empty forever.
+    private func scheduleProfileLoad(for ids: [String]) {
+        let wanted = ProfileBatch.clean(ids).filter { users[$0]?.hasProfileDetails != true }
+        guard !wanted.isEmpty else { return }
         Task { [weak self] in
             guard let self else { return }
-            await self.loadProfiles(for: [userID])
+            await self.loadProfiles(for: Set(wanted))
             self.rebuild()
         }
     }
@@ -561,7 +584,7 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     var reactionUserProfiles: [String: MMUser] { users }
 
     func loadReactionProfiles(for userIDs: [String]) async {
-        let ids = Set(userIDs.filter { !$0.isEmpty && users[$0] == nil })
+        let ids = Set(userIDs.filter { !$0.isEmpty && users[$0]?.hasProfileDetails != true })
         guard !ids.isEmpty else { return }
         await loadProfiles(for: ids)
     }

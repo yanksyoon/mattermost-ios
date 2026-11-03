@@ -237,6 +237,20 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
         termsOfServiceID = try values.decodeIfPresent(String.self, forKey: .termsOfServiceID) ?? ""
         termsOfServiceCreateAt = try values.decodeIfPresent(Int64.self, forKey: .termsOfServiceCreateAt) ?? 0
     }
+
+    /// Whether this profile carries anything a row can read a name from.
+    ///
+    /// A `thread_updated` frame's `participants` can carry **id-only stubs** — `{"id": "…"}` and
+    /// nothing else — and the thread model stores participants as profiles. Such an entry is enough
+    /// for an avatar (its hue is the id's) but it is not a name, so it must never be read as "this
+    /// person is known": a stub standing in for a real profile is what made a thread reply's author
+    /// name draw as an empty, 0×0 button (card t_e73f31ce).
+    var hasProfileDetails: Bool {
+        !username.isEmpty || !firstName.isEmpty || !lastName.isEmpty || !nickname.isEmpty
+    }
+
+    /// The id-only form described on ``hasProfileDetails``.
+    var isIdOnlyStub: Bool { !hasProfileDetails }
 }
 
 /// A Mattermost channel (`GET /api/v4/channels/{id}`). `type` is `O`, `P`, `D` or `G`.

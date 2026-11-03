@@ -125,6 +125,12 @@ The live test therefore taps the **avatar** (`post.<replyID>.avatar`, 36×36, hi
 name button's existence separately. Both affordances share one callback (`PostRowView.onShowProfile`), so
 this exercises the same route the card is about.
 
+**Follow-up — fixed by `t_e73f31ce`.** The blank name above was repaired in the thread model's profile
+merge, not in the popover: an id-only `participants` stub may no longer overwrite a real profile, a stub
+counts as *not known* (so `loadProfiles` issues the request), and `PostListDerivation.author(for:users:)`
+falls back instead of drawing `""`. This file's live test now taps `post.<replyID>.author` itself once it
+is non-empty and hittable. See `docs/t_e73f31ce-thread-profile-merge.md`.
+
 ## 6. Gates and run logs
 
 All runs: iPhone 17 Pro simulator, `scripts/qa-test.py`, logs under `build/logs/` on this tree.

@@ -472,7 +472,111 @@ final class T36ThreadViewModelTests: XCTestCase {
         XCTAssertEqual(model.items.compactMap(\.postID), ["root"])
     }
 
+    // MARK: - t_e73f31ce: an id-only participant is not a profile
+
+    /// The defect, as measured: a `thread_updated` frame's `participants` can be **id-only stubs**
+    /// (`{"id": "…"}`, the non-extended form — the REST thread answer on this server carries
+    /// `participants: null`, so a socket frame is the path that fills the map), and the thread model
+    /// stored them as if they were profiles. The reply's author name then drew as `""` — a 0×0,
+    /// untappable button, and VoiceOver read `" profile"` for the avatar.
+    ///
+    /// This test reproduces the state that frame leaves behind — a stub in the map, the reply's real
+    /// profile never fetched — and pins both halves of the repair:
+    ///  (a) the row never draws a blank name, even while the map holds only a stub;
+    ///  (b) the stub does not count as "known", so a profile load goes out and the real name lands.
+    func testAnIdOnlyParticipantNeverLeavesABlankReplyAuthorAndIsStillAskedFor() async {
+        let service = FakeThreadService()
+        service.root = post("root", at: 100, user: "me")
+        service.pages = [page(root: "root", replies: [("r1", 200)])]
+        // The first profile fetch fails — the measured state: an avatar is drawn, no name is known.
+        service.usersError = MMError.offline
+        let model = makeModel(service: service)
+        await model.load()
+        XCTAssertEqual(author(of: "r1", in: model)?.displayName, "Unknown user",
+                       "a reply whose profile was never fetched draws the honest fallback, not \"\"")
+
+        // The server can name them after all; the frame that arrives carries the id only.
+        service.usersError = nil
+        service.usersByID["them"] = MMUser(id: "them", username: "them",
+                                           firstName: "Them", lastName: "Person")
+        service.clearProfileRequests()
+
+        let updated = MMThread(id: "root", replyCount: 1,
+                               participants: [MMUser(id: "them")],
+                               post: post("root", at: 100, user: "me"))
+        XCTAssertEqual(model.handle(.threadUpdated(SocketThreadUpdated(thread: updated,
+                                                                      previousUnreadReplies: 0,
+                                                                      previousUnreadMentions: 0))),
+                       .patched)
+
+        // (a) the stub is what the map holds now, and the row still draws a name-shaped label.
+        XCTAssertEqual(model.users["them"]?.isIdOnlyStub, true)
+        XCTAssertEqual(author(of: "r1", in: model)?.displayName, "Unknown user",
+                       "a stored stub must never become an empty author name")
+
+        // (b) the stub was not taken as "known": a load went out for it, and the real name landed.
+        let askedForTheStub = await eventually { service.profileRequestIDs.contains("them") }
+        XCTAssertTrue(askedForTheStub,
+                      "an id-only participant must not block the profile request (t_e73f31ce) — "
+                      + "asked for \(service.profileRequests)")
+        let resolved = await eventually { self.author(of: "r1", in: model)?.displayName == "Them Person" }
+        let drawnName = author(of: "r1", in: model)?.displayName ?? "nil"
+        XCTAssertTrue(resolved,
+                      "the reply's author name must resolve once the server names them — drew \(drawnName)")
+    }
+
+    /// The other direction of the same merge: a full participant profile must not be replaced by a
+    /// later id-only frame, and a person already named costs no second request.
+    func testAFullParticipantProfileIsNotOverwrittenByALaterStub() async {
+        let service = FakeThreadService()
+        service.root = post("root", at: 100, user: "me")
+        service.pages = [page(root: "root", replies: [("r1", 200)])]
+        service.usersByID["me"] = MMUser(id: "me", username: "me", firstName: "Me")
+        service.usersByID["them"] = MMUser(id: "them", username: "them",
+                                           firstName: "Them", lastName: "Person")
+        let model = makeModel(service: service)
+        await model.load()
+        XCTAssertEqual(author(of: "r1", in: model)?.displayName, "Them Person")
+        service.clearProfileRequests()
+
+        let updated = MMThread(id: "root", replyCount: 1,
+                               participants: [MMUser(id: "them")],
+                               post: post("root", at: 100, user: "me"))
+        _ = model.handle(.threadUpdated(SocketThreadUpdated(thread: updated,
+                                                            previousUnreadReplies: 0,
+                                                            previousUnreadMentions: 0)))
+        // Let any scheduled load run, so "no request" is a fact and not a race.
+        try? await Task.sleep(for: .milliseconds(50))
+
+        XCTAssertEqual(model.users["them"]?.username, "them",
+                       "an id-only participant must not overwrite a real profile")
+        XCTAssertEqual(author(of: "r1", in: model)?.displayName, "Them Person",
+                       "the reply's author name must survive a stub-shaped frame")
+        XCTAssertTrue(service.profileRequests.isEmpty,
+                      "a person already named must not be asked for again — asked for \(service.profileRequests)")
+    }
+
     // MARK: - Fixtures
+
+    /// The author a row for `postID` currently draws, or `nil` when there is no such row.
+    private func author(of postID: String, in model: ThreadViewModel) -> PostAuthor? {
+        guard case .post(let row)? = model.items.first(where: { $0.postID == postID }) else {
+            return nil
+        }
+        return row.author
+    }
+
+    /// Poll a condition on the main actor (the profile load is a detached `Task`), so a test never
+    /// asserts on a state that a `Task.yield` might not have reached.
+    private func eventually(timeout: TimeInterval = 2,
+                            _ condition: () -> Bool) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return condition()
+    }
 
     private func makeModel(service: FakeThreadService,
                            rootID: String = "root",
@@ -519,6 +623,11 @@ final class FakeThreadService: ThreadServing {
     var olderPage: MMPostList?
     var threadRow: MMThread?
     var usersByID: [String: MMUser] = [:]
+    /// When set, `POST /users/ids` answers with this error (the live state where a profile fetch
+    /// failed and a row had to fall back).
+    var usersError: Error?
+    /// Every `POST /users/ids` body this fake was asked for, in order.
+    private(set) var profileRequests: [[String]] = []
     var loadError: Error?
     var olderError: Error?
     var followError: Error?
@@ -584,6 +693,14 @@ final class FakeThreadService: ThreadServing {
     }
 
     func users(ids: [String]) async throws -> [MMUser] {
-        ids.compactMap { usersByID[$0] }
+        profileRequests.append(ids)
+        if let usersError { throw usersError }
+        return ids.compactMap { usersByID[$0] }
     }
+
+    /// The ids every `POST /users/ids` carried, flattened.
+    var profileRequestIDs: [String] { profileRequests.flatMap { $0 } }
+
+    /// Forget the recorded requests (a test that measures *one* frame's effect).
+    func clearProfileRequests() { profileRequests.removeAll() }
 }

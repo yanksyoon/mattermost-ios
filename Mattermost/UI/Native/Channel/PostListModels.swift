@@ -376,11 +376,7 @@ enum PostListDerivation {
             seen.insert(participant.id)
             if authors.count >= limit { break }
             let profile = users[participant.id] ?? participant
-            let isStub = profile.username.isEmpty
-                && profile.firstName.isEmpty
-                && profile.lastName.isEmpty
-                && profile.nickname.isEmpty
-            authors.append(isStub
+            authors.append(profile.isIdOnlyStub
                 ? PostAuthor(id: participant.id, username: "", displayName: "")
                 : author(for: profile))
         }
@@ -437,7 +433,12 @@ enum PostListDerivation {
     }
 
     static func author(for post: MMPost, users: [String: MMUser]) -> PostAuthor {
-        if let user = users[post.userId] {
+        // A profile with **no name at all** is not a name. `thread_updated`'s `participants` can be
+        // id-only stubs, and before t_e73f31ce such a stub in this map made a thread reply's author
+        // read as `""` — a 0×0, untappable name button and a VoiceOver avatar label of " profile".
+        // It falls back exactly like an absent profile does, and the pane separately re-asks the
+        // server for the id (a stub must not count as "known").
+        if let user = users[post.userId], user.hasProfileDetails {
             return PostAuthor(id: user.id,
                               username: user.username,
                               displayName: displayName(for: user))
