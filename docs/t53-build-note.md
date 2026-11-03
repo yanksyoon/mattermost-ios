@@ -201,5 +201,8 @@ fast-forwarded onto `main`; pushed. `git ls-remote origin refs/heads/main` was a
 9ecd9c3dbc231b7df260a72d3876bea34f034137  HEAD
 ```
 
+This publish section is a docs-only commit on top of `9ecd9c3`, so the branch tip after it is one
+commit further; the card's closing comment names the final `ls-remote`-verified SHA.
+
 Staged by `git add -A` in the worktree; the tree contained only this card's paths (13 modified, 7 new),
 with no build artefacts — `build/logs/` and the derived data live outside the repository.
