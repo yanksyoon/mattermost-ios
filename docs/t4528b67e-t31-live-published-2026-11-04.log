@@ -1,0 +1,187 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=iOS Simulator,id=9C883EB3-B410-4859-A443-A38A910F3396" -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t4528b67e-t31-published-51b9cd.xcresult -only-testing MattermostUITests/T31WebSessionHarvestUITests
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift @ 7.11.1
+
+Writing result bundle at path:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t4528b67e-t31-published-51b9cd.xcresult
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, arch:arm64, id:9C883EB3-B410-4859-A443-A38A910F3396, OS:18.3.1, name:iPhone 16 Pro t941e3d3 }
+{ platform:iOS Simulator, arch:x86_64, id:9C883EB3-B410-4859-A443-A38A910F3396, OS:18.3.1, name:iPhone 16 Pro t941e3d3 }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (7 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDBSQLite' in project 'GRDB'
+    Target 'GRDBSQLite' in project 'GRDB' (no dependencies)
+    Target 'GRDB_GRDB' in project 'GRDB' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Assets.xcassets
+
+ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+Build description signature: a2fe3ecf66323af98b641fd502c7235f
+Build description path: /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/XCBuildData/a2fe3ecf66323af98b641fd502c7235f.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist (in target 'GRDB_GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist -producttype com.apple.product-type.framework -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Documents/yanks/code/mattermost-ios/Mattermost/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/WebRTC.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -format binary -platform iphonesimulator -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist
+
+2026-11-04 07:09:40.969933+0800 MattermostUITests-Runner[29562:44305294] [Default] Running tests...
+Test Suite 'Selected tests' started at 2026-11-04 07:09:41.600.
+Test Suite 'MattermostUITests.xctest' started at 2026-11-04 07:09:41.601.
+Test Suite 'T31WebSessionHarvestUITests' started at 2026-11-04 07:09:41.601.
+Test Case '-[MattermostUITests.T31WebSessionHarvestUITests testAWebviewOnlySessionRendersTheNativeWorkspaceWithoutSigningInAgain]' started.
+    t =     0.00s Start Test at 2026-11-04 07:09:41.602
+    t =     0.05s Set Up
+    t =     0.56s Open com.mattermost.ios
+2026-11-04 07:09:42.538 xcodebuild[29492:44304270] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 07:09:42.538 xcodebuild[29492:44304270] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     0.56s     Launch com.mattermost.ios
+    t =     1.75s         Setting up automation session
+    t =     2.79s         Wait for com.mattermost.ios to idle
+    t =     4.80s Checking existence of `"loginIDField" TextField`
+    t =     5.19s Checking existence of `"nativeShell" Other`
+    t =     5.41s Checking existence of `"nativeAuthSurface" Any`
+    t =     5.65s Checking existence of `"loginIDField" TextField`
+    t =     5.89s Waiting 6.0s for "nativeChannelPane" Other to exist
+    t =     6.93s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeChannelPane" Other`
+    t =     6.93s         Checking existence of `"nativeChannelPane" Other`
+    t =     6.99s Checking existence of `"channelSidebar.scroll" Any`
+    t =     7.24s Checking existence of `CollectionView (First Match)`
+    t =     7.51s Checking existence of `"channelSidebar.scroll" Any`
+    t =     7.81s Checking existence of `"Back" Button`
+    t =     7.86s Find the "Back" Button
+    t =     7.94s Tap "Back" Button
+    t =     7.94s     Wait for com.mattermost.ios to idle
+    t =     7.94s     Find the "Back" Button
+    t =     7.99s     Check for interrupting elements affecting "Back" Button
+    t =     8.04s     Synthesize event
+    t =     8.34s     Wait for com.mattermost.ios to idle
+    t =     8.79s Checking existence of `"channelSidebar.scroll" Any`
+    t =     8.87s Waiting 10.0s for "channelSidebar.scroll" Any to exist
+    t =     9.91s     Checking `Expect predicate `existsNoRetry == 1` for object "channelSidebar.scroll" Any`
+    t =     9.91s         Checking existence of `"channelSidebar.scroll" Any`
+    t =     9.99s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.05s Checking existence of `"channelSidebar.scroll" Any`
+    t =    10.12s Waiting 40.0s for "nativeTeamSidebar" Any to exist
+    t =    11.17s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeTeamSidebar" Any`
+    t =    11.17s         Checking existence of `"nativeTeamSidebar" Any`
+    t =    11.27s Get all elements bound by index for: Elements matching predicate 'identifier BEGINSWITH "channelSidebar.category."'
+    t =    11.30s Find the Button (Element at index 0)
+    t =    11.33s Find the Button (Element at index 1)
+    t =    11.36s Get all elements bound by index for: Elements matching predicate 'identifier BEGINSWITH "channelSidebar.channel."'
+    t =    11.40s Find the Button (Element at index 0)
+    t =    11.44s Find the Button (Element at index 1)
+    t =    11.48s Find the Button (Element at index 2)
+    t =    11.51s Find the Button (Element at index 3)
+    t =    11.55s Find the Button (Element at index 4)
+    t =    11.59s Find the Button (Element at index 5)
+    t =    11.62s Find the Button (Element at index 6)
+    t =    11.66s Find the Button (Element at index 7)
+    t =    11.70s Find the Button (Element at index 8)
+    t =    11.73s Find the Button (Element at index 9)
+    t =    11.77s Find the Button (Element at index 10)
+    t =    11.82s Find the Button (Element at index 11)
+    t =    11.86s Find the Button (Element at index 12)
+    t =    11.92s Find the Button (Element at index 13)
+    t =    11.96s Find the Button (Element at index 14)
+    t =    12.00s Find the Button (Element at index 15)
+    t =    12.04s Find the Button (Element at index 16)
+    t =    12.08s Find the Button (Element at index 17)
+    t =    12.12s Find the Button (Element at index 18)
+    t =    12.17s Find the Target Application 'com.mattermost.ios'
+    t =    12.29s Added attachment named 't31harvest-webview-session-native-shell'
+    t =    12.29s Tear Down
+Test Case '-[MattermostUITests.T31WebSessionHarvestUITests testAWebviewOnlySessionRendersTheNativeWorkspaceWithoutSigningInAgain]' passed (12.529 seconds).
+Test Case '-[MattermostUITests.T31WebSessionHarvestUITests testWithoutAWebviewSessionTheSameLaunchStillAsksForSignIn]' started.
+    t =     0.00s Start Test at 2026-11-04 07:09:54.132
+    t =     0.02s Set Up
+    t =     0.24s Open com.mattermost.ios
+    t =     0.24s     Launch com.mattermost.ios
+    t =     0.24s         Terminate com.mattermost.ios:29581
+2026-11-04 07:09:55.451 xcodebuild[29492:44304270] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 07:09:55.451 xcodebuild[29492:44304270] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.53s         Setting up automation session
+    t =     2.56s         Wait for com.mattermost.ios to idle
+    t =     4.11s Waiting 60.0s for "nativeAuthSurface" Any to exist
+    t =     5.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeAuthSurface" Any`
+    t =     5.17s         Checking existence of `"nativeAuthSurface" Any`
+    t =     5.23s Checking existence of `"nativeShell" Any`
+    t =     5.31s Find the Target Application 'com.mattermost.ios'
+    t =     5.41s Added attachment named 't31harvest-control-native-auth-surface'
+    t =     5.41s Tear Down
+Test Case '-[MattermostUITests.T31WebSessionHarvestUITests testWithoutAWebviewSessionTheSameLaunchStillAsksForSignIn]' passed (5.649 seconds).
+Test Suite 'T31WebSessionHarvestUITests' passed at 2026-11-04 07:09:59.782.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 18.178 (18.180) seconds
+Test Suite 'MattermostUITests.xctest' passed at 2026-11-04 07:09:59.783.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 18.178 (18.182) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 07:09:59.783.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 18.178 (18.183) seconds
+2026-11-04 07:10:00.251 xcodebuild[29492:44304270] [MT] IDETestOperationsObserverDebug: 21.264 elapsed -- Testing started completed.
+2026-11-04 07:10:00.251 xcodebuild[29492:44304270] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-04 07:10:00.251 xcodebuild[29492:44304270] [MT] IDETestOperationsObserverDebug: 21.264 sec, +21.264 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/t4528b67e-t31-published-51b9cd.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started
