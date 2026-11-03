@@ -151,22 +151,41 @@ on a `CheckedContinuation` inside the fake instead of sleeping.
 
 ### 5.2 Live UI suite — the verdict, straight at the server
 
-> **T47-AV measured this paragraph not reproducible at `8643fbf`.** At that commit the two tests are
-> **0/2**: `revealSidebarRow` queries `app.collectionViews` while the sidebar is a `ScrollView`
-> (`channelSidebar.scroll`), so it never scrolls and both sidebar assertions fail; one run additionally
-> opened on Operations, created the channel there while the oracle looked in Perf ("POST /channels never
-> landed"), and left `t47-ui-1793648428` live (since archived). The feature itself passed the adversarial
-> suite 4/4. Evidence and the harness repair: `docs/t47-av-verdict.md` §1.2, §6 (F7/F8), card
-> `t_40082af1`.
+> **T47-AV measured this paragraph not reproducible at `8643fbf`, and the cause was the harness.**
+> At that commit the two tests were **0/2**: `revealSidebarRow` queried `app.collectionViews` while the
+> sidebar is a `ScrollView` (`channelSidebar.scroll`), so it never scrolled and both sidebar assertions
+> failed; one run also opened on Operations, created the channel there while the oracle looked in Perf
+> ("POST /channels never landed") and left `t47-ui-1793648428` live. Evidence:
+> `docs/t47-av-verdict.md` §1.2, §6 (F7/F8).
+>
+> **T47-AV-R4 repaired the harness at `e2e3802` and the paragraph below reproduces again** — `2 run /
+> 0 failed`, with the scroll, the team and the archive measured instead of assumed.
 
 ```
 TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
 TEST_RUNNER_MM_AUTH_PASSWORD=… python3 scripts/qa-test.py --platform ios \
-  --sim id=9EC24144-… --only-testing MattermostUITests/T47CreateChannelUITests --label t47-verdict2
-# -> Test Case '…SendsPostChannelsAndTheNewChannelSurvivesRelaunch' passed (49.9 s)
-# -> Test Case '…StartsADirectMessageWithATeammate' passed (45.6 s)
-# -> 2 run, 0 skipped, 0 failed, RESULT: PASS
+  --sim id=81A7F251-… --only-testing MattermostUITests/T47CreateChannelUITests --label t47r4-ui3 \
+  -- -clonedSourcePackagesDirPath ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages
+# -> Test Case '…SendsPostChannelsAndTheNewChannelSurvivesRelaunch' passed (238.402 seconds)
+# -> Test Case '…StartsADirectMessageWithATeammate' passed (124.893 seconds)
+# -> Executed 2 tests, with 0 failures (0 unexpected) in 363.296 (363.304) seconds
+# -> outcome: finished (xcodebuild rc=0, 507s) / tests: 2 run, 0 skipped, 0 failed / RESULT: PASS
 ```
+
+Simulator `81A7F251-…` (iPhone 16 Pro, iOS 18.3.1), fixture 9.11.19 on `127.0.0.1:8065`,
+log `build/logs/t47r4-ui3.log`. Three things that run proves about the harness itself, from the
+attachments in the `.xcresult`:
+
+- **the team is the team the app is on.** `pinned-team`: `app team = Perf -> ocz148uck3r88dcjikj497bosh`,
+  read from `sidebarCurrentTeam` and matched against `GET /users/me/teams` — not `teams[0]`, whose order
+  is the API's and not the rail's. Both tests pinned the same team before creating or opening anything.
+- **the sidebar scrolled.** `sidebar-scroll`: `surface=channelSidebar.scroll swipesUp=4 … found=true` for
+  the created row, the same again after the relaunch, and `swipesUp=20 … found=true` for the DM row. The
+  old helper logged no swipe at all, which is why the same three assertions failed at `8643fbf`.
+- **the archive is proven.** `DELETE /channels/{id}` must answer 200, and the channel is then read back
+  with `delete_at` moved; a channel that survives is named in a failure with its id.
+  `scripts/t47r4_fixture_audit.py` (added here) reports **0 live** `t47-ui-*` channels afterwards, and the
+  run's own `t47-ui-1793674737` archived (`delete_at 1793674974641`).
 
 What the first test asserts, against the server's own records: the private channel
 `t47-ui-<stamp>` was **404 before** the tap and afterwards exists with `creator_id` = the signed-in
@@ -177,9 +196,16 @@ no `-uiTestForgetSession` (so it came from `GET /users/me/teams/{tid}/channels`)
 The second asserts: the picker lists the teammate (searched by username), one tap opens the conversation,
 the pane is titled with the person, and the server answers a type `D` channel named `<id>__<id>` whose
 members are exactly the two people — read back through `POST /channels/direct` (create-or-find) and
-`GET /channels/{id}/members`, then found in the sidebar.
+`GET /channels/{id}/members`, then found in the sidebar. The pair is resolved **before** the tap from
+`GET /users/me/channels`, so this run opened the conversation that already existed (`opsbot`); the
+oracle's create-or-find answered the same id and its `create_at` predates the run, which is the measured
+form of "the tap wrote nothing".
 
 Every run archives what it created (`tearDown`), because a channel name is not reusable after an archive.
+A **direct** channel cannot be archived — the server answers `400
+api.channel.delete_channel.type.invalid` — so the DM half creates none: it uses an existing pair, and only
+a fixture without one gets a pre-tap `POST /channels/direct`, which that run then prints as
+`T47 FIXTURE MUTATION` and attaches. This run has no such line.
 
 ### 5.3 Wire witness — the two requests, on the wire, from the app
 
