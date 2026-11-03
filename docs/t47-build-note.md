@@ -90,7 +90,7 @@ opening list, `POST /users/search` with a term for the typed search, `POST /user
 | The URL name rule: 1–64, lower-case letters/digits/`-`/`_`, no leading `-`/`_` | `ChannelCreateDraft.validationMessage(for:)` — units `testTheRuleAcceptsLowercaseDigitsHyphenAndUnderscore`, `testTheRuleRefusesTheShapesTheServerRefuses`, `testTheRuleAcceptsATrailingHyphenBecauseTheServerDoes`, `testALeadingSeparatorIsNamedInTheMessage`, `testEveryDerivedNameIsAcceptedByTheRule` |
 | 64/65 on the URL name is refused client-side (the server answers `500`, which is not an error a reader can act on) | `CreateChannelDraft.maxLength` + unit `testTheRuleAccepts64CharactersAndRefuses65` |
 | Two independent permission gates stand between a reader and `POST /channels` | `create()`'s guard **and** `validation(permissions:)` — see §4, unit `testACreateWithoutThePermissionSendsNothing` |
-| A create that answers a channel of a different kind is not navigated to | `create()` — mutation-checked in §4, unit `testAChannelOfTheWrongKindIsNotNavigatedTo` |
+| A create that answers a channel of a different kind is not navigated to, and the answer is compared against the kind that was **requested** — not against a draft the reader can still change | `create()` captures `let requested = draft.kind` before the `await`, builds the body from it, and checks `channel.type` against it afterwards — mutation-checked in §4, units `testAChannelOfTheWrongKindIsNotNavigatedTo`, `testAKindSwitchedDuringTheRoundTripDoesNotSpoilATruthfulAnswer`, `testAWrongKindDuringTheRoundTripIsRefusedEvenWhenItMatchesTheMovedDraft` |
 | A duplicate name surfaces the server's own sentence | `CreateChannelViewModel.copy(for:)` — unit `testADuplicateNameSurfacesTheServersOwnSentence` |
 | A presence failure is unknown, never offline | `statusesOrEmpty` — unit `testThePickerCarriesPresenceAndSaysUnknownRatherThanOffline` |
 | One tap in the picker opens the conversation (no select-then-Start) | `NewDirectMessageView` — unit `testTappingARowCreatesTheConversationWithBothIdsAndPublishesIt`, asserted live in §5.2 |
@@ -104,9 +104,33 @@ MattermostTests/T47CreateChannelTests` in the isolated worktree:
 |---|---|
 | `create()`'s `guard permissions.canCreate(draft.kind)` → `guard true \|\| …` | **still green** — `draft.validation(permissions:)` refuses independently. Two gates, not one; the comment in `testACreateWithoutThePermissionSendsNothing` says so. |
 | the same guard **and** the permission clause in `validation(permissions:)` both neutered | `testACreateWithoutThePermissionSendsNothing` **red** (3 assertions: nil channel, empty body list, error message) |
-| `if !channel.type.isEmpty, channel.type != draft.kind.rawValue` (the wrong-kind answer) deleted | `testAChannelOfTheWrongKindIsNotNavigatedTo` **red** (3 assertions) |
+| the wrong-kind answer check deleted (`if !channel.type.isEmpty, channel.type != requested.rawValue { … }`) | **3 run / 6 failures** (`t47r3-mutB-mac.log:331,339`): `testAChannelOfTheWrongKindIsNotNavigatedTo` red on its 3 assertions — the same shape T47-AV measured at `8643fbf` (`t47av-mut-kind.log:427`) — and `testAWrongKindDuringTheRoundTripIsRefusedEvenWhenItMatchesTheMovedDraft` red. The truthful-answer test correctly stays green: it needs the check to *accept*. |
+| the comparison put back on the live draft (`channel.type != draft.kind.rawValue`) while the body still comes from the capture | **3 run / 6 failures** (`t47r3-mutA2.log:185,191`): both mid-flight units red; the non-racing `testAChannelOfTheWrongKindIsNotNavigatedTo` stays green, which is exactly why it could not see this bug |
 
 Each mutation was reverted before the verification runs below.
+
+### 4.1 The requested kind is frozen before the write (T47-AV F4)
+
+`create()` used to build the body from `draft.kind` before the `await` and compare the answer against
+`draft.kind` again after it. The kind toggle is live while `isCreating` — `CreateChannelView` disables only
+the submit button (`docs/t47-av-verdict.md` §6) — so a reader who taps Create on Public and switches to
+Private during the round trip got a truthful Public answer reported as "The server answered a channel this
+app did not ask for", and a create that had succeeded was never navigated to.
+
+The repair freezes the request's kind once (`let requested = draft.kind`), builds the body with it
+(`draft.body(teamID:kind:)`) and checks `channel.type` against the same capture. Two units drive it through
+a gated fake that parks the create inside the service, so the test moves the toggle exactly where a reader
+would:
+
+* `testAKindSwitchedDuringTheRoundTripDoesNotSpoilATruthfulAnswer` — body says `O`, the draft moves to
+  Private mid-flight, the server answers the requested `O`: the channel is published, `errorMessage` is nil.
+* `testAWrongKindDuringTheRoundTripIsRefusedEvenWhenItMatchesTheMovedDraft` — body says `O`, the draft moves
+  to Private, the server answers `P`: refused. This is the half that a "capture only for the body, compare
+  against the draft" half-fix fails (§4, last row), so the pair pins the capture on both sides.
+
+`CreateChannelView` is deliberately unchanged: the toggle stays live during `isCreating` (it is one tap, and
+freezing the form mid-create was not this card's ask), and the model no longer cares what the draft says
+after the write. The draft keeps the reader's latest choice, which is right for a *next* create either way.
 
 ## 5. Verification
 
@@ -119,8 +143,11 @@ python3 scripts/qa-test.py --platform mac --only-testing MattermostTests \
 # -> RESULT: PASS
 ```
 
-T47 alone: **34 tests**, `Executed 34 tests, with 0 failures (0 unexpected) in 0.070 (0.079) seconds`.
-They use handwritten fakes (`FakeCreateService`) — no network, no clock.
+T47 alone: **36 tests**, `Executed 36 tests, with 0 failures (0 unexpected) in 0.125 (0.150) seconds`
+(`t47r3-final-green.log:325`, Mac Catalyst, from the T47-AV-R3 worktree at `origin/main` after the F4
+repair; the 34 that shipped plus the two mid-flight units in §4.1).
+They use handwritten fakes (`FakeCreateService`) — no network, no clock; the mid-flight pair parks the create
+on a `CheckedContinuation` inside the fake instead of sleeping.
 
 ### 5.2 Live UI suite — the verdict, straight at the server
 
@@ -215,7 +242,7 @@ the server answers `201 Created` (both visible in the `--dump` run, `build/logs/
 - Picker: `newDM.sheet`, `newDM.list`, `newDM.row.<userID>`, `newDM.empty`, `newDM.error`, `newDM.retry`,
   `newDM.cancel`, `newDM.openError`.
 - Landing: `nativeChannelTitle` (the pane), `channelSidebar.channel.<channelID>` (the sidebar row).
-- Tests: `MattermostTests/T47CreateChannelTests` (34), `MattermostUITests/T47CreateChannelUITests` (2).
+- Tests: `MattermostTests/T47CreateChannelTests` (36), `MattermostUITests/T47CreateChannelUITests` (2).
 - Run scripts: `scripts/t47_create_channel_probe.py` (server contract), `scripts/t47_logging_relay.py`
   (wire witness).
 

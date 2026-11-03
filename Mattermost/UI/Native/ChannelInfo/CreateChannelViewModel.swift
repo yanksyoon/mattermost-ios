@@ -146,18 +146,25 @@ final class ChannelCreateViewModel: ObservableObject {
             errorMessage = validationMessage
             return nil
         }
+        // What this screen is asking the server for, frozen here — before the `await`. Everything after
+        // the round trip is checked against this capture, never against `draft.kind`: the kind toggle is
+        // live while `isCreating` (only the submit button is disabled), so `draft.kind` can change under
+        // a request that is already in flight. Reading it again on the way back would report a truthful
+        // Public answer as "a channel this app did not ask for" — and swallow a create that succeeded.
+        let requested = draft.kind
+        let requestBody = draft.body(teamID: teamID, kind: requested)
         isCreating = true
         errorMessage = nil
         defer { isCreating = false }
         do {
-            let channel = try await service.createChannel(draft.body(teamID: teamID))
+            let channel = try await service.createChannel(requestBody)
             guard !channel.id.isEmpty else {
                 errorMessage = "The server answered a channel without an id."
                 return nil
             }
-            // A create answers the channel itself; anything but the requested kind means the server
-            // stored something this screen did not ask for, and navigating there would be a lie.
-            if !channel.type.isEmpty, channel.type != draft.kind.rawValue {
+            // A create answers the channel itself; anything but the kind that was **requested** means the
+            // server stored something this screen did not ask for, and navigating there would be a lie.
+            if !channel.type.isEmpty, channel.type != requested.rawValue {
                 errorMessage = "The server answered a channel this app did not ask for."
                 return nil
             }

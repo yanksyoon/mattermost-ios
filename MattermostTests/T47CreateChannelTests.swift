@@ -54,6 +54,21 @@ final class T47CreateChannelTests: XCTestCase {
         private(set) var directCalls: [[String]] = []
         private(set) var searchTerms: [String] = []
 
+        /// When true, a create parks inside `createChannel` until `releaseCreate()`. That is the window a
+        /// reader has in the real app: `CreateChannelView` disables the submit button while `isCreating`
+        /// but leaves the kind toggle (and the text fields) live, so the draft can change under a request
+        /// that is already on the wire. See `docs/t47-av-verdict.md` §6 (F4).
+        var gatesCreates = false
+        fileprivate var createGateContinuation: CheckedContinuation<Void, Never>?
+        var isCreateSuspended: Bool { createGateContinuation != nil }
+
+        /// Let a parked create finish, as the server's answer would.
+        func releaseCreate() {
+            let continuation = createGateContinuation
+            createGateContinuation = nil
+            continuation?.resume()
+        }
+
         func grant(_ permissions: [String],
                    to roleNames: [String] = ["system_user", "team_user"]) {
             for name in roleNames {
@@ -64,6 +79,11 @@ final class T47CreateChannelTests: XCTestCase {
         func createChannel(_ body: MMChannelCreate) async throws -> MMChannel {
             bodies.append(body)
             if let createFailure { throw createFailure }
+            if gatesCreates {
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    createGateContinuation = continuation
+                }
+            }
             return createAnswer(body)
         }
 
@@ -121,6 +141,21 @@ final class T47CreateChannelTests: XCTestCase {
     private func makeModel(_ service: FakeCreateService,
                            kind: ChannelInfoKind = .open) -> ChannelCreateViewModel {
         ChannelCreateViewModel(teamID: teamID, kind: kind, service: service)
+    }
+
+    /// Wait until a gated create is parked inside `FakeCreateService.createChannel`, i.e. the request has
+    /// been recorded and the answer has not arrived. Sleeping (rather than a bare `Task.yield()`) keeps the
+    /// loop from starving the create task that has to reach its suspension point on the same actor.
+    private func waitUntilCreateIsSuspended(_ service: FakeCreateService,
+                                            file: StaticString = #filePath,
+                                            line: UInt = #line) async {
+        let deadline = Date().addingTimeInterval(5)
+        while !service.isCreateSuspended, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 2_000_000)
+        }
+        XCTAssertTrue(service.isCreateSuspended,
+                      "the create never reached the service, so there is nothing to race",
+                      file: file, line: line)
     }
 
     // MARK: - 1. The URL-name rule (measured, not guessed)
@@ -458,6 +493,72 @@ final class T47CreateChannelTests: XCTestCase {
         XCTAssertNil(channel)
         XCTAssertNil(model.createdChannel)
         XCTAssertNotNil(model.errorMessage)
+    }
+
+    // MARK: - 5b. The requested kind is captured before the write (T47-AV F4, docs/t47-av-verdict.md §6)
+
+    /// `create()` builds the `POST /channels` body from `draft.kind` before the `await` and used to compare
+    /// the answer against `draft.kind` **after** it. The toggle is live while `isCreating`
+    /// (`CreateChannelView` disables only the submit button), so this is the sequence a reader can produce:
+    /// tap Create on Public, switch to Private while the request is in flight, and receive the honest Public
+    /// channel the app actually asked for. Comparing against the *moved* draft reported that truthful answer
+    /// as "a channel this app did not ask for" and swallowed a create that had succeeded.
+    func testAKindSwitchedDuringTheRoundTripDoesNotSpoilATruthfulAnswer() async {
+        let service = FakeCreateService()
+        service.grant([ChannelCreatePermissionID.createPublicChannel, ChannelCreatePermissionID.createPrivateChannel])
+        service.gatesCreates = true
+        let model = makeModel(service, kind: .open)
+        await model.load()
+        model.draft.setDisplayName("T47 Mid Flight")
+
+        let create = Task { await model.create() }
+        await waitUntilCreateIsSuspended(service)
+
+        XCTAssertEqual(service.bodies.first?.type, "O", "the body is built from the kind that was requested")
+        XCTAssertTrue(model.isCreating)
+
+        // The reader taps the toggle while the request is parked on the wire.
+        model.setKind(.privateChannel)
+        XCTAssertEqual(model.draft.kind, .privateChannel)
+
+        // The server answers the channel it was asked for.
+        service.releaseCreate()
+        let channel = await create.value
+
+        XCTAssertEqual(service.bodies.first?.type, "O",
+                       "the request must not be rebuilt from the moved draft")
+        XCTAssertEqual(channel?.id, "chan0000000000000000000001",
+                       "a create that succeeded must be navigated to")
+        XCTAssertEqual(model.createdChannel?.id, "chan0000000000000000000001",
+                       "the truthful answer is published even though the draft moved on")
+        XCTAssertNil(model.errorMessage,
+                     "the answer matches the kind that was requested, so there is nothing to report")
+    }
+
+    /// The other half of the same capture, and the mutation that separates the fix from a half-fix: the
+    /// server answers the kind the **draft** now shows (Private) although Open was requested. Comparing
+    /// against `draft.kind` would accept it; only the capture refuses it.
+    func testAWrongKindDuringTheRoundTripIsRefusedEvenWhenItMatchesTheMovedDraft() async {
+        let service = FakeCreateService()
+        service.grant([ChannelCreatePermissionID.createPublicChannel, ChannelCreatePermissionID.createPrivateChannel])
+        service.gatesCreates = true
+        service.createAnswer = { body in
+            MMChannel(id: "chan-swapped", name: body.name, displayName: body.displayName,
+                      type: "P", teamId: body.teamID)
+        }
+        let model = makeModel(service, kind: .open)
+        await model.load()
+        model.draft.setDisplayName("T47 Swapped Kind")
+
+        let create = Task { await model.create() }
+        await waitUntilCreateIsSuspended(service)
+        model.setKind(.privateChannel)
+        service.releaseCreate()
+        let channel = await create.value
+
+        XCTAssertNil(channel, "Public was requested; a Private answer is not the requested channel")
+        XCTAssertNil(model.createdChannel)
+        XCTAssertEqual(model.errorMessage, "The server answered a channel this app did not ask for.")
     }
 
     // MARK: - 6. The direct-message picker

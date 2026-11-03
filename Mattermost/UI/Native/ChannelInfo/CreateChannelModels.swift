@@ -325,7 +325,20 @@ struct ChannelCreateDraft: Equatable, Sendable {
 
     /// The request body. Only call it on a draft that validated: `POST /channels` refuses an empty URL
     /// name with a 400, and a 65-character one with a **500**.
+    ///
+    /// The type is taken from `kind`, the draft's *current* kind. A caller that must know, after an
+    /// `await`, which kind it asked for passes the kind it froze before the write to
+    /// `body(teamID:kind:)` instead — `kind` is a published value the form can change mid-flight.
     func body(teamID: String) -> MMChannelCreate {
+        body(teamID: teamID, kind: kind)
+    }
+
+    /// The request body for an explicitly chosen kind.
+    ///
+    /// This is the overload `ChannelCreateViewModel.create()` uses: it captures the requested kind once,
+    /// builds the body from that capture, and checks the server's answer against the same capture, so a
+    /// kind switched during the round trip cannot make the request and the check disagree.
+    func body(teamID: String, kind: ChannelInfoKind) -> MMChannelCreate {
         MMChannelCreate(teamID: teamID,
                         name: urlName,
                         displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
