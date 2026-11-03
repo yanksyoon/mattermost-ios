@@ -128,10 +128,18 @@ Runs:
 * whole `MattermostTests` — **2110 tests, 10 skipped, 0 failed**, `** TEST SUCCEEDED **`
   (`build/logs/t6e9/t6e9-full-units.log`).
 
-A HEAD-only probe (`HeadReproTests`, kept in the scratch worktree, not in the repo) asserted the
+A HEAD-only probe (a scratch test file in the throwaway worktree, not committed) asserted the
 pre-fix behaviour at `db73a3d`: one request from an empty team and `phase == .failed("These threads
 are not available.")` — it passed **before** the fix, which is what made this a code defect rather
-than an install problem.
+than an install problem:
+
+```swift
+let service = FakeThreadService(); service.loadError = MMError.notFound
+let model = GlobalThreadsViewModel(teamID: "", service: service, myUserID: "me")
+await model.load()
+XCTAssertEqual(service.threadListRequests.count, 1)                                   // asked anyway
+XCTAssertEqual(model.phase, .failed("These threads are not available."))             // 404 -> the copy
+```
 
 ## 6. What could not be measured here
 
