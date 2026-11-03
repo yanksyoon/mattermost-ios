@@ -71,6 +71,66 @@ taps Unfollow, asserts the server's `GET …/threads/{root}` becomes 404, reopen
 
 Run lines and the numbers are in the completion record for `t_b28e8cfc`.
 
+## Verified on the rebased tree (2026-11-03 23:2x–23:5x)
+
+The work was first published as `84f688d` on top of `bde77c5`; `main` then moved to `1bef48e`
+(T48-AV-R1). Rebased, the branch is `3b1c3e4` on `1bef48e`, and everything below was measured on that
+tree — not on the pre-rebase one.
+
+The rebase had one real collision: `84f688d` and R4's `canEditPost`/`canDeletePost` work both appended
+tests to `MattermostTests/T48PostOptionsTests.swift`. Resolved by keeping both sets (R4's
+`testMyOwnPostInALiveChannelOffersEditAndDeleteWithTheGrants` block, then R3's follow block), and the
+files that merged cleanly (`PostOptionsModels/Service/ViewModel.swift`, `PostRowView.swift`,
+`T48PostOptionsAVTests.swift`) were reviewed as merged. One further fix was owed to the tree, not to
+this card: `PostOptionsServing` gained a requirement, so R1's `FakeService`
+(`MattermostTests/T48R1LookupPostOptionsTests.swift`) needed `isFollowing` — it answers `nil`
+("unknown"), which is the protocol's closed default and does not change what R1 measures.
+
+Unit (`scripts/qa-test.py`, sim `T48AVR3 iPhone 16 Pro` `7EE01BD0`, private derived data
+`~/Library/Developer/Xcode/DerivedData/mmios-t48r3`, log `build/logs/t48r3-units-rebased2.log`):
+
+```
+MattermostTests/T48PostOptionsAVTests         Executed 8 tests, with 0 failures
+MattermostTests/T48PostOptionsTests          Executed 34 tests, with 0 failures
+MattermostTests/T48R1LookupPostOptionsTests  Executed 8 tests, with 0 failures
+Selected tests                               Executed 48 tests, with 0 failures (0 unexpected)
+** TEST SUCCEEDED **
+```
+
+Live (`MattermostUITests/T48PostOptionsUITests/testAFollowedRootStillOffersUnfollowAfterARelaunch`,
+log `build/logs/t48r3-ui-relaunch3.log`):
+
+```
+T48R3 follow write PUT -> 200 {"status":"OK"}
+T48R3 follow read GET …/threads/ykg8punmi7gwiny6q7nyt155tw -> 200 {… "reply_count":1 …}
+    t = 48.88s Terminate com.mattermost.ios   /   t = 49.97s Launch com.mattermost.ios
+    t = 94.88s Checking existence of "postOptions.unfollowThread" Any   <- after the relaunch
+    t = 96.30s Added attachment named 't48-09-followed-after-relaunch'
+    t = 96.73s Tap "postOptions.unfollowThread" Any
+T48R3 follow read GET …/threads/ykg8punmi7gwiny6q7nyt155tw -> 404
+    t = 101.51s Checking existence of "postOptions.followThread" Any    <- after the unfollow
+    t = 103.06s Added attachment named 't48-10-unfollowed'
+Test Case '…testAFollowedRootStillOffersUnfollowAfterARelaunch' passed (103.321 seconds).
+Executed 1 test, with 0 failures (0 unexpected)
+** TEST SUCCEEDED **
+```
+
+Two findings from getting that test to run, both fixed in the file:
+
+* **The test had never been able to reach its own premise.** `isFollowed` interpolated the `String!`
+  field — `request.setValue("Bearer \(token)", …)` — which puts the literal `Optional("…")` on the
+  wire: `GET …/threads/{root}` answered `401 api.context.session_expired` on the first two runs while
+  the same token worked through `sendJSON` (whose parameter is `String`). Now `token!`.
+* The premise/write helpers keep their HTTP status in the failure message (`lastFollowStatus`,
+  `lastFollowWriteStatus`) and print the write/read line, so the next red run names the wire instead
+  of only a boolean.
+
+The probe was re-run on this tree for the line the card asks for
+(`build/logs/t48r3-follow-probe.log`):
+`is_following_key_anywhere: false`, `thread_endpoint_answers {never_followed: 404, after_follow: 200,
+after_unfollow: 404}`, `threads_list_membership {false, true, false}` — so the client reads the **CRT
+per-thread endpoint**, not the team threads list and not any object field.
+
 ## Not measured / out of scope
 
 * A real device and a parity soak: not available on this host.
