@@ -205,12 +205,16 @@ final class T34EmojiTests: XCTestCase {
     }
 
     func testAnUnknownOrUnlistedShortcodeStaysText() {
-        // `tada` is a built-in character, `parrot` is not custom on this server: both stay text.
-        let runs: [MarkdownInline] = [.emoji(name: "tada"), .text(" "), .emoji(name: "parrot")]
+        // `tada` is a built-in character; `not_a_real_emoji` is in neither the system table nor this
+        // server's custom set, so it stays literal — the honest last resort (t_580df874). `parrot`
+        // used to stand in for "unlisted", but it is a real system emoji (🦜) and now draws, which is
+        // exactly the repair that card made.
+        let runs: [MarkdownInline] = [.emoji(name: "tada"), .text(" "),
+                                      .emoji(name: "not_a_real_emoji")]
         let segments = MarkdownText.segments(runs, custom: [])
         XCTAssertEqual(segments.count, 1, "no image segments when nothing is custom")
         guard case .text(let text) = segments[0] else { return XCTFail("expected one text segment") }
-        XCTAssertEqual(String(text.characters), "🎉 :parrot:")
+        XCTAssertEqual(String(text.characters), "🎉 :not_a_real_emoji:")
     }
 
     func testEmphasisSurvivesAroundAnEmojiSegment() {

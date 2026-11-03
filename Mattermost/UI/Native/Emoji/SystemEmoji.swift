@@ -9,7 +9,7 @@
 // `scripts/t37_emoji_build.py` (which also verifies that licence before writing).
 //
 // Why the bundled table and not only the 60 names T34 shipped:
-//  - T34's `EmojiShortcodes.table` exists to *draw* a `:name:` that is already in a post. A picker
+//  - T34's `EmojiShortcodes` sample exists to *draw* a `:name:` that is already in a post. A picker
 //    built from it would offer 60 of the ~1,800 shortcodes the server itself resolves, so the
 //    acceptance sentence "the picker lists system emoji" would be false in the only way that
 //    matters — a reader looking for `:shipit:`-adjacent emoji finding nothing.
@@ -78,7 +78,7 @@ struct SystemEmojiCatalogue: Equatable, Sendable {
     /// hour of a live run.
     static let shared: SystemEmojiCatalogue = {
         if let loaded = SystemEmojiCatalogue(bundle: .main) { return loaded }
-        return SystemEmojiCatalogue(fallback: EmojiShortcodes.table)
+        return SystemEmojiCatalogue(fallback: EmojiShortcodes.fallbackTable)
     }()
 
     /// Non-nil when `shared` could not read the bundled resource.

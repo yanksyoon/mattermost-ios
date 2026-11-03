@@ -889,7 +889,40 @@ final class T35ComposerViewModelTests: XCTestCase {
         })
         withCatalogue.textChanged(":parrot", caret: 7)
         await awaitSignal("the custom emoji from the server catalogue", signal: custom) { $0 }
-        XCTAssertEqual(withCatalogue.suggestions.first?.insertion, ":t34parrot:")
+        // `parrot` is a real system emoji too (🦜), so the built-in row comes first by the dedupe
+        // rule; the server's `t34parrot` must still be offered. (Before the full table arrived the
+        // sample had no `parrot`, so this row happened to be first.)
+        let customRow = withCatalogue.suggestions.first { $0.value == "t34parrot" }
+        XCTAssertEqual(customRow?.insertion, ":t34parrot:")
+    }
+
+    func testAShortcodeOutsideTheOldHandTableIsOffered() async {
+        // t_580df874: completion used to read the same 60-name sample the reaction pill did, so
+        // `:dolph` found nothing at all. It now reads the picker's full table and ranks by the
+        // picker's rule, while still inserting `:name:`.
+        model.textChanged(":dolph", caret: 6)
+        await awaitSignal("the dolphin suggestion", signal: suggestionValues(.emoji)) { values in
+            values.contains("dolphin")
+        }
+        XCTAssertEqual(model.suggestions.first?.value, "dolphin")
+        XCTAssertEqual(model.suggestions.first?.insertion, ":dolphin:")
+
+        model.textChanged(":camera_with", caret: 12)
+        await awaitSignal("the camera suggestion", signal: suggestionValues(.emoji)) { values in
+            values.contains("camera_with_flash")
+        }
+        XCTAssertEqual(model.suggestions.first?.value, "camera_with_flash")
+    }
+
+    func testAnEmojiSuggestionNamesTheAliasTheReaderTyped() async {
+        // `👍` is canonically `+1` upstream; a reader who typed `:thumb` must be answered with
+        // `thumbsup`, not `+1`. Both resolve to the same emoji on the server.
+        model.textChanged(":thumb", caret: 6)
+        await awaitSignal("the thumbsup suggestion", signal: suggestionValues(.emoji)) { values in
+            values.contains("thumbsup")
+        }
+        XCTAssertEqual(model.suggestions.first?.value, "thumbsup")
+        XCTAssertEqual(model.suggestions.first?.glyph, "👍")
     }
 
     func testChoosingASuggestionRewritesTheTriggerAndReturnsTheCaret() {

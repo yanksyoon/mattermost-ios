@@ -764,6 +764,18 @@ struct EmojiGlyph: View {
     var emoji: EmojiCatalogue?
     var size: CGFloat = 15
 
+    /// The glyph resolution order for one `:shortcode:` (t_580df874).
+    ///
+    /// A custom emoji image wins over a built-in glyph even when the name is also a system one — the
+    /// server resolves its own emoji first, and a team that uploaded `smile` expects *its* image. The
+    /// built-in glyph comes next, through any alias. `:name:` text is the honest last resort for a
+    /// name neither the server nor the table knows, which is also what the web client draws.
+    static func resolve(image: UIImage?, name: String) -> EmojiGlyphResolution {
+        if let image { return .image(image) }
+        if let character = EmojiShortcodes.character(for: name) { return .character(character) }
+        return .literal(":\(name):")
+    }
+
     var body: some View {
         if let emoji {
             CatalogueEmojiGlyph(name: name, catalogue: emoji, size: size)
@@ -786,19 +798,31 @@ private struct CatalogueEmojiGlyph: View {
     }
 }
 
+/// What a `:shortcode:` draws. Split out of the view so the precedence above is a unit test instead
+/// of something only a screenshot can see.
+enum EmojiGlyphResolution {
+    case image(UIImage)
+    case character(String)
+    case literal(String)
+}
+
 private struct EmojiGlyphContent: View {
     let image: UIImage?
     let name: String
     let size: CGFloat
 
     var body: some View {
-        if let image {
+        switch EmojiGlyph.resolve(image: image, name: name) {
+        case .image(let image):
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()
                 .frame(width: size, height: size)
-        } else {
-            Text(EmojiShortcodes.character(for: name) ?? ":\(name):")
+        case .character(let character):
+            Text(character)
+                .font(.scaled(size))
+        case .literal(let text):
+            Text(text)
                 .font(.scaled(size))
         }
     }

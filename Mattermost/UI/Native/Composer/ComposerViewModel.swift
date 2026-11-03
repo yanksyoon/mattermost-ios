@@ -435,16 +435,24 @@ final class ComposerViewModel: ObservableObject {
     }
 
     private func emojiCandidates(term: String) -> [ComposerSuggestion] {
-        let needle = term.lowercased()
+        let needle = term.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         var suggestions: [ComposerSuggestion] = []
-        for (name, glyph) in EmojiShortcodes.table {
-            guard needle.isEmpty || name.contains(needle) else { continue }
+        // The whole built-in table (1,805 emoji over 2,327 aliases), not T34's 60-name sample: a
+        // reader typing `:dolph` must find `dolphin` (t_580df874). Before anything is typed after the
+        // `:` the list stays the starter set rather than all 1,805 rows.
+        let catalogue = SystemEmojiCatalogue.shared
+        let builtIn: [(name: String, emoji: SystemEmoji)] = needle.isEmpty
+            ? EmojiShortcodes.starterNames.compactMap { name in
+                catalogue.emoji(named: name).map { (name, $0) }
+            }
+            : catalogue.search(needle, limit: 40).map { (Self.bestAlias(for: $0, needle: needle), $0) }
+        for (name, emoji) in builtIn {
             suggestions.append(ComposerSuggestion(kind: .emoji,
                                                   value: name,
-                                                  label: "\(glyph) \(name)",
+                                                  label: "\(emoji.char) \(name)",
                                                   detail: "Emoji",
                                                   insertion: emojiInsertion(name),
-                                                  glyph: glyph))
+                                                  glyph: emoji.char))
         }
         let customNames: [String] = emojiCatalogue.map { Array($0.identifiers.keys) } ?? []
         for name in customNames where needle.isEmpty || name.contains(needle) {
@@ -459,6 +467,23 @@ final class ComposerViewModel: ObservableObject {
         // one row, the built-in first.
         var seen: Set<String> = []
         return suggestions.filter { seen.insert($0.id).inserted }
+    }
+
+    /// The alias the reader is typing toward: `:thumb` suggests `thumbsup`, not the canonical `+1`.
+    /// Both resolve to the same emoji on the server; the one that matches the typed prefix is the one
+    /// that reads as an answer.
+    private static func bestAlias(for emoji: SystemEmoji, needle: String) -> String {
+        guard !needle.isEmpty else { return emoji.name }
+        var best = emoji.name
+        var bestRank = SystemEmojiCatalogue.rank(emoji.name.lowercased(), needle)
+        for alias in emoji.aliases where alias != emoji.name {
+            let rank = SystemEmojiCatalogue.rank(alias.lowercased(), needle)
+            if rank < bestRank {
+                best = alias
+                bestRank = rank
+            }
+        }
+        return best
     }
 
     private func displayName(for user: MMUser) -> String {
