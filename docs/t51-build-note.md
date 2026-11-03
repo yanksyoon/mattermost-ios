@@ -103,40 +103,43 @@ never claims a delete that did not happen (`testAVetoedDeleteKeepsTheRowAndSaysS
 
 ## 5. Live results
 
-Run on the tree this note ships with (rebased onto `origin/main` `2b81b2f`; the published commit is
-named in the card's closing comment, because a commit cannot name its own SHA).
-Server: the pinned fixture at `127.0.0.1:8065` (Mattermost **9.11.19** Team Edition, account
-`perfprobe`). Simulator: iPhone 16 Pro, iOS 18.3.1, `parallel-testing-enabled NO`. The host was under
-extreme load for much of the session (load average into the hundreds, swap nearly full, ~60 MB free
-of 16 GB); every number below is a real run, and the attempts that did not finish were XCTest
-failing to bootstrap its host ("Early unexpected exit … Test crashed with signal kill") or being
-killed by the stall watchdog, not product failures — the successful runs are the ones cited.
+Run on the tree this note ships in — code commit **`dba922d`**, rebased onto `origin/main`
+`2b81b2f` (the published commit is named in the card's closing comment, because a commit cannot name
+its own SHA). Server: the pinned fixture at `127.0.0.1:8065` (Mattermost **9.11.19** Team Edition,
+account `perfprobe`). Simulator: iPhone 16 Pro, iOS 18.3.1 (`01027E41-0F01-43B9-87A4-266FC0292B62`),
+`parallel-testing-enabled NO`. The host was under extreme load for much of the session (load average
+into the hundreds, swap nearly full, ~60 MB free of 16 GB); every number below is a real run, and the
+runs that did not finish were XCTest failing to bootstrap its host ("Early unexpected exit … Test
+crashed with signal kill") or being killed by the stall watchdog, not product failures.
 
-Command (the env supplies the fixture account; each live test **skips**, never fails, without it):
+Command — one invocation, the whole unit bundle **and** the live class (the env supplies the fixture
+account; each live test **skips**, never fails, without it):
 
 ```
 TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 \
 TEST_RUNNER_MM_AUTH_LOGIN=perfprobe \
 TEST_RUNNER_MM_AUTH_PASSWORD=<fixture password> \
-python3 scripts/qa-test.py --platform ios --sim "id=81A7F251-8B31-4945-8783-5A264C14B8D5" \
+python3 scripts/qa-test.py --platform ios --sim "id=01027E41-0F01-43B9-87A4-266FC0292B62" \
   --derived-data ~/Library/Developer/Xcode/DerivedData/mmios-t51 \
-  --only-testing MattermostTests/T51GlobalDraftsTests \
-  --only-testing MattermostUITests/T51GlobalDraftsUITests --label t51-final1 \
+  --only-testing MattermostTests \
+  --only-testing MattermostUITests/T51GlobalDraftsUITests --label t51-final-global \
   -- -parallel-testing-enabled NO
 ```
 
-`build/logs/t51-final1.log` — **one invocation, `** TEST SUCCEEDED **`, 333.3 s**:
+`build/logs/t51-final-global.log` — **`** TEST SUCCEEDED **`, 317.3 s of testing**:
 
 | Suite | Result |
 | --- | --- |
-| `MattermostTests/T51GlobalDraftsTests` | 26 tests, 0 failures (0.58 s) |
-| `MattermostUITests/T51GlobalDraftsUITests` | 2 tests, 0 failures (220.9 s) |
+| `MattermostTests` (whole bundle) | 2027 tests, 8 skipped, 0 failures (101.5 s) |
+| `MattermostTests/T51GlobalDraftsTests` (inside that bundle) | 26 tests, 0 failures |
+| `MattermostUITests/T51GlobalDraftsUITests` | 2 tests, 0 failures (153.0 s) |
 
-`build/logs/t51-live.log` — the same live class on its own, **2 tests, 0 failures, 244.9 s**:
-`testADraftIsFoundInTheListOpenedInItsChannelAndDeleted` (117.0 s) and
-`testADraftSurvivesARelaunchAndIsReachableFromTheList` (127.9 s, 110.4 s in the suite run).
-`build/logs/t51-all-units.log` — the whole unit bundle on this tree: **2020 tests, 8 skipped,
-0 failures** in 599.0 s.
+Earlier green runs of the same work, cited as corroboration, not as the final numbers:
+`build/logs/t51-final1.log` (both suites in one invocation, `** TEST SUCCEEDED **`),
+`build/logs/t51-live.log` (the live class alone, **2 tests, 0 failures, 244.9 s**:
+`testADraftIsFoundInTheListOpenedInItsChannelAndDeleted` 117.0 s,
+`testADraftSurvivesARelaunchAndIsReachableFromTheList` 127.9 s) and
+`build/logs/t51-all-units.log` (the whole unit bundle before this note's last commit).
 
 What the two live tests prove:
 
@@ -222,8 +225,10 @@ the scheduling derivation should follow.
 
 ## 8. Publish
 
-The code these numbers were measured on is commit `487ffb0`, rebased onto `origin/main` `bde77c5`.
+The code these numbers were measured on is commit `dba922d`, rebased onto `origin/main` `2b81b2f`.
 The publish commit (this note's final revision) and the assertion
 `git ls-remote origin refs/heads/main` == local `git rev-parse HEAD` are recorded in the card's
 closing comment, because a commit cannot name its own SHA. Staged by pathspec: the T51 paths only —
-the sibling cards' in-flight edits in the shared checkout were neither staged nor committed.
+the sibling cards' in-flight edits in the shared checkout were neither staged nor committed. The
+work was done in an isolated worktree because several sibling cards were testing in the same shared
+checkout while this ran.
