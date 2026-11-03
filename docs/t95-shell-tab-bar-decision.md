@@ -74,6 +74,21 @@ Consequences, stated so nobody re-opens them as bugs:
 
 ## 3. Decision D2 — `LaunchDestination`: restore the last channel, stop inventing a town hall
 
+> **Superseded 2026-11-04 by card `t_295b0a32`.** The product owner's instruction of 2026-10-27 —
+> *"launch into last opened channel, or default to town hall"* — is a requirement this decision
+> contradicted, and the owner reported the result as a regression ("No channel selected" on a clean
+> launch). `LaunchDestination.resolve` now opens the saved channel, else a channel named
+> `town-square`/`town-hall`, else the team's first non-DM channel. Two of T95-A's rules are kept:
+> a saved channel that is gone **falls through** instead of being opened, and the fallbacks only run
+> against a channel list that has loaded. D1 below (a channel is pushed over the tab bar on compact)
+> and the layout deviations are unchanged. The paragraphs that follow are the original decision,
+> kept for history; the code and the suites follow the amendment.
+>
+> Evidence: `docs/t295-launch-town-hall-build-note.md` (diagnostics line + screenshot from the
+> installed Mac Catalyst build) and the rewritten falsifiers
+> `MattermostTests/LastChannelLaunchTests`, `MattermostUITests/T95ShellLayoutUITests`,
+> `MattermostUITests/T95GoneChannelLaunchUITests`.
+
 Upstream's cold-start policy (`app/init/launch.ts:245-262`, then `:290-294`) is layout-independent
 and has exactly two branches before giving up: the **last thread**, else the **last channel**; if
 neither exists it sets `HOME` and routes to `/(authenticated)/(home)` — the channel list with its tab
