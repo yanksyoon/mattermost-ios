@@ -356,6 +356,13 @@ final class ChannelSidebarCoordinator: ObservableObject {
 /// caller supplied them (`nil` stays `nil`), never guessed. A permalink that names only a post is not
 /// this object's business (S12/T36 resolves posts to channels).
 extension ChannelSidebarCoordinator: NativeChannelDirectory {
+    /// The team this server's list is showing, when one has resolved. `nil` before the list knows —
+    /// e.g. before the first load, or while the reader has no team selected.
+    func currentTeamID(serverID: UUID) -> String? {
+        guard let teamID = models[serverID]?.teamID, !teamID.isEmpty else { return nil }
+        return teamID
+    }
+
     func identity(for request: NativeChannelRequest, serverID: UUID) -> NativeChannelIdentity? {
         guard let model = models[serverID] else { return nil }
         // Team name → id from the rail (the channel list knows the team it was loaded for, the rail

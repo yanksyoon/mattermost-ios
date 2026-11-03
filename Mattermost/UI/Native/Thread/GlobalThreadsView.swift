@@ -40,7 +40,9 @@ struct GlobalThreadsPaneContent: View {
         .environment(\.avatarImages, avatarStore)
         .task(id: navigation.location.teamID) {
             avatarStore = panes.avatarStore(for: server)
-            let resolved = threads.globalModel(for: server, teamID: navigation.location.teamID ?? "")
+            // The route's team verbatim: passing "" here was the decision that turned a missing team
+            // into `/users/me/teams//threads`. A teamless model reports `.noTeam` and sends nothing.
+            let resolved = threads.globalModel(for: server, teamID: navigation.location.teamID)
             model = resolved
             await resolved.load(ifNeeded: true)
         }
@@ -99,7 +101,7 @@ struct NativeThreadsTabView: View {
             }
         }
         .task(id: navigation.location.teamID) {
-            model = threads.globalModel(for: server, teamID: navigation.location.teamID ?? "")
+            model = threads.globalModel(for: server, teamID: navigation.location.teamID)
         }
     }
 }
@@ -156,6 +158,8 @@ struct GlobalThreadsListView: View {
                 switch model.phase {
                 case .idle, .loading:
                     loadingState
+                case .noTeam:
+                    noTeamState
                 case .failed(let message):
                     failureState(message)
                 case .loaded:
@@ -249,6 +253,24 @@ struct GlobalThreadsListView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("globalThreads.loadingState")
+    }
+
+    /// No team is resolved: the pane has nothing to ask for, and says so instead of blaming the
+    /// server. Deliberately not the failure state — there is no request to retry until the shell
+    /// knows which team it is showing.
+    private var noTeamState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "person.2")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+            Text(GlobalThreadsViewModel.noTeamMessage)
+                .font(.callout)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("globalThreads.noTeam")
     }
 
     private func failureState(_ message: String) -> some View {

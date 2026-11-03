@@ -157,13 +157,32 @@ final class ThreadCoordinator: ObservableObject {
 
     // MARK: - Global threads
 
-    func globalModel(for server: ServerConfig, teamID: String) -> GlobalThreadsViewModel {
-        let key = teamID.isEmpty ? "default" : teamID
-        if let existing = globalModels[server.id]?[key] { return existing }
-        let model = GlobalThreadsViewModel(teamID: teamID,
+    /// Diagnostics: how many global lists are cached (one per server+team).
+    var globalModelCount: Int { globalModels.values.reduce(0) { $0 + $1.count } }
+
+    /// The followed-threads list for one server and team.
+    ///
+    /// A **teamless** model is never cached. It is a placeholder whose only job is to draw "choose a
+    /// team to see your threads"; memoising it (under the key `"default"`, as this used to) kept a
+    /// model that can never load alive after the team resolved, and handed it to whichever caller
+    /// came next. Without the entry, the pane's `.task(id: navigation.location.teamID)` builds the
+    /// real model once the team arrives, and that model loads exactly once.
+    ///
+    /// When the caller has no team but the shell does (a tab tap writes no route), the shell's team
+    /// is used — so the tab badge and the pane's list are the same object, rather than one honest
+    /// placeholder beside one loaded list.
+    func globalModel(for server: ServerConfig, teamID: String?) -> GlobalThreadsViewModel {
+        let requested = (teamID?.isEmpty == false) ? teamID : nil
+        guard let resolvedTeamID = requested ?? currentTeamID(for: server) else {
+            return GlobalThreadsViewModel(teamID: "",
+                                          service: service(for: server),
+                                          myUserID: auth?.userID(for: server.id))
+        }
+        if let existing = globalModels[server.id]?[resolvedTeamID] { return existing }
+        let model = GlobalThreadsViewModel(teamID: resolvedTeamID,
                                            service: service(for: server),
                                            myUserID: auth?.userID(for: server.id))
-        globalModels[server.id, default: [:]][key] = model
+        globalModels[server.id, default: [:]][resolvedTeamID] = model
         return model
     }
 
@@ -172,12 +191,26 @@ final class ThreadCoordinator: ObservableObject {
         globalModels[serverID] = nil
     }
 
+    /// The team the shell is currently showing on `server`, when one has resolved.
+    ///
+    /// The same fact the router completes a threads route with (`NativeChannelDirectory`), read here
+    /// so a pane opened by a tab tap — which writes no route — does not sit on "choose a team" while
+    /// the sidebar plainly shows one. It is a lookup, never a guess: no answer means "still no team".
+    func currentTeamID(for server: ServerConfig) -> String? {
+        guard let teamID = navigation?.directory?.currentTeamID(serverID: server.id),
+              !teamID.isEmpty else { return nil }
+        return teamID
+    }
+
     // MARK: - Services
 
     private func teamID(for server: ServerConfig) -> String {
         // The navigation model's current location is the only source for "which team is on screen";
-        // a thread opened without a location falls back to the server cookie the sidebar keeps.
-        navigation?.location.teamID ?? ""
+        // a thread opened without a location falls back to the team the sidebar is showing, and only
+        // then to "no team" — the empty value a caller must treat as "not resolved"
+        // (`GlobalThreadsViewModel.noTeam`), never as a URL segment.
+        if let id = navigation?.location.teamID, !id.isEmpty { return id }
+        return currentTeamID(for: server) ?? ""
     }
 
     private func service(for server: ServerConfig) -> ThreadServing {

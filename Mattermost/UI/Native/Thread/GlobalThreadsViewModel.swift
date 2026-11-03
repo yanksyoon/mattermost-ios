@@ -19,6 +19,9 @@ final class GlobalThreadsViewModel: ObservableObject {
         case idle
         case loading
         case loaded
+        /// No team is resolved, so there is no list to ask for (see `reload()`). Distinct from
+        /// `.failed`: nothing was refused and nothing can be retried until the shell has a team.
+        case noTeam
         case failed(String)
     }
 
@@ -33,7 +36,12 @@ final class GlobalThreadsViewModel: ObservableObject {
 
     // MARK: Identity
 
+    /// The team this list belongs to; **empty means "not resolved yet"** (see `noTeam`) and is never
+    /// turned into a request path.
     let teamID: String
+
+    /// The sentence the pane shows when there is no team to read threads from.
+    static let noTeamMessage = "Choose a team to see your threads."
 
     // MARK: Published state
 
@@ -45,6 +53,10 @@ final class GlobalThreadsViewModel: ObservableObject {
     @Published private(set) var isLoadingMore = false
     @Published private(set) var hasMore = false
     @Published private(set) var loadMoreError: String?
+    /// The last list request's failure, as one diagnostic line (the request path and the HTTP
+    /// status). Never rendered: it exists so the next "not available" can be explained without a
+    /// live server, which is what this defect needed.
+    @Published private(set) var lastFailureDiagnostic: String?
     /// The last socket event's effect (diagnostics/tests; never rendered).
     @Published private(set) var lastEventOutcome: EventOutcome = .ignored
 
@@ -102,6 +114,9 @@ final class GlobalThreadsViewModel: ObservableObject {
         self.now = now
         self.calendar = calendar
         self.locale = locale
+        // A model born without a team has nothing to load from the first frame: the pane must say
+        // "choose a team" rather than draw a spinner over a request that will never be sent.
+        if teamID.isEmpty { phase = .noTeam }
     }
 
     // MARK: - Loading
@@ -114,8 +129,24 @@ final class GlobalThreadsViewModel: ObservableObject {
     func reload() async {
         generation += 1
         let requested = generation
+        // Never build a request from an unresolved team. `teamID` empty used to become
+        // `/users/me/teams//threads` — measured: a 301 to `/users/me/teams/threads` and then a 404,
+        // i.e. the pane printed "These threads are not available." over a request it should never
+        // have sent. The missing fact is a *state*, not a server answer.
+        guard !teamID.isEmpty else {
+            threads = []
+            rows = []
+            before = nil
+            hasMore = false
+            isLoadingMore = false
+            loadMoreError = nil
+            lastFailureDiagnostic = nil
+            phase = .noTeam
+            return
+        }
         phase = .loading
         loadMoreError = nil
+        lastFailureDiagnostic = nil
         before = nil
         do {
             let page = try await service.threads(teamID: teamID, before: nil,
@@ -136,6 +167,12 @@ final class GlobalThreadsViewModel: ObservableObject {
             // is authoritative here.
         } catch {
             guard requested == generation else { return }
+            // The copy says "not available" for a 404, which is true and useless on its own: it
+            // cannot tell a page that asked for the wrong team from a server that dropped the
+            // endpoint. Name the request and the status in the log.
+            let diagnostic = Self.diagnostic(for: error, path: Self.listPath(teamID: teamID))
+            lastFailureDiagnostic = diagnostic
+            Logger.error("Threads", diagnostic)
             phase = .failed(Self.message(for: error))
         }
     }
@@ -179,6 +216,9 @@ final class GlobalThreadsViewModel: ObservableObject {
             return grew
         } catch {
             guard requested == generation else { return false }
+            let diagnostic = Self.diagnostic(for: error, path: Self.listPath(teamID: teamID))
+            lastFailureDiagnostic = diagnostic
+            Logger.error("Threads", diagnostic)
             loadMoreError = Self.message(for: error)
             return false
         }
@@ -356,5 +396,26 @@ final class GlobalThreadsViewModel: ObservableObject {
                             notFound: "These threads are not available.",
                             rateLimited: "The server is rate limiting this app. Try again shortly.",
                             fallback: "Your threads could not be loaded.")
+    }
+
+    /// The path this list asks for, as the transport builds it (`ThreadAPI.userThreads`).
+    ///
+    /// Named in the failure diagnostic and asserted by the tests, so "which request was refused?"
+    /// is answerable from a log line rather than from a live server.
+    static func listPath(teamID: String) -> String {
+        "/users/me/teams/\(teamID)/threads"
+    }
+
+    /// One line naming the request and the HTTP status, or — when the failure never reached the
+    /// server — the transport failure itself.
+    ///
+    /// `MMError` carries the status (`httpStatus`) but not the path, so both halves are joined here,
+    /// at the one place that knows what was asked for.
+    static func diagnostic(for error: Error, path: String) -> String {
+        guard let mm = error as? MMError else {
+            return "Threads list request failed path=\(path) status=none error=\(error.localizedDescription)"
+        }
+        let status = mm.httpStatus.map(String.init) ?? "none"
+        return "Threads list request failed path=\(path) status=\(status) error=\(String(describing: mm))"
     }
 }

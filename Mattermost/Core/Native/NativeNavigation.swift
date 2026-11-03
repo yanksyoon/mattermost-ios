@@ -193,6 +193,19 @@ struct NativeChannelIdentity: Equatable {
 @MainActor
 protocol NativeChannelDirectory: AnyObject {
     func identity(for request: NativeChannelRequest, serverID: UUID) -> NativeChannelIdentity?
+
+    /// The team the shell is currently showing on `serverID`, when one has resolved.
+    ///
+    /// Used to complete a route that names no team — a `/{teamName}/threads` link whose name has not
+    /// resolved yet, or a threads route from a caller that only knows the server. Return `nil` when
+    /// the shell does not know either; a route is never given an invented team.
+    func currentTeamID(serverID: UUID) -> String?
+}
+
+extension NativeChannelDirectory {
+    /// The seam's default: a directory that has no opinion about the current team leaves the route
+    /// exactly as its caller wrote it (T30's original behaviour).
+    func currentTeamID(serverID: UUID) -> String? { nil }
 }
 
 /// Whether a configured server has a usable session — i.e. whether the pane should show the auth
@@ -664,14 +677,29 @@ final class NativeNavigation: ObservableObject {
         default: pane = .channel
         }
         let resolved = directory?.identity(for: request, serverID: server.id)
+        var teamID = Self.nonEmpty(resolved?.teamID) ?? Self.nonEmpty(request.teamID)
+        let teamName = resolved?.teamName ?? request.teamName
+        // A threads route must name a team: `/{team}/threads` is a team-scoped list, and a route
+        // without one used to leave the pane to build `/users/me/teams//threads` (301 → 404). The
+        // shell's current team is the fact the caller lacked, so it is filled in here — never an
+        // invented id, and never a guess when the shell does not know one either.
+        if pane == .threads, teamID == nil {
+            teamID = Self.nonEmpty(directory?.currentTeamID(serverID: server.id))
+        }
         return NativeLocation(serverID: server.id,
                               serverName: server.name,
-                              teamID: resolved?.teamID ?? request.teamID,
-                              teamName: resolved?.teamName ?? request.teamName,
+                              teamID: teamID,
+                              teamName: teamName,
                               channelID: resolved?.channelID ?? request.channelID,
                               channelName: resolved?.channelName ?? request.channelName,
                               postID: request.postID,
                               pane: pane)
+    }
+
+    /// `nil` for an absent or empty string — an empty team id is not a team.
+    static func nonEmpty(_ value: String?) -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        return value
     }
 
     // MARK: Deep-link path parsing

@@ -532,7 +532,7 @@ final class FakeThreadService: ThreadServing {
     }
 
     private(set) var threadRequests: [ThreadRequest] = []
-    private(set) var threadListRequests: [(before: String?, unreadOnly: Bool)] = []
+    private(set) var threadListRequests: [(teamID: String, before: String?, unreadOnly: Bool)] = []
     private(set) var followWrites: [(following: Bool, threadID: String)] = []
     private(set) var readCalls: [(timestamp: Int64, threadID: String)] = []
     private var servedPages = 0
@@ -554,7 +554,7 @@ final class FakeThreadService: ThreadServing {
     }
 
     func threads(teamID: String, before: String?, perPage: Int, unreadOnly: Bool) async throws -> MMThreadList {
-        threadListRequests.append((before: before, unreadOnly: unreadOnly))
+        threadListRequests.append((teamID: teamID, before: before, unreadOnly: unreadOnly))
         if let loadError { throw loadError }
         return threadPages[before] ?? MMThreadList()
     }

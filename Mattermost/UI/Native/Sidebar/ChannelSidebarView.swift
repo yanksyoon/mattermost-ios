@@ -558,7 +558,15 @@ struct NativeChannelSidebarContent: View {
     /// see the unread threads" looked like when this card was reported).
     private func openThreads() {
         navigation.select(tab: .threads)
-        navigation.openThreads(NativeChannelRequest(serverID: server.id, teamID: model.teamID))
+        // A teamless row has no list to open: routing it built `/users/me/teams//threads`, which the
+        // server answers with a 301 and then a 404 — the pane then blamed the server for a fact the
+        // shell was missing. The tab selection above is what the reader gets; the route is written
+        // only once the sidebar actually knows the team.
+        guard let teamID = model.teamID, !teamID.isEmpty else {
+            Logger.info("Threads", "threads route refused: the sidebar has no team yet")
+            return
+        }
+        navigation.openThreads(NativeChannelRequest(serverID: server.id, teamID: teamID))
     }
 
     /// What the footer says, as one sentence: the counts, or "All caught up", plus the stale warning
