@@ -251,6 +251,12 @@ the shipped suite when broken, so the green 23/0 above is evidence, not silence.
   unit level by the shipped `testAFailedWriteSaysWhy`, and the live half is **not claimed**. Nor is
   the second AV UI test executed (`testTheOwnPostsMenuOpensOnTheThreadRoot`). Treat the file as a
   prepared attack, not as evidence.
+* **A second client's pin/save with the sheet open, driven live** — the probe wrote from a second
+  token and the frames are in `build/logs/t48av-probe.log`, and the shipped live suite's own save test
+  failed the same way, but this pass never held the sheet open in the simulator while a second client
+  wrote: the simulator would not take the app (see §F6). What the wire shows makes the live exercise
+  foregone — the frame that would carry the change is dropped by the decoder (F2) — so the criterion is
+  recorded as **not measured live**, diagnosed instead.
 * **The pin 403 with a "post-write role" removed** — not reproduced (§1); the endpoint honoured a
   member with no channel roles.
 
