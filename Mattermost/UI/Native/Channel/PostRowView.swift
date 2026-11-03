@@ -564,7 +564,11 @@ struct PostOptionsSheet: View {
     let actions: PostRowActions
     let surface: PostOptionsSurface
     @ObservedObject var options: PostOptionsViewModel
-    var onDismiss: () -> Void = {}
+    /// How this sheet closes. **Required**: the sheet draws its own Cancel (and a Done after a copy),
+    /// so a host that does not say how it closes would be a host whose close button does nothing.
+    /// It used to default to `{}` — a silent no-op `Cancel`, which is exactly the defect class the
+    /// modal-dismiss card (`t_ddf85143`) names; with no default, that shape cannot be written again.
+    var onDismiss: () -> Void
     /// Whether this form draws its own Cancel. False when the sheet is **pushed** onto a stack that
     /// already carries a presentation: the stack's back button is the dismissal, and a second
     /// cancel-shaped control on a push is a control that does not exist anywhere else in this app

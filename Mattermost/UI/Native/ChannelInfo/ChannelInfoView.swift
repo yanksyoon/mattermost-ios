@@ -19,6 +19,22 @@
 
 import SwiftUI
 
+/// The one sheet `ChannelInfoView` presents, as an identity rather than two booleans.
+///
+/// Two state flags meant two `.sheet` modifiers on one view, and a sheet added later would have been
+/// a third — the shape that drops presentations silently (and that `t_ddf85143` is about).
+fileprivate enum ChannelInfoSheetRoute: Identifiable {
+    case pinned
+    case addMembers
+
+    var id: String {
+        switch self {
+        case .pinned: return "pinned"
+        case .addMembers: return "addMembers"
+        }
+    }
+}
+
 /// The sheet the channel header presents: a navigation stack whose root is the info screen.
 struct ChannelInfoSheet: View {
     let server: ServerConfig
@@ -95,14 +111,20 @@ struct ChannelInfoView: View {
     @State private var confirmLeave = false
     @State private var confirmArchive = false
     @State private var confirmUnarchive = false
-    @State private var showsAddMembers = false
     @State private var showsMembers = false
     @State private var showsSettings = false
     @State private var showsNotifications = false
     @State private var showsFiles = false
     /// Built from the row's own tap, so the pushed screen always has its model (T52-R3).
     @State private var filesModel: ChannelFilesViewModel?
-    @State private var showsPinned = false
+    /// The **one** sheet this screen presents, and the item that closes it.
+    ///
+    /// This screen used to carry two `.sheet(isPresented:)` modifiers (`showsPinned`,
+    /// `showsAddMembers`) on the same view. That is the shape T40 measured dropping a presentation —
+    /// no error, no sheet, the tap just does nothing — and the shape `t_ddf85143` names as the
+    /// systemic modal defect. One item-bound slot instead: whichever row was tapped is the item, and
+    /// each sheet's own close clears that same item, so there is one state and one dismissal rule.
+    @State private var sheet: ChannelInfoSheetRoute? = nil
 
     var body: some View {
         List {
@@ -173,18 +195,21 @@ struct ChannelInfoView: View {
                                  downloads: downloads)
             }
         }
-        // T52: the pinned row opens T39's existing sheet, not a second pinned list.
-        .sheet(isPresented: $showsPinned) {
-            if let navigation {
-                PinnedPostsView(server: server,
-                                channelID: model.channelID,
-                                channelName: model.channel?.name,
-                                navigation: navigation,
-                                onClose: { showsPinned = false })
+        // T52: the pinned row opens T39's existing sheet, not a second pinned list. One item-bound
+        // slot for this screen (see `sheet`): the add-people picker is the other item.
+        .sheet(item: $sheet) { route in
+            switch route {
+            case .pinned:
+                if let navigation {
+                    PinnedPostsView(server: server,
+                                    channelID: model.channelID,
+                                    channelName: model.channel?.name,
+                                    navigation: navigation,
+                                    onClose: { sheet = nil })
+                }
+            case .addMembers:
+                AddMembersView(model: model, server: server)
             }
-        }
-        .sheet(isPresented: $showsAddMembers) {
-            AddMembersView(model: model, server: server)
         }
         .confirmationDialog(leavePrompt.title,
                             isPresented: $confirmLeave,
@@ -296,7 +321,7 @@ struct ChannelInfoView: View {
         switch action {
         case .addMembers:
             Button {
-                showsAddMembers = true
+                sheet = .addMembers
             } label: {
                 rowLabel("Add members", systemImage: "person.badge.plus")
             }
@@ -352,7 +377,7 @@ struct ChannelInfoView: View {
             // (rather than a row whose tap presents nothing).
             if navigation != nil {
                 Button {
-                    showsPinned = true
+                    sheet = .pinned
                 } label: {
                     rowLabel("Pinned messages", systemImage: "pin")
                 }
