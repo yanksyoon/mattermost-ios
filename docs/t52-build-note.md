@@ -220,3 +220,12 @@ are still alive after teardown`). It passes alone, and the next full run (`t52-a
 tests — one more than the first because of the extra T52 test added in between) was **0 failed**. It is
 a teardown-timing test in the T46 fallback suite, not touched by this card. Reported rather than
 silently averaged away.
+
+## 8. Publish
+
+Committed on `t52/channel-info-completeness` (worktree `.worktrees/t_8c85e851`) from `origin/main`
+`7067353` and pushed to `main`; `git ls-remote origin refs/heads/main` was asserted equal to local
+`HEAD` after the push. Staged by pathspec: the 11 ChannelInfo/Channel sources, the T40 expectation
+update, the two new test files, this note, and the three probes — nothing outside T52's paths.
+
+`scripts/__pycache__/` (a probe artefact) was left untracked and unstaged.
