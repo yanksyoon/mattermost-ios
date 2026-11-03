@@ -189,3 +189,15 @@ scripts/t48r1_live_suite.sh <iphone-udid> t48r1-iphone   # 5 rows, compact
 scripts/t48r1_live_suite.sh <ipad-udid>   t48r1-ipad     # 5 rows, regular
 ```
 
+## Publish
+
+| | |
+|---|---|
+| code + tests + this note | `48219c5` |
+| base | `7eab509` (origin/main at the time of the rebase) |
+| worktree/branch | `.worktrees/t_29925e81`, `t48-r1/lookup-options`, one commit |
+| verified | `git ls-remote origin refs/heads/main` == `48219c5…` after the push |
+
+The shared checkout was not used for the commit: this card worked in its own worktree, so none of the
+sibling cards' uncommitted files were staged, and nothing listed in the steward's notes was deleted.
+
