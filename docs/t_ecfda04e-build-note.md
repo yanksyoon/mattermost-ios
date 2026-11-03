@@ -178,14 +178,23 @@ remain the single source of truth, that workspace collision needs fixing before 
 **hotspot:** `/Users/yangsooyoon/Documents/yanks/code/mattermost-ios` — seven concurrent workers in
 one `dir` workspace; HEAD and the index are shared.
 
+The dispatcher also reclaimed this card's run mid-flight (run 355 → 362) after its liveness probe
+reported pid 28734 dead while that process was still alive and still serving this conversation. The
+board's `kanban_complete` tool then refused against the stale pid, so the card was closed with
+`hermes kanban complete --force`, and the child cards created for the follow-up work carry the
+handoff.
+
 ## Live proof — NOT captured, and why
 
 The operator's definition of done asks for a screenshot/recording of a banner with sound and a
-non-zero dock badge on a Release Catalyst build. **The host's screen is locked** (screenshot
-evidence: the login window, "Touch ID or Enter Password", `wake-check.png`), so no one can tap
-Settings → Enable notifications or accept the system permission dialog, and no banner can be shown
-on screen. `screencapture` before waking the display returned an all-black image; after waking it,
-the login window. The Release build itself succeeds and is registered with LaunchServices at
+non-zero dock badge on a Release Catalyst build. **The host's screen is locked** — the captured
+screen is the login window ("Touch ID or Enter Password"), and before the display was woken
+`screencapture` returned an all-black frame — so no one can tap Settings → Enable notifications or
+accept the system permission dialog, and no banner can be shown on screen. The capture is not
+committed to this repository (it shows the machine's lock screen, including the account avatar); it
+is kept with the card's evidence and its path is in the card metadata.
+
+The Release build itself succeeds and is registered with LaunchServices at
 
 ```
 <scratch>/dd-release/Build/Products/Release-maccatalyst/Mattermost.app
