@@ -126,3 +126,33 @@ RESULT: PASS
   one combined accessibility element whose label is `"<name> <count>"`. The resolution order is
   therefore pinned as a unit test on `EmojiGlyph.resolve`, and the view body is a direct `switch`
   over its result rather than a second copy of the rule.
+
+## 7. Re-verification at the current tip (run 370, 2026-11-04 07:26)
+
+The card was reclaimed once mid-run (board run 360, 04:02) after the work had already published, so
+this run verified the delivered tree instead of rebuilding it. `HEAD` is
+`ecf7845` and the fix is present in it (`60a9c41` + docs `bd13ca5`), with every later commit
+(`t_295b0a32`, `t_e0077228`, `t4528b67e`, `t_ddf85143`) stacked on top of it.
+
+Checked, not assumed:
+
+```
+$ git rev-parse HEAD                                     # ecf78455d820ce80200c8a097a000d41bdf8dc00
+$ git ls-remote origin refs/heads/main                   # ecf78455d820ce80200c8a097a000d41bdf8dc00
+$ git status --short                                     # (clean)
+
+$ scripts/qa-test.py --only-testing MattermostTests/EmojiShortcodeTableTests \
+                     --only-testing MattermostTests/T34EmojiTests \
+                     --only-testing MattermostTests/T35ComposerViewModelTests
+tests      : 74 run, 0 skipped, 0 failed   RESULT: PASS          (49 s)
+
+$ scripts/qa-test.py --only-testing MattermostTests
+tests      : 2184 run, 10 skipped, 0 failed   RESULT: PASS        (122 s)
+```
+
+The seven `EmojiShortcodeTableTests` that ran by name: the bundled table is complete and not
+degraded; `dolphin` / `sparkling_heart` / `face_with_raised_eyebrow` / `camera_with_flash` draw
+their glyph; every alias resolves through `EmojiShortcodes.character(for:)`; the markdown renderer
+agrees; a custom image wins; a not-yet-loaded image falls back to the glyph; a name neither knows
+stays `:name:`.
+
