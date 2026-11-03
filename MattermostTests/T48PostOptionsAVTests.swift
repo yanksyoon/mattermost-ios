@@ -21,6 +21,10 @@
 // gap. `T48AV_STRICT=1` runs them unmarked; that is how this pass produced the red output quoted in
 // docs/t48-av-build-note.md, and how the defects stay reproducible once they are fixed.
 //
+// R4 (t_610b979b) removed the two F5 markers: Edit and Delete now read `edit_post` / `delete_post`
+// and the channel's archive, so those two tests assert the fixed behaviour as ordinary expectations.
+// The helper stays for the findings still open (F1/F3/F4).
+//
 // Run:
 //
 //     python3 scripts/qa-test.py --platform ios --sim id=<udid> \
@@ -170,9 +174,10 @@ final class T48PostOptionsAVTests: XCTestCase {
     /// Upstream's `channelIsArchived` withholds every write, and the T48 note's table says the same
     /// for Edit and Delete ("my own post, `edit_post`, channel not archived"). The derivation is
     /// asked with the host's own answers for a post that is mine, in an archived channel.
+    ///
+    /// R4 (t_610b979b): the archive is now a term in the reply/edit/delete gates, so this is an
+    /// ordinary expectation rather than a recorded defect.
     func testAnArchivedChannelOffersNoEditOrDelete() {
-        expectKnownDefect("T48-AV F5: derive() never reads isArchived for edit/delete "
-                         + "(docs/t48-av-build-note.md §F5; repair card filed from t_531f894e)")
         var facts = PostOptionFacts()
         facts.viewerID = me
         facts.authorID = me
@@ -197,9 +202,9 @@ final class T48PostOptionsAVTests: XCTestCase {
     /// The host's `canEdit`/`canDelete` are ownership answers (`ComposerRowPermissions.menu`), so if
     /// the ids are not consulted here the row is offered and the server refuses it after the sheet
     /// has already dismissed.
+    ///
+    /// R4 (t_610b979b): the ids are now read in `PostOptionsViewModel.facts` and again in `derive`.
     func testEditAndDeleteAreWithheldWithoutTheServersEditAndDeleteIds() async {
-        expectKnownDefect("T48-AV F5: edit/delete are ownership-only; edit_post/delete_post are never "
-                         + "read (docs/t48-av-build-note.md §F5; repair card filed from t_531f894e)")
         let service = FakeService()
         service.permissionsValue = [PostOptionsPermissionID.createPost]
         let options = model(service)

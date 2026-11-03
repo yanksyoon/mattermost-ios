@@ -124,8 +124,16 @@ final class PostOptionsViewModel: ObservableObject {
         facts.message = row.post.message
         facts.canReact = actions.canReact
         facts.canReply = actions.canReply
-        facts.canEdit = actions.canEdit
-        facts.canDelete = actions.canDelete
+        // T48-AV F5: the row host answers *ownership* only (`ComposerRowPermissions.menu`), so a
+        // revoked `edit_post`/`delete_post` and an archived channel both used to be over-offered.
+        // The gate is applied here — where the permission union is already loaded — so the facts
+        // this object hands out describe what may actually be done, not just whose post it is.
+        facts.canEdit = PostOptionsGate.canEditPost(hostAllows: actions.canEdit,
+                                                    isArchived: isArchived,
+                                                    permissions: permissions)
+        facts.canDelete = PostOptionsGate.canDeletePost(hostAllows: actions.canDelete,
+                                                        isArchived: isArchived,
+                                                        permissions: permissions)
         facts.permissions = permissions
         facts.teamName = teamName
         facts.surface = surface

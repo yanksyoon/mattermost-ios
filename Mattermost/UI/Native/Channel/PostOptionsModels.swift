@@ -188,7 +188,20 @@ enum PostOptionsPermissionID {
     /// population 9.11.19's endpoint lets pin (measured: a `system_user` with 50 permissions got 200).
     static let createPost = "create_post"
 
-    static let all: Set<String> = [pinPost, unpinPost, createPost]
+    /// The ids the T48 note's Edit row and Delete row name. **These do exist**, unlike the pin ids:
+    /// measured on 9.11.19, the administrator union of 271 ids holds all three
+    /// (`scripts/t48av_r4_permission_probe.py`; upstream's `app/constants/permissions.ts` has the same
+    /// spellings). They are required, not a fallback — a server defines them precisely so that editing
+    /// and deleting can be granted apart from posting.
+    static let editPost = "edit_post"
+    static let deletePost = "delete_post"
+    /// Upstream `canDeletePost`'s second branch: a moderator may delete somebody else's post. Read
+    /// here as an additional grant for the delete gate; the host still decides *whose* rows carry the
+    /// action (a row's `canDelete` is its author check).
+    static let deleteOthersPosts = "delete_others_posts"
+
+    static let all: Set<String> = [pinPost, unpinPost, createPost,
+                                   editPost, deletePost, deleteOthersPosts]
 }
 
 enum PostOptionsGate {
@@ -209,6 +222,39 @@ enum PostOptionsGate {
         }
         return permissions.contains(PostOptionsPermissionID.createPost)
     }
+
+    /// Upstream `canEditPost`: `isMine && hasPermission(EDIT_POST) && !channelIsArchived && !isSystem`.
+    ///
+    /// `hostAllows` is that ownership/system answer (`ComposerRowPermissions.menu` as the pane wired
+    /// it); the two terms this gate adds are the ones T48-AV F5 measured missing — the server's
+    /// `edit_post` id and the archived channel. Both are required: an archived channel is read-only
+    /// for everyone, and a revoked `edit_post` is a grant the server withdrew.
+    ///
+    /// Unlike `canPin`, there is no `create_post` fallback. `edit_post` exists on every release
+    /// (measured, see `PostOptionsPermissionID.editPost`), so falling back to "may post" would put the
+    /// row back where the defect was.
+    static func canEditPost(hostAllows: Bool,
+                            isArchived: Bool,
+                            permissions: Set<String>?) -> Bool {
+        guard hostAllows, !isArchived else { return false }
+        guard let permissions, !permissions.isEmpty else { return false }
+        return permissions.contains(PostOptionsPermissionID.editPost)
+    }
+
+    /// Upstream `canDeletePost`: `(isMine && hasPermission(DELETE_POST) && !archived)
+    /// || hasPermission(DELETE_OTHERS_POSTS)`.
+    ///
+    /// Same shape as `canEditPost`. `delete_others_posts` is accepted in place of `delete_post`
+    /// because it is a superset grant on the same rows; which rows carry the action is still the
+    /// host's `canDelete` (its author check), which is why `hostAllows` is required here too.
+    static func canDeletePost(hostAllows: Bool,
+                              isArchived: Bool,
+                              permissions: Set<String>?) -> Bool {
+        guard hostAllows, !isArchived else { return false }
+        guard let permissions, !permissions.isEmpty else { return false }
+        return permissions.contains(PostOptionsPermissionID.deletePost)
+            || permissions.contains(PostOptionsPermissionID.deleteOthersPosts)
+    }
 }
 
 // MARK: - The derivation
@@ -223,6 +269,11 @@ struct PostOptionsCapabilities: Equatable, Sendable {
     var offersSave: Bool
     var offersCopyText: Bool
     var offersPin: Bool
+    /// T48-AV F5: Reply, Edit and Delete used to be the host's own bit alone. Reply gains the archive
+    /// term the note's table always claimed; Edit and Delete gain it plus the server's id.
+    var offersReply: Bool
+    var offersEdit: Bool
+    var offersDelete: Bool
 
     /// The option rows, in upstream's render order (`post_options.tsx`): react, reply, follow,
     /// mark unread, copy link, (translation — deferred), save/unsave, copy text, pin/unpin, edit,
@@ -230,7 +281,7 @@ struct PostOptionsCapabilities: Equatable, Sendable {
     var offeredOptions: [PostOptionID] {
         var options: [PostOptionID] = []
         if facts.canReact { options.append(.react) }
-        if facts.canReply { options.append(.reply) }
+        if offersReply { options.append(.reply) }
         if offersFollow, let following = facts.threadFollowing {
             options.append(following ? .unfollowThread : .followThread)
         }
@@ -239,8 +290,8 @@ struct PostOptionsCapabilities: Equatable, Sendable {
         if offersSave { options.append(facts.isSaved ? .unsave : .save) }
         if offersCopyText { options.append(.copyText) }
         if offersPin { options.append(facts.isPinned ? .unpin : .pin) }
-        if facts.canEdit { options.append(.edit) }
-        if facts.canDelete { options.append(.delete) }
+        if offersEdit { options.append(.edit) }
+        if offersDelete { options.append(.delete) }
         return options
     }
 
@@ -277,13 +328,32 @@ struct PostOptionsCapabilities: Equatable, Sendable {
         // addition (the card requires one, and `PostOptionsGate.canPin` explains the measured shape).
         let offersPin = canWrite && PostOptionsGate.canPin(permissions: facts.permissions)
 
+        // Upstream `canEditPost` / `canDeletePost` (T48-AV F5). The host's `canEdit`/`canDelete` are
+        // its ownership answer; both gates add `edit_post`/`delete_post` and the archived channel.
+        // Applied here as well as in `PostOptionsViewModel.facts` on purpose: `derive` is the one
+        // place that decides what is drawn, so a host that fills the facts itself cannot over-offer.
+        //
+        // Reply carries the archive term alone: the note's table has always said "channel not
+        // archived, post not deleted" for it, and the row host (`ComposerRowPermissions.menu`) does
+        // not know `delete_at`, so nothing upstream of here could apply it.
+        let offersReply = canWrite && facts.canReply
+        let offersEdit = canWrite && PostOptionsGate.canEditPost(hostAllows: facts.canEdit,
+                                                                 isArchived: facts.isArchived,
+                                                                 permissions: facts.permissions)
+        let offersDelete = canWrite && PostOptionsGate.canDeletePost(hostAllows: facts.canDelete,
+                                                                     isArchived: facts.isArchived,
+                                                                     permissions: facts.permissions)
+
         return PostOptionsCapabilities(facts: facts,
                                        offersFollow: offersFollow,
                                        offersMarkUnread: offersMarkUnread,
                                        offersCopyLink: offersCopyLink,
                                        offersSave: offersSave,
                                        offersCopyText: offersCopyText,
-                                       offersPin: offersPin)
+                                       offersPin: offersPin,
+                                       offersReply: offersReply,
+                                       offersEdit: offersEdit,
+                                       offersDelete: offersDelete)
     }
 }
 

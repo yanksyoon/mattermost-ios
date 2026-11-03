@@ -68,6 +68,10 @@ final class T48PostOptionsTests: XCTestCase {
     }
 
     /// The facts a full administrator sees on somebody else's plain root post in a channel pane.
+    ///
+    /// The union is the shape measured on 9.11.19 for the `perfprobe` administrator
+    /// (`scripts/t48av_r4_permission_probe.py`: 271 ids, and `edit_post`, `delete_post` and
+    /// `delete_others_posts` are all in it). The fixture keeps only the ids the derivation reads.
     private func adminFacts() -> PostOptionFacts {
         var facts = PostOptionFacts()
         facts.viewerID = me
@@ -79,7 +83,11 @@ final class T48PostOptionsTests: XCTestCase {
         facts.canReply = true
         facts.canEdit = false
         facts.canDelete = false
-        facts.permissions = [PostOptionsPermissionID.createPost, "read_channel"]
+        facts.permissions = [PostOptionsPermissionID.createPost,
+                             PostOptionsPermissionID.editPost,
+                             PostOptionsPermissionID.deletePost,
+                             PostOptionsPermissionID.deleteOthersPosts,
+                             "read_channel"]
         facts.teamName = "perf"
         facts.surface = .channel
         return facts
@@ -102,6 +110,39 @@ final class T48PostOptionsTests: XCTestCase {
         let offered = PostOptionsCapabilities.derive(facts).offeredOptions
         XCTAssertEqual(Array(offered.suffix(2)), [.edit, .delete])
         XCTAssertEqual(offered.firstIndex(of: .pin), offered.count - 3)
+    }
+
+    /// T48-AV F5 / R4: the server's grant decides, one id each. The host's `canEdit`/`canDelete` are
+    /// ownership answers, so a union that carries `create_post` but not `edit_post` must withhold the
+    /// row the server would refuse — and each id is honoured on its own.
+    func testTheEditAndDeleteRowsFollowTheirOwnPermissionIds() {
+        var facts = adminFacts()
+        facts.canEdit = true
+        facts.canDelete = true
+        facts.permissions = [PostOptionsPermissionID.createPost, PostOptionsPermissionID.editPost]
+        var offered = PostOptionsCapabilities.derive(facts).offeredOptions
+        XCTAssertTrue(offered.contains(.edit))
+        XCTAssertFalse(offered.contains(.delete), "`delete_post` is absent: no Delete row")
+
+        facts.permissions = [PostOptionsPermissionID.createPost, PostOptionsPermissionID.deletePost]
+        offered = PostOptionsCapabilities.derive(facts).offeredOptions
+        XCTAssertFalse(offered.contains(.edit), "`edit_post` is absent: no Edit row")
+        XCTAssertTrue(offered.contains(.delete))
+
+        // Measured on 9.11.19: `delete_others_posts` is a real id on every release and is a superset
+        // grant for the delete row (upstream's second branch).
+        facts.permissions = [PostOptionsPermissionID.deleteOthersPosts]
+        XCTAssertTrue(PostOptionsCapabilities.derive(facts).offeredOptions.contains(.delete))
+
+        // No answer at all is the closed state, as it is for pin — never a guess.
+        facts.permissions = nil
+        offered = PostOptionsCapabilities.derive(facts).offeredOptions
+        XCTAssertFalse(offered.contains(.edit))
+        XCTAssertFalse(offered.contains(.delete))
+        facts.permissions = []
+        offered = PostOptionsCapabilities.derive(facts).offeredOptions
+        XCTAssertFalse(offered.contains(.edit))
+        XCTAssertFalse(offered.contains(.delete))
     }
 
     func testAnUnknownPermissionLookupWithholdsPin() {
@@ -218,6 +259,17 @@ final class T48PostOptionsTests: XCTestCase {
         XCTAssertTrue(offered.contains(.save))
         XCTAssertTrue(offered.contains(.copyText))
         XCTAssertTrue(offered.contains(.copyLink))
+        XCTAssertFalse(offered.contains(.edit))
+        XCTAssertFalse(offered.contains(.delete))
+
+        // T48-AV F5 / R4: with the host saying yes and the server granting both ids, the archive is
+        // still the term that withholds them. The row host never sees `delete_at`; only this
+        // derivation does.
+        facts.canEdit = true
+        facts.canDelete = true
+        let stillOffered = PostOptionsCapabilities.derive(facts).offeredOptions
+        XCTAssertFalse(stillOffered.contains(.edit), "an archived channel offers no edit")
+        XCTAssertFalse(stillOffered.contains(.delete), "an archived channel offers no delete")
     }
 
     // MARK: - The permalink
@@ -510,5 +562,48 @@ final class T48PostOptionsTests: XCTestCase {
         XCTAssertFalse(offered.contains(.followThread))
         XCTAssertTrue(offered.contains(.save), "a saved-post preference is not a channel write")
         XCTAssertTrue(offered.contains(.copyLink), "reading a link is not a write")
+    }
+
+    /// T48-AV F5 / R4, through the view model the sheet actually reads: the channel's `delete_at` and
+    /// the server's ids compose. With a union that carries both ids and a row that is mine, the
+    /// archive is still the term that withholds Edit and Delete.
+    func testAnArchivedChannelWithholdsEditAndDeleteEvenWithTheGrants() async {
+        let service = FakePostOptionsService()
+        service.archived = true
+        service.permissionsValue = [PostOptionsPermissionID.createPost,
+                                    PostOptionsPermissionID.editPost,
+                                    PostOptionsPermissionID.deletePost]
+        let options = model(service)
+        await options.activate(teamID: teamID, teamName: "perf")
+        let mine = row(author: me)
+        let allowed = actions(edit: true, delete: true)
+
+        let facts = options.facts(for: mine, actions: allowed, surface: .channel)
+        XCTAssertEqual(facts.permissions, service.permissionsValue, "the premise: both ids loaded")
+        XCTAssertFalse(facts.canEdit, "an archived channel offers no edit")
+        XCTAssertFalse(facts.canDelete, "an archived channel offers no delete")
+
+        let offered = options.offeredOptions(for: mine, actions: allowed, surface: .channel)
+        XCTAssertFalse(offered.contains(.edit))
+        XCTAssertFalse(offered.contains(.delete))
+    }
+
+    /// The other side of the same seam: in a live channel, with both ids and my own post, the view
+    /// model must offer them. Without this pair the two withholding tests above would also pass if
+    /// the gate were simply `false`.
+    func testMyOwnPostInALiveChannelOffersEditAndDeleteWithTheGrants() async {
+        let service = FakePostOptionsService()
+        service.permissionsValue = [PostOptionsPermissionID.createPost,
+                                    PostOptionsPermissionID.editPost,
+                                    PostOptionsPermissionID.deletePost]
+        let options = model(service)
+        await options.activate(teamID: teamID, teamName: "perf")
+        let mine = row(author: me)
+
+        let offered = options.offeredOptions(for: mine,
+                                             actions: actions(edit: true, delete: true),
+                                             surface: .channel)
+        XCTAssertTrue(offered.contains(.edit), "my own post, `edit_post`, not archived")
+        XCTAssertTrue(offered.contains(.delete), "my own post, `delete_post`, not archived")
     }
 }

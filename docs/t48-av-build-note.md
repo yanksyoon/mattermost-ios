@@ -51,15 +51,15 @@ GRDB's SQLiteLib submodule).
 
 | Option | Note's gate | Gate in the code | Server record (measured) | Verdict |
 |---|---|---|---|---|
-| Reply | `canReply`: channel not archived, post not deleted | `ComposerRowPermissions.menu` + `composerIsNative`; **no archived term**; host closure, no request | n/a (no write) | **PASS (write)** / gate over-offers in an archived channel (§F5) |
+| Reply | `canReply`: channel not archived, post not deleted | `offersReply = readable && !archived && facts.canReply` (T48-AV R4 added the archive term) | n/a (no write) | **PASS (R4)** |
 | Follow / Unfollow Message | the root has replies; flag on the root post's `is_following` | `replyCount > 0` **and** `threadFollowing != nil`; state = `row.post.isFollowing`, always `false` | `PUT …/threads/{root}/following` → 200 and the thread appears in `GET /users/me/teams/{team}/threads`; **no `is_following` key anywhere** (channel page row, `GET /posts/{id}`, thread endpoint, threads list) | **FAIL — F3** |
 | Mark Unread | not my own post, not archived | `readable && !archived && (viewer != author \|\| webhook)` | `POST /users/{uid}/posts/{pid}/set_unread` → **200 answering the membership row**; `msg_count` 839 = the answer's 839; `last_viewed_at` 1793673932899 < `create_at` …900 → unread | **PASS** |
 | Copy Link | the team's URL name is known | `offersCopyLink = readable && teamName non-empty`; the link is `{server}/{team}/pl/{post}` | `/perf/pl/<post>` **and** `/ops/pl/<post>` both answer `200 text/html` with the same 3,471 bytes — the server cannot tell a right link from a wrong one, so the client's string is the only claim | **PASS on the string, with F4** (the route's *name* survives a failed channel-team name read) |
 | Copy Text | link + non-empty message | same + non-empty message | n/a (pasteboard) | **PASS (unit)** / live copy-text red in the only clean run (§F6) |
 | Save / Remove | always | `readable` | `PUT /users/{uid}/preferences` → server holds `flagged_post`; frame: `preferences_changed` with `data.preferences` as a **JSON string**; unsave → `preferences_deleted`, same shape | **write PASS, live update FAIL — F2** |
 | Pin / Unpin | `pin_post`/`unpin_post`/`create_post`, not archived | `PostOptionsGate.canPin` (ids, else `create_post`) | 271 permission ids for this admin union: `pin_post` **absent**, `unpin_post` **absent**, `create_post` present, **no id contains "pin"**; `POST /posts/{id}/pin` as another author → **200**, unpin → 200 | **PASS** (see §F5 for the sentence this does *not* reproduce) |
-| Edit | my own, `edit_post`, not archived | **ownership only** — `ComposerRowPermissions.menu`; no permission id, no archived term; the sheet dismisses before the write | `PUT /posts/{id}/patch` as the author → 200, `edit_at` set | **FAIL — F5** (over-offer, refusal cannot be drawn) |
-| Delete | my own, `delete_post`, not archived | **ownership only**, as Edit | `DELETE /posts/{id}` as the author → 200, then `GET` → 404; `POST /posts/{id}/pin` afterwards → **403** "You do not have the appropriate permissions." | **FAIL — F5** |
+| Edit | my own, `edit_post`, not archived | `PostOptionsGate.canEditPost` — ownership (`ComposerRowPermissions.menu`) **and** `edit_post` **and** `!archived` (T48-AV R4) | `PUT /posts/{id}/patch` as the author → 200, `edit_at` set | **PASS (unit) — R4**; live refusal not re-measured (see §Not measured) |
+| Delete | my own, `delete_post`, not archived | `PostOptionsGate.canDeletePost` — ownership **and** `delete_post` or `delete_others_posts` **and** `!archived` (T48-AV R4) | `DELETE /posts/{id}` as the author → 200, then `GET` → 404; `POST /posts/{id}/pin` afterwards → **403** "You do not have the appropriate permissions." | **PASS (unit) — R4**; live refusal not re-measured (see §Not measured) |
 | Refused write | sheet stays open, reason inline | `perform` returns `.failed`; the sheet sets `postOptions.error` and does not dismiss | the 403 above is the refusal the live UI test forces | **PASS (unit)** / live assertion written, see §F6 |
 
 ### The pin gate, exactly as measured
@@ -170,6 +170,51 @@ The note's table gates Edit on `edit_post` and Delete on `delete_post`, both "ch
 
 Two AV unit tests record it (`testAnArchivedChannelOffersNoEditOrDelete`,
 `testEditAndDeleteAreWithheldWithoutTheServersEditAndDeleteIds`). Card **t_610b979b (R4)**.
+
+### Repaired by R4 (t_610b979b)
+
+Both ids are real — measured, so the repair is a straight port of upstream's rule rather than
+another fallback like `canPin`'s. `scripts/t48av_r4_permission_probe.py` reads the same
+`perfprobe` union the live suites sign in as: **271 ids, `edit_post` YES, `delete_post` YES,
+`delete_others_posts` YES** (`pin_post`/`unpin_post` still absent, consistent with §1). So the gate
+cannot hide Edit/Delete from the live T35 edit/delete test or from this pass's own-post UI test.
+
+The rule now lives in one place, `PostOptionsGate`:
+
+* `canEditPost(hostAllows:isArchived:permissions:)` — `hostAllows` (the row's ownership answer) and
+  `!isArchived` and `edit_post`. No `create_post` fallback: `edit_post` exists everywhere, so a
+  fallback would put the row back where the defect was.
+* `canDeletePost` — the same, with `delete_post` **or** `delete_others_posts` (upstream's second
+  branch).
+
+Applied twice on purpose: in `PostOptionsViewModel.facts` (where the permission union is loaded, so
+the facts a host reads describe what may actually be done) and in
+`PostOptionsCapabilities.derive` (so a host that fills the facts itself cannot over-offer). Reply
+gained the archive term the note's table always claimed for it, at the derivation, since the row host
+never sees `delete_at`. Both AV tests now assert the behaviour as ordinary expectations — their
+`expectKnownDefect` markers are gone, and `expectKnownDefect` remains for F1/F3/F4.
+
+Measured (Catalyst, `--platform mac`, this worktree at `da171b4`; logs under
+`build/logs/t48av-r4-*.log`):
+
+| Run | Result |
+|---|---|
+| `MattermostTests/T48PostOptionsTests` (26) + `T48PostOptionsAVTests` (6) | **32 run / 0 failures / 0 unexpected, `** TEST SUCCEEDED **`** |
+| Mutation A — both gates return `hostAllows` (pre-R4 ownership only), 30-test tree | **8 failures in 2 tests**: the two id tests (`…WithoutTheServersEditAndDeleteIds`, `…FollowTheirOwnPermissionIds`) |
+| Mutation B — `offeredOptions` reads `facts.canEdit/canDelete/canReply` directly (pre-R4 shape), 30-test tree | **11 failures in 3 tests**: `testAnArchivedChannelOffersNoEditOrDelete` (edit, delete, reply), `testAnArchivedChannelOffersNoWrites`, `…FollowTheirOwnPermissionIds` |
+
+Two tests were added to the shipped suite by R4: `testTheEditAndDeleteRowsFollowTheirOwnPermissionIds`
+(each id on its own, `delete_others_posts` as the delete branch, the closed `nil`/empty direction) and
+`testAnArchivedChannelWithholdsEditAndDeleteEvenWithTheGrants` +
+`testMyOwnPostInALiveChannelOffersEditAndDeleteWithTheGrants` (the same seam through the view model,
+both directions, so a gate stuck at `false` cannot pass). The `adminFacts()` fixture now carries the
+ids a full administrator really has — measured, see the probe above — instead of only `create_post`.
+
+**Not measured:** the live own-post UI test in `T48PostOptionsAVUITests` was not executed (the host
+was at load 350–750 with three other `xcodebuild test` runs; the previous pass recorded the same
+suite as wedged at `SimDevice installApplication`). What replaces it is the measurement that its
+verdict depends on: the `perfprobe` union the live suites sign in as holds `edit_post`,
+`delete_post` and `delete_others_posts`, so the gate leaves those rows visible for that account.
 
 ## §F6 The shipped live suite does not reproduce
 
