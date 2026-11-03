@@ -104,6 +104,15 @@ RESULT: PASS
 The first pass of the full suite failed exactly one test — `:parrot:` (above), which is this card's
 own repair showing up in an old assumption; nothing else moved.
 
+Published as `60a9c41` (`main`), rebased on `dce2bad`. Re-run on that exact tree, after the launch
+work that landed underneath it:
+
+```
+$ scripts/qa-test.py --only-testing MattermostTests
+tests      : 2168 run, 10 skipped, 0 failed
+RESULT: PASS
+```
+
 ## 6. What is *not* claimed
 
 * `:lol-sob:` from the report is **not** in the upstream alias table (checked against the checked-in
