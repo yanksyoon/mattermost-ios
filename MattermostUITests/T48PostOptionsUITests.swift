@@ -456,13 +456,32 @@ final class T48PostOptionsUITests: XCTestCase {
         return target
     }
 
+    /// Open the row's options sheet **and** drag it to its large detent.
+    ///
+    /// The sheet presents at `.medium`, and its last row is drawn from y=844 to y=888 on this 874-point
+    /// screen — under the bottom edge. A synthesized tap at that row's centre did not reach it: measured
+    /// four times on this host (T48-AV-R5, iPhone 16 Pro / iOS 18.3, an instrumented build logging the
+    /// pressed option) the app received **Reply**, the row 338 points above, which is exactly the
+    /// detent's own height, and the teardown screenshot showed the thread composer where a pinned post
+    /// was expected. That is why `testPinFromTheMenuShowsInThePinnedSheet` — the only test that presses
+    /// the bottom row — could not reproduce while every other option did.
+    ///
+    /// One swipe expands the sheet to `.large`; the same tap then reaches `Pin to Channel`
+    /// (`build/logs/t48r5-pin-probe4.log`, one test, green, with `press enter pin` in the app log). This
+    /// is the harness's shape of the problem: a reader's finger is not a synthesized touch, so nothing
+    /// here claims the sheet is broken for people — but a test that taps a row the sheet is not showing
+    /// measures the sheet, not the menu.
     private func openMenu(_ app: XCUIApplication, postID: String) {
         let menu = element(app, "post.\(postID).menu")
         XCTAssertTrue(menu.waitForExistence(timeout: 25),
                       "the row must expose its options button:\n\(app.debugDescription)")
         menu.tap()
-        XCTAssertTrue(element(app, "postOptions.cancel").waitForExistence(timeout: 25),
+        let cancel = element(app, "postOptions.cancel")
+        XCTAssertTrue(cancel.waitForExistence(timeout: 25),
                       "the options sheet must open:\n\(app.debugDescription)")
+        app.swipeUp()
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5),
+                      "the sheet must survive the swipe to its large detent:\n\(app.debugDescription)")
     }
 
     /// Which follow direction the open sheet is drawing.

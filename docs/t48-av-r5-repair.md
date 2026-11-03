@@ -1,5 +1,11 @@
 # T48-AV-R5 — the live suite gets its own session, a copy that polls, and a refusal that says why
 
+> **Second pass, 2026-11-04.** The two gates this pass left open (a second consecutive green run, and
+> the refused write) are now measured, and the pin test's red run was traced to **one more harness
+> defect** — the sheet's last row is not the row a synthesized tap on it reaches. See
+> [§Second pass](#second-pass--2026-11-04-the-row-the-suite-never-pressed-and-the-two-open-gates) at the
+> end of this note; everything above it is the first pass, kept as written.
+
 Repairs `docs/t48-av-build-note.md` §F6 (card `t_ff68111a`). The menu's writes were never in doubt —
 the T48-AV pass measured every one of them on 9.11.19. What did not reproduce was the **suite**: the
 five live tests claimed green by `docs/t48-build-note.md` ran 1-of-5 on a clean device, and the two
@@ -156,3 +162,131 @@ TEST_RUNNER_MM_AUTH_PASSWORD=<fixture password> python3 scripts/qa-test.py --pla
   --derived-data ~/Library/Developer/Xcode/DerivedData/mmios-t48r5wt \
   -- -clonedSourcePackagesDirPath ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages
 ```
+
+---
+
+## Second pass — 2026-11-04: the row the suite never pressed, and the two open gates
+
+The first pass shipped the four repairs and one clean live run, and left two gates open. This pass spent
+both on a quiet host and found **one more harness defect**, which is why the pin test was red on every
+attempt before this change.
+
+### 5. The sheet's last row is not the row a tap on it reaches (new, measured)
+
+The pin test failed on every attempt — `build/logs/t48r5-live-b.log`, `t48r5-pin-probe.log`,
+`t48r5-pin-probe2.log`, `t48r5-pin-probe5.log` — with
+
+```
+XCTAssertTrue failed - Pin must reach POST /posts/{id}/pin; the server does not hold it
+XCTAssertTrue failed - the options sheet must open
+XCTAssertTrue failed - a pinned post must offer Unpin on the next open
+```
+
+and **no app-side error line**. That is exactly the ambiguity §3 exists to remove ("a transport failure
+or a tap that never reached the action"), and the answer was a third option. An instrumented build — a
+temporary `Logger.error` at the head of `PostOptionsSheet.press` and `PostOptionsViewModel.perform`,
+**not committed** — named it:
+
+```
+00:30:02.916  [com.mattermost.ios:T48P] press enter reply
+```
+
+at the timestamp of the runner's tap on `postOptions.pin`, and the teardown screenshot shows the
+**thread composer** ("Replying to T36 Reply") over the channel list. The tap did reach the app — as the
+row above.
+
+Measured layout in the `.medium` detent (accessibility frames, 402 × 874 pt): React 580, Reply 624,
+Mark as Unread 668, Copy Link 712, Save 756, Copy Text 800, **Pin to Channel 844–888**. The last row runs
+under the bottom edge, and Reply is 338 points above Pin — exactly the detent's own height.
+
+`app.swipeUp()` once after the sheet opens (to `.large`) fixes it deterministically: the same tap then
+logs `press enter pin` → `perform enter pin post … busy=-` → `press pin returned from perform`, and the
+write is on the server (`build/logs/t48r5-pin-probe4.log`, one test, green). A 0.8 s sleep before the
+same tap does **not** fix it (`build/logs/t48r5-pin-probe5.log`), so the presentation animation is not the
+explanation.
+
+`openMenu` now expands the sheet before any test presses a row, and the comment there carries this
+measurement. It is a statement about a **synthesized touch**: whether a reader's finger at that point
+reaches the row is *not* established here.
+
+### 6. The toolchain crash that cost four of this pass's runs (not this repo's)
+
+Four full-suite runs ended with `Failed to application com.mattermost.ios is not running` in the copy
+test, each with the same crash report on disk (`~/Library/Logs/DiagnosticReports/Mattermost-2026-11-04-*.ips`
+— six today: 00:00:24, 00:02:30, 00:19:50, 00:51:08, 01:06:39, 01:21:46):
+
+```
+EXC_BAD_ACCESS (SIGSEGV) / KERN_INVALID_ADDRESS at 0x0 — main thread
+  libsystem_platform.dylib  _platform_strcmp
+  XCTAutomationSupport      runtime_issue_os_log_fault_callback
+  libsystem_trace.dylib     _os_log_invoke_callback
+  libsystem_trace.dylib     _os_log_impl_flatten_and_send
+  libsystem_trace.dylib     __LIBTRACE_CLIENT_QUARANTINED_DUE_TO_HIGH_LOGGING_VOLUME__
+```
+
+Xcode's automation support crashes the app under test when libtrace quarantines that process for logging
+volume, and its fault callback `strcmp`s a NULL system string. The volume is Xcode's own:
+`log show --last 12m --predicate 'process == "Mattermost"'` is 1,469,438 lines, of which 851,992 are
+`com.apple.dt.xctest` accessibility chatter and **15** are this app's `com.mattermost.ios` subsystem — so
+it is not this repo's `Logger`, and `OS_ACTIVITY_MODE` cannot filter it (the flood is default-level, not
+debug). The same signature interrupted the T48-AV pass at 20:12 the day before, so it predates this card.
+
+The practical consequence, measured: after a run that finishes normally, the **next** run on the same
+simulator boot tends to take it; a `simctl shutdown` + `boot` before each run produced the two clean runs
+below. That is simulator hygiene, not a code change, and it is written down so the next pass does not
+re-discover it.
+
+### 7. The refused write, measured live
+
+The mutation from §"The refused-write proof" was applied for one run and reverted: the fixture post is
+deleted between `openMenu` and the pin tap, and 9.11.19 answers `POST /posts/{id}/pin` with **403**
+(`api.context.permissions.app_error`; measured directly against the fixture before the run). Result:
+**exactly one red test** and the app log names the status, read back from the simulator:
+
+```
+[com.mattermost.ios:T48] post option pin failed for post 7ikoeqyx9tbafy7ro616tftaxy in channel
+psw97y5zqpfnpembwxraizuije: HTTP 403 — forbidden(message: Optional("You do not have the appropriate permissions."))
+```
+
+The same test then also goes red on its next two assertions, because the deleted post's row is gone from
+the channel — `Executed 6 tests, with 3 failures (0 unexpected)`, i.e. one red test carrying three
+assertion failures, the other five green.
+
+### Runs — this pass, in order (iPhone 16 Pro / iOS 18.3, `7EE01BD0-121B-4DBE-B9FF-47C41900C6B7`)
+
+| Run | Result | Log |
+| --- | --- | --- |
+| `t48r5-live-b` — before the row fix | 6 run / 2 tests red (pin per §5, copy by §6) | `build/logs/t48r5-live-b.log` |
+| `t48r5-pin-probe` — pin alone, before the fix | 1 run / 3 failed | `build/logs/t48r5-pin-probe.log` |
+| `t48r5-pin-probe2` — instrumented | 1 run / 3 failed — `press enter reply` at the tap | `build/logs/t48r5-pin-probe2.log` |
+| `t48r5-pin-probe4` — sheet expanded | **1 run / 0 failed** — `press enter pin` | `build/logs/t48r5-pin-probe4.log` |
+| `t48r5-pin-probe5` — 0.8 s sleep, not expanded | 1 run / 3 failed | `build/logs/t48r5-pin-probe5.log` |
+| `t48r5-live-c` | **6 run / 0 skipped / 0 failed**, 401.0 s | `build/logs/t48r5-live-c.log` |
+| `t48r5-live-d` | 6 run / 1 test red — §6 | `build/logs/t48r5-live-d.log` |
+| `t48r5-live-e` | **6 / 0 / 0**, 396.5 s | `build/logs/t48r5-live-e.log` |
+| `t48r5-live-f` | 6 run / 1 test red — §6 | `build/logs/t48r5-live-f.log` |
+| `t48r5-live-g` | **6 / 0 / 0**, 423.4 s | `build/logs/t48r5-live-g.log` |
+| `t48r5-live-h` | 6 run / 1 test red — §6 | `build/logs/t48r5-live-h.log` |
+| `t48r5-live-i` | **6 / 0 / 0**, 399.8 s | `build/logs/t48r5-live-i.log` |
+| `t48r5-live-j` | 6 run / 1 test red — §6, during Copy Text | `build/logs/t48r5-live-j.log` |
+| `t48r5-live-k` (**simulator rebooted first**) | **6 / 0 / 0**, 401.5 s | `build/logs/t48r5-live-k.log` |
+| `t48r5-live-l` (**simulator rebooted first**) | **6 / 0 / 0**, 402.4 s | `build/logs/t48r5-live-l.log` |
+| `t48r5-refusal2` (mutated) | 6 run, **one red test** (pin, 3 assertions), 481.4 s — §7 | `build/logs/t48r5-refusal2.log` |
+
+**Two consecutive green runs: `k` then `l`, 6/6 both times, no skips** (each preceded by a simulator
+reboot, §6). The suite has six tests, not five: R3 added
+`testAFollowedRootStillOffersUnfollowAfterARelaunch` on top of the five this card names.
+
+The live suite still never calls `URLSession.shared` — the only occurrence of that name in the file is
+the comment explaining why (`grep -n "URLSession.shared" MattermostUITests/T48PostOptionsUITests.swift`),
+every request goes through `restSession`, and all six tests log in fresh on every run (the runner's own
+`login` calls answer 200 in each run above).
+
+### What this pass still does not establish
+
+* A real device: none is attached; every run is a simulator.
+* Whether the crash in §6 has any non-toolchain trigger — the evidence says the volume is Xcode's, but
+  the quarantine threshold itself is opaque.
+* Whether a reader's finger at the sheet's bottom edge reaches the row a synthesized tap misses (§5).
+* APNs / push-driven menu state: no APNs credentials on this host.
+
