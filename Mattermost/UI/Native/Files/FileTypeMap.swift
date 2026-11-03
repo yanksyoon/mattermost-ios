@@ -11,8 +11,10 @@
 // can script. Classification therefore looks at the **name's extension first**, the MIME type second,
 // and both are only ever used to pick a *renderer*, never to decide what may execute. Nothing here
 // hands bytes to a web view, a JavaScript context, or the system's document interpreter: the readers
-// are `UIImage` (images), `PDFKit` (PDF) and a plain `Text` view (text). Everything else is drawn as
-// a row with an icon, a size and a download button — see `FilePreviewView`.
+// are `UIImage` (images), `PDFKit` (PDF), a plain `Text` view (text), and AVFoundation playing a
+// **staged local file** (video/audio — see `MediaFileCache`; no URL carrying a credential is ever
+// handed to a media framework). Everything else is drawn as a row with an icon, a size and a
+// download button — see `FilePreviewView`.
 
 import Foundation
 
@@ -57,13 +59,21 @@ enum FilePreviewKind: Equatable, Sendable {
     case pdf
     /// Plain, non-interpreted text with a byte cap (`FileTypeMap.textPreviewByteLimit`).
     case text
+    /// AVFoundation playing a **local file staged by our own authenticated transport** (S18/T53).
+    ///
+    /// No URL is played directly: `AVPlayer` cannot send the vault's bearer token, and a token must
+    /// never be put in a URL. The staged file is bounded by `FileTypeMap.previewFetchByteLimit`, like
+    /// the PDF and text readers (see `PreviewFetchDecision`).
+    case video
+    /// The same staged-file rule as `.video`, drawn as a compact in-row player (no screen takeover).
+    case audio
     /// No reader. The file can still be downloaded and shared, but its bytes are never interpreted.
     case unsupported(UnsupportedReason)
 
     enum UnsupportedReason: String, Equatable, Sendable {
         /// A type this client deliberately refuses to render (see `FileTypeMap.unsafeExtensions`).
         case unsafe
-        /// A perfectly ordinary type that simply has no native reader yet (zip, xlsx, docx, video).
+        /// A perfectly ordinary type that simply has no native reader yet (zip, xlsx, docx).
         case noReader
         /// The server marked the file as blocked for this client.
         case blocked
@@ -72,6 +82,15 @@ enum FilePreviewKind: Equatable, Sendable {
     var isSupported: Bool {
         if case .unsupported = self { return false }
         return true
+    }
+
+    /// True for the two playback kinds. Used to keep sharing/loading branches from treating a media
+    /// file as bytes-to-Decode.
+    var isMedia: Bool {
+        switch self {
+        case .video, .audio: return true
+        default: return false
+        }
     }
 }
 
@@ -91,11 +110,14 @@ enum FileTypeMap {
     /// it whole is the difference between a bounded screen and an unbounded allocation.
     static let textPreviewByteLimit = 256 * 1024
 
-    /// The largest file this client will fetch **whole** in order to preview it in place (the text and
-    /// PDF readers). The size checked is the one the post's own `metadata.files` declares, so the
-    /// decision costs no bytes: a 100 MB log is refused *before* a 100 MB `Data` exists, instead of
-    /// being truncated to 256 KB after the whole payload is in memory. Text is drawn under
-    /// `textPreviewByteLimit` on top of this — one bounds the allocation, the other the rendering.
+    /// The largest file this client will fetch **whole** in order to preview it in place (the text,
+    /// PDF, video and audio readers). The size checked is the one the post's own `metadata.files`
+    /// declares, so the decision costs no bytes: a 100 MB log is refused *before* a 100 MB `Data`
+    /// exists, instead of being truncated to 256 KB after the whole payload is in memory. Text is
+    /// drawn under `textPreviewByteLimit` on top of this — one bounds the allocation, the other the
+    /// rendering. Media is never held in memory at all (it is staged to a file by `MediaFileCache`);
+    /// this number is the bound on what may be staged, so a huge video is refused before a download
+    /// starts rather than after. The in-place count is `getData`'s concern; this is the *decision*.
     static let previewFetchByteLimit = 32 * 1024 * 1024
 
     /// Whether a file of `byteCount` bytes may be fetched whole for the in-place readers.
@@ -201,6 +223,10 @@ enum FileTypeMap {
             return FileTypeDescriptor(category: .pdf, fileExtension: ext, preview: .pdf)
         case .text, .code:
             return FileTypeDescriptor(category: category, fileExtension: ext, preview: .text)
+        case .video:
+            return FileTypeDescriptor(category: .video, fileExtension: ext, preview: .video)
+        case .audio:
+            return FileTypeDescriptor(category: .audio, fileExtension: ext, preview: .audio)
         default:
             return FileTypeDescriptor(category: category, fileExtension: ext, preview: .unsupported(.noReader))
         }

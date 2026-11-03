@@ -63,9 +63,12 @@ enum TextPreview {
 /// fetched, so a size the client will not hold never becomes an allocation.
 ///
 /// The text and PDF readers need the whole payload (`PDFDocument(data:)`, `TextPreview.decode`), and
-/// `metadata.files` already states the size, so the decision is free. Images are not gated here: the
-/// gallery downloads the file and downsamples it during decode, which is the path the inline grid and
-/// the gallery already bound by pixel count.
+/// `metadata.files` already states the size, so the decision is free. T53's media player narrows the
+/// same decision to *staging*: a video/audio file is written to the app's cache and played from there
+/// (never held as one `Data`), but the bound is the same number so a 300 MB video is refused before
+/// the transfer starts instead of filling the disk first. Images are not gated here: the gallery
+/// downloads the file and downsamples it during decode, which is the path the inline grid and the
+/// gallery already bound by pixel count.
 enum PreviewFetchDecision: Equatable {
     case fetch
     case tooLarge(limit: Int64)
@@ -74,7 +77,7 @@ enum PreviewFetchDecision: Equatable {
         switch kind {
         case .image, .unsupported:
             return .fetch
-        case .pdf, .text:
+        case .pdf, .text, .video, .audio:
             // An unknown size (0 from a payload that carried none) is not a refusal: the server's own
             // limit is the only bound left, and refusing would lose a readable file.
             guard byteCount > 0 else { return .fetch }
@@ -89,6 +92,10 @@ struct AttachmentPreviewView: View {
     let target: AttachmentPreviewTarget
     let imageStore: ChannelImageStore?
     var downloads: AttachmentDownloads?
+    /// T53: the pane's staging cache, for the two playback readers. Nil means this host has no
+    /// transport (a preview of the reader, or a read-only caller) and the sheet says so instead of
+    /// offering a play button that could not play.
+    var media: ChannelMedia? = nil
     let onClose: () -> Void
 
     @State private var payload: AttachmentPreviewPayload?
@@ -178,24 +185,41 @@ struct AttachmentPreviewView: View {
             unsupported(reason)
         } else if let sizeRefusal {
             tooLarge(limit: sizeRefusal)
-        } else if let failure {
-            failureState(failure)
-        } else if let payload {
-            switch payload {
-            case .pdf(let document):
-                PDFKitView(document: document)
-                    .accessibilityIdentifier("attachmentPreview.pdf")
-            case .text(let text, let truncated):
-                textView(text, truncated: truncated)
-            case .image(let image):
-                ZoomableImageView(image: image)
-                    .accessibilityIdentifier("attachmentPreview.image")
-            }
         } else {
-            ProgressView()
-                .controlSize(.large)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityIdentifier("attachmentPreview.loading")
+            switch kind {
+            case .video:
+                if let media {
+                    VideoPreviewView(attachment: attachment, media: media)
+                } else {
+                    failureState("Playback is not available in this view.")
+                }
+            case .audio:
+                if let media {
+                    AudioPreviewView(attachment: attachment, media: media)
+                } else {
+                    failureState("Playback is not available in this view.")
+                }
+            default:
+                if let failure {
+                    failureState(failure)
+                } else if let payload {
+                    switch payload {
+                    case .pdf(let document):
+                        PDFKitView(document: document)
+                            .accessibilityIdentifier("attachmentPreview.pdf")
+                    case .text(let text, let truncated):
+                        textView(text, truncated: truncated)
+                    case .image(let image):
+                        ZoomableImageView(image: image)
+                            .accessibilityIdentifier("attachmentPreview.image")
+                    }
+                } else {
+                    ProgressView()
+                        .controlSize(.large)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .accessibilityIdentifier("attachmentPreview.loading")
+                }
+            }
         }
     }
 
@@ -343,6 +367,14 @@ struct AttachmentPreviewView: View {
             } else {
                 failure = "The image could not be loaded."
             }
+        case .video, .audio:
+            // The player stages the file itself (bounded by the same decision above). Set the refusal
+            // here so the sheet shows the "too large" screen *before* a player is built.
+            if case .tooLarge(let limit) = PreviewFetchDecision.decide(kind: kind,
+                                                                      byteCount: attachment.sizeBytes) {
+                sizeRefusal = limit
+            }
+            return
         case .pdf, .text:
             // The size comes from the post's own `metadata.files`, so this refusal costs no bytes:
             // before this guard the readers fetched the whole payload and truncated *after* it was in
@@ -371,6 +403,20 @@ struct AttachmentPreviewView: View {
     }
 
     private func share() {
+        if kind.isMedia {
+            // Media is shared from the staged file itself: the bytes are already on disk (the
+            // player staged them), so this is a file URL, not a second download into memory.
+            guard let media else { return }
+            Task {
+                switch await media.stagedFile(for: attachment) {
+                case .success(let url):
+                    shareItem = SharePayload(url: url)
+                case .failure(let error):
+                    failure = error.message
+                }
+            }
+            return
+        }
         guard let imageStore else { return }
         Task {
             guard let data = await imageStore.originalData(for: attachment) else {

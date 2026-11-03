@@ -22,14 +22,17 @@ struct PostRowAttachmentActions {
     var downloads: AttachmentDownloads?
     /// Open the full-screen gallery at one image of this post.
     var onOpenImage: (String) -> Void
-    /// Open one file's preview (PDF/text/unsupported).
+    /// Open one file's preview (PDF/text/video/unsupported).
     var onOpenFile: (String) -> Void
 }
 
-/// One post's attachment section: image grid, then file rows, in the server's order.
+/// One post's attachment section: image grid, video posters, audio players, then file rows.
 struct AttachmentSectionView: View {
     let row: PostRowModel
     let imageStore: ChannelImageStore?
+    /// T53: the pane's staging cache + poster store. Nil (a read-only host, or a preview) draws the
+    /// video plate and a file row for audio — never a player without a transport behind it.
+    var media: ChannelMedia? = nil
     var actions: PostRowAttachmentActions? = nil
 
     /// Images whose bytes did not arrive. Kept per row (not in the store) because a failure is a
@@ -43,6 +46,32 @@ struct AttachmentSectionView: View {
         VStack(alignment: .leading, spacing: 6) {
             if !split.images.isEmpty {
                 imageGrid(split.images)
+            }
+            ForEach(split.videos) { attachment in
+                VideoAttachmentCell(attachment: attachment,
+                                    postID: row.id,
+                                    media: media,
+                                    isInteractive: actions != nil,
+                                    onOpen: { actions?.onOpenFile(attachment.id) })
+            }
+            ForEach(split.audios) { attachment in
+                if let media {
+                    AudioAttachmentRowView(attachment: attachment,
+                                           postID: row.id,
+                                           media: media,
+                                           state: actions?.downloads?.state(for: attachment.id) ?? .idle,
+                                           isInteractive: actions != nil,
+                                           onDownload: { actions?.downloads?.download(attachment) })
+                } else {
+                    // No transport (a read-only host): name the file instead of drawing a play
+                    // button that could not play.
+                    AttachmentFileRowView(attachment: attachment,
+                                          postID: row.id,
+                                          state: .idle,
+                                          isInteractive: false,
+                                          onOpen: {},
+                                          onDownload: {})
+                }
             }
             ForEach(split.files) { attachment in
                 AttachmentFileRowView(attachment: attachment,

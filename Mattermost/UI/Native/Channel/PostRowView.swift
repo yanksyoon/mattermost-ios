@@ -220,6 +220,8 @@ struct PostRowView: View {
     let row: PostRowModel
     let isExpanded: Bool
     let imageStore: ChannelImageStore?
+    /// T53: the pane's staging cache + poster store for video posters and audio players.
+    var media: ChannelMedia? = nil
     var emoji: EmojiCatalogue?
     let onToggleExpanded: () -> Void
     /// Nil = no menu (the pre-T35 rendering, used by previews and by any read-only host).
@@ -515,7 +517,7 @@ struct PostRowView: View {
             // T38: the section is its own view (`UI/Native/Files/AttachmentViews.swift`): image grid,
             // file rows with type icons and sizes, placeholders, and the tap targets for the gallery
             // and the file preview. The row only says what may be opened.
-            AttachmentSectionView(row: row, imageStore: imageStore, actions: attachmentActions)
+            AttachmentSectionView(row: row, imageStore: imageStore, media: media, actions: attachmentActions)
         }
     }
 

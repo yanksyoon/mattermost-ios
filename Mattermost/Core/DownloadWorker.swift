@@ -114,7 +114,10 @@ final class DownloadWorker: ObservableObject {
     /// and keep only the final path component, so a server-injected `../../x/y` collapses to
     /// `y` and can never escape the Downloads directory. Falls back to `download` when nothing
     /// usable remains.
-    static func sanitizedFilename(_ raw: String) -> String {
+    ///
+    /// `nonisolated` because it is a pure string transform used by `MediaFileCache` (T53) from a
+    /// session-delegate thread, where reaching the main actor would be both wrong and slow.
+    nonisolated static func sanitizedFilename(_ raw: String) -> String {
         var name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if name.contains("/") { name = Self.rawLastComponent(of: name, separator: "/") }
         if name.contains("\\") { name = Self.rawLastComponent(of: name, separator: "\\") }
@@ -125,7 +128,7 @@ final class DownloadWorker: ObservableObject {
 
     /// The final path component of `value` split on `separator` (a `SubSequence`, -> `String`).
     /// Empty when `value` has no component at all (e.g. `"////"`), so the caller's fallback applies.
-    private static func rawLastComponent(of value: String, separator: String) -> String {
+    private nonisolated static func rawLastComponent(of value: String, separator: String) -> String {
         value.split(separator: separator).last.map(String.init) ?? ""
     }
 

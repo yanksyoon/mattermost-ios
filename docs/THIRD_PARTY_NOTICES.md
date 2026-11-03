@@ -515,9 +515,9 @@ point at.
   (`testTheExtensionDecidesEvenWhenTheServerClaimsAnImageMimeType`) and by the classifier's own rule
   that a dangerous MIME type is refused even when the name says `.png`.
 
-Not ported by this card (other cards own them, or the surface is out of scope): audio and video
-playback (`audio_file.tsx`/`video_file.tsx` — refused with the "no reader" screen, never handed to
-`AVPlayer`), the table and LaTeX renderers (`app/screens/table/`, `app/screens/latex/`), an external
+Video and audio playback was **not** ported by this card; T53 gave it a player (see §23), so
+`audio_file.tsx`/`video_file.tsx` are no longer refused with the "no reader" screen. Still not
+ported: the table and LaTeX renderers (`app/screens/table/`, `app/screens/latex/`), an external
 "open in another app" hand-off beyond the system share sheet, image editing/annotation, the webapp's
 signed-link (`/files/{id}/link`) flow for public links (this client always downloads through its
 authenticated `APIClient`), and file upload from the attachment surface (T35's composer owns
@@ -898,3 +898,28 @@ Mattermost **9.11.19**, log `docs/t47-channel-probe-2026-10-27.log`; request lin
 `docs/t47-relay-witness-2026-10-27.log`): the name rule the form encodes, the `400`/`500` split at 64/65
 characters, the required `display_name`, the `purpose`/`header` limits, the duplicate-name sentence, and the
 fact that `type: D` is refused by `POST /channels` (“Must use createDirectChannel API service…”).
+
+## 23. T53 native video and audio playback — upstream read set (Apache-2.0, mobile @ `162f2560…`; webapp observed only, AGPL-3.0)
+
+`Mattermost/UI/Native/Files/MediaPlayback.swift` (transport, staging cache, engine seam, controller,
+playback centre, poster store) and `Mattermost/UI/Native/Files/MediaViews.swift` (the two players and
+the video poster cell) give the S18 attachment surface the playback it was missing: a video opens in a
+sheet with a scrubbable AVKit surface, an audio file plays inside its row, a video post draws its first
+frame as the poster. They plug into the T38/T52 surfaces (`FileTypeMap`'s `FilePreviewKind`,
+`AttachmentSection`, `PostRowView`, `AttachmentPreviewView`) rather than replacing any of them. Nothing
+upstream is copied or transpiled; every file pins its own upstream header.
+
+| Upstream path (mobile @ `162f2560…`) | Used for |
+|---|---|
+| `app/components/files/video_file.tsx` | the video cell's poster + play affordance, and the inline controls (play/pause, scrub, time) |
+| `app/components/files/audio_file.tsx` | the compact row: play/pause in the row, a progress bar, the position line, no sheet |
+| `app/client/rest/files.ts` | the authenticated file request the staging cache repeats (`GET /files/{id}`), and the fact that the mobile client downloads rather than handing a URL to the player |
+| `app/utils/file/index.ts` | the type/category table entry for video and audio (the Swift side keeps its own controlled extension table; the server's `mime_type` is still treated as uploader-controlled) |
+| `W …/components/view_image/`, `W …/components/audio_video_preview/` | **behaviour cross-check only** — what Path A's webview shows for the same files, watched in the running client; not ported |
+
+**Measured against the real server** (`scripts/t53_media_seed.py`, Mattermost **9.11.19**): a 75,022-byte
+mp4 and a 48,500-byte mp3 uploaded through `POST /files` and attached with `POST /posts`; `GET
+/files/{id}` answers `200` with the exact byte count; `Range: bytes=0-1` answers `206` with
+`Content-Range: bytes 0-1/75022`; and `GET /files/{id}/thumbnail` answers **`400` for both**, which is
+why the video poster is decoded client-side from the staged file's first frame instead of fetched as a
+server thumbnail (the T38 image path's `has_thumbnail` is false for media, and stays false).

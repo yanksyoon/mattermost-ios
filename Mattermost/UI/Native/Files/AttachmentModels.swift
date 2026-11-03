@@ -26,6 +26,20 @@ extension PostAttachment {
 
     var symbolName: String { typeDescriptor.symbolName }
 
+    /// The file's duration as a clock ("0:08"), when the server's metadata carried one. Nil is the
+    /// measured case for the pinned 9.11.19 (no `metadata` on either an mp4 or an mp3), and the
+    /// audio row then names the type instead of inventing a length.
+    var durationLabel: String? {
+        guard let durationSeconds, durationSeconds.isFinite, durationSeconds > 0 else { return nil }
+        return MediaTime.clock(durationSeconds)
+    }
+
+    /// The audio row's second line: duration when it is known, otherwise the type label, then size.
+    /// Pure, so the fallback rule is asserted without a view.
+    var audioRowDetail: String {
+        [durationLabel ?? typeLabel, sizeLabel].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
     /// True when the inline section may draw this attachment as a thumbnail. A file the server marked
     /// blocked, or a type this client refuses to decode (`image/svg+xml`), is a row instead — never an
     /// image load.
@@ -34,17 +48,33 @@ extension PostAttachment {
 
 // MARK: - What one post's attachment section draws
 
-/// One post's attachments, split the way the section lays them out: images in a grid, everything else
-/// as rows, each in the server's own order.
+/// One post's attachments, split the way the section lays them out: images and video posters in
+/// thumbnail cells, audio as compact in-row players, everything else as file rows, each in the
+/// server's own order.
+///
+/// T53 added the `videos` and `audios` buckets rather than teaching the image grid two more kinds:
+/// a video is its own 16:9 cell with a poster, and an audio file is a player (not something you tap
+/// to open), so mixing either into the image grid or the file-row list would change what one tap
+/// does for no gain. A **blocked** or **unsafe** media file stays in `files`, i.e. it is refused by
+/// the existing "not previewed" screen — the refusal list did not grow an exception.
 struct AttachmentSection: Equatable, Sendable {
     var images: [PostAttachment]
+    var videos: [PostAttachment]
+    var audios: [PostAttachment]
     var files: [PostAttachment]
 
-    var isEmpty: Bool { images.isEmpty && files.isEmpty }
+    var isEmpty: Bool { images.isEmpty && videos.isEmpty && audios.isEmpty && files.isEmpty }
 
     init(_ attachments: [PostAttachment]) {
-        images = attachments.filter { $0.isInlineImage }
-        files = attachments.filter { !$0.isInlineImage }
+        images = attachments.filter { $0.previewKind == .image && !$0.isBlocked }
+        videos = attachments.filter { $0.previewKind == .video && !$0.isBlocked }
+        audios = attachments.filter { $0.previewKind == .audio && !$0.isBlocked }
+        files = attachments.filter { attachment in
+            switch attachment.previewKind {
+            case .image, .video, .audio: return attachment.isBlocked
+            default: return true
+            }
+        }
     }
 }
 

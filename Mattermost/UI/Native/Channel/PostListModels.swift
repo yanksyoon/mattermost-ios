@@ -90,6 +90,13 @@ struct PostAttachment: Equatable, Identifiable, Sendable {
     var isBlocked: Bool
     /// The server can produce a thumbnail for this file (only for images it recognises).
     var hasThumbnail: Bool
+    /// The file's own duration in seconds, when the post's per-file metadata carried one (T53).
+    ///
+    /// Measured on the pinned 9.11.19 (`scripts/t53_media_seed.py`): `GET /files/{id}/info` for an
+    /// mp4 and an mp3 carries **no** `metadata` at all, so this is nil for both fixture files and the
+    /// audio row falls back to its type label. The helper accepts it if a server does send it, and
+    /// the player reads the real duration from the staged file regardless.
+    var durationSeconds: Double? = nil
 
     /// "812 B", "1.2 KB", "3.4 MB" — base 1024, one decimal from KB up (upstream's `sizeDisplay`).
     var sizeLabel: String { Self.sizeLabel(forBytes: sizeBytes) }
@@ -508,13 +515,31 @@ enum PostListDerivation {
                                       kind: PostAttachment.kind(forMimeType: file.mimeType),
                                       isBlocked: file.isBlocked,
                                       hasThumbnail: PostAttachment.kind(forMimeType: file.mimeType) == .image
-                                          && !file.isBlocked)
+                                          && !file.isBlocked,
+                                      durationSeconds: mediaDuration(from: value))
             }
         }
         return post.fileIds.map { id in
             PostAttachment(id: id, name: "Attachment", mimeType: "", sizeBytes: 0,
                            kind: .file, isBlocked: false, hasThumbnail: false)
         }
+    }
+
+    /// A media file's duration from one `metadata.files` entry, when the server sent one.
+    ///
+    /// Two spellings are accepted because the field is not part of the REST contract this client was
+    /// built against: `duration` (seconds, what a media-processing plugin would add) and
+    /// `duration_seconds`. Only a positive, finite number counts — a `null`, a string, or `0` is
+    /// "unknown", which is the honest answer for the pinned server (measured: no `metadata` at all
+    /// for either fixture file).
+    static func mediaDuration(from file: JSONValue) -> Double? {
+        guard let metadata = file["metadata"] else { return nil }
+        for key in ["duration", "duration_seconds"] {
+            if let value = metadata[key]?.doubleValue, value.isFinite, value > 0 {
+                return value
+            }
+        }
+        return nil
     }
 
     // MARK: Dates

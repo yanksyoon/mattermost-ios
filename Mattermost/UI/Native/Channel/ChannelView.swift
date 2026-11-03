@@ -79,6 +79,9 @@ struct ChannelPostListView: View {
     /// T48: the channel's post-options state — permissions, the saved set, pin/follow patches, the
     /// team's URL name. Nil keeps the pre-T48 sheet (the host's reply/edit/delete/react only).
     var postOptions: PostOptionsViewModel? = nil
+    /// T53: the pane's media staging + poster cache. Nil draws video posters that cannot load and
+    /// names audio as a row — a host with no transport offers no player.
+    var media: ChannelMedia? = nil
 
     /// True while a top visit must not page: the reader has not been away from the top since the last
     /// auto-load, so this is the same visit. Cleared once the viewport is a screen away from the top.
@@ -160,6 +163,7 @@ struct ChannelPostListView: View {
             AttachmentPreviewView(target: target,
                                   imageStore: imageStore,
                                   downloads: attachmentDownloads,
+                                  media: media,
                                   onClose: { self.sheet = nil })
         case .profile(let target):
             // T5449: the thread pane's author tap (this case is the one slot that list presents
@@ -371,6 +375,7 @@ struct ChannelPostListView: View {
             PostRowView(row: row,
                         isExpanded: model.isExpanded(row.id),
                         imageStore: imageStore,
+                        media: media,
                         emoji: emoji,
                         onToggleExpanded: { toggleExpanded(row.id) },
                         actions: actions(for: row),
@@ -732,6 +737,8 @@ struct ChannelPaneContent: View {
     @State private var composer: ComposerViewModel?
     /// T38: attachment save state for this server's rows.
     @State private var attachmentDownloads: AttachmentDownloads?
+    /// T53: video/audio staging + posters for this server's rows.
+    @State private var media: ChannelMedia?
     /// T39: the pinned-messages sheet for this channel (S21).
     @State private var showsPinned = false
     /// T40: the channel-info sheet (S22/S23 + the member/settings screens behind it).
@@ -804,7 +811,8 @@ struct ChannelPaneContent: View {
                                     // T635-A: this pane was routed at a post, so the jump owns its
                                     // position and the initial placement must not move it.
                                     opensAtPost: focusPostID != nil,
-                                    postOptions: postOptions)
+                                    postOptions: postOptions,
+                                    media: media)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -827,6 +835,9 @@ struct ChannelPaneContent: View {
             let resolved = panes.model(for: server, channelID: channelID, channelName: channelName)
             model = resolved
             imageStore = panes.imageStore(for: server)
+            // T53: the per-server staging cache and poster store. Set before the first page lands,
+            // so a video row asks the same cache the player will use.
+            media = panes.media(for: server)
             avatarStore = panes.avatarStore(for: server)
             // T48: the post-options state for this channel. Created before the load so a pin applied
             // over the socket can reach the row the moment the first page lands, and activated with

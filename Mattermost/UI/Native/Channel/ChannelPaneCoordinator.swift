@@ -41,6 +41,9 @@ final class ChannelPaneCoordinator: ObservableObject {
     private var emojiCatalogues: [UUID: EmojiCatalogue] = [:]
     /// T38: per-server attachment download state (shares the app's one `DownloadWorker` journal).
     private var attachmentDownloadsStores: [UUID: AttachmentDownloads] = [:]
+    /// T53: per-server media staging + poster cache. One cache per server, so the file a row staged
+    /// for its poster is the file the player opens — one download, not two.
+    private var mediaEnvironments: [UUID: ChannelMedia] = [:]
     /// T37: recently-used emoji, per server (the store itself is keyed by server **and** user).
     private var emojiRecents: [UUID: EmojiRecentsStore] = [:]
     /// T35: one composer per channel, kept beside its list so a channel switch restores both the
@@ -161,6 +164,27 @@ final class ChannelPaneCoordinator: ObservableObject {
         let downloads = AttachmentDownloads(worker: worker, service: service(for: server))
         attachmentDownloadsStores[server.id] = downloads
         return downloads
+    }
+
+    /// T53: video/audio staging + posters for one server, created on first use.
+    ///
+    /// The request builder resolves the service **per call**, like every other seam here: a cache
+    /// built before the session finished restoring must not stay signed out. The cache itself is
+    /// where the bytes live (the app's Caches directory), and the poster store reads the same file
+    /// the player will, so opening a video costs one staging transfer, not two.
+    func media(for server: ServerConfig) -> ChannelMedia {
+        if let existing = mediaEnvironments[server.id] { return existing }
+        let environment = ChannelMedia(
+            // One directory per server: file ids are only unique inside a server, and signing out of
+            // one server must not delete another server's staged files.
+            staging: MediaFileCache(directory: MediaFileCache.defaultDirectory()
+                .appendingPathComponent(server.id.uuidString, isDirectory: true)),
+            requestBuilder: { [weak self] fileID in
+                guard let self else { throw MMError.notSignedIn }
+                return try self.service(for: server).fileDownloadRequest(fileID: fileID)
+            })
+        mediaEnvironments[server.id] = environment
+        return environment
     }
 
     /// T37: the recently-used emoji, one store per server **and** user.
@@ -348,6 +372,10 @@ final class ChannelPaneCoordinator: ObservableObject {
         imageStores[serverID]?.clear()
         imageStores[serverID] = nil
         attachmentDownloadsStores[serverID] = nil
+        // T53: staged media is a cache of the *session's* files. Drop the files with the session, and
+        // release the player if one is open — a signed-out device should hold neither.
+        mediaEnvironments[serverID]?.clear()
+        mediaEnvironments[serverID] = nil
         // A new session may be a different team with a different emoji list, so the catalogue is
         // dropped with everything else rather than surviving a sign-out.
         emojiCatalogues[serverID]?.clear()

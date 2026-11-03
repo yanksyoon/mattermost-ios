@@ -41,6 +41,9 @@ struct ThreadPaneContent: View {
     @State private var emojiRecents: EmojiRecentsStore?
     /// T38: attachment save state (shared per server with the channel pane).
     @State private var attachmentDownloads: AttachmentDownloads?
+    /// T53: media staging + posters (shared per server with the channel pane, so the video a reply
+    /// postered is the file its player opens).
+    @State private var media: ChannelMedia?
     /// T48: the root channel's post-options state (permissions, saved set, pin patches). Resolved once
     /// the thread's root names its channel — a permalink does not carry one.
     @State private var postOptions: PostOptionsViewModel?
@@ -78,6 +81,7 @@ struct ThreadPaneContent: View {
                                    recents: emojiRecents,
                                    attachmentDownloads: attachmentDownloads,
                                    postOptions: postOptions,
+                                   media: media,
                                    offersAuthorProfile: offersAuthorProfile,
                                    server: server,
                                    navigation: navigation)
@@ -99,6 +103,7 @@ struct ThreadPaneContent: View {
         .environment(\.avatarImages, avatarStore)
         .task(id: rootID) {
             imageStore = panes.imageStore(for: server)
+            media = panes.media(for: server)
             avatarStore = panes.avatarStore(for: server)
             let catalogue = panes.emojiCatalogue(for: server)
             emoji = catalogue
@@ -277,6 +282,8 @@ struct ThreadPostListView: View {
     var attachmentDownloads: AttachmentDownloads? = nil
     /// T48: the root channel's post-options state. Nil keeps the pre-T48 sheet.
     var postOptions: PostOptionsViewModel? = nil
+    /// T53: media staging + posters, shared with the channel pane.
+    var media: ChannelMedia? = nil
     /// T5449: whether this thread's rows offer the author tap (name and avatar open the profile).
     ///
     /// Decided by the host (`ThreadPaneContent`), because the decision reads the resolver and this
@@ -354,6 +361,7 @@ struct ThreadPostListView: View {
             AttachmentPreviewView(target: target,
                                   imageStore: imageStore,
                                   downloads: attachmentDownloads,
+                                  media: media,
                                   onClose: { self.sheet = nil })
         case .profile(let target):
             // T5449: the author tap. Presented from this list's **one** sheet slot — the thread pane
@@ -467,6 +475,7 @@ struct ThreadPostListView: View {
             PostRowView(row: row,
                         isExpanded: model.isExpanded(row.id),
                         imageStore: imageStore,
+                        media: media,
                         emoji: emoji,
                         onToggleExpanded: { model.toggleExpanded(row.id) },
                         actions: actions(for: row),

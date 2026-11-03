@@ -446,15 +446,36 @@ final class T38AttachmentsUITests: XCTestCase {
     }
 
     private func openChannel(_ app: XCUIApplication) {
+        // The fixture server is shared with the other cards and now carries hundreds of channels, so
+        // the sidebar row for this one is not guaranteed to be materialised in the lazy list. The
+        // quick switcher is the app's own "find a channel by name" path and is stable under that
+        // load; the sidebar tap remains the fallback for a clean server.
         var row = element(app, "channelSidebar.channel.\(channelID!)")
         if !row.waitForExistence(timeout: 20) {
-            let team = element(app, "teamSidebar.team.\(teamID!)")
-            if team.waitForExistence(timeout: 10) { team.tap() }
-            row = element(app, "channelSidebar.channel.\(channelID!)")
+            let quick = element(app, "channelSidebar.quickSwitcher")
+            if quick.waitForExistence(timeout: 10) {
+                quick.tap()
+                let field = element(app, "channelSidebar.quickSwitcher.field")
+                if field.waitForExistence(timeout: 10) {
+                    field.tap()
+                    field.typeText("t38")
+                    let result = element(app, "channelSidebar.quickSwitcher.result.\(channelID!)")
+                    if result.waitForExistence(timeout: 20) {
+                        result.tap()
+                    }
+                }
+            }
+            if !element(app, "channelPostList").waitForExistence(timeout: 20) {
+                let team = element(app, "teamSidebar.team.\(teamID!)")
+                if team.waitForExistence(timeout: 10) { team.tap() }
+                row = element(app, "channelSidebar.channel.\(channelID!)")
+            }
         }
-        XCTAssertTrue(row.waitForExistence(timeout: 45),
-                      "the sidebar must list channel \(channelID ?? ""):\n\(app.debugDescription)")
-        row.tap()
+        if !element(app, "channelPostList").exists {
+            XCTAssertTrue(row.waitForExistence(timeout: 45),
+                          "the sidebar must list channel \(channelID ?? ""):\n\(app.debugDescription)")
+            row.tap()
+        }
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 40),
                       "the channel pane must mount:\n\(app.debugDescription)")
     }

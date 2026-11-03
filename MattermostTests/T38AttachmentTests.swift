@@ -120,13 +120,20 @@ final class T38FileTypeClassificationTests: XCTestCase {
         for (name, category) in [("archive.zip", FileCategory.archive),
                                  ("sheet.xlsx", .spreadsheet),
                                  ("memo.docx", .document),
-                                 ("deck.pptx", .presentation),
-                                 ("clip.mp4", .video),
-                                 ("voice.m4a", .audio)] {
+                                 ("deck.pptx", .presentation)] {
             let descriptor = FileTypeMap.descriptor(fileName: name, mimeType: "")
             XCTAssertEqual(descriptor.category, category, "\(name)")
             XCTAssertEqual(descriptor.preview, .unsupported(.noReader), "\(name)")
         }
+    }
+
+    /// T53 gave video and audio a player (their own `T53Media*` tests carry the playback proof), so
+    /// they are no longer in the "no reader" list above. Their category and label did not change.
+    func testVideoAndAudioLeftTheNoReaderListWhenThePlayerLanded() {
+        XCTAssertEqual(FileTypeMap.descriptor(fileName: "clip.mp4", mimeType: "").category, .video)
+        XCTAssertEqual(FileTypeMap.descriptor(fileName: "clip.mp4", mimeType: "").preview, .video)
+        XCTAssertEqual(FileTypeMap.descriptor(fileName: "voice.m4a", mimeType: "").category, .audio)
+        XCTAssertEqual(FileTypeMap.descriptor(fileName: "voice.m4a", mimeType: "").preview, .audio)
     }
 
     func testABlockedFileIsRefusedWhateverItsType() {
