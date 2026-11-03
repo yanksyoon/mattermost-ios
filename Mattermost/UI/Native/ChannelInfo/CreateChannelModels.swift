@@ -368,8 +368,14 @@ struct DirectMessageCandidate: Identifiable, Equatable, Sendable {
     var displayName: String
     var username: String
     var initials: String
+    /// The raw presence string the server answered (`online`/`away`/`dnd`/`offline`), or `""` when
+    /// `POST /users/status/ids` did not answer for this person.
     var status: String
 
+    /// What the row draws. **Never empty**: a presence the server did not answer is "Unknown", which
+    /// is a state of its own — reporting it as "Offline" would invent an answer (T47-AV §2), and
+    /// drawing nothing (the pre-repair view did, T47-AV F2) leaves the reader unable to tell a missing
+    /// answer from a person who is offline.
     var statusLabel: String {
         switch status {
         case "online": return "Online"
@@ -391,12 +397,19 @@ enum DirectMessageDerivation {
     ///     means.
     ///   - term: matched against the display name **and** the username, because a reader who knows
     ///     `@alice` types that.
+    ///
+    /// `deleteAt != 0` rows are dropped here, in the one place both reads flow through. This is not
+    /// cosmetic: measured on 9.11.19 (T47-AV §2), `GET /users?in_team=` **returns deactivated
+    /// accounts** while `POST /users/search` is sent `allow_inactive: false` and does not, so without
+    /// this filter one sheet offered two different populations — a deactivated teammate in the
+    /// opening list (and a DM opened with them) and nobody in the typed search (T47-AV F3).
     static func rows(users: [MMUser],
                      statuses: [String: MMStatus],
                      myUserID: String?,
                      term: String) -> [DirectMessageCandidate] {
         let needle = term.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let candidates = users
+            .filter { $0.deleteAt == 0 }
             .filter { $0.id != myUserID }
             .filter { user in
                 guard !needle.isEmpty else { return true }

@@ -8,8 +8,9 @@
 //      the server's refusal must reach the reader — not a silent failure, and not a channel.
 //   2. **the picker's opening list is not the typed search.** `GET /users?in_team=` (opening list)
 //      returns a deactivated account; `POST /users/search` with `allow_inactive: false` does not. The
-//      picker must show what the server shows, so this test records the asymmetry the repair has to
-//      resolve (docs/t47-av-build-note.md §DM).
+//      AV recorded that asymmetry (T47-AV F3); the repair card T47-AV-R2 filtered `delete_at != 0`,
+//      so this test now asserts the repaired behaviour: neither list offers the account, and every
+//      row states who is there (F2 — "Unknown" used to be drawn nowhere).
 //   3. **a half-typed draft.** What is on screen when the app is relaunched — and, more importantly,
 //      nothing is sent by the relaunch.
 //   4. **one tap, twice.** `POST /channels/direct` is create-or-find; opening the same conversation a
@@ -154,14 +155,26 @@ final class T47CreateChannelAVUITests: XCTestCase {
         rolesToRestore = nil
     }
 
-    // MARK: - 2. A deactivated team member, in one read and not the other
+    // MARK: - 2. A deactivated team member: in neither read of the picker
 
-    /// The picker opens on `GET /users?in_team=`, which on 9.11.19 includes deactivated accounts; its
-    /// typed search sends `allow_inactive: false`, which excludes them (`scripts/t47_av_probe.py`,
-    /// §4). The app filters neither the opening list nor the search, so the two reads disagree about
-    /// who exists. This test pins the asymmetry so the repair (card filed from this AV) can be checked
-    /// against it. It asserts the *current* behaviour, not the desired one.
-    func testThePickerOffersADeactivatedTeamMemberThatSearchHides() throws {
+    /// Measured on 9.11.19 (`scripts/t47_av_probe.py`, T47-AV §2): `GET /users?in_team=` returns
+    /// deactivated accounts (`delete_at` non-zero) while `POST /users/search` — sent
+    /// `allow_inactive: false` — does not. The picker used to draw the opening list exactly as the
+    /// server answered it, so one sheet offered two different populations, and the deactivated row
+    /// opened a conversation (recorded as T47-AV F3 by the previous, *recording* version of this
+    /// test: `testThePickerOffersADeactivatedTeamMemberThatSearchHides`).
+    ///
+    /// The repair drops `delete_at != 0` in `DirectMessageDerivation.rows`, the one place both reads
+    /// flow through, and this test asserts the repaired behaviour on both lists. It also asserts the
+    /// other half of the picker's honesty (F2): every row *states* who is there — the old view drew
+    /// the presence only when the raw status string was non-empty, so "Unknown" never reached the
+    /// screen and the row's label said nothing about presence at all.
+    ///
+    /// The team is the one the app is actually on: the rail's current row is read and, if it is not
+    /// this oracle's team, the rail row for this team is tapped first. `GET /users/me/teams[0]` is
+    /// not necessarily where the app opens (T47-AV F7), and an oracle about a team the sheet is not
+    /// showing proves nothing.
+    func testThePickerDoesNotOfferADeactivatedTeamMemberThatSearchHides() throws {
         let users = try getJSON("/api/v4/users?in_team=\(teamID!)&page=0&per_page=200") as? [[String: Any]] ?? []
         guard let gone = users.first(where: { ($0["delete_at"] as? Int ?? 0) > 0 }),
               let goneID = gone["id"] as? String, let goneName = gone["username"] as? String else {
@@ -172,26 +185,60 @@ final class T47CreateChannelAVUITests: XCTestCase {
                                                            "page": 0, "per_page": 50,
                                                            "allow_inactive": false]) as? [[String: Any]] ?? []
         XCTAssertFalse(search.contains { $0["id"] as? String == goneID },
-                       "the typed search excludes inactive accounts — the other half of this asymmetry")
+                       "the typed search excludes inactive accounts — the half of the asymmetry that "
+                       + "the opening list is now held to")
 
         let app = launchApp(logIn: adminLogin, password: adminPassword)
         showSidebar(app)
+        try pinTeam(teamID, in: app)
         openDirectMessagePicker(app)
         let sheet = element(app, "newDM.sheet")
         XCTAssertTrue(sheet.waitForExistence(timeout: 20),
                       "the create-a-direct-message sheet must mount:\n\(app.debugDescription)")
 
-        // The opening list, scrolled to the row: an account that can no longer sign in is offered as
-        // somebody to message.
-        let row = element(app, "newDM.row.\(goneID)")
-        scrollTo(row, in: app)
-        XCTAssertTrue(row.exists,
-                      "RECORDED BEHAVIOUR: the opening list offers deactivated @\(goneName) "
-                      + "(GET /users?in_team=), while the typed search does not")
-        attach(app, "av2-deactivated-in-picker")
+        // 1. The opening list draws people, and the deactivated account is not among them. A SwiftUI
+        //    `List` only materialises visible rows, so absence is asserted over a full sweep (the row
+        //    is looked for after every swipe) rather than from one snapshot — and the sweep is proved
+        //    to have reached the end of the list by finding the last row the oracle says is there.
+        let rows = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "newDM.row."))
+        XCTAssertTrue(waitUntil(timeout: 20) { rows.count > 0 },
+                      "the opening list must draw somebody:\n\(app.debugDescription)")
 
-        // The same account, typed: the search path hides it (allow_inactive: false), so the empty
-        // state appears instead.
+        let goneRow = element(app, "newDM.row.\(goneID)")
+        var offered = goneRow.exists
+        var swipes = 0
+        let lastID = lastActiveTeamMemberID(users)
+        while !offered, swipes < 12 {
+            guard app.collectionViews.firstMatch.exists else { break }
+            app.collectionViews.firstMatch.swipeUp(velocity: .fast)
+            swipes += 1
+            offered = goneRow.exists
+            if lastID.map({ element(app, "newDM.row.\($0)").exists }) == true { break }
+        }
+        XCTAssertFalse(offered,
+                       "the opening list must not offer deactivated @\(goneName) — the typed search "
+                       + "already hides them, and the two lists cannot disagree inside one sheet "
+                       + "(swipes: \(swipes), last row reached: \(lastID ?? "?"))")
+        print("T47-AV-R2: deactivated @\(goneName) (\(goneID)) absent over a \(swipes)-swipe sweep; "
+              + "last active row \(lastID ?? "?") reached")
+        attach(app, "av2-deactivated-not-in-list")
+
+        // 2. The row states who is there (F2). The oracle asks the server for the presence of the
+        //    row that is on screen and expects the same word the row draws; "Unknown" is the
+        //    expected answer when the server has no status for them.
+        let first = rows.element(boundBy: 0)
+        let firstID = String(first.identifier.dropFirst("newDM.row.".count))
+        let present = try presenceWord(for: firstID)
+        print("T47-AV-R2: first row \(firstID) reads \"\(first.label)\"; the server says \"\(present)\"")
+        XCTAssertTrue(first.label.localizedCaseInsensitiveContains(present),
+                      "the row must state its presence (\"\(present)\"); it reads \"\(first.label)\" — "
+                      + "an unrendered presence label is exactly what F2 measured")
+        attach(app, "av2-presence-on-the-row")
+
+        // 3. The same account, typed: the search path hides it (`allow_inactive: false`) and the empty
+        //    state appears instead. This half already held before the repair; it is what the opening
+        //    list is now held to.
         let searchField = app.searchFields.firstMatch
         XCTAssertTrue(searchField.waitForExistence(timeout: 10))
         searchField.tap()
@@ -199,7 +246,8 @@ final class T47CreateChannelAVUITests: XCTestCase {
         let empty = element(app, "newDM.empty")
         XCTAssertTrue(empty.waitForExistence(timeout: 20),
                       "the typed search must find nobody for a deactivated account:\n\(app.debugDescription)")
-        XCTAssertFalse(row.exists, "the searched list must not contain the deactivated account")
+        XCTAssertFalse(element(app, "newDM.row.\(goneID)").exists,
+                       "the searched list must not contain the deactivated account")
         attach(app, "av2-deactivated-search-empty")
     }
 
@@ -515,6 +563,64 @@ final class T47CreateChannelAVUITests: XCTestCase {
     }
 
     // MARK: - Server
+
+    /// Put the app on `teamID` so the sheet this test drives lists the team the oracle reads.
+    ///
+    /// The rail marks the current team in its accessibility value. `GET /users/me/teams[0]` and the
+    /// rail's first entry are not the same team on this fixture (T47-AV F7: one run created in
+    /// Operations while the oracle looked in Perf), and the sheet lists whichever team the shell is
+    /// on — so the test makes them agree instead of hoping they do.
+    private func pinTeam(_ teamID: String, in app: XCUIApplication) throws {
+        let row = element(app, "teamSidebar.team.\(teamID)")
+        guard row.waitForExistence(timeout: 20) else {
+            throw XCTSkip("the shell's team rail does not offer \(teamID), so the picker's team cannot be pinned")
+        }
+        if (row.value as? String ?? "").contains("Current team") { return }
+        row.tap()
+        XCTAssertTrue(waitUntil(timeout: 30) {
+            (element(app, "teamSidebar.team.\(teamID)").value as? String ?? "").contains("Current team")
+        }, "tapping the rail row must make \(teamID) the current team; value: "
+            + "\(element(app, "teamSidebar.team.\(teamID)").value as? String ?? "nil")")
+    }
+
+    /// The word the row must draw for the presence the server holds for `userID`.
+    ///
+    /// The mapping restates `DirectMessageCandidate.statusLabel` because the test is the oracle: a
+    /// server that answers no status for a person is "Unknown", never "Offline".
+    private func presenceWord(for userID: String) throws -> String {
+        let rows = try postJSON("/api/v4/users/status/ids", [userID]) as? [[String: Any]] ?? []
+        let status = rows.first { $0["user_id"] as? String == userID }?["status"] as? String ?? ""
+        switch status {
+        case "online": return "Online"
+        case "away": return "Away"
+        case "dnd": return "Do not disturb"
+        case "offline": return "Offline"
+        default: return "Unknown"
+        }
+    }
+
+    /// The id of the row that sorts last in the picker among the team's active members other than me.
+    /// The absence sweep stops once it is on screen: a SwiftUI `List` only materialises visible rows,
+    /// so "the deactivated row is not there" means something only once the sweep has traversed the
+    /// whole list, which this row proves it did.
+    private func lastActiveTeamMemberID(_ users: [[String: Any]]) -> String? {
+        let people = users.compactMap { user -> (id: String, display: String, username: String)? in
+            guard let id = user["id"] as? String, id != userID,
+                  (user["delete_at"] as? Int ?? 0) == 0 else { return nil }
+            let nickname = user["nickname"] as? String ?? ""
+            let full = [user["first_name"] as? String ?? "", user["last_name"] as? String ?? ""]
+                .filter { !$0.isEmpty }.joined(separator: " ")
+            let username = user["username"] as? String ?? ""
+            let display = !nickname.isEmpty ? nickname : (full.isEmpty ? username : full)
+            return (id, display, username)
+        }
+        return people.sorted { lhs, rhs in
+            let comparison = lhs.display.compare(rhs.display,
+                                                 options: [.caseInsensitive, .diacriticInsensitive])
+            if comparison == .orderedSame { return lhs.username < rhs.username }
+            return comparison == .orderedAscending
+        }.last?.id
+    }
 
     private func ping() throws {
         var request = URLRequest(url: serverURL.appendingPathComponent("api/v4/system/ping"))

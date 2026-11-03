@@ -93,17 +93,27 @@ struct NewDirectMessageList: View {
                             Spacer(minLength: 0)
                             if model.isOpening {
                                 ProgressView()
-                            } else if !candidate.status.isEmpty {
+                            } else {
+                                // Always drawn — "Unknown" included. The pre-repair view required a
+                                // non-empty `status` here, so the one presence a reader most needs
+                                // named (the server did not answer) drew nothing at all while the
+                                // unit test kept pinning `statusLabel` (T47-AV F2).
                                 Text(candidate.statusLabel)
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
+                                    .accessibilityIdentifier("newDM.status.\(candidate.id)")
                             }
                         }
                         .contentShape(Rectangle())
+                        // The row's spoken label is the text it draws, so the presence cannot go
+                        // missing from the accessibility tree without the drawing going too — which
+                        // is what the live test asserts (`newDM.row.<id>`'s label carries the
+                        // presence word). An explicit `accessibilityLabel` here would have let the
+                        // drawn text vanish silently (the shape of F2).
+                        .accessibilityElement(children: .combine)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("newDM.row.\(candidate.id)")
-                    .accessibilityLabel(candidate.displayName)
                 }
             }
         }

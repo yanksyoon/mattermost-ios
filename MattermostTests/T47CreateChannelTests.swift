@@ -52,11 +52,16 @@ final class T47CreateChannelTests: XCTestCase {
         var directChannelAnswer = MMChannel(id: "chan-dm000000000000000001", name: "dm",
                                             displayName: "", type: "D")
         var directChannelFailure: Error?
+        /// `GET /users/me` failing (a network failure, or a session the server no longer honours).
+        var principalFailure: Error?
 
         private(set) var bodies: [MMChannelCreate] = []
         private(set) var roleRequests: [[String]] = []
         private(set) var directCalls: [[String]] = []
         private(set) var searchTerms: [String] = []
+        /// How many times the opening list was read. The picker must not read it when it cannot learn
+        /// who "me" is: the rows would have no way to keep the reader out of them.
+        private(set) var teamMemberReads = 0
 
         /// When true, a create parks inside `createChannel` until `releaseCreate()`. That is the window a
         /// reader has in the real app: `CreateChannelView` disables the submit button while `isCreating`
@@ -92,7 +97,8 @@ final class T47CreateChannelTests: XCTestCase {
         }
 
         func teamMembers(teamID: String, page: Int, perPage: Int) async throws -> [MMUser] {
-            teamPeople
+            teamMemberReads += 1
+            return teamPeople
         }
 
         func searchTeamMembers(teamID: String, term: String, page: Int, perPage: Int) async throws -> [MMUser] {
@@ -714,12 +720,125 @@ final class T47CreateChannelTests: XCTestCase {
                                                     myUserID: nil, term: "zzz").map(\.id), [])
     }
 
+    /// The presence label is never empty, so the row always has something to draw: a status the
+    /// server did not answer reads "Unknown" — never "Offline" (an invented answer) and never
+    /// nothing at all (what the pre-repair view drew, T47-AV F2).
+    ///
+    /// The *view* half is live and not pinned here: deleting the view's whole status branch used to
+    /// leave every test in this file green (T47-AV §3, mutation row 4). The row's accessibility
+    /// label is now the text it draws, and
+    /// `MattermostUITests/T47CreateChannelAVUITests.swift` asserts the presence word appears in
+    /// `newDM.row.<id>`'s label, so that deletion is red there.
     func testThePickerCarriesPresenceAndSaysUnknownRatherThanOffline() {
         let users = [MMUser(id: "u2", username: "alice"), MMUser(id: "u3", username: "bob")]
         let statuses = ["u2": MMStatus(userId: "u2", status: "away")]
         let rows = DirectMessageDerivation.rows(users: users, statuses: statuses, myUserID: nil, term: "")
         XCTAssertEqual(rows.first { $0.id == "u2" }?.statusLabel, "Away")
         XCTAssertEqual(rows.first { $0.id == "u3" }?.statusLabel, "Unknown")
+        XCTAssertEqual(rows.first { $0.id == "u3" }?.status, "",
+                       "no status row from the server is not the same as the server saying offline")
+        XCTAssertTrue(rows.allSatisfy { !$0.statusLabel.isEmpty },
+                      "a row with nothing to draw is the defect F2 measured")
+    }
+
+    /// `delete_at != 0` is not somebody to message. Measured on 9.11.19: `GET /users?in_team=`
+    /// returns deactivated accounts, while the typed search (`allow_inactive: false`) does not — so
+    /// without this filter the opening list and the typed list disagreed inside one sheet, and the
+    /// deactivated row opened a conversation (T47-AV F3, live test 2 as recorded).
+    func testThePickerDoesNotOfferADeactivatedTeamMember() {
+        let users = [MMUser(id: "u2", username: "alice", firstName: "Alice"),
+                     MMUser(id: "gone", username: "t429gone", firstName: "Gone",
+                            deleteAt: 1_793_303_134_446),
+                     MMUser(id: "u3", username: "bob", firstName: "Bob")]
+
+        XCTAssertEqual(DirectMessageDerivation.rows(users: users, statuses: [:], myUserID: nil,
+                                                    term: "").map(\.id),
+                       ["u2", "u3"], "a deactivated teammate is offered by the opening list")
+        // The typed search must agree with the opening list about who exists: typing their exact
+        // name finds nobody, exactly as `allow_inactive: false` already answered.
+        XCTAssertEqual(DirectMessageDerivation.rows(users: users, statuses: [:], myUserID: nil,
+                                                    term: "t429gone").map(\.id), [])
+        XCTAssertEqual(DirectMessageDerivation.rows(users: users, statuses: [:], myUserID: nil,
+                                                    term: "gone").map(\.id), [])
+    }
+
+    /// F5: a failed principal read used to be swallowed — `myUserID` stayed nil, the self-row filter
+    /// did nothing, and the reader was offered in their own list of people to message. The list is not
+    /// built without an identity, and the sentence names the cause it saw.
+    func testThePickerDoesNotBuildAListWithoutThePrincipal() async {
+        let service = FakeCreateService()
+        service.principalFailure = MMError.offline
+        service.teamPeople = [MMUser(id: myUserID, username: "me", firstName: "Me"),
+                              MMUser(id: "u2", username: "alice", firstName: "Alice")]
+        let model = NewDirectMessageViewModel(teamID: teamID, service: service)
+
+        await model.load()
+
+        XCTAssertEqual(service.teamMemberReads, 0,
+                       "a list that cannot exclude the reader must not be read at all")
+        XCTAssertTrue(model.rows.isEmpty, "the reader must not be offered, not even as a stale row")
+        XCTAssertEqual(model.phase, .failed(NewDirectMessageViewModel.copy(for: MMError.offline,
+                                                                          fallback: "unused")))
+        guard case .failed(let message) = model.phase else {
+            return XCTFail("the load must report the failure, got \(model.phase)")
+        }
+        XCTAssertTrue(message.localizedCaseInsensitiveContains("offline"),
+                      "an offline read must say so: \(message)")
+        XCTAssertFalse(message.localizedCaseInsensitiveContains("sign in"),
+                       "a network failure is not a signed-out session: \(message)")
+    }
+
+    func testThePickerNamesAnExpiredSessionRatherThanANetworkFailure() async {
+        let service = FakeCreateService()
+        service.principalFailure = MMError.unauthorized(message: nil)
+        let model = NewDirectMessageViewModel(teamID: teamID, service: service)
+
+        await model.load()
+
+        guard case .failed(let message) = model.phase else {
+            return XCTFail("the load must report the failure, got \(model.phase)")
+        }
+        XCTAssertTrue(message.localizedCaseInsensitiveContains("sign in again"),
+                      "an expired session must name its fix: \(message)")
+        XCTAssertFalse(message.localizedCaseInsensitiveContains("offline"),
+                       "an expired session is not a network failure: \(message)")
+    }
+
+    /// A principal the server answers without an id is a signed-out session, not a network failure —
+    /// the same rule, one layer down (`ensurePrincipal`).
+    func testThePickerTreatsAnEmptyPrincipalAsSignedOut() async {
+        let service = FakeCreateService()
+        service.principalValue = MMPrincipal()
+        service.teamPeople = [MMUser(id: "u2", username: "alice", firstName: "Alice")]
+        let model = NewDirectMessageViewModel(teamID: teamID, service: service)
+
+        await model.load()
+
+        XCTAssertEqual(service.teamMemberReads, 0)
+        XCTAssertTrue(model.rows.isEmpty)
+        guard case .failed(let message) = model.phase else {
+            return XCTFail("the load must report the failure, got \(model.phase)")
+        }
+        XCTAssertTrue(message.localizedCaseInsensitiveContains("sign in again"), message)
+    }
+
+    /// The retry the sheet draws (`newDM.retry`) has to be able to succeed: a failure is not sticky,
+    /// and the identity is read again rather than remembered as nil.
+    func testThePickerRetriesTheLoadOnceThePrincipalReads() async {
+        let service = FakeCreateService()
+        service.principalFailure = MMError.timeout
+        service.teamPeople = [MMUser(id: myUserID, username: "me", firstName: "Me"),
+                              MMUser(id: "u2", username: "alice", firstName: "Alice")]
+        let model = NewDirectMessageViewModel(teamID: teamID, service: service)
+        await model.load()
+        XCTAssertTrue(model.rows.isEmpty)
+
+        service.principalFailure = nil
+        await model.load()
+
+        XCTAssertEqual(model.phase, .ready)
+        XCTAssertEqual(model.rows.map(\.id), ["u2"], "the retry rebuilds the list, without the reader")
+        XCTAssertEqual(service.teamMemberReads, 1, "the first attempt never read the members")
     }
 
     func testTappingARowCreatesTheConversationWithBothIdsAndPublishesIt() async {

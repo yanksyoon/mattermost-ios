@@ -277,14 +277,21 @@ final class NewDirectMessageViewModel: ObservableObject {
 
     // MARK: Loading
 
+    /// Build the opening list.
+    ///
+    /// The principal read is **not** `try?`-swallowed (T47-AV F5). `GET /users/me` is the only thing
+    /// the self-row filter has: swallowing the failure left `myUserID` nil, made the filter a no-op and
+    /// offered the signed-in reader in their own list of people to message — and the failure was
+    /// reported as a *signed-out* sentence even when the cause was the network. Now no list is built
+    /// without an identity, the sentence names the cause it actually saw, and `newDM.retry` re-runs
+    /// this method.
     func load() async {
         generation += 1
         let token = generation
         if phase != .ready { phase = .loading }
         do {
-            let principal = try? await service.principal()
+            _ = try await ensurePrincipal()
             guard token == generation else { return }
-            myUserID = principal?.id
             let page = try await service.teamMembers(teamID: teamID, page: 0,
                                                      perPage: service.pickerPageSizeForPeople)
             guard token == generation else { return }
@@ -292,8 +299,7 @@ final class NewDirectMessageViewModel: ObservableObject {
             phase = .ready
         } catch {
             guard token == generation else { return }
-            phase = .failed(ChannelInfoViewModel.copy(for: error,
-                                                      fallback: "People could not be loaded."))
+            abandon(with: Self.copy(for: error, fallback: "People could not be loaded."))
         }
     }
 
@@ -308,6 +314,9 @@ final class NewDirectMessageViewModel: ObservableObject {
         let token = generation
         if phase != .ready { phase = .loading }
         do {
+            // The search needs the same identity as the opening list: `rows` filters me out with it.
+            _ = try await ensurePrincipal()
+            guard token == generation else { return }
             let people = try await service.searchTeamMembers(teamID: teamID,
                                                              term: trimmed,
                                                              page: 0,
@@ -319,11 +328,44 @@ final class NewDirectMessageViewModel: ObservableObject {
             phase = .ready
         } catch {
             guard token == generation else { return }
-            users = [:]
-            rows = []
-            phase = .failed(ChannelInfoViewModel.copy(for: error,
-                                                      fallback: "That search could not be run."))
+            abandon(with: Self.copy(for: error, fallback: "That search could not be run."))
         }
+    }
+
+    /// The id a conversation needs on both sides.
+    ///
+    /// A principal without an id is a signed-out session, not a network failure, and is reported as
+    /// one: `MMError.unauthorized` is what the copy turns into "Sign in again".
+    private func ensurePrincipal() async throws -> String {
+        if let myUserID, !myUserID.isEmpty { return myUserID }
+        let principal = try await service.principal()
+        guard !principal.id.isEmpty else { throw MMError.unauthorized(message: nil) }
+        myUserID = principal.id
+        return principal.id
+    }
+
+    /// Drop what cannot be trusted and say why. A list built without knowing who "me" is would have
+    /// no way to keep the reader out of it (F5), so the rows go with the sentence.
+    private func abandon(with message: String) {
+        myUserID = nil
+        users = [:]
+        rows = []
+        phase = .failed(message)
+    }
+
+    /// The failure sentence. The cause is named where it can be: "offline" and "session expired" send
+    /// the reader to different fixes, and the old copy said the second for both (F5).
+    static func copy(for error: Error, fallback: String) -> String {
+        MMErrorCopy.message(
+            for: error,
+            offline: "You appear to be offline. The people you can message could not be loaded.",
+            timeout: "The server took too long to answer. The people you can message could not be loaded.",
+            unauthorized: "Your session has expired. Sign in again to choose who to message.",
+            forbidden: "You do not have permission to message people on this team.",
+            notFound: "People could not be loaded.",
+            rateLimited: "The server is busy. Try again shortly.",
+            fallback: fallback
+        )
     }
 
     // MARK: Open
@@ -333,7 +375,10 @@ final class NewDirectMessageViewModel: ObservableObject {
     func open(_ candidate: DirectMessageCandidate) async -> MMChannel? {
         guard !isOpening else { return nil }
         guard let myUserID, !myUserID.isEmpty else {
-            errorMessage = "You appear to be signed out. Please sign in again."
+            // Unreachable while the list is built — `load()`/`search()` refuse to produce rows without
+            // an identity (T47-AV F5) — and kept as the write-side guarantee: a candidate handed in
+            // from anywhere still cannot open a conversation with no "me" on one side.
+            errorMessage = "You appear to be signed out. Sign in again to choose who to message."
             return nil
         }
         guard candidate.id != myUserID else {
