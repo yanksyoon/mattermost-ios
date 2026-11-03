@@ -53,6 +53,127 @@ enum SessionCookiePolicy {
         // boundary, so `notexample.com` never matches `example.com`.
         return host.hasSuffix("." + domain)
     }
+
+    /// Whether `cookie` is present in `cookies` — name, **value** and scope all agreeing.
+    ///
+    /// This is the verification half of `WebSessionCookieInstaller`: a store that still holds a
+    /// previous launch's token under the same name must not be read as "the write landed", or an
+    /// installer would report success for a cookie it never stored.
+    static func isPresent(_ cookie: HTTPCookie, in cookies: [HTTPCookie]) -> Bool {
+        let domain = normalizedDomain(cookie.domain)
+        let path = cookie.path.isEmpty ? "/" : cookie.path
+        return cookies.contains { present in
+            present.name == cookie.name
+                && present.value == cookie.value
+                && normalizedDomain(present.domain) == domain
+                && (present.path.isEmpty ? "/" : present.path) == path
+        }
+    }
+
+    /// A cookie domain without its leading dot, lowercased (`WebKit` keeps some domains dotted).
+    static func normalizedDomain(_ domain: String) -> String {
+        let lower = domain.lowercased()
+        return lower.hasPrefix(".") ? String(lower.dropFirst()) : lower
+    }
+}
+
+/// A cookie store a writer can install into.
+///
+/// `WKHTTPCookieStore` in production; a scripted double in the unit suite, because the failure this
+/// abstraction exists for — a write the store silently discards — cannot be provoked on demand
+/// against WebKit. See `WebSessionCookieInstaller`.
+protocol SessionCookieStoring {
+    func allCookies() async -> [HTTPCookie]
+    func setCookie(_ cookie: HTTPCookie) async
+}
+
+/// The production cookie store: `WKWebsiteDataStore.httpCookieStore`, unwrapped to this protocol.
+struct WebKitCookieStore: SessionCookieStoring {
+    let store: WKHTTPCookieStore
+
+    func allCookies() async -> [HTTPCookie] { await store.allCookies() }
+
+    func setCookie(_ cookie: HTTPCookie) async { await store.setCookie(cookie) }
+}
+
+/// Install cookies into a webview data store, and **verify that they landed**.
+///
+/// ## Why a verification loop, and not `setCookie` alone (measured)
+///
+/// `WKHTTPCookieStore.setCookie` completes whether or not the store keeps the cookie. The store's
+/// WebKit **Networking** process is launched lazily on first use of a fresh app launch, and a write
+/// issued while it is still coming up is dropped without an error. Measured on the T31 harvest path
+/// (`t_4528b67e`, 2026-11-04, iPhone 16 Pro / iOS 18.3.1, `http://127.0.0.1:8065`):
+///
+///     t0    setCookie(MMAUTHTOKEN) → log line "planted", allCookies() == []   (same instance)
+///     t2    allCookies() 2 s later                       == []   (so: discarded, not delayed)
+///     t2b   setCookie again, after the process was up    == ["MMAUTHTOKEN@127.0.0.1"]
+///     …and the harvest then adopted it: "signed in as perfprobe", "adopted the webview session".
+///
+/// The consequence is not cosmetic: a launch that plants the webview's session (the
+/// `-uiTestSeedWebSessionToken` seam) or shares the shell's session with a fallback pane (T46,
+/// `WebFallbackModel.installSession()`) would resolve as *signed out* with no failure anywhere in
+/// the log. The T31 harvest suite was red for exactly that reason — its cookie never existed — not
+/// because the harvest was wrong.
+///
+/// So the rule here is: write, read back, and only report success when the cookie is really in the
+/// store. The default window (8 rounds × 0.25 s) covers the measured ~1.3–1.7 s process launch, and
+/// costs nothing on a warm store, where the first round already verifies.
+struct WebSessionCookieInstaller {
+    let store: SessionCookieStoring
+    /// Write→verify rounds before giving up. Each round rewrites every cookie.
+    var attempts: Int = 8
+    /// Wait between rounds.
+    var interval: TimeInterval = 0.25
+    /// How the installer waits — injected so the unit suite does not spend the window for real.
+    var pause: @Sendable (TimeInterval) async -> Void = { seconds in
+        try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+    }
+
+    init(store: SessionCookieStoring,
+         attempts: Int = 8,
+         interval: TimeInterval = 0.25,
+         pause: @escaping @Sendable (TimeInterval) async -> Void = { seconds in
+             try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+         }) {
+        self.store = store
+        self.attempts = attempts
+        self.interval = interval
+        self.pause = pause
+    }
+
+    /// Production convenience: install into a server's own persistent store.
+    @MainActor
+    init(dataStore: WKWebsiteDataStore,
+         attempts: Int = 8,
+         interval: TimeInterval = 0.25,
+         pause: @escaping @Sendable (TimeInterval) async -> Void = { seconds in
+             try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+         }) {
+        self.init(store: WebKitCookieStore(store: dataStore.httpCookieStore),
+                  attempts: attempts, interval: interval, pause: pause)
+    }
+
+    /// Write every cookie, then confirm each one is in the store.
+    ///
+    /// - Returns: the **names** of the cookies the store never kept; empty means everything landed.
+    ///   Callers must not treat an empty return as "probably fine" — a non-empty one means the
+    ///   session this install stood for does not exist on the device.
+    @discardableResult
+    func install(_ cookies: [HTTPCookie]) async -> [String] {
+        let targets = cookies
+        guard !targets.isEmpty else { return [] }
+        let rounds = max(1, attempts)
+        var missing = targets.map(\.name)
+        for round in 0..<rounds {
+            for cookie in targets { await store.setCookie(cookie) }
+            let present = await store.allCookies()
+            missing = targets.filter { !SessionCookiePolicy.isPresent($0, in: present) }.map(\.name)
+            if missing.isEmpty { return [] }
+            if round + 1 < rounds { await pause(interval) }
+        }
+        return missing
+    }
 }
 
 /// The **written** side of the same cookie: the shell's own session, installed into a webview that
@@ -209,3 +330,35 @@ struct WebKitSessionCookieReader: SessionCookieReading {
                                          for: serverURL)
     }
 }
+
+#if DEBUG
+/// A **UI-test** stand-in for the webview's `MMAUTHTOKEN`: answers with a token the launch supplied
+/// (`-uiTestSeedWebSessionToken`), so a live run can start with "the webview is signed in, the vault
+/// holds nothing" without launching a WebKit process inside an XCUITest run.
+///
+/// Why the substitution is legitimate, and what it does **not** cover:
+///  - the behaviour T31 claims — a launch whose only credential is the webview's session reaches the
+///    native workspace — is entirely downstream of this answer: `AuthCoordinator.restore` finds no
+///    vault token, asks a `SessionCookieReading`, verifies the token with `GET /users/me`, persists
+///    it, flips the gate and every native pane authenticates with it. All of that is production
+///    code, and all of it still runs;
+///  - what is substituted is the *delivery* of the session, exactly as `-uiTestOpenDeepLink`
+///    substitutes the delivery of a `mattermost://` open that XCUITest cannot perform;
+///  - the real delivery — reading `WKWebsiteDataStore(forIdentifier:)` — is pinned by unit tests
+///    against a real store (`T31WebSessionHarvestTests`,
+///    `T31HarvestCookieInstallTests`), which is where a WebKit process can be driven without
+///    XCTest's accessibility snapshots around it;
+///  - writing a real cookie at launch was measured *not* to work reliably: the write is dropped while
+///    the store's Networking process starts (`WebSessionCookieInstaller`), and the process launch then
+///    faults under XCTest and kills the app (`docs/t8d-build-note.md` §1). See
+///    `MattermostApp.seedWebviewSessionIfRequested`.
+///
+/// Debug-only: never compiled into Release, and never reachable from page JavaScript.
+struct SeededWebSessionCookieReader: SessionCookieReading {
+    let token: String
+
+    func authToken(for serverURL: URL) async -> String? {
+        token.isEmpty ? nil : token
+    }
+}
+#endif

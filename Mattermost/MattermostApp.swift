@@ -454,9 +454,9 @@ struct MattermostApp: App {
                     //
                     // A server whose login lives **only** in the webview (the SPA's own sign-in, or
                     // SSO/SAML) is adopted inside `restore` — see `adoptExistingWebSessionIfPresent`.
-                    // The DEBUG cookie seam below runs first so a run can start in exactly that state.
+                    // The DEBUG session seam below arms first so a run can start in exactly that state.
                     #if DEBUG
-                    await seedWebviewSessionCookieIfRequested()
+                    seedWebviewSessionIfRequested()
                     #endif
                     await authCoordinator.restoreAll(serverStore.servers)
                 }
@@ -812,38 +812,61 @@ struct MattermostApp: App {
     }
 
     #if DEBUG
-    /// `-uiTestSeedWebSessionCookie <token>`: plant an `MMAUTHTOKEN` in the **seeded** server's
-    /// isolated website-data store — the copy a *webview* sign-in leaves behind — so a run can start
-    /// in the one state this card is about: the webview is signed in and the vault holds nothing.
+    /// `-uiTestSeedWebSessionToken <token>`: make the **webview-held session** exist for the seeded
+    /// server, so a run can start in the one state this card is about: the webview is signed in and
+    /// the vault holds nothing.
     ///
-    /// Why a seam instead of a real web login in the test: `WKWebsiteDataStore(forIdentifier:)` is
-    /// container-scoped, so an XCUITest runner writing it would populate a *different* container's
-    /// store than the app reads. Driving the SPA's login form in the webview instead would make the
-    /// evidence depend on the web app's markup, which is exactly the thing this shell does not own.
+    /// ## Why a seam, and why it arms the harvest's reader rather than writing a cookie
+    ///
+    /// A seam is needed because the state under test is a session in **WebKit's** store: the test
+    /// runner cannot write it (`WKWebsiteDataStore(forIdentifier:)` is container-scoped), and
+    /// driving the SPA's login form in the webview would make the evidence depend on the web app's
+    /// markup, which is exactly the thing this shell does not own.
+    ///
+    /// The first version of this seam did write the real `MMAUTHTOKEN` into
+    /// `WKWebsiteDataStore(forIdentifier: server.id)`. Two measurements (2026-11-04, iPhone 16 Pro /
+    /// iOS 18.3.1, `http://127.0.0.1:8065`, `t_4528b67e`) retired that approach:
+    ///
+    ///  1. **the write was silently dropped.** A store's WebKit *Networking* process is launched
+    ///     lazily at first use, and a `setCookie` issued while it comes up completes and keeps
+    ///     nothing: `allCookies()` answered `[]` immediately *and* `[]` two seconds later, while the
+    ///     same write issued once the process was up stayed (`["MMAUTHTOKEN@127.0.0.1"]`) and the
+    ///     harvest then adopted it ("signed in as perfprobe", "adopted the webview session"). That is
+    ///     why the T31 suite was red for four runs: its session never existed, so the launch resolved
+    ///     as signed out and the native sign-in surface appeared. `WebSessionCookieInstaller` now
+    ///     read-back-verifies such writes (and `WebFallbackModel`'s T46 install uses it), but for a
+    ///     launch seam it is still a WebKit process launch in the middle of a UI run;
+    ///  2. **and that process launch kills the app under XCUITest on this host.** When it takes more
+    ///     than a second, WebKit records it with `RELEASE_LOG_FAULT("Networking process … took N
+    ///     seconds to launch")`; a fault-level `os_log` taken while XCTest is snapshotting
+    ///     dereferences NULL in XCTest's own `runtime_issue_os_log_fault_callback`, and the app dies
+    ///     with `SIGSEGV` in `_platform_strcmp` (`Mattermost-2026-11-04-063031.ips` — the failure
+    ///     that replaced the assertion failure once the installer landed). It is the host pathology
+    ///     `docs/t8d-build-note.md` §1 and `docs/t635-build-note.md` describe: less log volume shrinks
+    ///     it, nothing in the app removes it.
+    ///
+    /// So this seam substitutes the **delivery** of the webview's session, not its handling — the
+    /// same choice `-uiTestOpenDeepLink` makes for a URL XCUITest cannot hand to the app. What the
+    /// suite then measures is unchanged and entirely production code: `AuthCoordinator.restore` with
+    /// no vault token, the harvest (`adoptWebSession`), the `GET /users/me` verification, the vault
+    /// write, the gate and every native pane that authenticates from it. The reader that answers is
+    /// `SeededWebSessionCookieReader`; the real WebKit read is pinned by unit tests against a real
+    /// store (`T31WebSessionHarvestTests.testTheProductionReaderFindsTheSessionInTheServersOwnWebsiteDataStore`,
+    /// `T31HarvestCookieInstallTests.testARealStoreKeepsTheInstalledCookieAndTheProductionReaderFindsIt`).
     ///
     /// Debug-only and inert in Release, exactly like `-uiTestSeedStoredToken` (which writes the same
-    /// kind of credential into the vault). It never logs the value, and it writes nothing unless both
-    /// the argument and a seeded server are present.
+    /// kind of credential into the vault). It logs no value and seeds nothing unless both the
+    /// argument and a seeded server are present.
     @MainActor
-    private func seedWebviewSessionCookieIfRequested() async {
+    private func seedWebviewSessionIfRequested() {
         let args = ProcessInfo.processInfo.arguments
-        guard let idx = args.firstIndex(of: "-uiTestSeedWebSessionCookie"),
+        guard let idx = args.firstIndex(of: "-uiTestSeedWebSessionToken"),
               args.indices.contains(idx + 1),
               !args[idx + 1].isEmpty,
-              let server = serverStore.servers.last,
-              let host = server.url.host, !host.isEmpty,
-              let cookie = HTTPCookie(properties: [
-                  .name: SessionCookiePolicy.authCookieName,
-                  .value: args[idx + 1],
-                  .domain: host,
-                  .path: "/",
-                  .expires: Date().addingTimeInterval(3600),
-              ])
+              let server = serverStore.servers.last
         else { return }
-        // The store `ViewStore.ensureStore(for:)` gives the server's webview, so the reader the
-        // auth coordinator uses at launch reads exactly what a webview login would have written.
-        await WKWebsiteDataStore(forIdentifier: server.id).httpCookieStore.setCookie(cookie)
-        Logger.info("T31", "uiTest: planted a webview session cookie for \(server.name)")
+        authCoordinator.seedWebSession(token: args[idx + 1], for: server.id)
+        Logger.info("T31", "uiTest: the webview holds a session for \(server.name)")
     }
 
     /// `-uiTestOpenDeepLink <url>`: hand a URL to the same `DeepLinkRouter` entry `onOpenURL` uses.

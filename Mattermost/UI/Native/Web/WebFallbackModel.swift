@@ -321,8 +321,19 @@ final class WebFallbackModel: ObservableObject {
                                                             token: token,
                                                             userID: userID)
         guard !cookies.isEmpty else { return .none }
-        for cookie in cookies {
-            await cookieStore.setCookie(cookie)
+        // Verified, not fire-and-forget: `WKHTTPCookieStore.setCookie` completes even when the
+        // store discards the write (measured while its Networking process is still launching — see
+        // `WebSessionCookieInstaller`). Reporting `.installed` for a session that never reached the
+        // store would put the pane on the web app's login page while the shell believed it had
+        // shared its own.
+        let missing = await WebSessionCookieInstaller(store: WebKitCookieStore(store: cookieStore))
+            .install(cookies)
+        guard missing.isEmpty else {
+            Logger.error("WebFallback",
+                         "the shell's session cookies for \(server.id) never reached the store "
+                         + "(missing \(missing.joined(separator: ", "))); the surface will show the "
+                         + "web app's own sign-in")
+            return .none
         }
         Logger.info("WebFallback",
                     "installed the shell's session cookies for \(server.id) "

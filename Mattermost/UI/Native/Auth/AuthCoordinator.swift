@@ -266,7 +266,7 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
     ///   only got `true` would have to re-read `phase(for:)` to learn who signed in.
     private func adoptExistingWebSessionIfPresent(_ server: ServerConfig) async -> AuthSession.Session? {
         do {
-            let adopted = try await adoptWebSession(server, using: makeCookieReader(server.id))
+            let adopted = try await adoptWebSession(server, using: cookieReader(for: server.id))
             MMLog.info("MMAuth", "adopted the webview session for \(server.name)")
             return adopted
         } catch {
@@ -274,6 +274,44 @@ final class AuthCoordinator: ObservableObject, NativeAuthGate {
             return nil
         }
     }
+
+    /// The reader the harvest asks about `serverID`.
+    ///
+    /// Production (and Release in every case): the server's own `WKWebsiteDataStore`, exactly as a
+    /// webview sign-in left it. DEBUG builds additionally honour a launch-supplied session — see
+    /// `seedWebSession(token:for:)`.
+    private func cookieReader(for serverID: UUID) -> SessionCookieReading {
+        #if DEBUG
+        if let token = seededWebSessions[serverID], !token.isEmpty {
+            return SeededWebSessionCookieReader(token: token)
+        }
+        #endif
+        return makeCookieReader(serverID)
+    }
+
+    #if DEBUG
+    /// Per-server sessions a UI-test launch supplied (`-uiTestSeedWebSessionToken`), so a run can
+    /// start in the state T31 is about: the webview holds a session, the vault holds nothing.
+    ///
+    /// Why the session arrives here rather than as a real cookie in the store: writing
+    /// `MMAUTHTOKEN` into `WKWebsiteDataStore(forIdentifier:)` at launch was measured to (a) be
+    /// silently dropped before the store's WebKit Networking process was up, which made the launch
+    /// resolve signed out while the seam logged success, and (b) then crash the app under XCUITest
+    /// when that process launched slowly (WebKit logs it as a *fault*, and a fault-level `os_log`
+    /// during accessibility snapshotting dies inside XCTest's callback). The full measurement is on
+    /// `MattermostApp.seedWebviewSessionIfRequested`. The real WebKit read stays covered by unit
+    /// tests against a real store (`T31WebSessionHarvestTests`,
+    /// `T31HarvestCookieInstallTests`).
+    ///
+    /// Compiled out of Release: a shipped build has no way to be handed a session it did not sign in
+    /// for.
+    private var seededWebSessions: [UUID: String] = [:]
+
+    /// Arm the debug-only seeded session for one server (called by the launch-argument seam).
+    func seedWebSession(token: String, for serverID: UUID) {
+        seededWebSessions[serverID] = token
+    }
+    #endif
 
     /// Restore one server's stored session.
     ///

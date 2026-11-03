@@ -178,6 +178,33 @@ final class T31WebSessionHarvestTests: XCTestCase {
         XCTAssertEqual(relaunched.authState(for: server), .signedIn)
     }
 
+    /// The **launch seam** the live suite uses (`-uiTestSeedWebSessionToken`), pinned at the unit
+    /// level: a session the launch supplied is what the harvest adopts, even when the store's own
+    /// reader has nothing — and it is read exactly once, through the same `adoptWebSession` path
+    /// (`GET /users/me` with the token, then persisted) as a real webview cookie.
+    ///
+    /// This is the substitution the UI test makes instead of writing a cookie into
+    /// `WKWebsiteDataStore`: it must change *where the session comes from* and nothing else.
+    func testALaunchSeededWebviewSessionIsAdoptedLikeARealCookie() async throws {
+        let storeReader = RecordingCookieReader(token: nil)      // the store: signed out
+        let transport = FakeAPITransport(stubs: [.ok(.json(userJSON()))])
+        let coordinator = makeCoordinator(transport, reader: storeReader)
+        coordinator.seedWebSession(token: "seeded-webview-token", for: server.id)
+        XCTAssertEqual(coordinator.authState(for: server), .signedOut,
+                       "precondition: no vault token, so the gate starts signed out")
+
+        let restored = try await coordinator.restore(server)
+
+        XCTAssertEqual(restored?.username, "grace")
+        XCTAssertEqual(coordinator.phase(for: server.id), .signedIn(username: "grace", userID: "u1"))
+        XCTAssertEqual(vault.getSecret(key: .authToken, serverURL: serverURL), "seeded-webview-token",
+                       "the seeded session is adopted exactly like a webview cookie")
+        XCTAssertEqual(transport.lastRequest?.headers["Authorization"], "Bearer seeded-webview-token",
+                       "and it is verified with the server before the gate trusts it")
+        XCTAssertTrue(storeReader.asked.isEmpty,
+                      "the seeded session replaces the store read for that server, it does not add one")
+    }
+
     // MARK: 2. No session anywhere is still "signed out" — with no network call
 
     func testNoVaultTokenAndNoWebviewSessionResolvesSignedOutWithoutTouchingTheServer() async {

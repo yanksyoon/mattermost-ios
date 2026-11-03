@@ -81,8 +81,16 @@ final class T31WebSessionHarvestUITests: XCTestCase {
         let token = try authenticate()
         let app = launch(seedingWebviewCookie: token)
 
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 60),
-                      "a webview-signed-in launch must render the native workspace:\n\(app.debugDescription)")
+        // The landing shape is the launch policy's, not this test's: since t_295b0a32 a signed-in
+        // launch opens a channel and pushes it **over** the list, so `nativeShell` is not in the
+        // accessibility tree at all (`nativeChannelPane` replaces the root — measured
+        // 2026-11-04, `docs/t_4528b67e-build-note.md` §4). Waiting on `nativeShell` alone decided
+        // this test's outcome for it: it failed here on a launch that had *adopted the session and
+        // drawn the workspace*. `ShellSettle.waitForSignedIn` is the one place that answers "are we
+        // in?" for both landings, and it fails with the tree in its message.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 60),
+                      "a webview-signed-in launch must reach the native workspace, not the sign-in "
+                      + "surface:\n\(app.debugDescription)")
         XCTAssertFalse(element(app, "nativeAuthSurface").exists,
                        "…and must not fall back to the native sign-in surface for a user who is "
                        + "already signed in (this is the defect the harvest fixes)")
@@ -92,15 +100,18 @@ final class T31WebSessionHarvestUITests: XCTestCase {
         // The rail (authenticated `/users/me/teams`) and the channel list (authenticated
         // `/users/me/teams/{id}/channels`) both answered — so the token reached the **native**
         // transport, not just the gate.
+        let pops = ShellSettle.revealChannelList(app)
         XCTAssertTrue(element(app, "nativeTeamSidebar").waitForExistence(timeout: 40),
-                      "the team rail is loaded in the native shell:\n\(app.debugDescription)")
-        XCTAssertTrue(waitUntil(timeout: 60) { element(app, "channelSidebar.category.channels").exists },
-                      "the server's channel grouping is on screen:\n\(app.debugDescription)")
+                      "the team rail is loaded in the native shell (after \(pops) Back tap(s) to the "
+                      + "channel list):\n\(app.debugDescription)")
+        XCTAssertTrue(waitUntil(timeout: 60) { !categoryHeaders(app).isEmpty },
+                      "the server's channel grouping is on screen (no `channelSidebar.category.*` "
+                      + "header was drawn):\n\(app.debugDescription)")
 
         // Rows the *server* says this account is a member of, rendered by the native list. Matched
         // as a set rather than one id: the list is lazy, so which rows are above the fold is not
         // something this test should be pinned to.
-        let rendered = Set(app.descendants(matching: .any)
+        let rendered = Set(app.buttons
             .matching(NSPredicate(format: "identifier BEGINSWITH %@", "channelSidebar.channel."))
             .allElementsBoundByIndex.map(\.identifier))
         let expected = Set(memberIDs.map { "channelSidebar.channel.\($0)" })
@@ -126,9 +137,21 @@ final class T31WebSessionHarvestUITests: XCTestCase {
     // MARK: - Launch
 
     /// One launch of the native shell. `seedingWebviewCookie` is the whole variable under test: the
-    /// app's DEBUG seam plants that token as the seeded server's `MMAUTHTOKEN`, which is the copy a
-    /// webview sign-in leaves — and `-uiTestForgetSession` guarantees the vault holds nothing, so the
-    /// cookie is the *only* credential on the device.
+    /// webview is signed in (the session it holds is made to exist by the DEBUG seam below) and
+    /// `-uiTestForgetSession` guarantees the vault holds nothing, so that session is the *only*
+    /// credential on the device.
+    ///
+    /// What the seam substitutes, precisely: `-uiTestSeedWebSessionToken` arms
+    /// `AuthCoordinator`'s harvest reader (`SeededWebSessionCookieReader`) for the seeded server, so
+    /// the launch starts with a webview-held session instead of a `MMAUTHTOKEN` in a
+    /// `WKWebsiteDataStore`. It has to be that way on this toolchain, measured
+    /// (`docs/t_4528b67e-build-note.md`): writing the real cookie at launch is dropped while the
+    /// store's WebKit Networking process starts, and starting that process inside an XCUITest run
+    /// faults through XCTest's `runtime_issue_os_log_fault_callback` and kills the app. Everything
+    /// downstream is production code — `AuthCoordinator.restore` with no vault token,
+    /// `adoptWebSession`, the `GET /users/me` verification, the vault write and the gate — and the
+    /// real `WKWebsiteDataStore` read is pinned by unit tests
+    /// (`T31WebSessionHarvestTests`, `T31HarvestCookieInstallTests`).
     private func launch(seedingWebviewCookie token: String?) -> XCUIApplication {
         let app = XCUIApplication()
         var args = ["-uiTestResetPersistedState",
@@ -148,7 +171,7 @@ final class T31WebSessionHarvestUITests: XCTestCase {
                     "-surfaceMode", "composer=native",
                     "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         if let token {
-            args += ["-uiTestSeedWebSessionCookie", token]
+            args += ["-uiTestSeedWebSessionToken", token]
         }
         app.launchArguments = args
         app.launch()
@@ -239,6 +262,22 @@ final class T31WebSessionHarvestUITests: XCTestCase {
     /// depending on the container, so a type-specific query could silently never match.
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    /// The category headers the list has drawn, **whatever they are called**.
+    ///
+    /// `perfprobe` has custom channel sections on the fixture (`T8G group 8`…), and a custom section
+    /// replaces the default groups: the "Channels" pseudo-category header
+    /// (`channelSidebar.category.channels`) is not in the tree at all, measured 2026-11-04 —
+    /// `docs/t4528b67e-build-note.md` §4. Asserting that one identifier was an assumption about the
+    /// fixture account rather than about the shell, so the claim is now "this account's grouping is
+    /// drawn", which is what the shell is responsible for. A **typed** query (`buttons`: headers are
+    /// buttons) because this runs in a poll loop and every any-type query is a full snapshot
+    /// (`docs/t8d-build-note.md` §2).
+    private func categoryHeaders(_ app: XCUIApplication) -> [String] {
+        app.buttons
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "channelSidebar.category."))
+            .allElementsBoundByIndex.map(\.identifier)
     }
 
     /// Poll a UI condition without XCUITest's own long retry loop on a *single* element query: a

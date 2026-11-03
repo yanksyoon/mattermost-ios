@@ -142,6 +142,33 @@ enum ShellSettle {
         }
     }
 
+    /// Bring the **channel list** on screen after a launch that landed on a pushed channel pane.
+    ///
+    /// Since `t_295b0a32` a signed-in launch opens a channel and pushes it *over* the list, so the
+    /// sidebar (`channelSidebar.*`) is not in the accessibility tree until the pane is popped the way
+    /// a reader pops it — `Back`. Measured 2026-11-04 against `origin/main` f631629: a sweep started
+    /// while the hand-over was in flight failed hard (`Failed to swipe up "channelSidebar.scroll": No
+    /// matches found`), so this waits for the landing first, then pops, bounded.
+    ///
+    /// The 6 s wait is a ceiling, not a sleep: a launch that lands on the list answers at once and
+    /// costs only the round trip.
+    ///
+    /// - Returns: how many `Back` taps it took (0 when the list was already up) — reported by callers
+    ///   so a failure says whether the list was ever reached.
+    @discardableResult
+    static func revealChannelList(_ app: XCUIApplication, maxPops: Int = 3) -> Int {
+        _ = app.otherElements["nativeChannelPane"].waitForExistence(timeout: 6)
+        var pops = 0
+        while pops < maxPops, !channelSidebarScroll(app).exists {
+            let back = app.navigationBars.buttons["Back"]
+            guard back.exists, back.isHittable else { break }
+            back.tap()
+            pops += 1
+            _ = channelSidebarScroll(app).waitForExistence(timeout: 10)
+        }
+        return pops
+    }
+
     /// Scrolling the chrome, not a fixture: reach the channel row for `channelID`.
     ///
     /// **Why every live sidebar test needs this.** The channel list is a `ScrollView` + `LazyVStack`
@@ -210,15 +237,7 @@ enum ShellSettle {
         // This deliberately does not call `revealTabs`: that helper stops when the *tab bar* is
         // visible, while a sidebar sweep needs the *list* — on this tree the two arrive together, but
         // the list is what the sweep must be handed.
-        _ = app.otherElements["nativeChannelPane"].waitForExistence(timeout: 6)
-        var pops = 0
-        while pops < maxPops, !channelSidebarScroll(app).exists {
-            let back = app.navigationBars.buttons["Back"]
-            guard back.exists, back.isHittable else { break }
-            back.tap()
-            pops += 1
-            _ = channelSidebarScroll(app).waitForExistence(timeout: 10)
-        }
+        let pops = revealChannelList(app, maxPops: maxPops)
         // The pop animates; a swipe sampled mid-animation is the same lost element as above.
         pause()
         pause()
