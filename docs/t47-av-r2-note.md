@@ -2,8 +2,8 @@
 
 Card: `t_4067a703` (T47-AV-R2), filed by `t_e1ddfba4` from `docs/t47-av-verdict.md` §1.3, §2, §3
 (mutation row 4), §6 (F2, F3, F5). Worktree: `…/kanban/boards/mattermost-ios/workspaces/t_4067a703`,
-branch `t47avr2`, cut from `origin/main` = `4cd5bdc` and published on top of `ff1f907` (T47-AV-R1,
-which landed on `2c3b7f1`/`d4aadac`) — see §2 for what each rebase forced.
+branch `t47avr2`, cut from `origin/main` = `4cd5bdc` and published on top of `0a4800e` (after
+`2c3b7f1`/`d4aadac` and `ff1f907` landed) — see §2 for what each rebase forced.
 
 Fixture: `mm-perf` (Mattermost 9.11.19) on `http://127.0.0.1:8065`, account `perfprobe` (password in
 `scripts/perf_seed.py`), restricted probe account `t47av-restricted` (password in
@@ -66,30 +66,32 @@ the cause was the network.
 
 ## 2. Measurements
 
-Everything below was run on the **final** tree: this card rebased onto `origin/main` = `ff1f907`
-(T47-AV-R1), which itself sits on `2c3b7f1` (T47-AV-R4) and `d4aadac` (T47-AV-R3). `origin/main` moved
-under this card three times while it ran; the first publish target was `2c3b7f1`, and each rebase was
-re-verified rather than assumed:
+Everything below was run on the **final** tree: this card rebased onto `origin/main`, which moved three
+times under it while it ran — `2c3b7f1` (T47-AV-R4) + `d4aadac` (T47-AV-R3), then `ff1f907` (T47-AV-R1),
+then `0a4800e` (T50, profile editing). Each rebase was re-verified, not assumed: units and the live
+suite were re-run after every one, and the numbers quoted here are the last run on the last tree.
 
 ```
 git log --oneline -5        # final tree
-  c2fb136 docs(t47-av-r2): the probe ships with the note …
+  f6ffabb test(t47-av-r2): the merged fake keeps one principalFailure, and the note carries the final run
+  563152d docs(t47-av-r2): the probe ships with the note …
   916f6f1 docs(t47-av-r2): the picker repair's measurements, its two mutations, and what is not proven
   4e7006e fix(channelInfo): the DM picker says Unknown, offers no deactivated account, and never offers the reader
-  ff1f907 fix(channelInfo): the create menu loads beside the threads read … (t_f2ae238e)
+  0a4800e feat(profile): T50 the reader can edit their own name, picture and profile fields (t_44721717)
 ```
 
 The merge with T47-AV-R1 needed one fix: both cards added a `principalFailure` knob to the test fake
-(`FakeCreateService`), and the merged file failed to compile until the duplicate was removed
+(`FakeCreateService`), and the merged file did not compile until the duplicate was removed
 (`t47avr2-units-final2.log:286: invalid redeclaration of 'principalFailure'`). That is recorded because
-the first post-rebase unit run is in the log as a **build failure**, not a test result.
+the first post-rebase unit run is in the log as a **build failure**, not a test result. The T50 rebase
+needed nothing.
 
 Units, final tree (private derived data, own simulator):
 
 ```
 python3 scripts/qa-test.py --platform ios --sim id=4844768F-… --derived-data …/t47avr2-dd \
-  --only-testing MattermostTests/T47CreateChannelTests --label t47avr2-units-final3
-# -> 46 run, 0 skipped, 0 failed                                  RESULT: PASS   (build/logs/t47avr2-units-final3.log)
+  --only-testing MattermostTests/T47CreateChannelTests --label t47avr2-units-final4
+# -> 46 run, 0 skipped, 0 failed                                  RESULT: PASS   (build/logs/t47avr2-units-final4.log)
 ```
 
 46 = the AV's 34 originals + this card's 5 (`testThePickerDoesNotOfferADeactivatedTeamMember`,
@@ -125,19 +127,24 @@ TEST_RUNNER_MM_AUTH_PASSWORD=… TEST_RUNNER_MM_AV_RESTRICTED_LOGIN=t47av-restri
 TEST_RUNNER_MM_AV_RESTRICTED_PASSWORD=… \
   python3 scripts/qa-test.py --platform ios --sim id=4844768F-… --derived-data …/t47avr2-dd \
   --only-testing MattermostUITests/T47CreateChannelAVUITests --label t47avr2-ui-final1
-# -> Executed 6 tests, with 2 tests skipped and 0 failures (0 unexpected) in 196.632 s   RESULT: PASS
-#    testTheServerRefusesACreateAfterTheTeamRoleIsRevoked            passed (19.764 s)
-#    testThePickerDoesNotOfferADeactivatedTeamMemberThatSearchHides  passed (23.792 s)
-#    testAHalfTypedDraftDoesNotSurviveARelaunchAndNothingIsSent      passed (34.793 s)
-#    testOpeningTheSameConversationTwiceFindsOneChannel              passed (117.510 s)
+# -> Executed 6 tests, with 2 tests skipped and 0 failures (0 unexpected) in 199.317 s   RESULT: PASS
+#    testTheServerRefusesACreateAfterTheTeamRoleIsRevoked            passed (20.197 s)
+#    testThePickerDoesNotOfferADeactivatedTeamMemberThatSearchHides  passed (25.642 s)
+#    testAHalfTypedDraftDoesNotSurviveARelaunchAndNothingIsSent      passed (35.062 s)
+#    testOpeningTheSameConversationTwiceFindsOneChannel              passed (117.902 s)
 #    testTheCreateMenuAppearsWhileTheThreadsReadIsStalled            SKIPPED (needs TEST_RUNNER_MM_AV_STALL_SERVER)
 #    testAFailedPermissionReadOffersARetryThatActuallyReloads         SKIPPED (needs TEST_RUNNER_MM_AV_PERMISSION_SERVER)
 #    T47-AV-R2: deactivated @t429gone (dgsywreb67bs8p6s9eu8w8fskw) absent over a 1-swipe sweep;
 #                last active row 74gs84fwhb85mdpfqjzuku6hsr reached
 #    T47-AV-R2: first row zph6uw3t6if69p89wcihf1nd5c reads "Cleo Busy, @t41av3, Do not disturb";
 #                the server says "Do not disturb"
-#    (build/logs/t47avr2-ui-final1.log:824, :793, :798, :929)
+#    (build/logs/t47avr2-ui-final-0a4800e.log:824, :793, :798, :929)
 ```
+
+That is the run labelled `t47avr2-ui-final1` on the final tree; it was copied to
+`t47avr2-ui-final-0a4800e.log` because the retry wrapper reuses attempt numbers, which overwrote the
+label's first log (an earlier green on `ff1f907`, same 4 passed / 2 skipped, 196.6 s). Every
+"`t47avr2-ui-final1`" run since has been green; the copy is the one the line numbers above point at.
 
 The suite is six tests now, not four: T47-AV-R1 added the two proxy-backed ones, and they skip unless
 its fixture proxy is running (they are R1's measurement, published in `docs/t47-av-r1-repair.md`). The
