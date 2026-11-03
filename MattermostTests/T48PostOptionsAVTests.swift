@@ -80,7 +80,10 @@ final class T48PostOptionsAVTests: XCTestCase {
     final class FakeService: PostOptionsServing {
         var channelTeamIDValue = "team-channel-perf-000000001"
         var teamNameValue: String? = "perf"
+        /// The name read for the channel's team fails (offline / 403 / rate limit).
         var teamNameFails = false
+        /// The channel's own team cannot be read (a deep link, or the app offline mid-activation).
+        var channelTeamIDFails = false
         var permissionsValue: Set<String> = [PostOptionsPermissionID.createPost]
         var savedIDs: Set<String> = []
 
@@ -92,7 +95,10 @@ final class T48PostOptionsAVTests: XCTestCase {
 
         func isArchived(channelID: String) async throws -> Bool { false }
 
-        func channelTeamID(channelID: String) async throws -> String { channelTeamIDValue }
+        func channelTeamID(channelID: String) async throws -> String {
+            if channelTeamIDFails { throw URLError(.notConnectedToInternet) }
+            return channelTeamIDValue
+        }
 
         func teamName(teamID: String) async throws -> String? {
             if teamNameFails { throw URLError(.notConnectedToInternet) }
@@ -143,13 +149,13 @@ final class T48PostOptionsAVTests: XCTestCase {
     }
 
     /// The adversarial half: the channel's `team_id` is known to differ from the route's, but the
-    /// name read for the channel's team fails (offline, 403, a rate limit). The route's `ops` is
-    /// already in `teamName` from the activation's first line, and nothing clears it. A permalink
-    /// built from it (`/ops/pl/<post>`) is a link to a team the channel is not in — the exact class
-    /// of defect the fix was written for, one failed request away.
+    /// name read for the channel's team fails (offline, 403, a rate limit). The route's `ops` must
+    /// not survive: a permalink built from it (`/ops/pl/<post>`) is a link to a team the channel is
+    /// not in — the exact class of defect the fix was written for, one failed request away.
+    ///
+    /// Repaired by R2 (card `t_9acf2b1c`, docs/t48-av-r2-repair.md): the supplied name is a fallback
+    /// only while the channel's team is unknown or is the route's own, and `teamName` starts empty.
     func testAFailedTeamNameReadMustNotLeaveTheRoutesTeamInThePermalink() async {
-        expectKnownDefect("T48-AV F4: the route's team name survives a failed channel-team name read "
-                         + "(docs/t48-av-build-note.md §F4; repair card filed from t_531f894e)")
         let service = FakeService()
         service.teamNameFails = true
         let options = model(service)
@@ -167,6 +173,44 @@ final class T48PostOptionsAVTests: XCTestCase {
         if case .copied(let link) = await options.perform(.copyLink, row: row()) {
             XCTFail("a link was produced while the channel's team name is unknown: \(link)")
         }
+    }
+
+    /// The repair is narrow: R2 drops the route's name only when the channel's own team was **read**
+    /// and is another team. When `GET /channels/{id}` fails — a deep link that carries no team, the
+    /// app offline during activation — the route's team and name are the only facts there are, and
+    /// they are the same team the shell just showed. Copy Link must keep working, not disappear.
+    func testAnUnreadableChannelTeamStillUsesTheRoutesName() async {
+        let service = FakeService()
+        service.channelTeamIDFails = true
+        service.teamNameFails = true
+        let options = model(service)
+
+        await options.activate(teamID: routeTeamID, teamName: "ops")
+
+        XCTAssertEqual(options.teamName, "ops",
+                       "with the channel's team unread, the route's team is the only one there is")
+        let offered = options.offeredOptions(for: row(), actions: actions(), surface: .channel)
+        XCTAssertTrue(offered.contains(.copyLink))
+        guard case .copied(let link) = await options.perform(.copyLink, row: row()) else {
+            return XCTFail("Copy Link must still work when only the route's team is known")
+        }
+        XCTAssertEqual(link, "http://127.0.0.1:8065/ops/pl/post0000000000000000000001")
+    }
+
+    /// The other side of the same boundary: the channel's team **was** read and it is the team the
+    /// route named, so the route's name describes the right team. A failed name read is a fallback,
+    /// not a reason to withhold the row.
+    func testAMatchingChannelTeamKeepsTheRoutesNameWhenTheNameReadFails() async {
+        let service = FakeService()
+        service.channelTeamIDValue = routeTeamID
+        service.teamNameFails = true
+        let options = model(service)
+
+        await options.activate(teamID: routeTeamID, teamName: "ops")
+
+        XCTAssertEqual(options.teamName, "ops")
+        XCTAssertTrue(options.offeredOptions(for: row(), actions: actions(), surface: .channel)
+            .contains(.copyLink))
     }
 
     // MARK: - 2. The archived channel

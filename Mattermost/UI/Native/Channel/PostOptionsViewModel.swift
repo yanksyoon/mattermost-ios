@@ -156,6 +156,13 @@ final class PostOptionsViewModel: ObservableObject {
     /// Each read degrades on its own. A failed permission lookup leaves `permissions` nil, which hides
     /// the permission-gated rows; a failed saved read leaves the set empty, which offers Save rather
     /// than a wrong Unsave; a failed team-name lookup hides Copy Link rather than inventing a path.
+    ///
+    /// The route's team **name** is a fallback, never a fact. A deep link, or a shell route kept from
+    /// the team the reader last visited, can carry a team the channel is not in; a permalink built
+    /// from that name (`/{route}/pl/{post}`) is a link to a channel that does not exist there. So the
+    /// name is only accepted while the channel's own team is unknown or is the team the route carried.
+    /// Once `GET /channels/{id}` says the channel belongs elsewhere, the name starts unknown: if the
+    /// name read then fails, Copy Link is withheld instead of offered with the wrong segment.
     func activate(teamID: String, teamName suppliedTeamName: String?) async {
         let key = "\(teamID)|\(suppliedTeamName ?? "")"
         if activatedKey == key { return }
@@ -164,27 +171,43 @@ final class PostOptionsViewModel: ObservableObject {
         generation += 1
         let token = generation
 
-        if let suppliedTeamName, !suppliedTeamName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            teamName = suppliedTeamName
-        }
+        // Nothing is offered from the route's name while the reads are in flight: the sheet can be
+        // drawn (and tapped) between the awaits, and a link that is withdrawn mid-load is still a
+        // link this device offered.
+        let supplied = suppliedTeamName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let usableSuppliedName = (supplied?.isEmpty == false) ? supplied : nil
+        teamName = nil
+
         if let archived = try? await service.isArchived(channelID: channelID), token == generation {
             isArchived = archived
         }
         // The channel's own team wins over the route's: a deep link carries no team, and a route the
         // shell kept from another team must not put the wrong team name in the permalink.
         var effectiveTeamID = teamID
+        var channelTeamID: String?
         if let resolved = try? await service.channelTeamID(channelID: channelID), !resolved.isEmpty,
            token == generation {
             effectiveTeamID = resolved
+            channelTeamID = resolved
             self.teamID = resolved
         }
+        // The supplied name describes this channel only while the channel's team is still unknown, or
+        // is the same team the route named.
+        let routeNameMayApply = channelTeamID == nil || channelTeamID == teamID
+        var resolvedName: String?
         if !effectiveTeamID.isEmpty,
-           let resolved = try? await service.teamName(teamID: effectiveTeamID),
+           let name = try? await service.teamName(teamID: effectiveTeamID),
            token == generation {
-            teamName = resolved
-        } else if let suppliedTeamName, teamName == nil,
-                  !suppliedTeamName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            teamName = suppliedTeamName
+            resolvedName = name
+        }
+        if token == generation {
+            if let resolvedName, !resolvedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                teamName = resolvedName
+            } else if routeNameMayApply {
+                teamName = usableSuppliedName
+            } else {
+                teamName = nil
+            }
         }
         if let ids = try? await service.savedPostIDs(), token == generation {
             savedPostIDs = ids
