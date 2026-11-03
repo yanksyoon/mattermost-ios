@@ -1022,6 +1022,43 @@ final class T40ChannelInfoTests: XCTestCase {
         XCTAssertEqual(Set(picker.selectedProfiles.keys), ["u1", "u2"])
         XCTAssertEqual(picker.submitTitle, "Add 2 members")
     }
+
+    /// The picker's two reads must offer the same population, and a deactivated account is not part of
+    /// it. Measured on 9.11.19 (`t_e65e6018`): `GET /users?in_team=&not_in_channel=` — the opening list —
+    /// returns `delete_at != 0` accounts, while the typed search (`POST /users/search` with the same
+    /// `not_in_channel_id`, sent `allow_inactive: false`) does not. `AddMembersViewModel.absorb` is the
+    /// one funnel both reads pass through, so this pins both halves there.
+    ///
+    /// The search half is handed a deactivated row on purpose: the sheet must not depend on the server
+    /// remembering `allow_inactive` for the two lists to agree.
+    func testPickerDoesNotOfferADeactivatedTeamMemberInEitherRead() async {
+        let service = FakeChannelInfoService()
+        // `@t429gone` is the fixture's deactivated account; its `delete_at` is the server's real value.
+        let gone = MMUser(id: "gone", username: "t429gone", deleteAt: 1_793_303_134_446)
+        service.notInChannel = [
+            user("u1", username: "ada", first: "Ada", last: "Lovelace"),
+            gone,
+            user("u2", username: "grace", first: "Grace", last: "Hopper"),
+        ]
+        service.searchResults = [gone]
+        let picker = AddMembersViewModel(channelID: channelID, teamID: teamID, service: service)
+
+        await picker.load()
+        XCTAssertEqual(picker.rows.map(\.id), ["u1", "u2"],
+                       "the opening list must not offer deactivated @t429gone — the server's "
+                       + "GET /users?in_team=&not_in_channel= does, and the sheet cannot offer an "
+                       + "account the typed search hides (rows: \(picker.rows.map(\.id)))")
+
+        await picker.search("t429")
+        XCTAssertTrue(picker.rows.isEmpty,
+                      "the typed search must not offer deactivated @t429gone either — one sheet cannot "
+                      + "hold two populations (rows: \(picker.rows.map(\.id)))")
+
+        // The filter drops the deactivated account, not the list: clearing the term returns the live
+        // people, in the server's order.
+        await picker.search("")
+        XCTAssertEqual(picker.rows.map(\.id), ["u1", "u2"])
+    }
 }
 
 // MARK: - Test-only conveniences

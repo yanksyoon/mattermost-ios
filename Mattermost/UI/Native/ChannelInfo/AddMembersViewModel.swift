@@ -13,6 +13,9 @@
 //  2. Selection is a **set** across pages and across refinements of the term — a reader who types,
 //     selects somebody, then clears the field must not lose the selection (upstream keeps the selected
 //     ids in state and merges them into the "chosen" list above the results).
+//  3. The two reads must agree about **who exists**. Measured on 9.11.19 (`t_e65e6018`): the opening
+//     list returns deactivated accounts, the typed search (sent `allow_inactive: false`) does not, so
+//     the population is filtered once in `absorb`.
 //
 // This view model performs **no writes**: it answers "who could be added" and "who did the reader
 // choose", and hands the ids to `ChannelInfoViewModel.addMembers`, so the permission gate and the
@@ -189,11 +192,20 @@ final class AddMembersViewModel: ObservableObject {
 
     private func absorb(_ users: [MMUser]) {
         for user in users { profiles[user.id] = user }
+        // Both reads funnel through here (the opening list and the typed search), so this is the one
+        // place the picker decides who exists — and the server does not agree with itself about it
+        // (measured on 9.11.19, `t_e65e6018`): `GET /users?in_team=&not_in_channel=` returns
+        // **deactivated** accounts (`delete_at` non-zero), while `POST /users/search` with the same
+        // `not_in_channel_id` is sent `allow_inactive: false` and does not. One sheet must not offer
+        // two different populations: a deactivated account cannot use the channel, so offering it
+        // would only ever add somebody who is gone. The filter lives here rather than in either
+        // caller so the two lists cannot drift apart again.
+        //
         // The selected ids the reader already has stay at the top (upstream's "chosen" block) and are
         // not repeated in the results below it.
         let selectedIDs = selection
         rows = users
-            .filter { !selectedIDs.contains($0.id) }
+            .filter { $0.deleteAt == 0 && !selectedIDs.contains($0.id) }
             .map { user in
                 Candidate(id: user.id,
                           displayName: PostListDerivation.displayName(for: user),

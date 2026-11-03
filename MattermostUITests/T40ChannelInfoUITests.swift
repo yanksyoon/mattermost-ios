@@ -8,7 +8,9 @@
 //   5. joining from the browser lands in the channel — and the sidebar gains the row;
 //   6. an account whose permission set lacks an administrator id is offered no administrator action;
 //   7. archive/unarchive reaches the server;
-//   8. an open info screen follows `channel_updated` / `user_added` / `user_removed` events.
+//   8. an open info screen follows `channel_updated` / `user_added` / `user_removed` events;
+//   9. the add-people picker offers no deactivated account, in its opening list or its typed search
+//      (added by `t_e65e6018`; the server's two reads disagree about them — see that test's note).
 // A stub could only prove this file's own fixtures render. The oracle for each assertion is the server,
 // read back through its own API with the same account the app signs in as.
 //
@@ -208,7 +210,11 @@ final class T40ChannelInfoUITests: XCTestCase {
         try ensureNotMember(channel.id, userID: memberID)
 
         let app = launchApp()
-        openChannel(app, channel: channel)
+        // The quick switcher, not the sidebar scroll: #t40-standup is one of several hundred channels in
+        // this fixture, and the sidebar helper's 25 swipes never reach its row (measured twice - see
+        // `openChannelViaSwitcher`). This test is the add-members live test, so it has to reach the
+        // picker for the picker's population to be exercised at all.
+        openChannelViaSwitcher(app, channel: channel)
         openChannelInfo(app)
 
         tapControl(app, "channelInfo.action.addMembers")
@@ -258,6 +264,114 @@ final class T40ChannelInfoUITests: XCTestCase {
         XCTAssertTrue(waitUntil(timeout: 20) { !row.exists },
                       "the row must disappear without a manual refresh")
         attach(app, "03-member-removed")
+    }
+
+    // MARK: - 2b. The same picker offers no deactivated account, in either read
+
+    /// `AddMembersViewModel.absorb` maps `GET /users?in_team=&not_in_channel=` — the picker's opening
+    /// list — without a `delete_at` check, while the sheet's typed search (`POST /users/search` with
+    /// `not_in_channel_id`, sent `allow_inactive: false`) never returns a deactivated account. Measured
+    /// on 9.11.19 for `t_e65e6018` (`scratch/t47avr2_addmembers_probe.py` in `t_4067a703`'s worktree;
+    /// re-measured for this card with `scripts/t_e65e6018_probe.py`): `#t40-standup` answers 15 rows, of
+    /// which `@t429gone` has `delete_at 1793303134446`. One sheet must not hold two populations, so the
+    /// derivation filters `delete_at != 0` once, where both reads meet.
+    ///
+    /// Absence is asserted over a **full sweep** — a SwiftUI `List` materialises only its viewport, so
+    /// "the row is not there" is only meaningful once the list has been traversed. The sweep is proved
+    /// to have reached the end by finding the last **active** row the server sent; the app draws the
+    /// server's order unchanged (`absorb` does not sort), so that row is the last one the picker draws
+    /// once the deactivated accounts are filtered out.
+    func testTheAddPickerDoesNotOfferADeactivatedTeamMember() throws {
+        let channel = try ensureChannel(named: standupName, displayName: "T40 Standup")
+        try ensureMember(channel.id, userID: userID)
+
+        // The oracle is the endpoint the picker itself calls, with the page size it asks for
+        // (`ChannelInfoServing.pickerPageSize`).
+        let pageSize = 50
+        let rows = (try getJSON("/api/v4/users?in_team=\(teamID!)&not_in_channel=\(channel.id)"
+                                + "&page=0&per_page=\(pageSize)")) as? [[String: Any]] ?? []
+        guard let gone = rows.first(where: { (($0["delete_at"] as? Int) ?? 0) > 0 }),
+              let goneID = gone["id"] as? String,
+              let goneName = gone["username"] as? String else {
+            throw XCTSkip("the fixture's #\(standupName) has no deactivated account in its "
+                          + "not-in-channel list to exercise the picker with")
+        }
+        let active = rows.filter { (($0["delete_at"] as? Int) ?? 0) == 0 }
+        guard let lastID = active.last?["id"] as? String else {
+            throw XCTSkip("the fixture's #\(standupName) lists no active account to add")
+        }
+
+        // What the card measured, re-asserted before the UI half: the server's own two reads disagree
+        // about this account. If they ever stop disagreeing, this test is about nothing and the reader
+        // deserves to know (a skip, not a false green).
+        let search = (try postJSON("/api/v4/users/search",
+                                   body: ["term": String(goneName.prefix(5)),
+                                          "team_id": teamID!,
+                                          "not_in_channel_id": channel.id,
+                                          "page": 0, "per_page": pageSize,
+                                          "allow_inactive": false]))
+            as? [[String: Any]] ?? []
+        XCTAssertFalse(search.contains { $0["id"] as? String == goneID },
+                       "the typed search excludes inactive accounts (`allow_inactive: false`); the "
+                       + "opening list is the half that does not")
+
+        let app = launchApp()
+        openChannelViaSwitcher(app, channel: channel)
+        openChannelInfo(app)
+        tapControl(app, "channelInfo.action.addMembers")
+        let sheet = element(app, "addMembers.sheet")
+
+        let pickerRows = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "addMembers.row."))
+        XCTAssertTrue(waitUntil(timeout: 20) { pickerRows.count > 0 },
+                      "the add-members picker must mount and draw somebody:\n\(app.debugDescription)")
+        // The drag has to start inside the sheet. `addMembers.sheet` is the picker group's identifier
+        // and usually surfaces; a `Group` does not have to be an accessibility element, so the sheet's
+        // own collection view is the fallback (the pattern T47's picker sweep uses).
+        let container = sheet.exists ? sheet : app.collectionViews.firstMatch
+        XCTAssertTrue(container.exists,
+                      "the picker's list must be on screen to be swept:\n\(app.debugDescription)")
+
+        // 1. The opening list, swept from wherever it opens to its last row.
+        let goneRow = element(app, "addMembers.row.\(goneID)")
+        let lastRow = element(app, "addMembers.row.\(lastID)")
+        var offered = goneRow.exists
+        var reachedEnd = lastRow.exists
+        var swipes = 0
+        while !offered, !reachedEnd, swipes < 12 {
+            let start = container.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+            let end = container.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+            start.press(forDuration: 0.05, thenDragTo: end)
+            swipes += 1
+            offered = goneRow.exists
+            reachedEnd = lastRow.exists
+        }
+        // Assert absence first: a mutated build that draws the row must fail *here* with that sentence,
+        // not on the sweep's own precondition.
+        XCTAssertFalse(offered,
+                       "the opening list must not offer deactivated @\(goneName) — the typed search "
+                       + "already hides them, and the two lists cannot disagree inside one sheet "
+                       + "(swipes: \(swipes), last row reached: \(lastID)):\n\(app.debugDescription)")
+        XCTAssertTrue(reachedEnd,
+                      "the sweep must reach the last row the server sent (\(lastID)) — otherwise "
+                      + "'the deactivated row is absent' proves nothing (swipes: \(swipes))")
+        print("T47-AV-R2-FU: deactivated @\(goneName) (\(goneID)) absent over a \(swipes)-swipe "
+              + "sweep; last row \(lastID) reached")
+        attach(app, "11-add-picker-without-deactivated")
+
+        // 2. The same account typed into the field: the search path never had it, and the sheet must
+        //    say so with its empty state rather than a stale or partial list.
+        let searchField = app.searchFields.firstMatch
+        XCTAssertTrue(searchField.waitForExistence(timeout: 10),
+                      "the picker's search field must exist:\n\(app.debugDescription)")
+        searchField.tap()
+        searchField.typeText(goneName)
+        XCTAssertTrue(element(app, "addMembers.empty").waitForExistence(timeout: 20),
+                      "the typed search must find nobody for a deactivated account:\n"
+                      + "\(app.debugDescription)")
+        XCTAssertFalse(element(app, "addMembers.row.\(goneID)").exists,
+                       "the searched list must not contain the deactivated account")
+        attach(app, "12-add-picker-search-empty")
     }
 
     // MARK: - 3. Rename / purpose / header persist
@@ -786,6 +900,35 @@ final class T40ChannelInfoUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 20),
                       "the sidebar must list #\(channel.name):\n\(app.debugDescription)")
         row.tap()
+        XCTAssertTrue(element(app, "nativeChannelTitle").waitForExistence(timeout: 30),
+                      "the channel pane must mount:\n\(app.debugDescription)")
+    }
+
+    /// Open a channel through the sidebar's own quick switcher.
+    ///
+    /// `openChannel` scrolls the sidebar until the row appears, which is right for a sidebar with a
+    /// handful of channels and wrong for this fixture: #t40-standup is one of several hundred channels
+    /// other cards have seeded into Perf (measured by the T8G probe rows in the tree: `T8G probe 0071`
+    /// and on), so its row is dozens of swipes down and the lazy list gives up first (measured:
+    /// `t47fux-warm3` failed at "the sidebar must list #t40-standup" after the helper's 25 swipes, with
+    /// the app correctly on team Perf). The switcher is the native control that searches the channel
+    /// list by name, i.e. what a reader with a long sidebar actually uses.
+    private func openChannelViaSwitcher(_ app: XCUIApplication, channel: Channel) {
+        let teamRow = element(app, "teamSidebar.team.\(teamID!)")
+        XCTAssertTrue(teamRow.waitForExistence(timeout: 40),
+                      "the rail must list the team this test seeds:\n\(app.debugDescription)")
+        if !(teamRow.value as? String ?? "").contains("Selected") { teamRow.tap() }
+
+        tapControl(app, "channelSidebar.quickSwitcher")
+        let field = app.textFields["channelSidebar.quickSwitcher.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 20),
+                      "the quick switcher must mount:\n\(app.debugDescription)")
+        field.tap()
+        field.typeText(channel.name)
+        let result = element(app, "channelSidebar.quickSwitcher.result.\(channel.id)")
+        XCTAssertTrue(result.waitForExistence(timeout: 20),
+                      "the switcher must offer #\(channel.name):\n\(app.debugDescription)")
+        result.tap()
         XCTAssertTrue(element(app, "nativeChannelTitle").waitForExistence(timeout: 30),
                       "the channel pane must mount:\n\(app.debugDescription)")
     }
