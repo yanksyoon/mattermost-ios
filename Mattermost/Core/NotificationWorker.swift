@@ -58,6 +58,16 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     /// Latest authorization status, surfaced for Settings UI (T11).
     @Published private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
+    /// Whether this install has ever shown the system prompt (persisted; see
+    /// `AppPreferences.Keys.notificationPermissionRequested`). Published because the Settings row
+    /// reports it in the diagnostics line.
+    @Published private(set) var hasRequestedAuthorization: Bool
+
+    /// How the last scheduling attempt ended, in one word, for the Settings diagnostics line.
+    /// `none` until something has been attempted in this process. Values: `scheduled`, `denied`,
+    /// `notDetermined`, `addFailed`, `suppressed`, `missingServer`, `none`.
+    @Published private(set) var lastScheduleOutcome: String = "none"
+
     /// Internal knob so tests can control the "app is foreground" decision without UIKit.
     var isAppActive: () -> Bool = { UIApplication.shared.applicationState == .active }
 
@@ -86,10 +96,6 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     private let scheduling: NotificationScheduling
     private let preferences: AppPreferences
 
-    /// Whether we have ever asked for authorization (persisted; asked exactly once per
-    /// install — iOS presents the system prompt only once).
-    private var hasRequestedAuthorization: Bool
-
     /// Server ids whose SPA has signalled `react-app-initialized` (bridge). Used to decide
     /// whether a tapped notification can SPA-navigate immediately or must wait.
     private var reactAppInitializedServers: Set<UUID> = []
@@ -108,6 +114,8 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         // The worker is the UNUserNotificationCenter delegate (willPresent / didReceive).
         // The center's delegate reference is weak; the app's @StateObject retains this worker.
         scheduling.delegate = self
+        // Read the OS answer once at launch, so Settings can say `denied` / `not allowed yet`
+        // instead of looking broken on an install whose system prompt was never shown (this card).
         Task { await reloadAuthorizationStatus() }
     }
 
@@ -119,6 +127,74 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
 
     func reloadAuthorizationStatus() async {
         authorizationStatus = await scheduling.authorizationStatus()
+        logDiagnostics("status-read")
+    }
+
+    // MARK: - Settings surface (this card: an always-available way to authorise)
+
+    /// The plain-words state the Settings row draws. `notDetermined` is **not** silence: an install
+    /// that has never been asked says so, because that is the reported failure (nothing ever asked).
+    nonisolated static func authorizationCopy(for status: UNAuthorizationStatus) -> String {
+        switch status {
+        case .authorized: return "Allowed - notifications can appear"
+        case .provisional: return "Allowed quietly - notifications may not interrupt"
+        case .ephemeral: return "Allowed for this session"
+        case .denied: return "Not allowed - open System Settings"
+        case .notDetermined: return "Not allowed yet - the app has not been allowed to notify you"
+        @unknown default: return "Unknown - the system did not report a permission"
+        }
+    }
+
+    /// The same fact in a diagnostics-token shape: `authorized`, `denied`, `notDetermined`, …
+    nonisolated static func statusToken(_ status: UNAuthorizationStatus) -> String {
+        switch status {
+        case .authorized: return "authorized"
+        case .provisional: return "provisional"
+        case .ephemeral: return "ephemeral"
+        case .denied: return "denied"
+        case .notDetermined: return "notDetermined"
+        @unknown default: return "unknown"
+        }
+    }
+
+    /// The plain-words copy for the current status, observed by the Settings row.
+    var authorizationCopy: String { Self.authorizationCopy(for: authorizationStatus) }
+
+    /// The one diagnostics line this card adds. Answers "why do I get no notifications?" from a log
+    /// or a shared diagnostics report without reading `ncprefs.plist`.
+    var diagnosticsLine: String {
+        "notifications=status=\(Self.statusToken(authorizationStatus)) "
+            + "requested=\(hasRequestedAuthorization) lastSchedule=\(lastScheduleOutcome)"
+    }
+
+    /// The same line as value-type facts, for `DiagnosticsContext.step6` (the shareable report).
+    var diagnosticsSnapshot: NotificationDiagnosticsSnapshot {
+        NotificationDiagnosticsSnapshot(status: Self.statusToken(authorizationStatus),
+                                        requested: hasRequestedAuthorization,
+                                        lastSchedule: lastScheduleOutcome)
+    }
+
+    private func logDiagnostics(_ event: String) {
+        Logger.info("NotificationWorker", "\(diagnosticsLine) event=\(event)")
+    }
+
+    /// Record what a scheduling attempt did (Settings line + diagnostics) and hand the outcome back
+    /// unchanged, so every exit from `presentMention` reports through one place.
+    private func record(_ outcome: PresentOutcome) -> PresentOutcome {
+        switch outcome {
+        case .scheduled:
+            lastScheduleOutcome = "scheduled"
+        case .notSent(let reason):
+            switch reason {
+            case .missingServer: lastScheduleOutcome = "missingServer"
+            case .viewShouldNotNotify: lastScheduleOutcome = "suppressed"
+            case .authorizationNotDetermined: lastScheduleOutcome = "notDetermined"
+            case .authorizationDenied: lastScheduleOutcome = "denied"
+            case .addFailed: lastScheduleOutcome = "addFailed"
+            }
+        }
+        logDiagnostics("schedule")
+        return outcome
     }
 
     /// Ask for notification authorization exactly once per install, and report the answer.
@@ -127,6 +203,11 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     /// banner is a delivery that schedules nothing: the banner path still has to ask, or an install whose
     /// mentions all arrive in the foreground would never be authorized and its first *backgrounded* mention
     /// would be dropped by `.authorizationNotDetermined` (and written to the ledger as handled).
+    ///
+    /// Since this card it is also the `Enable notifications` control's action in Settings: the user can
+    /// ask without waiting for a mention to reach the delivery path. iOS only ever presents its prompt
+    /// once, so a `.denied` answer cannot be re-asked here — the copy tells the reader to open System
+    /// Settings instead.
     @discardableResult
     func prepareAuthorization() async -> UNAuthorizationStatus {
         let statusBefore = await scheduling.authorizationStatus()
@@ -149,7 +230,7 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         guard let serverID = fromServerID,
               let server = serverStore?.servers.first(where: { $0.id == serverID }) else {
             Logger.debug("NotificationWorker", "mention dropped: no configured server for \(fromServerID.map(String.init(describing:)) ?? "<nil>")")
-            return .notSent(.missingServer)
+            return record(.notSent(.missingServer))
         }
 
         // Desktop `view_should_not_notify`: the user is looking at this mention right now — the web app
@@ -171,7 +252,7 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
             }
             if isBeingRead {
                 Logger.debug("NotificationWorker", "mention suppressed: \(mention.channelID) is the channel on screen")
-                return .notSent(.viewShouldNotNotify)
+                return record(.notSent(.viewShouldNotNotify))
             }
         }
 
@@ -181,11 +262,11 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         case .authorized, .provisional, .ephemeral:
             break
         case .denied:
-            return .notSent(.authorizationDenied)
+            return record(.notSent(.authorizationDenied))
         case .notDetermined:
-            return .notSent(.authorizationNotDetermined)
+            return record(.notSent(.authorizationNotDetermined))
         @unknown default:
-            return .notSent(.authorizationNotDetermined)
+            return record(.notSent(.authorizationNotDetermined))
         }
 
         let content = UNMutableNotificationContent()
@@ -206,15 +287,72 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
             content.sound = .default
         }
 
-        let identifier = "mention.\(serverID.uuidString).\(mention.channelID).\(UUID().uuidString)"
+        let identifier = Self.notificationIdentifier(serverID: serverID, channelID: mention.channelID)
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
         do {
             try await scheduling.add(request)
             Logger.info("NotificationWorker", "scheduled mention \(content.title) -> \(identifier)")
-            return .scheduled(identifier: identifier)
+            return record(.scheduled(identifier: identifier))
         } catch {
             Logger.error("NotificationWorker", "failed to schedule mention: \(error)")
-            return .notSent(.addFailed)
+            return record(.notSent(.addFailed))
+        }
+    }
+
+    // MARK: - Test notification (Settings button; same request path as a mention)
+
+    /// The identifier shape every local notification this worker schedules carries. Shared by the
+    /// mention path and the Settings test button so a test proves the **same** request shape, not a
+    /// second, parallel one: `mention.<server uuid>.<channel id>.<request uuid>`.
+    nonisolated static func notificationIdentifier(serverID: UUID, channelID: String) -> String {
+        "mention.\(serverID.uuidString).\(channelID).\(UUID().uuidString)"
+    }
+
+    /// The Settings `Send a test notification` action: ask if nothing has asked yet, then schedule
+    /// exactly one local banner through the same `UNNotificationRequest` path a mention uses.
+    ///
+    /// The `userInfo.type` is `test`, not `mention`, on purpose: a tap on this banner must not
+    /// navigate anywhere (`route(userInfo:)` only accepts `mention`), because a test banner names no
+    /// real channel. Everything else — content shape, identifier shape, sound, `add` — is the
+    /// mention path's.
+    @discardableResult
+    func sendTestNotification() async -> PresentOutcome {
+        switch await prepareAuthorization() {
+        case .authorized, .provisional, .ephemeral:
+            break
+        case .denied:
+            return record(.notSent(.authorizationDenied))
+        case .notDetermined:
+            return record(.notSent(.authorizationNotDetermined))
+        @unknown default:
+            return record(.notSent(.authorizationNotDetermined))
+        }
+
+        let server = serverStore?.servers.first { $0.id == viewStore?.primaryServerID }
+            ?? serverStore?.servers.first
+        let serverID = server?.id ?? UUID()
+        let channelID = "test-notification"
+
+        let content = UNMutableNotificationContent()
+        content.title = Self.displayTitle(serverName: server?.name, title: "Test notification")
+        content.body = "If you can see this, notifications are allowed on this device."
+        content.threadIdentifier = channelID
+        content.userInfo = [
+            "server_id": serverID.uuidString,
+            "channel_id": channelID,
+            "type": "test",
+        ]
+        content.sound = .default
+
+        let identifier = Self.notificationIdentifier(serverID: serverID, channelID: channelID)
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+        do {
+            try await scheduling.add(request)
+            Logger.info("NotificationWorker", "scheduled test notification -> \(identifier)")
+            return record(.scheduled(identifier: identifier))
+        } catch {
+            Logger.error("NotificationWorker", "failed to schedule test notification: \(error)")
+            return record(.notSent(.addFailed))
         }
     }
 

@@ -38,6 +38,9 @@ struct SettingsView: View {
     /// T50: the profile owner, read for the signed-in account's id (Settings → Account is one of the
     /// two ways into the edit form; the reader's own profile is the other).
     @EnvironmentObject private var profiles: ProfileCoordinator
+    /// This card: the notification worker whose authorisation state the Notifications section reports
+    /// and whose `prepareAuthorization()` the `Enable notifications` row calls on demand.
+    @EnvironmentObject private var notificationWorker: NotificationWorker
 
     @Environment(\.dismiss) private var dismiss
     /// T45-AV-R: the download-location row stacks at accessibility text sizes (see
@@ -316,8 +319,15 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            // Always available, unlike the T8 first-mention prompt: the reader can authorise the app
+            // (and see why it is not authorised) without a mention ever reaching the delivery path.
+            NotificationAuthorizationRows(worker: notificationWorker)
         } header: {
             Text("Notifications")
+        } footer: {
+            Text("Banners, sounds and the badge need the system's permission. If the app is not allowed "
+                 + "yet, tap Enable notifications; if it was denied, allow it in System Settings.")
+                .font(.caption)
         }
     }
 
@@ -540,6 +550,7 @@ struct SettingsView: View {
                 buildNumber: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
             ),
             webViewStatuses: statuses,
+            notificationDiagnostics: notificationWorker.diagnosticsSnapshot,
             diagnosticsDirectory: diagDir,
             crashReportsDirectory: diagDir
         )

@@ -259,6 +259,25 @@ struct PermissionsSnapshot: Equatable {
     var cameraStatus: String
 }
 
+/// The notification worker's own facts, which the system status provider cannot see: whether this
+/// install has ever shown the permission prompt, and how the last scheduling attempt ended.
+/// `NotificationWorker.diagnosticsSnapshot` produces it; `DiagnosticsContext.step6` writes it into
+/// the shareable report so "I get no notifications" is answerable without reading `ncprefs.plist`.
+struct NotificationDiagnosticsSnapshot: Equatable {
+    var status: String
+    var requested: Bool
+    var lastSchedule: String
+
+    /// The one line this card pins: `notifications=status=<status> requested=<bool> lastSchedule=<outcome>`.
+    var line: String {
+        "notifications=status=\(status) requested=\(requested) lastSchedule=\(lastSchedule)"
+    }
+
+    static let unknown = NotificationDiagnosticsSnapshot(status: "unknown",
+                                                         requested: false,
+                                                         lastSchedule: "none")
+}
+
 protocol DiagnosticsSystemStatusProviding {
     func permissionSnapshot(diagnosticsDirectory: URL) async -> PermissionsSnapshot
 }
@@ -310,6 +329,9 @@ struct DiagnosticsContext {
     var settings: ShellSettingsSnapshot
     var webViewStatuses: [WebViewStatusItem] = []
     var systemStatusProvider: DiagnosticsSystemStatusProviding = SystemDiagnosticsStatus()
+    /// The notification worker's own facts (see `NotificationDiagnosticsSnapshot`). The shell fills
+    /// this in; a bare context keeps `.unknown`.
+    var notificationDiagnostics: NotificationDiagnosticsSnapshot = .unknown
     var sessionProvider: DiagnosticsSessionProviding = WebKitCookieSessionProvider()
     var session: URLSession = .shared
     /// Injectable for localhost/offline testing; defaults to the desktop IS_ONLINE_ENDPOINT.
@@ -675,6 +697,10 @@ extension DiagnosticsService {
                 let payload: [String: Any] = [
                     "notificationsSupported": snapshot.notificationsStatus != "not-determined",
                     "notificationsStatus": snapshot.notificationsStatus,
+                    "notificationsRequested": context.notificationDiagnostics.requested,
+                    "notificationsLastSchedule": context.notificationDiagnostics.lastSchedule,
+                    // One line, exactly as the worker logs it (this card's diagnostic).
+                    "notificationsDiagnostics": context.notificationDiagnostics.line,
                     "fileSystem": [
                         "downloadsWritable": snapshot.downloadsWritable,
                         "diagnosticsWritable": snapshot.diagnosticsWritable,

@@ -356,6 +356,155 @@ final class NotificationWorkerTests: XCTestCase {
         XCTAssertEqual(sessionStore.states[server.id]?.isExpired, true)
         XCTAssertEqual(sessionStore.badgeNumber, 4, "mentions drive the badge")
     }
+
+    // MARK: - Settings authorisation surface (this card)
+    //
+    // The reported failure: nothing ever asked for permission, so the install stayed
+    // `.notDetermined` for ever and Settings said nothing. These tests pin the user-initiated path,
+    // the plain-words copy for every answer, the test-banner request shape, and that the T8
+    // first-mention request still works (no regression).
+
+    /// `prepareAuthorization()` asks the OS at most once, records that it asked, and keeps saying so
+    /// on later calls — the Settings button can therefore be tapped repeatedly without a second prompt.
+    func testPrepareAuthorizationRequestsExactlyOnceAcrossRepeatedCalls() async {
+        mock.authorizationStatusValue = .notDetermined
+        let worker = makeWorker()
+
+        _ = await worker.prepareAuthorization()
+        _ = await worker.prepareAuthorization()
+        _ = await worker.prepareAuthorization()
+
+        XCTAssertEqual(mock.requestAuthorizationCount, 1, "the system prompt is shown once per install")
+        XCTAssertEqual(mock.requestedOptions, [.alert, .sound, .badge])
+        XCTAssertTrue(worker.hasRequestedAuthorization, "the install records that it asked")
+        let stored = defaults.data(forKey: AppPreferences.Keys.notificationPermissionRequested)
+        XCTAssertEqual(stored, try? JSONEncoder().encode(true),
+                       "the preference is persisted, not only in memory")
+    }
+
+    /// A `.denied` install must read as denied, not as silence.
+    func testDeniedStatusIsSurfacedAsTheDeniedCopy() async {
+        mock.authorizationStatusValue = .denied
+        let worker = makeWorker()
+
+        await worker.reloadAuthorizationStatus()
+
+        XCTAssertEqual(worker.authorizationStatus, .denied)
+        XCTAssertEqual(worker.authorizationCopy, "Not allowed - open System Settings")
+        XCTAssertEqual(NotificationWorker.authorizationCopy(for: .denied),
+                       "Not allowed - open System Settings")
+    }
+
+    /// `.notDetermined` is the state the card was filed for: the row has to say the app was never
+    /// allowed, so an install that has never been asked no longer looks like a silent "off".
+    func testNotDeterminedCopySaysTheAppHasNotBeenAllowedYet() async {
+        mock.authorizationStatusValue = .notDetermined
+        let worker = makeWorker()
+
+        await worker.reloadAuthorizationStatus()
+
+        XCTAssertEqual(worker.authorizationStatus, .notDetermined)
+        XCTAssertTrue(worker.authorizationCopy.contains("not been allowed"),
+                      "got: \(worker.authorizationCopy)")
+        XCTAssertNotEqual(worker.authorizationCopy, NotificationWorker.authorizationCopy(for: .denied),
+                          "not-determined and denied are different answers")
+    }
+
+    /// Launch reads the status once, so the row is truthful before the reader taps anything.
+    func testAuthorizationStatusIsReadOnLaunch() async {
+        mock.authorizationStatusValue = .denied
+        let worker = makeWorker()
+
+        var attempts = 0
+        while worker.authorizationStatus == .notDetermined && attempts < 200 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        XCTAssertEqual(worker.authorizationStatus, .denied, "the launch read surfaces the OS answer")
+        XCTAssertEqual(worker.authorizationCopy, "Not allowed - open System Settings")
+    }
+
+    /// The test button schedules exactly one banner, through the mention path's request shape.
+    func testTestNotificationSchedulesOneRequestWithTheMentionIdentifierShape() async {
+        mock.authorizationStatusValue = .authorized
+        let worker = makeWorker()
+        let serverStore = ServerStore(preferences: AppPreferences(defaults: defaults))
+        let server = makeServer(name: "Acme")
+        _ = serverStore.add(server)
+        worker.serverStore = serverStore
+
+        let outcome = await worker.sendTestNotification()
+
+        guard case .scheduled(let identifier) = outcome else {
+            return XCTFail("expected scheduled, got \(outcome)")
+        }
+        XCTAssertEqual(mock.added.count, 1, "exactly one request")
+
+        let parts = identifier.components(separatedBy: ".")
+        XCTAssertEqual(parts.count, 4, "identifier shape is mention.<server>.<channel>.<request>: \(identifier)")
+        XCTAssertEqual(parts[0], "mention")
+        XCTAssertEqual(UUID(uuidString: parts[1])?.uuidString, server.id.uuidString,
+                       "the test banner is attributed to a configured server")
+        XCTAssertEqual(parts[2], "test-notification")
+        XCTAssertNotNil(UUID(uuidString: parts[3]), "the request uuid is last")
+
+        let request = try! XCTUnwrap(mock.added.first)
+        XCTAssertEqual(request.content.title, "Acme: Test notification", "same title composition as a mention")
+        XCTAssertEqual(request.content.threadIdentifier, "test-notification")
+        XCTAssertEqual(request.content.userInfo["type"] as? String, "test",
+                       "a test tap must not navigate: only `mention` routes")
+        XCTAssertNotNil(request.content.sound)
+        XCTAssertEqual(worker.lastScheduleOutcome, "scheduled")
+    }
+
+    /// The button must not lie when the OS refuses: nothing is scheduled, and the reason is recorded.
+    func testTestNotificationDoesNotScheduleWhenDenied() async {
+        mock.authorizationStatusValue = .denied
+        let worker = makeWorker()
+
+        let outcome = await worker.sendTestNotification()
+
+        XCTAssertEqual(outcome, .notSent(.authorizationDenied))
+        XCTAssertTrue(mock.added.isEmpty)
+        XCTAssertEqual(worker.lastScheduleOutcome, "denied")
+    }
+
+    /// The T8 first-mention behaviour must not regress: a mention while `.notDetermined` asks, and
+    /// once the answer is `authorized` the next mention schedules exactly one banner.
+    func testMentionWhileNotDeterminedAsksThenSchedulesOnceAuthorized() async {
+        mock.authorizationStatusValue = .notDetermined
+        let worker = makeWorker()
+        let serverStore = ServerStore(preferences: AppPreferences(defaults: defaults))
+        let server = makeServer()
+        _ = serverStore.add(server)
+        worker.serverStore = serverStore
+        worker.isAppActive = { false }
+
+        let first = await worker.presentMention(makeMention(), fromServerID: server.id)
+        XCTAssertEqual(first, .notSent(.authorizationNotDetermined))
+        XCTAssertEqual(mock.requestAuthorizationCount, 1, "the mention still asks exactly once")
+        XCTAssertTrue(mock.added.isEmpty)
+
+        // The reader answered the prompt.
+        mock.authorizationStatusValue = .authorized
+        let second = await worker.presentMention(makeMention(), fromServerID: server.id)
+        guard case .scheduled = second else { return XCTFail("expected scheduled, got \(second)") }
+        XCTAssertEqual(mock.added.count, 1, "one banner once authorised")
+        XCTAssertEqual(mock.requestAuthorizationCount, 1, "authorised -> no second request")
+    }
+
+    /// Card item 4: one line that answers "why do I get no notifications?" from a log or report.
+    func testDiagnosticsLineShape() async {
+        mock.authorizationStatusValue = .denied
+        let worker = makeWorker()
+        await worker.reloadAuthorizationStatus()
+        _ = await worker.prepareAuthorization() // denied installs do not re-ask
+
+        XCTAssertEqual(worker.diagnosticsLine,
+                       "notifications=status=denied requested=false lastSchedule=none")
+        XCTAssertEqual(worker.diagnosticsSnapshot.line, worker.diagnosticsLine)
+    }
 }
 
 /// Recording stand-in for `UNUserNotificationCenter`. Status + side effects are controllable so

@@ -300,13 +300,22 @@ final class DiagnosticsTests: XCTestCase {
                                            diagnosticsWritable: false,
                                            microphoneStatus: "denied",
                                            cameraStatus: "not-determined")
-        let context = makeContext(status: snapshot)
+        var context = makeContext(status: snapshot)
+        // The worker's own facts travel beside the provider snapshot; the report carries the one
+        // line that answers "why do I get no notifications?" (this card).
+        context.notificationDiagnostics = NotificationDiagnosticsSnapshot(status: "denied",
+                                                                          requested: true,
+                                                                          lastSchedule: "denied")
         let step = DiagnosticsService.step6Permissions(context: context)
         let response = await step.run(DiagnosticsLog())
         XCTAssertTrue(response.succeeded, "Desktop permissions step succeeds even when permissions are denied")
         let payload = try! XCTUnwrap(response.payload)
         let dict = payload as! [String: Any]
         XCTAssertEqual(dict["notificationsSupported"] as? Bool, true)
+        XCTAssertEqual(dict["notificationsRequested"] as? Bool, true)
+        XCTAssertEqual(dict["notificationsLastSchedule"] as? String, "denied")
+        XCTAssertEqual(dict["notificationsDiagnostics"] as? String,
+                       "notifications=status=denied requested=true lastSchedule=denied")
         let fs = dict["fileSystem"] as! [String: Any]
         XCTAssertEqual(fs["diagnosticsWritable"] as? Bool, false)
     }

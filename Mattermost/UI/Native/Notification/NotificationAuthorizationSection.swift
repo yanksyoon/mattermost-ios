@@ -1,0 +1,133 @@
+// Settings → Notifications → authorisation.
+//
+// Why this exists (the card behind it): authorisation used to be asked **only** on the first mention
+// that reached `NotificationWorker.presentMention`. On an install that had never seen one — a quiet
+// team, a muted server, a foreground-only session — the OS prompt was never shown, so the app sat at
+// `.notDetermined` forever and Settings said nothing about it. The reported symptom ("no
+// notifications, and nothing tells me why") was that silence, not a delivery bug.
+//
+// So this section is the user's own way in:
+//   - the state row always says what the system currently answers, in plain words, **including**
+//     `notDetermined` ("the app has not been allowed yet") and `denied` ("open System Settings");
+//   - `Enable notifications` calls the same `prepareAuthorization()` the first mention calls, on
+//     demand — the system prompt appears here, without waiting for a mention to arrive;
+//   - `Send a test notification` schedules exactly one local banner through the very path a mention
+//     uses (`NotificationWorker.sendTestNotification` → `NotificationScheduling.add`), so "is this
+//     working at all" is answerable in Settings;
+//   - the diagnostics line is drawn here too, so a support report can quote it without reading
+//     `ncprefs.plist`.
+//
+// It is a view of rows, not a `Section`: `SettingsView` places it inside the existing Notifications
+// section, under the badge toggle, so the category the desktop renders stays one category.
+
+import SwiftUI
+import UIKit
+import UserNotifications
+
+/// The authorisation rows `SettingsView` draws inside its Notifications section.
+struct NotificationAuthorizationRows: View {
+    @ObservedObject var worker: NotificationWorker
+
+    /// Last test-button outcome, in plain words. `nil` before the button has been used.
+    @State private var testOutcome: String?
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            LabeledContent {
+                Text(shortStatus)
+                    .accessibilityIdentifier("notificationAuthorization.status")
+                    .accessibilityValue(worker.authorizationCopy)
+            } label: {
+                Text("Notifications")
+            }
+            // The status in full, not only its short form: `notDetermined` must say the app has
+            // never been allowed rather than look like a silent "off" (card item 3).
+            Text(worker.authorizationCopy)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("notificationAuthorization.copy")
+        }
+        // Re-read on entry: the reader may have changed the system permission while the sheet was
+        // closed, and a stale `.notDetermined` row would be the same lie this card removes.
+        .task { await worker.reloadAuthorizationStatus() }
+
+        Button {
+            Task { await worker.prepareAuthorization() }
+        } label: {
+            Label("Enable notifications", systemImage: "bell.badge")
+        }
+        .accessibilityIdentifier("notificationAuthorization.enable")
+
+        if worker.authorizationStatus == .denied {
+            Button {
+                openSystemSettings()
+            } label: {
+                Label("Open System Settings", systemImage: "gear")
+            }
+            .accessibilityIdentifier("notificationAuthorization.openSettings")
+        }
+
+        Button {
+            Task { await sendTest() }
+        } label: {
+            Label("Send a test notification", systemImage: "paperplane")
+        }
+        .accessibilityIdentifier("notificationAuthorization.sendTest")
+
+        if let testOutcome {
+            Text(testOutcome)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("notificationAuthorization.testOutcome")
+        }
+
+        Text(worker.diagnosticsLine)
+            .font(.caption2)
+            .monospaced()
+            .foregroundStyle(.secondary)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("notificationAuthorization.diagnostics")
+    }
+
+    private var shortStatus: String {
+        switch worker.authorizationStatus {
+        case .authorized, .provisional, .ephemeral: return "Allowed"
+        case .denied: return "Not allowed"
+        case .notDetermined: return "Not allowed yet"
+        @unknown default: return "Unknown"
+        }
+    }
+
+    private func sendTest() async {
+        let outcome = await worker.sendTestNotification()
+        testOutcome = Self.testOutcomeCopy(outcome)
+    }
+
+    private func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        openURL(url)
+    }
+
+    /// What the button did, in the same words a reader would use. Every `notSent` reason is named:
+    /// "nothing happened" is exactly the report this card exists to end.
+    static func testOutcomeCopy(_ outcome: NotificationWorker.PresentOutcome) -> String {
+        switch outcome {
+        case .scheduled:
+            return "Scheduled - a banner should appear now. If it does not, the system or a Focus mode is holding it."
+        case .notSent(.authorizationDenied):
+            return "Not scheduled - notifications are not allowed. Open System Settings to allow them."
+        case .notSent(.authorizationNotDetermined):
+            return "Not scheduled yet - answer the system prompt, then tap again."
+        case .notSent(.addFailed):
+            return "Not scheduled - the system refused the notification request."
+        case .notSent(.missingServer), .notSent(.viewShouldNotNotify):
+            // Neither is reachable from this button (it never names a server/channel), but the
+            // switch stays exhaustive so a future reason cannot fall through silently.
+            return "Not scheduled."
+        }
+    }
+}
