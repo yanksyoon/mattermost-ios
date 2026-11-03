@@ -28,6 +28,14 @@
 //
 // Each test skips — never fails — when the environment or the server is missing, and attaches
 // screenshots so a run leaves visual evidence next to the machine verdict.
+//
+// **Sidebar requirement (fixture, measured 2026-10-30).** `t44-calls` is opened from the channel
+// sidebar, and the sidebar is lazy: the fixture account is in **351** channels of team `perf`, the
+// sidebar's content is 5 095 pt inside an 874 pt viewport, and a row below the fold is not in the
+// accessibility tree at all. `revealSidebarRow` therefore scrolls `channelSidebar.scroll` through
+// `ShellSettle.revealSidebarChannel` and reports what the sweep cost; the channel does not have to be
+// near the top, and no dedicated single-channel account is needed
+// (`docs/t_c941e3d3-build-note.md`).
 
 import XCTest
 
@@ -259,7 +267,12 @@ final class T44DCallsUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Since t_295b0a32 a signed-in launch opens a channel (the saved one, else the town hall),
+        // and the shell pushes the pane *over* the root: `nativeShell` is not in the accessibility
+        // tree at all once that happens. Waiting on it alone is a race — measured 2026-11-04, one
+        // T36 test red here while the other four passed — so ask the one helper that answers
+        // "are we in?" for both shapes.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
@@ -275,16 +288,20 @@ final class T44DCallsUITests: XCTestCase {
 
     private func revealSidebarRow(_ app: XCUIApplication, identifier: String,
                                   maxSwipes: Int = 25) -> XCUIElement {
-        let target = element(app, identifier)
-        if target.waitForExistence(timeout: 15) { return target }
-        let container = app.collectionViews.firstMatch
-        guard container.exists else { return target }
-        var swipes = 0
-        while !target.exists, swipes < maxSwipes {
-            container.swipeUp(velocity: .fast)
-            swipes += 1
+        // The canonical sweep (`ShellSettle.revealSidebarChannel`). This helper used to swipe
+        // `app.collectionViews.firstMatch`, which is not the sidebar at all — the channel list is a
+        // `ScrollView` (`channelSidebar.scroll`) since T8f — so on a long channel list it swiped
+        // nothing and the row stayed unrealised (measured: the fixture account is in 351 channels).
+        let channelID = identifier.hasPrefix("channelSidebar.channel.")
+            ? String(identifier.dropFirst("channelSidebar.channel.".count)) : ""
+        guard !channelID.isEmpty else { return element(app, identifier) }
+        let reveal = ShellSettle.revealSidebarChannel(app, channelID: channelID,
+                                                      maxDownSwipes: maxSwipes,
+                                                      maxUpSwipes: maxSwipes)
+        if !reveal.found {
+            print("[t44d] \(identifier): \(reveal.report)")
         }
-        return target
+        return reveal.row
     }
 
     // MARK: - Fixtures

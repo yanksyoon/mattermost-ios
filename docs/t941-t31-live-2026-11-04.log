@@ -1,0 +1,380 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost -destination "platform=iOS Simulator,id=9C883EB3-B410-4859-A443-A38A910F3396" -derivedDataPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941 -resultBundlePath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/TestResults/t941-t31-1104-fc72c7.xcresult -only-testing MattermostUITests/T31WebSessionHarvestUITests -clonedSourcePackagesDirPath /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift @ 7.11.1
+
+Writing result bundle at path:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/TestResults/t941-t31-1104-fc72c7.xcresult
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, arch:arm64, id:9C883EB3-B410-4859-A443-A38A910F3396, OS:18.3.1, name:iPhone 16 Pro t941e3d3 }
+{ platform:iOS Simulator, arch:x86_64, id:9C883EB3-B410-4859-A443-A38A910F3396, OS:18.3.1, name:iPhone 16 Pro t941e3d3 }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (7 targets)
+    Target 'MattermostUITests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+    Target 'MattermostTests' in project 'Mattermost'
+        ➜ Explicit dependency on target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'Mattermost' in project 'Mattermost'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+    Target 'GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDB_GRDB' in project 'GRDB'
+        ➜ Explicit dependency on target 'GRDBSQLite' in project 'GRDB'
+    Target 'GRDBSQLite' in project 'GRDB' (no dependencies)
+    Target 'GRDB_GRDB' in project 'GRDB' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-wt/Mattermost/Assets.xcassets
+
+ReadFileContents /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/share/docc/features.json
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+Build description signature: 6a4737edfc10e33cfdad0df07f843109
+Build description path: /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/XCBuildData/6a4737edfc10e33cfdad0df07f843109.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-wt/Mattermost.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist (in target 'GRDB_GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB_GRDB.build/empty-GRDB_GRDB.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/GRDB_GRDB.bundle/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist (in target 'GRDB' from project 'GRDB')
+    cd /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/SourcePackages/checkouts/GRDB.swift
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/GRDB.build/Debug-iphonesimulator/GRDB\ product.build/empty-GRDB_5DC4DB053_PackageProduct.plist -producttype com.apple.product-type.framework -expandbuildsettings -format binary -platform iphonesimulator -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework/Info.plist
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-wt/Mattermost/Info.plist (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-wt
+    builtin-infoPlistUtility /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-wt/Mattermost/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/GRDB_5DC4DB053_PackageProduct.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks/WebRTC.framework -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app (in target 'Mattermost' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-wt
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Mattermost.debug.dylib --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/Mattermost.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-wt
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/empty-MattermostTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -format binary -platform iphonesimulator -scanforprivacyfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/GRDB_GRDB.bundle -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest (in target 'MattermostTests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-wt
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/MattermostTests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Extensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/PackageFrameworks/GRDB_5DC4DB053_PackageProduct.framework --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/Mattermost.app/PlugIns/MattermostTests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ProcessInfoPlistFile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-wt
+    builtin-infoPlistUtility /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/empty-MattermostUITests.plist -producttype com.apple.product-type.bundle.ui-testing -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/ProductTypeInfoPlistAdditions.plist -o /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Info.plist
+
+CopySwiftLibs /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest (in target 'MattermostUITests' from project 'Mattermost')
+    cd /Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-wt
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/MattermostUITests --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/PlugIns --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/SystemExtensions --scan-folder /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Products/Debug-iphonesimulator/MattermostUITests-Runner.app/PlugIns/MattermostUITests.xctest/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/Build/Intermediates.noindex/Mattermost.build/Debug-iphonesimulator/MattermostUITests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+2026-11-04 04:57:33.724789+0800 MattermostUITests-Runner[71942:43479424] [Default] Running tests...
+2026-11-04 04:57:33.822163+0800 MattermostUITests-Runner[71942:43481293] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+2026-11-04 04:57:33.863459+0800 MattermostUITests-Runner[71942:43481291] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-11-04 04:57:42.127.
+Test Suite 'MattermostUITests.xctest' started at 2026-11-04 04:57:42.128.
+Test Suite 'T31WebSessionHarvestUITests' started at 2026-11-04 04:57:42.128.
+Test Case '-[MattermostUITests.T31WebSessionHarvestUITests testAWebviewOnlySessionRendersTheNativeWorkspaceWithoutSigningInAgain]' started.
+    t =     0.00s Start Test at 2026-11-04 04:57:42.129
+    t =     0.32s Set Up
+    t =     0.82s Open com.mattermost.ios
+    t =     0.82s     Launch com.mattermost.ios
+2026-11-04 04:57:43.200 xcodebuild[71250:43473629] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 04:57:43.200 xcodebuild[71250:43473629] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     5.14s         Setting up automation session
+    t =     9.96s         Wait for com.mattermost.ios to idle
+    t =    12.14s Waiting 60.0s for "nativeShell" Any to exist
+    t =    13.19s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    13.20s         Checking existence of `"nativeShell" Any`
+    t =    13.33s         Capturing element debug description
+    t =    14.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    14.16s         Checking existence of `"nativeShell" Any`
+    t =    14.21s         Capturing element debug description
+    t =    15.24s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    15.24s         Checking existence of `"nativeShell" Any`
+    t =    15.29s         Capturing element debug description
+    t =    16.22s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    16.22s         Checking existence of `"nativeShell" Any`
+    t =    16.27s         Capturing element debug description
+    t =    17.21s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    17.21s         Checking existence of `"nativeShell" Any`
+    t =    17.26s         Capturing element debug description
+    t =    18.19s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    18.24s         Checking existence of `"nativeShell" Any`
+    t =    18.35s         Capturing element debug description
+    t =    19.21s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    19.21s         Checking existence of `"nativeShell" Any`
+    t =    19.25s         Capturing element debug description
+    t =    20.20s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    20.20s         Checking existence of `"nativeShell" Any`
+    t =    20.25s         Capturing element debug description
+    t =    21.19s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    21.19s         Checking existence of `"nativeShell" Any`
+    t =    21.25s         Capturing element debug description
+    t =    22.19s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    22.19s         Checking existence of `"nativeShell" Any`
+    t =    22.29s         Capturing element debug description
+    t =    23.22s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    23.22s         Checking existence of `"nativeShell" Any`
+    t =    23.27s         Capturing element debug description
+    t =    24.22s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    24.22s         Checking existence of `"nativeShell" Any`
+    t =    24.27s         Capturing element debug description
+    t =    25.17s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    25.17s         Checking existence of `"nativeShell" Any`
+    t =    25.23s         Capturing element debug description
+    t =    26.17s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    26.17s         Checking existence of `"nativeShell" Any`
+    t =    26.21s         Capturing element debug description
+    t =    27.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    27.16s         Checking existence of `"nativeShell" Any`
+    t =    27.19s         Capturing element debug description
+    t =    28.20s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    28.21s         Checking existence of `"nativeShell" Any`
+    t =    28.26s         Capturing element debug description
+    t =    29.21s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    29.21s         Checking existence of `"nativeShell" Any`
+    t =    29.25s         Capturing element debug description
+    t =    30.19s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    30.19s         Checking existence of `"nativeShell" Any`
+    t =    30.24s         Capturing element debug description
+    t =    31.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    31.17s         Checking existence of `"nativeShell" Any`
+    t =    31.22s         Capturing element debug description
+    t =    32.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    32.16s         Checking existence of `"nativeShell" Any`
+    t =    32.21s         Capturing element debug description
+    t =    33.17s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    33.17s         Checking existence of `"nativeShell" Any`
+    t =    33.22s         Capturing element debug description
+    t =    34.17s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    34.17s         Checking existence of `"nativeShell" Any`
+    t =    34.23s         Capturing element debug description
+    t =    35.22s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    35.22s         Checking existence of `"nativeShell" Any`
+    t =    35.28s         Capturing element debug description
+    t =    36.22s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    36.22s         Checking existence of `"nativeShell" Any`
+    t =    36.27s         Capturing element debug description
+    t =    37.22s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    37.22s         Checking existence of `"nativeShell" Any`
+    t =    37.27s         Capturing element debug description
+    t =    38.22s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    38.22s         Checking existence of `"nativeShell" Any`
+    t =    38.27s         Capturing element debug description
+    t =    39.22s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    39.22s         Checking existence of `"nativeShell" Any`
+    t =    39.27s         Capturing element debug description
+    t =    40.20s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    40.21s         Checking existence of `"nativeShell" Any`
+    t =    40.26s         Capturing element debug description
+    t =    41.21s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    41.21s         Checking existence of `"nativeShell" Any`
+    t =    41.26s         Capturing element debug description
+    t =    42.20s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    42.20s         Checking existence of `"nativeShell" Any`
+    t =    42.25s         Capturing element debug description
+    t =    43.19s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    43.19s         Checking existence of `"nativeShell" Any`
+    t =    43.24s         Capturing element debug description
+    t =    44.19s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    44.19s         Checking existence of `"nativeShell" Any`
+    t =    44.24s         Capturing element debug description
+    t =    45.17s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    45.17s         Checking existence of `"nativeShell" Any`
+    t =    45.22s         Capturing element debug description
+    t =    46.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    46.16s         Checking existence of `"nativeShell" Any`
+    t =    46.21s         Capturing element debug description
+    t =    47.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    47.16s         Checking existence of `"nativeShell" Any`
+    t =    47.20s         Capturing element debug description
+    t =    48.15s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    48.15s         Checking existence of `"nativeShell" Any`
+    t =    48.19s         Capturing element debug description
+    t =    49.22s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    49.22s         Checking existence of `"nativeShell" Any`
+    t =    49.27s         Capturing element debug description
+    t =    50.19s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    50.19s         Checking existence of `"nativeShell" Any`
+    t =    50.24s         Capturing element debug description
+    t =    51.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    51.16s         Checking existence of `"nativeShell" Any`
+    t =    51.20s         Capturing element debug description
+    t =    52.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    52.16s         Checking existence of `"nativeShell" Any`
+    t =    52.20s         Capturing element debug description
+    t =    53.15s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    53.15s         Checking existence of `"nativeShell" Any`
+    t =    53.19s         Capturing element debug description
+    t =    54.24s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    54.24s         Checking existence of `"nativeShell" Any`
+    t =    54.28s         Capturing element debug description
+    t =    55.21s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    55.21s         Checking existence of `"nativeShell" Any`
+    t =    55.25s         Capturing element debug description
+    t =    56.21s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    56.21s         Checking existence of `"nativeShell" Any`
+    t =    56.25s         Capturing element debug description
+    t =    57.17s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    57.17s         Checking existence of `"nativeShell" Any`
+    t =    57.22s         Capturing element debug description
+    t =    58.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    58.16s         Checking existence of `"nativeShell" Any`
+    t =    58.21s         Capturing element debug description
+    t =    59.15s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    59.15s         Checking existence of `"nativeShell" Any`
+    t =    59.22s         Capturing element debug description
+    t =    60.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    60.16s         Checking existence of `"nativeShell" Any`
+    t =    60.20s         Capturing element debug description
+    t =    61.23s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    61.23s         Checking existence of `"nativeShell" Any`
+    t =    61.28s         Capturing element debug description
+    t =    62.20s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    62.21s         Checking existence of `"nativeShell" Any`
+    t =    62.25s         Capturing element debug description
+    t =    63.19s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    63.19s         Checking existence of `"nativeShell" Any`
+    t =    63.23s         Capturing element debug description
+    t =    64.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    64.16s         Checking existence of `"nativeShell" Any`
+    t =    64.20s         Capturing element debug description
+    t =    65.22s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    65.22s         Checking existence of `"nativeShell" Any`
+    t =    65.27s         Capturing element debug description
+    t =    66.19s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    66.19s         Checking existence of `"nativeShell" Any`
+    t =    66.24s         Capturing element debug description
+    t =    67.17s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    67.17s         Checking existence of `"nativeShell" Any`
+    t =    67.22s         Capturing element debug description
+    t =    68.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    68.16s         Checking existence of `"nativeShell" Any`
+    t =    68.21s         Capturing element debug description
+    t =    69.15s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    69.15s         Checking existence of `"nativeShell" Any`
+    t =    69.20s         Capturing element debug description
+    t =    70.15s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    70.15s         Checking existence of `"nativeShell" Any`
+    t =    70.19s         Capturing element debug description
+    t =    71.22s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    71.22s         Checking existence of `"nativeShell" Any`
+    t =    71.27s         Capturing element debug description
+    t =    72.16s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeShell" Any`
+    t =    72.16s         Checking existence of `"nativeShell" Any`
+    t =    72.21s         Capturing element debug description
+    t =    72.21s     Checking existence of `"nativeShell" Any`
+    t =    72.25s Collecting debug information to assist test failure triage
+    t =    72.25s     Requesting snapshot of accessibility hierarchy for app with pid 72231
+    t =    72.30s Requesting snapshot of accessibility hierarchy for app with pid 72231
+    t =    72.40s Requesting snapshot of accessibility hierarchy for app with pid 72231
+/Users/yangsooyoon/.hermes/profiles/mmios-qa/cache/scratch/t941-wt/MattermostUITests/T31WebSessionHarvestUITests.swift:84: error: -[MattermostUITests.T31WebSessionHarvestUITests testAWebviewOnlySessionRendersTheNativeWorkspaceWithoutSigningInAgain] : XCTAssertTrue failed - a webview-signed-in launch must render the native workspace:
+Attributes: Application, 0x103f17590, pid: 72231, label: 'Mattermost'
+Element subtree:
+ →Application, 0x103f17590, pid: 72231, label: 'Mattermost'
+    Window (Main), 0x1080097e0, {{0.0, 0.0}, {402.0, 874.0}}
+      Other, 0x108009e00, {{0.0, 0.0}, {402.0, 874.0}}
+        Other, 0x108009f20, {{0.0, 0.0}, {402.0, 874.0}}
+          Other, 0x108009900, {{0.0, 0.0}, {402.0, 874.0}}
+            Other, 0x108009a20, {{0.0, 0.0}, {402.0, 874.0}}
+              Other, 0x10800a040, {{0.0, 0.0}, {402.0, 874.0}}
+                Other, 0x10800a160, {{0.0, 0.0}, {402.0, 874.0}}
+                  Other, 0x10800a280, {{0.0, 0.0}, {402.0, 874.0}}
+                    Other, 0x10800a3a0, {{0.0, 0.0}, {402.0, 874.0}}
+                      Other, 0x10800a4c0, {{0.0, 0.0}, {402.0, 874.0}}
+                        ScrollView, 0x10800a5e0, {{0.0, 0.0}, {402.0, 874.0}}, identifier: 'nativeAuthSurface'
+                          Other, 0x10800a700, {{0.0, 0.0}, {402.0, 615.7}}
+                            StaticText, 0x10800a820, {{65.0, 131.0}, {272.0, 26.3}}, identifier: 'authServerTitle', label: 'Sign in to Local Mattermost'
+                            StaticText, 0x10800a940, {{175.5, 165.3}, {51.0, 15.7}}, identifier: 'authServerHost', label: '127.0.0.1'
+                            Other, 0x10800aa60, {{24.0, 203.0}, {354.0, 384.7}}, identifier: 'loginView'
+                              StaticText, 0x10800ab80, {{24.0, 203.0}, {109.0, 14.3}}, label: 'Email or username'
+                              TextField, 0x10800aca0, {{24.0, 223.3}, {354.0, 34.0}}, identifier: 'loginIDField', placeholderValue: 'Email or username'
+                              StaticText, 0x10800b0c0, {{24.0, 271.3}, {57.0, 14.3}}, label: 'Password'
+                              SecureTextField, 0x10800b1e0, {{24.0, 291.7}, {354.0, 34.0}}, identifier: 'loginPasswordField', placeholderValue: 'Password'
+                              Button, 0x10800b300, {{270.0, 331.7}, {108.0, 15.7}}, identifier: 'forgotPasswordButton', label: 'Forgot password?'
+                              Button, 0x10800b420, {{24.0, 361.3}, {354.0, 50.3}}, identifier: 'loginSubmitButton', label: 'Log In', Disabled
+                              StaticText, 0x10800b540, {{195.2, 427.7}, {11.7, 14.3}}, label: 'or'
+                              Button, 0x10800b660, {{24.0, 458.0}, {354.0, 52.0}}, identifier: 'authSSOButton', label: 'Sign in with SSO'
+                              Button, 0x10800b780, {{124.0, 524.0}, {154.3, 15.7}}, identifier: 'authUseWebViewButton', label: 'Use the web view instead'
+                              Button, 0x10800b8a0, {{145.7, 572.0}, {111.0, 15.7}}, identifier: 'createAccountButton', label: 'Create an account'
+                          Other, 0x10800b9c0, {{369.0, 0.0}, {30.0, 874.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                            Other, 0x10800bae0, {{396.0, 864.0}, {3.0, 7.0}}
+                          Other, 0x10800bc00, {{369.0, 0.0}, {30.0, 874.0}}, label: 'Vertical scroll bar, 1 page', value: 0%
+                            Other, 0x10800bd20, {{396.0, 864.0}, {3.0, 7.0}}
+Path to element:
+ →Application, 0x103f17590, pid: 72231, label: 'Mattermost'
+Query chain:
+ →Find: Target Application 'com.mattermost.ios'
+  Output: {
+    Application, 0x10383da50, pid: 72231, label: 'Mattermost'
+  }
+
+    t =    72.96s Tear Down
+Test Case '-[MattermostUITests.T31WebSessionHarvestUITests testAWebviewOnlySessionRendersTheNativeWorkspaceWithoutSigningInAgain]' failed (73.263 seconds).
+Test Case '-[MattermostUITests.T31WebSessionHarvestUITests testWithoutAWebviewSessionTheSameLaunchStillAsksForSignIn]' started.
+    t =     0.00s Start Test at 2026-11-04 04:58:55.394
+    t =     0.04s Set Up
+    t =     0.30s Open com.mattermost.ios
+    t =     0.30s     Launch com.mattermost.ios
+    t =     0.30s         Terminate com.mattermost.ios:72231
+2026-11-04 04:58:56.797 xcodebuild[71250:43473629] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-11-04 04:58:56.797 xcodebuild[71250:43473629] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.64s         Setting up automation session
+    t =     3.70s         Wait for com.mattermost.ios to idle
+    t =     5.22s Waiting 60.0s for "nativeAuthSurface" Any to exist
+    t =     6.26s     Checking `Expect predicate `existsNoRetry == 1` for object "nativeAuthSurface" Any`
+    t =     6.26s         Checking existence of `"nativeAuthSurface" Any`
+    t =     6.31s Checking existence of `"nativeShell" Any`
+    t =     6.38s Find the Target Application 'com.mattermost.ios'
+    t =     6.49s Added attachment named 't31harvest-control-native-auth-surface'
+    t =     6.49s Tear Down
+Test Case '-[MattermostUITests.T31WebSessionHarvestUITests testWithoutAWebviewSessionTheSameLaunchStillAsksForSignIn]' passed (6.762 seconds).
+Test Suite 'T31WebSessionHarvestUITests' failed at 2026-11-04 04:59:02.156.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 80.025 (80.028) seconds
+Test Suite 'MattermostUITests.xctest' failed at 2026-11-04 04:59:02.157.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 80.025 (80.029) seconds
+Test Suite 'Selected tests' failed at 2026-11-04 04:59:02.158.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 80.025 (80.031) seconds
+2026-11-04 04:59:21.055 xcodebuild[71250:43473629] [MT] IDETestOperationsObserverDebug: 150.068 elapsed -- Testing started completed.
+2026-11-04 04:59:21.055 xcodebuild[71250:43473629] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-04 04:59:21.055 xcodebuild[71250:43473629] [MT] IDETestOperationsObserverDebug: 150.068 sec, +150.068 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t941/TestResults/t941-t31-1104-fc72c7.xcresult
+
+Failing tests:
+	T31WebSessionHarvestUITests.testAWebviewOnlySessionRendersTheNativeWorkspaceWithoutSigningInAgain()
+
+** TEST FAILED **
+
+Testing started

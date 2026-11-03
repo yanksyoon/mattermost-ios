@@ -26,6 +26,18 @@ import XCTest
 ///
 /// Each test skips (never fails) when the environment or the fixture is missing, like every live
 /// test here. Nothing is fabricated: a skipped test is reported as skipped.
+///
+/// **Sidebar requirement (fixture, measured 2026-10-30).** The suite opens `t36-threads` from the
+/// channel sidebar, so the row has to be *reachable*, not **above the fold**. On the shared fixture
+/// server account `perfprobe` is in **351** channels of team `perf` (`POST /users/login` →
+/// `/users/me/teams/{id}/channels`), the sidebar's content is **5 095 pt** tall inside its 874 pt
+/// viewport and the rows materialised at rest are `T8G probe 00xx` — nothing near `t36-threads`.
+/// The list is a `ScrollView` + `LazyVStack` (`NativeChannelSidebarContent`), so a row outside the
+/// window is *absent from the accessibility tree*, and the first version of this suite read that as
+/// "the sidebar does not list the channel" (5/5 red, `docs/t_c941e3d3-build-note.md`). `openChannel`
+/// therefore scrolls the sidebar's own surface through
+/// `ShellSettle.revealSidebarChannel` and reports the swipe count — the fixture may hold any number
+/// of channels, and a dedicated single-channel account is **not** required.
 final class T36ThreadsUITests: XCTestCase {
 
     private var serverURL: URL!
@@ -784,15 +796,27 @@ final class T36ThreadsUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Since t_295b0a32 a signed-in launch opens a channel (the saved one, else the town hall),
+        // and the shell pushes the pane *over* the root: `nativeShell` is not in the accessibility
+        // tree at all once that happens. Waiting on it alone is a race — measured 2026-11-04, one
+        // of these five tests red here while the other four passed — so ask the one helper that
+        // answers "are we in?" for both shapes (`ShellSettle.waitForSignedIn`).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
+    /// Open the fixture channel from the sidebar.
+    ///
+    /// The sidebar is lazy and this account is in hundreds of channels, so the row is usually below
+    /// the fold: `ShellSettle.revealSidebarChannel` scrolls the sidebar's own surface until the row is
+    /// materialised, and the message below reports what the sweep cost so a reader can tell "this
+    /// account's channel list does not contain the channel" from "the sweep ran out of steps".
     private func openChannel(_ app: XCUIApplication) {
-        let row = element(app, "channelSidebar.channel.\(channelID!)")
-        XCTAssertTrue(row.waitForExistence(timeout: 40),
-                      "the sidebar must list channel \(channelID ?? ""):\n\(app.debugDescription)")
-        row.tap()
+        let reveal = ShellSettle.revealSidebarChannel(app, channelID: channelID ?? "")
+        XCTAssertTrue(reveal.row.waitForExistence(timeout: 40),
+                      "the sidebar must list channel \(channelID ?? "") (\(reveal.report)):\n"
+                      + "\(app.debugDescription)")
+        reveal.row.tap()
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 40),
                       "the channel pane must mount:\n\(app.debugDescription)")
     }

@@ -120,6 +120,146 @@ enum ShellSettle {
         return legacy.exists ? legacy : scroll
     }
 
+    /// What one sweep of the sidebar cost, so a call site can put it in its failure message and a
+    /// reader can tell "the row is not in this account's list" from "the sweep gave up early".
+    struct SidebarReveal {
+        let row: XCUIElement
+        let swipes: Int
+        /// `Back` taps spent getting the channel list on screen at all (a launch opens a channel —
+        /// `t_295b0a32` — so the sidebar is covered until the pane is popped).
+        let pops: Int
+        /// Measured only when the sweep failed — the count itself is an any-type query, and this
+        /// helper does not spend the log budget it was fixed to protect (`docs/t8d-build-note.md` §2).
+        let rowsDrawn: Int?
+        var found: Bool { row.exists }
+        var report: String {
+            var text = "\(found ? "realised" : "not realised") after \(swipes) swipe(s) of the sidebar"
+            if pops > 0 { text += ", after \(pops) Back tap(s) to the channel list" }
+            if let rowsDrawn {
+                text += ", \(rowsDrawn) channel row(s) drawn at the end"
+            }
+            return text
+        }
+    }
+
+    /// Scrolling the chrome, not a fixture: reach the channel row for `channelID`.
+    ///
+    /// **Why every live sidebar test needs this.** The channel list is a `ScrollView` + `LazyVStack`
+    /// (`NativeChannelSidebarContent`), so a row outside the materialised window is *not in the
+    /// accessibility tree at all* — "the row does not exist" and "the row is 4 000 pt below the fold"
+    /// are the same answer to an existence query. On the shared fixture server this stopped being
+    /// hypothetical: account `perfprobe` is in **351** channels of team `perf`, the sidebar's content
+    /// holds **5 095 pt** inside its 874 pt viewport ("Vertical scroll bar, 8 pages"), and the rows
+    /// materialised at rest are `T8G probe 00xx` — the suites' own channels are nowhere near them.
+    /// T36, T44D and T31 were written when the fixture channel was above the fold
+    /// (`docs/t36-build-note.md` §7, 2026-10-25); that assumption is the defect, not the product.
+    ///
+    /// The order is deliberate. Down first with fast flicks (a row far below is cheap to reach), then
+    /// back up **slowly**, because a fast flick crosses several screens and can step straight over the
+    /// row — a lazy stack only materialises a row while it is near the viewport, so an overshoot looks
+    /// exactly like absence. Slow swipes on the way back up re-cross the list in fine steps, so an
+    /// overshoot costs time, never correctness. Both bounds are reported.
+    ///
+    /// **The query type is part of the contract, not a style choice.** Every existence check here runs
+    /// *inside the app process* as XCUITest's accessibility serialiser, and that log volume is what
+    /// libtrace quarantines; past the quota the next `os_log` under a snapshot takes the app down with
+    /// a SIGSEGV (`docs/t8d-build-note.md` §1–§2, and the measured instance in
+    /// `docs/t_c941e3d3-build-note.md` §4: the first version of this helper used an any-type query per
+    /// swipe and killed the app once in five launches). So the hot path asks a **type-scoped**
+    /// `buttons` query — measured rows are `Button`s — and the any-type form is used only when a phase
+    /// ends without a hit, where an element-type disagreement across OS versions is the only thing it
+    /// can still add.
+    ///
+    /// Never asserts: the caller owns the assertion and its timeout, so it can say what *it* required.
+    static func revealSidebarChannel(_ app: XCUIApplication,
+                                     channelID: String,
+                                     maxDownSwipes: Int = 24,
+                                     maxUpSwipes: Int = 32,
+                                     maxPops: Int = 3) -> SidebarReveal {
+        let identifier = "channelSidebar.channel.\(channelID)"
+        let cheap = app.buttons[identifier]
+        func pause() { RunLoop.current.run(until: Date().addingTimeInterval(0.2)) }
+        /// Cheap hit on the hot path: no element materialised unless the row is there.
+        func cheapHit() -> XCUIElement? {
+            pause()
+            return cheap.exists ? cheap : nil
+        }
+        /// The expensive form, at a phase boundary only.
+        func exhaustiveHit() -> XCUIElement? {
+            let any = element(app, identifier)
+            return any.exists ? any : nil
+        }
+        if let row = cheapHit() {
+            return SidebarReveal(row: row, swipes: 0, pops: 0, rowsDrawn: nil)
+        }
+        // The sidebar is only in the tree while the channel list is on screen, and since t_295b0a32 a
+        // signed-in launch opens a channel (the saved one, else the team's town hall) and pushes it
+        // *over* the list — so the first call after a settle is looking at a pushed pane. Measured
+        // 2026-11-04 against `origin/main` f631629, "not realised after 0 swipe(s) of the sidebar,
+        // 0 channel row(s) drawn" with `nativeChannelPane` "Town Square" in the dump: the sweep never
+        // started.
+        //
+        // The push lands a beat *after* the list is first drawn, so the order matters: wait for the
+        // landing, pop it the way a reader does (`Back`, the same tap `revealTabs` uses), and only
+        // then start the sweep. Starting while the hand-over is in flight is not a slow failure but a
+        // hard one — `Failed to swipe up "channelSidebar.scroll": No matches found` (5/5 red, same
+        // date) — because the element the query resolved is gone when the event is synthesized.
+        // The 6 s ceiling is a ceiling, not a sleep: a launch that lands on the list answers at once
+        // and the wait costs only the round trip.
+        //
+        // This deliberately does not call `revealTabs`: that helper stops when the *tab bar* is
+        // visible, while a sidebar sweep needs the *list* — on this tree the two arrive together, but
+        // the list is what the sweep must be handed.
+        _ = app.otherElements["nativeChannelPane"].waitForExistence(timeout: 6)
+        var pops = 0
+        while pops < maxPops, !channelSidebarScroll(app).exists {
+            let back = app.navigationBars.buttons["Back"]
+            guard back.exists, back.isHittable else { break }
+            back.tap()
+            pops += 1
+            _ = channelSidebarScroll(app).waitForExistence(timeout: 10)
+        }
+        // The pop animates; a swipe sampled mid-animation is the same lost element as above.
+        pause()
+        pause()
+        let list = channelSidebarScroll(app)
+        guard list.exists else {
+            print("[shellsettle] no sidebar scroll surface after \(pops) Back tap(s): cannot scroll to \(identifier)")
+            let any = element(app, identifier)
+            return SidebarReveal(row: any, swipes: 0, pops: pops, rowsDrawn: drawnSidebarRows(app))
+        }
+        var swipes = 0
+        var found: XCUIElement?
+        for _ in 0..<maxDownSwipes {
+            if let hit = cheapHit() { found = hit; break }
+            list.swipeUp(velocity: .fast)
+            swipes += 1
+        }
+        if found == nil { found = exhaustiveHit() }
+        if found == nil {
+            for _ in 0..<maxUpSwipes {
+                if let hit = cheapHit() { found = hit; break }
+                list.swipeDown(velocity: .slow)
+                swipes += 1
+            }
+        }
+        if found == nil { found = exhaustiveHit() }
+        let reveal = SidebarReveal(row: found ?? element(app, identifier),
+                                   swipes: swipes,
+                                   pops: pops,
+                                   rowsDrawn: found == nil ? drawnSidebarRows(app) : nil)
+        print("[shellsettle] \(identifier): \(reveal.report)")
+        return reveal
+    }
+
+    /// Every channel row currently in the accessibility tree — a diagnostic count for the message
+    /// above, never an expectation (which rows are materialised is the shell's business).
+    static func drawnSidebarRows(_ app: XCUIApplication) -> Int {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "channelSidebar.channel."))
+            .count
+    }
+
     /// Wait until the app is signed in, whichever landing the launch produced.
     ///
     /// A launch with `-uiTestResetPersistedState` has nothing saved: since t_295b0a32 it opens the
