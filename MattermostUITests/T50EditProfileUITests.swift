@@ -357,13 +357,14 @@ final class T50EditProfileUITests: XCTestCase {
     }
 
     private func showSidebar(_ app: XCUIApplication) {
-        // `nativeSidebar` is in the tree even under a pushed channel pane (`t9399c0b4`), so it cannot
-        // be the early-out test: `ShellSettle.tapTab` settles the landing, pops the pane and taps
-        // `Channels` (and answers false on the split layout, where the sidebar is already on show).
-        if !ShellSettle.tapTab(ShellSettle.Tab.channels, in: app, wait: 5),
-           !element(app, "nativeSidebar").exists {
-            let back = app.navigationBars.firstMatch.buttons.element(boundBy: 0)
-            if back.exists, back.isHittable { back.tap() }
+        // A pushed channel pane or a presented settings sheet can both hide the list, and neither
+        // `nativeSidebar` nor a `Back` tap is a safe test for it (`t9399c0b4`): `nativeSidebar` stays in
+        // the tree under a pane, and right after settings closes the first `Back` in the bar belongs to
+        // the shell stack and pops the list itself — measured: the run ended on the team rail with no
+        // list and `nativeSidebar` never appeared. So: pop only a real pane, then select `Channels`.
+        _ = ShellSettle.revealChannelList(app)
+        if !element(app, "nativeSidebar").waitForExistence(timeout: 10) {
+            _ = ShellSettle.tapTab(ShellSettle.Tab.channels, in: app, wait: 10)
         }
         XCTAssertTrue(element(app, "nativeSidebar").waitForExistence(timeout: 20),
                       "the shell must be back on the channel sidebar:\n\(app.debugDescription)")

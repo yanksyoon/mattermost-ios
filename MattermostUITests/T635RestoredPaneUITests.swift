@@ -130,19 +130,20 @@ final class T635RestoredPaneUITests: XCTestCase {
         attach(relaunched, "t635-before-reopen")
 
         // The reader's route back to a channel: Back (the restored pane is pushed over the sidebar),
-        // then the channel's own row.
+        // then the channel's own row — which is past the fold on this fixture, so sweep for it.
+        // Tapping the team rail is not the fallback: it *pushes* that team's default channel
+        // (`t9399c0b4`, `build/logs/t9399-T635RestoredPaneUITests.log`).
         let back = relaunched.navigationBars.buttons["Back"]
         if back.waitForExistence(timeout: 30), back.isHittable {
             back.tap()
         }
-        let row = element(relaunched, "channelSidebar.channel.\(channelID!)")
-        if !row.waitForExistence(timeout: 30) {
-            let team = element(relaunched, "teamSidebar.team.\(teamID!)")
-            if team.waitForExistence(timeout: 10) { team.tap() }
-        }
-        XCTAssertTrue(element(relaunched, "channelSidebar.channel.\(channelID!)").waitForExistence(timeout: 45),
-                      "the sidebar must list the fixture channel after Back:\n\(relaunched.debugDescription)")
-        element(relaunched, "channelSidebar.channel.\(channelID!)").tap()
+        let reveal = ShellSettle.revealSidebarChannel(relaunched, channelID: channelID!)
+        let row = reveal.row
+        XCTAssertTrue(row.waitForExistence(timeout: 45),
+                      "the sidebar must list the fixture channel after Back (after \(reveal.swipes) "
+                      + "swipe(s), \(reveal.rowsDrawn ?? 0) row(s) drawn):"
+                      + "\n\(relaunched.debugDescription)")
+        row.tap()
         XCTAssertTrue(element(relaunched, "channelPostList").waitForExistence(timeout: 45),
                       "re-opening the channel must mount its post list")
 

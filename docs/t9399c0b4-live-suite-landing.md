@@ -83,9 +83,59 @@ xcodebuild test-without-building -project Mattermost.xcodeproj -scheme Mattermos
   -only-testing MattermostUITests/<Class>
 ```
 
-<!-- RESULTS-TABLE -->
+Results, one row per audited suite (latest run of each, all against the tree committed after this
+card; `n/s/f` = tests run / skipped / failed):
 
-## 5. Files changed
+| suite | n/s/f | what it says |
+|---|---|---|
+| `T5449ThreadProfileUITests` | 1/0/0 | green in 30 s — the suite the parent card repaired, still green |
+| `T5449ListProfileUITests` | 5/1/0 | green; the iPad-only lookup-sheet test skips on a phone |
+| `T5449ProfileActionsUITests` | 3/0/0 | green (3/3 red before this card: 2 landing, 1 tab-bar) |
+| `T41ProfileUITests` | 7/0/0 | green |
+| `T429ProfileTapUITests` | 4/0/0 | green; this is the suite that showed both landing shapes in one run |
+| `T40ChannelInfoUITests` | 9/0/1 | 8 green; `…BrowsingAndJoiningAPublicChannel…` reaches the browser sheet and the sheet does not list the public channel it is not in (2 assertion failures, `build/logs/t9399-T40ChannelInfoUITests.log`). The member (non-admin) test now signs in: it needed the server's terms-of-service step, which the helper now accepts |
+| `T52ChannelInfoUITests` | 3/0/0 | green |
+| `T35-ComposerUITests` | 3/0/0 | green |
+| `T37-ReactionsUITests` | 3/0/0 | green |
+| `T38AttachmentsUITests` | 4/0/0 | green |
+| `T39SearchUITests` | 4/0/1 | 3 green; `…UnsaveFromTheSavedTab…` mounts the Saved pane and the `savedPosts` list never appears (the new assertion names it instead of dying in a swipe query) |
+| `T47CreateChannelUITests` | 2/0/0 | green (was 0/2: covered-root early-out) |
+| `T47CreateChannelAVUITests` | 6/3/0 | green |
+| `T48PostOptionsUITests` | 6/0/1 | 5 green; `…MissingOptionsAndCopyLink…` ends with the app **terminated** mid-test ("Checking for crash reports corresponding to unexpected termination") right after `postOptions.followThread` was not offered — a crash, not the landing |
+| `T48PostOptionsAVUITests` | 2/2/0 | green (both skip on a phone) |
+| `T51GlobalDraftsUITests` | 2/0/0 | green (was 1/2: presence probe on a covered root) |
+| `T53MediaPlaybackUITests` | 2/0/0 | green |
+| `T635RestoredPaneUITests` | 2/0/0 | green (was 0/2: the rail-tap "fallback" pushed the pane it was trying to leave) |
+| `TModalDismissUITests` | 2/0/0 | green (was 0/2: inverse `channelPostList` guard) |
+| `T70AuthorNamesUITests` | 3/0/0 | green |
+| `T45AvatarUITests` | 2/0/0 | green |
+| `T50EditProfileUITests` | 3/0/1 | 2 green; `…ThePictureChangesThePostRow…` ends on the shell's **team rail with no channel list** and `nativeSidebar` never appears (166 s). The landing premise is fixed in this suite; what is left is a shell-navigation gap after the settings sheet closes, measured in `build/logs/t9399-T50EditProfileUITests.log` |
+| `T34-ChannelPostListUITests` | 7/0/0 | green |
+| `T54MentionBannerUITests` | 4/0/0 | green |
+| `T46WebFallbackUITests` | 5/0/2 | 3 green incl. boards; the two plugin-route tests (`/playbooks`, system console) never mount the fallback webview and one run found the app dead afterwards — the landing/sidebar steps pass |
+| `T33-ChannelSidebarUITests` | 10/0/0 | green (the sidebar suite proper) |
+| `T38HeavyScrollProbeUITests` | 1/0/0 | green (probe; was failing at the row tap) |
+| `MattermostUITests` (legacy class) | not run | the legacy class is a 100+ test stub-server suite; the live test in it that this card touched (`testRealServerTeamRailShowsBothTeamsAndSwitchesBetweenThem`) was repaired with the same two calls but is not re-run here — see §6 |
+| `T33-ChannelSidebarStubTests` | not run | needs the stub servers (`scripts/mm_stub.py`); repaired the same way (sign-in + list), unverified on this host |
+
+The whole unit target was run on a second simulator (iPhone 16 Pro `81A7F251…`) with
+`-only-testing MattermostTests`: **0 assertion failures**; the only red was
+`T31HarvestCookieInstallTests.testARealStoreKeepsTheInstalledCookieAndTheProductionReaderFindsIt`,
+which kills the app host mid-suite (`Restarting after unexpected exit, crash, or test timeout`) and
+passes alone in 1.0 s (`build/logs/t9399-cookie-retry.log`). `scripts/verify-dual-render-gates.sh
+--allow-approved-registry` passes (`build/logs/t9399-dual-render.log`).
+
+## 5. What this card did not do
+
+- It did not run the legacy `MattermostUITests` class (100+ tests against the stub servers) — only the
+  live rail test in it was edited, and running that class is its own multi-hour job.
+- It did not run `T33-ChannelSidebarStubTests` (stub servers not started on this host).
+- The four remaining reds above are **not** the landing premise: each suite now reaches the channel
+  list and its rows (the pop/swipe counts are in the failure messages), and each fails on something
+  else. They are named here rather than papered over.
+
+
+## 6. Files changed
 
 Test-side only (`git diff --stat` is the authority; listed here for the reviewer's index):
 

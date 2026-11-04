@@ -462,7 +462,19 @@ final class T40ChannelInfoUITests: XCTestCase {
         try ensureNotMember(channel.id, userID: userID)
 
         let app = launchApp()
+        // The launch pushes a channel pane over the list (`t_295b0a32`) and the browser's button lives on
+        // the list, so come back to it first (`ShellSettle.revealChannelList`, t_9399c0b4). If the footer
+        // is below the fold on a long list, walk down to it the way a reader does.
+        _ = ShellSettle.revealChannelList(app)
         let browseButton = element(app, "nativeSidebarBrowseChannels")
+        if !browseButton.waitForExistence(timeout: 15) {
+            let scroller = ShellSettle.channelSidebarScroll(app)
+            if scroller.waitForExistence(timeout: 15) {
+                for _ in 0..<40 where !browseButton.exists {
+                    scroller.swipeUp(velocity: .fast)
+                }
+            }
+        }
         XCTAssertTrue(browseButton.waitForExistence(timeout: 40),
                       "the sidebar must offer the channel browser:\n\(app.debugDescription)")
         browseButton.tap()
@@ -889,6 +901,14 @@ final class T40ChannelInfoUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
+        // A fresh account on a server that requires terms of service lands on the ToS screen before the
+        // shell. Accepting is the reader's step, not a shortcut around an assertion: measured on this
+        // card, `t40member` had never accepted this server's terms, and the "signed in" wait timed out
+        // on `termsOfServiceAcceptButton` (`build/logs/t9399-T40ChannelInfoUITests.log`).
+        let accept = app.buttons["termsOfServiceAcceptButton"]
+        if accept.exists || accept.waitForExistence(timeout: 3) {
+            accept.tap()
+        }
         // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
         // **over** the list, and the push replaces the root, so `nativeShell` is not in the tree at
         // all (t_9399c0b4). `ShellSettle.waitForSignedIn` answers "are we in?" for both landings;

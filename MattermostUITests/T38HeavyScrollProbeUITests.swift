@@ -110,9 +110,14 @@ final class T38HeavyScrollProbeUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 45),
                       "the sidebar must list #t38-heavy (after \(reveal.swipes) swipe(s), "
                       + "\(reveal.rowsDrawn ?? 0) row(s) drawn)")
-        // The heavy channel is the newest row, so its centre can sit under the tab bar; tap its top.
-        row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)).tap()
+        // Tap the row itself: a coordinate at its top edge can land on the category header that overlays
+        // a LazyVStack row (`t9399c0b4`: the row was realised but the channel never opened).
+        row.tap()
         let list = el(app, "channelPostList")
+        if !list.waitForExistence(timeout: 20) {
+            // A row just scrolled into place is not always the row that answers the tap; one more try.
+            if row.exists, row.isHittable { row.tap() }
+        }
         XCTAssertTrue(list.waitForExistence(timeout: 120),
                       "the channel pane must mount:\n\(app.debugDescription)")
 
