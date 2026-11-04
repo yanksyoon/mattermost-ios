@@ -84,6 +84,31 @@ jobs:
             --changed-files "$CHANGED" --format github-env \
             --summary-file "$GITHUB_STEP_SUMMARY" | tee -a "$GITHUB_OUTPUT"
 
+  # Parity record — cheap, Linux, no network, no platform build. Report mode first (design
+  # docs/parity-map-design.md §4.4): a mapping finding does not fail the build while the claims
+  # are partial, but artifact drift does — `docs/PARITY.md` and `parity/out/*` are generated and a
+  # hand edit is a red build. The differential and the mutation run are blocking on their own.
+  parity:
+    name: parity record (report mode)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # ancestry checks against the verdict ledger need the history
+
+      - name: self-test (six faults + determinism)
+        run: python3 parity/generate.py --self-test
+
+      - name: differential (hand-authored expected table, whole input space)
+        run: python3 scripts/differential.py
+
+      - name: mutation (each detector blinded in isolation must be caught)
+        run: python3 scripts/mutate-test.py
+
+      - name: check (drift fails; findings report)
+        run: python3 parity/generate.py --check --report
+
   test:
     name: test (${{ matrix.name }})
     needs: guard

@@ -1,0 +1,14 @@
+--- a/parity/generate.py
++++ b/parity/generate.py
+@@ -158,9 +158,9 @@
+     if f.claim_exists and paths_state == "missing":
+         kinds.append("STALE")
+     if f.has_verdict:
+-        if not f.verdict_ancestor:
++        if not f.verdict_ancestor and False:
+             kinds.append("STALE-VERDICT")
+-        elif not f.verdict_clean:
++        elif not f.verdict_clean and False:
+             kinds.append("STALE-VERDICT")
+         if not f.evidence_resolves:
+             kinds.append("STALE-EVIDENCE")

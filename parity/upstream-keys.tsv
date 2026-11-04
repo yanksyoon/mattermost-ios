@@ -1,0 +1,312 @@
+# key	namespace	path	content_sha	kind	anchor_of
+M:app/components/autocomplete	M	app/components/autocomplete	-	dir	composer
+M:app/components/post_draft	M	app/components/post_draft	-	dir	composer
+M:app/components/post_list	M	app/components/post_list	-	dir	channel
+M:app/products/boards	M	app/products/boards	-	dir	boards
+M:app/products/calls	M	app/products/calls	-	dir	calls
+M:app/products/playbooks	M	app/products/playbooks	-	dir	playbooks
+M:app/screens/apps_form	M	app/screens/apps_form	-	dir	apps_form
+M:app/screens/attachment_options	M	app/screens/attachment_options	-	dir	attachment_options
+M:app/screens/bottom_sheet	M	app/screens/bottom_sheet	-	dir	bottom_sheet
+M:app/screens/browse_channels	M	app/screens/browse_channels	-	dir	browse_channels
+M:app/screens/channel	M	app/screens/channel	-	dir	channel
+M:app/screens/channel_add_members	M	app/screens/channel_add_members	-	dir	channel_add_members
+M:app/screens/channel_bookmark	M	app/screens/channel_bookmark	-	dir	channel_bookmark
+M:app/screens/channel_configuration	M	app/screens/channel_configuration	-	dir	channel_configuration
+M:app/screens/channel_files	M	app/screens/channel_files	-	dir	channel_files
+M:app/screens/channel_info	M	app/screens/channel_info	-	dir	channel_info
+M:app/screens/channel_notification_preferences	M	app/screens/channel_notification_preferences	-	dir	channel_notification_preferences
+M:app/screens/channel_settings	M	app/screens/channel_settings	-	dir	channel_settings
+M:app/screens/channel_share	M	app/screens/channel_share	-	dir	channel_share
+M:app/screens/code	M	app/screens/code	-	dir	code
+M:app/screens/component_library	M	app/screens/component_library	-	dir	component_library
+M:app/screens/convert_gm_to_channel	M	app/screens/convert_gm_to_channel	-	dir	convert_gm_to_channel
+M:app/screens/create_direct_message	M	app/screens/create_direct_message	-	dir	create_direct_message
+M:app/screens/create_or_edit_channel	M	app/screens/create_or_edit_channel	-	dir	create_or_edit_channel
+M:app/screens/custom_status	M	app/screens/custom_status	-	dir	custom_status
+M:app/screens/custom_status_clear_after	M	app/screens/custom_status_clear_after	-	dir	custom_status_clear_after
+M:app/screens/data_erased	M	app/screens/data_erased	-	dir	data_erased
+M:app/screens/dialog_router	M	app/screens/dialog_router	-	dir	dialog_router
+M:app/screens/draft_scheduled_post_options	M	app/screens/draft_scheduled_post_options	-	dir	draft_scheduled_post_options
+M:app/screens/edit_post	M	app/screens/edit_post	-	dir	edit_post
+M:app/screens/edit_profile	M	app/screens/edit_profile	-	dir	edit_profile
+M:app/screens/edit_server	M	app/screens/edit_server	-	dir	edit_server
+M:app/screens/emoji_picker	M	app/screens/emoji_picker	-	dir	emoji_picker
+M:app/screens/find_channels	M	app/screens/find_channels	-	dir	find_channels
+M:app/screens/forgot_password	M	app/screens/forgot_password	-	dir	forgot_password
+M:app/screens/gallery	M	app/screens/gallery	-	dir	gallery
+M:app/screens/global_drafts	M	app/screens/global_drafts	-	dir	global_drafts
+M:app/screens/global_threads	M	app/screens/global_threads	-	dir	global_threads
+M:app/screens/home	M	app/screens/home	-	dir	home
+M:app/screens/in_app_notification	M	app/screens/in_app_notification	-	dir	in_app_notification
+M:app/screens/integration_selector	M	app/screens/integration_selector	-	dir	integration_selector
+M:app/screens/invite	M	app/screens/invite	-	dir	invite
+M:app/screens/join_team	M	app/screens/join_team	-	dir	join_team
+M:app/screens/latex	M	app/screens/latex	-	dir	latex
+M:app/screens/login	M	app/screens/login	-	dir	login
+M:app/screens/manage_channel_members	M	app/screens/manage_channel_members	-	dir	manage_channel_members
+M:app/screens/mentions	M	app/screens/mentions	-	dir	mentions
+M:app/screens/mfa	M	app/screens/mfa	-	dir	mfa
+M:app/screens/mm_blocks_content	M	app/screens/mm_blocks_content	-	dir	mm_blocks_content
+M:app/screens/onboarding	M	app/screens/onboarding	-	dir	onboarding
+M:app/screens/pdf_viewer	M	app/screens/pdf_viewer	-	dir	pdf_viewer
+M:app/screens/permalink	M	app/screens/permalink	-	dir	permalink
+M:app/screens/pinned_messages	M	app/screens/pinned_messages	-	dir	pinned_messages
+M:app/screens/post_options	M	app/screens/post_options	-	dir	post_options
+M:app/screens/post_priority_picker	M	app/screens/post_priority_picker	-	dir	post_priority_picker
+M:app/screens/reactions	M	app/screens/reactions	-	dir	reactions
+M:app/screens/report_a_problem	M	app/screens/report_a_problem	-	dir	report_a_problem
+M:app/screens/reschedule_draft	M	app/screens/reschedule_draft	-	dir	reschedule_draft
+M:app/screens/review_app	M	app/screens/review_app	-	dir	review_app
+M:app/screens/scheduled_post_options	M	app/screens/scheduled_post_options	-	dir	scheduled_post_options
+M:app/screens/search	M	app/screens/search	-	dir	search
+M:app/screens/select_team	M	app/screens/select_team	-	dir	select_team
+M:app/screens/server	M	app/screens/server	-	dir	server
+M:app/screens/settings	M	app/screens/settings	-	dir	settings
+M:app/screens/share_feedback	M	app/screens/share_feedback	-	dir	share_feedback
+M:app/screens/show_translation	M	app/screens/show_translation	-	dir	show_translation
+M:app/screens/snack_bar	M	app/screens/snack_bar	-	dir	snack_bar
+M:app/screens/sso	M	app/screens/sso	-	dir	sso
+M:app/screens/table	M	app/screens/table	-	dir	table
+M:app/screens/terms_of_service	M	app/screens/terms_of_service	-	dir	terms_of_service
+M:app/screens/thread	M	app/screens/thread	-	dir	thread
+M:app/screens/thread_options	M	app/screens/thread_options	-	dir	thread_options
+M:app/screens/user_profile	M	app/screens/user_profile	-	dir	user_profile
+M:app/screens/watermark	M	app/screens/watermark	-	dir	watermark
+REST:DELETE /channels/{channel_id}	REST	app/client/rest/channels.ts	-	rest	channels
+REST:DELETE /channels/{channel_id}/members/{user_id}	REST	app/client/rest/channels.ts	-	rest	channels
+REST:DELETE /posts/schedule	REST	app/client/rest/scheduled_post.ts	-	rest	scheduled_post
+REST:DELETE /posts/{post_id}	REST	app/client/rest/posts.ts	-	rest	posts
+REST:DELETE /posts/{post_id}/burn	REST	app/client/rest/posts.ts	-	rest	posts
+REST:DELETE /teams/{team_id}	REST	app/client/rest/teams.ts	-	rest	teams
+REST:DELETE /teams/{team_id}/members/{user_id}	REST	app/client/rest/teams.ts	-	rest	teams
+REST:DELETE /users/{user_id}/image	REST	app/client/rest/users.ts	-	rest	users
+REST:DELETE /users/{user_id}/posts	REST	app/client/rest/posts.ts	-	rest	posts
+REST:DELETE /users/{user_id}/status/custom	REST	app/client/rest/users.ts	-	rest	users
+REST:GET /channels	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /channels/{channel_id}/access_control/attributes	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /channels/{channel_id}/bookmarks	REST	app/client/rest/channel_bookmark.ts	-	rest	channel_bookmark
+REST:GET /channels/{channel_id}/common_teams	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /channels/{channel_id}/members	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /channels/{channel_id}/members/{user_id}	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /channels/{channel_id}/pinned	REST	app/client/rest/posts.ts	-	rest	posts
+REST:GET /channels/{channel_id}/posts	REST	app/client/rest/posts.ts	-	rest	posts
+REST:GET /channels/{channel_id}/stats	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /channels/{channel_id}/timezones	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /commands	REST	app/client/rest/integrations.ts	-	rest	integrations
+REST:GET /custom_profile_attributes/fields	REST	app/client/rest/custom_profile_attributes.ts	-	rest	custom_profile_attributes
+REST:GET /data_retention/policy	REST	app/client/rest/general.ts	-	rest	general
+REST:GET /emoji	REST	app/client/rest/emojis.ts	-	rest	emojis
+REST:GET /emoji/autocomplete	REST	app/client/rest/emojis.ts	-	rest	emojis
+REST:GET /emoji/name	REST	app/client/rest/emojis.ts	-	rest	emojis
+REST:GET /files/{file_id}/info	REST	app/client/rest/files.ts	-	rest	files
+REST:GET /files/{file_id}/link	REST	app/client/rest/files.ts	-	rest	files
+REST:GET /plugins/com.mattermost.apps/api/v1/bindings	REST	app/client/rest/apps.ts	-	rest	apps
+REST:GET /plugins/webapp	REST	app/client/rest/plugins.ts	-	rest	plugins
+REST:GET /posts/scheduled/team	REST	app/client/rest/scheduled_post.ts	-	rest	scheduled_post
+REST:GET /posts/{post_id}	REST	app/client/rest/posts.ts	-	rest	posts
+REST:GET /posts/{post_id}/files/info	REST	app/client/rest/posts.ts	-	rest	posts
+REST:GET /posts/{post_id}/info	REST	app/client/rest/posts.ts	-	rest	posts
+REST:GET /posts/{post_id}/reactions	REST	app/client/rest/posts.ts	-	rest	posts
+REST:GET /posts/{post_id}/reveal	REST	app/client/rest/posts.ts	-	rest	posts
+REST:GET /posts/{post_id}/thread	REST	app/client/rest/posts.ts	-	rest	posts
+REST:GET /remotecluster	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /sharedchannels	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /sharedchannels/{channel_id}/remotes	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /system/timezones	REST	app/client/rest/general.ts	-	rest	general
+REST:GET /teams	REST	app/client/rest/teams.ts	-	rest	teams
+REST:GET /teams/{team_id}/channels/autocomplete	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /teams/{team_id}/channels/managed_categories	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /teams/{team_id}/channels/search_autocomplete	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /teams/{team_id}/commands/autocomplete	REST	app/client/rest/integrations.ts	-	rest	integrations
+REST:GET /teams/{team_id}/commands/autocomplete_suggestions	REST	app/client/rest/integrations.ts	-	rest	integrations
+REST:GET /teams/{team_id}/members	REST	app/client/rest/teams.ts	-	rest	teams
+REST:GET /teams/{team_id}/members/{user_id}	REST	app/client/rest/teams.ts	-	rest	teams
+REST:GET /teams/{team_id}/stats	REST	app/client/rest/teams.ts	-	rest	teams
+REST:GET /users	REST	app/client/rest/users.ts	-	rest	users
+REST:GET /users/autocomplete	REST	app/client/rest/users.ts	-	rest	users
+REST:GET /users/email	REST	app/client/rest/users.ts	-	rest	users
+REST:GET /users/known	REST	app/client/rest/users.ts	-	rest	users
+REST:GET /users/sessions/attributes/manifest	REST	app/client/rest/users.ts	-	rest	users
+REST:GET /users/username	REST	app/client/rest/users.ts	-	rest	users
+REST:GET /users/{user_id}	REST	app/client/rest/users.ts	-	rest	users
+REST:GET /users/{user_id}/channel_members	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /users/{user_id}/channels	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /users/{user_id}/custom_profile_attributes	REST	app/client/rest/custom_profile_attributes.ts	-	rest	custom_profile_attributes
+REST:GET /users/{user_id}/data_retention/channel_policies	REST	app/client/rest/general.ts	-	rest	general
+REST:GET /users/{user_id}/data_retention/team_policies	REST	app/client/rest/general.ts	-	rest	general
+REST:GET /users/{user_id}/posts/flagged	REST	app/client/rest/posts.ts	-	rest	posts
+REST:GET /users/{user_id}/preferences	REST	app/client/rest/preferences.ts	-	rest	preferences
+REST:GET /users/{user_id}/sessions	REST	app/client/rest/users.ts	-	rest	users
+REST:GET /users/{user_id}/status	REST	app/client/rest/users.ts	-	rest	users
+REST:GET /users/{user_id}/teams	REST	app/client/rest/channels.ts	-	rest	channels
+REST:GET /users/{user_id}/teams/members	REST	app/client/rest/teams.ts	-	rest	teams
+REST:GET /users/{user_id}/teams/{team_id}/channels/categories	REST	app/client/rest/categories.ts	-	rest	categories
+REST:GET /users/{user_id}/teams/{team_id}/channels/categories/order	REST	app/client/rest/categories.ts	-	rest	categories
+REST:GET /users/{user_id}/teams/{team_id}/channels/categories/{category_id}	REST	app/client/rest/categories.ts	-	rest	categories
+REST:GET /users/{user_id}/teams/{team_id}/threads	REST	app/client/rest/threads.ts	-	rest	threads
+REST:GET /users/{user_id}/teams/{team_id}/threads/{thread_id}	REST	app/client/rest/threads.ts	-	rest	threads
+REST:PATCH /custom_profile_attributes/values	REST	app/client/rest/custom_profile_attributes.ts	-	rest	custom_profile_attributes
+REST:POST /channels	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /channels/direct	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /channels/group	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /channels/members/me/view	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /channels/search	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /channels/{channel_id}/bookmarks/{bookmark_id}/sort_order	REST	app/client/rest/channel_bookmark.ts	-	rest	channel_bookmark
+REST:POST /channels/{channel_id}/convert_to_channel	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /channels/{channel_id}/members	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /channels/{channel_id}/members/ids	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /channels/{channel_id}/restore	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /commands	REST	app/client/rest/integrations.ts	-	rest	integrations
+REST:POST /commands/execute	REST	app/client/rest/integrations.ts	-	rest	integrations
+REST:POST /emoji/search	REST	app/client/rest/emojis.ts	-	rest	emojis
+REST:POST /plugins/com.mattermost.apps/api/v1/call	REST	app/client/rest/apps.ts	-	rest	apps
+REST:POST /plugins/{plugin_id}/api/v1/give_feedback	REST	app/client/rest/nps.ts	-	rest	nps
+REST:POST /posts	REST	app/client/rest/posts.ts	-	rest	posts
+REST:POST /posts/{post_id}/actions	REST	app/client/rest/posts.ts	-	rest	posts
+REST:POST /posts/{post_id}/pin	REST	app/client/rest/posts.ts	-	rest	posts
+REST:POST /posts/{post_id}/unpin	REST	app/client/rest/posts.ts	-	rest	posts
+REST:POST /reactions	REST	app/client/rest/posts.ts	-	rest	posts
+REST:POST /remotecluster/{remote_id}/channels/{channel_id}/invite	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /remotecluster/{remote_id}/channels/{channel_id}/uninvite	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /roles/names	REST	app/client/rest/general.ts	-	rest	general
+REST:POST /teams	REST	app/client/rest/teams.ts	-	rest	teams
+REST:POST /teams/members/invite	REST	app/client/rest/teams.ts	-	rest	teams
+REST:POST /teams/{team_id}/channels/search	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /teams/{team_id}/channels/search_archived	REST	app/client/rest/channels.ts	-	rest	channels
+REST:POST /teams/{team_id}/invite-guests/email	REST	app/client/rest/teams.ts	-	rest	teams
+REST:POST /teams/{team_id}/invite/email	REST	app/client/rest/teams.ts	-	rest	teams
+REST:POST /teams/{team_id}/members	REST	app/client/rest/teams.ts	-	rest	teams
+REST:POST /teams/{team_id}/members/batch	REST	app/client/rest/teams.ts	-	rest	teams
+REST:POST /teams/{team_id}/members/ids	REST	app/client/rest/teams.ts	-	rest	teams
+REST:POST /users	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/group_channels	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/ids	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/login	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/login/sso/code-exchange	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/login/type	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/logout	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/mfa	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/password/reset/send	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/search	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/status/ids	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/usernames	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/{user_id}/demote	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/{user_id}/posts	REST	app/client/rest/posts.ts	-	rest	posts
+REST:POST /users/{user_id}/preferences/delete	REST	app/client/rest/preferences.ts	-	rest	preferences
+REST:POST /users/{user_id}/status/custom/recent/delete	REST	app/client/rest/users.ts	-	rest	users
+REST:POST /users/{user_id}/terms_of_service	REST	app/client/rest/tos.ts	-	rest	tos
+REST:PUT /channels/{channel_id}	REST	app/client/rest/channels.ts	-	rest	channels
+REST:PUT /channels/{channel_id}/members	REST	app/client/rest/channels.ts	-	rest	channels
+REST:PUT /channels/{channel_id}/members/{user_id}/autotranslation	REST	app/client/rest/channels.ts	-	rest	channels
+REST:PUT /channels/{channel_id}/members/{user_id}/notify_props	REST	app/client/rest/channels.ts	-	rest	channels
+REST:PUT /channels/{channel_id}/patch	REST	app/client/rest/channels.ts	-	rest	channels
+REST:PUT /channels/{channel_id}/privacy	REST	app/client/rest/channels.ts	-	rest	channels
+REST:PUT /posts/schedule	REST	app/client/rest/scheduled_post.ts	-	rest	scheduled_post
+REST:PUT /posts/{post_id}	REST	app/client/rest/posts.ts	-	rest	posts
+REST:PUT /posts/{post_id}/patch	REST	app/client/rest/posts.ts	-	rest	posts
+REST:PUT /teams/{team_id}	REST	app/client/rest/teams.ts	-	rest	teams
+REST:PUT /teams/{team_id}/patch	REST	app/client/rest/teams.ts	-	rest	teams
+REST:PUT /users/sessions/device	REST	app/client/rest/users.ts	-	rest	users
+REST:PUT /users/{user_id}	REST	app/client/rest/users.ts	-	rest	users
+REST:PUT /users/{user_id}/patch	REST	app/client/rest/users.ts	-	rest	users
+REST:PUT /users/{user_id}/preferences	REST	app/client/rest/preferences.ts	-	rest	preferences
+REST:PUT /users/{user_id}/status	REST	app/client/rest/users.ts	-	rest	users
+REST:PUT /users/{user_id}/status/custom	REST	app/client/rest/users.ts	-	rest	users
+REST:PUT /users/{user_id}/teams/{team_id}/channels/categories	REST	app/client/rest/categories.ts	-	rest	categories
+WS:added_to_team	WS	app/constants/websocket.ts	-	ws	websocket
+WS:burn_on_read_all_revealed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_access_control_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_bookmark_created	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_bookmark_deleted	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_bookmark_sorted	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_bookmark_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_converted	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_created	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_deleted	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_member_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_restored	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_scheme_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:channel_viewed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:config_changed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:custom_profile_attributes_field_created	WS	app/constants/websocket.ts	-	ws	websocket
+WS:custom_profile_attributes_field_deleted	WS	app/constants/websocket.ts	-	ws	websocket
+WS:custom_profile_attributes_field_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:custom_profile_attributes_values_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:delete_team	WS	app/constants/websocket.ts	-	ws	websocket
+WS:direct_added	WS	app/constants/websocket.ts	-	ws	websocket
+WS:emoji_added	WS	app/constants/websocket.ts	-	ws	websocket
+WS:ephemeral_message	WS	app/constants/websocket.ts	-	ws	websocket
+WS:file_download_rejected	WS	app/constants/websocket.ts	-	ws	websocket
+WS:group_added	WS	app/constants/websocket.ts	-	ws	websocket
+WS:group_member_add	WS	app/constants/websocket.ts	-	ws	websocket
+WS:group_member_delete	WS	app/constants/websocket.ts	-	ws	websocket
+WS:hello	WS	app/constants/websocket.ts	-	ws	websocket
+WS:increase_post_visibility_by_one	WS	app/constants/websocket.ts	-	ws	websocket
+WS:leave_team	WS	app/constants/websocket.ts	-	ws	websocket
+WS:license_changed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:memberrole_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:multiple_channels_viewed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:open_dialog	WS	app/constants/websocket.ts	-	ws	websocket
+WS:permission_policy_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:ping	WS	app/constants/websocket.ts	-	ws	websocket
+WS:plugin_disabled	WS	app/constants/websocket.ts	-	ws	websocket
+WS:plugin_enabled	WS	app/constants/websocket.ts	-	ws	websocket
+WS:plugin_statuses_changed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:pong	WS	app/constants/websocket.ts	-	ws	websocket
+WS:post_acknowledgement_added	WS	app/constants/websocket.ts	-	ws	websocket
+WS:post_acknowledgement_removed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:post_burned	WS	app/constants/websocket.ts	-	ws	websocket
+WS:post_deleted	WS	app/constants/websocket.ts	-	ws	websocket
+WS:post_edited	WS	app/constants/websocket.ts	-	ws	websocket
+WS:post_revealed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:post_translation_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:post_unread	WS	app/constants/websocket.ts	-	ws	websocket
+WS:posted	WS	app/constants/websocket.ts	-	ws	websocket
+WS:preference_changed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:preferences_changed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:preferences_deleted	WS	app/constants/websocket.ts	-	ws	websocket
+WS:property_field_created	WS	app/constants/websocket.ts	-	ws	websocket
+WS:property_field_deleted	WS	app/constants/websocket.ts	-	ws	websocket
+WS:property_field_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:property_values_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:reaction_added	WS	app/constants/websocket.ts	-	ws	websocket
+WS:reaction_removed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:received_group	WS	app/constants/websocket.ts	-	ws	websocket
+WS:received_group_associated_to_channel	WS	app/constants/websocket.ts	-	ws	websocket
+WS:received_group_associated_to_team	WS	app/constants/websocket.ts	-	ws	websocket
+WS:received_group_not_associated_to_channel	WS	app/constants/websocket.ts	-	ws	websocket
+WS:received_group_not_associated_to_team	WS	app/constants/websocket.ts	-	ws	websocket
+WS:restore_team	WS	app/constants/websocket.ts	-	ws	websocket
+WS:role_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:scheduled_post_created	WS	app/constants/websocket.ts	-	ws	websocket
+WS:scheduled_post_deleted	WS	app/constants/websocket.ts	-	ws	websocket
+WS:scheduled_post_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:show_toast	WS	app/constants/websocket.ts	-	ws	websocket
+WS:sidebar_category_created	WS	app/constants/websocket.ts	-	ws	websocket
+WS:sidebar_category_deleted	WS	app/constants/websocket.ts	-	ws	websocket
+WS:sidebar_category_order_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:sidebar_category_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:status_change	WS	app/constants/websocket.ts	-	ws	websocket
+WS:stop_typing	WS	app/constants/websocket.ts	-	ws	websocket
+WS:thread_follow_changed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:thread_read_changed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:thread_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:typing	WS	app/constants/websocket.ts	-	ws	websocket
+WS:update_team	WS	app/constants/websocket.ts	-	ws	websocket
+WS:user_added	WS	app/constants/websocket.ts	-	ws	websocket
+WS:user_removed	WS	app/constants/websocket.ts	-	ws	websocket
+WS:user_role_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:user_updated	WS	app/constants/websocket.ts	-	ws	websocket
+WS:webrtc	WS	app/constants/websocket.ts	-	ws	websocket
+X:accessibility	X	-	-	internal	accessibility
+X:deep-link	X	-	-	internal	deep-link
+X:diagnostics	X	-	-	internal	diagnostics
+X:local-store	X	-	-	internal	store
+X:native-shell	X	-	-	internal	shell
+X:notification-input	X	-	-	internal	notification
+X:parity-record	X	-	-	internal	parity
+X:push-proxy	X	-	-	internal	push
+X:transport	X	-	-	internal	transport
+X:web-fallback	X	-	-	internal	web-fallback
