@@ -433,14 +433,21 @@ final class T41ProfileUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, and the push replaces the root, so `nativeShell` is not in the tree at
+        // all (t_9399c0b4). `ShellSettle.waitForSignedIn` answers "are we in?" for both landings.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
     private func openChannel(_ app: XCUIApplication, channelID: String) {
+        // `channelSidebar.*` and the team rail only exist while the channel list is on screen:
+        // pop the pane the launch pushed first (`ShellSettle.revealChannelList`, t_9399c0b4).
+        let pops = ShellSettle.revealChannelList(app)
         let teamRow = element(app, "teamSidebar.team.\(teamID!)")
         XCTAssertTrue(teamRow.waitForExistence(timeout: 40),
-                      "the rail must list the team this fixture seeds:\n\(app.debugDescription)")
+                      "the rail must list the team this fixture seeds (after \(pops) Back tap(s) "
+                      + "to the channel list):\n\(app.debugDescription)")
         if !(teamRow.value as? String ?? "").contains("Selected") { teamRow.tap() }
         let row = revealSidebarRow(app, identifier: "channelSidebar.channel.\(channelID)")
         XCTAssertTrue(row.waitForExistence(timeout: 20),

@@ -248,16 +248,24 @@ final class T429ProfileTapUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 60),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel (the saved one,
+        // else the town hall) and pushes it **over** the list, and the push replaces the root, so
+        // `nativeShell` is not in the accessibility tree at all. Waiting on it alone is a race that
+        // this host now loses every time (t_9399c0b4, measured on T5449: 3/3 red here);
+        // `ShellSettle.waitForSignedIn` is the target's one answer to "are we in?" for both landings.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 60),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
     /// Open `#t41-profile` through the quick switcher, the way a person would on a workspace whose
     /// sidebar is far longer than one screen (T70's measured reason).
     private func openChannel(_ app: XCUIApplication) {
+        // `channelSidebar.*` — the team rail below included — only exists while the channel list is
+        // on screen, so pop the pane the launch pushed the way a reader does (`Back`), bounded.
+        let pops = ShellSettle.revealChannelList(app)
         let teamRow = element(app, "teamSidebar.team.\(teamID!)")
         XCTAssertTrue(teamRow.waitForExistence(timeout: 40),
-                      "the team rail must list #perf:\n\(app.debugDescription)")
+                      "the team rail must list #perf (after \(pops) Back tap(s) to the channel list):\n\(app.debugDescription)")
         if !(teamRow.value as? String ?? "").contains("Selected") { teamRow.tap() }
 
         let switcher = app.buttons["channelSidebar.quickSwitcher"]

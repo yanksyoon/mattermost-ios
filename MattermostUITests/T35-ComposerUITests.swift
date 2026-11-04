@@ -422,8 +422,14 @@ final class T35ComposerUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is not in the tree at all (t_9399c0b4).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
+        // This suite reads `channelSidebar.*` next, and those identifiers only exist while the
+        // channel list is on screen: take the reader's route back once, bounded
+        // (`ShellSettle.revealChannelList`). `showSidebar` later in each test is a 3 s no-op then.
+        ShellSettle.revealChannelList(app)
     }
 
     /// Open a channel the way a person does: its row in the sidebar.

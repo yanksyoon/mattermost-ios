@@ -419,7 +419,11 @@ final class T47CreateChannelUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4).
+        // `ShellSettle.waitForSignedIn` answers "are we in?" for both landings; `showSidebar` is
+        // what comes back to the list.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
@@ -443,8 +447,13 @@ final class T47CreateChannelUITests: XCTestCase {
     /// so the reader's route back is `Back`, then the `Channels` tab; the split layout has no bar and
     /// nothing to pop. `ShellSettle.tapTab` is both shapes in one call (T95-B).
     private func showSidebar(_ app: XCUIApplication) {
-        if element(app, "nativeSidebar").exists { return }
-        if !ShellSettle.tapTab(ShellSettle.Tab.channels, in: app, wait: 5) {
+        // `nativeSidebar` is in the tree even when a pushed channel pane covers it — measured on this
+        // card (`t9399c0b4`): at t=8.67 s it existed, `sidebarCurrentTeam` never did, and the dump was
+        // the "Town Square" pane with `Back` (`build/logs/t9399-T47CreateChannelUITests.log`). So it
+        // cannot be the early-out test; `ShellSettle.tapTab` settles the landing, pops the pane and taps
+        // `Channels`, and answers false on the split layout (no bar) leaving the sidebar alone.
+        if !ShellSettle.tapTab(ShellSettle.Tab.channels, in: app, wait: 5),
+           !element(app, "nativeSidebar").exists {
             let back = app.navigationBars.firstMatch.buttons.element(boundBy: 0)
             if back.exists, back.isHittable { back.tap() }
         }

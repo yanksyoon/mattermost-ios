@@ -300,7 +300,11 @@ final class TModalDismissUITests: XCTestCase {
         if app.textFields["loginIDField"].waitForExistence(timeout: 15) {
             signIn(app)
         }
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 45),
+        // Since `t_295b0a32` a signed-in launch opens a channel and pushes it over the list, so
+        // `nativeShell` is absent and only the pane is in the tree (t_9399c0b4).
+        // `ShellSettle.waitForSignedIn` answers for the list, the pushed pane and the tab bar;
+        // `landOnFixtureChannel` below pops the push itself (`Back`).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 45),
                       "the app must reach the native shell (signed in):\n\(app.debugDescription)")
         landOnFixtureChannel(app)
         return app
@@ -318,6 +322,10 @@ final class TModalDismissUITests: XCTestCase {
         if !element(app, "channelPostList").waitForExistence(timeout: 8) {
             tapBackIfPossible(app)
         }
+        // The quick switcher is a row **of the channel list**, and a pushed pane draws `channelPostList`
+        // — so "the post list is absent" is the wrong test for "the list is on show" (measured,
+        // `t9399c0b4`: "the sidebar must offer the quick switcher" with "Town Square" pushed over it).
+        _ = ShellSettle.revealChannelList(app)
         let current = element(app, "sidebarCurrentTeam")
         if current.exists, !current.label.localizedCaseInsensitiveContains("perf") {
             let rail = element(app, "teamSidebar.team.\(teamID!)")
@@ -327,7 +335,8 @@ final class TModalDismissUITests: XCTestCase {
             _ = element(app, "channelPostList").waitForExistence(timeout: 30)
         }
         if !element(app, "channelSidebar.quickSwitcher").waitForExistence(timeout: 10) {
-            tapBackIfPossible(app)
+            // Switching the rail into #perf pushed that team's default channel: pop it the same way.
+            _ = ShellSettle.revealChannelList(app)
         }
         let opener = element(app, "channelSidebar.quickSwitcher")
         XCTAssertTrue(opener.waitForExistence(timeout: 30),

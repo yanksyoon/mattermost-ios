@@ -382,8 +382,15 @@ final class T46WebFallbackUITests: XCTestCase {
                 submit.tap()
             }
         }
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 60),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 60),
                       "signing in must reach the shell:\n\(app.debugDescription)")
+        // Every test here taps rows in the sidebar's own sections, and those only exist while the
+        // channel list is on screen: pop the pane the launch pushed first
+        // (`ShellSettle.revealChannelList`). It also keeps the `nativeShell` waits later in each test
+        // (after a fallback closes) honest, because the root stays the root.
+        ShellSettle.revealChannelList(app)
     }
 
     /// Tap a row in the sidebar's "Web view" section and wait for a **painted** page whose committed

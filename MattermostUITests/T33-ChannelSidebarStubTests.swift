@@ -221,8 +221,15 @@ final class T33ChannelSidebarStubTests: XCTestCase {
         secret.tap()
         secret.typeText(Self.password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4). These tests
+        // then read `channelSidebar.*` (or assert the web placeholder for the flag-off variant), and
+        // both are only in the tree while the channel list is on screen.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
+        // Bounded and idempotent: zero pops when the launch already landed on the list, and it does
+        // nothing to the `sidebar=web` variant, which has no `channelSidebar.scroll` to pop back to.
+        ShellSettle.revealChannelList(app)
     }
 
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {

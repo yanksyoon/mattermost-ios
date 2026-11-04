@@ -390,7 +390,11 @@ final class T5449ListProfileUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 60),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4).
+        // `ShellSettle.waitForSignedIn` answers "are we in?" for the list, the pushed pane and the
+        // tab bar; every test below then reaches its screen with `ShellSettle.tapTab`.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 60),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
@@ -432,9 +436,13 @@ final class T5449ListProfileUITests: XCTestCase {
     /// Open the fixture channel through the quick switcher — the way a person does it on a workspace
     /// whose sidebar is longer than one screen (T70's measured reason, reused from T5449-C1).
     private func openChannel(_ app: XCUIApplication) {
+        // The launch pushes a channel pane over the list (t_295b0a32): the rail, the rows and the
+        // switcher only exist while the list is on screen, so pop it first
+        // (`ShellSettle.revealChannelList`, t_9399c0b4).
+        let pops = ShellSettle.revealChannelList(app)
         let teamRow = element(app, "teamSidebar.team.\(teamID!)")
         XCTAssertTrue(teamRow.waitForExistence(timeout: 40),
-                      "the team rail must list #perf:\n\(app.debugDescription)")
+                      "the team rail must list #perf (after \(pops) Back tap(s) to the channel list):\n\(app.debugDescription)")
         if !(teamRow.value as? String ?? "").contains("Selected") { teamRow.tap() }
 
         let switcher = app.buttons["channelSidebar.quickSwitcher"]

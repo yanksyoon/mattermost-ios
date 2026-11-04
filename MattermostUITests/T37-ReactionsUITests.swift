@@ -798,8 +798,11 @@ final class T37ReactionsUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: shellTimeout),
-                      "signing in must reach the shell (`nativeShell`):\n\(app.debugDescription)")
+        // Not `nativeShell` alone: since `t_295b0a32` a signed-in launch opens a channel and pushes
+        // it **over** the list, and the push replaces the root, so `nativeShell` is not in the tree at
+        // all (t_9399c0b4). `ShellSettle.waitForSignedIn` answers "are we in?" for both landings.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: shellTimeout),
+                      "signing in must reach the shell (the channel list or a pushed pane):\n\(app.debugDescription)")
     }
 
     private func launchAndOpenChannel() -> XCUIApplication {
@@ -822,11 +825,16 @@ final class T37ReactionsUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Same landing repair as the helper above (`ShellSettle.waitForSignedIn`, t_9399c0b4).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
     private func openChannel(_ app: XCUIApplication) {
+        // The sidebar's rows are only in the tree while the channel list is on screen; since
+        // `t_295b0a32` a launch pushes a channel pane over it, so take the reader's route back
+        // first (`ShellSettle.revealChannelList`, t_9399c0b4).
+        let pops = ShellSettle.revealChannelList(app)
         var row = element(app, "channelSidebar.channel.\(channelID!)")
         if !row.waitForExistence(timeout: 20) {
             // A relaunch can restore a different team on the rail (the fixture channel lives in #perf),
@@ -836,7 +844,8 @@ final class T37ReactionsUITests: XCTestCase {
             row = element(app, "channelSidebar.channel.\(channelID!)")
         }
         XCTAssertTrue(row.waitForExistence(timeout: 45),
-                      "the sidebar must list channel \(channelID ?? ""):\n\(app.debugDescription)")
+                      "the sidebar must list channel \(channelID ?? "") (after \(pops) Back tap(s) "
+                      + "to the channel list):\n\(app.debugDescription)")
         row.tap()
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 40),
                       "the channel pane must mount:\n\(app.debugDescription)")

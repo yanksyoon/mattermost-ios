@@ -1203,7 +1203,9 @@ final class MattermostUITests: XCTestCase {
         first.launch()
 
         signInThroughTheNativeForm(first, loginID: login, password: password)
-        XCTAssertTrue(element(first, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: the reset launch opens the team's town hall and pushes it over the
+        // list, so the shell container is absent (t_295b0a32 / t_9399c0b4).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(first, timeout: 40),
                       "a real sign-in must reach the shell:\n\(first.debugDescription)")
         attachShot(first, named: "t31-21-real-server-signed-in")
 
@@ -1214,7 +1216,9 @@ final class MattermostUITests: XCTestCase {
         second.launchArguments = launchArgs
         second.launch()
 
-        XCTAssertTrue(element(second, "nativeShell").waitForExistence(timeout: 40),
+        // A relaunch restores the channel the first launch opened and shows the pushed pane, where
+        // `nativeShell` is not in the tree at all — the same two landings `ShellSettle` answers for.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(second, timeout: 40),
                       "the stored session must restore on relaunch:\n\(second.debugDescription)")
         XCTAssertFalse(second.textFields["loginIDField"].exists,
                        "a restored session must not show the sign-in form")
@@ -1222,7 +1226,9 @@ final class MattermostUITests: XCTestCase {
         // Give the restore call time to come back: if the token were rejected, the banner and the
         // form would appear here — that is exactly what this sleep makes observable.
         Thread.sleep(forTimeInterval: 6)
-        XCTAssertTrue(element(second, "nativeShell").exists,
+        XCTAssertTrue(element(second, "nativeShell").exists
+                      || element(second, "nativeChannelPane").exists
+                      || second.tabBars.firstMatch.exists,
                       "the restore must still be signed in, not flipped to re-auth")
         XCTAssertFalse(element(second, "sessionExpiredBanner").exists,
                        "a token the server accepted must not raise the expired banner")
@@ -1271,13 +1277,20 @@ final class MattermostUITests: XCTestCase {
         app.launch()
 
         signInThroughTheNativeForm(app, loginID: login, password: password)
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4).
+        // `ShellSettle.waitForSignedIn` answers "are we in?" for the list, the pushed pane and the
+        // tab bar; the rail below only exists once the list is on screen, so pop the push the way a
+        // reader does (`ShellSettle.revealChannelList`).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "the sign-in must reach the shell:\n\(app.debugDescription)")
+        let pops = ShellSettle.revealChannelList(app)
 
         // 1. The rail, and the server's team order: `perf` first (teams_order), not "Operations".
         let rail = element(app, "teamSidebar.rail")
         XCTAssertTrue(rail.waitForExistence(timeout: 30),
-                      "a two-team account must get the rail:\n\(app.debugDescription)")
+                      "a two-team account must get the rail (after \(pops) Back tap(s) to the "
+                      + "channel list):\n\(app.debugDescription)")
 
         let ops = app.buttons.matching(
             NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@",

@@ -558,6 +558,10 @@ final class T40ChannelInfoUITests: XCTestCase {
         // exactly one team, and `t40member` is in one team (`GET /users/me/teams` -> ["perf"]), so
         // waiting for `teamSidebar.team.<id>` waited for a control the design deliberately does not draw
         // — the assertion never ran. The channel row is revealed directly instead.
+        //
+        // The launch pushes a channel pane over the list (t_295b0a32), where no sidebar exists at
+        // all: pop it the way a reader does first (`ShellSettle.revealChannelList`, t_9399c0b4).
+        ShellSettle.revealChannelList(app)
         let sidebarRow = revealSidebarRow(app, identifier: "channelSidebar.channel.\(channel.id)")
         XCTAssertTrue(sidebarRow.waitForExistence(timeout: 40),
                       "the non-admin must see the channel:\n\(app.debugDescription)")
@@ -885,16 +889,24 @@ final class T40ChannelInfoUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, and the push replaces the root, so `nativeShell` is not in the tree at
+        // all (t_9399c0b4). `ShellSettle.waitForSignedIn` answers "are we in?" for both landings;
+        // the helpers below are what come back to the channel list (`Back`).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
     /// Pick the team on the rail, then the channel row (the sidebar is sorted by activity, so the row
     /// may need scrolling — a lazy `List` builds only its viewport).
     private func openChannel(_ app: XCUIApplication, channel: Channel) {
+        // `teamSidebar.team.*` is only in the tree while the channel list is on screen: pop the pane
+        // the launch pushed first (`ShellSettle.revealChannelList`, t_9399c0b4).
+        let pops = ShellSettle.revealChannelList(app)
         let teamRow = element(app, "teamSidebar.team.\(teamID!)")
         XCTAssertTrue(teamRow.waitForExistence(timeout: 40),
-                      "the rail must list the team this test seeds:\n\(app.debugDescription)")
+                      "the rail must list the team this test seeds (after \(pops) Back tap(s) to "
+                      + "the channel list):\n\(app.debugDescription)")
         if !(teamRow.value as? String ?? "").contains("Selected") { teamRow.tap() }
         let row = revealSidebarRow(app, identifier: "channelSidebar.channel.\(channel.id)")
         XCTAssertTrue(row.waitForExistence(timeout: 20),
@@ -914,9 +926,12 @@ final class T40ChannelInfoUITests: XCTestCase {
     /// the app correctly on team Perf). The switcher is the native control that searches the channel
     /// list by name, i.e. what a reader with a long sidebar actually uses.
     private func openChannelViaSwitcher(_ app: XCUIApplication, channel: Channel) {
+        // Same landing repair as `openChannel` (`ShellSettle.revealChannelList`, t_9399c0b4).
+        let pops = ShellSettle.revealChannelList(app)
         let teamRow = element(app, "teamSidebar.team.\(teamID!)")
         XCTAssertTrue(teamRow.waitForExistence(timeout: 40),
-                      "the rail must list the team this test seeds:\n\(app.debugDescription)")
+                      "the rail must list the team this test seeds (after \(pops) Back tap(s) to "
+                      + "the channel list):\n\(app.debugDescription)")
         if !(teamRow.value as? String ?? "").contains("Selected") { teamRow.tap() }
 
         tapControl(app, "channelSidebar.quickSwitcher")
@@ -956,8 +971,12 @@ final class T40ChannelInfoUITests: XCTestCase {
     /// `ShellSettle.tapTab` is both shapes in one call (pop when a pane covers the bar, then tap
     /// `Channels`), which is what a reader does; T95-B replaced the hand-rolled pair here.
     private func showSidebar(_ app: XCUIApplication) {
-        if element(app, "nativeSidebar").exists { return }
-        if !ShellSettle.tapTab(ShellSettle.Tab.channels, in: app, wait: 5) {
+        // `nativeSidebar` is in the tree even when a pushed channel pane covers it (`t9399c0b4`:
+        // measured present at t=8.67 s with the pane on top), so it cannot be the early-out test.
+        // `ShellSettle.tapTab` settles the landing, pops the pane and taps `Channels`; on the split
+        // layout it answers false and the sidebar is already the screen on show.
+        if !ShellSettle.tapTab(ShellSettle.Tab.channels, in: app, wait: 5),
+           !element(app, "nativeSidebar").exists {
             // The split layout draws no tab bar: pop whatever detail is presented, if anything.
             let back = app.navigationBars.firstMatch.buttons.element(boundBy: 0)
             if back.exists, back.isHittable { back.tap() }
@@ -1173,14 +1192,21 @@ final class T40ChannelInfoUITests: XCTestCase {
     /// Three rules, each measured:
     ///  * a row arrives a beat after sign-in (the channel list is a request), so "not there yet" is not
     ///    "not there": the wait below is 15 s **before** any scrolling;
-    ///  * the scroll container is the sidebar's `List`, which SwiftUI exposes as a collection view. An
-    ///    `.accessibilityIdentifier` on the `List` itself does **not** surface as an element (tried and
-    ///    measured in suite3), so the container is found by type — safe here because these helpers are
-    ///    only used while the sidebar is the screen on show, where it owns the only list;
+    ///  * the scroll container is the channel list's own scroll surface — `ShellSettle.channelSidebarScroll`
+    ///    (`channelSidebar.scroll`). It used to be `app.collectionViews.firstMatch`, the `List`'s
+    ///    collection view; T8f replaced that `List` with `ScrollView` + `LazyVStack`, so the query matched
+    ///    nothing and the old guard returned **without a single swipe** — measured on this card
+    ///    (`t9399c0b4`): `#t40-standup` was never found while the tree showed `T8G probe 0071` and on,
+    ///    i.e. the sweep had not moved at all (`build/logs/t9399-T40ChannelInfoUITests.log`);
     ///  * if the sidebar is not the screen on show, swiping "something" is worse than failing: the old
     ///    fallback swiped the whole app, scrolled the post list 25 times and crashed an XCTest snapshot
     ///    pass on the resulting log volume. `nativeSidebar` — the sidebar's own anchor row — is the test
     ///    for "we are on the sidebar".
+    ///
+    /// Both directions, because which way a row lies is the fixture's business: down first with fast
+    /// flicks, then back up slowly (a fast flick crosses several screens and a lazy stack only
+    /// materialises a row near the viewport, so an overshoot looks exactly like absence — the ordering
+    /// `ShellSettle.revealSidebarChannel` measured, reused here).
     @discardableResult
     private func revealSidebarRow(_ app: XCUIApplication, identifier: String,
                                   maxSwipes: Int = 25) -> XCUIElement {
@@ -1189,12 +1215,20 @@ final class T40ChannelInfoUITests: XCTestCase {
         XCTAssertTrue(element(app, "nativeSidebar").exists,
                       "the sidebar must be the screen on show before a row can be scrolled for:"
                       + "\n\(app.debugDescription)")
-        let container = app.collectionViews.firstMatch
+        let container = ShellSettle.channelSidebarScroll(app)
         guard container.exists else { return target }
         var swipes = 0
         while !target.exists, swipes < maxSwipes {
             container.swipeUp(velocity: .fast)
             swipes += 1
+        }
+        while !target.exists, swipes < maxSwipes * 2 {
+            container.swipeDown(velocity: .slow)
+            swipes += 1
+        }
+        if !target.exists {
+            print("[t40] \(identifier) not realised after \(swipes) swipe(s); "
+                  + "\(ShellSettle.drawnSidebarRows(app)) row(s) drawn")
         }
         return target
     }

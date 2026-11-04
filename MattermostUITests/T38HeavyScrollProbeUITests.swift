@@ -93,16 +93,23 @@ final class T38HeavyScrollProbeUITests: XCTestCase {
         XCTAssertTrue(secret.exists)
         secret.tap(); secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(el(app, "nativeShell").waitForExistence(timeout: 60),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 60),
                       "sign-in must reach the shell")
+        // The sidebar row below only exists while the channel list is on screen: pop the pane the
+        // launch pushed first (`ShellSettle.revealChannelList`, t_9399c0b4).
+        ShellSettle.revealChannelList(app)
 
-        var row = el(app, "channelSidebar.channel.\(channelID!)")
-        if !row.waitForExistence(timeout: 25) {
-            let team = el(app, "teamSidebar.team.\(teamID!)")
-            if team.waitForExistence(timeout: 10) { team.tap() }
-            row = el(app, "channelSidebar.channel.\(channelID!)")
-        }
-        XCTAssertTrue(row.waitForExistence(timeout: 45), "the sidebar must list #t38-heavy")
+        // The row is past the fold on this fixture (the list is lazy and #perf holds hundreds of
+        // channels), so sweep for it: `ShellSettle.revealSidebarChannel` waits for the list's surface
+        // and goes down then slowly back up. Tapping the team rail is not the fallback — it *pushes*
+        // that team's default channel and takes the list away (`t9399c0b4`).
+        let reveal = ShellSettle.revealSidebarChannel(app, channelID: channelID!)
+        let row = reveal.row
+        XCTAssertTrue(row.waitForExistence(timeout: 45),
+                      "the sidebar must list #t38-heavy (after \(reveal.swipes) swipe(s), "
+                      + "\(reveal.rowsDrawn ?? 0) row(s) drawn)")
         // The heavy channel is the newest row, so its centre can sit under the tab bar; tap its top.
         row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)).tap()
         let list = el(app, "channelPostList")

@@ -95,8 +95,13 @@ final class T70AuthorNamesUITests: XCTestCase {
         XCTAssertTrue(secret.exists)
         secret.tap(); secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 60),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 60),
                       "sign-in must reach the shell")
+        // The quick switcher below lives in the sidebar, which only exists while the channel list is
+        // on screen: pop the pane the launch pushed first (`ShellSettle.revealChannelList`, t_9399c0b4).
+        ShellSettle.revealChannelList(app)
 
         // The fixture account belongs to more than one team and to a workspace whose channel list
         // is far longer than one screen (`#perf` measured 18,842 pt tall on 2026-10-29 — hundreds of

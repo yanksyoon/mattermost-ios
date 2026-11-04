@@ -183,17 +183,27 @@ final class T635RestoredPaneUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 90),
-                      "signing in must reach the shell (`nativeShell`):\n\(app.debugDescription)")
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel (else the town
+        // hall) and pushes it **over** the list, so the shell container is not in the tree at all
+        // (t_9399c0b4). This launch is a reset launch, so the landing is either shape.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 90),
+                      "signing in must reach the shell (the channel list or a pushed pane):\n\(app.debugDescription)")
 
-        var row = element(app, "channelSidebar.channel.\(channelID!)")
-        if !row.waitForExistence(timeout: 30) {
-            let team = element(app, "teamSidebar.team.\(teamID!)")
-            if team.waitForExistence(timeout: 15) { team.tap() }
-            row = element(app, "channelSidebar.channel.\(channelID!)")
-        }
+        // The fixture channel's row (and the team rail) only exist while the channel list is on
+        // screen: pop the pane the launch opened the way a reader does (`Back`), bounded
+        // (`ShellSettle.revealChannelList`, t_9399c0b4).
+        let pops = ShellSettle.revealChannelList(app)
+        // The list is lazy and #perf holds hundreds of channels, so the row is often past the fold:
+        // sweep for it (`ShellSettle.revealSidebarChannel`, down then slowly back up). Tapping the team
+        // rail is not the fallback here — it *pushes* that team's default channel and takes the list
+        // away again, which is what the old code did before failing (`t9399c0b4`,
+        // `build/logs/t9399-T635RestoredPaneUITests.log`).
+        let reveal = ShellSettle.revealSidebarChannel(app, channelID: channelID!)
+        let row = reveal.row
         XCTAssertTrue(row.waitForExistence(timeout: 60),
-                      "the sidebar must list channel \(channelID ?? ""):\n\(app.debugDescription)")
+                      "the sidebar must list channel \(channelID ?? "") (after \(pops) Back tap(s) "
+                      + "to the channel list, \(reveal.swipes) sidebar swipe(s), "
+                      + "\(reveal.rowsDrawn ?? 0) row(s) drawn):\n\(app.debugDescription)")
         row.tap()
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 60),
                       "the channel pane must mount:\n\(app.debugDescription)")

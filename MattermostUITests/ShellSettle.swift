@@ -15,6 +15,19 @@
 // with the accessibility tree, because that means the shell's structure changed — a deviation card,
 // not a test workaround (`docs/t95-shell-tab-bar-decision.md` §2, last row).
 //
+// **The pre-`t_295b0a32` shape is now a red suite, not a slower pass** (measured 2026-11-04 on this
+// host: iPhone 16 Pro `4BB9CE43…`, iOS 18.3.1, the real 9.11.19 at `127.0.0.1:8065`).
+// `T5449ThreadProfileUITests` still signed in with a bare
+// `element(app, "nativeShell").waitForExistence(timeout: 60)` and then queried the team rail; at
+// `886a087` it was **3/3 red** at `the team rail must list #perf`, with the tree showing
+// `nativeChannelPane` "Town Square" and `Back` in the nav bar (`build/logs/te73-live-verify1.log`,
+// `…-verify2.log`, `…-verify3.log`) — and red after `simctl uninstall` too, so it was not persisted
+// state. A launch whose list has not loaded still passes such a suite, which is what hid the defect
+// until `t_295b0a32` made the pushed landing win the race every time. `t9399c0b4` then swept the
+// remaining live suites: every one that both waited on `nativeShell` and then read
+// `channelSidebar.*`/`teamSidebar.*` now signs in through `waitForSignedIn` and reaches the list
+// through `revealChannelList`/`revealSidebarChannel` (`docs/t9399c0b4-live-suite-landing.md`).
+//
 // The regular (iPad/Mac) layout draws no bottom bar: there the same screens are reached from the
 // detail column's toolbar (`shellSearchButton`, `shellSavedButton`, `shellActivityButton`). With no
 // bar and nothing pushed there is nothing to settle, so `tapTab` returns `false` and the call site
@@ -34,6 +47,36 @@ enum ShellSettle {
         static let saved = "Saved"
     }
 
+    /// Is the compact bar actually **on screen**?
+    ///
+    /// `app.tabBars.firstMatch.exists` answers "is a bar in the tree", and a bar under a pushed
+    /// channel pane is still in the tree — measured 2026-11-04 (`t9399c0b4`,
+    /// `build/logs/t9399-T5449ListProfileUITests.log`): `nativeChannelPane` "Town Square" was on top,
+    /// `tabBars` existed, and **none of its buttons did**, so `tapTab` failed on "the tab bar is on
+    /// screen but offers no \"Mentions\" tab" instead of popping the push. Ask for one of the bar's own
+    /// buttons (`Channels` is always drawn when the bar is), which is a typed query and therefore cheap.
+    private static func tabBarIsUp(_ app: XCUIApplication) -> Bool {
+        // A bar under a pushed pane is not usable even when its buttons are still in the tree: the
+        // same measurement had "Channels" present at t=11.89 s and the "Mentions" lookup right after
+        // find nothing once the pane arrived. So a pushed pane means "the bar is not on screen".
+        guard !app.otherElements["nativeChannelPane"].exists else { return false }
+        return app.tabBars.buttons[Tab.channels].exists
+    }
+
+    /// Wait until the launch has stopped moving: a channel pane over the list (the shape that has to
+    /// be popped), or the shell staying put for `settle` seconds.
+    ///
+    /// The push lands a beat *after* the shell draws, so "the bar/list is up" is not yet "it stays up"
+    /// (`t9399c0b4`: `build/logs/t9399-T5449ListProfileUITests.log`, "Channels" in the tree at
+    /// t=11.89 s, gone to the pane before the tab query). One cheap typed query per poll.
+    private static func waitForLandingToSettle(_ app: XCUIApplication, settle: TimeInterval) {
+        let pane = app.otherElements["nativeChannelPane"]
+        let deadline = Date().addingTimeInterval(settle)
+        while !pane.exists, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+    }
+
     /// Pop whatever the compact shell pushed over the tab bar, back to the channel list.
     ///
     /// Returns `true` when the bar is on screen afterwards (already there, or revealed by `Back`).
@@ -41,16 +84,32 @@ enum ShellSettle {
     /// return value, and the caller decides what that means in its own context.
     @discardableResult
     static func revealTabs(_ app: XCUIApplication, maxPops: Int = 3) -> Bool {
-        if app.tabBars.firstMatch.exists { return true }
+        if tabBarIsUp(app) { return true }
         var pops = 0
-        while !app.tabBars.firstMatch.exists, pops < maxPops {
-            let back = app.navigationBars.buttons["Back"]
-            guard back.exists, back.isHittable else { break }
-            back.tap()
+        while !tabBarIsUp(app), pops < maxPops {
+            guard popOneScreen(app) else { break }
             pops += 1
             _ = app.tabBars.firstMatch.waitForExistence(timeout: 10)
         }
-        return app.tabBars.firstMatch.exists
+        return tabBarIsUp(app)
+    }
+
+    /// Tap `Back` on whatever is pushed, bounded, and report whether it was tapped.
+    ///
+    /// A pane mid-push carries a `Back` that exists but is **not hittable** for a beat, and returning
+    /// there left the caller waiting under a pane that never went away (measured 2026-11-04,
+    /// `build/logs/t9399-T5449ProfileActionsUITests.log`: the pane is in the tree at t=9.31 s, `Back`
+    /// at t=9.40 s is not hittable). Wait it out.
+    private static func popOneScreen(_ app: XCUIApplication) -> Bool {
+        let back = app.navigationBars.buttons["Back"]
+        guard back.waitForExistence(timeout: 10) else { return false }
+        let deadline = Date().addingTimeInterval(10)
+        while !back.isHittable, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        guard back.isHittable else { return false }
+        back.tap()
+        return true
     }
 
     /// Tap a bottom tab from wherever the shell is: from the channel list when the bar is up, and
@@ -68,11 +127,14 @@ enum ShellSettle {
                        maxPops: Int = 3,
                        file: StaticString = #filePath,
                        line: UInt = #line) -> Bool {
-        if !app.tabBars.firstMatch.exists {
+        // Let the landing settle first (`t9399c0b4`): the bar can be drawn for a beat before the
+        // pushed channel covers it, and a tab tapped in that beat lands on the pane.
+        waitForLandingToSettle(app, settle: 3)
+        if !tabBarIsUp(app) {
             _ = app.tabBars.firstMatch.waitForExistence(timeout: wait)
         }
 
-        if !app.tabBars.firstMatch.exists {
+        if !tabBarIsUp(app) {
             // A pushed channel is the only thing that takes the bar away on compact. Pop it.
             let back = app.navigationBars.buttons["Back"]
             guard back.exists else { return false }
@@ -150,21 +212,45 @@ enum ShellSettle {
     /// while the hand-over was in flight failed hard (`Failed to swipe up "channelSidebar.scroll": No
     /// matches found`), so this waits for the landing first, then pops, bounded.
     ///
-    /// The 6 s wait is a ceiling, not a sleep: a launch that lands on the list answers at once and
-    /// costs only the round trip.
+    /// **The landing arrives late, and that is why this waits rather than checking once** (`t9399c0b4`,
+    /// measured 2026-11-04 on this host with `T429ProfileTapUITests`): the shell draws the channel list
+    /// first and pushes the auto-opened channel a beat later. In that run one test saw the pane at
+    /// t=10.2 s and popped it, while the next saw only the list at t=10.1 s, answered "already on the
+    /// list" with 0 pops, and was covered by the pane before its 40 s rail wait — the rail it waited
+    /// for was never in the tree (`build/logs/t9399-T429ProfileTapUITests.log`). A list with nothing
+    /// over it is therefore not yet a settled landing: it is given `settle` seconds for the hand-over
+    /// to appear, and popped when it does. A launch that lands on a pushed pane answers at once; the
+    /// second costs the window, which is why callers use this once per launch rather than per query.
     ///
-    /// - Returns: how many `Back` taps it took (0 when the list was already up) — reported by callers
-    ///   so a failure says whether the list was ever reached.
+    /// The `settle` wait is a ceiling, not a sleep, and it is made of one cheap typed query per poll
+    /// (`nativeChannelPane` is an `Other` element) — the any-type form is what blows the log budget
+    /// (`docs/t8d-build-note.md` §1–§2).
+    ///
+    /// - Returns: how many `Back` taps it took (0 when the list was already up and stayed up) —
+    ///   reported by callers so a failure says whether the list was ever reached.
     @discardableResult
-    static func revealChannelList(_ app: XCUIApplication, maxPops: Int = 3) -> Int {
-        _ = app.otherElements["nativeChannelPane"].waitForExistence(timeout: 6)
+    static func revealChannelList(_ app: XCUIApplication, maxPops: Int = 3,
+                                  settle: TimeInterval = 8) -> Int {
+        let pane = app.otherElements["nativeChannelPane"]
+        let deadline = Date().addingTimeInterval(settle)
         var pops = 0
-        while pops < maxPops, !channelSidebarScroll(app).exists {
-            let back = app.navigationBars.buttons["Back"]
-            guard back.exists, back.isHittable else { break }
-            back.tap()
+        while pops < maxPops {
+            // Wait out the hand-over: the pane is the shape that has to be popped.
+            while !pane.exists, Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+            }
+            if !pane.exists, channelSidebarScroll(app).exists { return pops }
+            // `Back` may exist but not be hittable while the push animates (`popOneScreen` waits it
+            // out — measured 2026-11-04: pane in the tree at t=9.31 s, `Back` hittable a beat later).
+            guard popOneScreen(app) else { return pops }
             pops += 1
             _ = channelSidebarScroll(app).waitForExistence(timeout: 10)
+            // After a pop the hand-over has happened; only a further push could cover the list again,
+            // and that one is popped by the next turn of the loop after its own settle window.
+            if !pane.exists, channelSidebarScroll(app).exists {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+                if !pane.exists { return pops }
+            }
         }
         return pops
     }

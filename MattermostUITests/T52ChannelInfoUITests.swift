@@ -242,9 +242,15 @@ final class T52ChannelInfoUITests: XCTestCase {
     }
 
     private func openChannel(_ app: XCUIApplication, channel: Channel) {
+        // The launch pushes a channel pane over the list (t_295b0a32): `teamSidebar.team.*` and
+        // `channelSidebar.*` only exist while the list is on screen, so pop it first
+        // (`ShellSettle.revealChannelList`, t_9399c0b4). Idempotent on a launch that already
+        // landed on the list.
+        let pops = ShellSettle.revealChannelList(app)
         let teamRow = element(app, "teamSidebar.team.\(teamID!)")
         XCTAssertTrue(teamRow.waitForExistence(timeout: 40),
-                      "the rail must list the team:\n\(app.debugDescription)")
+                      "the rail must list the team (after \(pops) Back tap(s) to the channel list):"
+                      + "\n\(app.debugDescription)")
         if !(teamRow.value as? String ?? "").contains("Selected") { teamRow.tap() }
         let row = revealSidebarRow(app, identifier: "channelSidebar.channel.\(channel.id)")
         XCTAssertTrue(row.waitForExistence(timeout: 20),

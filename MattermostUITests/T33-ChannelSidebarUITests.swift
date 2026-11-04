@@ -661,8 +661,14 @@ final class T33ChannelSidebarUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
+        // Every test in this class reads `channelSidebar.*` next, and those identifiers only exist
+        // while the channel list is on screen: take the reader's route back once, bounded
+        // (`ShellSettle.revealChannelList`). Zero pops on a launch that already landed on the list.
+        ShellSettle.revealChannelList(app)
     }
 
     // MARK: - Server access (the test is its own API client, so nothing is assumed)

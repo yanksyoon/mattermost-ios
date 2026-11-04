@@ -301,7 +301,11 @@ final class T50EditProfileUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4).
+        // `ShellSettle.waitForSignedIn` answers for the list, the pushed pane and the tab bar;
+        // `openEditProfile` pops a pushed pane through its own `showSidebar`.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
@@ -353,8 +357,11 @@ final class T50EditProfileUITests: XCTestCase {
     }
 
     private func showSidebar(_ app: XCUIApplication) {
-        if element(app, "nativeSidebar").exists { return }
-        if !ShellSettle.tapTab(ShellSettle.Tab.channels, in: app, wait: 5) {
+        // `nativeSidebar` is in the tree even under a pushed channel pane (`t9399c0b4`), so it cannot
+        // be the early-out test: `ShellSettle.tapTab` settles the landing, pops the pane and taps
+        // `Channels` (and answers false on the split layout, where the sidebar is already on show).
+        if !ShellSettle.tapTab(ShellSettle.Tab.channels, in: app, wait: 5),
+           !element(app, "nativeSidebar").exists {
             let back = app.navigationBars.firstMatch.buttons.element(boundBy: 0)
             if back.exists, back.isHittable { back.tap() }
         }
@@ -369,21 +376,15 @@ final class T50EditProfileUITests: XCTestCase {
     /// Scroll the sidebar until the channel's row is realised, then open it.
     private func showChannel(_ app: XCUIApplication, channelID: String) {
         showSidebar(app)
-        let row = element(app, "channelSidebar.channel.\(channelID)")
-        if !row.waitForExistence(timeout: 15) {
-            let sidebar = ShellSettle.channelSidebarScroll(app)
-            var revealed = row.exists
-            for _ in 0..<6 where !revealed {
-                sidebar.swipeUp(velocity: .fast)
-                revealed = row.waitForExistence(timeout: 1)
-            }
-            for _ in 0..<6 where !revealed {
-                sidebar.swipeDown(velocity: .fast)
-                revealed = row.waitForExistence(timeout: 1)
-            }
-        }
+        // One implementation of "sweep a lazy list both ways and wait for its surface" —
+        // `ShellSettle.revealSidebarChannel`. A local copy swiped `channelSidebar.scroll` before it
+        // existed, which is not an assertion failure but a hard query error ("Failed to swipe up
+        // \"channelSidebar.scroll\" … No matches found", `t9399c0b4`).
+        let reveal = ShellSettle.revealSidebarChannel(app, channelID: channelID)
+        let row = reveal.row
         XCTAssertTrue(row.waitForExistence(timeout: 20),
-                      "the sidebar must list \(channelID):\n\(app.debugDescription)")
+                      "the sidebar must list \(channelID) (after \(reveal.swipes) swipe(s), "
+                      + "\(reveal.rowsDrawn ?? 0) row(s) drawn):\n\(app.debugDescription)")
         row.tap()
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 60),
                       "the channel's post list must mount:\n\(app.debugDescription)")

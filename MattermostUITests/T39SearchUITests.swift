@@ -240,7 +240,11 @@ final class T39SearchUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent from the tree until `Back`
+        // (t_9399c0b4). `ShellSettle.waitForSignedIn` answers "are we in?" for both landings;
+        // `launchAndOpenChannel` below pops the push itself.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
@@ -339,12 +343,21 @@ final class T39SearchUITests: XCTestCase {
         return target
     }
 
+    /// Swipe a lazy list until `identifier` exists.
+    ///
+    /// The list is a **request**: it mounts as `…loading` first, and swiping a container that is not in
+    /// the tree yet fails the run as `Failed to swipe up "savedPosts" … No matches found` instead of
+    /// waiting (`t9399c0b4`, `build/logs/t9399-T39SearchUITests.log`: `nativeSavedPane` had mounted at
+    /// t≈38 s and the swipe one step later was a hard query error). Wait for the container, then swipe.
     @discardableResult
     private func revealRow(_ app: XCUIApplication, identifier: String,
                            in listIdentifier: String, maxSwipes: Int = 12) -> XCUIElement {
         let target = element(app, identifier)
         guard !target.exists else { return target }
         let list = element(app, listIdentifier)
+        XCTAssertTrue(list.waitForExistence(timeout: 30),
+                      "\(listIdentifier) must mount before a row can be scrolled for:"
+                      + "\n\(app.debugDescription)")
         var swipes = 0
         while !target.exists, swipes < maxSwipes {
             list.swipeUp(velocity: .fast)

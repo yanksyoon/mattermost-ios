@@ -100,8 +100,15 @@ final class T45AvatarUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell")
+
+        // The sidebar (and every `channelSidebar.*` identifier below) only exists while the channel
+        // list is on screen: pop the pane the launch pushed the way a reader does
+        // (`ShellSettle.revealChannelList`, t_9399c0b4).
+        ShellSettle.revealChannelList(app)
 
         // The sidebar is a lazy list (a `ScrollView` + `LazyVStack` since T8f) and this server holds
         // ~40 channels for this account, so scroll (bounded, both directions) until the row is

@@ -234,13 +234,18 @@ final class T54MentionBannerUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
     /// Open a channel the way a person does: the quick switcher (the fixture sidebar carries every channel
     /// the server has, and the row's position is not the test's business).
     private func openChannel(_ app: XCUIApplication, channelID: String, name: String) {
+        // The sidebar and its quick switcher are only in the tree while the channel list is on
+        // screen: pop the pane the launch pushed first (`ShellSettle.revealChannelList`, t_9399c0b4).
+        ShellSettle.revealChannelList(app)
         let quick = element(app, "channelSidebar.quickSwitcher")
         if !quick.waitForExistence(timeout: 20) {
             // Regular layout (iPad): the sidebar is its own `NavigationSplitView` column and iOS opens the

@@ -358,14 +358,18 @@ final class T48PostOptionsUITests: XCTestCase {
         if app.textFields["loginIDField"].waitForExistence(timeout: 15) {
             signIn(app)
         }
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 45),
+        // Since `t_295b0a32` a signed-in launch opens a channel and pushes it over the list, so
+        // `nativeShell` is absent (t_9399c0b4). `ShellSettle.waitForSignedIn` answers for the list,
+        // the pushed pane and the tab bar; the steps below pop the push themselves (`Back`).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 45),
                       "the app must reach the native shell (signed in):\n\(app.debugDescription)")
 
-        if !element(app, "channelPostList").waitForExistence(timeout: 8) {
-            // The shell may come up on its own home pane ("No channel selected") or with a restored
-            // channel pushed over the sidebar. `Back` is the one control both states share.
-            tapBackIfPossible(app)
-        }
+        // The launch lands either on the channel list or on a channel pushed over it (`t_295b0a32`), and
+        // the quick switcher is a row **of the list** — so take the reader's route back once. This used
+        // to read `channelPostList` and pop only when it was *absent*, which is backwards: the post list
+        // is exactly what a pushed pane draws (`t9399c0b4`, `build/logs/t9399-T48PostOptionsUITests.log`:
+        // "the sidebar must offer the quick switcher" with the pane on screen).
+        let pops = ShellSettle.revealChannelList(app)
         let current = element(app, "sidebarCurrentTeam")
         if current.exists, !current.label.localizedCaseInsensitiveContains("perf") {
             // Measured: switching the rail into #perf opens that team's default channel (Town Square),
@@ -377,11 +381,13 @@ final class T48PostOptionsUITests: XCTestCase {
             _ = element(app, "channelPostList").waitForExistence(timeout: 30)
         }
         if !element(app, "channelSidebar.quickSwitcher").waitForExistence(timeout: 10) {
-            tapBackIfPossible(app)
+            // Switching teams pushed that team's default channel: the same pop applies.
+            _ = ShellSettle.revealChannelList(app)
         }
         let opener = element(app, "channelSidebar.quickSwitcher")
         XCTAssertTrue(opener.waitForExistence(timeout: 30),
-                      "the sidebar must offer the quick switcher:\n\(app.debugDescription)")
+                      "the sidebar must offer the quick switcher (after \(pops) Back tap(s) to the "
+                      + "channel list):\n\(app.debugDescription)")
         opener.tap()
         let field = app.textFields["channelSidebar.quickSwitcher.field"]
         XCTAssertTrue(field.waitForExistence(timeout: 15),
@@ -423,7 +429,10 @@ final class T48PostOptionsUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 45),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch pushes a channel pane over the
+        // list and the push replaces the root (t_9399c0b4). `ShellSettle.waitForSignedIn` answers
+        // for both landings; its caller then pops the push itself.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 45),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 

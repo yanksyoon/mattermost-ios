@@ -189,7 +189,11 @@ final class T51GlobalDraftsUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, and the push replaces the root, so `nativeShell` is not in the tree at
+        // all (t_9399c0b4). `ShellSettle.waitForSignedIn` answers "are we in?" for both landings;
+        // `showSidebar` is what comes back to the list (`Back`).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
@@ -219,10 +223,17 @@ final class T51GlobalDraftsUITests: XCTestCase {
     /// Return to the channel sidebar. On a phone the channel view is pushed over the tabs, so Back
     /// is the only way to it (T35's helper, same reasoning).
     private func showSidebar(_ app: XCUIApplication) {
-        if element(app, "channelSidebar.quickSwitcher").waitForExistence(timeout: 3) { return }
+        // A row of a *covered* root is still in the tree — measured on this card (`t9399c0b4`:
+        // `nativeSidebar` present under a pushed pane at t=8.67 s), so a presence probe is not the
+        // screen test and the old 3 s probe let `pickTeam` tap the rail on a restored pane, which
+        // pushed that team's default channel and took the switcher away. `revealChannelList` pops a
+        // pushed pane and costs nothing when the list is already the screen on show.
+        let pops = ShellSettle.revealChannelList(app)
+        if element(app, "channelSidebar.quickSwitcher").waitForExistence(timeout: 10) { return }
         let back = app.navigationBars.buttons["Back"]
         XCTAssertTrue(back.waitForExistence(timeout: 25),
-                      "a pushed screen must offer Back:\n\(app.debugDescription)")
+                      "a pushed screen must offer Back (after \(pops) Back tap(s) to the list):"
+                      + "\n\(app.debugDescription)")
         back.tap()
         XCTAssertTrue(element(app, "channelSidebar.quickSwitcher").waitForExistence(timeout: 30),
                       "Back must land on the channel sidebar:\n\(app.debugDescription)")

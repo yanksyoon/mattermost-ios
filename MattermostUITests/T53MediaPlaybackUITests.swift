@@ -269,11 +269,17 @@ final class T53MediaPlaybackUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so `nativeShell` is absent and `channelSidebar.*` is gone until `Back`
+        // (t_9399c0b4). `ShellSettle.waitForSignedIn` answers for both landings.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
     private func openChannel(_ app: XCUIApplication) {
+        // The sidebar and its quick switcher are only in the tree while the channel list is on
+        // screen: pop the pane the launch pushed first (`ShellSettle.revealChannelList`, t_9399c0b4).
+        let pops = ShellSettle.revealChannelList(app)
         // The sidebar lists its channels lazily and the fixture server carries hundreds; the quick
         // switcher is the app's own "find a channel by name" path, so the test uses it rather than
         // scrolling a list whose order is not the test's business.
@@ -283,7 +289,8 @@ final class T53MediaPlaybackUITests: XCTestCase {
             if team.waitForExistence(timeout: 10) { team.tap() }
         }
         XCTAssertTrue(quick.waitForExistence(timeout: 30),
-                      "the sidebar must offer the quick switcher:\n\(app.debugDescription)")
+                      "the sidebar must offer the quick switcher (after \(pops) Back tap(s) to the "
+                      + "channel list):\n\(app.debugDescription)")
         quick.tap()
 
         let field = element(app, "channelSidebar.quickSwitcher.field")

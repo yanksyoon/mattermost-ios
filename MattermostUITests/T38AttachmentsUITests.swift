@@ -441,11 +441,17 @@ final class T38AttachmentsUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, and the push replaces the root, so `nativeShell` is not in the tree at
+        // all (t_9399c0b4). `ShellSettle.waitForSignedIn` answers "are we in?" for both landings.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
     private func openChannel(_ app: XCUIApplication) {
+        // `channelSidebar.*` is only in the tree while the channel list is on screen, and the launch
+        // pushes a pane over it (`ShellSettle.revealChannelList`, t_9399c0b4).
+        let pops = ShellSettle.revealChannelList(app)
         // The fixture server is shared with the other cards and now carries hundreds of channels, so
         // the sidebar row for this one is not guaranteed to be materialised in the lazy list. The
         // quick switcher is the app's own "find a channel by name" path and is stable under that
@@ -473,7 +479,8 @@ final class T38AttachmentsUITests: XCTestCase {
         }
         if !element(app, "channelPostList").exists {
             XCTAssertTrue(row.waitForExistence(timeout: 45),
-                          "the sidebar must list channel \(channelID ?? ""):\n\(app.debugDescription)")
+                          "the sidebar must list channel \(channelID ?? "") (after \(pops) Back "
+                          + "tap(s) to the channel list):\n\(app.debugDescription)")
             row.tap()
         }
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 40),

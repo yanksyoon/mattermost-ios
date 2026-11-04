@@ -150,8 +150,14 @@ final class T48PostOptionsAVUITests: XCTestCase {
             secret.typeText(password)
             app.buttons["loginSubmitButton"].tap()
         }
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 45),
+        // Since `t_295b0a32` a signed-in launch opens a channel and pushes it over the list, so
+        // `nativeShell` is absent (t_9399c0b4). `ShellSettle.waitForSignedIn` answers for the list,
+        // the pushed pane and the tab bar.
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 45),
                       "the app must reach the native shell (signed in):\n\(app.debugDescription)")
+        // …and the sidebar's own controls only exist once the list is on screen: pop the push the
+        // way a reader does (`ShellSettle.revealChannelList`, t_9399c0b4).
+        ShellSettle.revealChannelList(app)
         if !element(app, "channelPostList").waitForExistence(timeout: 8) {
             for identifier in ["backToolbarButton", "BackButton"] {
                 let back = app.buttons[identifier]
@@ -160,10 +166,8 @@ final class T48PostOptionsAVUITests: XCTestCase {
         }
         let opener = element(app, "channelSidebar.quickSwitcher")
         if !opener.waitForExistence(timeout: 10) {
-            for identifier in ["backToolbarButton", "BackButton"] {
-                let back = app.buttons[identifier]
-                if back.waitForExistence(timeout: 3), back.isEnabled { back.tap(); break }
-            }
+            // Switching the rail into #perf pushed that team's default channel: pop it the same way.
+            _ = ShellSettle.revealChannelList(app)
         }
         XCTAssertTrue(opener.waitForExistence(timeout: 30),
                       "the sidebar must offer the quick switcher:\n\(app.debugDescription)")

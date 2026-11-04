@@ -628,6 +628,10 @@ final class T34ChannelPostListUITests: XCTestCase {
         // defect: a person scrolls. So scroll, bounded, until the row exists — then assert.
         let channel = try? self.channel(named: channelName)
         let identifier = "channelSidebar.channel.\(channel?.id ?? "")"
+        // The launch pushes a channel pane over the list (t_295b0a32), where no sidebar row exists at
+        // all: pop it the way a reader does first (`ShellSettle.revealChannelList`, t_9399c0b4).
+        // Idempotent when the launch already landed on the list.
+        ShellSettle.revealChannelList(app)
         let row = element(app, identifier)
         if !row.waitForExistence(timeout: 10) {
             // T8f: the channel list is a `ScrollView` + `LazyVStack`; this is its scroll view (it
@@ -668,7 +672,9 @@ final class T34ChannelPostListUITests: XCTestCase {
         secret.tap()
         secret.typeText(password)
         app.buttons["loginSubmitButton"].tap()
-        XCTAssertTrue(element(app, "nativeShell").waitForExistence(timeout: 40),
+        // Not `nativeShell`: since `t_295b0a32` a signed-in launch opens a channel and pushes it
+        // **over** the list, so the shell container is absent until `Back` (t_9399c0b4).
+        XCTAssertTrue(ShellSettle.waitForSignedIn(app, timeout: 40),
                       "signing in must reach the shell:\n\(app.debugDescription)")
     }
 
