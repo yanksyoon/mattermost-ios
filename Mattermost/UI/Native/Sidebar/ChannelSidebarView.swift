@@ -491,7 +491,12 @@ struct NativeChannelSidebarContent: View {
             ForEach(model.groups) { group in
                 Section {
                     if !model.isCollapsed(categoryID: group.id) {
-                        ForEach(group.entries) { entry in
+                        // t_8d539b3f: the body draws the group's **page** (`visibleEntries`), not
+                        // `entries`. `entries` stays the whole group, so the header's roll-up and the
+                        // footer's totals are still computed over every row, and the quick switcher
+                        // still searches every row.
+                        let rows = group.visibleEntries
+                        ForEach(rows) { entry in
                             ChannelSidebarRow(entry: entry,
                                               canMove: !group.entries.isEmpty && model.canWriteLayout) {
                                 open(entry)
@@ -506,7 +511,18 @@ struct NativeChannelSidebarContent: View {
                             }
                             // The `List` drew a separator above every row but the first; so does
                             // the card (`channelSidebarRowSurface`).
-                            .channelSidebarRowSurface(separator: entry.id != group.entries.first?.id)
+                            .channelSidebarRowSurface(separator: entry.id != rows.first?.id)
+                        }
+                        // The Load more row is part of the body, so it sits where the next row would
+                        // be and moves with the list. It is a sibling of the header button, never
+                        // inside it: the header keeps exactly one action (collapse) and one
+                        // accessibility element.
+                        if group.showsLoadMore {
+                            ChannelSidebarLoadMoreRow(remaining: group.hiddenCount,
+                                                      identifier: group.loadMoreIdentifier) {
+                                model.loadMore(categoryID: group.id)
+                            }
+                            .channelSidebarRowSurface()
                         }
                     }
                 } header: {
@@ -887,6 +903,60 @@ struct ChannelSidebarRow: View {
                 .background(Color.red, in: Capsule())
                 .accessibilityHidden(true)
         }
+    }
+}
+
+/// The Direct messages group's "Load more" row (t_8d539b3f).
+///
+/// A **row in the group's body**, not a toolbar control: it sits where the next conversation would
+/// be, so it reads as "there are more of these" and scrolls with the list. It is a sibling of the
+/// category header — never inside it — so the header keeps exactly one action (collapse) and exactly
+/// one accessibility element; the two controls cannot steal each other's semantics.
+///
+/// It is a plain `Button`, which is what makes it keyboard-activatable on Catalyst (Space/Return
+/// while focused) without any extra focus plumbing: the row is the control, and its hit shape is the
+/// row (`channelSidebarRowContent`), like every channel row's.
+struct ChannelSidebarLoadMoreRow: View {
+    /// Rows the cap is still holding back at draw time.
+    let remaining: Int
+    /// The stable handle (`ChannelSidebarGroup.loadMoreIdentifier`).
+    let identifier: String
+    let action: () -> Void
+
+    /// What VoiceOver reads after "Load more" — the number, which is the one fact that makes the
+    /// control useful.
+    var accessibilityValue: String {
+        remaining == 1 ? "1 remaining" : "\(remaining) remaining"
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: "chevron.down.circle")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .scaledColumn(width: 16)
+                    .accessibilityHidden(true)
+                Text("Load more")
+                    .mmLineLimit(1)
+                    .layoutPriority(1)
+                Spacer(minLength: 4)
+                Text(accessibilityValue)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .channelSidebarRowContent()
+        }
+        .buttonStyle(.plain)
+        // One row, one element (T8e's rule for every row in this list): the glyph, the label and the
+        // count were three elements. The label stays "Load more"; the count moves into the value.
+        .accessibilityRepresentation {
+            Button("Load more", action: action)
+                .accessibilityIdentifier(identifier)
+                .accessibilityValue(accessibilityValue)
+        }
+        .accessibilityIdentifier(identifier)
+        .help("Show the next direct messages")
     }
 }
 

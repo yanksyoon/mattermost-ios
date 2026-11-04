@@ -471,6 +471,11 @@ struct MattermostApp: App {
                 // bold + dot is visible where the rows are not. Release product (outside `#if DEBUG`
                 // on purpose), inert without the argument.
                 .task { runSidebarGroupSnapshotIfRequested() }
+                // t_8d539b3f evidence probe: `-dmPagingSnapshot <dir>` photographs the Direct
+                // messages group's page — 20 rows + the "Load more" row with its remaining count —
+                // and what one/two activations do. Release product (outside `#if DEBUG` on purpose),
+                // inert without the argument.
+                .task { runDMPagingSnapshotIfRequested() }
                 #if DEBUG
                 // T30 evidence probe: `-nativeShellSnapshot <dir>` writes light/dark PNGs of the
                 // shell (plus an accessibility text size pair). Inert without the argument.
@@ -1380,6 +1385,252 @@ struct MattermostApp: App {
                 .write(to: URL(fileURLWithPath: dir + "/sidebar-groups.txt"),
                        atomically: true, encoding: .utf8)
         }
+    }
+
+    // MARK: Direct-messages page evidence (t_8d539b3f — ships in Release)
+
+    /// `-dmPagingSnapshot <dir>`: where the Direct messages page probe writes its PNGs + notes.
+    private var dmPagingProbeDir: String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let d = args.firstIndex(of: "-dmPagingSnapshot"), args.indices.contains(d + 1)
+        else { return nil }
+        return args[d + 1]
+    }
+
+    /// Evidence probe for the Direct messages page ("the 20 most recent, then Load more") **on a
+    /// Release product**.
+    ///
+    /// It expands the group if it is collapsed (restoring that at the end, because collapse is
+    /// persisted on the server), captures the drawn page, activates the Load more control and
+    /// captures again, and writes the **model's own page facts** next to every picture — total rows,
+    /// revealed, visible, hidden, the control's identifier and its accessibility value — so the
+    /// screenshot can be checked against what it was drawn from instead of trusted.
+    ///
+    /// Activation goes through the drawn accessibility element first (the real control) and falls
+    /// back to the model only if no such element is reachable; which path ran, and whether the page
+    /// actually moved, is recorded in the note rather than assumed.
+    private func runDMPagingSnapshotIfRequested() {
+        guard let dir = dmPagingProbeDir else { return }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            guard let server = serverStore.servers.first(where: { $0.id == serverStore.activeServerID })
+                    ?? serverStore.servers.first else {
+                writeThreadBackNote(dir + "/dm-paging.txt", ["error": "no server"])
+                return
+            }
+            let model = channelSidebarCoordinator.model(for: server)
+            var waited = 0
+            while model.groups.isEmpty && waited < 40 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                waited += 1
+            }
+            guard let direct = model.groups.first(where: { $0.kind == .directMessages }) else {
+                writeThreadBackNote(dir + "/dm-paging.txt", [
+                    "error": "no direct_messages group",
+                    "phase": "\(model.phase)",
+                    "groups": model.groups.map { "\($0.displayName)=\($0.entries.count)" }
+                        .joined(separator: " | "),
+                ])
+                writeWindowSnapshot(to: dir + "/dm-paging.png")
+                return
+            }
+            let wasCollapsed = model.isCollapsed(categoryID: direct.id)
+            if wasCollapsed {
+                await model.setCollapsed(false, categoryID: direct.id)
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
+
+            // Plain values captured once: the local write helper touches no main-actor state, so it
+            // cannot trip the isolation checker inside this task.
+            let teamName = model.teamID ?? "none"
+            let serverURL = server.url.absoluteString
+            let writeNote: (String, ChannelSidebarGroup, [String: String]) -> Void = { suffix, group, extra in
+                var fields: [String: String] = [
+                    "server": serverURL,
+                    "team": teamName,
+                    "category": group.identifier,
+                    "wasCollapsed": "\(wasCollapsed)",
+                    "entries": "\(group.entries.count)",
+                    "revealed": "\(group.revealed)",
+                    "visible": "\(group.visibleEntries.count)",
+                    "hidden": "\(group.hiddenCount)",
+                    "showsLoadMore": "\(group.showsLoadMore)",
+                    "loadMoreIdentifier": group.loadMoreIdentifier,
+                    "loadMoreValue": group.showsLoadMore
+                        ? ChannelSidebarLoadMoreRow(remaining: group.hiddenCount,
+                                                    identifier: group.loadMoreIdentifier) {}.accessibilityValue
+                        : "none",
+                    "unreadChannels": "\(group.unreadChannels)",
+                    "mentions": "\(group.mentions)",
+                    "ids": group.visibleEntries.map(\.id).joined(separator: ","),
+                ]
+                for (key, value) in extra { fields[key] = value }
+                writeThreadBackNote(dir + "/dm-paging\(suffix).txt", fields)
+            }
+
+            var group = model.groups.first(where: { $0.category.id == direct.id }) ?? direct
+            writeNote("", group, [:])
+            await captureDirectMessagesPage(dir: dir, suffix: "-01-page")
+
+            // The row only exists in the view tree while the `LazyVStack` has realised it, so put
+            // the group's tail (where the control sits) on screen before looking for it.
+            if let scroll = sidebarScrollView(note: dir + "/dm-paging-scroll.txt") {
+                scroll.setContentOffset(CGPoint(x: 0,
+                                                y: max(0, scroll.contentSize.height - scroll.bounds.height)),
+                                        animated: false)
+                try? await Task.sleep(nanoseconds: 900_000_000)
+            }
+            let diagnostic = accessibilityDiagnostic(identifier: group.loadMoreIdentifier)
+            var activated = await activateLoadMore(identifier: group.loadMoreIdentifier,
+                                                   categoryID: group.id,
+                                                   model: model)
+            group = model.groups.first(where: { $0.category.id == direct.id }) ?? direct
+            writeNote("-02-after-one", group, ["activatedVia": activated, "a11y": diagnostic])
+            await captureDirectMessagesPage(dir: dir, suffix: "-02-after-one")
+
+            if group.showsLoadMore {
+                if let scroll = sidebarScrollView(note: dir + "/dm-paging-scroll.txt") {
+                    scroll.setContentOffset(CGPoint(x: 0,
+                                                    y: max(0, scroll.contentSize.height - scroll.bounds.height)),
+                                            animated: false)
+                    try? await Task.sleep(nanoseconds: 900_000_000)
+                }
+                activated = await activateLoadMore(identifier: group.loadMoreIdentifier,
+                                                   categoryID: group.id,
+                                                   model: model)
+                group = model.groups.first(where: { $0.category.id == direct.id }) ?? direct
+                writeNote("-03-after-two", group, ["activatedVia": activated])
+                await captureDirectMessagesPage(dir: dir, suffix: "-03-after-two")
+            }
+
+            group = model.groups.first(where: { $0.category.id == direct.id }) ?? direct
+            writeNote("-04-final", group, [:])
+
+            // Leave the account's layout as it was found: the revealed page is session-only and
+            // dies with this launch, but the collapse state is persisted on the server.
+            if wasCollapsed {
+                await model.setCollapsed(true, categoryID: direct.id)
+            }
+        }
+    }
+
+    /// Activate the drawn Load more control.
+    ///
+    /// Returns which path ran — `"a11y-element"` (the real control answered and the page moved),
+    /// `"model"` (no reachable element, or it did not move the page, so the model call was used) —
+    /// so the note states what happened instead of implying a tap that never happened.
+    @MainActor
+    private func activateLoadMore(identifier: String,
+                                  categoryID: String,
+                                  model: ChannelListViewModel) async -> String {
+        func visibleCount() -> Int {
+            model.groups.first(where: { $0.category.id == categoryID })?.visibleEntries.count ?? -1
+        }
+        let before = visibleCount()
+        if let element = accessibleObject(identifier: identifier) {
+            // On Catalyst `accessibilityActivate()` is an `NSObject` category method (UIKit's
+            // `NSObject (UIAccessibilityAction)`), not a protocol requirement — so it is called
+            // directly on the element.
+            let answered = element.accessibilityActivate()
+            if answered {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                if visibleCount() != before { return "a11y-element" }
+                model.loadMore(categoryID: categoryID)
+                return "a11y-element(no page change) -> model"
+            }
+        }
+        model.loadMore(categoryID: categoryID)
+        return "model"
+    }
+
+    /// What this process can see of the drawn accessibility tree: how many objects were walked, how
+    /// many carry the requested identifier, and which sidebar identifiers are visible at all.
+    ///
+    /// Written into the note because "the control is in the tree" is exactly the claim a screenshot
+    /// cannot make, and because a fallback activation has to say why it fell back.
+    @MainActor
+    private func accessibilityDiagnostic(identifier: String) -> String {
+        var objects = 0
+        var matches = 0
+        var sidebarIdentifiers: [String] = []
+        func walk(_ object: NSObject, depth: Int) {
+            guard depth < 40, objects < 50_000 else { return }
+            objects += 1
+            if let identified = object as? UIAccessibilityIdentification,
+               let value = identified.accessibilityIdentifier, !value.isEmpty {
+                if value == identifier { matches += 1 }
+                if value.hasPrefix("channelSidebar") && sidebarIdentifiers.count < 12 {
+                    sidebarIdentifiers.append(value)
+                }
+            }
+            if let view = object as? UIView {
+                for child in view.subviews { walk(child, depth: depth + 1) }
+                for child in view.accessibilityElements ?? [] {
+                    if let node = child as? NSObject { walk(node, depth: depth + 1) }
+                }
+            }
+        }
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.windows }.joined()
+        for window in windows { walk(window, depth: 0) }
+        return "objects=\(objects) matches=\(matches) sidebarIds="
+            + (sidebarIdentifiers.isEmpty ? "none" : sidebarIdentifiers.joined(separator: ","))
+    }
+
+    /// The accessibility element drawn with `identifier`, searched through the window's view tree
+    /// (views first, then their `accessibilityElements`). SwiftUI's `.accessibilityRepresentation`
+    /// gives a row one element; this is how the probe finds the one that actually exists, rather than
+    /// assuming an identifier reached the tree.
+    @MainActor
+    private func accessibleObject(identifier: String) -> NSObject? {
+        var visited = 0
+        func search(_ object: NSObject, depth: Int) -> NSObject? {
+            guard depth < 40, visited < 20_000 else { return nil }
+            visited += 1
+            if let identified = object as? UIAccessibilityIdentification,
+               identified.accessibilityIdentifier == identifier {
+                return object
+            }
+            if let view = object as? UIView {
+                for child in view.subviews {
+                    if let found = search(child, depth: depth + 1) { return found }
+                }
+                for child in view.accessibilityElements ?? [] {
+                    if let node = child as? NSObject, let found = search(node, depth: depth + 1) {
+                        return found
+                    }
+                }
+            }
+            return nil
+        }
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.windows }.joined()
+        for window in windows {
+            if let found = search(window, depth: 0) { return found }
+        }
+        return nil
+    }
+
+    /// Capture the Direct messages page: a whole-window shot plus four crops of the sidebar column,
+    /// walking up from the bottom (the DM group is the last one, so the control sits at the end of
+    /// the list) far enough to include the twenty drawn rows.
+    @MainActor
+    private func captureDirectMessagesPage(dir: String, suffix: String) async {
+        writeWindowSnapshot(to: dir + "/dm-paging\(suffix)-window.png")
+        guard let scroll = sidebarScrollView(note: dir + "/dm-paging-scroll.txt") else { return }
+        let limit = max(0, scroll.contentSize.height - scroll.bounds.height)
+        var offset = limit
+        var step = 0
+        while step < 4 {
+            scroll.setContentOffset(CGPoint(x: 0, y: offset), animated: false)
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            writeSidebarCrop(to: String(format: "%@/dm-paging%@-crop%d.png", dir, suffix, step),
+                             of: scroll)
+            step += 1
+            if offset <= 0 { break }
+            offset = max(0, offset - 220)
+        }
+        scroll.setContentOffset(.zero, animated: false)
     }
 
     /// The sidebar's own scroll view.

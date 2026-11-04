@@ -349,6 +349,11 @@ final class ChannelListViewModel: ObservableObject {
     private var loadedTeamID: String?
     /// Every load takes a number; a load that finishes after a newer one started is dropped.
     private var generation = 0
+    /// t_8d539b3f: rows revealed with "Load more", as `teamID → categoryID → rows`, so the count is
+    /// per server+team (this model is per server, and the team id keeps a team switch from borrowing
+    /// the other team's page). Session-only on purpose: nothing is persisted, so a launch — and a
+    /// cleared filter, which cannot use a page at all — starts from the first page again.
+    private var revealedRows: [String: [String: Int]] = [:]
 
     init(server: ServerConfig, service: ChannelSidebarServing) {
         self.server = server
@@ -365,8 +370,35 @@ final class ChannelListViewModel: ObservableObject {
     }
 
     /// What the quick switcher shows for `query`.
+    ///
+    /// Read off `allEntries` — every row of every group, **not** the visible page — so typing a name
+    /// searches all DMs, including the ones the sidebar's cap is holding back (t_8d539b3f).
     func searchResults(for query: String) -> [ChannelSidebarEntry] {
         ChannelSidebarDerivation.search(query, in: allEntries)
+    }
+
+    // MARK: Paging (t_8d539b3f)
+
+    /// Reveal the next page of a category's rows ("Load more").
+    ///
+    /// The page size is the derivation's (`directMessagesPageSize`), so the control and the first
+    /// page cannot disagree about what "a page" is. Idempotent when the group has nothing left to
+    /// reveal: the model is the only owner of the count, and the row is only drawn while
+    /// `showsLoadMore`.
+    func loadMore(categoryID: String) {
+        guard let teamID,
+              let group = groups.first(where: { $0.category.id == categoryID }),
+              group.showsLoadMore else { return }
+        let page = ChannelSidebarDerivation.directMessagesPageSize
+        let current = revealedRows[teamID]?[categoryID] ?? page
+        revealedRows[teamID, default: [:]][categoryID] = current + page
+        rebuild()
+    }
+
+    /// How many rows of `categoryID` this session has revealed, for the evidence probes.
+    func revealedCount(categoryID: String) -> Int? {
+        guard let teamID else { return nil }
+        return revealedRows[teamID]?[categoryID]
     }
 
     /// The model's answer to a deep link (via the coordinator's `NativeChannelDirectory`).
@@ -758,7 +790,8 @@ final class ChannelListViewModel: ObservableObject {
     private func rebuild() {
         groups = ChannelSidebarDerivation.groups(from: data,
                                                  selectedChannelID: selectedChannelID,
-                                                 selectedChannelName: selectedChannelName)
+                                                 selectedChannelName: selectedChannelName,
+                                                 revealed: revealedRows[teamID ?? ""] ?? [:])
         totals = ChannelSidebarDerivation.totals(groups)
     }
 

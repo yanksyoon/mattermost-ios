@@ -195,13 +195,57 @@ enum ChannelSidebarBadge: Equatable, Sendable {
 /// One drawn section: a category and the rows in it, in draw order.
 struct ChannelSidebarGroup: Identifiable, Equatable, Sendable {
     let category: MMSidebarCategory
+    /// **Every** row of the group, in draw order. This is the group's data, not its page: the
+    /// roll-up below, the totals, the quick switcher and deep-link resolution all read it, so a cap
+    /// on what is drawn can never make a number or a search under-report (t_8d539b3f).
     var entries: [ChannelSidebarEntry]
+    /// How many of `entries` the body draws. `.max` = all of them (every group before t_8d539b3f,
+    /// and every group that is not paged today). See `visibleEntries`.
+    var revealed: Int = .max
 
     var id: String { category.id }
     var kind: SidebarCategoryKind { category.kind }
     var identifier: String { category.sidebarIdentifier }
     var displayName: String {
         category.displayName.isEmpty ? category.kind.defaultDisplayName : category.displayName
+    }
+
+    // MARK: The page (t_8d539b3f)
+
+    /// The rows the body actually draws.
+    ///
+    /// Two rules, in this order:
+    ///  1. the first `revealed` rows in the group's **own** draw order — for Direct messages that is
+    ///     the existing `recent` sort (`ChannelSidebarDerivation.sorted`), so the visible page is the
+    ///     head of the sort rather than a second ordering invented here;
+    ///  2. **plus** every row below that page the row rule calls unread (`showsUnreadEmphasis`). The
+    ///     cap must never hide an unread conversation: t_3b2f313a's header says "this group is
+    ///     unread", and a header pointing at an invisible, unclickable row would be a lie.
+    ///
+    /// Promoted rows are **appended in the same draw order** — never hoisted to the top, never
+    /// re-sorted — so promotion changes membership only when a row's own unread state changes. Two
+    /// identical badge refreshes therefore produce an identical list, and the first `revealed` rows
+    /// never move because something below them became unread.
+    var visibleEntries: [ChannelSidebarEntry] {
+        guard revealed < entries.count else { return entries }
+        let page = max(0, revealed)
+        let promoted = entries[page...].filter(\.showsUnreadEmphasis)
+        return Array(entries[..<page]) + promoted
+    }
+
+    /// Rows the cap is holding back right now — the "N remaining" a Load more control states.
+    var hiddenCount: Int { max(0, entries.count - visibleEntries.count) }
+
+    /// Whether the body draws its Load more row. Only ever true for a paged group with rows left.
+    var showsLoadMore: Bool { hiddenCount > 0 }
+
+    /// The Load more row's stable handle. Keyed by category **kind**, not id, exactly like
+    /// `identifier`: the default category's id embeds the user and team and is noise in a test
+    /// predicate, and a custom category the reader paginates is addressed by its own id.
+    var loadMoreIdentifier: String {
+        kind.isDefault
+            ? "channelSidebar.loadMore.\(kind.rawValue)"
+            : "channelSidebar.loadMore.custom.\(category.id)"
     }
 
     // MARK: The header's roll-up (t_3b2f313a)
@@ -512,7 +556,8 @@ enum ChannelSidebarDerivation {
     ///    touch screen); an empty default category is not drawn either.
     static func groups(from data: ChannelSidebarData,
                        selectedChannelID: String?,
-                       selectedChannelName: String?) -> [ChannelSidebarGroup] {
+                       selectedChannelName: String?,
+                       revealed: [String: Int] = [:]) -> [ChannelSidebarGroup] {
         let entries = entries(from: data,
                               selectedChannelID: selectedChannelID,
                               selectedChannelName: selectedChannelName)
@@ -554,7 +599,11 @@ enum ChannelSidebarDerivation {
             }
             guard !rows.isEmpty else { continue }
             drawn.formUnion(rows.map(\.id))
-            groups.append(ChannelSidebarGroup(category: category, entries: rows))
+            groups.append(ChannelSidebarGroup(category: category,
+                                              entries: rows,
+                                              revealed: groupPageLimit(kind: category.kind,
+                                                                       categoryID: category.id,
+                                                                       revealed: revealed)))
         }
 
         // A leftover whose default category is missing entirely (a server with a `channels`-less
@@ -565,7 +614,10 @@ enum ChannelSidebarDerivation {
             let kind: SidebarCategoryKind = orphans.contains(where: { !$0.kind.isDirect }) ? .channels : .directMessages
             let category = defaultCategory(kind, userID: "", teamID: "")
             groups.append(ChannelSidebarGroup(category: category,
-                                              entries: sorted(orphans, category: category)))
+                                              entries: sorted(orphans, category: category),
+                                              revealed: groupPageLimit(kind: kind,
+                                                                       categoryID: category.id,
+                                                                       revealed: revealed)))
         }
         return groups
     }
@@ -588,6 +640,30 @@ enum ChannelSidebarDerivation {
             seen.insert(category.id)
         }
         return order
+    }
+
+    // MARK: Paging (t_8d539b3f)
+
+    /// How many rows of a category are drawn before its Load more row.
+    ///
+    /// 20 is the owner's number ("only load recent 20 in view"). Only `direct_messages` is paged: it
+    /// is the group whose length is unbounded on a real account (the owner's sidebar had 347 entries
+    /// across groups), while a named category is a list the reader built and expects to see whole.
+    static let directMessagesPageSize = 20
+
+    /// The `revealed` value a group is drawn with.
+    ///
+    /// - Parameters:
+    ///   - kind: the category's kind; anything but `directMessages` draws every row (`.max`).
+    ///   - categoryID: the category's id — the key `revealed` is stored under.
+    ///   - revealed: category id → rows already revealed this session (the model's per server+team
+    ///     memory). A category with no entry starts at the first page, and a value below the first
+    ///     page is raised to it, so the first page can never be empty.
+    static func groupPageLimit(kind: SidebarCategoryKind,
+                               categoryID: String,
+                               revealed: [String: Int]) -> Int {
+        guard kind == .directMessages else { return .max }
+        return max(directMessagesPageSize, revealed[categoryID] ?? directMessagesPageSize)
     }
 
     /// `order` first, then anything it omitted by `sort_order`, then id.
