@@ -159,6 +159,9 @@ final class T43ShippedDefaultTests: XCTestCase {
 
     func testANativePaneDeliversADirectMessageThatNamesNobody() async {
         directChannel()
+        // The server's own counters, as they read after the delivery (set before the mention so the
+        // coalesced badge refresh the feed schedules picks them up).
+        service.counters = [MMTeamUnread(teamId: "team1", mentionCount: 7, msgCount: 12)]
         await feed.handle(.posted(post()), server: server)
         await settle()
 
@@ -176,6 +179,13 @@ final class T43ShippedDefaultTests: XCTestCase {
                        "the Settings read-out must name the live path: Native socket")
         XCTAssertTrue(ledger.hasHandled("post1", for: server.id),
                       "the delivering input writes the ring, so the T14 poll cannot repeat it")
+
+        // Done criterion: the badge the reader sees equals the server's own sidebar number, and it is
+        // the mention count the server reported after the delivery — not a locally incremented guess.
+        await feed.flushBadgeRefresh(for: server.id)
+        XCTAssertEqual(sessionStore.totalMentions, 7, "the sidebar number is the server's mention count")
+        XCTAssertEqual(sessionStore.badgeNumber, 7, "the app-icon badge equals the sidebar number")
+        XCTAssertEqual(badge.values.last, 7, "and it reached the system badge setter")
 
         #if DEBUG
         XCTAssertTrue(logs.contains { $0.contains("NotificationInput") && $0.contains("Native socket") },

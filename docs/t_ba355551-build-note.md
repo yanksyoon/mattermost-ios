@@ -108,7 +108,9 @@ xcodebuild build -configuration Release -destination 'macOS,variant=Mac Catalyst
 real `NativeNotificationFeed` with a `UNUserNotificationCenter` double:
 
 - `testANativePaneDeliversADirectMessageThatNamesNobody` — a DM with no `@mention`, one request,
-  banner + sound (`content.sound != nil`), `outcome=delivered`, `socketDelivered == 1`;
+  banner + sound (`content.sound != nil`), `outcome=delivered`, `socketDelivered == 1`, the ledger
+  handles the post, and the badge carries the server's own count (`badgeNumber == totalMentions == 7`,
+  reaching the system badge setter);
 - `testAMutedChannelStillNotifiesARealMention`, `testADirectMessageWithNotificationsOffDoesNotNotify`,
   `testTheReadersOwnPostDeliversNothing`, `testTheConversationOnScreenIsSuppressedAndStillHandled`;
 - `testAWebPaneLetsThePageDeliverAndTheSocketStaysSilent` — the web pane mounted: the socket schedules
