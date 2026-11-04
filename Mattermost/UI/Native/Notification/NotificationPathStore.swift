@@ -1,14 +1,18 @@
-// The switch that decides which mention input is live, resolved the way every other Path B gate in
-// this repo resolves (`SurfaceModeResolver`): launch argument → persisted debug override → compile-time
-// default. Nothing here is a new convention; it is the same three tiers, for the same reason — a card
-// must be provable without shipping a behaviour change, and the flip is one diff an `-AV` validator can
-// audit.
+// The debug switch that can **force** which mention input is live, resolved the way every other Path B
+// gate in this repo resolves (`SurfaceModeResolver`): launch argument → persisted debug override. There
+// is deliberately **no compile-time default tier**: the shipped answer is not a constant any more.
 //
-// **The compile-time default stays `.bridge`** (Path A, today's input) until `T43-AV` approves the flip.
-// That is the board rule every surface follows (`SurfaceDefaults.nativeApprovedSurfaces`): a card proves
-// its path behind the flag, its adversarial validator decides, and only then does the default move. So
-// a shipped build behaves exactly as it did before T43; `-notificationPath socket` is what makes the
-// native path live.
+// Why (t_ba355551): the constant used to be `.bridge`, and a Release build takes the `!debugAffordances`
+// branch, so the shipped app forced `.bridge`. On the native workspace no web pane is mounted, so the
+// page never reports `notify_mention`, the socket was refused by the same constant, and the T14 poller
+// does not register on Catalyst. The test button worked and a real message produced nothing. Which
+// input is live is now **measured** from the pane that is rendering
+// (`NotificationInputGate.mode(for:)`): native pane → the socket, web pane → the page.
+//
+// What survives here is the debug affordance, unchanged in shape: `-notificationPath socket|bridge`
+// (or `-notificationPath=native|web`) and the persisted row exist in DEBUG/PERF_PROBE builds only and
+// force the answer for an experiment. A Release build reads neither, and `overrideMode` is `nil` —
+// which is what makes the derived answer the shipped one.
 
 import Foundation
 import Combine
@@ -23,15 +27,9 @@ final class NotificationPathStore: ObservableObject {
         static let mode = "mm.notificationPath"
     }
 
-    /// The compile-time default. One constant, so the `-AV` flip is a one-line diff.
-    ///
-    /// `.bridge` = Path A, unchanged. Flipping this to `.socket` is the claim "the native input has
-    /// passed its adversarial validation", and it is the only place that claim is made.
-    static let compileDefault: NotificationInputMode = .bridge
-
     /// Whether this build carries the debug override tiers. Compile-time (`#if DEBUG`), the same gate
-    /// `SurfaceModeResolver.debugAffordancesEnabled` uses: a Release build resolves only the compile
-    /// default, so no stored row and no launch flag can steer a shipped binary.
+    /// `SurfaceModeResolver.debugAffordancesEnabled` uses: a Release build resolves no override at all,
+    /// so no stored row and no launch flag can steer a shipped binary.
     static let debugAffordancesEnabled: Bool = {
         #if DEBUG || PERF_PROBE
         return true
@@ -40,9 +38,11 @@ final class NotificationPathStore: ObservableObject {
         #endif
     }()
 
-    @Published private(set) var mode: NotificationInputMode
+    /// The forced input, or `nil` for the shipped behaviour — derive it from the pane that is
+    /// rendering. `nil` is not a fallback: it *is* the answer a Release build always has.
+    @Published private(set) var overrideMode: NotificationInputMode?
 
-    /// True when this run's mode came from the `-notificationPath` launch argument (the Settings
+    /// True when this run's override came from the `-notificationPath` launch argument (the Settings
     /// read-out says so, so a debug flag cannot look like a user choice).
     private(set) var isLaunchOverridden: Bool
 
@@ -62,22 +62,22 @@ final class NotificationPathStore: ObservableObject {
                  debugAffordances: Bool) {
         self.preferences = preferences
         guard debugAffordances else {
-            self.mode = Self.compileDefault
+            self.overrideMode = nil
             self.isLaunchOverridden = false
             return
         }
         if let launched = Self.parseLaunchMode(arguments) {
-            self.mode = launched
+            self.overrideMode = launched
             self.isLaunchOverridden = true
             return
         }
         if let raw = preferences.get(String.self, forKey: Keys.mode),
            let stored = NotificationInputMode(rawValue: raw) {
-            self.mode = stored
+            self.overrideMode = stored
             self.isLaunchOverridden = false
             return
         }
-        self.mode = Self.compileDefault
+        self.overrideMode = nil
         self.isLaunchOverridden = false
     }
 
@@ -92,15 +92,15 @@ final class NotificationPathStore: ObservableObject {
     #endif
 
     #if DEBUG
-    /// DEBUG-only writer (the Settings row and the `-AV` probes use it). Writing the compile default
-    /// removes the stored row, so the default keeps ruling and no stale row outlives the experiment.
-    func setMode(_ mode: NotificationInputMode) {
-        if mode == Self.compileDefault {
-            preferences.removeObject(forKey: Keys.mode)
-        } else {
+    /// DEBUG-only writer (the `-AV` probes use it). `nil` removes the stored row, so the derived answer
+    /// keeps ruling and no stale row outlives the experiment.
+    func setOverride(_ mode: NotificationInputMode?) {
+        if let mode {
             preferences.set(mode.rawValue, forKey: Keys.mode)
+        } else {
+            preferences.removeObject(forKey: Keys.mode)
         }
-        self.mode = mode
+        self.overrideMode = mode
         self.isLaunchOverridden = false
     }
     #endif
@@ -108,7 +108,8 @@ final class NotificationPathStore: ObservableObject {
     // MARK: - Launch argument
 
     /// Parse `-notificationPath <token>`. Both `["-notificationPath", "socket"]` and the single-token
-    /// form are accepted; an unknown token is ignored (never fatal), so a typo degrades to the default.
+    /// form are accepted; an unknown token is ignored (never fatal), so a typo degrades to the derived
+    /// answer rather than to a mode the shell was not asked for.
     static func parseLaunchMode(_ arguments: [String]) -> NotificationInputMode? {
         var index = 0
         while index < arguments.count {

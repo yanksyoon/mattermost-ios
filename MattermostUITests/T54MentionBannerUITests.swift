@@ -7,9 +7,9 @@
 // account* through `POST /posts` while the app is running, exactly as a colleague would.
 //
 // Fixture: `python3 scripts/t43_notification_seed.py --url http://127.0.0.1:8065` (accounts
-// perfprobe/t43buddy, channels `t43-notify` and `t43-muted`). The app is launched with
-// `-notificationPath socket` because the native input is what feeds the banner (T43's gate); the mention
-// path, the policy and the ledger are then the shipped ones.
+// perfprobe/t43buddy, channels `t43-notify` and `t43-muted`). **No `-notificationPath` flag**: since
+// t_ba355551 the input is derived from the pane (a native workspace → the socket), so this suite drives
+// the shipped default — the mention path, the policy, the ledger and the gate are the shipped ones.
 //
 // What is *not* asserted here, stated honestly: the absence of a **system** notification is not
 // observable from XCUITest (the system's banner is outside the app). The evidence for "no duplicate" is
@@ -210,7 +210,6 @@ final class T54MentionBannerUITests: XCTestCase {
          "-surfaceMode", "sidebar=native",
          "-surfaceMode", "composer=native",
          "-uiTestBannerDuration", String(bannerDuration),
-         "-notificationPath", "socket",
          "-uiTestLogLevel", "error",
          "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
     }

@@ -81,8 +81,9 @@ struct MattermostApp: App {
     /// not drop a call, and because the transport it uses is the rail's single socket per server.
     @StateObject private var callsCoordinator: CallsCoordinator
 
-    /// T43: keeps `NotificationInputRouting.shared` on the store's mode when the debug switch changes at
-    /// runtime (the Settings row) without a relaunch.
+    /// T43: keeps `NotificationInputRouting.shared` on the store's debug override when it changes at
+    /// runtime (the Settings row) without a relaunch. `nil` — the shipped state — leaves the input
+    /// derived from the pane that is rendering.
     @State private var notificationPathCancellable: AnyCancellable?
 
     /// Keeps the Settings Stepper and the live journal in lock-step.
@@ -640,13 +641,15 @@ struct MattermostApp: App {
         // One ledger object for both inputs: the poller merges what it notified into it, the socket records
         // what it handled, and neither can deliver the other's mention a second time.
         MentionPoller.shared.ledger = notificationFeed.ledger
-        // The gate the webview consults before it delivers a `notify_mention` frame. One mode per process,
-        // kept in step with the store so the Settings row and a `-notificationPath` launch flag both land
-        // on the same object.
-        NotificationInputRouting.shared.setMode(notificationPath.mode)
-        notificationPathCancellable = notificationPath.$mode
+        // The gate the webview consults before it delivers a `notify_mention` frame, and the feed
+        // before it acts on a `posted` event. Which input is live is **derived per server from the pane
+        // that is rendering** (`NotificationInputGate.mode(for:)`); the store contributes only the
+        // debug override, which a Release build never has (`t_ba355551` — shipping `.bridge` as a
+        // constant left a native Release workspace with no input at all).
+        NotificationInputRouting.shared.setOverride(notificationPath.overrideMode)
+        notificationPathCancellable = notificationPath.$overrideMode
             .removeDuplicates()
-            .sink { mode in NotificationInputRouting.shared.setMode(mode) }
+            .sink { mode in NotificationInputRouting.shared.setOverride(mode) }
         // The worker's foreground rule compares the channel on screen, when the shell can say which one it
         // is. A webview-rendered pane answers `.unknown`, which keeps T8's whole-server rule for Path A.
         let visibleChannel: (UUID) -> VisibleChannel = { [weak nativeNavigation] serverID -> VisibleChannel in

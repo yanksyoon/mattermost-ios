@@ -7,15 +7,20 @@
 // the banner, so a green run here means "the socket's mention reached NotificationWorker and produced one
 // delivery", not "a label was on screen".
 //
-//   1. `-notificationPath socket` (the native input, behind the flag): the rail's socket comes up, a mention
-//      posted by another account while the app is **foreground on another channel** arrives with no refresh,
-//      and the read-out shows exactly one delivery for that post.
-//   2. the shipped default (no flag): the input is the web bridge, and the socket path stays silent — the
-//      flip is the `-AV` claim, and this test is what keeps the default honest until then.
-//   3. dual-render (web app mounted + socket live): T43-R (F2) rewrote this to assert the configuration's
-//      **premises** — the page cannot report (`notificationPath.pageBridge` = "not installed"), so the
-//      socket being gated out *before* the policy and the page never being refused are what "one source"
-//      means here. The rule itself is unit-tested at the real `handleNotifyMention` call site.
+// t_ba355551 changed what the default *is*: the input is derived from the pane that is rendering (native
+// pane → the socket, web pane → the page) instead of being the process-wide `.bridge` constant a Release
+// build used to ship. So:
+//
+//   1. **the shipped default** (no launch flag, native shell): the read-out says "Native socket" because
+//      no web view is mounted, the rail's socket comes up, a mention posted by another account while the
+//      app is foreground on another channel arrives with no refresh, and the read-out shows exactly one
+//      delivery. This is the owner's reported case, and it is red on the pre-fix build.
+//   2. `-notificationPath socket` (the debug override): the same path, forced. Kept as the proof that the
+//      override still lands on the same object.
+//   3. dual-render (web app mounted, no override): the derived answer is the page; the socket delivers
+//      nothing and the page is never refused. T43-R (F2) asserts the configuration's **premises** — the
+//      page cannot report (`notificationPath.pageBridge` = "not installed") — and the one-source rule
+//      itself is unit-tested at the real `handleNotifyMention` call site.
 //   4. the same mount with `-desktopBridge`: the page *can* report, and the read-out says so — otherwise
 //      the "accepted=0" in (3) could be a constant rather than a measured fact.
 //
@@ -103,28 +108,37 @@ final class T43NotificationUITests: XCTestCase {
         attach(app, "t43-native-mention")
     }
 
-    // MARK: - 2. The shipped default is unchanged and the socket input stays silent
+    // MARK: - 2. The shipped default (no flag) delivers on a native pane
 
-    func testTheDefaultStillUsesTheWebViewInput() throws {
+    /// The owner's reported case, now the default: a Release build used to force `.bridge`, so on the
+    /// native workspace the socket refused every post and no page existed to report one. With the input
+    /// derived from the pane, this configuration is the one that ships and it must deliver.
+    func testTheShippedDefaultDeliversANativeMention() throws {
         let app = launchApp(nativeInput: false)
         signIn(app)
+
         openSettings(app)
+        XCTAssertTrue(waitForLabel(app, "notificationPath.mode", equals: "Native socket", timeout: 20),
+                      "with no flag the input follows the pane: a native workspace has no page to report "
+                      + "a mention, so the socket is the input:\n\(app.debugDescription)")
+        XCTAssertTrue(waitForValue(app, "notificationPath.webPanes", equals: "0", timeout: 15),
+                      "this is the native pane: no web view may be mounted for it:\n\(app.debugDescription)")
+        XCTAssertTrue(waitForValue(app, "notificationPath.liveSockets", equals: "1", timeout: 40),
+                      "the rail's socket must be live, or nothing can report the mention:\n\(app.debugDescription)")
 
-        XCTAssertTrue(waitForLabel(app, "notificationPath.mode", equals: "Web view bridge", timeout: 20),
-                      "without the flag the shipped input must still be the web view:\n\(app.debugDescription)")
+        let mention = try seedMention(marker: "shipped")
+        let targetChannel = try channel()
 
-        let mention = try seedMention(marker: "default")
-        // Give the socket time to deliver if the gate leaked: it must not.
-        let deadline = Date().addingTimeInterval(12)
-        while Date() < deadline {
-            let value = readOut(app, "notificationPath.lastMention")
-            XCTAssertFalse(value.contains("post=\(mention.id)"),
-                           "in bridge mode the socket input must deliver nothing, read-out reads '\(value)'")
-            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-        }
+        XCTAssertTrue(waitForDelivery(app, postID: mention.id, channelID: targetChannel.id,
+                                      timeout: 40),
+                      "the shipped default must deliver a real mention with no launch flag; read-out reads "
+                      + "'\(readOut(app, "notificationPath.lastMention"))'")
         let counters = parseCounters(readOut(app, "notificationPath.socket"))
-        XCTAssertEqual(counters["delivered"] ?? 0, 0,
-                       "the native input must be inert until the flip")
+        XCTAssertEqual(counters["delivered"], 1,
+                       "one mention, one delivery — read-out reads '\(readOut(app, "notificationPath.socket"))'")
+        XCTAssertEqual(counters["suppressed"], 0)
+
+        attach(app, "t43-shipped-default-mention")
     }
 
     // MARK: - 3. Dual-render: the webview mounted *and* the native socket live
@@ -152,8 +166,8 @@ final class T43NotificationUITests: XCTestCase {
                       "the web app must be mounted for this configuration:\n\(app.debugDescription)")
 
         openSettings(app)
-        XCTAssertTrue(waitForLabel(app, "notificationPath.mode", equals: "Native socket", timeout: 20),
-                      "the flag still selects the native input:\n\(app.debugDescription)")
+        XCTAssertTrue(waitForLabel(app, "notificationPath.mode", equals: "Web view bridge", timeout: 20),
+                      "no flag, a mounted web pane: the read-out must name the page as the input:\n\(app.debugDescription)")
         XCTAssertTrue(waitForValue(app, "notificationPath.liveSockets", equals: "1", timeout: 40),
                       "the rail's socket must be live in this configuration:\n\(app.debugDescription)")
         XCTAssertTrue(waitForValue(app, "notificationPath.webPanes", equals: "1", timeout: 20),
@@ -226,11 +240,15 @@ final class T43NotificationUITests: XCTestCase {
         return app
     }
 
-    /// The webview configuration: the pane host stays on the web app (`channelView` unset ⇒ `.web`),
-    /// the native input is still selected by the flag. No `shell=native`, so no native rail.
+    /// The webview configuration: the pane host is forced onto the web app with
+    /// `-surfaceMode channelView=web` — `.channelView` is in `SurfaceDefaults.nativeApprovedSurfaces`
+    /// now, so a bare launch draws the **native** pane and no webview ever mounts (measured: the
+    /// app sat on `nativeChannelPane` for the whole 60 s wait). The flag makes the configuration under
+    /// test explicit instead of depending on a default that has since moved.
     ///
-    /// The session is seeded into the vault (the seam the shell's own tests use) so the app opens
-    /// straight into the pane instead of a login form the webview would have to be driven through.
+    /// No `shell=native`, so no native rail. The session is seeded into the vault (the seam the shell's
+    /// own tests use) so the app opens straight into the pane instead of a login form the webview would
+    /// have to be driven through.
     ///
     /// - Parameter desktopBridge: install `window.desktop` (`-desktopBridge`). Off for the shipped
     ///   configuration, because the web app then takes its Electron path (README); on only for the
@@ -242,7 +260,7 @@ final class T43NotificationUITests: XCTestCase {
                          "-uiTestSeedServer", serverURL.absoluteString,
                          "-uiTestSeedServerName", "Local Mattermost",
                          "-uiTestSeedStoredToken", token ?? "",
-                         "-notificationPath", "socket",
+                         "-surfaceMode", "channelView=web",
                          "-uiTestLogLevel", "error",
                          "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         if desktopBridge { arguments += ["-desktopBridge"] }
@@ -318,6 +336,22 @@ final class T43NotificationUITests: XCTestCase {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if readOut(app, identifier) == expected { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        return false
+    }
+
+    /// Wait until the read-out names this post as delivered into this channel — the three facts the
+    /// banner was built from, not a label that happens to exist.
+    private func waitForDelivery(_ app: XCUIApplication, postID: String, channelID: String,
+                                 timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let value = readOut(app, "notificationPath.lastMention")
+            if value.contains("post=\(postID)"), value.contains("channel=\(channelID)"),
+               value.contains("outcome=delivered") {
+                return true
+            }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
         return false

@@ -20,11 +20,9 @@ struct NotificationInputSection: View {
     var body: some View {
         Section {
             row(title: "Mention input",
-                value: path.mode.label,
+                value: routing.liveModeLabel,
                 identifier: "notificationPath.mode",
-                detail: path.isLaunchOverridden
-                    ? "set by the -notificationPath launch argument"
-                    : nil)
+                detail: modeDetail)
 
             LabeledContent {
                 Text("\(routing.webPaneCount)")
@@ -101,6 +99,19 @@ struct NotificationInputSection: View {
         }
     }
 
+    /// Where the named input comes from: a measurement of the pane, or a debug override. Never a quiet
+    /// compile-time constant — that was the shipped bug (`t_ba355551`).
+    private var modeDetail: String? {
+        if path.isLaunchOverridden {
+            return "forced by the -notificationPath launch argument (debug builds only)"
+        }
+        if let forced = path.overrideMode {
+            return "forced by the persisted debug override (\(forced.label)) — a Release build always "
+                + "derives the input from the pane"
+        }
+        return "derived from the server's pane: native → Native socket, web view → Web view bridge"
+    }
+
     /// Which input is live, said in one sentence, and why.
     private var footerText: String {
         let live: String
@@ -114,8 +125,8 @@ struct NotificationInputSection: View {
                 + "produce two banners."
         }
         return "Which input tells the shell a mention happened. " + live
-            + " The shipped default stays on the web view until T43's adversarial validation approves "
-            + "the flip (-notificationPath socket proves it today)."
+            + " The input follows what is rendering (native pane → the socket, web view → the page), so "
+            + "a native workspace is never left without a live input."
     }
 
     private func row(title: String, value: String, identifier: String, detail: String?) -> some View {

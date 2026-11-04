@@ -22,9 +22,13 @@
 //     `userInfo` contract T13's Notification Service Extension and the tap router read is unchanged;
 //   * it does not compute a badge number — `SessionStore.serverBadgeInput`/`applyServerCounters` is the
 //     only arithmetic (T42's rule, and T14's poller goes through the same call);
-//   * it does not fire while its input is not the live one. In `.bridge` mode (the default until an
-//     `-AV` approves the flip) it delivers nothing **and writes nothing**: the page is the input, so a
-//     post the socket sees must stay pollable rather than be marked handled here (T43-R F1).
+//   * it does not fire while its input is not the live one. Which input is live is **derived from the
+//     pane that is rendering** (`NotificationInputGate.mode(for:)`): a native pane makes this socket the
+//     input, a web pane makes the page it. This card (t_ba355551) removed the `.bridge` constant that
+//     used to answer that for the whole process, because in a Release build it answered `.bridge` for a
+//     native workspace that has no page to report a mention — three inputs, all silent. When the socket
+//     is *not* the input it delivers nothing **and writes nothing**: a post it may not handle must stay
+//     pollable rather than be marked handled here (T43-R F1).
 
 import Foundation
 import Combine
@@ -160,7 +164,7 @@ final class NativeNotificationFeed: ObservableObject {
         // dual-render pane, where the gate also answers "not me".
         //
         // The rule now: a post this input is not allowed to deliver stays **pollable**.
-        guard routing.gate.acceptsSocket(serverID: server.id) else {
+        guard routing.acceptsSocket(serverID: server.id) else {
             // Seen, but not this input's to handle: counted for the read-out, recorded nowhere.
             routing.noteSocketPost(isMention: false)
             return

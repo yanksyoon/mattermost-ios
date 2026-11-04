@@ -33,22 +33,50 @@ final class T43NotificationInputTests: XCTestCase {
 
     // MARK: - 1. The arbitration (exactly one source per server)
 
-    func testTheShippedDefaultAcceptsOnlyTheBridge() {
+    /// The shipped answer: with no debug override, a server's input follows its pane. A native pane has
+    /// no page to report a mention, so the socket is the input — the whole of `t_ba355551`. Before that
+    /// fix this gate answered `.bridge` for the process and the socket refused every posted frame on a
+    /// native Release workspace.
+    func testANativePaneMakesTheSocketTheInput() {
         let gate = NotificationInputGate()
-        XCTAssertEqual(gate.mode, .bridge, "the compile-time default is Path A until T43-AV approves the flip")
+        XCTAssertEqual(gate.mode(for: serverA), .socket,
+                       "no web view is drawing the pane, so the page cannot be the input")
+        XCTAssertTrue(gate.acceptsSocket(serverID: serverA))
+        XCTAssertTrue(gate.acceptsBridge(serverID: serverA),
+                      "before the pump reports itself the bridge keeps the fallback: a mention nobody hears is worse")
+    }
+
+    func testAWebPaneMakesThePageTheInput() {
+        var gate = NotificationInputGate()
+        gate.webPane = [serverA]
+        XCTAssertEqual(gate.mode(for: serverA), .bridge)
+        XCTAssertFalse(gate.acceptsSocket(serverID: serverA),
+                       "the page is the only side that can see which channel is on screen")
         XCTAssertTrue(gate.acceptsBridge(serverID: serverA))
-        XCTAssertFalse(gate.acceptsSocket(serverID: serverA), "the socket input must not deliver in bridge mode")
-        XCTAssertNil(gate.bridgeRefusalReason(serverID: serverA))
+        XCTAssertTrue(gate.acceptsSocket(serverID: serverB),
+                      "and the rule is per server: another server's native pane still has its socket")
+    }
+
+    func testAForcedOverrideWinsOverThePane() {
+        var gate = NotificationInputGate()
+        gate.overrideMode = .bridge
+        XCTAssertEqual(gate.mode(for: serverA), .bridge)
+        XCTAssertFalse(gate.acceptsSocket(serverID: serverA),
+                       "the debug override can still hold the socket silent for an experiment")
+
+        gate.overrideMode = .socket
+        XCTAssertEqual(gate.mode(for: serverB), .socket)
+        XCTAssertTrue(gate.acceptsSocket(serverID: serverB))
     }
 
     func testSocketModeAcceptsTheSocketForEveryServer() {
-        let gate = NotificationInputGate(mode: .socket)
+        let gate = NotificationInputGate(overrideMode: .socket)
         XCTAssertTrue(gate.acceptsSocket(serverID: serverA))
         XCTAssertTrue(gate.acceptsSocket(serverID: serverB))
     }
 
     func testSocketModeRefusesTheBridgeOnlyWhileThatServersSocketIsLive() {
-        var gate = NotificationInputGate(mode: .socket)
+        var gate = NotificationInputGate(overrideMode: .socket)
         gate.socketLive = [serverA]
         XCTAssertFalse(gate.acceptsBridge(serverID: serverA),
                        "a live socket is the input for that server, so the page's frame would be the second banner")
@@ -60,7 +88,7 @@ final class T43NotificationInputTests: XCTestCase {
 
     func testRoutingCountsBothDecisionsAndTracksLiveness() {
         let routing = NotificationInputRouting()
-        routing.setMode(.socket)
+        routing.setOverride(.socket)
         routing.socketStateChanged(serverID: serverA, live: true)
         XCTAssertEqual(routing.liveSocketCount, 1)
 
@@ -88,20 +116,19 @@ final class T43NotificationInputTests: XCTestCase {
         XCTAssertEqual(routing.lastDropReason, "your own post")
     }
 
-    // MARK: - 2. The switch (launch → persisted → compile default)
+    // MARK: - 2. The switch (launch → persisted; no override means "derive it")
 
-    func testTheCompileDefaultIsTheBridgeUntilTheAVFlip() {
+    func testWithNoFlagOrStoredRowTheInputIsDerivedFromThePane() {
         let store = NotificationPathStore(preferences: preferences(), arguments: [])
-        XCTAssertEqual(store.mode, .bridge)
-        XCTAssertEqual(NotificationPathStore.compileDefault, .bridge,
-                       "flipping this constant is the -AV claim; it must not move before T43-AV")
+        XCTAssertNil(store.overrideMode,
+                     "the shipped answer is not a constant: the gate derives it from the mounted pane")
         XCTAssertFalse(store.isLaunchOverridden)
     }
 
-    func testTheLaunchArgumentSelectsTheSocketInput() {
+    func testTheLaunchArgumentForcesTheSocketInput() {
         let store = NotificationPathStore(preferences: preferences(),
                                           arguments: ["-notificationPath", "socket"])
-        XCTAssertEqual(store.mode, .socket)
+        XCTAssertEqual(store.overrideMode, .socket)
         XCTAssertTrue(store.isLaunchOverridden)
     }
 
@@ -112,32 +139,32 @@ final class T43NotificationInputTests: XCTestCase {
         XCTAssertEqual(NotificationPathStore.parseLaunchMode(["-notificationPath=socket"]), .socket)
     }
 
-    func testAnUnknownOrTruncatedLaunchTokenFallsBackToTheDefault() {
+    func testAnUnknownOrTruncatedLaunchTokenLeavesTheInputDerived() {
         XCTAssertNil(NotificationPathStore.parseLaunchMode(["-notificationPath", "carrier-pigeon"]))
         XCTAssertNil(NotificationPathStore.parseLaunchMode(["-notificationPath"]))
-        XCTAssertEqual(NotificationPathStore(preferences: preferences(),
-                                             arguments: ["-notificationPath", "carrier-pigeon"]).mode,
-                       .bridge)
+        XCTAssertNil(NotificationPathStore(preferences: preferences(),
+                                           arguments: ["-notificationPath", "carrier-pigeon"]).overrideMode)
     }
 
     #if DEBUG
     func testThePersistedDebugOverrideIsReadBack() {
         let store = NotificationPathStore(preferences: preferences(), arguments: [])
-        store.setMode(.socket)
+        store.setOverride(.socket)
         let relaunched = NotificationPathStore(preferences: preferences(), arguments: [])
-        XCTAssertEqual(relaunched.mode, .socket, "the persisted tier round-trips through AppPreferences")
+        XCTAssertEqual(relaunched.overrideMode, .socket, "the persisted tier round-trips through AppPreferences")
 
-        store.setMode(.bridge)
+        store.setOverride(nil)
         XCTAssertNil(preferences().get(String.self, forKey: NotificationPathStore.Keys.mode),
-                     "writing the compile default removes the row, so a stale choice cannot outlive the experiment")
+                     "clearing the override removes the row, so a stale choice cannot outlive the experiment")
     }
 
     func testReleaseSemanticsIgnoreBothDebugTiers() {
         preferences().set(NotificationInputMode.socket.rawValue, forKey: NotificationPathStore.Keys.mode)
         let store = NotificationPathStore.releaseSemantics(preferences: preferences(),
                                                            arguments: ["-notificationPath", "socket"])
-        XCTAssertEqual(store.mode, .bridge,
-                       "a Release build resolves only the compile default: no stored row, no launch flag")
+        XCTAssertNil(store.overrideMode,
+                     "a Release build resolves no override: no stored row, no launch flag — the input "
+                     + "follows the pane that is rendering")
     }
     #endif
 
@@ -443,13 +470,14 @@ final class T43NotificationInputTests: XCTestCase {
 
     /// The rule that a live dual-render run forced: while the web app draws the pane it is the *only*
     /// input that can see which channel the reader is on, so it is the input — the socket goes silent
-    /// instead of delivering into the worker's conservative `.unknown` suppression.
+    /// instead of delivering into the worker's conservative `.unknown` suppression. No override is set:
+    /// this is the shipped derivation, pane → input.
     func testAMountedWebViewMakesThePageTheInput() {
         let server = UUID()
         let routing = NotificationInputRouting()
-        routing.setMode(.socket)
         routing.socketStateChanged(serverID: server, live: true)
-        XCTAssertTrue(routing.gate.acceptsSocket(serverID: server))
+        XCTAssertTrue(routing.gate.acceptsSocket(serverID: server),
+                      "the native pane makes the socket the input with no flag at all")
         XCTAssertFalse(routing.gate.acceptsBridge(serverID: server))
 
         routing.paneKindChanged(serverID: server, isWeb: true)
@@ -464,6 +492,8 @@ final class T43NotificationInputTests: XCTestCase {
         XCTAssertTrue(routing.gate.acceptsSocket(serverID: server),
                       "a native pane hands the input back to the socket")
         XCTAssertFalse(routing.gate.acceptsBridge(serverID: server))
+        XCTAssertEqual(routing.liveModeLabel, NotificationInputMode.socket.label,
+                       "with one native server the read-out names the socket")
     }
 
     /// Pane state is per server: a webview on one server must not silence another server's socket.
@@ -471,7 +501,6 @@ final class T43NotificationInputTests: XCTestCase {
         let web = UUID()
         let native = UUID()
         let routing = NotificationInputRouting()
-        routing.setMode(.socket)
         routing.socketStateChanged(serverID: web, live: true)
         routing.socketStateChanged(serverID: native, live: true)
         routing.paneKindChanged(serverID: web, isWeb: true)
@@ -479,5 +508,7 @@ final class T43NotificationInputTests: XCTestCase {
         XCTAssertFalse(routing.gate.acceptsSocket(serverID: web))
         XCTAssertTrue(routing.gate.acceptsSocket(serverID: native))
         XCTAssertFalse(routing.gate.acceptsBridge(serverID: native))
+        XCTAssertEqual(routing.liveModeLabel, "Per server",
+                       "the read-out says two answers are in force rather than picking one")
     }
 }

@@ -54,7 +54,8 @@ final class T43NativeNotificationFeedTests: XCTestCase {
         sessionStore = SessionStore(preferences: preferences, badgeSetter: badge)
 
         routing = NotificationInputRouting()
-        routing.setMode(.socket)
+        // No override: the shipped derivation makes the socket the input for a native pane
+        // (`t_ba355551`). A test that needs the other answer mounts a web pane or forces the override.
         ledger = MentionLedger(preferences: preferences)
         service = T43FakeService()
         feed = NativeNotificationFeed(routing: routing, ledger: ledger)
@@ -238,12 +239,12 @@ final class T43NativeNotificationFeedTests: XCTestCase {
         XCTAssertEqual(feed.deliveredCount, 1)
     }
 
-    func testInBridgeModeTheSocketDeliversNothingAndLeavesThePostPollable() async {
-        routing.setMode(.bridge)
+    func testInAForcedBridgeModeTheSocketDeliversNothingAndLeavesThePostPollable() async {
+        routing.setOverride(.bridge)
         await feed.handle(.posted(post()), server: server)
         await settle()
 
-        XCTAssertEqual(mock.added.count, 0, "Path A still owns the banners in the shipped default")
+        XCTAssertEqual(mock.added.count, 0, "the page owns the banners while the override holds the socket silent")
         XCTAssertEqual(feed.deliveredCount, 0)
         // T43-R (F1): the old assertion here was the bug. The socket marked the post handled without
         // delivering it, and `MentionPoller.isNew` then refused it for ever — measured on

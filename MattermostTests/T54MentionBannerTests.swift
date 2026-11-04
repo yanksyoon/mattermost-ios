@@ -256,7 +256,7 @@ final class T54MentionBannerTests: XCTestCase {
         sessionStore = SessionStore(preferences: preferences, badgeSetter: T54RecordingBadge())
 
         routing = NotificationInputRouting()
-        routing.setMode(.socket)
+        // Shipped derivation: a native pane (no web view mounted here) makes the socket the input.
         ledger = MentionLedger(preferences: preferences)
         service = T54FakeService()
 
