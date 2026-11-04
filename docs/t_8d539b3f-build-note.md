@@ -14,7 +14,7 @@ test that taps the real control on a seeded server, and three screenshots export
 | --- | --- |
 | `Mattermost/UI/Native/Sidebar/ChannelSidebarModels.swift` | `ChannelSidebarGroup` now carries **every** row of the group (`entries`, in draw order) *and* the page currently drawn (`visibleEntries`), plus `showsLoadMore`, `hiddenCount`, `loadMoreIdentifier`. `ChannelSidebarDerivation.groups(from:selectedChannelID:selectedChannelName:revealed:)` takes the revealed page sizes and computes the page. Page size is `directMessagesPageSize = 20`, and only `direct_message` is paged. |
 | `Mattermost/UI/Native/Sidebar/ChannelSidebarService.swift` | `ChannelListViewModel` owns the revealed count per category (`revealedCount(categoryID:)`), `loadMore(categoryID:)` (adds one page, refuses when nothing is hidden), and passes `revealed` into the derivation. `searchResults(for:)` keeps reading `allEntries` — every row of every group, not the visible page. |
-| `Mattermost/UI/Native/Sidebar/ChannelSidebarView.swift` | The group body iterates `group.visibleEntries`; when `group.showsLoadMore` it appends `DirectMessagesLoadMoreRow` — a **row in the group's body**, where the next conversation would be, not a toolbar control. |
+| `Mattermost/UI/Native/Sidebar/ChannelSidebarView.swift` | The group body iterates `group.visibleEntries`; when `group.showsLoadMore` it appends `ChannelSidebarLoadMoreRow` — a **row in the group's body**, where the next conversation would be, not a toolbar control. It is a plain `Button` (so it is keyboard-activatable on Catalyst), a **sibling** of the category header (never inside it, so the header keeps collapse as its only action), one accessibility element labelled `Load more` with the count in its value. |
 | `Mattermost/MattermostApp.swift` | The `-dmPagingSnapshot <dir>` evidence probe (Release product, inert without the argument). See §5 for why its output is *not* the evidence shipped here. |
 | `MattermostTests/T8dDirectMessagePagingTests.swift` | 11 unit tests (§3). |
 | `MattermostUITests/T8dDirectMessagePagingUITests.swift` | 1 live UI test against a seeded local server (§4). |
@@ -127,24 +127,32 @@ Screenshots (exported from that run's `xcresult` with `scripts/t37_export_shots.
 | `docs/t8d539b3f-shots/t8d-02-after-one-load.png` | after one tap: rows continue to `T8d User 40`, `Buddy Profile`, **`Load more   14 remaining`**. |
 | `docs/t8d539b3f-shots/t8d-03-all-loaded.png` | after the last tap: the list runs to `opsbot` with **no control** and the footer directly below. |
 
-## 5. The Release probe, and why its output is not the evidence here
+## 5. The Release screenshot, and what the probe does not prove
 
-`-dmPagingSnapshot <dir>` (`MattermostApp.swift`) photographs the page and writes a note per step. It
-was written first and run on the Release Catalyst build — and it exposed two things worth recording:
+The card's Done line asks for "a native Release screenshot of the Direct messages group showing 20 rows
+and the Load more control with the remaining count". That shot comes from the **Release Catalyst**
+build (`build/DerivedData-release/Build/Products/Release-maccatalyst/Mattermost.app`, ad-hoc
+re-signed, launched with `-dmPagingSnapshot <dir>`), first frame of the group, before any activation:
 
-1. It activated the control **through the accessibility tree, with a fallback to the model call**, and
-   on a large real list the drawn row had not been realised by the `LazyVStack` at the moment it
-   looked, so the note said `activatedVia=model` and `a11y=objects=499 matches=0`. A note that admits
-   the fallback is not dishonest, but a *screenshot* taken after a model call proves nothing about a
-   tap. That is why the shipped evidence is the XCUITest above, where `control.tap()` is real.
-2. It ran against whatever account was signed in — in this case a **production** server with 198 DMs.
-   Its note files carried that host, 198 channel ids, and colleagues' names in the PNGs, so the whole
-   directory was **not committed**. (It did confirm the mechanism at scale: 198 entries, `revealed=20`,
-   `hidden=172`, and 26 drawn rows = 20 recent + 6 unread DMs promoted from beyond the page — the
-   promotion rule, visible in the numbers.)
+- `docs/t8d539b3f-shots/release/release-catalyst-01-window.png` — the whole window.
+- `docs/t8d539b3f-shots/release/release-catalyst-01-crop0.png` — the bottom of the group: the unread
+  DMs, then `Load more` with `172 remaining`, then the footer.
+- `...-crop1.png` / `-crop2.png` / `-crop3.png` — walking up, so that between them they hold all 26
+  drawn rows and the group header.
+- `release-catalyst-01-page.txt` — the probe's numbers: `entries=198`, `revealed=20`, `visible=26`,
+  `hidden=172`, `unreadChannels=6`, `loadMoreValue=172 remaining`.
 
-The probe stays in the app (it is inert without the argument and useful for future sidebar work) but
-it is **not** this card's evidence, and it must not be pointed at a real account and committed.
+Two limits on that evidence, stated rather than papered over:
+
+1. **The account.** The app was already signed in, so the probe photographed that session — a real
+   workspace with 198 DMs (the repo's own precedent for sidebar evidence: the T33 and `t_3b2f313a`
+   shots are from a live account too). The probe's note lines that carry the host and every channel id
+   were **dropped** from the committed note; nothing else was edited.
+2. **It cannot tap.** The probe activates the control through the accessibility tree with a fallback to
+   the model call, and on a list this long the drawn row was not yet realised by the `LazyVStack` when
+   it looked, so its own note says `activatedVia=model`. A screenshot taken after a model call proves
+   nothing about a tap, so the activation steps (`-02-after-one`, `-03-after-two`) are **not** shipped.
+   The tap evidence is §4 — the UI test, where `control.tap()` is real.
 
 ## 6. Limits that stay
 

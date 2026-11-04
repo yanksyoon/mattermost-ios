@@ -1,0 +1,38 @@
+t_8d539b3f — Release Catalyst probe, first frame of the Direct messages group.
+
+The probe's own note, with two kinds of line **dropped**: `ids=` (every channel id of the account)
+and `server=` / `team=` (the workspace host and team id). Nothing else is edited.
+
+What it says, on a real account with a large sidebar (198 direct messages in the group):
+
+  entries=198            the group really holds every DM (the cap is a drawing fact, §2.1)
+  revealed=20            the page
+  visible=26             20 recent + 6 unread DMs promoted from beyond the page (§2.3)
+  hidden=172             what "Load more" is offering
+  showsLoadMore=true
+  loadMoreValue=172 remaining
+  unreadChannels=6       the header's roll-up — computed over all 198, not over the 26 drawn
+  mentions=6
+  wasCollapsed=false
+
+Screenshots in this directory: `release-catalyst-01-window.png` (whole window) and
+`release-catalyst-01-crop0..3.png` (the sidebar column, walking up from the bottom, so that between
+them they hold all 26 drawn rows and the control).
+
+Note on the account: the app was already signed in, so the probe ran against that session. The
+activation steps it took afterwards (`-02-after-one`, `-03-after-two`) are **not** shipped: the note
+for them says `activatedVia=model`, i.e. the probe could not find the drawn row in the accessibility
+tree and called the model instead of tapping. The tap evidence for this card is the live UI test —
+`docs/t_8d539b3f-build-note.md` §4 — where `control.tap()` is real.
+
+category=channelSidebar.category.direct_messages
+entries=198
+hidden=172
+loadMoreIdentifier=channelSidebar.loadMore.direct_messages
+loadMoreValue=172 remaining
+mentions=6
+revealed=20
+showsLoadMore=true
+unreadChannels=6
+visible=26
+wasCollapsed=false
