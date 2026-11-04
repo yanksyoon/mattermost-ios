@@ -466,6 +466,11 @@ struct MattermostApp: App {
                 // photographs the thread pane and the screen its leading control returns to, on a
                 // Release product (outside `#if DEBUG` on purpose). Inert without the arguments.
                 .task { runThreadBackSnapshotIfRequested() }
+                // t_3b2f313a evidence probe: `-sidebarGroupSnapshot <dir>` photographs the native
+                // sidebar with one **collapsed** category whose rows are unread, so the group header's
+                // bold + dot is visible where the rows are not. Release product (outside `#if DEBUG`
+                // on purpose), inert without the argument.
+                .task { runSidebarGroupSnapshotIfRequested() }
                 #if DEBUG
                 // T30 evidence probe: `-nativeShellSnapshot <dir>` writes light/dark PNGs of the
                 // shell (plus an accessibility text size pair). Inert without the argument.
@@ -1246,6 +1251,190 @@ struct MattermostApp: App {
                 "path": "\(nativeNavigation.path.count)",
             ])
         }
+    }
+
+    // MARK: Category-header marker evidence (t_3b2f313a — ships in Release)
+
+    /// `-sidebarGroupSnapshot <dir> [-sidebarGroupName <displayName>]`: where the sidebar probe
+    /// writes its PNGs + note, and which category to photograph (by default the first unread one).
+    private var sidebarGroupProbe: (dir: String, name: String?)? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let d = args.firstIndex(of: "-sidebarGroupSnapshot"), args.indices.contains(d + 1)
+        else { return nil }
+        var name: String?
+        if let n = args.firstIndex(of: "-sidebarGroupName"), args.indices.contains(n + 1) {
+            name = args[n + 1]
+        }
+        return (args[d + 1], name)
+    }
+
+    /// Evidence probe for the category header's unread marker **on a Release product**.
+    ///
+    /// The XCUITest bundle cannot run on this host's Catalyst destination, so the screenshot of a
+    /// collapsed, unread group header cannot come from a test. This waits for the native sidebar to
+    /// load, picks the named category (or the first one a row makes unread), collapses it (restoring
+    /// the previous state after the capture, so the account's own layout is left as it was), and
+    /// photographs the window. It also writes the **facts the marker was drawn from** — the group's
+    /// own roll-up — so the picture can be checked against the model rather than trusted. Inert
+    /// without the argument, and no `#if DEBUG`: it exists in the shipped configuration.
+    private func runSidebarGroupSnapshotIfRequested() {
+        guard let probe = sidebarGroupProbe else { return }
+        let dir = probe.dir
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            guard let server = serverStore.servers.first(where: { $0.id == serverStore.activeServerID })
+                    ?? serverStore.servers.first else {
+                writeThreadBackNote(dir + "/sidebar-group.txt", ["error": "no server"])
+                return
+            }
+            let model = channelSidebarCoordinator.model(for: server)
+            var waited = 0
+            while model.groups.isEmpty && waited < 40 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                waited += 1
+            }
+            let chosen = probe.name.flatMap { name in
+                model.groups.first { $0.displayName.caseInsensitiveCompare(name) == .orderedSame }
+            } ?? model.groups.first(where: { $0.hasUnread }) ?? model.groups.first
+            guard let group = chosen else {
+                writeThreadBackNote(dir + "/sidebar-group.txt", [
+                    "error": "no groups",
+                    "phase": "\(model.phase)",
+                    "team": model.teamID ?? "none",
+                ])
+                writeWindowSnapshot(to: dir + "/sidebar-group.png")
+                return
+            }
+
+            let wasCollapsed = model.isCollapsed(categoryID: group.id)
+            if !wasCollapsed {
+                await model.setCollapsed(true, categoryID: group.id)
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+            }
+            let collapsed = model.isCollapsed(categoryID: group.id)
+
+            writeWindowSnapshot(to: dir + "/sidebar-group.png")
+            writeThreadBackNote(dir + "/sidebar-group.txt", [
+                "server": server.url.absoluteString,
+                "team": model.teamID ?? "none",
+                "phase": "\(model.phase)",
+                "category": group.identifier,
+                "name": group.displayName,
+                "wasCollapsed": "\(wasCollapsed)",
+                "collapsed": "\(collapsed)",
+                "unreadChannels": "\(group.unreadChannels)",
+                "mentions": "\(group.mentions)",
+                "hasUnread": "\(group.hasUnread)",
+                "headerBadge": "\(group.headerBadge)",
+                "headerValue": group.accessibilityValue,
+                "rows": group.entries.map {
+                    "\($0.id):unread=\($0.unreadCount),mentions=\($0.mentionCount),emphasis=\($0.showsUnreadEmphasis)"
+                }.joined(separator: " | "),
+            ])
+
+            // The chosen category can be below the fold (this account's sidebar is long), and a
+            // `LazyVStack` does not build a section it has not scrolled to. Walk the sidebar's own
+            // scroll view (the element the UI suites swipe) and capture the column at each step, so
+            // the picture of the header is a real scroll position rather than a claim.
+            if let scroll = sidebarScrollView(note: dir + "/sidebar-scroll.txt") {
+                let limit = max(0, scroll.contentSize.height - scroll.bounds.height)
+                var offset: CGFloat = 0
+                var step = 0
+                while true {
+                    scroll.setContentOffset(CGPoint(x: 0, y: offset), animated: false)
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    writeSidebarCrop(to: String(format: "%@/sidebar-group-%02d.png", dir, step),
+                                     of: scroll)
+                    step += 1
+                    if offset >= limit { break }
+                    offset = min(limit, offset + 160)
+                }
+                scroll.setContentOffset(.zero, animated: false)
+                if let handle = FileHandle(forWritingAtPath: dir + "/sidebar-scroll.txt") {
+                    handle.seekToEndOfFile()
+                    handle.write(Data("steps=\(step)\n".utf8))
+                    try? handle.close()
+                }
+            }
+
+            // Leave the account's layout as it was found.
+            if !wasCollapsed {
+                await model.setCollapsed(false, categoryID: group.id)
+            }
+
+            // Every group's roll-up, so the picture (which shows more than one marked header) can be
+            // checked against the model in one place. Read after the layout was restored.
+            let lines = model.groups.map { candidate in
+                [
+                    candidate.identifier,
+                    "name=\(candidate.displayName)",
+                    "collapsed=\(model.isCollapsed(categoryID: candidate.id))",
+                    "unreadChannels=\(candidate.unreadChannels)",
+                    "mentions=\(candidate.mentions)",
+                    "hasUnread=\(candidate.hasUnread)",
+                    "badge=\(candidate.headerBadge)",
+                    "value=\(candidate.accessibilityValue)",
+                ].joined(separator: "|")
+            }
+            try? (lines.joined(separator: "\n") + "\n")
+                .write(to: URL(fileURLWithPath: dir + "/sidebar-groups.txt"),
+                       atomically: true, encoding: .utf8)
+        }
+    }
+
+    /// The sidebar's own scroll view.
+    ///
+    /// `channelSidebar.scroll` is a SwiftUI accessibility identifier and reaches the a11y tree, not
+    /// the backing `UIScrollView` (measured here: the identifier query found no UIKit scroll view),
+    /// so the fallback is a geometric pick — the **narrowest** vertically scrolling view in the
+    /// window's left half, which is the channel column. The choice is written to the note so the
+    /// capture states which view was walked instead of implying it.
+    @MainActor
+    private func sidebarScrollView(note: String) -> UIScrollView? {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.windows }.joined()
+        func collect(_ view: UIView, into found: inout [UIScrollView]) {
+            if let scroll = view as? UIScrollView { found.append(scroll) }
+            for subview in view.subviews { collect(subview, into: &found) }
+        }
+        var candidates: [UIScrollView] = []
+        for window in windows { collect(window, into: &candidates) }
+        let described = candidates.map {
+            "x=\(Int($0.frame.minX)),w=\(Int($0.frame.width)),h=\(Int($0.bounds.height)),content=\(Int($0.contentSize.height)),id=\($0.accessibilityIdentifier ?? "-")"
+        }
+        let named = candidates.first {
+            $0.accessibilityIdentifier == NativeChannelSidebarContent.scrollIdentifier
+        }
+        let geometric = candidates
+            .filter { $0.frame.minX < 0.5 * ($0.window?.bounds.width ?? 0)
+                        && $0.contentSize.height > $0.bounds.height
+                        && $0.frame.width > 100 }
+            .min { $0.frame.width < $1.frame.width }
+        let chosen = named ?? geometric
+        let text = "chosen=\(chosen.map { "w=\(Int($0.frame.width)),content=\(Int($0.contentSize.height))" } ?? "none")"
+            + "\ncandidates=" + described.joined(separator: " | ")
+        try? (text + "\n").write(to: URL(fileURLWithPath: note), atomically: true, encoding: .utf8)
+        return chosen
+    }
+
+    /// The sidebar column as it is drawn, cropped out of a window capture (`drawHierarchy`, so no
+    /// Screen Recording permission is needed). The crop is the scroll view's own frame plus a little
+    /// headroom, which is where a pinned category header sits.
+    @MainActor
+    private func writeSidebarCrop(to path: String, of scroll: UIScrollView) {
+        guard let window = scroll.window else { return }
+        let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
+        let full = renderer.image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        let inWindow = scroll.convert(scroll.bounds, to: window)
+        let crop = inWindow.insetBy(dx: -8, dy: -64)
+            .intersection(CGRect(origin: .zero, size: window.bounds.size))
+        guard !crop.isEmpty, let cg = full.cgImage else { return }
+        let scaled = crop.applying(CGAffineTransform(scaleX: full.scale, y: full.scale))
+        guard let cropped = cg.cropping(to: scaled) else { return }
+        try? UIImage(cgImage: cropped, scale: full.scale, orientation: .up)
+            .pngData()?.write(to: URL(fileURLWithPath: path))
     }
 
     /// `drawHierarchy` renders the native hierarchy, so this works without Screen Recording.

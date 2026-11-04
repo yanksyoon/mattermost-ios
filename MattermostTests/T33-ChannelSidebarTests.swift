@@ -368,6 +368,114 @@ final class T33ChannelSidebarTests: XCTestCase {
         XCTAssertEqual(byName[0].entries.filter(\.isSelected).map(\.id), ["c1"])
     }
 
+    // MARK: - 3b. The category header's unread marker (t_3b2f313a)
+
+    /// One row with its own id, so a group can hold several.
+    private func row(_ id: String,
+                     mentions: Int = 0,
+                     unread: Int = 0,
+                     muted: Bool = false,
+                     manuallyUnread: Bool = false) -> ChannelSidebarEntry {
+        ChannelSidebarEntry(id: id,
+                            name: id,
+                            displayName: id.uppercased(),
+                            kind: .publicChannel,
+                            unreadCount: unread,
+                            mentionCount: mentions,
+                            isMuted: muted,
+                            manuallyUnread: manuallyUnread,
+                            isFavorite: false,
+                            isSelected: false,
+                            lastPostAt: 0,
+                            createdAt: 0,
+                            searchTerms: [])
+    }
+
+    private func group(_ rows: [ChannelSidebarEntry],
+                       kind: String = "channels",
+                       muted: Bool = false,
+                       collapsed: Bool = false) -> ChannelSidebarGroup {
+        ChannelSidebarGroup(category: category("g-\(UUID().uuidString)",
+                                               type: kind,
+                                               muted: muted,
+                                               collapsed: collapsed),
+                            entries: rows)
+    }
+
+    func testAGroupWithAnUnreadChannelIsMarkedAndAReadGroupIsNot() {
+        let unread = group([row("a", unread: 2), row("b")])
+        XCTAssertTrue(unread.hasUnread, "the header is bold while a row in the group is unread")
+        XCTAssertEqual(unread.headerBadge, .dot, "and it draws the row's unread dot")
+        XCTAssertEqual(unread.accessibilityValue, "Unread")
+
+        let read = group([row("a"), row("b")])
+        XCTAssertFalse(read.hasUnread)
+        XCTAssertEqual(read.headerBadge, ChannelSidebarBadge.none)
+        XCTAssertEqual(read.accessibilityValue, "")
+    }
+
+    /// The point of the request: on a collapsed group the header is the only visible thing, so the
+    /// marker must not be gated on the rows being drawn.
+    func testACollapsedGroupWithAnUnreadChannelIsStillMarked() {
+        let collapsed = group([row("a", unread: 1), row("b")], collapsed: true)
+        XCTAssertTrue(collapsed.category.collapsed)
+        XCTAssertTrue(collapsed.hasUnread)
+        XCTAssertEqual(collapsed.headerBadge, .dot)
+    }
+
+    func testTwoUnreadChannelsDrawOneDottedHeaderAndNoNumber() {
+        let twoUnread = group([row("a", mentions: 3, unread: 4), row("b", unread: 7)])
+        XCTAssertEqual(twoUnread.unreadChannels, 2)
+        XCTAssertEqual(twoUnread.mentions, 3)
+        XCTAssertEqual(twoUnread.headerBadge, .dot, "the header is bold + dot, never a count badge")
+        XCTAssertNil(twoUnread.headerBadge.text)
+        XCTAssertEqual(twoUnread.accessibilityValue, "Unread, 3 mentions")
+    }
+
+    /// The rule the header inherits from the rows: an **explicit mention** marks a muted row (that is
+    /// what `mark_unread: mention` means), while a muted row with only ordinary unread messages draws
+    /// nothing — so a group whose only "unread" row is a muted channel's traffic stays unmarked.
+    func testTheHeaderFollowsTheRowRuleSoAMutedMentionMarksTheGroupAndAMutedUnreadDoesNot() {
+        let mutedMention = group([row("a", mentions: 2, unread: 5, muted: true), row("b")])
+        XCTAssertEqual(mutedMention.unreadChannels, 1)
+        XCTAssertTrue(mutedMention.hasUnread)
+        XCTAssertEqual(mutedMention.headerBadge, .dot)
+        XCTAssertEqual(mutedMention.accessibilityValue, "Unread, 2 mentions")
+
+        let mutedMessagesOnly = group([row("a", unread: 5, muted: true), row("b")])
+        XCTAssertEqual(mutedMessagesOnly.entries[0].badge, ChannelSidebarBadge.none,
+                       "the row draws no dot, so the group cannot claim one")
+        XCTAssertFalse(mutedMessagesOnly.hasUnread)
+        XCTAssertEqual(mutedMessagesOnly.headerBadge, ChannelSidebarBadge.none)
+        XCTAssertEqual(mutedMessagesOnly.accessibilityValue, "")
+    }
+
+    func testAMutedCategorySaysSoBeforeItsUnreadFact() {
+        let mutedCategory = group([row("a", mentions: 1, unread: 3)], muted: true)
+        XCTAssertEqual(mutedCategory.accessibilityValue, "Muted, Unread, 1 mention")
+    }
+
+    /// No second counter: the marker is read off the same `entries` the body is built from, so
+    /// dropping the unread row flips the header with no other bookkeeping. The assertions use the
+    /// group's own `hasUnread` / `headerBadge`, not a sum recomputed here.
+    func testTheHeaderMarkerIsTheRowsOwnRollUpAndCannotDisagreeWithThem() {
+        let channels = groups(standardData())[0]
+        XCTAssertEqual(channels.entries.map(\.showsUnreadEmphasis), [true, false])
+        XCTAssertEqual(channels.unreadChannels,
+                       channels.entries.filter(\.showsUnreadEmphasis).count,
+                       "the roll-up *is* the rows' predicate, not a separate count")
+        XCTAssertTrue(channels.hasUnread)
+        XCTAssertEqual(channels.headerBadge, .dot)
+        XCTAssertEqual(channels.accessibilityValue, "Unread")
+
+        var withoutUnread = channels
+        withoutUnread.entries.removeAll { $0.showsUnreadEmphasis }
+        XCTAssertEqual(withoutUnread.unreadChannels, 0)
+        XCTAssertFalse(withoutUnread.hasUnread)
+        XCTAssertEqual(withoutUnread.headerBadge, ChannelSidebarBadge.none)
+        XCTAssertEqual(withoutUnread.accessibilityValue, "")
+    }
+
     // MARK: - 4. Sorting
 
     func testManualSortingUsesTheCategoryChannelIds() {

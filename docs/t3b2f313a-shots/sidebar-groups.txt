@@ -1,0 +1,11 @@
+channelSidebar.category.custom.amreodshkfyninfe9cidjzefzw|name=PFE|collapsed=false|unreadChannels=0|mentions=0|hasUnread=false|badge=none|value=
+channelSidebar.category.custom.3kaddyuw4iddudm7tjzg7dkm6h|name=Ninja|collapsed=true|unreadChannels=0|mentions=0|hasUnread=false|badge=none|value=
+channelSidebar.category.favorites|name=Favorites|collapsed=true|unreadChannels=2|mentions=0|hasUnread=true|badge=dot|value=Unread
+channelSidebar.category.custom.d8rdp5xowjgq7xqtertxs9684y|name=Sprints|collapsed=true|unreadChannels=1|mentions=4|hasUnread=true|badge=dot|value=Unread, 4 mentions
+channelSidebar.category.custom.bksysjmax7bcbpyfc393ygjacw|name=Outages|collapsed=true|unreadChannels=2|mentions=0|hasUnread=true|badge=dot|value=Unread
+channelSidebar.category.custom.spf76i7jqfd7urjxq4nwr5joyo|name=HR|collapsed=true|unreadChannels=0|mentions=0|hasUnread=false|badge=none|value=
+channelSidebar.category.custom.5g8sbx6fw38wiqnyqgj3mhho9y|name=archive|collapsed=true|unreadChannels=0|mentions=0|hasUnread=false|badge=none|value=
+channelSidebar.category.custom.k9gq8fz7e3njpndo5spfy3n11a|name=Not important|collapsed=true|unreadChannels=0|mentions=0|hasUnread=false|badge=none|value=
+channelSidebar.category.custom.gd8xtjdeptgrxjtrhooccjup6a|name=Knowledgebase|collapsed=true|unreadChannels=1|mentions=0|hasUnread=true|badge=dot|value=Unread
+channelSidebar.category.channels|name=Channels|collapsed=true|unreadChannels=9|mentions=7|hasUnread=true|badge=dot|value=Unread, 7 mentions
+channelSidebar.category.direct_messages|name=Direct Messages|collapsed=false|unreadChannels=6|mentions=6|hasUnread=true|badge=dot|value=Unread, 6 mentions

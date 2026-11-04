@@ -1,0 +1,3 @@
+chosen=w=256,content=9937
+candidates=x=0,w=851,h=140,content=140,id=channelComposer.input | x=0,w=64,h=840,content=126,id=- | x=0,w=256,h=840,content=9937,id=-
+steps=58

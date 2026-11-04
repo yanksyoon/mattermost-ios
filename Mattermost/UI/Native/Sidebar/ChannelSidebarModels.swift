@@ -203,6 +203,44 @@ struct ChannelSidebarGroup: Identifiable, Equatable, Sendable {
     var displayName: String {
         category.displayName.isEmpty ? category.kind.defaultDisplayName : category.displayName
     }
+
+    // MARK: The header's roll-up (t_3b2f313a)
+
+    /// Mentions across the group's rows.
+    var mentions: Int { entries.reduce(0) { $0 + $1.mentionCount } }
+
+    /// Rows the **row rule** calls unread (`ChannelSidebarEntry.showsUnreadEmphasis`) — a muted row
+    /// with an explicit mention counts, a muted row with only ordinary messages does not. Defined by
+    /// the rows' own predicate rather than `unreadCount > 0`, so the header cannot say "unread" for a
+    /// channel whose row deliberately shows nothing.
+    ///
+    /// Computed from `entries` on every read: there is no second counter that a redraw could leave
+    /// disagreeing with the rows the group is built from.
+    var unreadChannels: Int { entries.filter(\.showsUnreadEmphasis).count }
+
+    /// Whether the category header draws its marker: the label is bold and the row's unread dot is
+    /// drawn while anything in the group is unread — including when the group is collapsed, where the
+    /// header is the only visible thing.
+    var hasUnread: Bool { unreadChannels > 0 }
+
+    /// The header's badge is the **row's dot** and never a count: a mention stays "this group has
+    /// something unread" (the owner asked for bold + dot); the number rides in the accessibility
+    /// value. The dot is the same `ChannelSidebarBadge.dot` the rows draw, so there is one indicator.
+    var headerBadge: ChannelSidebarBadge { hasUnread ? .dot : .none }
+
+    /// What VoiceOver says after the category name (T8e keeps the header one element). The mute fact
+    /// comes first, then the unread fact in the rows' words, then the mention number. A mention
+    /// implies unread, so a group with mentions says both — which is what the header draws.
+    var accessibilityValue: String {
+        var parts: [String] = []
+        if category.muted { parts.append("Muted") }
+        if hasUnread { parts.append("Unread") }
+        if mentions > 0 {
+            parts.append(mentions == 1 ? "1 mention"
+                                       : "\(mentions > 99 ? "more than 99" : String(mentions)) mentions")
+        }
+        return parts.joined(separator: ", ")
+    }
 }
 
 /// The aggregate the sidebar shows at its foot, and the numbers the app badge should use.

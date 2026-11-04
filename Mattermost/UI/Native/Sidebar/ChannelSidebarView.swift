@@ -715,7 +715,23 @@ struct NativeChannelSidebarContent: View {
 
 // MARK: - Category header
 
-/// A section's header: disclosure chevron, the category's name, and its mute marker.
+/// The sidebar's unread dot. One shape for both places it is drawn (t_3b2f313a): the channel row's
+/// badge and the category header's marker must never drift into two indicators.
+///
+/// Decoration only — the value it sits beside already says "Unread" (the row's and the header's
+/// accessibility values), so it is hidden from the tree.
+struct ChannelSidebarUnreadDot: View {
+    var body: some View {
+        Circle()
+            .fill(Color.accentColor)
+            .frame(width: 7, height: 7)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A section's header: disclosure chevron, the category's name, its mute marker, and — while anything
+/// in the group is unread — the unread emphasis the owner asked for (bold name + blue dot), including
+/// on a collapsed group, where the header is the only thing on screen.
 ///
 /// Collapsing is a control (upstream's header toggles the body); the whole header is the button so a
 /// tap anywhere on it works, and it carries the category's stable identifier.
@@ -732,12 +748,20 @@ struct CategoryHeader: View {
                     .foregroundStyle(.secondary)
                 Text(group.displayName)
                     .mmLineLimit(1)
+                    // The group's emphasis: bold while any row in it is unread, from
+                    // `ChannelSidebarGroup.hasUnread` — the same rows the body draws, not a recount.
+                    .fontWeight(group.hasUnread ? .bold : .regular)
                 if group.category.muted {
                     Image(systemName: "bell.slash")
                         .font(.caption2)
                         .accessibilityLabel("Category muted")
                 }
                 Spacer(minLength: 0)
+                if group.headerBadge.isDot {
+                    // Trailing, where a row's badge sits, so "this group has something unread" reads
+                    // as the row's own dot lifted to the section.
+                    ChannelSidebarUnreadDot()
+                }
             }
             // A `.plain` button hit-tests its label's content shape, not the row its frame fills;
             // without this the space after the Spacer would not take a tap even though the whole
@@ -745,14 +769,15 @@ struct CategoryHeader: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        // One header, one element (T8e): the disclosure chevron, the name and the mute marker were
-        // three elements — `Image('chevron.down')`, `StaticText`, `Image('bell.slash')`. The name stays
-        // the label; the mute fact moves into the value so VoiceOver still says it (a `Button`'s label
-        // children are not merged by `.combine`, measured — see `docs/t8e-a11y-tree-decision.md`).
+        // One header, one element (T8e): the disclosure chevron, the name, the mute marker and the
+        // unread dot were four elements — `Image('chevron.down')`, `StaticText`, `Image('bell.slash')`,
+        // the dot. The name stays the label; the mute and unread facts move into the value so
+        // VoiceOver still says them (a `Button`'s label children are not merged by `.combine`,
+        // measured — see `docs/t8e-a11y-tree-decision.md`).
         .accessibilityRepresentation {
             Button(group.displayName, action: onToggle)
                 .accessibilityIdentifier(group.identifier)
-                .accessibilityValue(group.category.muted ? "Muted" : "")
+                .accessibilityValue(group.accessibilityValue)
         }
         .accessibilityIdentifier(group.identifier)
     }
@@ -851,11 +876,8 @@ struct ChannelSidebarRow: View {
         case .none:
             EmptyView()
         case .dot:
-            Circle()
-                .fill(Color.accentColor)
-                .frame(width: 7, height: 7)
-                // The row's value already says "Unread"; the dot is decoration.
-                .accessibilityHidden(true)
+            // The same dot the category header draws (t_3b2f313a): one indicator, two places.
+            ChannelSidebarUnreadDot()
         case .count:
             Text(entry.badgeText ?? "")
                 .font(.caption2.weight(.bold))

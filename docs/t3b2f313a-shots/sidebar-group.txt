@@ -1,0 +1,13 @@
+category=channelSidebar.category.custom.d8rdp5xowjgq7xqtertxs9684y
+collapsed=true
+hasUnread=true
+headerBadge=dot
+headerValue=Unread, 4 mentions
+mentions=4
+name=Sprints
+phase=loaded
+rows=3p9pzcwjcpr3brooi96syregpy:unread=58,mentions=4,emphasis=true | yay355u87tfn7rdz361tjgww1w:unread=0,mentions=0,emphasis=false | ipdxr76axpf6jpidno6ecujiia:unread=0,mentions=0,emphasis=false | jo5igmayejgfzgx6bin598b9uy:unread=0,mentions=0,emphasis=false | j5n3e6jocjgqij5o5pdbwsm3so:unread=0,mentions=0,emphasis=false | z88zooo56pye8kfrns3icn49ua:unread=0,mentions=0,emphasis=false | qeo1opss8bbhjrjcnwh5k7k4cw:unread=0,mentions=0,emphasis=false
+server=https://chat.canonical.com
+team=sqmc4sz45prypmkfctwynm5yjr
+unreadChannels=1
+wasCollapsed=true
