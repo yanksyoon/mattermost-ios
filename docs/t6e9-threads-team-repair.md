@@ -49,7 +49,9 @@ The card's first step was to rule out a stale QA Debug build. It is **not** stal
 * Host quirk, recorded so the next reader does not chase it: the Xcode-built Catalyst bundle cannot
   launch as-is — its embedded `WebRTC.framework` is ad-hoc with no Team ID and dyld refuses the
   mapping (`different Team IDs`). The evidence run used a copy re-signed
-  `codesign --force --deep --sign -`; the executable's code and sources are unchanged.
+  `codesign --force --deep --sign - <Mattermost.app>` (then `codesign --verify --deep --strict`
+  reports `valid on disk`); the executable's code and sources are unchanged. Cause and measured
+  flags: `docs/t_ecfda04e-build-note.md`, "Launch: re-sign a fresh Release Catalyst product first".
 
 ## 2. The defect
 

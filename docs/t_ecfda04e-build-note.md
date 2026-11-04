@@ -200,13 +200,92 @@ The Release build itself succeeds and is registered with LaunchServices at
 <scratch>/dd-release/Build/Products/Release-maccatalyst/Mattermost.app
 ```
 
-What to do after unlocking (three taps, no rebuild needed):
+What to do after unlocking (one re-sign, then three taps, no rebuild needed):
 
-1. `open <scratch>/dd-release/Build/Products/Release-maccatalyst/Mattermost.app`
-2. Settings (gear) → Notifications → **Enable notifications** → **Allow** in the system dialog.
+1. `codesign --force --deep --sign - <scratch>/dd-release/Build/Products/Release-maccatalyst/Mattermost.app`
+   — **required once per fresh build**, or step 2 crashes in dyld (see "Launch: re-sign a fresh
+   Release Catalyst product first" below).
+2. `open <scratch>/dd-release/Build/Products/Release-maccatalyst/Mattermost.app`
+3. Settings (gear) → Notifications → **Enable notifications** → **Allow** in the system dialog.
    That dialog writes the `com.mattermost.ios` entry `ncprefs` has never had.
-3. **Send a test notification** → a banner with sound appears; the row's diagnostics line reads
+4. **Send a test notification** → a banner with sound appears; the row's diagnostics line reads
    `notifications=status=authorized requested=true lastSchedule=scheduled`.
 
 The dock badge comes from a real unread (`SessionStore`), not from the test banner, so it needs a
 mention/unread on the signed-in server.
+
+## Launch: re-sign a fresh Release Catalyst product first
+
+`open` on a stock product exits 0 and the process dies about two seconds later. The app is not at
+fault: the stock Release build is ad-hoc signed **with hardened runtime** (`-o runtime`), and its
+embedded prebuilt `WebRTC.framework` is ad-hoc with no Team ID, so dyld refuses the mapping.
+
+```
+~/Library/Logs/DiagnosticReports/Mattermost-<date>.ips
+  namespace        DYLD
+  indicator        Library missing        fatalDyldError 1
+  Library not loaded: @rpath/WebRTC.framework/WebRTC
+  'WebRTC.framework/Versions/A/WebRTC' not valid for use in process:
+      mapping process and mapped file (non-platform) have different Team IDs
+```
+
+Measured on this host (2026-11-04, `f947fd6` Release Catalyst; re-measured from that same product
+on this card):
+
+| binary | `flags` | `Signature` | `TeamIdentifier` |
+| --- | --- | --- | --- |
+| stock `Contents/MacOS/Mattermost` | `0x10002(adhoc,runtime)` | adhoc | not set |
+| stock `Contents/Frameworks/WebRTC.framework/Versions/A/WebRTC` | `0x10002(adhoc,runtime)` | adhoc | not set |
+| after the re-sign below | `0x2(adhoc)` | adhoc | not set |
+| known-good `/Applications/Mattermost(ios).app` | `0x2(adhoc)` | adhoc | not set |
+
+The `runtime` flag comes from Xcode's own CodeSign step for this configuration:
+
+```
+/usr/bin/codesign --force --sign - -o runtime --timestamp=none --generate-entitlement-der \
+  .../Release-maccatalyst/Mattermost.app
+```
+
+Hardened runtime turns on library validation, which accepts only platform libraries and libraries
+signed with the *same* Team ID. The embedded framework is ad-hoc with no Team ID, so the two cannot
+be mapped together.
+
+The project sets no `ENABLE_HARDENED_RUNTIME` of its own; the value is Xcode's per-configuration
+default, which is also why the Debug build in `docs/quickstart.md` launches without any re-sign:
+
+```
+xcodebuild … -configuration Release -destination 'platform=macOS,variant=Mac Catalyst' -showBuildSettings
+  -> ENABLE_HARDENED_RUNTIME = YES
+xcodebuild … -configuration Debug   -destination 'platform=macOS,variant=Mac Catalyst' -showBuildSettings
+  -> ENABLE_HARDENED_RUNTIME = NO
+```
+
+The fix is packaging only — no repository code, entitlements, or project-setting change:
+
+```bash
+APP=<scratch>/dd-release/Build/Products/Release-maccatalyst/Mattermost.app
+codesign --force --deep --sign - "$APP"      # main binary becomes flags=0x2(adhoc), no runtime
+codesign --verify --deep --strict "$APP"     # -> "valid on disk" / "satisfies its Designated Requirement"
+open "$APP"
+```
+
+Verified after the re-sign: the process is still alive 8 s later and logs
+
+```
+[com.mattermost.ios:NotificationWorker] notifications=status=notDetermined requested=false lastSchedule=none event=status-read
+```
+
+Caveats, so nobody chases them later:
+
+* `--deep --sign -` re-signs without `--entitlements`, so the stock build's only entitlement
+  (`com.apple.security.get-task-allow`) is dropped. That removes debugger-attach and nothing the app
+  reads at runtime; the Keychain path already degrades to the AES-GCM file store on an ad-hoc Mac
+  build (`errSecMissingEntitlement`, see `docs/quickstart.md`).
+* Re-sign **every** fresh build. Rebuilding restores the hardened-runtime signature, and any
+  `xcodebuild` invocation that re-copies the product brings the crash back.
+* `--deep` is deprecated by Apple but is the form that was measured to work here; it re-signs the
+  nested frameworks, which is exactly what the mismatch needs.
+* A durable alternative would be `ENABLE_HARDENED_RUNTIME = NO` for the Catalyst Release
+  configuration, or re-signing as a build phase. Both are build-setting/product changes and are
+  deliberately **not** made by this card (scope: build notes only). Until one of them is owned,
+  the re-sign above is the step every operator runs.
