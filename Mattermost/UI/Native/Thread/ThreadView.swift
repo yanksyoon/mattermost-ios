@@ -529,9 +529,15 @@ struct ThreadPostListView: View {
                         // the inert drawing.
                         onShowProfile: offersAuthorProfile
                             ? { userID in sheet = .profile(ProfileTarget(userID: userID)) }
-                            : nil)
-                // A reply in a thread can itself be a root for the channel's reply line but never
-                // opens a second thread: the reply line is withheld here.
+                            : nil,
+                        // The thread's own count lives in this pane's **header** (`threadPane.subtitle`),
+                        // never on a row: upstream draws its reply overview only when the row is not on
+                        // the thread screen, and it draws none for a reply at all (`PostReplyLine`).
+                        // So no row here — the root included — produces a `post.<id>.replyCount`
+                        // element; the identifier only exists in the channel timeline.
+                        surface: .thread)
+                // The pane's own row identifier: a thread row is `thread.post.<id>`, never `post.<id>`,
+                // so the channel timeline's row queries cannot pick one up by accident.
                 .accessibilityIdentifier("thread.post.\(row.id)")
         }
     }

@@ -138,11 +138,18 @@ struct PostRowModel: Equatable, Identifiable, Sendable {
     var blocks: [MarkdownBlock]
     var reactions: [PostReactionSummary]
     var attachments: [PostAttachment]
+    /// The number of replies under **this** post as a root.
+    ///
+    /// Always `0` for a reply: a thread's count belongs to its root, and the server does not agree
+    /// (measured on the pinned 9.11.19 server, `GET /posts/{root}/thread` — every post of a
+    /// three-reply thread, replies included, comes back with `reply_count: 3`). `PostReplyLine.count`
+    /// is the one place that rule lives, so the row built here can never carry a reply's number.
     var replyCount: Int
     /// T36: the people in the thread under this root, newest activity first — the avatar stack beside
     /// the reply count. Empty for a post with no replies. Derived from the server's `participants`
     /// (which the channel page asks for with `collapsedThreadsExtended=true`) and, in the thread pane,
-    /// from the replies actually loaded (`ThreadDerivation.participants`).
+    /// from the replies actually loaded (`ThreadDerivation.participants`). Empty for a reply, for the
+    /// same reason `replyCount` is zero there: it is the root's stack.
     var participants: [PostAuthor] = []
     /// T35: an optimistic row the composer inserted, whose `id` is a local `pending:<uuid>`. The row
     /// draws a muted "Sending…" status and is not yet a fact about the conversation.
@@ -170,6 +177,39 @@ struct PostRowModel: Equatable, Identifiable, Sendable {
     var foldSummary: String { fold?.hiddenSummary ?? "" }
 
     func showsAllBlocks(expanded: Bool) -> Bool { expanded || fold == nil }
+}
+
+// MARK: - The reply line's rule
+
+/// When a post may say "N replies", and what N may be.
+///
+/// Upstream draws this overview from the **thread record of the post's own id**
+/// (`mattermost-mobile` v2.45.0, `app/components/post_list/post/index.ts`:
+/// `thread: isCRTEnabled ? observeThreadById(database, post.id) : of$(undefined)`), and then only when
+/// the row is not on the thread screen (`post.tsx`: `location !== Screens.THREAD`). A reply has no
+/// thread record of its own — nested threads do not exist — so a reply never draws one, and the
+/// thread screen draws none at all: its header is where that count belongs
+/// (`thread_post_list.tsx` + `thread_overview.tsx`, which also returns `null` at 0).
+///
+/// Ours had two defects behind the same symptom, so both halves are decided here:
+///  * the server puts the thread's total on **every** post of the thread (`reply_count` measured 3 on
+///    the root and on each of its three replies, `/posts/{root}/thread` on 9.11.19), and the row took
+///    it verbatim — so every reply carried "3 replies";
+///  * the view drew the line on every surface, so even a correct root drew it inside the thread pane.
+enum PostReplyLine {
+
+    /// What a row may carry: the root's own count, and zero for any reply, whatever the server said.
+    static func count(for post: MMPost) -> Int {
+        guard post.rootId.isEmpty else { return 0 }
+        return max(post.replyCount, 0)
+    }
+
+    /// Whether a row on `surface` draws the line. `surface` is the same two-value vocabulary the
+    /// options sheet gates Follow on (`PostOptionsSurface`), so the pane and the sheet cannot disagree
+    /// about what "the thread surface" is.
+    static func showsLine(surface: PostOptionsSurface, post: MMPost, count: Int) -> Bool {
+        surface == .channel && post.rootId.isEmpty && count > 0
+    }
 }
 
 /// A folded post's visible prefix, plus the sentence that says what is not visible.
@@ -354,9 +394,14 @@ enum PostListDerivation {
                             blocks: blocks,
                             reactions: reactions(for: post, myUserID: myUserID),
                             attachments: attachments(for: post),
-                            replyCount: post.replyCount,
-                            participants: participantAuthors(participants: post.participants ?? [],
-                                                            users: users),
+                            // A thread's count and its avatar stack are the **root's** (see
+                            // `PostReplyLine`): the server copies the total onto every post of the
+                            // thread, so taking `post.replyCount` here is what drew "N replies" under
+                            // every reply of the thread pane.
+                            replyCount: PostReplyLine.count(for: post),
+                            participants: post.rootId.isEmpty
+                                ? participantAuthors(participants: post.participants ?? [], users: users)
+                                : [],
                             isPending: pending,
                             fold: fold)
     }

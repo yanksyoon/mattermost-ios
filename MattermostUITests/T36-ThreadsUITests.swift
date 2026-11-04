@@ -306,6 +306,131 @@ final class T36ThreadsUITests: XCTestCase {
                        "and the thread's channel is still this channel")
     }
 
+    // MARK: - 2c. The count belongs to a root in the channel (kanban t_0833c752)
+
+    /// The owner's report: *"inside the thread view every reply shows a number of replies. It should
+    /// only appear in the channel view, and only for a thread that actually has replies."*
+    ///
+    /// This is the half the reader must still be able to use: in the **channel timeline** the root
+    /// draws exactly one reply line, it is tappable, and it opens the thread. `t0833` fixtures are
+    /// created fresh at the newest end so the row is on the first screen.
+    func testTheChannelRootCarriesExactlyOneTappableReplyLine() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let root = try post(message: "t0833 line root \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the reply-line root")
+        let rootID = try XCTUnwrap(root["id"] as? String)
+        for index in 1...3 {
+            let reply = try post(message: "t0833 line reply \(index) \(stamp)",
+                                 rootID: rootID, as: token)
+            assertAuthoredBy(userID, reply, "reply \(index) of the reply-line thread")
+        }
+
+        let app = launchAndOpenChannel()
+        XCTAssertTrue(revealPost(app, rootID).waitForExistence(timeout: 40),
+                      "the fresh root must be on the channel's first screen:\n\(app.debugDescription)")
+
+        let matches = app.descendants(matching: .any)
+            .matching(identifier: "post.\(rootID).replyCount")
+        XCTAssertTrue(waitUntil(timeout: 30) { matches.count == 1 },
+                      "a root with three replies must draw exactly one reply line, got "
+                      + "\(matches.count) (the server's own count is 3):\n\(app.debugDescription)")
+        let line = matches.firstMatch
+        XCTAssertTrue(line.isHittable, "the reply line must be a control, not a label")
+        XCTAssertEqual(line.value as? String, "3",
+                       "the line carries the server's count of the thread's replies")
+        attachScreenshot("t0833-01-channel-root-reply-line")
+
+        line.tap()
+        XCTAssertTrue(element(app, "threadPane").waitForExistence(timeout: 40),
+                      "the reply line must open the thread:\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "threadPostList").waitForExistence(timeout: 40),
+                      "the thread's post list must mount:\n\(app.debugDescription)")
+        attachScreenshot("t0833-02-thread-opened-from-the-line")
+    }
+
+    /// The thread surface's own **root** row: no reply-count element at all.
+    ///
+    /// Upstream draws its overview only when `location !== Screens.THREAD`
+    /// (`post_list/post/post.tsx`), and this pane's header (`threadPane.subtitle`) is where the count
+    /// belongs. A hidden element would be just as wrong as a drawn one: this asserts absence of the
+    /// identifier, not absence of text.
+    func testTheThreadRootRowCarriesNoReplyLine() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let root = try post(message: "t0833 thread root \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the thread-root fixture")
+        let rootID = try XCTUnwrap(root["id"] as? String)
+        let reply = try post(message: "t0833 thread reply \(stamp)", rootID: rootID, as: token)
+        assertAuthoredBy(userID, reply, "the thread-root reply")
+        let replyID = try XCTUnwrap(reply["id"] as? String)
+
+        let app = launchAndOpenChannel()
+        // The line exists in the channel — that is what opens the thread, and the control for it.
+        openThread(app, rootID: rootID)
+        XCTAssertTrue(element(app, "thread.post.\(rootID)").waitForExistence(timeout: 40),
+                      "the thread must draw its root row:\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "thread.post.\(replyID)").waitForExistence(timeout: 40),
+                      "the thread must draw its reply row:\n\(app.debugDescription)")
+
+        XCTAssertFalse(element(app, "post.\(rootID).replyCount").waitForExistence(timeout: 5),
+                       "the thread pane's root row must not repeat the reply count — the pane's "
+                       + "header carries it:\n\(app.debugDescription)")
+        let subtitle = element(app, "threadPane.subtitle")
+        XCTAssertTrue(subtitle.waitForExistence(timeout: 10),
+                      "the count's home inside the thread is the pane header")
+        XCTAssertTrue(subtitle.label.lowercased().contains("reply"),
+                      "the header must name the replies the count belongs to, got: "
+                      + "\u{201C}\(subtitle.label)\u{201D}")
+        attachScreenshot("t0833-03-thread-root-without-a-reply-line")
+    }
+
+    /// Every reply row of an open thread: no reply-count element on any of them.
+    ///
+    /// This is the sentence the owner read. The server hands the thread's total to each reply
+    /// (`reply_count: 3` on every post of a three-reply thread, measured), so both fixes are
+    /// needed to make it true: the row zeroes a reply's count and the thread surface draws none.
+    func testNoReplyRowInTheThreadCarriesAReplyLine() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let root = try post(message: "t0833 replies root \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the reply-rows fixture root")
+        let rootID = try XCTUnwrap(root["id"] as? String)
+        var replyIDs: [String] = []
+        for index in 1...3 {
+            let reply = try post(message: "t0833 replies \(index) \(stamp)",
+                                 rootID: rootID, as: token)
+            assertAuthoredBy(userID, reply, "reply \(index) of the reply-rows thread")
+            replyIDs.append(try XCTUnwrap(reply["id"] as? String))
+        }
+
+        let app = launchAndOpenChannel()
+        openThread(app, rootID: rootID)
+        for replyID in replyIDs {
+            XCTAssertTrue(revealThreadPost(app, replyID).waitForExistence(timeout: 30),
+                          "reply \(replyID) must be a row of the thread:\n\(app.debugDescription)")
+            XCTAssertFalse(element(app, "post.\(replyID).replyCount").exists,
+                           "reply \(replyID) must not draw a reply count in the thread pane:\n"
+                           + "\(app.debugDescription)")
+        }
+        attachScreenshot("t0833-04-thread-replies-without-reply-lines")
+    }
+
+    /// A root with **no replies** draws nothing, even in the channel timeline.
+    ///
+    /// `thread_overview.tsx` returns `null` at `repliesCount === 0`; ours used to draw as soon as a
+    /// count was non-zero, so this pins the other edge of the same rule.
+    func testARootWithNoRepliesCarriesNoReplyLine() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let root = try post(message: "t0833 lonely root \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the no-replies root")
+        let rootID = try XCTUnwrap(root["id"] as? String)
+
+        let app = launchAndOpenChannel()
+        XCTAssertTrue(revealPost(app, rootID).waitForExistence(timeout: 40),
+                      "the fresh root must be on the channel's first screen:\n\(app.debugDescription)")
+        XCTAssertFalse(element(app, "post.\(rootID).replyCount").waitForExistence(timeout: 5),
+                       "a post with no replies must draw no reply line:\n\(app.debugDescription)")
+        attachScreenshot("t0833-05-channel-root-without-replies")
+    }
+
     // MARK: - 3. Follow, unfollow, and the paged followed-threads list
 
     func testFollowPersistsAndTheFollowedThreadsListPages() throws {

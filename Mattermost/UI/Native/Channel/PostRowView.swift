@@ -237,6 +237,12 @@ struct PostRowView: View {
     /// inert — a preview host, a thread host that has not been wired yet, or a pane that is not the
     /// native conversation (see `ProfilePopoverPolicy`).
     var onShowProfile: ((String) -> Void)? = nil
+    /// Which pane draws this row. Only the reply line reads it: the thread's count belongs to its root
+    /// **in the channel timeline**, and the thread pane shows it in its own header instead
+    /// (`PostReplyLine`). Defaults to `.channel` — the vocabulary and the default are the same as the
+    /// options sheet's (`PostOptionsSurface`), so search / mentions / saved rows keep the upstream
+    /// channel-context behaviour.
+    var surface: PostOptionsSurface = .channel
 
     private var showsHeader: Bool { !row.isGrouped && !row.isSystem }
 
@@ -462,11 +468,15 @@ struct PostRowView: View {
     /// tapping it opens the thread — which is the only way into a reply from the centre timeline,
     /// since a reply is deliberately not a row there (`ChannelViewModel.isTimelineRow`).
     ///
-    /// Nothing is drawn for a post with no replies, and the line is not a button when the host has no
-    /// thread surface to open (a preview, or the web render of the pane).
+    /// Three gates, all of them upstream's (`PostReplyLine`): the count belongs to a **root**
+    /// (`root_id` empty — the row itself already carries 0 for a reply), it is drawn only on the
+    /// **channel** surface (the thread pane's own header carries the count there), and never at 0.
+    /// Nothing is drawn otherwise — not a hidden element, nothing at all — and the line is not a
+    /// button when the host has no thread surface to open (a preview, or the web render of the pane).
     @ViewBuilder
     private var replyLine: some View {
-        if row.replyCount > 0, let label = ThreadDerivation.replyLabel(row.replyCount) {
+        if PostReplyLine.showsLine(surface: surface, post: row.post, count: row.replyCount),
+           let label = ThreadDerivation.replyLabel(row.replyCount) {
             if let onOpenThread {
                 Button(action: onOpenThread) {
                     replyLineContent(label: label)

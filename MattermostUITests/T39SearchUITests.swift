@@ -114,6 +114,57 @@ final class T39SearchUITests: XCTestCase {
         attach(app, "t39-3-invalid-query")
     }
 
+    // MARK: - 2b. A reply in the results draws no reply count (kanban t_0833c752)
+
+    /// The fifth case of the reply-line card, measured where a **reply is a row of a channel-context
+    /// list**: search results draw every post, replies included, through the same `PostRowView` (and
+    /// the default `.channel` surface), so only the row's own derivation can keep a reply from
+    /// claiming a thread.
+    ///
+    /// The server makes that necessary, not theoretical: a search hit that is a reply answers
+    /// `reply_count: 2` (its thread's total) with a non-empty `root_id` — measured on the pinned
+    /// 9.11.19 server while writing this test. Frozen upstream the count belongs to a thread's root
+    /// (`post_list/post/index.ts` looks the thread up by the post's own id), so the row must say
+    /// nothing, and the identifier `post.<id>.replyCount` must not exist at all.
+    func testAReplyInTheResultsCarriesNoReplyLine() throws {
+        let channel = try channel(named: showcaseChannelName)
+        let stamp = Int(Date().timeIntervalSince1970)
+        // The term is a single token and only in the reply, so the reply is the only match and the
+        // result set is exactly the row under test.
+        let term = "zreplyline" + String(stamp).suffix(6)
+        let root = try postJSON("/api/v4/posts",
+                                body: ["channel_id": channel.id,
+                                       "message": "t0833 search root \(stamp)"]) as? [String: Any]
+        let rootID = try XCTUnwrap(root?["id"] as? String)
+        let reply = try postJSON("/api/v4/posts",
+                                 body: ["channel_id": channel.id,
+                                        "message": term,
+                                        "root_id": rootID]) as? [String: Any]
+        let replyID = try XCTUnwrap(reply?["id"] as? String)
+
+        // The oracle: the server's own search answers this reply, with a non-zero reply_count.
+        let hit = try search(terms: term).first { $0["id"] as? String == replyID }
+        let hitPost = try XCTUnwrap(hit, "the fixture reply must be searchable by \(term)")
+        XCTAssertEqual(hitPost["root_id"] as? String, rootID, "the hit is a reply, not a root")
+        XCTAssertGreaterThan((hitPost["reply_count"] as? Int) ?? 0, 0,
+                             "the server hands the reply its thread's total — the row must not "
+                             + "turn that into a line under a reply")
+
+        let app = launchApp()
+        openSearch(app)
+        type(term, into: "searchField", in: app)
+        tap("searchSubmit", in: app)
+
+        let row = revealResult(app, postID: replyID)
+        XCTAssertTrue(row.waitForExistence(timeout: 40),
+                      "the result list must draw the server's reply match \(replyID):\n"
+                      + "\(app.debugDescription)")
+        XCTAssertFalse(element(app, "post.\(replyID).replyCount").exists,
+                       "a reply has no thread of its own: no replyCount element may be drawn for it, "
+                       + "on any surface (got one in the search results):\n\(app.debugDescription)")
+        attach(app, "t0833-06-search-reply-without-a-reply-line")
+    }
+
     // MARK: - 3. Unsaving from the Saved list removes the row, on the server too
 
     func testUnsaveFromTheSavedTabRemovesTheRowAndThePreference() throws {

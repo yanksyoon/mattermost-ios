@@ -123,6 +123,55 @@ final class T36ChannelReplyLineTests: XCTestCase {
         XCTAssertEqual(model.timelineRows.first?.replyCount, 4)
     }
 
+    // MARK: - The count belongs to a root (kanban t_0833c752)
+
+    /// The row, not the view, is where a reply stops being a thread.
+    ///
+    /// Measured on the pinned 9.11.19 server: `GET /posts/{root}/thread` answers `reply_count: 3` for
+    /// the root **and for each of its three replies**, so a model that takes the field verbatim says
+    /// every reply has a thread of its own. `PostListDerivation.row` must zero it for a reply, and
+    /// keep the root's number.
+    func testAReplyRowCarriesNoThreadCountEvenWhenTheServerSendsOne() {
+        var root = post("root", at: 100, channel: "c1")
+        root.replyCount = 3
+        var reply = post("r1", at: 200, channel: "c1", rootID: "root")
+        reply.replyCount = 3
+        reply.participants = [MMUser(id: "them", username: "them", firstName: "Them")]
+
+        let rootRow = PostListDerivation.row(post: root, users: [:], myUserID: "me", grouped: false)
+        let replyRow = PostListDerivation.row(post: reply, users: [:], myUserID: "me", grouped: false)
+
+        XCTAssertEqual(rootRow.replyCount, 3, "the root's own thread keeps its count")
+        XCTAssertEqual(replyRow.replyCount, 0,
+                       "a reply is not a root: the server's thread total must not become its own")
+        XCTAssertTrue(replyRow.participants.isEmpty,
+                      "and the avatar stack is the root's too, never a reply's")
+        XCTAssertFalse(PostReplyLine.showsLine(surface: .channel, post: reply,
+                                               count: reply.replyCount),
+                       "even the server's raw number cannot draw a line on a reply row")
+    }
+
+    /// The five render cases, as one pure rule — the view calls the same function.
+    func testTheLineIsDrawnOnlyForARootOnTheChannelSurface() {
+        var root = post("root", at: 100, channel: "c1")
+        root.replyCount = 3
+        var empty = post("empty", at: 200, channel: "c1")
+        empty.replyCount = 0
+        let reply = post("r1", at: 300, channel: "c1", rootID: "root")
+
+        XCTAssertTrue(PostReplyLine.showsLine(surface: .channel, post: root, count: 3),
+                      "channel, root with 3 replies: the line is drawn (and tappable)")
+        XCTAssertFalse(PostReplyLine.showsLine(surface: .thread, post: root, count: 3),
+                       "thread surface, root row: nothing — the pane header carries the count")
+        XCTAssertFalse(PostReplyLine.showsLine(surface: .thread, post: reply, count: 3),
+                       "thread surface, reply row: nothing")
+        XCTAssertFalse(PostReplyLine.showsLine(surface: .channel, post: empty, count: 0),
+                       "channel, root with 0 replies: nothing")
+        XCTAssertFalse(PostReplyLine.showsLine(surface: .channel, post: reply, count: 3),
+                       "channel context, a reply row (search / mentions / saved still draw replies): "
+                       + "nothing, because it is a root of nothing")
+    }
+
     // MARK: - Fixtures
 
     private func makeModel(service: FakeChannelService) -> ChannelViewModel {
