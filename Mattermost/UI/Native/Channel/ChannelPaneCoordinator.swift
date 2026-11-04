@@ -54,6 +54,10 @@ final class ChannelPaneCoordinator: ObservableObject {
     /// T48: per-channel post-options state (permissions, saved set, pin/follow patches). One per
     /// channel, kept beside the window it describes.
     private var postOptionsModels: [UUID: [String: PostOptionsViewModel]] = [:]
+    /// t_05caa678: the header's bookmarks bar, one per channel. Kept beside the window for the same
+    /// reason as `postOptionsModels`: it is a fact about the channel, and a pane re-appearance must
+    /// not refetch a bar it already has.
+    private var bookmarkModels: [UUID: [String: ChannelBookmarksViewModel]] = [:]
 
     /// Test seam: replaces the production session-backed service (T33's `serviceFactory`).
     var serviceFactory: ((ServerConfig) -> ChannelServing)?
@@ -61,6 +65,8 @@ final class ChannelPaneCoordinator: ObservableObject {
     var composerServiceFactory: ((ServerConfig) -> ComposerServing)?
     /// Test seam: replaces the production post-options service (T48).
     var postOptionsServiceFactory: ((ServerConfig) -> PostOptionsServing)?
+    /// Test seam: replaces the production bookmarks service (t_05caa678).
+    var bookmarkServiceFactory: ((ServerConfig) -> ChannelBookmarkServing)?
     /// Test seam: replaces the production draft store.
     var draftStoreFactory: ((ServerConfig) -> ComposerDraftStoring)?
 
@@ -237,6 +243,26 @@ final class ChannelPaneCoordinator: ObservableObject {
         }
     }
 
+    private func bookmarkService(for server: ServerConfig) -> ChannelBookmarkServing {
+        if let bookmarkServiceFactory { return bookmarkServiceFactory(server) }
+        let auth = self.auth
+        return SessionChannelBookmarkService {
+            guard let auth, let session = try? auth.session(for: server) else { return nil }
+            return session.client
+        }
+    }
+
+    /// t_05caa678: the header's bookmarks bar for one channel, created on first use.
+    ///
+    /// Per channel for the same reason as the post options: another channel's bar is a different
+    /// list, and a switch must not show the previous channel's chips for a frame.
+    func bookmarks(for server: ServerConfig, channelID: String) -> ChannelBookmarksViewModel {
+        if let existing = bookmarkModels[server.id]?[channelID] { return existing }
+        let model = ChannelBookmarksViewModel(channelID: channelID, service: bookmarkService(for: server))
+        bookmarkModels[server.id, default: [:]][channelID] = model
+        return model
+    }
+
     /// T48: the post-options state for one channel, created on first use.
     ///
     /// Per channel rather than per server: the permission union, the archived flag and the channel's
@@ -365,6 +391,7 @@ final class ChannelPaneCoordinator: ObservableObject {
         models[serverID] = nil
         recent[serverID] = nil
         postOptionsModels[serverID] = nil
+        bookmarkModels[serverID] = nil
         // The composer goes with the list: a draft is already in the store, and the store is cleared
         // below (a signed-out device keeps no half-typed messages from the previous session).
         composers[serverID] = nil
@@ -400,6 +427,9 @@ final class ChannelPaneCoordinator: ObservableObject {
         let excess = list.count - Self.warmChannelLimit
         for channelID in list.prefix(excess) {
             models[serverID]?[channelID] = nil
+            // The bar goes with the window it sits in: a chip list for a channel nobody has open is
+            // a second cache with nothing to show it.
+            bookmarkModels[serverID]?[channelID] = nil
         }
         recent[serverID] = Array(list.dropFirst(excess))
     }

@@ -284,9 +284,11 @@ final class ViewStoreTests: XCTestCase {
     /// did not move, which is the assertion below.)
     func testReleaseIsReachableOnlyThroughTheApprovedPaneOwner() {
         XCTAssertEqual(SurfaceDefaults.nativeApprovedSurfaces,
-                      [.auth, .calls, .sidebar, .channelView, .composer, .search, .activity],
-                      "the approved surfaces include the workspace set from the 2026-10-27 decision "
-                      + "and the two lookup surfaces from `t_aa211ff6`")
+                      [.auth, .calls, .sidebar, .channelView, .composer, .search, .activity,
+                       .channelInfo],
+                      "the approved surfaces include the workspace set from the 2026-10-27 decision, "
+                      + "the two lookup surfaces from `t_aa211ff6`, and `.channelInfo` from "
+                      + "`t_05caa678` (T55-AV-R's PASS — the entry T40 never appended)")
         XCTAssertEqual(SurfaceDefaults.paneOwningSurfaces, [.channelView],
                       "exactly one surface owns the pane, and it is the pane host")
         XCTAssertEqual(SurfaceDefaults.paneHostSurface, .channelView)

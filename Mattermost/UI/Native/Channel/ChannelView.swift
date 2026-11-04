@@ -752,6 +752,9 @@ struct ChannelPaneContent: View {
     @State private var profilePopover = ProfilePopoverState()
     /// T48: this channel's post-options state (permissions, saved set, team name, socket patches).
     @State private var postOptions: PostOptionsViewModel?
+    /// t_05caa678: the header's bookmarks bar for this channel (absent when the server has none or
+    /// does not have the route).
+    @State private var bookmarks: ChannelBookmarksViewModel?
 
     /// Whether the write surface renders natively (T35's `.composer` surface).
     ///
@@ -778,6 +781,14 @@ struct ChannelPaneContent: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            // t_05caa678 (owner decision, upstream `header.tsx:145`): the bookmarks bar lives in the
+            // header, directly under the title row and above the post list. It draws nothing at all
+            // — no spinner, no empty box, no error — when the channel has none or the server's build
+            // has no bookmarks route (measured 404 on the pinned 9.11.19 fixture), so `shouldRender`
+            // is simply "there are rows".
+            if let bookmarks {
+                ChannelBookmarksBar(model: bookmarks)
+            }
             if let focusError = model?.focusError {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")
@@ -871,6 +882,12 @@ struct ChannelPaneContent: View {
                                           emojiCatalogue: catalogue)
             }
             await panes.activate(server: server, channelID: channelID, channelName: channelName)
+            // t_05caa678: the header's bookmarks bar. `load()` cannot throw — a 404 on a server
+            // without the route, an empty list and a transport failure all mean "no bar" — so it can
+            // never decide whether the header, the post list or the composer exists.
+            let bar = panes.bookmarks(for: server, channelID: channelID)
+            bookmarks = bar
+            await bar.load()
             await options.activate(teamID: navigation.location.request.teamID ?? "",
                                    teamName: navigation.location.request.teamName)
             // T39: land on the post the route named. After the page, because the window may already
@@ -1016,29 +1033,43 @@ struct ChannelPaneContent: View {
         .padding(.vertical, 10)
     }
 
-    /// The header's title. Its own view because the model must be observed (T40-R F4).
+    /// The header's title: the channel's display name, and — as upstream's `NavigationHeader`
+    /// `onTitlePress` does — the control that opens the channel's details.
+    ///
+    /// t_05caa678: this used to be a label beside a small `info.circle` glyph that was gated on the
+    /// `.channelInfo` surface (which was not approved native, so on a default build the glyph — the
+    /// only entry to channel info — was not drawn at all). The whole title area is now the control:
+    /// the target is the label, not a 24pt circle. `nativeChannelTitle` stays the stable identifier
+    /// (every suite already waits on it; it is now a button rather than a static text, which is the
+    /// fact the card asks for).
+    ///
+    /// **The tap is not gated by the `.channelInfo` switch.** `.channelView` is pane-owning, so while
+    /// this pane is on screen there is no web client behind it that could have answered a tap for
+    /// channel info; a gate here would make channel details unreachable (the reported defect). The
+    /// switch still decides whether the separate glyph is drawn.
     @ViewBuilder
     private var titleView: some View {
-        // T40-R F4: the title lives in its own view **because the model has to be observed**.
-        //
-        // The pane keeps the model in `@State` — it cannot be a `@StateObject`, because the
-        // coordinator creates it in `.task` — and a `@State` reference does not republish anything.
-        // `ChannelViewModel.title` starts as the name the shell was handed (`t40-browse-me`, the URL
-        // slug) and `loadChannelHeader()` replaces it with the server's display name a beat later;
-        // with nothing observing the model, that second publish never reached the screen and the
-        // header sat at the slug for as long as the pane was open. Same defect as the Add button
-        // (F1) and the Save row (F2), same fix: a view that observes the object.
         if let model {
-            ChannelPaneTitle(model: model, fallback: channelName ?? "Channel")
+            ChannelPaneTitle(model: model,
+                             fallback: channelName ?? "Channel",
+                             onOpen: { showsChannelInfo = true })
                 // T45: the title claims its width before the trailing controls. Still true
                 // below AX; at an accessibility size the reflow above gives it the whole row.
                 .layoutPriority(1)
         } else {
-            Text(channelName ?? "Channel")
-                .font(.headline)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("nativeChannelTitle")
+            Button {
+                showsChannelInfo = true
+            } label: {
+                Text(channelName ?? "Channel")
+                    .font(.headline)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(channelName ?? "Channel")
+            .accessibilityHint("Shows this channel's details")
+            .accessibilityIdentifier("nativeChannelTitle")
         }
     }
 
@@ -1053,9 +1084,12 @@ struct ChannelPaneContent: View {
             // anchor test needs a signal only the restore can produce.
             ScrollRestoreSeam(model: model)
         }
-        // T40 (S22/S23): the channel's own header opens its info screen. The web client makes the
-        // channel *title* the affordance; a pane header that shows a title is the same place, so the
-        // button sits first among the trailing controls rather than in a menu.
+        // T40 (S22/S23): the channel's own header opens its info screen. Upstream makes the channel
+        // *title* the affordance; that is where the primary control is now (`titleView`,
+        // t_05caa678). This glyph is the same destination drawn as an icon, so a reader who looks for
+        // a button finds one — it is gated on the `.channelInfo` surface, while the title's tap is
+        // not: with that switch `web` the pane (which owns the webview) would otherwise have no way
+        // to reach channel info at all.
         if resolver.resolvedMode(for: .channelInfo) == .native {
             Button {
                 showsChannelInfo = true
@@ -1219,41 +1253,68 @@ private struct ScrollRestoreSeam: View {
     }
 }
 
-/// The pane header's glyph and title, in a view of its own so the model is **observed** (T40-R F4).
+/// The pane header's title — and, since t_05caa678, the control that opens the channel's details.
 ///
-/// `ChannelViewModel.title` is the server's answer, not the shell's: the pane is opened with a name the
-/// router had (`t40-browse-me`, a URL slug) and `loadChannelHeader()` replaces it with the channel's
-/// display name (`T40 Browse Me`) once the channel read lands. That second publish only reaches the
-/// screen if something observes the object, which is what this view is for — the pane's own body keeps
-/// the model in `@State` and never re-renders on `objectWillChange`.
+/// Its own view because the model must be **observed** (T40-R F4). `ChannelViewModel.title` starts
+/// as the name the shell was handed (`t40-browse-me`, the URL slug) and `loadChannelHeader()`
+/// replaces it with the server's display name a beat later; the pane's own body keeps the model in
+/// `@State` and never re-renders on `objectWillChange`, so without this view the header sat at the
+/// slug for as long as the pane was open. The same observation is what keeps the accessibility label
+/// (and therefore the tap target's name) on the display name rather than the slug.
+///
+/// Upstream's header shows the display name with a `View info` subtitle and a chevron, and pressing
+/// the title opens channel info (`app/screens/channel/header/header.tsx`, `onTitlePress`). The same
+/// two-line label is drawn here, so the affordance reads as pressable instead of looking like a
+/// plain heading.
 private struct ChannelPaneTitle: View {
     @ObservedObject var model: ChannelViewModel
     /// What the shell was handed, shown only in the frame before the server's title arrives.
     let fallback: String
+    /// Where a tap on the title goes — the pane's channel-info sheet.
+    let onOpen: () -> Void
     /// T45-AV-R: at an accessibility size the title owns a full row of the reflowed header, so
     /// the two-line cap that keeps the header compact stops being a compactness rule and becomes
     /// an ellipsis on a name that has room to wrap ("T8" / "G" / "pr…" at AX3).
     @Environment(\.dynamicTypeSize) private var typeSize
 
+    /// The server's display name, or the shell's name until it arrives.
+    private var displayTitle: String { model.title.isEmpty ? fallback : model.title }
+
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: glyph)
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            Text(model.title.isEmpty ? fallback : model.title)
-                .font(.headline)
-                .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("nativeChannelTitle")
+        Button(action: onOpen) {
+            HStack(spacing: 8) {
+                Image(systemName: glyph)
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(displayTitle)
+                        .font(.headline)
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                    // Upstream's subtitle fallback when there is no member count to show.
+                    HStack(spacing: 2) {
+                        Text("View info")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
+            .contentShape(Rectangle())
         }
-        // T8e: the pane header is one element. `.accessibilityHidden(true)` on the glyph did not take
-        // it out of the serialised tree (the header's `Other` carried an `Image('number')`), so the
-        // glyph is replaced here and the title keeps both its identifier and its element type.
-        .accessibilityRepresentation {
-            Text(model.title.isEmpty ? fallback : model.title)
-                .accessibilityIdentifier("nativeChannelTitle")
-        }
+        .buttonStyle(.plain)
+        // T8e: the pane header is one element. The glyph and the subtitle are decoration inside the
+        // control; the control's own name is the channel, which is what a reader (and every suite
+        // that already waits on `nativeChannelTitle`) addresses.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(displayTitle)
+        .accessibilityHint("Shows this channel's details")
+        .accessibilityIdentifier("nativeChannelTitle")
     }
 
     /// A direct message gets a person glyph, a group message a people glyph, a channel a `#`.

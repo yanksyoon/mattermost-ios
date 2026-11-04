@@ -48,7 +48,9 @@ public enum Surface: String, CaseIterable, Codable, Identifiable, Sendable {
     /// Mentions / activity list (S25). Native by default since the `t_aa211ff6` flip, on T42-AV's
     /// PASS-WITH-FINDINGS and T42-R's closure of F1–F5.
     case activity
-    /// Channel info / members panel.
+    /// Channel info / members panel. Native by default since `t_05caa678`: T55-AV-R passed the
+    /// surface (the debt T34-AV named), but T40 never appended it to the approval registry, so the
+    /// header's only entry to channel info was gated off on a default build.
     case channelInfo
     /// Mattermost Calls.
     case calls
@@ -102,13 +104,14 @@ public enum SurfaceDefaults {
     /// | `.composer` | T35-AV (`t_3042a50f`, verdict `PASS-WITH-FINDINGS`; repair `t_e7eeaa46`) — **repair, not a flip grant** — plus the pane-ownership requirement of the same 2026-10-27 scope-A decision (`t_c93b8337`): the release the flip is for asserts "composer is native" (`t_9928d203` step 4) | `docs/t35-build-note.md`; without this entry the approved pane draws the dead `"Message input — web (S14/T35)"` placeholder (`ChannelView.composerPlaceholder`) while `.channelView` is pane-owning, i.e. a read-only workspace. The composer mounts nowhere outside the pane, so the entry is pane-local |
     /// | `.search` | T39-AV (`t_3c83d5e7`, **FAIL**) → T39-R (`t_37a4545b`) → **T55-AV-R (`t_6059f7ce`), `.search` PASS-WITH-FINDINGS after repair** → T39-R2 (`t_c3957991`, harness only) | `docs/t39-search-build-note.md`, `docs/t55-revalidation-build-note.md` §3/§6 (mutation-checked closures, T39 live 7/7), `docs/t39-r2-build-note.md` |
     /// | `.activity` | T42-AV (`t_af5a4d3b`, PASS-WITH-FINDINGS; findings were documentation/test-strength only) + T42-R (`t_b483a58d`, F1–F5 closed) | `docs/t42-build-note.md`, `docs/parity.md` T42 row (46 unit, 4/4 live, 4/4 again after T42-R) |
+    /// | `.channelInfo` | T40-AV → T40-R → **T55-AV-R (`t_6059f7ce`), `.channelInfo` PASS** (the debt T34-AV named as the precondition for the pane flip) **+ owner report `t_05caa678`** | `docs/t40-build-note.md`; `docs/t55-revalidation-build-note.md` §3.5 ("8/8 live with server-state oracles, and the F1/F2 defect leaves a 5+3-assertion red when reintroduced"). Flipped late: T40 shipped the surface but never appended it here, so on a default build `ChannelView`'s `nativeChannelInfoButton` — the *only* entry to channel info — was gated off (`t_05caa678` measured it absent from the pane's AX tree). The sheet is reachable only from inside the pane, so `web` had no web client to answer the tap. |
     ///
     /// Everything not listed here defaults to `.web`, so an unapproved card can never ship its
     /// surface native. A card flips its own surface to native-by-default by appending its rawValue
     /// **after** its `-AV` card has passed, in its own clearly-labelled commit — that exact diff is
     /// what the next validator audits (`scripts/verify-dual-render-gates.sh` gate 5 fails on a
     /// non-empty registry unless `--allow-approved-registry` accompanies the approval commit).
-    public static let nativeApprovedSurfaces: Set<Surface> = [.auth, .calls, .sidebar, .channelView, .composer, .search, .activity]
+    public static let nativeApprovedSurfaces: Set<Surface> = [.auth, .calls, .sidebar, .channelView, .composer, .search, .activity, .channelInfo]
 
     /// **No catalogue reservations.** This set was `[.settings, .plugins]` when gate 11 landed
     /// (`t_cdcc1f38`); `t_6d420e01` retired both cases, so every remaining `Surface` is a real switch

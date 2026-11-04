@@ -34,22 +34,25 @@ final class SurfaceModeResolverTests: XCTestCase {
     // MARK: Compile-time default
 
     /// The registry is the **only** route to native-by-default (`docs/dual-render.md` §5). It holds
-    /// seven entries: `.auth` (T31-AV, F8), `.calls` (T44d-AV `t_466e8e90`), and the workspace set
+    /// eight entries: `.auth` (T31-AV, F8), `.calls` (T44d-AV `t_466e8e90`), and the workspace set
     /// `.sidebar` + `.channelView` + `.composer` from the owner's 2026-10-27 scope-A decision
     /// (`t_c93b8337`; `.composer` follows from pane ownership — the pane draws the composer inside
     /// itself), plus the two lookup surfaces the `t_aa211ff6` decision approved on their own
     /// validators' verdicts: `.search` (T55-AV-R `t_6059f7ce` PASS-WITH-FINDINGS after T39-AV
     /// `t_3c83d5e7` failed and T39-R `t_37a4545b` repaired it) and `.activity` (T42-AV
-    /// `t_af5a4d3b` PASS-WITH-FINDINGS, findings closed by T42-R `t_b483a58d`). Every other surface
-    /// still falls back to the web view — `.channelInfo` is the only one left. Pinning the exact set
-    /// is the point: a card that quietly adds its surface here fails this test and the `-AV` gate
-    /// script.
+    /// `t_af5a4d3b` PASS-WITH-FINDINGS, findings closed by T42-R `t_b483a58d`), and finally
+    /// `.channelInfo` (T55-AV-R `t_6059f7ce` PASS, `docs/t55-revalidation-build-note.md` §3.5 — the
+    /// flip T40 never made, which left the header's only entry to channel info gated off; `t_05caa678`).
+    /// Every surface is now approved, which is why the "unapproved stays web" half below names none.
+    /// Pinning the exact set is the point: a card that quietly adds its surface here fails this test
+    /// and the `-AV` gate script.
     func testOnlyTheApprovedRegistryDefaultsToNative() {
         XCTAssertEqual(SurfaceDefaults.nativeApprovedSurfaces,
-                      [.auth, .calls, .sidebar, .channelView, .composer, .search, .activity],
+                      [.auth, .calls, .sidebar, .channelView, .composer, .search, .activity, .channelInfo],
                       "T31-AV approved `.auth`, T44d-AV approved `.calls`, the owner approved the "
-                      + "workspace on 2026-10-27, and `t_aa211ff6` approved the two lookup surfaces "
-                      + "on T55-AV-R and T42-AV; adding to this set is an -AV claim")
+                      + "workspace on 2026-10-27, `t_aa211ff6` approved the two lookup surfaces on "
+                      + "T55-AV-R and T42-AV, and T55-AV-R's `.channelInfo` PASS is the entry "
+                      + "`t_05caa678` had to make; adding to this set is an -AV claim")
         let resolver = makeResolver()
         for surface in Surface.allCases {
             let expected: SurfaceRenderMode = SurfaceDefaults.nativeApprovedSurfaces.contains(surface)
@@ -70,8 +73,10 @@ final class SurfaceModeResolverTests: XCTestCase {
         }
         XCTAssertEqual(SurfaceDefaults.defaultMode(for: .auth), .native,
                        "the approved surface really is native by default")
-        XCTAssertEqual(SurfaceDefaults.defaultMode(for: .channelInfo), .web,
-                       "an unapproved surface really is web by default")
+        XCTAssertEqual(SurfaceDefaults.defaultMode(for: .channelInfo), .native,
+                       "`.channelInfo` joined the registry in `t_05caa678` (T55-AV-R PASS): every "
+                       + "surface in the catalogue is approved now, so there is no unapproved case "
+                       + "left to pin here")
     }
 
     /// Both halves of the 2026-10-27 scope-A decision (`t_c93b8337`), pinned so neither can drift:
@@ -98,13 +103,14 @@ final class SurfaceModeResolverTests: XCTestCase {
         XCTAssertTrue(SurfaceDefaults.paneOwningSurfaces.isSubset(of: SurfaceDefaults.nativeApprovedSurfaces),
                       "pane ownership is the stronger claim: it must be a subset of the -AV registry")
         // Everything else in the workspace stays web: the flip is scoped to the surfaces above.
-        // `.channelInfo` is the only unapproved case left after `t_6d420e01`; `.search`/`.activity`
-        // are out of this loop because `t_aa211ff6` flipped both to native-by-default (its own pin
-        // is `testTheLookupFlipIsApprovedByAVerdictsAndOwnsNoPane`).
-        for surface in [Surface.channelInfo] {
-            XCTAssertEqual(SurfaceDefaults.defaultMode(for: surface), .web,
-                           "\(surface.rawValue) was not part of the approved scope and must stay web")
-        }
+        // `.channelInfo` was the last unapproved case after `t_6d420e01`; `t_05caa678` flipped it on
+        // T55-AV-R's PASS because the pane's only entry to channel info was gated off without it.
+        // `.search`/`.activity` are out of this loop because `t_aa211ff6` flipped both to
+        // native-by-default (its own pin is `testTheLookupFlipIsApprovedByAVerdictsAndOwnsNoPane`).
+        XCTAssertEqual(SurfaceDefaults.defaultMode(for: .channelInfo), .native,
+                       "`.channelInfo` was flipped native in `t_05caa678`, not left web: the sheet is "
+                       + "reachable only from the pane's header, so a `web` mode had no web client "
+                       + "to answer the tap")
     }
 
     /// The `t_aa211ff6` flip, pinned on its own terms: the set literal above says *that* the two
@@ -129,24 +135,28 @@ final class SurfaceModeResolverTests: XCTestCase {
     // MARK: Debug override wins (launch argument)
 
     func testLaunchArgumentOverrideWinsOverCompileTimeDefault() {
-        let resolver = makeResolver(arguments: ["-surfaceMode", "channelView=native"])
-        XCTAssertEqual(resolver.resolvedMode(for: .channelView), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web, "unlisted surfaces keep their default")
+        let resolver = makeResolver(arguments: ["-surfaceMode", "channelView=web"])
+        XCTAssertEqual(resolver.resolvedMode(for: .channelView), .web)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo),
+                       SurfaceDefaults.defaultMode(for: .channelInfo),
+                       "unlisted surfaces keep their default (now native for `.channelInfo`)")
         XCTAssertTrue(resolver.isLaunchOverridden(.channelView))
     }
 
     func testLaunchArgumentSingleTokenFormIsAccepted() {
-        let resolver = makeResolver(arguments: ["-surfaceMode=composer=native", "foo"])
-        XCTAssertEqual(resolver.resolvedMode(for: .composer), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
+        let resolver = makeResolver(arguments: ["-surfaceMode=composer=web", "foo"])
+        XCTAssertEqual(resolver.resolvedMode(for: .composer), .web)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo),
+                       SurfaceDefaults.defaultMode(for: .channelInfo))
     }
 
     func testUnknownSurfaceIsRejected() {
         // A typo'd surface must be ignored (and never crash); the rest of the run is untouched.
         let resolver = makeResolver(arguments: ["-surfaceMode", "notASurface=native",
-                                                "-surfaceMode", "channelView=native"])
-        XCTAssertEqual(resolver.resolvedMode(for: .channelView), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
+                                                "-surfaceMode", "channelView=web"])
+        XCTAssertEqual(resolver.resolvedMode(for: .channelView), .web)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo),
+                       SurfaceDefaults.defaultMode(for: .channelInfo))
         XCTAssertEqual(resolver.launchOverrides.count, 1,
                        "only the valid pair is retained, the unknown surface is dropped")
     }
@@ -154,7 +164,9 @@ final class SurfaceModeResolverTests: XCTestCase {
     func testUnknownModeIsRejected() {
         let resolver = makeResolver(arguments: ["-surfaceMode", "channelInfo=flash",
                                                 "-surfaceMode", "auth=web"])
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web, "invalid mode is ignored")
+        // `channelInfo` is approved native, so the dropped bad mode leaves it at `.native` — the
+        // point of the test: an unparseable value falls through to the default, never to a guess.
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native, "invalid mode is ignored")
         XCTAssertEqual(resolver.resolvedMode(for: .auth), .web)
         XCTAssertEqual(resolver.launchOverrides.count, 1, "valid pair retained; bad mode dropped")
     }
@@ -163,49 +175,50 @@ final class SurfaceModeResolverTests: XCTestCase {
 
     func testPersistedOverrideRoundTripsThroughAppPreferences() {
         let first = makeResolver()
-        first.setOverride(.native, for: .channelInfo)
+        // `.channelInfo` is native by default since `t_05caa678`, so the *non-default* value a
+        // persisted row can hold is `web`.
+        first.setOverride(.web, for: .channelInfo)
 
         // A *fresh* resolver over the same UserDefaults must read the override back (relaunch
         // parity: the user's inspector choice survives a restart).
         let second = makeResolver()
-        XCTAssertEqual(second.resolvedMode(for: .channelInfo), .native)
-        XCTAssertEqual(second.overrides[.channelInfo], .native)
+        XCTAssertEqual(second.resolvedMode(for: .channelInfo), .web)
+        XCTAssertEqual(second.overrides[.channelInfo], .web)
 
-        // And no other surface gained a row. (`.channelInfo` is the stand-in since `t_aa211ff6`
-        // made both lookup surfaces native by default — a `native` write for an approved surface
-        // would be a no-op and so would prove nothing about persistence.)
+        // And no other surface gained a row.
         XCTAssertNil(second.overrides[.activity], "the override must not leak onto another surface")
     }
 
     func testTogglingBackToDefaultClearsOverride() {
         let resolver = makeResolver()
-        resolver.setOverride(.native, for: .channelInfo)
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native)
-
-        // Toggling back to web (the compile default) must clear the row so the default rules.
         resolver.setOverride(.web, for: .channelInfo)
         XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
+
+        // Toggling back to the compile default must clear the row so the default rules.
+        resolver.setOverride(.native, for: .channelInfo)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native)
         XCTAssertNil(resolver.overrides[.channelInfo], "writing the default removes the override row")
 
         // The persisted store is clean too.
-        XCTAssertEqual(makeResolver().resolvedMode(for: .channelInfo), .web)
+        XCTAssertEqual(makeResolver().resolvedMode(for: .channelInfo), .native)
     }
 
     func testClearOverrideFallsBackToDefault() {
         let resolver = makeResolver()
-        resolver.setOverride(.native, for: .channelInfo)
+        resolver.setOverride(.web, for: .channelInfo)
         resolver.clearOverride(for: .channelInfo)
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
-        XCTAssertEqual(makeResolver().resolvedMode(for: .channelInfo), .web)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native)
+        XCTAssertEqual(makeResolver().resolvedMode(for: .channelInfo), .native)
     }
 
     func testClearAllOverridesResetsEverySurface() {
         let resolver = makeResolver()
-        resolver.setOverride(.native, for: .channelInfo)
+        resolver.setOverride(.web, for: .channelInfo)
         resolver.setOverride(.web, for: .activity)
         resolver.clearAllOverrides()
         XCTAssertTrue(resolver.overrides.isEmpty)
-        XCTAssertEqual(makeResolver().resolvedMode(for: .channelInfo), .web)
+        XCTAssertEqual(makeResolver().resolvedMode(for: .channelInfo), .native,
+                       "`.channelInfo` is approved native since `t_05caa678`")
         XCTAssertEqual(makeResolver().resolvedMode(for: .activity), .native,
                        "a reset returns each surface to its own compile-time default, not to web: "
                        + "`.activity` is approved native since `t_aa211ff6`")
@@ -215,11 +228,11 @@ final class SurfaceModeResolverTests: XCTestCase {
     /// rows must never crash the shell or survive as confusing no-ops).
     func testUnknownPersistedOverrideIsDropped() {
         let prefs = AppPreferences(defaults: defaults)
-        prefs.set(["channelInfo": "native", "bogusSurface": "native", "activity": "weirdMode"],
+        prefs.set(["channelInfo": "web", "bogusSurface": "native", "activity": "weirdMode"],
                   forKey: SurfaceModeResolver.Keys.surfaceModes)
 
         let resolver = makeResolver()
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
         XCTAssertEqual(resolver.resolvedMode(for: .activity), .native,
                        "invalid persisted mode is dropped, so `.activity` takes its approved default")
         XCTAssertEqual(resolver.overrides.count, 1, "only the valid row survives decoding")
@@ -229,11 +242,11 @@ final class SurfaceModeResolverTests: XCTestCase {
 
     func testLaunchArgumentBeatsPersistedOverride() {
         let first = makeResolver()
-        first.setOverride(.native, for: .channelInfo)
+        first.setOverride(.web, for: .channelInfo)
 
         // A launch flag for the same surface wins this run over the persisted inspector setting.
-        let resolver = makeResolver(arguments: ["-surfaceMode", "channelInfo=web"])
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
+        let resolver = makeResolver(arguments: ["-surfaceMode", "channelInfo=native"])
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native)
     }
 
     func testPersistedOverrideBeatsRemoteDefault() {
@@ -241,12 +254,10 @@ final class SurfaceModeResolverTests: XCTestCase {
         // asymmetry that makes this test necessary in this direction: the persisted tier can only
         // ever hold the *non-default* value (`setOverride` drops a row equal to the compile
         // default), so the remote default has to disagree with the user for precedence to show.
-        // `.channelInfo` is the unapproved case that carries that role after `t_6d420e01` retired
-        // the read-and-discarded one (and it is the only case still web-by-default after
-        // `t_aa211ff6`'s flip).
-        let resolver = makeResolver(remoteDefault: { $0 == .channelInfo ? .web : .native })
-        resolver.setOverride(.native, for: .channelInfo)
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native,
+        // Since `t_05caa678` flipped `.channelInfo` native, the user's non-default value is `web`.
+        let resolver = makeResolver(remoteDefault: { _ in .native })
+        resolver.setOverride(.web, for: .channelInfo)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web,
                        "the persisted override wins over the remote default")
         XCTAssertEqual(resolver.resolvedMode(for: .activity), .native,
                        "surface without an override still takes the remote default")
@@ -270,14 +281,15 @@ final class SurfaceModeResolverTests: XCTestCase {
         let resolver = makeResolver()
         let before = resolver.resolvedMode(for: .channelInfo)
 
-        resolver.setOverride(.native, for: .channelInfo)
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native)
+        resolver.setOverride(.web, for: .channelInfo)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
         resolver.clearOverride(for: .channelInfo)
         XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), before)
 
         // No duplicated webview is a UI-layer property; the resolver must simply return to a
-        // stable `.web` decision after the cycle so the surface can be re-mounted once.
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
+        // stable decision after the cycle so the surface can be re-mounted once. Since
+        // `t_05caa678` that stable decision is `.native` for `.channelInfo`.
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native)
     }
 
     // MARK: Surface catalogue + persistence-key contract
@@ -430,7 +442,8 @@ final class SurfaceModeResolverTests: XCTestCase {
     func testDanglingSurfaceModeArgumentIsIgnored() {
         let resolver = makeResolver(arguments: ["-surfaceMode"])
         XCTAssertTrue(resolver.launchOverrides.isEmpty)
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo),
+                       SurfaceDefaults.defaultMode(for: .channelInfo))
     }
 
     func testEmptyValueAndMissingSeparatorAreIgnored() {
@@ -438,7 +451,8 @@ final class SurfaceModeResolverTests: XCTestCase {
                                                 "-surfaceMode", "channelViewnative",
                                                 "-surfaceMode", ""])
         XCTAssertTrue(resolver.launchOverrides.isEmpty, "no malformed spec may be retained")
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo),
+                       SurfaceDefaults.defaultMode(for: .channelInfo))
         XCTAssertEqual(resolver.resolvedMode(for: .channelView),
                        SurfaceDefaults.defaultMode(for: .channelView),
                        "a malformed spec steers no surface, approved or not")
@@ -462,8 +476,9 @@ final class SurfaceModeResolverTests: XCTestCase {
         // Only that surface: the rest of the debug configuration still holds.
         XCTAssertEqual(resolver.resolvedMode(for: .search), .native)
         XCTAssertTrue(resolver.isLaunchOverridden(.search))
-        // The compile default is web, so no override row is left behind.
-        XCTAssertNil(resolver.overrides[.channelInfo])
+        // `web` is the non-default mode for `.channelInfo` now (`t_05caa678` flipped it native), so
+        // the escape hatch really writes a stored row — it is not a "clear back to default" path.
+        XCTAssertEqual(resolver.overrides[.channelInfo], .web)
         XCTAssertEqual(makeResolver().resolvedMode(for: .channelInfo), .web)
     }
 
@@ -524,29 +539,31 @@ final class SurfaceModeResolverTests: XCTestCase {
     /// R2 choice (a): the persisted tier is a debug affordance, so a Release build **ignores a
     /// stored row**. `releaseSemantics` builds exactly what a Release build computes.
     func testPersistedOverrideIsIgnoredWithoutDebugAffordances() {
-        // A row a DEBUG build could have written (a stale `native` choice for an unapproved
-        // surface) must not survive into Release: a shipped app may never show a stand-in.
-        AppPreferences(defaults: defaults).set(["channelInfo": "native"],
+        // A row a DEBUG build could have written (a `web` choice for an approved surface) must not
+        // survive into Release: a shipped app never honours a stored tier.
+        AppPreferences(defaults: defaults).set(["channelInfo": "web"],
                                                forKey: SurfaceModeResolver.Keys.surfaceModes)
 
         let debugResolver = makeResolver()
-        XCTAssertEqual(debugResolver.resolvedMode(for: .channelInfo), .native,
+        XCTAssertEqual(debugResolver.resolvedMode(for: .channelInfo), .web,
                        "sanity: a Debug build honours the stored row")
 
         let releaseResolver = SurfaceModeResolver.releaseSemantics(
             preferences: AppPreferences(defaults: defaults))
         XCTAssertTrue(releaseResolver.overrides.isEmpty, "Release decodes no persisted overrides")
-        XCTAssertEqual(releaseResolver.resolvedMode(for: .channelInfo), .web,
-                       "Release must fall back to the compile-time default")
+        XCTAssertEqual(releaseResolver.resolvedMode(for: .channelInfo), .native,
+                       "Release must fall back to the compile-time default (`.channelInfo` is "
+                       + "approved native since `t_05caa678`)")
     }
 
     /// R2 choice (a), tier 1: a launch flag is not parsed in a Release build either.
     func testLaunchOverrideIsIgnoredWithoutDebugAffordances() {
         let releaseResolver = SurfaceModeResolver.releaseSemantics(
             preferences: AppPreferences(defaults: defaults),
-            arguments: ["-surfaceMode", "channelInfo=native"])
+            arguments: ["-surfaceMode", "channelInfo=web"])
         XCTAssertTrue(releaseResolver.launchOverrides.isEmpty)
-        XCTAssertEqual(releaseResolver.resolvedMode(for: .channelInfo), .web)
+        XCTAssertEqual(releaseResolver.resolvedMode(for: .channelInfo),
+                       SurfaceDefaults.defaultMode(for: .channelInfo))
     }
 
     /// Only the debug tiers go away in Release: the remote seam (tier 3) and the compile-time
@@ -566,11 +583,11 @@ final class SurfaceModeResolverTests: XCTestCase {
     /// "Reset all to defaults" must mean it: stored rows **and** this run's launch entries go, so
     /// no surface is left native by a flag the button could not otherwise clear.
     func testClearAllOverridesAlsoDropsLaunchOverrides() {
-        let resolver = makeResolver(arguments: ["-surfaceMode", "channelInfo=native",
-                                                "-surfaceMode", "activity=native"])
-        resolver.setOverride(.native, for: .channelInfo)
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native)
-        XCTAssertEqual(resolver.resolvedMode(for: .activity), .native)
+        let resolver = makeResolver(arguments: ["-surfaceMode", "channelInfo=web",
+                                                "-surfaceMode", "activity=web"])
+        resolver.setOverride(.web, for: .channelInfo)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
+        XCTAssertEqual(resolver.resolvedMode(for: .activity), .web)
 
         resolver.clearAllOverrides()
 
@@ -586,11 +603,12 @@ final class SurfaceModeResolverTests: XCTestCase {
     /// A single-surface clear drops that surface's launch override as well (otherwise the row
     /// would look stuck: the flag outranks the cleared stored value).
     func testClearOverrideDropsLaunchOverrideForThatSurface() {
-        let resolver = makeResolver(arguments: ["-surfaceMode", "channelInfo=native",
+        let resolver = makeResolver(arguments: ["-surfaceMode", "channelInfo=web",
                                                 "-surfaceMode", "search=native"])
         resolver.clearOverride(for: .channelInfo)
 
-        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native,
+                       "back to the approved compile default, not to a stale `web` flag")
         XCTAssertFalse(resolver.isLaunchOverridden(.channelInfo))
         XCTAssertEqual(resolver.resolvedMode(for: .search), .native,
                        "other surfaces keep their launch override")
@@ -608,7 +626,7 @@ final class SurfaceModeResolverTests: XCTestCase {
         XCTAssertTrue(launchOnly.hasAnyOverride, "a launch override alone must enable the reset")
 
         let storedOnly = makeResolver()
-        storedOnly.setOverride(.native, for: .channelInfo)
+        storedOnly.setOverride(.web, for: .channelInfo)
         XCTAssertTrue(storedOnly.hasAnyOverride)
 
         launchOnly.clearAllOverrides()
@@ -628,11 +646,13 @@ final class SurfaceModeResolverTests: XCTestCase {
         let webView = firstStore.webView
 
         // The surface identity is irrelevant here (this pins the store, not the mode); `.channelInfo`
-        // is the unapproved stand-in, so the native→web pair really moves the resolution both ways.
-        resolver.setOverride(.native, for: .channelInfo)
+        // is approved native by default since `t_05caa678`, so the native→web pair really moves the
+        // resolution both ways (a `native` override would now be a no-op).
         XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native)
         resolver.setOverride(.web, for: .channelInfo)
         XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .web)
+        resolver.setOverride(.native, for: .channelInfo)
+        XCTAssertEqual(resolver.resolvedMode(for: .channelInfo), .native)
 
         let reattached = viewStore.ensureStore(for: server)
         XCTAssertTrue(reattached === firstStore,

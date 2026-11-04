@@ -121,7 +121,7 @@ final class T33ChannelSidebarStubTests: XCTestCase {
                       "the chosen DM must open in the channel pane:\n\(app.debugDescription)")
         XCTAssertFalse(element(app, "nativeEmptyDestination").exists,
                        "the pane must have left the empty destination")
-        XCTAssertEqual(app.staticTexts["nativeChannelTitle"].label, Self.dmName,
+        XCTAssertEqual(element(app, "nativeChannelTitle").label, Self.dmName,
                        "the pane must be showing the channel the switcher chose")
     }
 
