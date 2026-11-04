@@ -1,0 +1,139 @@
+t_05caa678 — AX evidence, extracted verbatim from the live run
+
+Run : scripts/qa-test.py --platform ios --sim id=81A7F251-8B31-4945-8783-5A264C14B8D5 \
+        --only-testing MattermostUITests/T05ChannelHeaderUITests
+        with TEST_RUNNER_MM_AUTH_* and TEST_RUNNER_MM_BOOKMARKS_SERVER=http://127.0.0.1:8078
+        5 run / 0 skipped / 0 failed   (build/logs/ios-20261105-042142.log, 180 s)
+Log : build/logs/ios-20261105-042142.log   (NOT tracked: .gitignore has build/)
+Xcr : ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/ios-20261105-042142-fe963f.xcresult
+      (the same seven dumps are XCTAttachments named ax-*)
+Build: iOS Simulator, Debug. A Release Catalyst dump cannot be produced on this host — see
+      docs/t_05caa678-build-note.md §1, "Which build produced these dumps, and why not Release
+      Catalyst" (Release test targets do not build; the live suite's launch seams are #if DEBUG).
+
+Each block is one dump, filtered to the lines that carry an accessibility identifier the card names
+(plus the title's subtitle and the sheet's channel/count labels), copied without editing.
+
+=== 1. testA — dump 'channel-header-default-surface' (default build: no -surfaceMode)
+                        Other, 0x105e5ecc0, {{0.0, 162.3}, {402.0, 711.7}}, identifier: 'nativeChannelPane'
+                          Other, 0x105e5ede0, {{16.0, 162.7}, {140.3, 57.7}}, identifier: 'nativeChannelTitle', label: '0 T05 Header 13945f7f'
+                              StaticText, 0x105e5f390, {{43.3, 206.0}, {52.0, 14.3}}, label: 'View info'
+                          Button, 0x105e5f5d0, {{253.0, 163.3}, {19.7, 19.0}}, identifier: 'nativeChannelInfoButton', label: 'Channel info'
+                          Button, 0x105e5f810, {{308.3, 162.3}, {19.7, 21.7}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x105e5fa50, {{363.7, 163.7}, {22.3, 19.3}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x105e5fb70, {{0.0, 230.7}, {402.0, 453.0}}, identifier: 'channelPostList'
+                                Button, 0x105e5fed0, {{82.7, 240.7}, {237.7, 15.7}}, identifier: 'channelPostList.loadEarlier', label: 'This is the beginning of the channel', Selected, Disabled
+
+=== 2. testA — dump 'channel-info-sheet-open' (same run, taken AFTER the title tap) ===
+                        Other, 0x105e48b70, {{16.0, 211.4}, {370.0, 655.0}}, identifier: 'nativeChannelPane'
+                          Other, 0x105e48c90, {{30.7, 211.7}, {129.2, 53.1}}, identifier: 'nativeChannelTitle', label: '0 T05 Header 13945f7f'
+                              StaticText, 0x105e49110, {{55.9, 251.6}, {47.9, 13.2}}, label: 'View info'
+                          Button, 0x105e49350, {{248.9, 212.3}, {18.1, 17.5}}, identifier: 'nativeChannelInfoButton', label: 'Channel info'
+                          Button, 0x105e49590, {{299.8, 211.4}, {18.1, 19.9}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x105e497d0, {{350.7, 212.6}, {20.6, 17.8}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x105e498f0, {{16.0, 274.3}, {370.0, 416.9}}, identifier: 'channelPostList'
+                                Button, 0x105e49c50, {{92.1, 283.5}, {218.7, 14.4}}, identifier: 'channelPostList.loadEarlier', label: 'This is the beginning of the channel', Selected, Disabled
+                  Other, 0x105e2b9f0, {{0.0, 72.0}, {402.0, 802.0}}, identifier: 'channelInfo.sheet'
+                      Other, 0x105e321b0, {{16.0, 86.0}, {48.3, 28.3}}, identifier: 'channelInfo.done', label: 'Done'
+                          Button, 0x105e323f0, {{16.0, 86.0}, {48.3, 28.3}}, identifier: 'channelInfo.done', label: 'Done'
+                                      StaticText, 0x105e35d40, {{67.0, 176.0}, {215.7, 24.0}}, identifier: 'channelInfo.title', label: '0 T05 Header 13945f7f'
+                                      StaticText, 0x105e35e60, {{40.0, 206.0}, {88.3, 15.7}}, label: 'Public channel'
+                                      StaticText, 0x105e35f80, {{140.3, 206.0}, {59.7, 15.7}}, identifier: 'channelInfo.memberCount', label: '1 member'
+                                      StaticText, 0x105e260d0, {{40.0, 255.2}, {130.0, 19.3}}, identifier: 'channelInfo.purpose', label: 't05 header fixture'
+                                      Button, 0x105e1c770, {{20.0, 314.0}, {362.0, 44.0}}, identifier: 'channelInfo.action.addMembers', label: 'Add members'
+                                      Button, 0x105e29bd0, {{20.0, 358.0}, {362.0, 44.0}}, identifier: 'channelInfo.action.members', label: 'Members, 1 member'
+                                        StaticText, 0x105e1f140, {{286.7, 369.8}, {75.3, 20.3}}, label: '1 member'
+                                      Button, 0x105e26d70, {{20.0, 402.0}, {362.0, 64.3}}, identifier: 'channelInfo.action.notifications', label: 'Notification preferences, Account default'
+                                      Button, 0x105e5bce0, {{20.0, 466.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.files', label: 'Files'
+                                      Button, 0x105e5c820, {{20.0, 510.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.pinned', label: 'Pinned messages'
+                                      Button, 0x105e62e10, {{20.0, 554.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.settings', label: 'Channel settings'
+                                      Button, 0x105e63950, {{20.0, 598.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.archive', label: 'Archive channel'
+                                      Button, 0x105e64490, {{20.0, 642.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.leave', label: 'Leave channel'
+
+=== 3. testC — dump 'channel-header-bookmarks-404' (server answers 404 for bookmarks: no bar) ===
+                        Other, 0x107156990, {{0.0, 162.3}, {402.0, 711.7}}, identifier: 'nativeChannelPane'
+                          Other, 0x107156ab0, {{16.0, 162.7}, {140.3, 57.7}}, identifier: 'nativeChannelTitle', label: '0 T05 Header edfd095a'
+                              StaticText, 0x107156f30, {{43.3, 206.0}, {52.0, 14.3}}, label: 'View info'
+                          Button, 0x107157170, {{253.0, 163.3}, {19.7, 19.0}}, identifier: 'nativeChannelInfoButton', label: 'Channel info'
+                          Button, 0x1071573b0, {{308.3, 162.3}, {19.7, 21.7}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x1071575f0, {{363.7, 163.7}, {22.3, 19.3}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x107157710, {{0.0, 230.7}, {402.0, 453.0}}, identifier: 'channelPostList'
+                                Button, 0x107157a70, {{82.7, 240.7}, {237.7, 15.7}}, identifier: 'channelPostList.loadEarlier', label: 'This is the beginning of the channel', Selected, Disabled
+
+=== 4. testC — dump 'channel-info-sheet-404' (sheet intact, no bookmarks section) ===
+                        Other, 0x107165a70, {{16.0, 211.4}, {370.0, 655.0}}, identifier: 'nativeChannelPane'
+                          Other, 0x107165b90, {{30.7, 211.7}, {129.2, 53.1}}, identifier: 'nativeChannelTitle', label: '0 T05 Header edfd095a'
+                              StaticText, 0x107166010, {{55.9, 251.6}, {47.9, 13.2}}, label: 'View info'
+                          Button, 0x107166250, {{248.9, 212.3}, {18.1, 17.5}}, identifier: 'nativeChannelInfoButton', label: 'Channel info'
+                          Button, 0x107166490, {{299.8, 211.4}, {18.1, 19.9}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x1071666d0, {{350.7, 212.6}, {20.6, 17.8}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x1071667f0, {{16.0, 274.3}, {370.0, 416.9}}, identifier: 'channelPostList'
+                                Button, 0x107166b50, {{92.1, 283.5}, {218.7, 14.4}}, identifier: 'channelPostList.loadEarlier', label: 'This is the beginning of the channel', Selected, Disabled
+                  Other, 0x107169c90, {{0.0, 72.0}, {402.0, 802.0}}, identifier: 'channelInfo.sheet'
+                      Other, 0x107169ed0, {{16.0, 86.0}, {48.3, 28.3}}, identifier: 'channelInfo.done', label: 'Done'
+                          Button, 0x10716a110, {{16.0, 86.0}, {48.3, 28.3}}, identifier: 'channelInfo.done', label: 'Done'
+                                      StaticText, 0x10716b1f0, {{67.0, 176.0}, {221.0, 24.0}}, identifier: 'channelInfo.title', label: '0 T05 Header edfd095a'
+                                      StaticText, 0x10716b310, {{40.0, 206.0}, {88.3, 15.7}}, label: 'Public channel'
+                                      StaticText, 0x10716b430, {{140.3, 206.0}, {59.7, 15.7}}, identifier: 'channelInfo.memberCount', label: '1 member'
+                                      StaticText, 0x10716bd30, {{40.0, 255.2}, {130.0, 19.3}}, identifier: 'channelInfo.purpose', label: 't05 header fixture'
+                                      Button, 0x10716c750, {{20.0, 314.0}, {362.0, 44.0}}, identifier: 'channelInfo.action.addMembers', label: 'Add members'
+                                      Button, 0x10716d170, {{20.0, 358.0}, {362.0, 44.0}}, identifier: 'channelInfo.action.members', label: 'Members, 1 member'
+                                        StaticText, 0x10716d4d0, {{286.7, 369.8}, {75.3, 20.3}}, label: '1 member'
+                                      Button, 0x10716ddd0, {{20.0, 402.0}, {362.0, 64.3}}, identifier: 'channelInfo.action.notifications', label: 'Notification preferences, Account default'
+                                      Button, 0x10716ea30, {{20.0, 466.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.files', label: 'Files'
+                                      Button, 0x10716f570, {{20.0, 510.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.pinned', label: 'Pinned messages'
+                                      Button, 0x1071700b0, {{20.0, 554.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.settings', label: 'Channel settings'
+                                      Button, 0x107170bf0, {{20.0, 598.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.archive', label: 'Archive channel'
+                                      Button, 0x107171730, {{20.0, 642.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.leave', label: 'Leave channel'
+
+=== 5. testD — dump 'channel-header-bookmarks-200' (t05_bookmarks_proxy.py transport fixture) ===
+                        Other, 0x10714f990, {{0.0, 162.3}, {402.0, 711.7}}, identifier: 'nativeChannelPane'
+                          Other, 0x10714fab0, {{16.0, 162.7}, {140.3, 57.7}}, identifier: 'nativeChannelTitle', label: '0 T05 Header 5f83d9a4'
+                              StaticText, 0x10714ff30, {{43.3, 206.0}, {52.0, 14.3}}, label: 'View info'
+                          Button, 0x107150170, {{253.0, 163.3}, {19.7, 19.0}}, identifier: 'nativeChannelInfoButton', label: 'Channel info'
+                          Button, 0x107150290, {{280.7, 163.3}, {19.7, 19.0}}, identifier: 'nativeProfileButton', label: 'My profile'
+                          Button, 0x1071503b0, {{308.3, 162.3}, {19.7, 21.7}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x1071504d0, {{336.0, 164.0}, {19.7, 17.7}}, identifier: 'calls.joinButton', label: 'Start call', value: idle
+                          Button, 0x1071505f0, {{363.7, 163.7}, {22.3, 19.3}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x107150710, {{0.0, 230.3}, {402.0, 48.0}}, identifier: 'channelBookmarks.bar'
+                              Button, 0x107150950, {{12.0, 240.3}, {80.0, 28.0}}, identifier: 'channelBookmark.t05bookmark0000000000000001', label: 'Apple'
+                              Button, 0x107150cb0, {{100.0, 240.3}, {87.3, 28.0}}, identifier: 'channelBookmark.t05bookmark0000000000000002', label: 'Mango'
+                              Button, 0x107151010, {{195.3, 240.3}, {80.7, 28.0}}, identifier: 'channelBookmark.t05bookmark0000000000000003', label: 'Zebra'
+                          ScrollView, 0x107151370, {{0.0, 279.0}, {402.0, 404.7}}, identifier: 'channelPostList'
+                                Button, 0x1071516d0, {{82.7, 289.0}, {237.7, 15.7}}, identifier: 'channelPostList.loadEarlier', label: 'This is the beginning of the channel', Selected, Disabled
+
+=== 6. testE — dump 'channel-header-channelInfo-web' (the pre-fix gate, forced: -surfaceMode channelInfo=web) ===
+                        Other, 0x107172ad0, {{0.0, 162.3}, {402.0, 711.7}}, identifier: 'nativeChannelPane'
+                          Other, 0x107172bf0, {{16.0, 162.7}, {218.0, 35.7}}, identifier: 'nativeChannelTitle', label: '0 T05 Header e2f3d4a2'
+                              StaticText, 0x107173070, {{43.3, 184.0}, {52.0, 14.3}}, label: 'View info'
+                          Button, 0x1071732b0, {{280.7, 163.3}, {19.7, 19.0}}, identifier: 'nativeProfileButton', label: 'My profile'
+                          Button, 0x1071733d0, {{308.3, 162.3}, {19.7, 21.7}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x1071734f0, {{336.0, 164.0}, {19.7, 17.7}}, identifier: 'calls.joinButton', label: 'Start call', value: idle
+                          Button, 0x107173610, {{363.7, 163.7}, {22.3, 19.3}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x107173730, {{0.0, 208.7}, {402.0, 475.0}}, identifier: 'channelPostList'
+                                Button, 0x107173a90, {{82.7, 218.7}, {237.7, 15.7}}, identifier: 'channelPostList.loadEarlier', label: 'This is the beginning of the channel', Selected, Disabled
+
+=== 7. testE — dump 'channel-info-sheet-channelInfo-web' (title tap still opens the sheet with the gate off) ===
+                        Other, 0x107149890, {{16.0, 211.4}, {370.0, 655.0}}, identifier: 'nativeChannelPane'
+                          Other, 0x1071499b0, {{30.7, 211.7}, {200.6, 32.8}}, identifier: 'nativeChannelTitle', label: '0 T05 Header e2f3d4a2'
+                              StaticText, 0x107149e30, {{55.9, 231.4}, {47.9, 13.2}}, label: 'View info'
+                          Button, 0x10714a190, {{299.8, 211.4}, {18.1, 19.9}}, identifier: 'nativeChannelPinnedButton', label: 'Pinned messages'
+                          Button, 0x10714a3d0, {{350.7, 212.6}, {20.6, 17.8}}, identifier: 'nativeChannelThreadsButton', label: 'Threads'
+                          ScrollView, 0x10714a4f0, {{16.0, 254.1}, {370.0, 437.2}}, identifier: 'channelPostList'
+                                Button, 0x10714a850, {{92.1, 263.3}, {218.7, 14.4}}, identifier: 'channelPostList.loadEarlier', label: 'This is the beginning of the channel', Selected, Disabled
+                  Other, 0x10715eb30, {{0.0, 72.0}, {402.0, 802.0}}, identifier: 'channelInfo.sheet'
+                      Other, 0x10715ed70, {{16.0, 86.0}, {48.3, 28.3}}, identifier: 'channelInfo.done', label: 'Done'
+                          Button, 0x10715efb0, {{16.0, 86.0}, {48.3, 28.3}}, identifier: 'channelInfo.done', label: 'Done'
+                                      StaticText, 0x107160090, {{67.0, 176.0}, {220.7, 24.0}}, identifier: 'channelInfo.title', label: '0 T05 Header e2f3d4a2'
+                                      StaticText, 0x1071601b0, {{40.0, 206.0}, {88.3, 15.7}}, label: 'Public channel'
+                                      StaticText, 0x1071602d0, {{140.3, 206.0}, {59.7, 15.7}}, identifier: 'channelInfo.memberCount', label: '1 member'
+                                      StaticText, 0x107160bd0, {{40.0, 255.2}, {130.0, 19.3}}, identifier: 'channelInfo.purpose', label: 't05 header fixture'
+                                      Button, 0x1071615f0, {{20.0, 314.0}, {362.0, 44.0}}, identifier: 'channelInfo.action.addMembers', label: 'Add members'
+                                      Button, 0x107162010, {{20.0, 358.0}, {362.0, 44.0}}, identifier: 'channelInfo.action.members', label: 'Members, 1 member'
+                                        StaticText, 0x107162370, {{286.7, 369.8}, {75.3, 20.3}}, label: '1 member'
+                                      Button, 0x107162c70, {{20.0, 402.0}, {362.0, 64.3}}, identifier: 'channelInfo.action.notifications', label: 'Notification preferences, Account default'
+                                      Button, 0x1071638d0, {{20.0, 466.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.files', label: 'Files'
+                                      Button, 0x107164410, {{20.0, 510.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.pinned', label: 'Pinned messages'
+                                      Button, 0x107164f50, {{20.0, 554.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.settings', label: 'Channel settings'
+                                      Button, 0x107165a90, {{20.0, 598.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.archive', label: 'Archive channel'
+                                      Button, 0x1071665d0, {{20.0, 642.3}, {362.0, 44.0}}, identifier: 'channelInfo.action.leave', label: 'Leave channel'

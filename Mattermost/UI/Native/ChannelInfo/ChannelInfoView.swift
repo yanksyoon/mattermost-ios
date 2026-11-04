@@ -13,9 +13,16 @@
 // channels, convert-to-private — are **not** in this card and are deliberately absent rather than drawn
 // as buttons that do nothing.
 //
-// The whole screen is behind `Surface.channelInfo`, which is `.web` until T40-AV approves the flip:
-// `ChannelPaneContent` only draws the header button that opens this sheet when the resolver says the
-// surface is native, so with the flag off the web app's own channel menu is the only one.
+// The surface switch: `Surface.channelInfo` is **native by default** since `t_05caa678` (T55-AV-R
+// passed it; T40 shipped the screen but never appended it to the approval registry). Two entries
+// reach this sheet from the pane, and only one of them is gated:
+//   * the pane's title — the whole label is the control, **not** gated, because `.channelView` is
+//     pane-owning and there is no web client behind it to answer the tap (a gate there was the
+//     reported defect: channel details unreachable on a default build);
+//   * the `info.circle` glyph in the trailing controls — gated on `.channelInfo` resolving native.
+// Bookmarks are not drawn here: upstream puts the bar under the channel header
+// (`app/screens/channel/header/bookmarks.tsx`), and this repo's bar lives in
+// `ChannelBookmarks.swift` for the same reason — one place, not two.
 
 import SwiftUI
 

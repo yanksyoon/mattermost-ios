@@ -7,11 +7,15 @@
 // Edition fixture refuses `GET /channels/{id}/bookmarks` with a 404, so "no bar, nothing else
 // touched" is a statement only this server can make.
 //
-// **The launch arguments matter.** These tests pass **no `-surfaceMode` at all**. That is the point:
+// **The launch arguments matter.** Tests A–D pass **no `-surfaceMode` at all**. That is the point:
 // the reported defect was that the surfaces resolved to what a Release build gets, and a test that
 // asked for `channelInfo=native` would pass while the shipped app drew nothing (which is exactly
 // how T40's flip was missed). The only arguments are the DEBUG seeding seams a UI test needs to sign
 // in; surface resolution is left at its default.
+//
+// The one exception is `testE`, which passes `-surfaceMode channelInfo=web` **on purpose**: it is not
+// testing the default, it is re-creating the pre-fix gate (`.channelInfo` was unapproved, so the
+// resolver answered `web`) and dumping what that draws.
 //
 // Run:
 //     TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065 \
@@ -21,10 +25,21 @@
 //       --only-testing MattermostUITests/T05ChannelHeaderUITests
 //
 // Each test skips — never fails — when the environment or the server is missing, like every live
-// test here. No 200-bookmarks server exists on this host (the route is absent from the pinned build),
-// so "200 → the strip lists them in the server's order" is asserted with no server in
-// `MattermostTests/T05ChannelBookmarksTests.swift`; this suite asserts the 200-capable *layout* only
-// as far as the fixture can go, and says so rather than fabricating a green.
+// test here.
+//
+// Where the bookmarks rules are asserted:
+//   * **offline**, in `MattermostTests/T05ChannelBookmarksTests.swift` — sort order, the 404/empty/
+//     failure states, one fetch per appearance, the chip's URL rule;
+//   * **live here**, against the real 9.11.19 server — the 404 case, because only that server can
+//     answer 404 for the route, and the header/sheet/premise around it;
+//   * **live here against a transport fixture** — `testD…`, the 200 case, because no server on this
+//     host serves the route: `scripts/t05_bookmarks_proxy.py` answers `GET /channels/{id}/bookmarks`
+//     and forwards everything else, so the bar's order, placement and fetch count are read off the
+//     screen rather than simulated.
+//
+// The AX dumps are produced by the run (`dumpAccessibilityTree`), including one taken with the info
+// sheet already open, because the card asks for the sheet title in the dump and not only in an
+// assertion.
 
 import XCTest
 
@@ -112,6 +127,9 @@ final class T05ChannelHeaderUITests: XCTestCase {
                       "the sheet must name the channel: it says \"\(sheetTitle.label)\"")
         XCTAssertTrue(element(app, "channelInfo.action.members").waitForExistence(timeout: 20),
                       "the overview must offer the member list:\n\(app.debugDescription)")
+        // Dumped **with the sheet open**: the card's evidence line names the sheet title, so the
+        // dump has to contain `channelInfo.title`, not only an assertion about it.
+        dumpAccessibilityTree(app, named: "channel-info-sheet-open")
         attach(app, "01-header-and-info")
     }
 
@@ -201,6 +219,7 @@ final class T05ChannelHeaderUITests: XCTestCase {
                        "bookmarks belong to the header's bar, not to channel info (upstream has one place)")
         XCTAssertFalse(element(app, "channelInfo.bookmarks").exists,
                        "the info sheet must not carry a bookmarks section")
+        dumpAccessibilityTree(app, named: "channel-info-sheet-404")
         attach(app, "03-bookmarks-404")
     }
 
@@ -266,7 +285,9 @@ final class T05ChannelHeaderUITests: XCTestCase {
         XCTAssertEqual(perChannel[channel.id], 1,
                        "this pane must ask once for its own channel; counters: \(status)")
 
-        // A tap opens the target and the pane (with its bar) is still there afterwards.
+        // A chip tap must not take the pane (or its bar) away. The target the chip opens is the
+        // unit-tested `url(for:)` rule (http/https only) — this asserts the screen survives the tap,
+        // which is the part only a live pane can show.
         let firstID = try XCTUnwrap(fixture.sorted { $0.sortOrder < $1.sortOrder }.first?.id)
         let first = element(app, "channelBookmark.\(firstID)")
         XCTAssertTrue(first.waitForExistence(timeout: 10))
@@ -279,6 +300,41 @@ final class T05ChannelHeaderUITests: XCTestCase {
         attach(app, "04-bookmarks-200")
     }
 
+    // MARK: - 5. The gate that caused the report, forced off
+
+    /// The reported defect's own code path, reproduced from the switch instead of from an old
+    /// binary: at `7e269b1` `.channelInfo` was absent from `SurfaceDefaults.nativeApprovedSurfaces`,
+    /// so `resolver.resolvedMode(for: .channelInfo)` answered `web` and
+    /// `ChannelView.trailingControls` did not draw its `nativeChannelInfoButton`. Forcing that same
+    /// answer here re-creates the gate and dumps it — which is the honest way to attach the
+    /// pre-fix state: no build of the old tree was kept, and a dump of today's default build cannot
+    /// show what the gate does.
+    ///
+    /// It also pins the other half of the fix: the title tap is **not** surface-gated, so even with
+    /// the surface at `web` the pane still reaches channel details (with `.channelView` pane-owning
+    /// there is no web client behind the pane to answer that tap).
+    func testEForcingTheChannelInfoSurfaceToWebHidesTheGlyphNotTheEntry() throws {
+        let channel = try makeChannel()
+        let app = launchApp(surfaceModes: ["channelInfo=web"])
+        openChannel(app, channel: channel)
+
+        let title = element(app, "nativeChannelTitle")
+        XCTAssertTrue(title.waitForExistence(timeout: 30),
+                      "the pane must still draw its header with the surface at web:\n\(app.debugDescription)")
+        XCTAssertTrue(waitUntil(timeout: 20) { title.label == channel.displayName })
+        XCTAssertFalse(element(app, "nativeChannelInfoButton").exists,
+                       "with `.channelInfo` at web the glyph must not be drawn — this is the state the "
+                       + "owner saw before the flip:\n\(app.debugDescription)")
+        dumpAccessibilityTree(app, named: "channel-header-channelInfo-web")
+
+        // The entry that a default build keeps, gate or no gate.
+        title.tap()
+        XCTAssertTrue(element(app, "channelInfo.sheet").waitForExistence(timeout: 20),
+                      "the title tap must not be gated by the `.channelInfo` switch:\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "channelInfo.title").waitForExistence(timeout: 20))
+        dumpAccessibilityTree(app, named: "channel-info-sheet-channelInfo-web")
+    }
+
     // MARK: - App driving
 
     private func launchApp() -> XCUIApplication {
@@ -286,15 +342,29 @@ final class T05ChannelHeaderUITests: XCTestCase {
     }
 
     private func launchApp(at url: URL) -> XCUIApplication {
+        launchApp(at: url, surfaceModes: [])
+    }
+
+    /// - Parameter surfaceModes: `-surfaceMode` pairs. **Empty for every test except `testE`**: the
+    ///   reported defect was a default-surface gate, so a test that asked for the native surfaces
+    ///   could not have caught it.
+    private func launchApp(surfaceModes: [String]) -> XCUIApplication {
+        launchApp(at: serverURL, surfaceModes: surfaceModes)
+    }
+
+    private func launchApp(at url: URL, surfaceModes: [String]) -> XCUIApplication {
         let app = XCUIApplication()
-        // **No `-surfaceMode` arguments.** See the file header: the defect was a default-surface
-        // gate, so a test that asked for the native surfaces could not have caught it.
-        app.launchArguments = ["-uiTestResetPersistedState",
-                               "-uiTestForgetSession", url.absoluteString,
-                               "-uiTestSeedServer", url.absoluteString,
-                               "-uiTestSeedServerName", "Local Mattermost",
-                               "-uiTestLogLevel", "error",
-                               "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        var arguments = ["-uiTestResetPersistedState",
+                         "-uiTestForgetSession", url.absoluteString,
+                         "-uiTestSeedServer", url.absoluteString,
+                         "-uiTestSeedServerName", "Local Mattermost",
+                         "-uiTestLogLevel", "error",
+                         "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        if !surfaceModes.isEmpty {
+            arguments.append("-surfaceMode")
+            arguments.append(contentsOf: surfaceModes)
+        }
+        app.launchArguments = arguments
         app.launchEnvironment["OS_ACTIVITY_MODE"] = "disable"
         app.launch()
         signIn(app)
