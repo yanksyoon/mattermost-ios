@@ -195,9 +195,15 @@ struct RootView: View {
                 // over the welcome/empty state there is nothing to switch.
                 if !serverStore.servers.isEmpty {
                     // T36: a thread is a pane route, not a pushed destination, so the regular-width
-                    // layout has no stack chevron. Without this the only way out of a thread was to
-                    // tap the channel again.
-                    if navigation.location.postID != nil || navigation.location.pane == .threads {
+                    // layout has no stack chevron. That escape is now the **thread pane's own**
+                    // leading control (`threadPane.back`, drawn in both layouts by
+                    // `ThreadPaneContent.header`), so this toolbar item deliberately no longer
+                    // covers a thread — one leading affordance, not two.
+                    //
+                    // It still covers the other stranded route: a channel pane opened *at a post*
+                    // (a permalink, a search/saved result) is a channel destination whose stack was
+                    // reset, and its header belongs to the channel pane.
+                    if navigation.location.pane == .channel, navigation.location.postID != nil {
                         ToolbarItem(placement: .topBarLeading) {
                             Button {
                                 navigation.closeThread()

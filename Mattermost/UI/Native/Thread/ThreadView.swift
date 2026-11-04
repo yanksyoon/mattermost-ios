@@ -27,6 +27,9 @@ struct ThreadPaneContent: View {
     @EnvironmentObject private var threads: ThreadCoordinator
     @EnvironmentObject private var panes: ChannelPaneCoordinator
     @EnvironmentObject private var resolver: SurfaceModeResolver
+    /// Which affordance the header's leading control draws: a push's chevron or the wide layout's
+    /// close (see `backGlyph`).
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     /// T38: the app's one download journal (a reply's attachment saves to the same Downloads screen).
     @EnvironmentObject private var downloadWorker: DownloadWorker
 
@@ -148,8 +151,28 @@ struct ThreadPaneContent: View {
 
     // MARK: Header
 
+    /// The pane's header: **one** leading back control, the title/subtitle, and the Follow bell —
+    /// upstream's thread header (`app/routes/(authenticated)/thread.tsx` renders `Header` with
+    /// `onBackPress` as its left action; the back glyph is `arrow-back-ios`, a left chevron).
+    ///
+    /// The control is a `Button`, never a tap gesture, so on Catalyst it takes part in the standard
+    /// control focus/activation path (tab to it, space to activate) rather than being reachable by
+    /// pointer only, and so VoiceOver and XCUITest see one control with a label naming where it
+    /// goes. `.focusable()` is what puts it in the tab order; the Button itself handles activation.
     private var header: some View {
         HStack(alignment: .center, spacing: 10) {
+            Button {
+                navigation.closeThread()
+            } label: {
+                Image(systemName: backGlyph)
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 34, height: 30)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .focusable()
+            .accessibilityLabel(backAccessibilityLabel)
+            .accessibilityIdentifier("threadPane.back")
             VStack(alignment: .leading, spacing: 1) {
                 Text("Thread")
                     .font(.headline)
@@ -168,6 +191,25 @@ struct ThreadPaneContent: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
+    }
+
+    /// The leading glyph. Upstream's phone header draws a left chevron (`arrow-back-ios`); a wide
+    /// layout is the webapp's right-hand panel, whose affordance is a close (×). The pane is one
+    /// view in both layouts (this file's header), so the glyph follows the **layout** the reader is
+    /// in: chevron where the pane is a push, × where it is the detail column beside the sidebar.
+    private var backGlyph: String {
+        horizontalSizeClass == .regular ? "xmark" : "chevron.left"
+    }
+
+    /// The label names the destination, not the glyph: "Back to #dev", "Back to Threads", or the
+    /// honest "Back" when the thread was reached without a channel (a permalink).
+    private var backAccessibilityLabel: String {
+        if navigation.threadEntryPoint == .threadsList { return "Back to Threads" }
+        if let name = navigation.threadReturnChannel?.channelName, !name.isEmpty {
+            return "Back to #\(name)"
+        }
+        if navigation.threadReturnChannel != nil { return "Back to the channel" }
+        return "Back"
     }
 
     /// "3 replies · #dev — last reply 2:15 PM". The count is the server's when it has one (a thread

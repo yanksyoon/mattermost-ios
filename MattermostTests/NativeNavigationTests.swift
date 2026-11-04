@@ -429,52 +429,159 @@ final class NativeNavigationTests: XCTestCase {
         XCTAssertEqual(navigation.path.last?.postID, "root-of-a-thread")
     }
 
-    /// A thread is a pane route, not a pushed destination: on a regular-width layout there is no
-    /// stack chevron, so the shell's Back button calls this. It must land on the channel the thread
-    /// belongs to, not on the workspace root.
-    // SKIPPED: this asserts where Back *lands*, and the route the pane opens a thread with is not
-    // modelled by the deep links and `openThreads` calls available here — with a fixed directory the
-    // thread route still resolves to a location whose channel identity does not survive `closeThread`.
-    // The button and `closeThread()` ship; the return target needs one native run with the shell's
-    // `navigation.location` printed, then this assertion can be written against the real shape.
-    func testClosingAThreadReturnsToItsChannel() throws {
-        throw XCTSkip("blocked on the real thread route shape")
+    /// **Entry point 1 — a root in a channel's timeline.** The pane's leading control
+    /// (`threadPane.back`) must land on that conversation: same server, same team, same channel, the
+    /// post the thread was opened for gone, and the stack popped so a compact layout shows the
+    /// channel pane it still holds (which is what preserves its scroll position — the pushed view is
+    /// never destroyed).
+    ///
+    /// This was `XCTSkip`ped as "blocked on the real thread route shape". The shape is what
+    /// `ChannelView.openThread` actually sends: the current location's request plus the root's
+    /// `postID`, so the channel id and name are both on the thread route.
+    func testBackFromAChannelThreadReturnsToThatChannel() {
         let serverConfig = server()
         // A channel route only resolves when the directory can name it; without one the funnel has no
         // channel identity to apply and this test would be measuring nothing.
-        let navigation = makeNavigation(serverStore: makeServerStore([serverConfig]),
-                                        directory: FixedDirectory())
-        // A thread is reached exactly as the UI reaches it: a channel route, then the thread route
-        // on top. Deep links are used here because they build the same `NativeLocation` the panes do.
-        _ = navigation.handle("mattermost://mm.example/acme/channels/general")
-        _ = navigation.handle("mattermost://mm.example/acme/pl/root-of-a-thread")
-        XCTAssertEqual(navigation.location.postID, "root-of-a-thread", "the reply screen is open")
+        // The store is `weak` on the model, so the test must hold it: a temporary would deallocate
+        // before the first route and every assertion below would measure an unbound model.
+        let store = makeServerStore([serverConfig])
+        let navigation = makeNavigation(serverStore: store, directory: FixedDirectory())
+        let outcome = navigation.handle("mattermost://mm.example/acme/channels/general")
+        guard case .opened = outcome else { return XCTFail("expected .opened, got \(outcome)") }
+        XCTAssertEqual(navigation.location.channelID, "channel-1")
+        let channel = navigation.location
+
+        var thread = channel.request
+        thread.postID = "root-of-a-thread"
+        _ = navigation.openThreads(thread)
+
+        XCTAssertEqual(navigation.location.postID, "root-of-a-thread", "the thread pane is open")
+        XCTAssertEqual(navigation.threadEntryPoint, .channel)
+        XCTAssertEqual(navigation.path.count, 2)
 
         navigation.closeThread()
 
-        XCTAssertEqual(navigation.location.pane, .channel)
+        XCTAssertEqual(navigation.location.pane, .channel, "Back returns to the channel pane")
         XCTAssertNil(navigation.location.postID)
-        // The channel identity can arrive as an id (resolved through the directory) or a name, so the
-        // contract is "a channel is open", not which of the two fields carries it.
-        XCTAssertTrue(navigation.location.hasChannel, "Back returns to the same channel")
+        XCTAssertEqual(navigation.location.channelID, "channel-1",
+                       "the same channel, not merely some channel")
+        XCTAssertEqual(navigation.location.serverID, serverConfig.id)
+        XCTAssertEqual(navigation.location.teamID, "team-1", "the same team")
+        XCTAssertEqual(navigation.location.channelName, "general",
+                       "the name survives the round trip, so the header can draw it")
+        XCTAssertEqual(navigation.path.count, 1, "the thread popped off the stack")
+        XCTAssertEqual(navigation.path.last?.channelID, "channel-1")
+        XCTAssertNil(navigation.threadEntryPoint, "no thread is open any more")
     }
 
-    /// A thread opened from the global list has no channel to return to, so Back goes to the shell.
-    func testClosingAThreadFromTheThreadsListReturnsToTheShellRoot() throws {
-        throw XCTSkip("blocked on the real thread route shape")
+    /// **Entry point 2 — a row of the Threads list.** Back must return to the list even when the
+    /// reader had a channel open before it: a list-opened thread carries the row's `channelID`, and
+    /// the pre-fix `closeThread()` returned to the last channel whenever the *server* matched, so
+    /// Back silently left the list.
+    func testBackFromAListOpenedThreadReturnsToTheListNotTheLastChannel() {
         let serverConfig = server()
-        let navigation = makeNavigation(serverStore: makeServerStore([serverConfig]),
-                                        directory: FixedDirectory())
+        // The store is `weak` on the model, so the test must hold it: a temporary would deallocate
+        // before the first route and every assertion below would measure an unbound model.
+        let store = makeServerStore([serverConfig])
+        let navigation = makeNavigation(serverStore: store, directory: FixedDirectory())
+        // The reader was in a channel first: that is the stale fact the old Back obeyed.
+        _ = navigation.handle("mattermost://mm.example/acme/channels/general")
+        XCTAssertEqual(navigation.location.channelID, "channel-1")
 
-        _ = navigation.handle("mattermost://mm.example/acme/threads")
+        // …then the Threads list (the channel header's Threads button, `openThreads` with no post) —
+        // it stacks on the channel, so a Back from the list returns to the conversation.
+        _ = navigation.openThreads(navigation.location.request)
+        XCTAssertEqual(navigation.location.pane, .threads)
+        XCTAssertNil(navigation.location.postID)
+        XCTAssertEqual(navigation.path.count, 2)
+
+        // …then a row, exactly as `GlobalThreadsListView.open` builds it: the row's channel id plus
+        // its thread (root post) id.
         _ = navigation.openThreads(NativeChannelRequest(serverID: serverConfig.id,
+                                                        teamID: "team-1",
                                                         teamName: "acme",
+                                                        channelID: "channel-1",
                                                         postID: "root-of-a-thread"))
+        XCTAssertEqual(navigation.threadEntryPoint, .threadsList)
+        XCTAssertEqual(navigation.path.count, 3)
 
         navigation.closeThread()
 
-        XCTAssertNil(navigation.location.postID, "the thread is closed")
-        XCTAssertFalse(navigation.location.opensADestination, "the shell root, not a dangling thread")
+        XCTAssertEqual(navigation.location.pane, .threads, "Back returns to the Threads list")
+        XCTAssertNil(navigation.location.postID)
+        XCTAssertEqual(navigation.location.teamID, "team-1")
+        XCTAssertEqual(navigation.path.count, 2, "the thread popped; the channel stayed under the list")
+        XCTAssertNil(navigation.path.last?.postID)
+        XCTAssertEqual(navigation.path.first?.pane, .channel,
+                       "the list is still one Back away from the channel it was opened from")
+    }
+
+    /// The compact layout's Threads **tab** is the list, and a thread opened from it has no list on
+    /// the stack (the tab bar is the root). Back opens the **team-scoped list** rather than popping to
+    /// a bare shell root — the root carries no team, so the list would draw "no team" instead of the
+    /// rows the reader came from — and it still must not land on the channel that was last open.
+    func testBackFromAThreadOpenedInTheThreadsTabReturnsToATeamScopedList() {
+        let serverConfig = server()
+        // The store is `weak` on the model, so the test must hold it: a temporary would deallocate
+        // before the first route and every assertion below would measure an unbound model.
+        let store = makeServerStore([serverConfig])
+        let navigation = makeNavigation(serverStore: store, directory: FixedDirectory())
+        _ = navigation.handle("mattermost://mm.example/acme/channels/general")
+        // Back to the tab bar, then the Threads tab: `location` still names the channel, which is the
+        // fact the fix must not read as "the reader came from it".
+        navigation.popToRoot()
+        navigation.select(tab: .threads)
+
+        _ = navigation.openThreads(NativeChannelRequest(serverID: serverConfig.id,
+                                                        teamID: "team-1",
+                                                        teamName: "acme",
+                                                        channelID: "channel-1",
+                                                        postID: "root-of-a-thread"))
+        XCTAssertEqual(navigation.threadEntryPoint, .threadsList)
+        XCTAssertEqual(navigation.path.count, 1, "nothing is under the thread but the tab bar")
+
+        navigation.closeThread()
+
+        XCTAssertEqual(navigation.location.pane, .threads, "the list is the destination")
+        XCTAssertNil(navigation.location.postID)
+        // (The channel id is not asserted here: `FixedDirectory` answers every request with the same
+        // channel, so this double cannot show that the list route dropped it. The real directory only
+        // resolves the keys a request names, and the server ignores `channel_id` on the threads list
+        // anyway — measured, `docs/t36-build-note.md` §2.)
+        XCTAssertEqual(navigation.location.teamID, "team-1",
+                       "the list must keep the team it is scoped to, or it draws \"no team\"")
+        XCTAssertEqual(navigation.tab, .threads, "the Threads tab is still the selected tab")
+        XCTAssertEqual(navigation.path.count, 1)
+    }
+
+    /// The control's label names the destination, which is the fact the header renders
+    /// (`threadPane.back`): the channel for a timeline thread, nothing for a list thread.
+    func testTheThreadBackDestinationIsChannelForATimelineThreadAndNilFromTheList() {
+        let serverConfig = server()
+        // The store is `weak` on the model, so the test must hold it: a temporary would deallocate
+        // before the first route and every assertion below would measure an unbound model.
+        let store = makeServerStore([serverConfig])
+        let navigation = makeNavigation(serverStore: store, directory: FixedDirectory())
+        _ = navigation.handle("mattermost://mm.example/acme/channels/general")
+        var thread = navigation.location.request
+        thread.postID = "root-of-a-thread"
+        _ = navigation.openThreads(thread)
+
+        XCTAssertEqual(navigation.threadReturnChannel?.channelName, "general",
+                       "\"Back to #general\"")
+
+        // A list-opened thread of the same root: the destination is the list, not the channel, even
+        // though the route carries the channel id.
+        _ = navigation.open(.threads(NativeChannelRequest(serverID: serverConfig.id,
+                                                          teamID: "team-1",
+                                                          teamName: "acme")))
+        _ = navigation.openThreads(NativeChannelRequest(serverID: serverConfig.id,
+                                                        teamID: "team-1",
+                                                        teamName: "acme",
+                                                        channelID: "channel-1",
+                                                        postID: "root-of-a-thread"))
+        XCTAssertEqual(navigation.threadEntryPoint, .threadsList)
+        XCTAssertNil(navigation.threadReturnChannel, "\"Back to Threads\"")
     }
 
 

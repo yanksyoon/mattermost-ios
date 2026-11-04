@@ -709,6 +709,154 @@ final class T36ThreadsUITests: XCTestCase {
         return [:]
     }
 
+    // MARK: - 8. The thread pane's leading control (t_1617a61c)
+
+    /// **Entry point 1 — the channel timeline.** The pane's header carries one leading control
+    /// (`threadPane.back`) whose label names the destination, and it returns to **that** channel: the
+    /// router's own value names its id, the post is gone, and the timeline is exactly where the
+    /// reader left it (the pushed channel pane is never destroyed, so its `UIScrollView` offset and
+    /// the row at the top are unchanged — read from the scroll view through the geometry seam, not
+    /// inferred from a frame).
+    func testTheThreadHeaderBackReturnsToTheChannelItWasOpenedFrom() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let root = try post(message: "t1617 back root \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the back-control root")
+        let rootID = try XCTUnwrap(root["id"] as? String)
+        let reply = try post(message: "t1617 back reply \(stamp)", rootID: rootID, as: token)
+        assertAuthoredBy(userID, reply, "the back-control reply")
+
+        let app = launchAndOpenChannel(extraArguments: ["-uiTestExposeNavigationLocation",
+                                                        "-uiTestExposeScrollGeometry"])
+        // Put the root on screen and note where the timeline is standing.
+        XCTAssertTrue(revealPost(app, rootID).waitForExistence(timeout: 40),
+                      "the fresh root must be on the channel's first screen:\n\(app.debugDescription)")
+        let before = scrollGeometry(app)
+        XCTAssertNotNil(before,
+                        "`-uiTestExposeScrollGeometry` must publish `channelPostList.scrollGeometry`:\n"
+                        + "\(app.debugDescription)")
+
+        openThread(app, rootID: rootID)
+
+        let back = element(app, "threadPane.back")
+        XCTAssertTrue(back.waitForExistence(timeout: 20),
+                      "the thread header must carry its leading control:\n\(app.debugDescription)")
+        XCTAssertEqual(back.label, "Back to #\(channelName)",
+                       "the control names its destination, not a bare glyph")
+        XCTAssertEqual(navigationLocation(app)?["entry"], "channel",
+                       "the router must know the thread was opened from a timeline")
+        attachScreenshot("t1617a-01-thread-header-back")
+
+        back.tap()
+
+        XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 40),
+                      "Back must show the channel pane again:\n\(app.debugDescription)")
+        let location = navigationLocation(app)
+        XCTAssertEqual(location?["pane"], "channel")
+        XCTAssertEqual(location?["channel"], channelID,
+                       "`navigation.location.channelID` is the thread root's channel")
+        XCTAssertEqual(location?["post"], "none", "the thread is closed")
+        XCTAssertEqual(location?["team"], teamID, "the same team")
+
+        let after = scrollGeometry(app)
+        XCTAssertNotNil(after)
+        XCTAssertEqual(after?.offset ?? .nan, before?.offset ?? .nan, accuracy: 1.0,
+                       "the timeline must not move: the reader returns to the place they left "
+                       + "(before \(before?.description ?? "none"), after \(after?.description ?? "none"))")
+        XCTAssertEqual(after?.top, before?.top,
+                       "the same post is at the top of the timeline")
+        attachScreenshot("t1617a-02-channel-returned")
+    }
+
+    /// **Entry point 2 — the Threads list.** Back from a thread opened as a list row returns to the
+    /// list, not to whatever channel was last open (a launch opens the saved channel, so there *is*
+    /// one for the old code to return to).
+    func testTheThreadHeaderBackFromTheThreadsListReturnsToTheList() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let root = try post(message: "t1617 list root \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the list-opened root")
+        let rootID = try XCTUnwrap(root["id"] as? String)
+        let reply = try post(message: "t1617 list reply \(stamp)", rootID: rootID, as: token)
+        assertAuthoredBy(userID, reply, "the list-opened reply")
+
+        let app = launchAndOpenChannel(extraArguments: ["-uiTestExposeNavigationLocation"])
+        XCTAssertTrue(ShellSettle.tapTab(ShellSettle.Tab.threads, in: app),
+                      "the Threads tab must be reachable:\n\(app.debugDescription)")
+        let row = element(app, "globalThreads.row.\(rootID)")
+        XCTAssertTrue(row.waitForExistence(timeout: 40),
+                      "the thread the fixture just created must be a row of the list:\n"
+                      + "\(app.debugDescription)")
+        row.tap()
+
+        XCTAssertTrue(element(app, "threadPane").waitForExistence(timeout: 40),
+                      "a list row must open the thread:\n\(app.debugDescription)")
+        XCTAssertEqual(navigationLocation(app)?["entry"], "threads-list",
+                       "the router must know the thread was opened from the list")
+        let back = element(app, "threadPane.back")
+        XCTAssertTrue(back.waitForExistence(timeout: 20))
+        XCTAssertEqual(back.label, "Back to Threads")
+        attachScreenshot("t1617a-03-list-thread-header-back")
+
+        back.tap()
+
+        XCTAssertTrue(waitUntil(timeout: 30) { !element(app, "threadPane").exists },
+                      "the thread pane must close:\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "nativeThreadsList").waitForExistence(timeout: 40)
+                      || element(app, "globalThreads.postList").waitForExistence(timeout: 40),
+                      "Back must show the Threads list, not a channel:\n\(app.debugDescription)")
+        XCTAssertFalse(element(app, "channelPostList").exists,
+                       "Back from a list-opened thread must not land on the last channel")
+        XCTAssertTrue(element(app, "globalThreads.row.\(rootID)").exists,
+                      "the row the reader came from is still there")
+        attachScreenshot("t1617a-04-threads-list-returned")
+    }
+
+    /// A full-screen capture attached to the test result (`docs/t1617a-shots/` is exported from it).
+    private func attachScreenshot(_ name: String) {
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = name
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
+    /// The hidden `navigation.location` element (`-uiTestExposeNavigationLocation`), parsed.
+    private func navigationLocation(_ app: XCUIApplication) -> [String: String]? {
+        let seam = element(app, "navigation.location")
+        guard seam.exists else { return nil }
+        let raw = seam.value as? String ?? ""
+        var parsed: [String: String] = [:]
+        for token in raw.split(separator: " ") {
+            let parts = token.split(separator: "=", maxSplits: 1)
+            if parts.count == 2 { parsed[String(parts[0])] = String(parts[1]) }
+        }
+        return parsed
+    }
+
+    /// One reading of the channel timeline's scroll view (`-uiTestExposeScrollGeometry`).
+    private struct Geometry: CustomStringConvertible {
+        var offset = 0.0
+        var size = 0.0
+        var top = "none"
+        var description: String { "offset=\(offset) size=\(size) top=\(top)" }
+    }
+
+    private func scrollGeometry(_ app: XCUIApplication) -> Geometry? {
+        let seam = element(app, "channelPostList.scrollGeometry")
+        guard seam.exists else { return nil }
+        let raw = seam.value as? String ?? ""
+        func number(_ key: String) -> Double? {
+            guard let range = raw.range(of: "\(key)=") else { return nil }
+            let rest = raw[range.upperBound...]
+            return Double(rest.prefix { $0.isNumber || $0 == "-" || $0 == "." })
+        }
+        var reading = Geometry()
+        reading.offset = number("offset") ?? 0
+        reading.size = number("size") ?? 0
+        if let range = raw.range(of: "top=") {
+            reading.top = String(raw[range.upperBound...].prefix { !$0.isWhitespace })
+        }
+        return reading
+    }
+
     private func getJSON(_ pathWithQuery: String) throws -> Any {
         let parts = pathWithQuery.split(separator: "?", maxSplits: 1,
                                         omittingEmptySubsequences: false)
@@ -768,7 +916,7 @@ final class T36ThreadsUITests: XCTestCase {
 
     // MARK: - App helpers
 
-    private func launchAndOpenChannel() -> XCUIApplication {
+    private func launchAndOpenChannel(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTestResetPersistedState",
                                "-uiTestForgetSession", serverURL.absoluteString,
@@ -779,6 +927,7 @@ final class T36ThreadsUITests: XCTestCase {
                                "-surfaceMode", "sidebar=native",
                                "-surfaceMode", "composer=native",
                                "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            + extraArguments
         app.launch()
         signIn(app)
         openChannel(app)

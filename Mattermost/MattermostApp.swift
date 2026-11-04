@@ -462,6 +462,10 @@ struct MattermostApp: App {
                     await authCoordinator.restoreAll(serverStore.servers)
                 }
                 .task { runShellSnapshotIfRequested() }
+                // T1617 evidence probe: `-threadBackSnapshot <dir> -threadBackTarget <channel>,<root>`
+                // photographs the thread pane and the screen its leading control returns to, on a
+                // Release product (outside `#if DEBUG` on purpose). Inert without the arguments.
+                .task { runThreadBackSnapshotIfRequested() }
                 #if DEBUG
                 // T30 evidence probe: `-nativeShellSnapshot <dir>` writes light/dark PNGs of the
                 // shell (plus an accessibility text size pair). Inert without the argument.
@@ -1182,6 +1186,84 @@ struct MattermostApp: App {
                 try? image.pngData()?.write(to: URL(fileURLWithPath: path + ".window.png"))
             }
         }
+    }
+
+    // MARK: Thread-pane back evidence (T1617 — ships in Release)
+
+    /// Parse `-threadBackSnapshot <dir>` and `-threadBackTarget <channelID>,<rootID>`, or nil.
+    private var threadBackProbe: (dir: String, channelID: String, rootID: String)? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let d = args.firstIndex(of: "-threadBackSnapshot"), args.indices.contains(d + 1),
+              let t = args.firstIndex(of: "-threadBackTarget"), args.indices.contains(t + 1)
+        else { return nil }
+        let parts = args[t + 1].split(separator: ",").map(String.init)
+        guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else { return nil }
+        return (args[d + 1], parts[0], parts[1])
+    }
+
+    /// Evidence probe for the thread pane's leading control **on a Release product**.
+    ///
+    /// It opens the channel, opens the thread the way a reply line does, captures the pane, then
+    /// calls `closeThread()` — the exact function the `threadPane.back` control calls — and captures
+    /// what is on screen afterwards. It exists because the XCUITest bundle cannot run on this host's
+    /// Catalyst destination (its generated deployment target, macOS 26.5, is newer than the host,
+    /// 26.3.1), so a Release screenshot cannot come from a test. The behaviour itself is covered by
+    /// `MattermostTests/NativeNavigationTests` and `MattermostUITests/T36ThreadsUITests`; this only
+    /// photographs it. Inert without the two arguments.
+    private func runThreadBackSnapshotIfRequested() {
+        guard let probe = threadBackProbe else { return }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            guard let serverID = serverStore.activeServerID ?? serverStore.servers.first?.id else {
+                writeThreadBackNote(probe.dir + "/back.txt", ["error": "no server"])
+                return
+            }
+
+            nativeNavigation.openChannel(NativeChannelRequest(serverID: serverID, channelID: probe.channelID))
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+
+            nativeNavigation.openThreads(NativeChannelRequest(serverID: serverID,
+                                                             channelID: probe.channelID,
+                                                             postID: probe.rootID))
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            writeWindowSnapshot(to: probe.dir + "/thread.png")
+            writeThreadBackNote(probe.dir + "/thread.txt", [
+                "pane": "\(nativeNavigation.location.pane)",
+                "post": nativeNavigation.location.postID ?? "none",
+                "channel": nativeNavigation.location.channelID ?? "none",
+                "entry": "\(String(describing: nativeNavigation.threadEntryPoint))",
+                "path": "\(nativeNavigation.path.count)",
+            ])
+
+            nativeNavigation.closeThread()
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            writeWindowSnapshot(to: probe.dir + "/back.png")
+            writeThreadBackNote(probe.dir + "/back.txt", [
+                "pane": "\(nativeNavigation.location.pane)",
+                "post": nativeNavigation.location.postID ?? "none",
+                "channel": nativeNavigation.location.channelID ?? "none",
+                "entry": "\(String(describing: nativeNavigation.threadEntryPoint))",
+                "path": "\(nativeNavigation.path.count)",
+            ])
+        }
+    }
+
+    /// `drawHierarchy` renders the native hierarchy, so this works without Screen Recording.
+    @MainActor
+    private func writeWindowSnapshot(to path: String) {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.windows }.joined()
+        guard let window = windows.first(where: \.isKeyWindow) ?? windows.first else { return }
+        let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
+        let image = renderer.image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        try? image.pngData()?.write(to: URL(fileURLWithPath: path))
+    }
+
+    private func writeThreadBackNote(_ path: String, _ fields: [String: String]) {
+        let text = fields.keys.sorted().map { "\($0)=\(fields[$0] ?? "none")" }.joined(separator: "\n")
+        try? (text + "\n").write(to: URL(fileURLWithPath: path), atomically: true, encoding: .utf8)
     }
 }
 

@@ -265,6 +265,22 @@ final class AssumedSignedInAuthGate: NativeAuthGate {
 }
 #endif
 
+/// Which screen a thread pane was opened from — the destination its leading control returns to.
+///
+/// A thread is a **pane route**, so the navigation stack owns no Back control for it: the pane draws
+/// its own (`ThreadPaneContent.header`, identifier `threadPane.back`). Which way that control goes is
+/// a property of the entry point and of nothing else: a thread opened from the Threads list carries
+/// the same `postID`, and often the same `channelID`, as one opened from a channel timeline, so
+/// `location` alone cannot answer it — and answering it from `location` is exactly the defect this
+/// replaced (Back from a list-opened thread landed on whatever channel was last open). The router
+/// therefore records the entry point **on arrival**, from the stack it is pushing onto.
+enum ThreadEntryPoint: Equatable, Sendable {
+    /// A root or reply in a channel's timeline: back returns to that conversation.
+    case channel
+    /// A row of the Threads list: back returns to the list, never to the last channel.
+    case threadsList
+}
+
 /// What a routing request did.
 enum NativeNavigationOutcome: Equatable {
     /// The shell is now showing `location`.
@@ -340,6 +356,11 @@ final class NativeNavigation: ObservableObject {
     @Published var path: [NativeLocation] = []
     /// The selected top-level tab (compact layout).
     @Published var tab: NativeTab = .channels
+    /// Which screen the open thread was opened from, or `nil` when no thread is open.
+    ///
+    /// Read by the thread pane's leading control, which has to name — and reach — the screen the
+    /// reader came from: `#channel` on the timeline, the Threads list from a list row.
+    @Published private(set) var threadEntryPoint: ThreadEntryPoint?
     /// The active server's auth state, refreshed on every navigation and on appearance.
     @Published private(set) var authState: NativeAuthState = .signedIn
 
@@ -448,15 +469,37 @@ final class NativeNavigation: ObservableObject {
         open(.threads(request))
     }
 
-    /// Close an open thread and return to the channel it was opened from.
+    /// Close an open thread and return to the screen it was opened from.
     ///
     /// A thread is a *pane route*, not a pushed destination, so on a regular-width layout there is no
     /// navigation-stack chevron to go back with — the pane simply swaps and the user is stranded
-    /// unless they re-tap the channel. This is that back affordance: same server, team and channel,
-    /// minus the post the thread was opened for. A thread opened from the global Threads list has no
-    /// channel to return to, so it falls back to the shell root.
+    /// unless they re-tap the channel. This is that back affordance (the pane draws it as
+    /// `threadPane.back`), and it goes to the **entry point**:
+    ///
+    ///  * opened from a channel timeline → that channel, same server, team and conversation;
+    ///  * opened from the Threads list → the list, not whatever channel was last open. Deciding this
+    ///    from `location` was the original defect: a list-opened thread carries the row's
+    ///    `channelID`, and a stale `lastChannelLocation` matched it, so Back left the list.
     func closeThread() {
         guard location.pane == .threads || location.postID != nil else { return }
+        switch threadEntryPoint {
+        case .threadsList:
+            closeThreadToList()
+        case .channel, nil:
+            closeThreadToChannel()
+        }
+    }
+
+    /// Back to the conversation the thread belongs to.
+    private func closeThreadToChannel() {
+        // The entry point the stack actually shows: the element the thread was pushed onto. A
+        // channel route is equal to that element, so going through the funnel pops the stack
+        // (compact) or swaps the detail column (regular) without a second write path.
+        if path.count >= 2, path[path.count - 2].pane == .channel {
+            let channel = path[path.count - 2]
+            open(.channel(channel.request))
+            return
+        }
         // The channel the reader came from, recorded *before* the thread was opened: the thread's own
         // route may carry only a post id, so reconstructing the channel from it can lose the name.
         if let channel = lastChannelLocation, channel.serverID == location.serverID {
@@ -470,6 +513,40 @@ final class NativeNavigation: ObservableObject {
         } else {
             popToRoot()
         }
+    }
+
+    /// Back to the Threads list the thread was opened from.
+    private func closeThreadToList() {
+        // The list is still under the thread on the stack: re-open it so the stack pops and the
+        // list's own model (its page and its position) is the one that comes back.
+        if path.count >= 2, let list = path.dropLast().last, list.pane == .threads, list.postID == nil {
+            open(.threads(list.request))
+            return
+        }
+        // No list under the thread — the compact layout's Threads **tab** case, and a thread opened
+        // by a permalink or a notification. Open the list for this server and team rather than
+        // popping to the shell root: the root carries no channel *and no team*, and the list is
+        // team-scoped, so a bare root would draw "no team" (`globalThreads.noTeam`) instead of the
+        // rows the reader came from. The thread's route carries its root's channel; the list is
+        // team-scoped (the server has no channel-scoped threads endpoint, see
+        // `docs/t36-build-note.md` §2), so that key is dropped rather than turned into a filter.
+        open(.threads(NativeChannelRequest(serverID: location.serverID,
+                                           teamID: location.teamID,
+                                           teamName: location.teamName)))
+    }
+
+    /// The channel the thread pane's leading control returns to, when the thread was opened from one.
+    /// `nil` for a list-opened thread (its destination is the list, not a channel).
+    var threadReturnChannel: NativeLocation? {
+        guard threadEntryPoint != .threadsList else { return nil }
+        if path.count >= 2, path[path.count - 2].pane == .channel, path[path.count - 2].hasChannel {
+            return path[path.count - 2]
+        }
+        if let channel = lastChannelLocation, channel.serverID == location.serverID,
+           channel.hasChannel {
+            return channel
+        }
+        return location.hasChannel ? location : nil
     }
 
     @discardableResult
@@ -576,6 +653,11 @@ final class NativeNavigation: ObservableObject {
            newLocation.postID != nil || newLocation.pane == .threads {
             lastChannelLocation = location
         }
+        // Which screen this thread is being opened **from**. Recorded on arrival, while the previous
+        // location and the stack under the push still say it: once the thread is the location, the
+        // only remaining evidence is `path`, and a thread reached from the compact Threads tab has
+        // no stack element for the list at all.
+        recordThreadEntryPoint(arrivingAt: newLocation, from: location)
         // Remembering the location per server here (not only in `activate`) keeps a deep link that
         // lands on server B from overwriting what server A was showing.
         if let id = location.serverID, id != newLocation.serverID {
@@ -636,8 +718,52 @@ final class NativeNavigation: ObservableObject {
             if last != newLocation { path.append(newLocation) }
             return
         }
+        // A destination that is **already on the stack** is a pop back to it, not a new push: the
+        // elements beneath it stay beneath it. The thread pane's leading control returns to the
+        // Threads list this way, so a reader who opened the list from a channel header and then a
+        // thread off it is still one Back away from that channel (the list is not re-pushed over a
+        // reset stack).
+        if let index = path.lastIndex(of: newLocation), index < path.count - 1 {
+            path = Array(path.prefix(through: index))
+            return
+        }
         if path.last == newLocation { return }
         path = [newLocation]
+    }
+
+    /// Record which screen a thread is being opened from (see `ThreadEntryPoint`).
+    ///
+    /// Runs before the stack is mutated, so `path.last` is still the element the thread is pushed
+    /// onto. Three facts, in order of authority:
+    ///
+    ///  1. the element under the push — a **channel** means the timeline, a **threads list** (pane
+    ///     `.threads` with no post) means the list. This is the same pair of facts `apply` itself
+    ///     uses to decide where the thread stacks, so the entry point cannot disagree with the stack;
+    ///  2. nothing pushed: the reader was on a tab. The Threads tab *is* the list (the compact
+    ///     layout mounts `GlobalThreadsPaneContent` in it), every other tab reaches a thread through
+    ///     a channel;
+    ///  3. otherwise the previous location, then the thread's own route — a permalink or a
+    ///     notification names the conversation it belongs to.
+    ///
+    /// Arriving at a screen that is not a thread clears it, so a stale entry point can never be
+    /// read by the next thread's control.
+    private func recordThreadEntryPoint(arrivingAt newLocation: NativeLocation,
+                                        from previous: NativeLocation) {
+        guard newLocation.pane == .threads, newLocation.postID != nil else {
+            threadEntryPoint = nil
+            return
+        }
+        // Already in a thread (the same route applied again, e.g. a team selection): keep the entry
+        // point recorded when the thread was opened — the stack under it may have been replaced.
+        if previous.pane == .threads, previous.postID != nil, threadEntryPoint != nil { return }
+
+        if let last = path.last {
+            if last.pane == .threads, last.postID == nil { threadEntryPoint = .threadsList; return }
+            if last.pane == .channel { threadEntryPoint = .channel; return }
+        }
+        if tab == .threads { threadEntryPoint = .threadsList; return }
+        if previous.pane == .threads, previous.postID == nil { threadEntryPoint = .threadsList; return }
+        threadEntryPoint = .channel
     }
 
     // MARK: Server + channel resolution

@@ -306,5 +306,53 @@ struct NativeDestinationPaneView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
+        // t_1617a61c: what the shell is showing, for a UI test that has to prove *which* screen a
+        // control returned to (`navigation.location.channelID`, not "a pane is on screen"). Mounted
+        // only under the launch argument; a normal launch renders nothing.
+        .overlay(alignment: .topLeading) {
+            if NavigationUITestHook.exposesLocation {
+                NavigationLocationSeam(location: location, navigation: navigation)
+            }
+        }
+    }
+}
+
+/// `-uiTestExposeNavigationLocation` publishes the resolved `NativeLocation` the pane is drawing,
+/// plus the thread entry point, as one hidden element.
+///
+/// Why a seam and not an assertion about visible copy: the contract being tested is on the *router's*
+/// value — "Back landed on the channel the thread belongs to" means `navigation.location.channelID`
+/// is that channel's id and `postID` is gone. A drawn header cannot tell a correct return from a
+/// re-open of a differently-named channel, and pinning the test to a rendered string would fail on a
+/// copy change that is not the behaviour. Same shape as `ChannelUITestHook`'s geometry seam.
+enum NavigationUITestHook {
+    static var exposesLocation: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestExposeNavigationLocation")
+    }
+}
+
+private struct NavigationLocationSeam: View {
+    let location: NativeLocation
+    @ObservedObject var navigation: NativeNavigation
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 4, height: 4)
+            .accessibilityElement()
+            .accessibilityLabel("Navigation location")
+            .accessibilityValue(value)
+            .accessibilityIdentifier("navigation.location")
+    }
+
+    private var value: String {
+        "pane=\(location.pane.rawValue) "
+            + "server=\(location.serverID?.uuidString ?? "none") "
+            + "team=\(location.teamID ?? "none") "
+            + "channel=\(location.channelID ?? "none") "
+            + "channelName=\(location.channelName ?? "none") "
+            + "post=\(location.postID ?? "none") "
+            + "entry=\(navigation.threadEntryPoint == .threadsList ? "threads-list" : navigation.threadEntryPoint == .channel ? "channel" : "none") "
+            + "path=\(navigation.path.count)"
     }
 }

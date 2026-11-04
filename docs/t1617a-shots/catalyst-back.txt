@@ -1,0 +1,5 @@
+channel=psw97y5zqpfnpembwxraizuije
+entry=nil
+pane=channel
+path=1
+post=none
