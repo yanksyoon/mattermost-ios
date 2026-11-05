@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 /// T35 — the native composer against a **real** Mattermost server, with every expectation read back
@@ -227,6 +228,114 @@ final class T35ComposerUITests: XCTestCase {
         attach(app, "t35-07-post-with-attachment")
     }
 
+    // MARK: - 3b. Paste (kanban t_9fe70579)
+
+    /// Owner-reported: *"I cannot copy paste the image in the input."* This is that sentence, driven
+    /// as a gesture: a screenshot is put on the simulator's **real** pasteboard, the composer is
+    /// focused, and Cmd+V is typed at it. No launch-argument seam stands in for anything — the app
+    /// has to reach `UIPasteboard.general` itself, notice the payload is a file rather than text,
+    /// run it through the same intake as a picked file, upload it, and send it.
+    func testAPastedImageUploadsAndIsSentWithThePost() throws {
+        let channel = try channel(named: channelName, in: teamID)
+        let stamp = Int(Date().timeIntervalSince1970)
+        let message = "t35 paste \(stamp)"
+        let png = try XCTUnwrap(Data(base64Encoded: pngBase64))
+
+        // The screenshot on the clipboard. `public.png` is what Preview, Screenshot and Finder
+        // publish for an image on the pasteboard; writing it here is the test standing in for the
+        // app that copied the screenshot, not for the app under test.
+        UIPasteboard.general.items = [["public.png": png as NSData]]
+
+        let app = launchSignedIn()
+        // In through the quick switcher, not through the sidebar row: the sidebar is a `List`, so a
+        // channel outside the viewport is not in the accessibility tree at all (the same reason the
+        // draft-relaunch test walks this route).
+        showSidebar(app)
+        pickTeam(app, teamID)
+        openViaQuickSwitcher(app, term: channel.name, channelID: channel.id)
+        let input = composerInput(app)
+        XCTAssertTrue(input.waitForExistence(timeout: 40),
+                      "the channel's composer must mount:\n\(app.debugDescription)")
+        input.tap()
+        // The gesture: Cmd+V reaches the text view as `paste:`.
+        app.typeKey("v", modifierFlags: .command)
+        allowPasteIfAsked(app)
+
+        let chip = app.otherElements
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@",
+                                  "channelComposer.attachment.pasted-image-"))
+            .firstMatch
+        if !chip.waitForExistence(timeout: 10) {
+            // Second route to the same `paste:` action, for a host where the hardware-keyboard chord
+            // is not delivered: the edit menu's Paste item (which validates through the same
+            // `canPerformAction`).
+            input.press(forDuration: 1.2)
+            let paste = app.menuItems["Paste"]
+            if paste.waitForExistence(timeout: 5) {
+                paste.tap()
+                allowPasteIfAsked(app)
+            }
+        }
+        XCTAssertTrue(chip.waitForExistence(timeout: 20),
+                      "Cmd+V with an image on the clipboard must produce a chip:\n\(app.debugDescription)")
+        attach(app, "t9fe-08-pasted-chip")
+
+        XCTAssertTrue(waitUntil(timeout: 60) {
+            ((chip.value as? String) ?? "").hasPrefix("uploaded ")
+        }, "the pasted image must upload, was \((chip.value as? String) ?? "nil")")
+        let fileID = ((chip.value as? String) ?? "").replacingOccurrences(of: "uploaded ", with: "")
+        XCTAssertFalse(fileID.isEmpty)
+
+        input.tap()
+        input.typeText(message)
+        element(app, "channelComposer.send").tap()
+
+        let created = try waitForPost(withMessage: message, channelID: channel.id, timeout: 30)
+        XCTAssertEqual((created["file_ids"] as? [String]) ?? [], [fileID],
+                       "the post must reference the pasted file's id")
+        let postID = try XCTUnwrap(created["id"] as? String)
+        XCTAssertTrue(revealPost(app, postID).exists,
+                      "the sent post must be in the list:\n\(app.debugDescription)")
+
+        // What the server holds: the image bytes under the name the paste invented for them — not a
+        // text post with a filename scraped into it, and not the whole clipboard pasted as text.
+        let info = try getJSON("/api/v4/files/\(fileID)/info") as? [String: Any]
+        XCTAssertEqual(info?["mime_type"] as? String, "image/png")
+        XCTAssertTrue((info?["name"] as? String ?? "").hasPrefix("pasted-image-"),
+                      "the server keeps the pasted name, was \(info?["name"] ?? "nil")")
+        // The bytes are the app's own encoding of the pasted image — a paste arrives as a `UIImage`
+        // and is re-encoded (PNG when it has alpha, requirement 3) — so the size is the encoder's, not
+        // the fixture's. What matters is that a real image travelled, not an empty body.
+        XCTAssertGreaterThan(info?["size"] as? Int ?? 0, 0, "the stored file must have content")
+        attach(app, "t9fe-09-pasted-post")
+    }
+
+    /// iOS asks before an app reads another app's pasteboard. The prompt belongs to the system, not
+    /// to the app under test, and while it is up the app answers no accessibility queries at all — so
+    /// this has to look outside the app first, with the screen grabbing the evidence either way.
+    private func allowPasteIfAsked(_ app: XCUIApplication) {
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "t9fe-08a-right-after-cmdv"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        for label in ["Allow Paste", "Paste", "Allow"] {
+            let button = springboard.buttons[label]
+            if button.waitForExistence(timeout: 8) {
+                button.tap()
+                return
+            }
+        }
+        for label in ["Allow Paste", "Paste"] {
+            let button = app.buttons[label]
+            if button.exists {
+                button.tap()
+                return
+            }
+        }
+    }
+
     // MARK: - 4. Edit and delete through the row menu
 
     func testMyOwnPostCanBeEditedAndDeletedFromTheRow() throws {
@@ -372,6 +481,20 @@ final class T35ComposerUITests: XCTestCase {
 
     private func launchAndOpen(channelName: String, teamID: String,
                                extraArguments: [String] = []) -> XCUIApplication {
+        let app = launchSignedIn(extraArguments: extraArguments)
+        openChannel(app, channelID: (try? channel(named: channelName, in: teamID).id) ?? "")
+        return app
+    }
+
+    /// Launch and sign in, and stop there: the caller chooses its own route to the channel (the
+    /// pasted-image test walks in through the quick switcher).
+    private func launchSignedIn(extraArguments: [String] = []) -> XCUIApplication {
+        let app = launchApp(extraArguments: extraArguments)
+        signIn(app)
+        return app
+    }
+
+    private func launchApp(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         var arguments = ["-uiTestResetPersistedState",
                          "-uiTestForgetSession", serverURL.absoluteString,
@@ -386,8 +509,6 @@ final class T35ComposerUITests: XCTestCase {
         arguments.append(contentsOf: extraArguments)
         app.launchArguments = arguments
         app.launch()
-        signIn(app)
-        openChannel(app, channelID: (try? channel(named: channelName, in: teamID).id) ?? "")
         return app
     }
 

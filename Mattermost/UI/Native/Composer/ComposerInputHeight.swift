@@ -119,7 +119,11 @@ enum ComposerInputHeight {
 /// What it deliberately does **not** do: set its own frame height. SwiftUI owns the height (the
 /// representable reports `Measurement.height` upward and the frame follows), so the view and the
 /// scroller can never disagree about how tall the field is.
-final class ComposerInputTextView: UITextView {
+///
+/// Not `final`: `PasteAwareTextView` subclasses it to add `paste:` and
+/// `canPerformAction(_:withSender:)` (kanban t_9fe70579) — the only UIKit seam that can take a pasted
+/// image. The measurement and caret behaviour stay here, unchanged.
+class ComposerInputTextView: UITextView {
 
     /// Reports every measurement whose value changed. Called on the main thread, from a layout pass
     /// or a delegate callback; the receiver only stores it.

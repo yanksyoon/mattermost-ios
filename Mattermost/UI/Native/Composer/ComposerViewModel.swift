@@ -1064,6 +1064,21 @@ final class ComposerViewModel: ObservableObject {
         }
     }
 
+    /// A paste that could not be taken (kanban t_9fe70579): an unsupported payload, an unreadable file
+    /// URL, a refusal at the MDM gate.
+    ///
+    /// The sentence is built by `ComposerPaste.ErrorCopy` from upstream's own copy
+    /// (`mobile.files_paste.error_title` / `_description`, `post_input.tsx:50-68`). Upstream shows an
+    /// **Alert** there; this client has one note line above the input for exactly this kind of
+    /// message (`"Message deleted"`, a failed retry), and a second transient surface would be a new
+    /// component for a rare failure. The words and the fact that it is said are the parity; the
+    /// container is the documented divergence (docs/t_9fe70579-build-note.md §5).
+    ///
+    /// Nothing is attached when this is called — a failure never leaves a phantom chip behind.
+    func pasteDidFail(_ message: String) {
+        show(note: message)
+    }
+
     /// Edit mode: the composer holds another post's text. The post's own file ids are preserved and
     /// sent back unchanged, because `PUT /posts/{id}` replaces the list rather than merging it.
     private var originalFileIDs: [String] = []

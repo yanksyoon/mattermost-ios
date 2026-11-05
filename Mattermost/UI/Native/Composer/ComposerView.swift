@@ -47,6 +47,12 @@ struct ComposerTextView: UIViewRepresentable {
     var probe: ComposerInputGeometryProbe? = nil
     /// Return sends; Shift+Return is a newline (see `ComposerReturnPolicy`).
     var onReturn: (Bool) -> Void
+    /// A paste that carried files (a screenshot, a Finder copy, a PDF): the same intake as the
+    /// picker — each upload goes through `ComposerViewModel.add`.
+    var onPasteFiles: ([ComposerUpload]) -> Void = { _ in }
+    /// A paste that could not be taken. Shown in the composer's own note line, never swallowed
+    /// (upstream's `mobile.files_paste.error_title` copy; see `ComposerPaste.ErrorCopy`).
+    var onPasteFailure: (String) -> Void = { _ in }
     /// Whether hardware Shift is held.
     ///
     /// A property and not a direct `GCKeyboard` read inside the delegate, because Shift+Return at the
@@ -66,7 +72,11 @@ struct ComposerTextView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> ComposerInputTextView {
-        let view = ComposerInputTextView()
+        // `PasteAwareTextView`, not the plain field: an image on the pasteboard has no text
+        // representation, so a plain `UITextView` disables Paste and Cmd+V does nothing at all
+        // (kanban t_9fe70579). Everything else about the view is the measurement/caret behaviour it
+        // inherits.
+        let view = PasteAwareTextView()
         view.delegate = context.coordinator
         view.backgroundColor = .clear
         view.font = .preferredFont(forTextStyle: .body)
@@ -82,6 +92,14 @@ struct ComposerTextView: UIViewRepresentable {
         view.onMeasure = { [weak coordinator = context.coordinator] measurement in
             guard let coordinator else { return }
             coordinator.parent.onMeasure(measurement)
+        }
+        // The same weak-coordinator hop as `onMeasure`: the closures read `coordinator.parent`, which
+        // `updateUIView` refreshes, so a rebuilt SwiftUI value never talks to a stale parent.
+        view.onPasteUploads = { [weak coordinator = context.coordinator] uploads in
+            coordinator?.parent.onPasteFiles(uploads)
+        }
+        view.onPasteFailure = { [weak coordinator = context.coordinator] message in
+            coordinator?.parent.onPasteFailure(message)
         }
         probe?.view = view
         return view
@@ -356,6 +374,20 @@ struct ComposerView: View {
                                  // the editing mode.
                                  guard model.canSend else { return }
                                  Task { await model.send() }
+                             },
+                             onPasteFiles: { uploads in
+                                 // The picker's own intake (ComposerView.load(item:)/load(url:)),
+                                 // one call per file: `add` appends the chip and starts the upload,
+                                 // and the send posts the uploaded ids. A pasted file gets the same
+                                 // progress, retry and `.failed` state as a picked one — there is no
+                                 // second upload path (kanban t_9fe70579).
+                                 for upload in uploads { model.add(upload) }
+                             },
+                             onPasteFailure: { message in
+                                 // The composer's existing error surface: the note line above the
+                                 // input. Upstream shows an Alert; see the build note's divergence
+                                 // section for why this client does not.
+                                 model.pasteDidFail(message)
                              })
                 // The height is the measurement, not a window it is allowed to grow into. The
                 // previous `minHeight/maxHeight` frame is what clipped a message past the cap: the

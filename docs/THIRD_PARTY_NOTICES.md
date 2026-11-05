@@ -986,3 +986,25 @@ also converts, the `team-id` query is the documented shape; a taken name is
 group's members is `400 app.channel.group_message_conversion.incorrect_team`; a non-group channel is
 `400 app.channel.get_common_teams.incorrect_channel_type`; and a plain `team_user` who is in the
 conversation may convert it, which is why the row is not a permission id.
+
+## 26. t_9fe70579 pasting files into the composer — `@mattermost/react-native-paste-input@2.0.1` (MIT) and the mobile read set (Apache-2.0, mobile @ `162f2560…`)
+
+`Mattermost/UI/Native/Composer/ComposerPaste.swift` (the pasteboard snapshot, the type rules, the
+image and file conversions and the failure copy) and `PasteAwareTextView.swift` (the `paste:` /
+`canPerformAction(_:withSender:)` overrides on the composer's text view) reproduce how the mobile
+client turns a pasteboard into composer attachments. The paste itself is **not** implemented in the
+mobile client: it comes from the third-party native module below, whose MIT licence is recorded here
+for the first time because this client reproduces its interception seam and its conversions. Nothing
+is copied or transpiled — the Objective-C and TypeScript were read for rules only, and both Swift
+files pin the upstream they derive from in their own headers.
+
+| Upstream path | Licence | Used for |
+|---|---|---|
+| `@mattermost/react-native-paste-input@2.0.1` (npm `gitHead` `671378e261b9858424a6d0c8c5dcb9c595046d61`, licence field `MIT`), `ios/PasteInputModule.mm:325-386` | MIT (© 2020 Elias Nahum; fork of `luisfcofv/react-native-paste-input`) | the interception seam: `paste:` and `canPerformAction:withSender:` swizzled onto the text input — mirrored as a real subclass here |
+| same package, `ios/PasteInputModule.mm:431-495` | MIT | `paste:` takes the files and only falls back to the system handler when there are none |
+| same package, `ios/PasteInputModule.mm:498-525` | MIT | Paste enabled for *any* pasteboard content; cut/copy/paste refused under the managed-config flag |
+| same package, `ios/UIPasteboard+GetImageInfo.m:16-82` | MIT | per-pasteboard-item order, one file per item; unique temp names |
+| same package, `ios/UIPasteboard+GetImageInfo.m:88-104` | MIT | the 6048 × 4032 → 2048 × 2048 downscale guard; PNG for `public.png`, JPEG otherwise |
+| mobile `app/components/post_draft/post_input/post_input.tsx:6, :292-298, :383-399` | Apache-2.0 | pasted files join the **same** `addFiles` pipeline as the picker; a paste error is surfaced, never swallowed |
+| mobile `app/components/post_draft/post_input/post_input.tsx:170` | Apache-2.0 | `disableCopyAndPaste = managedConfig.copyAndPasteProtection === 'true'` |
+| mobile `app/components/post_draft/post_input/post_input.tsx:50-68` | Apache-2.0 | the error dialog's copy (`mobile.files_paste.error_title` / `_description` / `_dismiss`), reused verbatim as the composer note's sentence |
