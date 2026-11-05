@@ -38,10 +38,11 @@ Measured on the seeded fixture (`GET /api/v4/files/m3xugfjptiboz8hb6dpg4fo65e`):
 - the file: **188,252 bytes**, 2560×1600;
 - the share seam reported `name=t38-panorama.png bytes=188252 sha256=<first 8 bytes of SHA-256>`, which
   is exactly `sha256(file)` computed by the test from the server's own bytes;
-- the sheet that came up (screenshot `t38-17-share-presented` in the xcresult) is
-  `UIActivityViewController` carrying a **document named `t38-panorama.png`** with Copy / Save to
-  Files / Print / Assign to Contact / Add to Shared Album / Create Watch Face / Reminders / More — the
-  file-type activities, not the image-only set a `UIImage` item would produce.
+- the share sheet that came up (screenshot `docs/t38-shots/t38-17-share-presented.png`, taken by the
+  case) is `UIActivityViewController` carrying a **document named `t38-panorama.png`** with Copy /
+  Save to Files / Print / Assign to Contact / Add to Shared Album / Create Watch Face / Reminders /
+  More — a document share (header icon is a page, and "Save to Files"/"Print" are offered), not a bare
+  image item under the file's name.
 
 ## 3. The cases
 
@@ -56,8 +57,10 @@ device id `81A7F251-…`, against the local 9.11.19 fixture):
    - `doubleTap()` again → back under `1.1`.
    Two numbers, not one: a zoom is animated, so a single sample read at the wrong instant says nothing
    about where it went. `peak` is kept in the scroll view's coordinator (not in SwiftUI state) for the
-   same reason. Screenshots `t38-12…t38-15` are attached in the xcresult; `t38-14-zoom-at-cap` shows
-   the image visibly magnified, not the whole gradient.
+   same reason. Screenshots of the four states are in `docs/t38-shots/`
+   (`t38-12-zoom-at-rest`, `-13-zoom-pinched`, `-14-zoom-at-cap`, `-15-zoom-restored`); at rest the
+   panorama sits in white bands, at the cap the same gradient fills the page — i.e. the seam's
+   `peak=4.00` is what the pixels show, not just what the app claims.
 2. `testTheShareControlHandsTheSheetTheFilesOwnBytesNotTheDownsampledBitmap`
    - downloads the fixture file through the API as an independent oracle and hashes it;
    - requires the image to exceed the 2048 draw cap (otherwise the case would prove nothing);
