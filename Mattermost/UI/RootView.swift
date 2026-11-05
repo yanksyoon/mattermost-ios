@@ -28,6 +28,10 @@ struct RootView: View {
     /// this view because this is the only view above every layout — the compact push and the regular split
     /// view are both inside its `NavigationStack`.
     @EnvironmentObject private var mentionBanner: InAppMentionBannerCenter
+    /// t_14c96dfd: the tap fallback's copy. The worker publishes it when a tapped notification's post or
+    /// channel no longer resolves; this view draws it, for the same reason the mention banner is mounted
+    /// here — it must be reachable from the sidebar, a pushed channel and either layout.
+    @EnvironmentObject private var notificationWorker: NotificationWorker
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
 
@@ -349,6 +353,17 @@ struct RootView: View {
         // stack's content so a pushed pane cannot cover it; the host adds no view (and no hit-test area)
         // while no mention is showing.
         .inAppMentionBanner(mentionBanner)
+        // t_14c96dfd: a tap whose post or channel is gone. Upstream answers it with an alert
+        // (`Alert.alert('Message not found', <sentence>)` in `app/utils/notification/index.ts`) over the
+        // channel list `navigateToRoot()` lands on; this is the same two facts, and the worker has
+        // already moved the shell to that list by the time the alert appears.
+        .alert(NotificationTapFailure.title,
+               isPresented: Binding(get: { notificationWorker.tapFailure != nil },
+                                    set: { if !$0 { notificationWorker.dismissTapFailure() } })) {
+            Button("OK", role: .cancel) { notificationWorker.dismissTapFailure() }
+        } message: {
+            Text(notificationWorker.tapFailure?.message ?? "")
+        }
     }
 
     // MARK: Scenes

@@ -42,13 +42,33 @@ extension APIClient {
     }
 
     /// `GET /posts/{id}` — single post, used by resync for a single edited/deleted post.
-    func post(id: String) async throws -> MMPost {
-        try await get(MMPost.self, path: "/posts/\(id)")
+    ///
+    /// - Parameter useETag: `false` for a **probe** whose answer is *the thing asked about* rather than
+    ///   content to display. A conditional `304` replays the body this client cached earlier, and a post
+    ///   that has been deleted since then would replay `delete_at: 0` — the notification tap fallback
+    ///   (`SessionNotificationTapResolver.postState`) must see the server's current answer.
+    func post(id: String, useETag: Bool = true) async throws -> MMPost {
+        try await get(MMPost.self, path: "/posts/\(id)", useETag: useETag)
     }
 
     /// `GET /channels/{id}`.
-    func channel(id: String) async throws -> MMChannel {
-        try await get(MMChannel.self, path: "/channels/\(id)")
+    ///
+    /// - Parameter useETag: see `post(id:useETag:)` — the tap's channel probe asks *whether the channel is
+    ///   still there*, and a `304` replay of a body cached before it was deleted would answer "yes" to a
+    ///   channel that is gone.
+    func channel(id: String, useETag: Bool = true) async throws -> MMChannel {
+        try await get(MMChannel.self, path: "/channels/\(id)", useETag: useETag)
+    }
+
+    /// `GET /channels/{id}/members/me` — the signed-in account's membership in one channel.
+    ///
+    /// Upstream's `getChannelMember(channelId, 'me')`, half of `fetchMyChannel`, and the membership
+    /// half of the notification tap probe. Measured on 9.11.19 (scripts/t14c_notification_tap_probe.py):
+    /// `200` when the account is in the channel; `404 app.channel.get_member.missing.app_error` when it
+    /// is not (as a system admin); `403 api.context.permissions.app_error` when it is not and may not
+    /// look, and for a channel id that does not exist. No ETag: the question is "am I in it *now*".
+    func channelMember(channelID: String) async throws -> MMChannelMembership {
+        try await get(MMChannelMembership.self, path: "/channels/\(channelID)/members/me", useETag: false)
     }
 
     /// The largest id list one `POST /users/ids` may carry.

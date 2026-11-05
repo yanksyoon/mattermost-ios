@@ -253,6 +253,21 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
     var isIdOnlyStub: Bool { !hasProfileDetails }
 }
 
+/// The signed-in account's membership row in one channel (`GET /api/v4/channels/{id}/members/me`).
+///
+/// Only the two ids are read. The endpoint is used as an **existence** test, not for its counters:
+/// `200` means the account is in the channel, and `404`/`403` mean it is not (both measured on
+/// 9.11.19 by `scripts/t14c_notification_tap_probe.py` — see `NotificationChannelMembership`).
+struct MMChannelMembership: Codable, Equatable, Sendable {
+    var channelId: String
+    var userId: String
+
+    enum CodingKeys: String, CodingKey {
+        case channelId = "channel_id"
+        case userId = "user_id"
+    }
+}
+
 /// A Mattermost channel (`GET /api/v4/channels/{id}`). `type` is `O`, `P`, `D` or `G`.
 struct MMChannel: Codable, Equatable, Identifiable, Sendable {
     var id: String

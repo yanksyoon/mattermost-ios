@@ -557,6 +557,17 @@ struct MattermostApp: App {
         notificationWorker.serverStore = serverStore
         notificationWorker.viewStore = viewStore
         notificationWorker.nativeNavigation = nativeNavigation
+        // t_14c96dfd: a tap on a notification whose post or channel is gone has to say so in the pinned
+        // client's words and land on the channel list, not on an empty pane. The resolver is the app's
+        // answer to "is this conversation still mine?" — the loaded channel list first (free), the
+        // session's own client only when that list cannot say. Created once and kept: the worker holds
+        // it, so the second `bindShellStores()` (onOpenURL) must not replace it with a fresh object.
+        if notificationWorker.tapResolver == nil {
+            notificationWorker.tapResolver = SessionNotificationTapResolver(
+                auth: authCoordinator,
+                serverStore: serverStore,
+                directory: channelSidebarCoordinator)
+        }
         nativeNavigation.serverStore = serverStore
         nativeNavigation.viewStore = viewStore
         // T93B follow-up (`t_065c8753`): the escape hatch hands the pane back to the webview, so the

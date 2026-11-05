@@ -970,6 +970,73 @@ final class T33ChannelSidebarTests: XCTestCase {
         XCTAssertNil(unknown?.channelID, "an unknown name is not guessed into an id")
     }
 
+    // MARK: - t_14c96dfd: the notification tap's local answer
+
+    /// A row in the loaded list is the tap's whole happy path: `.member`, answered with no request.
+    func testTheDirectoryAnswersMemberForALoadedChannel() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let coordinator = ChannelSidebarCoordinator(makeService: { _ in fake })
+        let config = server()
+        let store = ServerStore(preferences: preferences())
+        _ = store.add(config)
+        retainedStores.append(store)
+        let navigation = NativeNavigation(resolver: SurfaceModeResolver(preferences: preferences(),
+                                                                       arguments: ["-surfaceMode", "sidebar=native"]))
+        navigation.serverStore = store
+        #if DEBUG
+        navigation.authGate = AssumedSignedInAuthGate()
+        #endif
+        // The team the list loads for comes from the shell's own destination (as on a real launch).
+        _ = navigation.openChannel(NativeChannelRequest(serverID: config.id,
+                                                        teamID: "team1",
+                                                        teamName: "acme",
+                                                        channelID: "c1",
+                                                        channelName: "alpha"))
+        coordinator.bind(auth: AuthCoordinator(), navigation: navigation, serverStore: store, teams: nil)
+        await coordinator.activate(config)
+
+        XCTAssertEqual(coordinator.membership(serverID: config.id, channelID: "c1", teamID: "team1"),
+                       .member)
+    }
+
+    /// Absence is **not** "not a member": the sidebar hides archived channels, so a member of one is
+    /// absent from the list — and a tap that trusted absence would tell that reader they left a channel
+    /// they can still read. The server is asked instead (`.unknown` means "ask").
+    func testTheDirectoryDoesNotClaimNotAMemberForAnAbsentChannel() async {
+        let fake = FakeChannelSidebarService(data: standardData())
+        let coordinator = ChannelSidebarCoordinator(makeService: { _ in fake })
+        let config = server()
+        let store = ServerStore(preferences: preferences())
+        _ = store.add(config)
+        retainedStores.append(store)
+        let navigation = NativeNavigation(resolver: SurfaceModeResolver(preferences: preferences(),
+                                                                       arguments: ["-surfaceMode", "sidebar=native"]))
+        navigation.serverStore = store
+        #if DEBUG
+        navigation.authGate = AssumedSignedInAuthGate()
+        #endif
+        _ = navigation.openChannel(NativeChannelRequest(serverID: config.id,
+                                                        teamID: "team1",
+                                                        teamName: "acme",
+                                                        channelID: "c1",
+                                                        channelName: "alpha"))
+        coordinator.bind(auth: AuthCoordinator(), navigation: navigation, serverStore: store, teams: nil)
+        await coordinator.activate(config)
+
+        XCTAssertEqual(coordinator.membership(serverID: config.id, channelID: "not-in-the-list",
+                                              teamID: "team1"),
+                       .unknown, "the list cannot prove a negative")
+        XCTAssertEqual(coordinator.membership(serverID: config.id, channelID: "c1", teamID: "another-team"),
+                       .member, "membership is not team-scoped: the id was already proven by a row")
+    }
+
+    /// Before the list is loaded there is nothing to say — and nothing to be wrong about.
+    func testTheDirectoryHasNoMembershipAnswerBeforeTheListLoads() {
+        let coordinator = ChannelSidebarCoordinator(makeService: { _ in FakeChannelSidebarService(data: self.standardData()) })
+        XCTAssertEqual(coordinator.membership(serverID: UUID(), channelID: "c1", teamID: "team1"),
+                       .unknown)
+    }
+
     // MARK: - 12. T33-R repairs (the T33-AV findings)
 
     /// F1's unit half: the write's answer is a **bare array**, and the GET's keyed `{order,

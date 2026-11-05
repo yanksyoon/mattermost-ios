@@ -93,6 +93,27 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     /// router that is not on screen.
     weak var nativeNavigation: NativeNavigation?
 
+    /// What a tapped notification's conversation resolves to (this card).
+    ///
+    /// `nil` — the shipping default for every host that has not installed one — keeps the pre-card
+    /// behaviour exactly: a tap opens the channel it names. The app installs
+    /// `SessionNotificationTapResolver`, which answers the happy path from the loaded channel list and
+    /// asks the server only when that list cannot say.
+    ///
+    /// Held **strongly**: the app creates it at bind time and the worker is then its one owner, while the
+    /// resolver's own references back into the shell are weak (no cycle).
+    var tapResolver: (any NotificationTapResolving)?
+
+    /// The copy for the last tap that could not land, in upstream's words ("Message not found" plus one
+    /// sentence). The shell draws it as an alert over the channel list the fallback lands on; `nil`
+    /// means no alert is up.
+    @Published private(set) var tapFailure: NotificationTapFailure?
+
+    /// The alert's dismiss action.
+    func dismissTapFailure() {
+        tapFailure = nil
+    }
+
     private let scheduling: NotificationScheduling
     private let preferences: AppPreferences
 
@@ -387,7 +408,7 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
                                             withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
         Task { @MainActor in
-            self.route(userInfo: userInfo)
+            await self.route(userInfo: userInfo)
             completionHandler()
         }
     }
@@ -406,28 +427,119 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         }
     }
 
-    /// Route a tapped mention's userInfo to its server + channel.
-    func route(userInfo: [AnyHashable: Any]) {
-        guard (userInfo["type"] as? String) == "mention" else { return }
-        let serverIDRaw = userInfo["server_id"] as? String
-        let serverID = serverIDRaw.flatMap(UUID.init(uuidString:))
-        let channelID = (userInfo["channel_id"] as? String) ?? ""
-        let teamID = userInfo["team_id"] as? String
-        guard let serverID, !channelID.isEmpty else {
-            Logger.debug("NotificationWorker", "mention tap missing server/channel ids")
+    /// Route a tapped mention's userInfo to its server + channel — and, when the conversation or the
+    /// post it names no longer resolves, say so in the pinned client's own words and leave the reader
+    /// on the channel list instead of a dead pane.
+    ///
+    /// Upstream's tap is `openNotification` (`app/actions/remote/notifications.ts`) →
+    /// `fetchNotificationData`, and its outcomes are the sentences of `notificationError`
+    /// (`app/utils/notification/index.ts`): a post that is gone is *"The message has not been found."*,
+    /// a channel the reader left (or one whose row outlived it) is *"This message belongs to a channel
+    /// where you are not a member."*, an unreachable server is the Connection sentence — and each of
+    /// them is followed by `navigateToRoot()`, so the reader lands on the channel list.
+    ///
+    /// The order is what keeps a tap cheap:
+    ///  1. **What the shell already knows** (`tapResolver.localMembership`, i.e. the loaded channel
+    ///     list) decides the happy path, so a tap on a live conversation makes **no request at all**;
+    ///  2. only an answer the local list cannot give asks the server — upstream's `fetchMyChannel`,
+    ///     measured on 9.11.19 by `scripts/t14c_notification_tap_probe.py` (membership probe +
+    ///     the channel's `delete_at`);
+    ///  3. a **thread** mention (`root_id`) then asks whether the post it is about still exists: the
+    ///     one case where the post itself is the destination, exactly as upstream's CRT path does;
+    ///  4. otherwise the tap routes exactly as it always did.
+    ///
+    /// A probe that cannot answer is **not** a failure to route. `.unknown` — no resolver installed,
+    /// no session, a transport failure on the *extra* probe — falls through to the pre-card behaviour,
+    /// because a dead end invented by a flaky network is worse than an empty pane.
+    @discardableResult
+    func route(userInfo: [AnyHashable: Any]) async -> NotificationTapOutcome {
+        guard let tap = NotificationTapPayload(userInfo: userInfo) else {
+            Logger.debug("NotificationWorker", "tap ignored: not a mention payload")
+            return .ignored
+        }
+        guard serverStore?.servers.contains(where: { $0.id == tap.serverID }) == true else {
+            Logger.debug("NotificationWorker", "mention tap routed to unknown server \(tap.serverID)")
+            return .noServer
+        }
+
+        if let resolver = tapResolver {
+            var membership = resolver.localMembership(serverID: tap.serverID, channelID: tap.channelID,
+                                                      teamID: tap.teamID)
+            if membership == .unknown {
+                membership = await resolver.remoteMembership(serverID: tap.serverID, channelID: tap.channelID)
+            }
+            switch membership {
+            case .notMember:
+                return fail(.notChannelMember, for: tap)
+            case .gone:
+                return fail(.channelGone, for: tap)
+            case .unreachable:
+                return fail(.unreachable, for: tap)
+            // `.sessionExpired` routes: the shell's auth gate answers with the sign-in surface, which
+            // is the honest destination for a tap whose server no longer accepts the session.
+            case .member, .sessionExpired, .unknown:
+                break
+            }
+
+            if let rootID = tap.rootID, !rootID.isEmpty {
+                switch await resolver.postState(serverID: tap.serverID, postID: rootID) {
+                case .gone:
+                    return fail(.postNotFound, for: tap)
+                case .notPermitted:
+                    return fail(.notChannelMember, for: tap)
+                case .unreachable:
+                    return fail(.unreachable, for: tap)
+                case .exists, .sessionExpired, .unknown:
+                    break
+                }
+            }
+        }
+
+        // A thread mention names its *root*: that is the post the pane should open at, so it is what
+        // the native funnel carries when the payload has no explicit post id.
+        return routeToChannel(serverID: tap.serverID, channelID: tap.channelID,
+                              teamID: tap.teamID, postID: tap.postID ?? tap.rootID)
+    }
+
+    /// Record the copy for a tap that cannot land, and put the reader where upstream's
+    /// `navigateToRoot()` would: the channel list of the notification's server.
+    private func fail(_ failure: NotificationTapFailure, for tap: NotificationTapPayload) -> NotificationTapOutcome {
+        Logger.info("NotificationWorker", "mention tap fallback [\(failure.diagnosticsToken)] " +
+            "server=\(tap.serverID.uuidString.prefix(8)) channel=\(tap.channelID)")
+        tapFailure = failure
+        landOnChannelList(serverID: tap.serverID)
+        return .failed(failure)
+    }
+
+    /// The `navigateToRoot()` half of upstream's notification error.
+    ///
+    /// Native shell: the workspace root for that server is the channel list (`path` emptied, the
+    /// sidebar is the screen again). Webview path: the SPA is sent to its server root through the same
+    /// queue a cold-launch tap uses, so a tap that arrives before `react-app-initialized` still lands.
+    private func landOnChannelList(serverID: UUID) {
+        if let nativeNavigation, nativeNavigation.acceptsNativeRouting {
+            _ = nativeNavigation.openHome(serverID: serverID)
             return
         }
-        routeToChannel(serverID: serverID, channelID: channelID, teamID: teamID)
+        serverStore?.switchTo(id: serverID)
+        viewStore?.setPrimary(serverID)
+        if reactAppInitializedServers.contains(serverID) {
+            pushChannelPath("/", toServerID: serverID)
+        } else {
+            pendingChannelPaths[serverID] = "/"
+        }
     }
 
     /// Switch the shell to the mention's server and SPA-navigate to its channel. When the SPA
     /// is not initialized yet (cold launch), the path is queued and flushed on
     /// `reactAppInitialized(serverID:)`.
-    func routeToChannel(serverID: UUID, channelID: String, teamID: String?) {
+    @discardableResult
+    func routeToChannel(serverID: UUID, channelID: String, teamID: String?,
+                        postID: String? = nil) -> NotificationTapOutcome {
         guard let serverStore,
               let server = serverStore.servers.first(where: { $0.id == serverID }) else {
             Logger.debug("NotificationWorker", "mention tap routed to unknown server \(serverID)")
-            return
+            return .noServer
         }
 
         // T30: while the native shell owns the pane there is no SPA to push into — the tap goes
@@ -437,21 +549,30 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         if let nativeNavigation, nativeNavigation.acceptsNativeRouting {
             let outcome = nativeNavigation.routeMention(serverID: serverID,
                                                         channelID: channelID,
-                                                        teamID: teamID)
+                                                        teamID: teamID,
+                                                        postID: postID)
             Logger.info("NotificationWorker", "mention tap -> native shell (\(outcome))")
-            return
+            switch outcome {
+            case .opened: return .routed
+            case .needsAuth: return .needsAuth
+            case .needsServerAdd: return .noServer
+            case .unsupported: return .ignored
+            }
         }
 
         serverStore.switchTo(id: server.id)
         viewStore?.setPrimary(server.id)
         Logger.info("NotificationWorker", "mention tap -> server \(server.name) channel \(channelID)")
 
+        // The SPA path names the channel only: the web app focuses a message from its own route, and a
+        // `postID` is not part of this shell's history push (the native path above carries it).
         let path = "/channels/\(channelID)"
         if reactAppInitializedServers.contains(serverID) {
             pushChannelPath(path, toServerID: serverID)
         } else {
             pendingChannelPaths[serverID] = path
         }
+        return .routed
     }
 
     /// The bridge's `react-app-initialized` signal: flush any queued channel push for this server.
@@ -490,6 +611,175 @@ enum VisibleChannel: Equatable {
     case noChannel
     /// The native shell is showing this channel.
     case channel(String)
+}
+
+// MARK: - Tap resolution (a tap whose post/channel is gone)
+
+/// The payload a mention tap carries, in the shape the push proxy writes it.
+///
+/// `server_id`, `channel_id` and `team_id` are what this worker schedules today; `post_id` and
+/// `root_id` are the pinned client's own push fields (`NotificationWithData.payload`,
+/// `app/utils/notification/index.ts`), read here so a payload produced by the real push path — or by
+/// the in-app banner — is routed with the post it is about.
+struct NotificationTapPayload: Equatable {
+    var serverID: UUID
+    var channelID: String
+    var teamID: String?
+    var postID: String?
+    /// The thread root, when the mention was a reply. Upstream only looks the post up for these: a
+    /// channel mention's destination is the channel, which does not need the post to exist.
+    var rootID: String?
+
+    /// `nil` for anything that is not a well-formed mention tap (a test banner, a download notice, a
+    /// payload with no channel).
+    init?(userInfo: [AnyHashable: Any]) {
+        guard (userInfo["type"] as? String) == "mention",
+              let rawServer = userInfo["server_id"] as? String,
+              let serverID = UUID(uuidString: rawServer),
+              let channelID = userInfo["channel_id"] as? String,
+              !channelID.isEmpty else { return nil }
+        self.serverID = serverID
+        self.channelID = channelID
+        let team = (userInfo["team_id"] as? String) ?? ""
+        self.teamID = team.isEmpty ? nil : team
+        self.postID = Self.nonEmpty(userInfo["post_id"] as? String)
+        self.rootID = Self.nonEmpty(userInfo["root_id"] as? String)
+    }
+
+    init(serverID: UUID, channelID: String, teamID: String? = nil,
+         postID: String? = nil, rootID: String? = nil) {
+        self.serverID = serverID
+        self.channelID = channelID
+        self.teamID = teamID
+        self.postID = postID
+        self.rootID = rootID
+    }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        return value
+    }
+}
+
+/// Whether the signed-in account is in a channel, as far as anything can say.
+///
+/// The cases are the four answers the server actually gives, measured on 9.11.19 by
+/// `scripts/t14c_notification_tap_probe.py` — `GET /channels/{id}/members/me` answers `200` for a
+/// member, `404 app.channel.get_member.missing.app_error` when the account is not in it (as a system
+/// admin) and `403 api.context.permissions.app_error` when it is not and may not even look (an
+/// ordinary account, or an id that does not exist). Both are the caller's "not a member".
+enum NotificationChannelMembership: Equatable {
+    /// The list the shell has loaded contains it: it is one of the account's conversations.
+    case member
+    /// Whether the account is in it (left, removed, never joined) — measured as `404`/`403` on the
+    /// membership probe, and the only answer that produces upstream's channel sentence.
+    case notMember
+    /// The channel no longer exists: the membership probe succeeded but `GET /channels/{id}` answered
+    /// `404`, so the row outlived the channel. An **archived** channel is not this — it is a `.member`
+    /// destination, because the pane draws its own archived banner and upstream navigates into it.
+    case gone
+    /// The server refused the session (`401`): the shell's re-auth surface is the answer, not a
+    /// fallback sentence.
+    case sessionExpired
+    /// The server could not be reached, or answered something this client cannot interpret.
+    case unreachable
+    /// Nothing can say: no resolver, no loaded list, no session for the server. **Routes as before** —
+    /// a guess here would invent dead ends.
+    case unknown
+}
+
+/// Whether a post a tap names still exists.
+enum NotificationPostState: Equatable {
+    case exists
+    /// Deleted (`404 app.post.get.app_error`, measured for a soft-deleted post and for an id that
+    /// never existed — the server does not distinguish them, so neither does this).
+    case gone
+    /// `403`: the post belongs to a channel the account may not read.
+    case notPermitted
+    case sessionExpired
+    case unreachable
+    case unknown
+}
+
+/// The pinned client's tap-through copy — `mobile` `notificationError`
+/// (`app/utils/notification/index.ts`), verbatim.
+///
+/// Every case is followed by `navigateToRoot()` upstream, which this shell mirrors by landing the
+/// reader on the channel list (`NotificationWorker.landOnChannelList`). The title is one string for
+/// all of them (`notification.message_not_found`); only the sentence differs.
+enum NotificationTapFailure: String, Equatable, CaseIterable {
+    /// `notification.no_post` — a post that is gone.
+    case postNotFound
+    /// `notification.not_channel_member` — left, removed, or the channel itself is gone. An *archived*
+    /// channel is not this case: it routes, and the pane's composer banner explains it.
+    case channelGone
+    /// `notification.not_channel_member` — the same sentence, reached through a `403` on the channel
+    /// or on its post. Kept apart from `channelGone` because the *reason* is different, and the log
+    /// line is the only place that difference can be seen.
+    case notChannelMember
+    /// `notification.not_team_member` — no team membership for the notification's team.
+    case notTeamMember
+    /// `notification.no_connection` — the server could not be reached.
+    case unreachable
+
+    /// `notification.message_not_found`: the alert's title, the same for every case.
+    static let title = "Message not found"
+
+    var message: String {
+        switch self {
+        case .postNotFound:
+            return "The message has not been found."
+        case .channelGone, .notChannelMember:
+            return "This message belongs to a channel where you are not a member."
+        case .notTeamMember:
+            return "This message belongs to a team where you are not a member."
+        case .unreachable:
+            return "The server is unreachable and it was not possible to retrieve the specific " +
+                   "message information for the notification."
+        }
+    }
+
+    /// The Settings/diagnostics token (the enum's own name, never the sentence).
+    var diagnosticsToken: String { rawValue }
+}
+
+/// What a tap did, for tests and for the log.
+enum NotificationTapOutcome: Equatable {
+    /// The shell is showing the tapped conversation (native) or has pushed its path (webview).
+    case routed
+    /// The tapped server has no session: the shell is showing its auth surface.
+    case needsAuth
+    /// No configured server matches the payload's `server_id`.
+    case noServer
+    /// The conversation or post is gone: the copy was shown and the reader is on the channel list.
+    case failed(NotificationTapFailure)
+    /// Not a mention tap, or a route this shell cannot show.
+    case ignored
+}
+
+/// What a tap can be checked against — the seam between `NotificationWorker` and the app.
+///
+/// Split in two on purpose, because the *cost* is the card's constraint:
+///  - `localMembership` must be answerable **without a request** (the loaded channel list knows every
+///    conversation the account is in), and is what keeps the happy path network-free;
+///  - `remoteMembership` / `postState` are the pinned client's own probes, taken only when the local
+///    answer is `.unknown`.
+///
+/// Every method has a default so a test (or a host with no session) implements only the branch it
+/// exercises and everything else reads `.unknown`, i.e. "route as before".
+@MainActor
+protocol NotificationTapResolving: AnyObject {
+    func localMembership(serverID: UUID, channelID: String,
+                         teamID: String?) -> NotificationChannelMembership
+    func remoteMembership(serverID: UUID, channelID: String) async -> NotificationChannelMembership
+    func postState(serverID: UUID, postID: String) async -> NotificationPostState
+}
+
+extension NotificationTapResolving {
+    func localMembership(serverID: UUID, channelID: String,
+                         teamID: String?) -> NotificationChannelMembership { .unknown }
+    func remoteMembership(serverID: UUID, channelID: String) async -> NotificationChannelMembership { .unknown }
+    func postState(serverID: UUID, postID: String) async -> NotificationPostState { .unknown }
 }
 
 // MARK: - Scheduling seam

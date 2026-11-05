@@ -421,4 +421,21 @@ extension ChannelSidebarCoordinator: NativeChannelDirectory {
                                      channelID: resolved.channelID,
                                      channelName: resolved.channelName)
     }
+
+    /// Whether the loaded list **knows** the account is in `channelID` — no request (t_14c96dfd).
+    ///
+    /// A row in the list is a `.member`: the list a sidebar shows **is** the account's channels
+    /// (`GET /users/me/teams/{id}/channels`), so a channel in it is one the reader is in, and that is the
+    /// whole happy path of a tap — no request at all.
+    ///
+    /// Its *absence* is `.unknown`, never `.notMember`, because the sidebar deliberately hides archived
+    /// channels (upstream `filterArchivedChannels`, `ChannelSidebarModels`). A member of an archived
+    /// channel is therefore absent from it, and a tap that trusted absence would tell that reader they
+    /// are "not a member" of a channel they can still read — while the pane has a composer banner for
+    /// exactly that state. So absence defers to the server, which answers the one question this list
+    /// cannot: is the channel still there, and am I still in it.
+    func membership(serverID: UUID, channelID: String, teamID: String?) -> NotificationChannelMembership {
+        guard !channelID.isEmpty, let model = models[serverID] else { return .unknown }
+        return model.entry(id: channelID) != nil ? .member : .unknown
+    }
 }

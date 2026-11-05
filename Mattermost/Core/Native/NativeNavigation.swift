@@ -200,12 +200,30 @@ protocol NativeChannelDirectory: AnyObject {
     /// resolved yet, or a threads route from a caller that only knows the server. Return `nil` when
     /// the shell does not know either; a route is never given an invented team.
     func currentTeamID(serverID: UUID) -> String?
+
+    /// Whether the loaded list **knows** the account is in `channelID` — no request (t_14c96dfd).
+    ///
+    /// This is what a notification tap consults first: the list a server's sidebar has loaded is the
+    /// answer to "is this one of my conversations?", so a tap on a live channel routes with no network
+    /// call at all. Only a **positive** answer is given — a row in the list is `.member`, and its absence
+    /// is `.unknown` (the list hides archived channels, so absence is not "not a member") — and the
+    /// caller then asks the server instead.
+    ///
+    /// - Parameter teamID: the team the tap names, when it names one. Unused today — membership in a
+    ///   channel is not team-scoped, so a proven id is a proven id — and kept in the signature because a
+    ///   list that has not loaded the tapped team yet is a fact the caller may want to weigh.
+    func membership(serverID: UUID, channelID: String, teamID: String?) -> NotificationChannelMembership
 }
 
 extension NativeChannelDirectory {
     /// The seam's default: a directory that has no opinion about the current team leaves the route
     /// exactly as its caller wrote it (T30's original behaviour).
     func currentTeamID(serverID: UUID) -> String? { nil }
+
+    /// The same for membership: a directory with no loaded list cannot say, so a tap routes as before.
+    func membership(serverID: UUID, channelID: String, teamID: String?) -> NotificationChannelMembership {
+        .unknown
+    }
 }
 
 /// Whether a configured server has a usable session — i.e. whether the pane should show the auth

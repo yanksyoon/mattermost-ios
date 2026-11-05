@@ -36,6 +36,33 @@ final class NotificationWorkerTests: XCTestCase {
         NotificationWorker(scheduling: mock, preferences: AppPreferences(defaults: defaults))
     }
 
+    /// The smallest shell a tap can land in: one configured server, a mounted view store, and the native
+    /// router driven by the documented `-surfaceMode` launch tier (the same flag T30's tests use).
+    private func makeTapShell(mode: String = "shell=native") -> TapShell {
+        let worker = makeWorker()
+        let preferences = AppPreferences(defaults: defaults)
+        let serverStore = ServerStore(preferences: preferences)
+        let server = makeServer()
+        _ = serverStore.add(server)
+        let viewStore = ViewStore()
+        let bridge = TapRecordingBridge()
+        viewStore.ensureStore(for: server).bridge.delegate = bridge
+
+        let navigation = NativeNavigation(resolver: SurfaceModeResolver(
+            preferences: preferences, arguments: ["-surfaceMode", mode]))
+        navigation.serverStore = serverStore
+        navigation.viewStore = viewStore
+        navigation.authGate = TapSignedInGate()
+
+        worker.serverStore = serverStore
+        worker.viewStore = viewStore
+        worker.nativeNavigation = navigation
+        worker.reactAppInitialized(serverID: server.id)
+
+        return TapShell(worker: worker, serverStore: serverStore, viewStore: viewStore,
+                        navigation: navigation, bridge: bridge, serverID: server.id)
+    }
+
     private func makeServer(id: UUID = UUID(), name: String = "Example") -> ServerConfig {
         ServerConfig(id: id, name: name, url: URL(string: "https://example.mattermost.com")!)
     }
@@ -302,7 +329,7 @@ final class NotificationWorkerTests: XCTestCase {
         XCTAssertEqual(bridge.pushedPaths, ["/channels/cold-room"])
     }
 
-    func testRouteIgnoresNonMentionUserInfo() {
+    func testRouteIgnoresNonMentionUserInfo() async {
         let worker = makeWorker()
         let serverStore = ServerStore(preferences: AppPreferences(defaults: defaults))
         let server = makeServer()
@@ -311,7 +338,8 @@ final class NotificationWorkerTests: XCTestCase {
         worker.viewStore = ViewStore()
 
         // A non-mention notification (e.g. a future download-complete) must not route.
-        worker.route(userInfo: ["type": "download", "server_id": server.id.uuidString, "channel_id": "x"])
+        let outcome = await worker.route(userInfo: ["type": "download", "server_id": server.id.uuidString, "channel_id": "x"])
+        XCTAssertEqual(outcome, .ignored)
         XCTAssertNotEqual(serverStore.activeServerID, server.id, "only mention taps switch servers")
     }
 
@@ -505,6 +533,300 @@ final class NotificationWorkerTests: XCTestCase {
                        "notifications=status=denied requested=false lastSchedule=none")
         XCTAssertEqual(worker.diagnosticsSnapshot.line, worker.diagnosticsLine)
     }
+
+    // MARK: - Tap fallbacks when the post or channel is gone (t_14c96dfd)
+    //
+    // Upstream: `openNotification` → `fetchNotificationData`, and `notificationError`
+    // (`app/utils/notification/index.ts`): "Message not found" + one sentence, then `navigateToRoot()`.
+    // These cases pin the behaviour *and* the cost rule the card states — a tap on a live conversation
+    // makes no request at all — plus the three fallbacks the acceptance criterion names (post 404, not a
+    // member, channel gone).
+
+    /// The sentences, verbatim from the pinned client (`notificationError`).
+    func testFallbackCopyIsThePinnedClientsVerbatim() {
+        XCTAssertEqual(NotificationTapFailure.title, "Message not found")
+        XCTAssertEqual(NotificationTapFailure.postNotFound.message, "The message has not been found.")
+        XCTAssertEqual(NotificationTapFailure.notChannelMember.message,
+                       "This message belongs to a channel where you are not a member.")
+        XCTAssertEqual(NotificationTapFailure.channelGone.message,
+                       "This message belongs to a channel where you are not a member.",
+                       "upstream has one sentence for a channel: left, removed and archived all use it")
+        XCTAssertEqual(NotificationTapFailure.notTeamMember.message,
+                       "This message belongs to a team where you are not a member.")
+        XCTAssertEqual(NotificationTapFailure.unreachable.message,
+                       "The server is unreachable and it was not possible to retrieve the specific " +
+                       "message information for the notification.")
+        XCTAssertEqual(Set(NotificationTapFailure.allCases.map(\.diagnosticsToken)).count,
+                       NotificationTapFailure.allCases.count,
+                       "the log token is the case name, never the sentence")
+    }
+
+    /// The happy path: the loaded channel list knows the channel, so the tap routes and **nothing** is
+    /// asked of the server.
+    func testTapOnAKnownChannelRoutesWithNoRequest() async {
+        let shell = makeTapShell()
+        let resolver = ScriptedTapResolver(local: .member)
+        shell.worker.tapResolver = resolver
+
+        let outcome = await shell.worker.route(userInfo: shell.payload(channelID: "town-square"))
+
+        XCTAssertEqual(outcome, .routed)
+        XCTAssertEqual(resolver.remoteCalls, 0, "a live tap must cost no request")
+        XCTAssertEqual(resolver.postCalls, 0)
+        XCTAssertEqual(shell.navigation.location.channelID, "town-square")
+        XCTAssertNil(shell.worker.tapFailure, "a tap that lands has no copy to show")
+        XCTAssertTrue(shell.bridge.pushedPaths.isEmpty,
+                      "the native shell must not also drive the SPA's history")
+    }
+
+    /// Not a member: the list cannot say (it hides nothing it has not loaded — and absence is not
+    /// proof), the server says, the reader is told in upstream's words and left on the channel list.
+    func testTapOnAChannelTheReaderLeftShowsTheSentenceAndLandsOnTheList() async {
+        let shell = makeTapShell()
+        let resolver = ScriptedTapResolver(local: .unknown, remote: .notMember)
+        shell.worker.tapResolver = resolver
+
+        let outcome = await shell.worker.route(userInfo: shell.payload(channelID: "left-behind"))
+
+        XCTAssertEqual(outcome, .failed(.notChannelMember))
+        XCTAssertEqual(resolver.remoteCalls, 1, "absence from the list is not proof; the server is asked")
+        XCTAssertEqual(shell.worker.tapFailure?.message,
+                       "This message belongs to a channel where you are not a member.")
+        XCTAssertEqual(shell.worker.tapFailure?.rawValue, "notChannelMember")
+        XCTAssertNil(shell.navigation.location.channelID, "the reader landed on the channel list")
+        XCTAssertTrue(shell.navigation.path.isEmpty, "and nothing is pushed over it")
+        XCTAssertTrue(shell.bridge.pushedPaths.isEmpty, "no channel path was pushed into the SPA")
+
+        shell.worker.dismissTapFailure()
+        XCTAssertNil(shell.worker.tapFailure, "the alert is dismissible")
+    }
+
+    /// Channel gone: the account's membership row outlived the channel (`GET /channels/{id}` → 404).
+    /// The answer is upstream's channel sentence — not a blank pane.
+    func testTapOnAChannelThatNoLongerExistsShowsTheSentenceAndLandsOnTheList() async {
+        let shell = makeTapShell()
+        let resolver = ScriptedTapResolver(local: .unknown, remote: .gone)
+        shell.worker.tapResolver = resolver
+
+        let outcome = await shell.worker.route(userInfo: shell.payload(channelID: "deleted-room"))
+
+        XCTAssertEqual(outcome, .failed(.channelGone))
+        XCTAssertEqual(resolver.remoteCalls, 1, "exactly one probe, and only because the list could not say")
+        XCTAssertEqual(resolver.postCalls, 0, "a channel that is gone is not worth a post probe")
+        XCTAssertEqual(shell.worker.tapFailure?.message,
+                       "This message belongs to a channel where you are not a member.")
+        XCTAssertNil(shell.navigation.location.channelID)
+        XCTAssertTrue(shell.bridge.pushedPaths.isEmpty)
+    }
+
+    /// Post 404: a thread mention whose root was deleted between delivery and tap.
+    func testTapOnADeletedThreadRootShowsThePostSentenceAndLandsOnTheList() async {
+        let shell = makeTapShell()
+        let resolver = ScriptedTapResolver(local: .member, post: .gone)
+        shell.worker.tapResolver = resolver
+
+        let outcome = await shell.worker.route(
+            userInfo: shell.payload(channelID: "town-square", rootID: "deleted-root"))
+
+        XCTAssertEqual(outcome, .failed(.postNotFound))
+        XCTAssertEqual(resolver.remoteCalls, 0, "the channel was known; only the post was asked about")
+        XCTAssertEqual(resolver.postCalls, 1)
+        XCTAssertEqual(resolver.lastPostID, "deleted-root")
+        XCTAssertEqual(shell.worker.tapFailure?.message, "The message has not been found.")
+        XCTAssertNil(shell.navigation.location.channelID)
+        XCTAssertTrue(shell.bridge.pushedPaths.isEmpty)
+    }
+
+    /// A post that resolves keeps the old behaviour — and carries the post id through the native funnel,
+    /// which is what makes the pane open *at* the message (upstream's CRT tap).
+    func testTapOnALiveThreadRootRoutesWithThePost() async {
+        let shell = makeTapShell()
+        let resolver = ScriptedTapResolver(local: .member, post: .exists)
+        shell.worker.tapResolver = resolver
+
+        let outcome = await shell.worker.route(
+            userInfo: shell.payload(channelID: "town-square", rootID: "live-root"))
+
+        XCTAssertEqual(outcome, .routed)
+        XCTAssertEqual(resolver.postCalls, 1)
+        XCTAssertEqual(shell.navigation.location.channelID, "town-square")
+        XCTAssertEqual(shell.navigation.location.postID, "live-root")
+        XCTAssertNil(shell.worker.tapFailure)
+    }
+
+    /// A plain channel mention that carries a post id is *not* probed: upstream only looks the post up
+    /// for a thread notification, and the destination (the channel) does not need it to exist.
+    func testPostProbeIsNotTakenForAChannelMention() async {
+        let shell = makeTapShell()
+        let resolver = ScriptedTapResolver(local: .member, post: .gone)
+        shell.worker.tapResolver = resolver
+
+        let outcome = await shell.worker.route(
+            userInfo: shell.payload(channelID: "town-square", postID: "some-post"))
+
+        XCTAssertEqual(outcome, .routed, "a post-only mention still lands in its channel")
+        XCTAssertEqual(resolver.postCalls, 0)
+    }
+
+    /// Unreachable: upstream's Connection sentence, and the same landing.
+    func testTapOnAnUnreachableServerShowsTheConnectionSentence() async {
+        let shell = makeTapShell()
+        let resolver = ScriptedTapResolver(local: .unknown, remote: .unreachable)
+        shell.worker.tapResolver = resolver
+
+        let outcome = await shell.worker.route(userInfo: shell.payload(channelID: "town-square"))
+
+        XCTAssertEqual(outcome, .failed(.unreachable))
+        XCTAssertEqual(shell.worker.tapFailure?.message,
+                       "The server is unreachable and it was not possible to retrieve the specific " +
+                       "message information for the notification.")
+        XCTAssertNil(shell.navigation.location.channelID)
+    }
+
+    /// A probe that cannot answer must not invent a dead end: `.unknown` everywhere routes as the card
+    /// found it.
+    func testTapStillRoutesWhenTheResolverCannotSay() async {
+        let shell = makeTapShell()
+        let resolver = ScriptedTapResolver(local: .unknown, remote: .unknown)
+        shell.worker.tapResolver = resolver
+
+        let outcome = await shell.worker.route(userInfo: shell.payload(channelID: "cold-room"))
+
+        XCTAssertEqual(outcome, .routed)
+        XCTAssertEqual(resolver.remoteCalls, 1)
+        XCTAssertEqual(shell.navigation.location.channelID, "cold-room")
+        XCTAssertNil(shell.worker.tapFailure)
+    }
+
+    /// No resolver installed (a host that never opts in): the pre-card path, byte for byte.
+    func testTapWithoutAResolverRoutesAsBefore() async {
+        let shell = makeTapShell()
+
+        let outcome = await shell.worker.route(userInfo: shell.payload(channelID: "town-square"))
+
+        XCTAssertEqual(outcome, .routed)
+        XCTAssertEqual(shell.navigation.location.channelID, "town-square")
+        XCTAssertNil(shell.worker.tapFailure)
+    }
+
+    /// The webview path (Path A) has no native channel list: the fallback still lands somewhere honest —
+    /// the SPA's server root — rather than pushing the channel that no longer resolves.
+    func testFallbackOnTheWebviewPathSendsTheSPAToItsRoot() async {
+        let shell = makeTapShell(mode: "shell=web")
+        let resolver = ScriptedTapResolver(local: .unknown, remote: .notMember)
+        shell.worker.tapResolver = resolver
+
+        let outcome = await shell.worker.route(userInfo: shell.payload(channelID: "left-behind"))
+
+        XCTAssertEqual(outcome, .failed(.notChannelMember))
+        XCTAssertEqual(shell.bridge.pushedPaths, ["/"],
+                       "the reader is sent to the channel list, not to the vanished channel")
+        XCTAssertEqual(shell.worker.tapFailure?.message,
+                       "This message belongs to a channel where you are not a member.")
+    }
+
+    /// A tap for a server this device does not have is not a "message not found": nothing is shown,
+    /// because there is nothing to open and no list to land on.
+    func testTapForAnUnconfiguredServerReportsNoServerWithoutCopy() async {
+        let shell = makeTapShell()
+        shell.worker.tapResolver = ScriptedTapResolver(local: .notMember)
+
+        let outcome = await shell.worker.route(
+            userInfo: shell.payload(serverID: UUID(), channelID: "town-square"))
+
+        XCTAssertEqual(outcome, .noServer)
+        XCTAssertNil(shell.worker.tapFailure)
+    }
+
+    /// A payload the shell cannot make sense of is ignored, not treated as a fallback.
+    func testMalformedMentionPayloadIsIgnored() async {
+        let shell = makeTapShell()
+        shell.worker.tapResolver = ScriptedTapResolver(local: .notMember)
+
+        let outcome = await shell.worker.route(userInfo: ["type": "mention", "server_id": "not-a-uuid",
+                                                          "channel_id": "x"])
+        XCTAssertEqual(outcome, .ignored)
+        XCTAssertNil(shell.worker.tapFailure)
+    }
+
+    // MARK: - The session-backed resolver's status table
+    //
+    // The mapping is only honest if it is the server's own: every status below was measured on
+    // Mattermost 9.11.19 by `scripts/t14c_notification_tap_probe.py`.
+
+    func testMembershipProbeStatusTable() {
+        XCTAssertEqual(SessionNotificationTapResolver.membershipFailure(MMError.notFound), .notMember)
+        XCTAssertEqual(SessionNotificationTapResolver.membershipFailure(MMError.forbidden(message: nil)),
+                       .notMember, "an ordinary account gets 403 where a system admin gets 404")
+        XCTAssertEqual(SessionNotificationTapResolver.membershipFailure(MMError.unauthorized(message: nil)),
+                       .sessionExpired)
+        XCTAssertEqual(SessionNotificationTapResolver.membershipFailure(MMError.notSignedIn),
+                       .sessionExpired, "no token is no session: the auth surface is the answer")
+        XCTAssertEqual(SessionNotificationTapResolver.membershipFailure(MMError.offline), .unreachable)
+        XCTAssertEqual(SessionNotificationTapResolver.membershipFailure(MMError.timeout), .unreachable)
+        XCTAssertEqual(SessionNotificationTapResolver.membershipFailure(MMError.server(status: 500, message: nil)),
+                       .unknown, "a server error is not the reader's answer; route as before")
+    }
+
+    func testMembershipProbeIsNotAMemberWhenTheServerForbids() async throws {
+        let shell = try ScriptedTapShellResolver(status: 403, body: #"{"id":"api.context.permissions.app_error"}"#)
+        XCTAssertNotNil(shell.resolver.clientProvider, "the scripted client must be installed")
+        let state = await shell.resolver.remoteMembership(serverID: UUID(), channelID: "c1")
+        XCTAssertEqual(state, .notMember)
+        XCTAssertEqual(shell.transport.requestCount, 1, "one probe, no channel fetch after a refusal")
+    }
+
+    func testMembershipProbeIsNotAMemberWhenTheServerDoesNotKnowIt() async throws {
+        let shell = try ScriptedTapShellResolver(status: 404,
+                                                 body: #"{"id":"app.channel.get_member.missing.app_error"}"#)
+        let state = await shell.resolver.remoteMembership(serverID: UUID(), channelID: "c1")
+        XCTAssertEqual(state, .notMember)
+    }
+
+    /// An **archived** channel is still a destination: upstream navigates into it and the pane draws the
+    /// composer's archived banner, so the tap must not be answered with "not a member".
+    func testMembershipProbeRoutesAnArchivedChannel() async throws {
+        let membership = #"{"channel_id":"c1","user_id":"u1"}"#
+        let archived = #"{"id":"c1","name":"gone","display_name":"Gone","type":"O","team_id":"t1","delete_at":1793850354863}"#
+        let shell = try ScriptedTapShellResolver(stubs: [(200, membership), (200, archived)])
+        let state = await shell.resolver.remoteMembership(serverID: UUID(), channelID: "c1")
+        XCTAssertEqual(state, .member, "archived is the pane's banner, not the tap's sentence")
+        XCTAssertEqual(shell.transport.requestCount, 2, "membership, then the channel's existence")
+    }
+
+    /// The channel that answered its membership row but is not there any more: that is `gone`.
+    func testMembershipProbeReportsGoneWhenTheChannelVanished() async throws {
+        let membership = #"{"channel_id":"c1","user_id":"u1"}"#
+        let shell = try ScriptedTapShellResolver(stubs: [
+            (200, membership),
+            (404, #"{"id":"app.channel.get.app_error","message":"Unable to find the existing channel."}"#),
+        ])
+        let state = await shell.resolver.remoteMembership(serverID: UUID(), channelID: "c1")
+        XCTAssertEqual(state, .gone)
+    }
+
+    func testMembershipProbeReportsMemberForALiveChannel() async throws {
+        let membership = #"{"channel_id":"c1","user_id":"u1"}"#
+        let live = #"{"id":"c1","name":"general","display_name":"General","type":"O","team_id":"t1","delete_at":0}"#
+        let shell = try ScriptedTapShellResolver(stubs: [(200, membership), (200, live)])
+        let state = await shell.resolver.remoteMembership(serverID: UUID(), channelID: "c1")
+        XCTAssertEqual(state, .member)
+    }
+
+    func testPostProbeStatusTable() async throws {
+        let deleted = try ScriptedTapShellResolver(status: 404, body: #"{"id":"app.post.get.app_error"}"#)
+        let deletedState = await deleted.resolver.postState(serverID: UUID(), postID: "p1")
+        XCTAssertEqual(deletedState, .gone, "a soft-deleted post and an id that never existed answer alike")
+
+        let live = #"{"id":"p1","create_at":1,"delete_at":0,"channel_id":"c1","user_id":"u1"}"#
+        let present = try ScriptedTapShellResolver(status: 200, body: live)
+        let presentState = await present.resolver.postState(serverID: UUID(), postID: "p1")
+        XCTAssertEqual(presentState, .exists)
+
+        let forbidden = try ScriptedTapShellResolver(status: 403, body: "{}")
+        let forbiddenState = await forbidden.resolver.postState(serverID: UUID(), postID: "p1")
+        XCTAssertEqual(forbiddenState, .notPermitted)
+    }
 }
 
 /// Recording stand-in for `UNUserNotificationCenter`. Status + side effects are controllable so
@@ -551,4 +873,114 @@ private final class RecordingJsBridge: JsBridge {
     }
     func pushBrowserHistory(path: String) { pushedPaths.append(path) }
     func navigateHistory(byOffset offset: Int) {}
+}
+
+// MARK: - Tap-fallback harness (t_14c96dfd)
+
+/// Records SPA pushes; a native-mode shell should never use it.
+@MainActor
+private final class TapRecordingBridge: JsBridge {
+    weak var webView: WKWebView?
+    var pushedPaths: [String] = []
+
+    func handleNotifyMention(_ payload: MentionNotification) {}
+    func handleUnreadsAndMentions(_ isUnread: Bool, mentionCount: Int) {}
+    func handleSessionExpired(_ isExpired: Bool) {}
+    func handleReactAppInitialized() {}
+    func handleRequestBrowserHistoryStatus(_ completion: @escaping (BrowserHistoryStatus) -> Void) {
+        completion(BrowserHistoryStatus(canGoBack: false, canGoForward: false))
+    }
+    func pushBrowserHistory(path: String) { pushedPaths.append(path) }
+    func navigateHistory(byOffset offset: Int) {}
+}
+
+@MainActor
+private final class TapSignedInGate: NativeAuthGate {
+    func authState(for server: ServerConfig) -> NativeAuthState { .signedIn }
+}
+
+/// A `NotificationTapResolving` that answers from a script and counts what it was asked.
+@MainActor
+private final class ScriptedTapResolver: NotificationTapResolving {
+    var local: NotificationChannelMembership
+    var remote: NotificationChannelMembership
+    var post: NotificationPostState
+
+    private(set) var remoteCalls = 0
+    private(set) var postCalls = 0
+    private(set) var lastPostID: String?
+
+    init(local: NotificationChannelMembership = .unknown,
+         remote: NotificationChannelMembership = .unknown,
+         post: NotificationPostState = .unknown) {
+        self.local = local
+        self.remote = remote
+        self.post = post
+    }
+
+    func localMembership(serverID: UUID, channelID: String,
+                         teamID: String?) -> NotificationChannelMembership { local }
+
+    func remoteMembership(serverID: UUID, channelID: String) async -> NotificationChannelMembership {
+        remoteCalls += 1
+        return remote
+    }
+
+    func postState(serverID: UUID, postID: String) async -> NotificationPostState {
+        postCalls += 1
+        lastPostID = postID
+        return post
+    }
+}
+
+/// The production resolver wired to a scripted transport, so the HTTP status → state table is
+/// exercised end to end (request shape included) without a vault or a session.
+@MainActor
+private struct ScriptedTapShellResolver {
+    let resolver: SessionNotificationTapResolver
+    let transport: FakeAPITransport
+
+    init(status: Int, body: String) throws {
+        try self.init(stubs: [(status, body)])
+    }
+
+    init(stubs: [(Int, String)]) throws {
+        let transport = FakeAPITransport(stubs: stubs.map { status, body in
+            .ok(APIResponse(statusCode: status,
+                            headers: ["Content-Type": "application/json"],
+                            body: Data(body.utf8)))
+        })
+        let client = try APIClient(serverURL: URL(string: "https://mm.example")!,
+                                   transport: transport,
+                                   retryPolicy: .none,
+                                   tokenProvider: { "test-token" })
+        let resolver = SessionNotificationTapResolver()
+        resolver.clientProvider = { _ in client }
+        self.resolver = resolver
+        self.transport = transport
+    }
+}
+
+/// One server, a mounted server store, and the native router — the smallest shell a tap can land in.
+@MainActor
+private struct TapShell {
+    let worker: NotificationWorker
+    let serverStore: ServerStore
+    let viewStore: ViewStore
+    let navigation: NativeNavigation
+    let bridge: TapRecordingBridge
+    let serverID: UUID
+
+    func payload(serverID: UUID? = nil, channelID: String,
+                 postID: String? = nil, rootID: String? = nil) -> [AnyHashable: Any] {
+        var info: [AnyHashable: Any] = [
+            "type": "mention",
+            "server_id": (serverID ?? self.serverID).uuidString,
+            "channel_id": channelID,
+            "team_id": "team42",
+        ]
+        if let postID { info["post_id"] = postID }
+        if let rootID { info["root_id"] = rootID }
+        return info
+    }
 }
