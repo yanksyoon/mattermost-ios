@@ -66,6 +66,8 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
         case deleted
         case reactions
         case viewed
+        /// T4f: a `typing` frame for this channel's composer row.
+        case typing
     }
 
     // MARK: State
@@ -195,6 +197,19 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     private(set) var myUserID: String?
     /// The channel this model is showing. Set by the coordinator; empty until then.
     private(set) var channelID: String
+    /// T4f: the row above this channel's composer ("X is typing…").
+    ///
+    /// It lives on the pane, not on the composer, because the frames arrive on the pane's socket
+    /// handler and the author's name comes from the pane's profile map. The composer view observes the
+    /// object directly (a nested `ObservableObject` publishes nothing through this model).
+    let typing: TypingIndicator
+    /// T4f: the per-server seating of the socket + `/config/client`; read for the row's expiry window
+    /// only. `nil` in a host with no rail, where the row still draws and expires at the server's
+    /// documented default.
+    private weak var typingTransport: ComposerTypingTransporting?
+    /// One config read per model, on the first typing frame (the window is only observable once a row
+    /// is on screen).
+    private var didLoadTypingSettings = false
     /// Every load takes a number; a response that arrives after a newer load is dropped instead of
     /// merged (a fast channel switch otherwise mixes two channels' posts).
     private var generation = 0
@@ -228,16 +243,19 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
          myUserID: String? = nil,
          lastViewedAt: Int64? = nil,
          profiles: UserProfileCache? = nil,
+         typing: ComposerTypingTransporting? = nil,
          now: @escaping () -> Date = { Date() },
          calendar: Calendar = .current,
          locale: Locale = .current) {
         self.channelID = channelID
         self.title = channelName ?? ""
+        self.typing = TypingIndicator(channelID: channelID, parentID: "")
         self.service = service
         self.myUserID = myUserID
         self.lastViewedAt = lastViewedAt
         self.lastViewedAtIsAuthoritative = lastViewedAt != nil
         self.profiles = profiles
+        self.typingTransport = typing
         self.now = now
         self.calendar = calendar
         self.locale = locale
@@ -254,6 +272,16 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
 
     func reload() async {
         await performInitialLoad()
+    }
+
+    /// Re-read the channel's own header (name, type, display name) without touching the window.
+    ///
+    /// Used when the **channel itself** changed server-side while it is on screen — t_d088f075's
+    /// conversion turns a group message into a private channel with the same id, so the pane keeps its
+    /// posts and reader position but its title, type and glyph are stale until this runs. A full
+    /// `reload()` would refetch the first page and drop the reader's place for no reason.
+    func refreshHeader() async {
+        await loadChannelHeader()
     }
 
     func retry() async {
@@ -673,6 +701,15 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             // A thread's read position is the thread pane's business (and the global list's); the
             // channel timeline draws no per-thread read state.
             return record(.ignored)
+        case .typing(let typing):
+            // T4f: a `typing` frame whose `parent_id` is empty is a **channel** message being typed;
+            // one that names a root belongs to that thread's pane (measured on 9.11.19: the frame
+            // carries `data.parent_id`, `""` for the channel and the root id for a reply, and the
+            // sender is omitted from its own broadcast). `accepts` is that comparison, and the row's
+            // own channel check keeps another channel's frame out.
+            guard self.typing.accepts(typing) else { return record(.ignored) }
+            noteTyping(typing)
+            return record(.typing)
         case .userAdded(let change), .userRemoved(let change):
             // t_0f8e0eb2: the header's subtitle counts people, so a join or a removal while the pane
             // is open moves it — upstream observes the same `channel_info` row its socket handlers
@@ -685,7 +722,7 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             if case .userAdded = event { adding = true } else { adding = false }
             memberCount = max(0, current + (adding ? 1 : -1))
             outcome = .patched
-        case .hello, .typing, .statusChange, .preferencesChanged, .preferencesDeleted, .userUpdated,
+        case .hello, .statusChange, .preferencesChanged, .preferencesDeleted, .userUpdated,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelMemberUpdated,
              .channelUpdated, .channelRestored,
              .postUnread, .plugin, .unhandled:
@@ -701,6 +738,42 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     private func record(_ outcome: EventOutcome) -> EventOutcome {
         lastEventOutcome = outcome
         return outcome
+    }
+
+    // MARK: - Typing (T4f)
+
+    /// Show one typist above the composer, resolving their display name.
+    ///
+    /// The frame names only an id, so the name is either already in this pane's profile map (the
+    /// author has posted here) or a second request. Until it lands the row reads "Someone is
+    /// typing…", and `rename` corrects it in place — an unnamed typist must not be drawn as a blank
+    /// or as `id` gibberish, and must not be dropped either.
+    private func noteTyping(_ typing: SocketTyping) {
+        loadTypingSettingsIfNeeded()
+        let name = users[typing.userID].map(PostListDerivation.displayName)
+        self.typing.receive(userID: typing.userID, name: name)
+        guard name == nil else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            await self.loadProfiles(for: [typing.userID])
+            if let user = self.users[typing.userID] {
+                self.typing.rename(userID: typing.userID,
+                                   name: PostListDerivation.displayName(for: user))
+            }
+        }
+    }
+
+    /// Read the server's typing interval once, so the row's window is the server's own
+    /// (`TimeBetweenUserTypingUpdatesMilliseconds`). A host with no rail keeps the documented default.
+    private func loadTypingSettingsIfNeeded() {
+        guard !didLoadTypingSettings else { return }
+        didLoadTypingSettings = true
+        guard let transport = typingTransport else { return }
+        Task { [weak self] in
+            guard let settings = await transport.settings(), settings.interval > 0 else { return }
+            guard let self else { return }
+            self.typing.expiry = settings.interval
+        }
     }
 
     /// The window's membership rule, stated **once** and used by both halves (T34-AV-F1).

@@ -122,6 +122,10 @@ struct ChannelInfoView: View {
     @State private var showsSettings = false
     @State private var showsNotifications = false
     @State private var showsFiles = false
+    /// t_d088f075: the conversion screen, pushed from its row; the model is built from the tap so a
+    /// reopened screen never shows a previous attempt's name.
+    @State private var showsConvert = false
+    @State private var conversionModel: ConvertGMToChannelViewModel?
     /// Built from the row's own tap, so the pushed screen always has its model (T52-R3).
     @State private var filesModel: ChannelFilesViewModel?
     /// The **one** sheet this screen presents, and the item that closes it.
@@ -159,6 +163,7 @@ struct ChannelInfoView: View {
                             .accessibilityIdentifier("channelInfo.readOnlyNote")
                     }
                 }
+                ignoreMentionsSection
                 actionsSection
                 sharedTeamsSection
                 if let banner = model.banner {
@@ -200,6 +205,25 @@ struct ChannelInfoView: View {
                                  channelID: model.channelID,
                                  imageStore: imageStore,
                                  downloads: downloads)
+            }
+        }
+        // t_d088f075: the group-message conversion. On success the sheet closes and the reader lands on
+        // the converted channel through `NativeNavigation` — the one funnel every other "go to a
+        // channel" path uses, so a phone push and a split-view selection agree. The **id is unchanged**
+        // by the conversion (measured), so this re-selects the conversation already open.
+        .navigationDestination(isPresented: $showsConvert) {
+            if let conversionModel {
+                ConvertGMToChannelView(model: conversionModel) { target in
+                    onClose()
+                    // The channel's record changed (a group message became a private channel with the
+                    // same id): tell the open pane so its header refetches, then land on it. Order
+                    // matters only in that both happen from this one completion.
+                    navigation?.channelDidChange(serverID: server.id, channelID: target.channelID)
+                    navigation?.openChannel(NativeChannelRequest(serverID: server.id,
+                                                                 teamID: target.teamID,
+                                                                 channelID: target.channelID,
+                                                                 channelName: target.channelName))
+                }
             }
         }
         // T52: the pinned row opens T39's existing sheet, not a second pinned list. One item-bound
@@ -314,6 +338,59 @@ struct ChannelInfoView: View {
         }
     }
 
+    /// T8525: upstream's channel-info "Ignore @channel, @here, @all" toggle
+    /// (`app/screens/channel_info/options/ignore_mentions/`, drawn for every type but a direct message).
+    ///
+    /// The switch's state is **derived** from the server (`ChannelMentionIgnoreToggle`), never held as a
+    /// local flag: the channel value, or the account's `notify_props.channel` when the channel says
+    /// `"default"`. A value this build does not know is quoted with the server's own string and cannot be
+    /// flipped — the tap would rewrite a setting nobody here understands.
+    @ViewBuilder
+    private var ignoreMentionsSection: some View {
+        if model.showsIgnoreMentionsSwitch {
+            Section {
+                switch model.ignoreMentionsState {
+                case .ignoring, .notIgnoring:
+                    Toggle(isOn: Binding(
+                        get: { model.isIgnoringMentions },
+                        set: { ignoring in
+                            Task { await model.setIgnoreMentions(ignoring) }
+                        })) {
+                        Label("Ignore @channel, @here, @all", systemImage: "at")
+                    }
+                    .disabled(!model.canToggleIgnoreMentions)
+                    .accessibilityIdentifier("channelInfo.ignoreMentions")
+                case .unknown(let raw):
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Ignore @channel, @here, @all: \(raw)", systemImage: "at")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Text("This build does not know that value, so it is shown as the server sent it.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("channelInfo.ignoreMentions.unknown")
+                case .unreadable:
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Your mention setting for this channel could not be read.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("channelInfo.ignoreMentions.unreadable")
+                        Button("Try again") {
+                            Task { await model.refreshNotifyProps() }
+                        }
+                        .accessibilityIdentifier("channelInfo.ignoreMentions.retry")
+                    }
+                }
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text("Channel-wide mentions stop notifying you; a message that names you still does.")
+            }
+        }
+    }
+
     @ViewBuilder
     private var actionsSection: some View {
         Section {
@@ -395,6 +472,20 @@ struct ChannelInfoView: View {
                 showsSettings = true
             } label: {
                 rowLabel("Channel settings", systemImage: "slider.horizontal.3")
+            }
+            .accessibilityIdentifier(action.identifier)
+        case .convertToChannel:
+            // The tap builds the model; a row whose screen cannot be built reports why (the same rule as
+            // the files row above) instead of pushing a spinner nothing fills in.
+            Button {
+                if let created = model.makeConversionModel() {
+                    conversionModel = created
+                    showsConvert = true
+                } else {
+                    model.reportConversionUnavailable()
+                }
+            } label: {
+                rowLabel(ConvertGMToChannelCopy.actionTitle, systemImage: "lock")
             }
             .accessibilityIdentifier(action.identifier)
         case .archive:

@@ -125,8 +125,29 @@ final class APIClient: @unchecked Sendable {
         return response.body
     }
 
-    /// Typed GET for a **plugin** route — a path outside `/api/v4` (`/plugins/<id>/…`).
+    /// The server's release, from the `X-Version-Id` response header.
     ///
+    /// Every Mattermost response carries `X-Version-Id: 9.11.19.16643067630.729911b468…false` (measured
+    /// on 9.11.19); the body does not (`GET /system/ping` answers `status` only, and there is no
+    /// `/system/version` route — it answers `404`), which is why upstream's own client reads this header
+    /// in `doFetch`. Reusing it here costs **no extra request**: the ping that proves the server is up is
+    /// the same call a feature floor needs.
+    ///
+    /// Answers only the leading `major.minor.patch`, or `nil` when the header is missing or unparseable.
+    /// A feature gate must treat `nil` as "unknown", never as an old server.
+    func serverVersionID() async -> String? {
+        guard let response = try? await perform(method: .get,
+                                                path: "/system/ping",
+                                                query: [],
+                                                body: nil,
+                                                requiresAuth: false,
+                                                useETag: false) else { return nil }
+        guard let raw = response.headers.first(where: { $0.key.lowercased() == "x-version-id" })?.value,
+              let version = ServerVersionNumber(raw) else { return nil }
+        return "\(version.major).\(version.minor).\(version.patch)"
+    }
+
+    /// Typed GET for a **plugin** route — a path outside `/api/v4` (`/plugins/<id>/…`).
     /// Same transport, same token, same 401→re-auth funnel, same TLS decision as every other call;
     /// only the URL join differs (a plugin mounts at the server root, not under the API prefix).
     /// No ETag: a plugin's answer can change without a validator, and these two routes are cheap.
@@ -163,11 +184,12 @@ final class APIClient: @unchecked Sendable {
     /// POST with a `Codable` body and a typed response.
     func post<T: Decodable, Body: Encodable>(_ type: T.Type,
                                              path: String,
+                                             query: [URLQueryItem] = [],
                                              body: Body,
                                              requiresAuth: Bool = true,
                                              notFoundKeepsServerMessage: Bool = false) async throws -> T {
         let data = try encode(body)
-        let response = try await perform(method: .post, path: path, query: [],
+        let response = try await perform(method: .post, path: path, query: query,
                                          body: data, requiresAuth: requiresAuth,
                                          useETag: false,
                                          notFoundKeepsServerMessage: notFoundKeepsServerMessage)

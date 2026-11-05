@@ -101,6 +101,11 @@ enum ChannelPermissionID {
     static let listTeamChannels = "list_team_channels"
     static let joinPublicChannels = "join_public_channels"
     static let readChannel = "read_channel"
+    /// The write gate (kanban t_03411e94): upstream asks `observePermissionForChannel(… CREATE_POST)`
+    /// to decide whether the composer is an input or the read-only banner. It is the same
+    /// "what may I do in this channel?" question every other id here answers, so it is named in the
+    /// same place; no capability in `ChannelInfoCapabilities` consults it.
+    static let createPost = "create_post"
 
     /// Every id this surface consults. Kept as a list so a test can prove the set is closed (no gate
     /// reads a permission that is not named here).
@@ -109,7 +114,7 @@ enum ChannelPermissionID {
         managePublicChannelProperties, managePrivateChannelProperties,
         deletePublicChannel, deletePrivateChannel,
         convertPublicChannelToPrivate, manageTeam,
-        listTeamChannels, joinPublicChannels, readChannel,
+        listTeamChannels, joinPublicChannels, readChannel, createPost,
     ]
 }
 
@@ -147,6 +152,11 @@ struct ChannelInfoCapabilities: Equatable, Sendable {
     var canArchive: Bool
     /// Unarchive (`POST /channels/{id}/restore`).
     var canUnarchive: Bool
+    /// t_d088f075: convert a **group message** into a private channel
+    /// (`POST /channels/{id}/convert_to_channel`). Upstream's `convertGMOptionAvailable`: type `G`, a
+    /// non-guest, not archived, and a server at 9.1 or later. Not a permission id — measured, a plain
+    /// `team_user` who is in the conversation may convert it.
+    var canConvertGroupMessage: Bool
     /// The channel browser itself (team-level `list_team_channels`).
     var canBrowseChannels: Bool
     /// Join a public channel from the browser (`join_public_channels`).
@@ -165,6 +175,7 @@ struct ChannelInfoCapabilities: Equatable, Sendable {
                                               canLeave: false,
                                               canArchive: false,
                                               canUnarchive: false,
+                                              canConvertGroupMessage: false,
                                               canBrowseChannels: false,
                                               canJoinPublicChannels: false)
 
@@ -176,9 +187,13 @@ struct ChannelInfoCapabilities: Equatable, Sendable {
     ///     (`system_user`, the team membership's roles and the channel membership's roles). The caller
     ///     builds it with `ChannelPermissions.union(roles:)`; nothing here inspects a role name.
     ///   - isGuest: a guest may leave the default channel (upstream's `canLeave`).
+    ///   - serverVersion: `X-Version-Id` as `major.minor.patch`, for the one feature floor this screen
+    ///     consults (`canConvertGroupMessage`, 9.1). Empty is "unknown", which leaves the floor open —
+    ///     it is an availability question, not a security gate.
     static func derive(channel: MMChannel?,
                        permissions: Set<String>,
-                       isGuest: Bool) -> ChannelInfoCapabilities {
+                       isGuest: Bool,
+                       serverVersion: String = "") -> ChannelInfoCapabilities {
         guard let channel else { return .none }
         let kind = ChannelInfoKind(raw: channel.type)
         let isArchived = channel.deleteAt != 0
@@ -214,6 +229,11 @@ struct ChannelInfoCapabilities: Equatable, Sendable {
                                        canLeave: canLeave,
                                        canArchive: canArchive,
                                        canUnarchive: canUnarchive,
+                                       canConvertGroupMessage: ConvertGMToChannelGate.isAvailable(
+                                           kind: kind,
+                                           isGuest: isGuest,
+                                           isArchived: isArchived,
+                                           serverVersion: serverVersion),
                                        canBrowseChannels: permissions.contains(ChannelPermissionID.listTeamChannels),
                                        canJoinPublicChannels: permissions.contains(ChannelPermissionID.joinPublicChannels))
     }
@@ -257,6 +277,9 @@ struct ChannelInfoCapabilities: Equatable, Sendable {
         if !kind.isDirectOrGroup { actions.append(.files) }
         actions.append(.pinned)
         if canManageSettings { actions.append(.settings) }
+        // t_d088f075: upstream draws it in the channel-settings screen, between the settings rows and
+        // archive; this screen's list is the same order.
+        if canConvertGroupMessage { actions.append(.convertToChannel) }
         if canArchive { actions.append(.archive) }
         if canUnarchive { actions.append(.unarchive) }
         if canLeave { actions.append(.leave) }
@@ -275,6 +298,8 @@ enum ChannelInfoActionID: String, Equatable, Sendable, CaseIterable {
     /// T52: opens the existing pinned-messages sheet.
     case pinned
     case settings
+    /// t_d088f075: the group-message conversion.
+    case convertToChannel
     case archive
     case unarchive
     case leave

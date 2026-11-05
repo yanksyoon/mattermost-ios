@@ -65,6 +65,10 @@ final class ChannelInfoViewModel: ObservableObject {
     @Published private(set) var refusedMessage: String?
     /// Whether the permission lookup answered. `false` renders the screen read-only with a note.
     @Published private(set) var permissionsAvailable = false
+    /// The server's release (`X-Version-Id`), read only for a group message because that is the only
+    /// row it can close (`canConvertGroupMessage`, 9.1). Empty means "unknown", which leaves the floor
+    /// open — a feature availability question, not a security gate (see `ConvertGMToChannelGate`).
+    @Published private(set) var serverVersion: String = ""
 
     // MARK: T52 state
 
@@ -77,6 +81,14 @@ final class ChannelInfoViewModel: ObservableObject {
     /// The teams a **group message**'s members share (`GET /channels/{id}/common_teams`). Empty for
     /// every other channel type, and empty when the route refuses — no row is drawn for an empty list.
     @Published private(set) var commonTeams: [MMTeam] = []
+    /// T8525: the account's own `notify_props.channel`, read from the same `GET /users/me` the permission
+    /// lookup uses. It is what a channel's `ignore_channel_mentions: "default"` resolves against
+    /// (upstream `isChannelMentionsIgnored`). `nil` = the account setting could not be read, and the
+    /// switch then says so instead of drawing an "off" the reader never chose.
+    @Published private(set) var accountChannelMentions: Bool?
+    /// Whether the ignore-mentions write is in flight (the switch is disabled until it lands, so a second
+    /// tap cannot race the first).
+    @Published private(set) var isWritingIgnoreMentions = false
 
     /// The member list's own search field (upstream `manage_channel_members`'s search box).
     @Published var memberSearch: String = ""
@@ -157,11 +169,13 @@ final class ChannelInfoViewModel: ObservableObject {
         banner = nil
         refusedMessage = nil
 
+        var isGroupMessage = false
         do {
             let channel = try await service.channel(id: channelID)
             guard token == generation else { return }
             self.channel = channel
             if !channel.teamId.isEmpty { teamID = channel.teamId }
+            isGroupMessage = ChannelInfoKind(raw: channel.type) == .group
             phase = .ready
         } catch {
             guard token == generation else { return }
@@ -186,6 +200,14 @@ final class ChannelInfoViewModel: ObservableObject {
         }
         guard token == generation else { return }
         self.myUserID = principal?.id
+        // T8525: the account-level half of the ignore-mentions switch. A principal that did not carry
+        // `notify_props` leaves this `nil`, which the switch reports as unreadable rather than "off".
+        self.accountChannelMentions = principal?.channelMentions
+        // t_d088f075: the conversion's feature floor is the only thing that needs the release, and a
+        // group message is the only conversation it can apply to — so the ping is skipped everywhere else.
+        if isGroupMessage {
+            serverVersion = await service.serverVersionID() ?? ""
+        }
         // T52: the same membership read carries my `notify_props`; a failure here is "unreadable", not
         // "default", so the notifications screen can say so instead of drawing a guess.
         self.notifyPropsAvailable = membership != nil
@@ -268,6 +290,81 @@ final class ChannelInfoViewModel: ObservableObject {
         }
     }
 
+    // MARK: T8525 — the channel-info "Ignore mentions" switch
+
+    /// Whether the ignore-mentions switch is drawn at all.
+    ///
+    /// Upstream's condition is `type !== "D"` (`app/screens/channel_info/options/index.tsx`): every
+    /// channel type but a direct message gets the row — a group message included, which is why this is
+    /// not `isDirectOrGroup`.
+    var showsIgnoreMentionsSwitch: Bool {
+        capabilities.hasChannel && capabilities.kind != .direct
+    }
+
+    /// What the switch shows. `"default"` on the channel resolves against the account's own
+    /// `notify_props.channel`; when the account setting could not be read the answer is `.unreadable`
+    /// rather than a drawn "off".
+    var ignoreMentionsState: ChannelMentionIgnoreState {
+        ChannelMentionIgnoreToggle.resolve(channelValue: notifyDraft?.ignoreMentions,
+                                           accountChannelMentions: accountChannelMentions)
+    }
+
+    var isIgnoringMentions: Bool { ignoreMentionsState.isOn }
+
+    /// Whether the reader may flip it: the state has to be resolved (not an unknown server value, not an
+    /// unreadable membership) and no write may already be in flight.
+    var canToggleIgnoreMentions: Bool {
+        ignoreMentionsState.isWritable && !isWritingIgnoreMentions && !isArchived
+    }
+
+    /// Flip the channel's `ignore_channel_mentions` for **this reader**, through the same
+    /// `PUT …/notify_props` path the preferences screen uses, and prove it with the same read-back.
+    ///
+    /// The body is one field — `{"ignore_channel_mentions": "on" | "off"}` — and it is only sent when the
+    /// server's current value differs from the target, so a tap on an already-written value is not a
+    /// write. Upstream writes the explicit value and never `"default"`
+    /// (`app/screens/channel_info/options/ignore_mentions/ignore_mentions.tsx`).
+    @discardableResult
+    func setIgnoreMentions(_ ignoring: Bool) async -> Bool {
+        guard capabilities.hasChannel else {
+            refuse("This channel could not be loaded.")
+            return false
+        }
+        guard let myUserID, let current = notifyDraft, current.isReadable else {
+            refuse("Your notification preferences could not be read.")
+            return false
+        }
+        switch ignoreMentionsState {
+        case .unknown(let raw):
+            // The server's stored value is not one this build knows. Rewriting it would claim we know
+            // what it means; the row shows it verbatim instead (the T52 rule for every level).
+            refuse("This channel's mention setting is \"\(raw)\", which this app does not know how to change.")
+            return false
+        case .unreadable:
+            refuse("Your account's channel-mention setting could not be read.")
+            return false
+        case .ignoring, .notIgnoring:
+            break
+        }
+        let target = ChannelMentionIgnoreToggle.wireValue(ignoring)
+        guard current.ignoreMentions != target else { return true }
+        isWritingIgnoreMentions = true
+        banner = nil
+        refusedMessage = nil
+        defer { isWritingIgnoreMentions = false }
+        do {
+            try await service.setNotifyProps(channelID: channelID, userID: myUserID,
+                                             fields: [ChannelNotifyDraft.ignoreMentionsKey: target])
+            let member = try await service.member(channelID: channelID, userID: myUserID)
+            notifyDraft = ChannelNotifyDraft(member: member)
+            notifyPropsAvailable = true
+            return true
+        } catch {
+            banner = Self.copy(for: error, fallback: "That setting could not be saved.")
+            return false
+        }
+    }
+
     /// A fresh files model for the channel (the screen owns it for as long as it is open).
     ///
     /// Nil when the channel has no team or no URL name: the file search is keyed by both, and a search
@@ -288,10 +385,30 @@ final class ChannelInfoViewModel: ObservableObject {
                                      service: service)
     }
 
-    /// The files row's tap when the list cannot be built: say so in the screen's banner, rather than a
-    /// tap that silently does nothing.
+    /// Report that a row could not be built, in the screen's banner, rather than a tap that silently
+    /// does nothing.
     func reportFilesUnavailable() {
         banner = "Files are not available for this conversation."
+    }
+
+    /// The conversion screen's model, built from the tap (t_d088f075).
+    ///
+    /// `nil` when the row may not be offered (the gate), when the channel has not been read, or when the
+    /// service cannot perform the write — the caller then reports it instead of pushing a screen that
+    /// cannot work. The model is **not** cached: it holds one draft for one attempt, and a cached one
+    /// would reopen with the previous name in it (the T47-AV F6 failure, one screen over).
+    func makeConversionModel() -> ConvertGMToChannelViewModel? {
+        guard let channel, capabilities.canConvertGroupMessage else { return nil }
+        guard let conversion = service as? ChannelConversionServing else { return nil }
+        return ConvertGMToChannelViewModel(channel: channel,
+                                           isGuest: myIsGuest,
+                                           serverVersion: serverVersion,
+                                           service: conversion)
+    }
+
+    /// The banner a tap on the conversion row leaves when the screen cannot be built.
+    func reportConversionUnavailable() {
+        banner = "This conversation cannot be converted to a channel."
     }
 
     private func loadCommonTeams(token: Int) async {
@@ -319,7 +436,8 @@ final class ChannelInfoViewModel: ObservableObject {
             permissionsAvailable = false
             capabilities = ChannelInfoCapabilities.derive(channel: channel,
                                                           permissions: [],
-                                                          isGuest: false)
+                                                          isGuest: false,
+                                                          serverVersion: serverVersion)
             return
         }
         let roleNames = ChannelPermissions.roleNames(systemRoles: principal.roles,
@@ -337,7 +455,8 @@ final class ChannelInfoViewModel: ObservableObject {
         myIsGuest = principal.isGuest
         capabilities = ChannelInfoCapabilities.derive(channel: channel,
                                                      permissions: permissions,
-                                                     isGuest: principal.isGuest)
+                                                     isGuest: principal.isGuest,
+                                                     serverVersion: serverVersion)
     }
 
     // MARK: Members
@@ -598,6 +717,12 @@ final class ChannelInfoViewModel: ObservableObject {
             }
         case .channelMemberUpdated(let update) where update.channelID == channelID:
             merge(members: [update.member])
+            // T8525: my own membership carries my `notify_props`, so another client flipping the
+            // ignore-mentions switch (or a mute) lands on this screen through the same read.
+            if update.member.userId == myUserID {
+                notifyDraft = ChannelNotifyDraft(member: update.member)
+                notifyPropsAvailable = true
+            }
         case .statusChange(let change):
             guard statuses[change.userID] != nil else { return }
             statuses[change.userID] = MMStatus(userId: change.userID, status: change.status)
@@ -637,7 +762,8 @@ final class ChannelInfoViewModel: ObservableObject {
         // known rather than re-fetched (a rename must not blank the actions for a moment).
         capabilities = ChannelInfoCapabilities.derive(channel: updated,
                                                       permissions: permissions,
-                                                      isGuest: myIsGuest)
+                                                      isGuest: myIsGuest,
+                                                      serverVersion: serverVersion)
         // A channel that is no longer a group message has no shared-teams row; keeping the old list
         // would draw a row about a conversation this is no longer.
         if capabilities.kind != .group { commonTeams = [] }

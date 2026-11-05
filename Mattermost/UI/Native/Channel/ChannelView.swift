@@ -831,7 +831,8 @@ struct ChannelPaneContent: View {
             }
             Divider()
             if composerIsNative, let composer {
-                ComposerView(model: composer, emoji: emoji, recents: emojiRecents)
+                ComposerView(model: composer, emoji: emoji, recents: emojiRecents,
+                             typing: model?.typing)
             } else {
                 composerPlaceholder
             }
@@ -914,6 +915,13 @@ struct ChannelPaneContent: View {
             guard let rootID, let model else { return }
             model.consumeThreadJump()
             openThreadJump(rootID: rootID)
+        }
+        // t_d088f075: a conversion keeps the channel's **id** and changes everything the header draws
+        // (type group → private, and it gains a display name). The route is re-opened with the new name
+        // and this pane would otherwise keep its old title and glyph, because the id — the only thing
+        // its `.task(id:)` watches — did not change.
+        .onChange(of: navigation.channelRevision(serverID: server.id, channelID: channelID)) { _, _ in
+            Task { await model?.refreshHeader() }
         }
         .sheet(isPresented: $showsPinned) {
             PinnedPostsView(server: server,

@@ -379,6 +379,14 @@ final class NativeNavigation: ObservableObject {
     /// Read by the thread pane's leading control, which has to name — and reach — the screen the
     /// reader came from: `#channel` on the timeline, the Threads list from a list row.
     @Published private(set) var threadEntryPoint: ThreadEntryPoint?
+
+    /// Bumped when a channel's own record changed **outside** its pane (t_d088f075: converting a group
+    /// message to a private channel keeps the id and changes the type and display name, so the pane's
+    /// `.task(id: channelID)` — the only thing that reloads it — never fires).
+    ///
+    /// A counter rather than a "refresh" call so the pane keeps ownership of its own loading: the flow
+    /// that changed the channel says *that* it changed, and the pane decides what to refetch.
+    @Published private(set) var channelRevisions: [String: Int] = [:]
     /// The active server's auth state, refreshed on every navigation and on appearance.
     @Published private(set) var authState: NativeAuthState = .signedIn
 
@@ -476,6 +484,23 @@ final class NativeNavigation: ObservableObject {
     }
 
     // MARK: Direct (manual) navigation — the third entry point
+
+    /// Tell the open pane that the **channel's own record** changed, so it refetches its header.
+    ///
+    /// The pane is keyed by channel id alone (`.task(id: channelID)`), which is exactly the fact a
+    /// conversion preserves — so without this it keeps drawing the old type, name and glyph until the
+    /// reader reopens the app. Callers: the group-message conversion (t_d088f075).
+    func channelDidChange(serverID: UUID?, channelID: String) {
+        guard let serverID else { return }
+        let key = "\(serverID.uuidString)/\(channelID)"
+        channelRevisions[key, default: 0] += 1
+    }
+
+    /// How many times the channel's record was reported changed — `nil` when never.
+    func channelRevision(serverID: UUID?, channelID: String) -> Int? {
+        guard let serverID else { return nil }
+        return channelRevisions["\(serverID.uuidString)/\(channelID)"]
+    }
 
     @discardableResult
     func openChannel(_ request: NativeChannelRequest) -> NativeNavigationOutcome {

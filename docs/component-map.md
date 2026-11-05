@@ -230,8 +230,10 @@ at `987e5712…`; "decomposition" always follows §1 rules.
   menu, the display name and the URL-name rule, the request body), `CreateChannelService.swift`,
   `CreateChannelViewModel.swift`, `CreateChannelView.swift`, plus `NewDirectMessageView.swift` for the
   people picker; the entry point is the channel-list header's `+` (`ChannelCreateMenuButton` in
-  `ChannelSidebarView.swift`). **edit / archive** (T40) — `ChannelSettingsView.swift`. Not shipped:
-  convert-GM-to-channel (still on the parity table).
+  `ChannelSidebarView.swift`). **edit / archive** (T40) — `ChannelSettingsView.swift`. **convert a
+  group message** (t_d088f075) — `ConvertGMToChannelModels.swift` (the version floor, the name rules,
+  the failure copy), `ConvertGMToChannelViewModel.swift`, `ConvertGMToChannelView.swift`, drawn from
+  the channel-info sheet's row between the settings rows and Archive.
 
 ### S11 Channel view (post list) — `native` (T34) — **core, L/high risk**
 - Sources: `M app/screens/channel/` (`channel.tsx`, `channel_content.tsx`,

@@ -287,7 +287,7 @@ point at.
 | `app/components/post_draft/quick_actions/` | the markdown toolbar's action set (bold, italic, strike, code, code block, link, quote, list) applied to a selection with the caret preserved |
 | `app/components/post_draft/uploads/` | the attachment tray: one upload per file, a per-file state the reader can see, cancel, and **no automatic retry** (a replayed multipart body can duplicate an attachment) |
 | `app/components/post_draft/draft_handler/`, `app/actions/local/draft.ts` | what a draft *is*: keyed by channel and thread root, empty text removes the row, and it is written before the reader can lose it |
-| `app/components/post_draft/archived/`, `read_only/`, `typing/` | read only — the archived/read-only banners and the typing indicator are **not** part of this card (no banner is drawn; typing is a socket feature T34 does not ship either) |
+| `app/components/post_draft/archived/`, `read_only/`, `typing/` | read only — the archived/read-only banners and the typing indicator are **not** part of this card (no banner is drawn; the typing indicator is T4f, see §24) |
 | `app/components/autocomplete/autocomplete.tsx` | one suggestion surface that switches source on the trigger character, and the "the list is a generation, a late answer loses" rule |
 | `app/components/autocomplete/at_mention/`, `at_mention_item/`, `at_mention_group/` | the `@` list: `GET /users/autocomplete` with `in_channel_id`/`in_team_id`, an id-keyed membership check, and `@username` inserted with a trailing space |
 | `app/components/autocomplete/channel_mention/` | the `#` list: channel search over the loaded team, inserted as Mattermost's own `~name` link syntax even though the trigger is `#` |
@@ -350,8 +350,6 @@ point at.
 | `app/screens/thread/index.tsx`, `app/screens/thread/thread.tsx`, `thread_content.tsx` | the screen's data pass: one root per pane, the read-marking on mount, and the header/post-list/composer composition |
 | `app/screens/thread/thread_post_list/thread_post_list.tsx` | root drawn once and first, then replies oldest-first, "load earlier" above the chain, and the `fromPost`/`fromCreateAt` paging pair |
 | `app/screens/thread/thread_follow_button/thread_follow.tsx` | the bell as the only follow control, and the rule that the control follows the state it just wrote |
-| `app/screens/thread_options/thread_options.tsx`, `options/open_in_channel_option.tsx` | the thread pane's own "Open in Channel" entry (`showPermalink(serverUrl, '', threadId)`), offered for the thread's **root**: the pane's row menu jumps to the root's place in its channel (`PostOptionID.openInChannel`, `OpenInChannelJump`, t_510a5563) |
-| `app/utils/permalink/index.ts` (`displayPermalink`), `app/actions/remote/permalink.ts` (`showPermalink`) | where that jump goes: the current team resolves the route, and the permalink screen opens the post's channel focused on the post — here `NativeChannelRequest` + `ChannelViewModel.focus(postID:)` |
 | `app/components/post_list/thread_overview/thread_overview.tsx` | the reply line under a root: participant avatars then "N replies", and that tapping it opens the thread |
 | `app/screens/global_threads/global_threads.tsx`, `threads_list/index.tsx`, `threads_list/threads_list.tsx` | the followed list, its two tabs, `onEndReached` paging by the last thread id, and the end-of-list state |
 | `app/screens/global_threads/threads_list/thread/thread.tsx`, `threads_list/header/index.tsx`, `threads_list/empty_state.tsx` | the row's copy (root author, stripped one-line preview, reply count) and the All/Unreads header |
@@ -384,11 +382,10 @@ with no app involved — `scripts/t36_thread_probe.py`, output in `docs/t36-buil
   is 404, so there is no channel-scoped followed list to draw (upstream's `threads_button` opens the
   global one too).
 
-Not ported by this card (other cards own them, or the surface is out of scope): a jump-to-unread
+Not ported by this card (other cards own them, or the surface is out of scope): the thread options
+menu's "open in channel" entry (the model has mark-unread; the UI draws the bell only), a jump-to-unread
 anchor **inside** a long chain (the pane opens at the newest reply), the T29 store (no threads
-offline), and scheduled/permalink navigation from a thread row. (The thread options menu's "open in
-channel" entry — listed here as not ported when T36 landed — is now implemented for the root row;
-see the two `thread_options` rows above.)
+offline), and scheduled/permalink navigation from a thread row.
 
 Reimplementation notes that matter for the licence boundary: the Swift types are written against
 `https://api.mattermost.com` (the thread paths above) and this repo's existing `APIClient`/`MMPost`
@@ -926,3 +923,66 @@ mp4 and a 48,500-byte mp3 uploaded through `POST /files` and attached with `POST
 `Content-Range: bytes 0-1/75022`; and `GET /files/{id}/thumbnail` answers **`400` for both**, which is
 why the video poster is decoded client-side from the staged file's first frame instead of fetched as a
 server thumbnail (the T38 image path's `has_thumbnail` is false for media, and stays false).
+
+## 24. T4f native typing indicator — upstream read set (Apache-2.0, mobile @ `162f2560…`)
+
+`Mattermost/UI/Native/Composer/TypingIndicator.swift` (the typist set, its per-frame expiry and the
+sentence), `ComposerTypingTransport.swift` (the one socket send and the one config read),
+`Mattermost/Core/MM/MMTypingSettings.swift` (the server's two keys), the announce gate in
+`ComposerViewModel.swift`, and `TypingRow` in `ComposerView.swift` give the composer the write-side
+and the two panes the read-side of "X is typing…". Nothing upstream is copied or transpiled; the
+upstream TypeScript was read for rules only, and every new file pins the upstream it derives from in
+its own header.
+
+| Upstream path (mobile @ `162f2560…`) | Used for |
+|---|---|
+| `app/components/post_draft/typing/index.tsx` | the sentence (**"{user} is typing…"**, **"{users} and {last} are typing…"** — `msg_typing.isTyping` / `msg_typing.areTyping`), the **three-name cap** (`splice(3)` + `pop`), and the rule that the row is drawn only while somebody is typing |
+| `app/components/post_draft/post_input/post_input.tsx` | the **send gate**: `EnableUserTypingMessages`, a leading-edge send on the first keystroke, then at most one frame per `TimeBetweenUserTypingUpdatesMilliseconds`; the interval resets when the message is sent or emptied |
+| `app/actions/websocket/users.ts` | the **receive path**: a `typing` frame is a heartbeat — the typist is (re)inserted and their entry expires after the same interval; the frame is addressed by `broadcast.channel_id` **plus** `data.parent_id` |
+| `app/client/websocket/index.ts` | the frame's shape: `user_typing` with `data.channel_id` / `data.parent_id`, sent on the client's **one** socket per server |
+| `app/actions/websocket/event.ts`, `app/constants/websocket.ts` | the event name as received (`typing`) and its envelope |
+| `W …/components/post_draft/typing/` | **behaviour cross-check only** — what Path A's webview draws for the same frame; not ported |
+
+**Measured against the real server** (`scripts/t4f_typing_probe.py`, Mattermost **9.11.19**):
+`GET /api/v4/config/client?format=old` answers `EnableUserTypingMessages = "true"` and
+`TimeBetweenUserTypingUpdatesMilliseconds = "5000"` as **strings** (both absent from an unauthenticated
+read); a `user_typing` sent by one account reaches every other account in the channel with the channel
+in **`broadcast.channel_id`** — `data` carries only `parent_id` and `user_id` — the sender is omitted
+from its own broadcast (`broadcast.omit_users`), and an omitted `parent_id` is normalised to `""` and a
+thread's root is echoed verbatim. The decode in `SocketEvent.swift` reads `data.channel_id` first and
+falls back to the broadcast for exactly this reason: without the fallback every frame decoded an empty
+channel and was refused, which is how the first live run failed.
+
+## 25. Td088 converting a group message to a private channel — upstream read set (Apache-2.0, mobile @ `162f2560…`; server contract measured)
+
+`Mattermost/UI/Native/ChannelInfo/ConvertGMToChannelModels.swift` (the version floor, the name rules
+and the failure copy), `ConvertGMToChannelViewModel.swift` (the one draft, the common-teams read and
+the write), `ConvertGMToChannelView.swift` (the form, the message boxes and the no-common-teams state)
+and `ConvertGMToChannelService.swift` (the protocol split) reproduce the mobile client's
+"Convert to a private channel" screen for a group message. The channel-info row is drawn by
+`ChannelInfoModels.swift` (`ChannelInfoAction.canConvertGroupMessage`, between the settings rows and
+Archive, as upstream's channel settings draw it). Nothing upstream is copied or transpiled; the
+TypeScript was read for rules only, and every new file pins the upstream it derives from in its own
+header.
+
+| Upstream path (mobile @ `162f2560…`) | Used for |
+|---|---|
+| `app/screens/convert_gm_to_channel/convert_gm_to_channel.tsx` | the screen's own flow: load the members' common teams, then the form or the "no common teams" state; submit, then switch to the converted channel |
+| `app/screens/convert_gm_to_channel/convert_gm_to_channel_form.tsx` | the form's rows (warning, channel name, team, message) and the order they are drawn in |
+| `app/screens/convert_gm_to_channel/channel_name_input.tsx` | the name field: the URL name derived from the display name until the reader edits it, and the error drawn under the field |
+| `app/screens/convert_gm_to_channel/team_selector.tsx` | the team row: a picker when the members share more than one team, a fixed label when they share one |
+| `app/screens/convert_gm_to_channel/message_box.tsx` | the bordered warning block (header + body, danger variant) |
+| `app/screens/convert_gm_to_channel/no_common_teams_form.tsx` | the state with no usable team, and its only action (back) |
+| `app/screens/channel_info/index.ts` | the row's position (`convertGM` between the settings rows and Archive) and the gate that offers it |
+| `app/actions/remote/channel.ts` | `convertGroupMessageToPrivateChannel` (the POST, then switching to the channel by id) and `fetchGroupMessageMembersCommonTeams` |
+| `app/client/rest/channels.ts` | the request shape of `POST /channels/{id}/convert_to_channel?team-id=` |
+
+**Measured against the real server** (`scripts/td088_convert_gm_probe.py`, Mattermost **9.11.19**):
+the conversion answers **200** with the channel's new record — `type: "P"`, `team_id` the target team,
+**the same id**, `display_name` what was sent and `name` the derived URL name; `/channels/{id}/convert`
+is `404` (so the route the card names is not the one that exists); a scope-less `POST` with only a body
+also converts, the `team-id` query is the documented shape; a taken name is
+`400 store.sql_channel.save_channel.exists.app_error`; a team whose membership misses one of the
+group's members is `400 app.channel.group_message_conversion.incorrect_team`; a non-group channel is
+`400 app.channel.get_common_teams.incorrect_channel_type`; and a plain `team_user` who is in the
+conversation may convert it, which is why the row is not a permission id.

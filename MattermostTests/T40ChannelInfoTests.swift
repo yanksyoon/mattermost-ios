@@ -316,8 +316,26 @@ final class T40ChannelInfoTests: XCTestCase {
             XCTAssertFalse(caps.canArchive, "type \(type)")
             XCTAssertFalse(caps.canUnarchive, "type \(type)")
             XCTAssertTrue(caps.canLeave, "type \(type)")
-            XCTAssertEqual(caps.offeredActions, [.members, .notifications, .pinned, .leave], "type \(type)")
+            // t_d088f075: a group message additionally offers the conversion to a private channel. It
+            // is not an admin action — measured, a plain member may convert the conversation they are
+            // in — so it joins the member rows rather than the settings rows.
+            let expected: [ChannelInfoActionID] = type == "G"
+                ? [.members, .notifications, .pinned, .convertToChannel, .leave]
+                : [.members, .notifications, .pinned, .leave]
+            XCTAssertEqual(caps.offeredActions, expected, "type \(type)")
         }
+    }
+
+    /// t_d088f075: the conversion's own gate — a group message on a server **older** than 9.1 has no
+    /// `convert_to_channel` route, so the row must not be drawn for it (upstream's feature floor).
+    func testAGroupMessageOnAnOldServerOffersNoConversion() {
+        let caps = ChannelInfoCapabilities.derive(
+            channel: MMChannel(id: channelID, name: "gm", type: "G"),
+            permissions: Set(ChannelPermissionID.all),
+            isGuest: false,
+            serverVersion: "9.0.9")
+        XCTAssertFalse(caps.canConvertGroupMessage)
+        XCTAssertEqual(caps.offeredActions, [.members, .notifications, .pinned, .leave])
     }
 
     func testDefaultChannelCannotBeLeftOrManagedExceptByAGuest() {

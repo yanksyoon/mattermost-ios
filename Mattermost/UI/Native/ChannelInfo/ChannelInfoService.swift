@@ -73,6 +73,14 @@ protocol ChannelInfoServing: AnyObject {
     /// T52: `GET /channels/{id}/common_teams` — the teams a group message's members share.
     func commonTeams(channelID: String) async throws -> [MMTeam]
 
+    /// The server's release (`X-Version-Id`), for a feature floor — `nil` when it cannot be read.
+    ///
+    /// Only a *feature availability* question uses this (t_d088f075: the group-message conversion
+    /// arrived in 9.1). It is deliberately not a permission gate: an unreadable version leaves the
+    /// action offered and lets the server refuse the write, because hiding a working action over a
+    /// header is the worse error.
+    func serverVersionID() async -> String?
+
     /// The channels I am in on this team (`GET /users/me/teams/{tid}/channels`) — the browser's "joined"
     /// set, and the id set the browser needs to split its two sections.
     func myTeamChannels(teamID: String) async throws -> [MMChannel]
@@ -131,6 +139,10 @@ extension ChannelInfoServing {
     }
 
     func commonTeams(channelID: String) async throws -> [MMTeam] { [] }
+
+    /// Default: the version is unknown. A fake that does not model it must not accidentally *close* a
+    /// gate (that would let a test pass by hiding the row) — see `ConvertGMToChannelGate`.
+    func serverVersionID() async -> String? { nil }
 }
 
 /// The production implementation: the server's own `AuthSession.client`, resolved **per call** so a
@@ -249,6 +261,13 @@ final class SessionChannelInfoService: ChannelInfoServing {
         // A direct message or a public channel answers 400 here (measured); the caller only asks for a
         // group message, and any failure is "no shared-teams row", which is the honest empty answer.
         (try? await client().channelCommonTeams(channelID: channelID)) ?? []
+    }
+
+    /// `X-Version-Id` from `GET /system/ping` — the header upstream's own client reads for every
+    /// feature floor. `nil` (proxy stripped it, transport failure) is "unknown", never "old".
+    func serverVersionID() async -> String? {
+        guard let client = try? client() else { return nil }
+        return await client.serverVersionID()
     }
 
     // MARK: Browser

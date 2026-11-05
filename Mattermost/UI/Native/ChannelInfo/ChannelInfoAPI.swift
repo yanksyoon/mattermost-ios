@@ -325,6 +325,36 @@ extension APIClient {
                       useETag: false)
     }
 
+    // MARK: - Converting a group message (t_d088f075)
+
+    /// `POST /channels/{channel_id}/convert_to_channel?team-id={team_id}` — a group message becomes a
+    /// private channel in `teamID`, keeping its **id** and its posts.
+    ///
+    /// Measured on 9.11.19 (scripts/td088_convert_gm_probe.py):
+    ///   * **200** with the converted channel (`type: "P"`, `team_id` = the target team);
+    ///   * `/channels/{id}/convert` — the path the card names — is `404 api.context.404.app_error`;
+    ///   * a taken name is `400 store.sql_channel.save_channel.exists.app_error`;
+    ///   * a team whose membership misses one of the group's members is `400
+    ///     app.channel.group_message_conversion.incorrect_team`;
+    ///   * a non-group channel is `400 app.channel.get_common_teams.incorrect_channel_type`.
+    ///
+    /// The `team-id` query is sent because it is the documented shape; the server reads the body's
+    /// `team_id` even without it (measured §6).
+    func convertGroupMessageToChannel(channelID: String,
+                                      teamID: String,
+                                      displayName: String,
+                                      name: String) async throws -> MMChannel {
+        let body = ConvertGMToChannelBody(channelID: channelID,
+                                          teamID: teamID,
+                                          displayName: displayName,
+                                          name: name)
+        return try await post(MMChannel.self,
+                              path: "/channels/\(channelID)/convert_to_channel",
+                              query: [URLQueryItem(name: "team-id", value: teamID)],
+                              body: body,
+                              notFoundKeepsServerMessage: true)
+    }
+
     // MARK: - Bodies
 
     private struct AddMemberBody: Encodable {
