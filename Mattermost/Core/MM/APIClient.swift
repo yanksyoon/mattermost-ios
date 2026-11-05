@@ -164,11 +164,13 @@ final class APIClient: @unchecked Sendable {
     func post<T: Decodable, Body: Encodable>(_ type: T.Type,
                                              path: String,
                                              body: Body,
-                                             requiresAuth: Bool = true) async throws -> T {
+                                             requiresAuth: Bool = true,
+                                             notFoundKeepsServerMessage: Bool = false) async throws -> T {
         let data = try encode(body)
         let response = try await perform(method: .post, path: path, query: [],
                                          body: data, requiresAuth: requiresAuth,
-                                         useETag: false)
+                                         useETag: false,
+                                         notFoundKeepsServerMessage: notFoundKeepsServerMessage)
         return try decode(type, from: response)
     }
 
@@ -334,6 +336,7 @@ final class APIClient: @unchecked Sendable {
                          timeout: TimeInterval? = nil,
                          outsideAPIV4: Bool = false,
                          sessionExpiryOn401: Bool = true,
+                         notFoundKeepsServerMessage: Bool = false,
                          onProgress: (@Sendable (Int64, Int64) -> Void)? = nil) async throws -> APIResponse {
         guard let url = outsideAPIV4 ? baseURL.absolute(path) : baseURL.apiV4(path, query: query) else {
             throw MMError.invalidURL(path)
@@ -362,6 +365,7 @@ final class APIClient: @unchecked Sendable {
             if let timeout { request.timeout = timeout }
             let outcome = try await makeAttempt(request, useETag: useETag,
                                                 sessionExpiryOn401: sessionExpiryOn401,
+                                                notFoundKeepsServerMessage: notFoundKeepsServerMessage,
                                                 onProgress: onProgress)
             switch outcome {
             case .success(let response):
@@ -394,6 +398,7 @@ final class APIClient: @unchecked Sendable {
     private func makeAttempt(_ request: APIRequest,
                              useETag: Bool,
                              sessionExpiryOn401: Bool = true,
+                             notFoundKeepsServerMessage: Bool = false,
                              onProgress: (@Sendable (Int64, Int64) -> Void)? = nil) async throws -> AttemptOutcome {
         let response: APIResponse
         do {
@@ -443,6 +448,16 @@ final class APIClient: @unchecked Sendable {
         case 403:
             throw MMError.forbidden(message: Self.errorPayload(in: response.body)?.message)
         case 404:
+            // A slash command's refusal *is* its message: `/nosuchcommand` answers
+            // `404 api.command.execute_command.not_found.app_error` with "Command with a trigger of
+            // 'nosuchcommand' not found.", and the generic `.notFound` (which screens read as "this
+            // channel is gone") would replace the one sentence the reader needs. Only the caller
+            // that asks for it gets the message; for everyone else 404 still means "gone".
+            if notFoundKeepsServerMessage,
+               let message = Self.errorPayload(in: response.body)?.message,
+               !message.isEmpty {
+                throw MMError.client(status: 404, message: message)
+            }
             throw MMError.notFound
         case 429:
             return .retry(RetryableFailure(reason: "429",

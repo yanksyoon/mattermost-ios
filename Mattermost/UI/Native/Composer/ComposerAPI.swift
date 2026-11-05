@@ -129,4 +129,37 @@ extension APIClient {
                              query: query,
                              useETag: false)
     }
+
+    // MARK: - Slash commands
+
+    /// `GET /commands?team_id={id}` — every command the team can run: the server's built-ins, the
+    /// team's custom integrations, and the plugin commands (Playbooks, Calls).
+    ///
+    /// A bare array, not an envelope (measured on 9.11.19: 33 records for team `perf`). The answer is
+    /// per **team**, so it is cached by the caller (`SlashCommandCatalogue`) rather than fetched per
+    /// keystroke. A missing `team_id` is a 400 `api.context.invalid_body_param.app_error` on that
+    /// server, which is why the caller never asks without one.
+    func commands(teamID: String) async throws -> [MMCommand] {
+        try await get([MMCommand].self,
+                      path: "/commands",
+                      query: [URLQueryItem(name: "team_id", value: teamID)],
+                      useETag: false)
+    }
+
+    /// `POST /commands/execute` — run a slash command in a channel (or a thread, with `root_id`).
+    ///
+    /// The command string is the whole line the reader typed (`/help`, `/invite @kim`); the server
+    /// parses it. `notFoundKeepsServerMessage` is load-bearing: an unknown trigger is a **404 whose
+    /// body carries the sentence** upstream shows in
+    /// `alertSlashCommandFailed` ("Command with a trigger of 'x' not found…"), and the generic 404
+    /// mapping drops it.
+    ///
+    /// No retry and no ETag: replaying a command is a second execution (`/invite` twice, `/leave`
+    /// twice), so the composer offers Retry only when the person asks.
+    func executeCommand(_ body: ComposerCommandBody) async throws -> ComposerCommandResponse {
+        try await post(ComposerCommandResponse.self,
+                       path: "/commands/execute",
+                       body: body,
+                       notFoundKeepsServerMessage: true)
+    }
 }

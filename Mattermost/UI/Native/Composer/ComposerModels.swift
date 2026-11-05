@@ -32,20 +32,31 @@ struct ComposerSuggestion: Equatable, Identifiable, Sendable {
         case specialMention
         /// A `:name:` shortcode, built in or owned by the server.
         case emoji
+        /// A `/trigger` command the team can run.
+        case slash
     }
 
     var kind: Kind
-    /// The bare value: a username, a channel name, an emoji name, or `channel`/`here`/`all`.
+    /// The bare value: a username, a channel name, an emoji name, a command trigger, or
+    /// `channel`/`here`/`all`.
     var value: String
-    /// The primary line ("Kim Park", "#town-square", "🎉 tada").
+    /// The primary line ("Kim Park", "#town-square", "🎉 tada", "/help").
     var label: String
-    /// The secondary line the list draws ("@kim.park · online", "Public channel").
+    /// The secondary line the list draws ("@kim.park · online", "Public channel", "Show Mattermost
+    /// help message").
     var detail: String
     /// What typing the name inserts, without the trailing space (added by the caller when the caret
     /// is not already followed by whitespace).
     var insertion: String
-    /// A glyph for a built-in emoji; `nil` for users and channels (the row draws an initial).
+    /// A glyph for a built-in emoji; `nil` for users, channels and commands (the row draws an icon
+    /// from `kind`).
     var glyph: String?
+    /// A command's argument grammar (`@[username]... ~[channel]...`), drawn after its trigger.
+    ///
+    /// Only slash commands have one: the hint is the server's `auto_complete_hint`, and it is the
+    /// half of `/help`'s row that says what to type next. `nil` for every other source, which is
+    /// what keeps their rows exactly as they were.
+    var hint: String? = nil
     /// The server id behind this row, when it has one.
     ///
     /// The membership check needs it and cannot use `value`: the channel's member list is a set of
@@ -72,6 +83,8 @@ struct ComposerTrigger: Equatable, Sendable {
         case mention
         case channel
         case emoji
+        /// A `/` command: the message's first word, offering the team's command list.
+        case slash
     }
 
     var kind: Kind
@@ -107,6 +120,12 @@ struct ComposerTrigger: Equatable, Sendable {
 ///    query — the list must not reappear behind the caret while the user keeps typing;
 ///  * `#town` → channel; `##` and a markdown heading `# heading` → nothing (the term starts with the
 ///    sigil too, which is why the term itself may not include it);
+///  * `/help` → command, but only at the **start of the message**: a slash command is what the whole
+///    message is (`app/components/autocomplete/slash_suggestion/slash_suggestion.tsx` draws its list
+///    only while `value[0] === '/'`), so `see /help` and a URL's path are posts, not commands. Its
+///    range covers the **whole first word**, not just the part before the caret: a command's
+///    completion replaces the token (`/<trigger> `), so a caret parked inside `/hel|p` must not
+///    leave a stray `p` behind;
 ///  * a caret that sits right after whitespace, or at offset 0, has no trigger.
 enum ComposerTriggerParser {
 
@@ -139,12 +158,25 @@ enum ComposerTriggerParser {
             kind = .emoji
             // A closed shortcode (`:smile:`) is finished text, and an emoji name has no colon in it.
             if term.contains(":") { return nil }
+        case "/":
+            kind = .slash
+            // The message's first word only: `see /help` is a sentence about a command.
+            if start != 0 { return nil }
+            // A slash belongs to no command trigger (they are `[a-z0-9_-]+`): `/a/b` is a path.
+            if term.contains("/") { return nil }
         default:
             return nil
         }
 
+        // A command's completion replaces its whole first token. For the other sources the caret is
+        // the token's end because the token *is* "everything before the caret".
+        var end = caret
+        if kind == .slash {
+            while end < ns.length, !isWhitespace(ns.character(at: end)) { end += 1 }
+        }
+
         return ComposerTrigger(kind: kind, term: term,
-                               range: NSRange(location: start, length: caret - start))
+                               range: NSRange(location: start, length: end - start))
     }
 
     /// Apply a chosen suggestion: replace the trigger with its insertion text (plus a separating space
@@ -504,7 +536,7 @@ enum ComposerMembership {
                 // name, because the mention still works either way.
                 guard let userID = suggestion.userID, !userID.isEmpty else { return true }
                 return members.ids.contains(userID.lowercased())
-            case .channel, .emoji:
+            case .channel, .emoji, .slash:
                 return true
             }
         }

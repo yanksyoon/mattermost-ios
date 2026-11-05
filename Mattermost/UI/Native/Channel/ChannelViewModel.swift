@@ -554,6 +554,23 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
                 scheduleProfileLoad(for: post.userId)
                 outcome = .appended
             }
+        case .ephemeralMessage(let post):
+            // A slash command's answer ("/help"). It is a row of this timeline — upstream feeds
+            // `ephemeral_message` into the same handler as `posted` — but it is not a fact about the
+            // conversation: the server stores nothing, so it is gone after the pane reloads, and it
+            // is only ever delivered to the person who ran the command. It is drawn as an
+            // `isEphemeral` row (markdown body, no author header, "Only visible to you").
+            guard accepts(post: post) else { return record(.ignored) }
+            if postsByID[post.id] != nil {
+                replace(post)
+                outcome = .patched
+            } else {
+                posts.append(post)
+                postsByID[post.id] = post
+                posts = Self.sortedNewestFirst(posts)
+                scheduleProfileLoad(for: post.userId)
+                outcome = .appended
+            }
         case .postEdited(let post):
             guard accepts(post: post), postsByID[post.id] != nil else { return record(.ignored) }
             replace(post)

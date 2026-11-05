@@ -322,6 +322,54 @@ final class T34ChannelViewModelTests: XCTestCase {
         XCTAssertEqual(model.post(id: "a")?.message, "changed by replay")
     }
 
+    // MARK: A slash command's answer (T4e)
+
+    /// `/help` answers to the reader alone: the server pushes an `ephemeral_message` whose post has
+    /// `type: "system_ephemeral"` and stores nothing. Upstream feeds that event into the same handler
+    /// as `posted`, so it is a row of this timeline while the pane is open — and it must be drawn as
+    /// markdown, not as the one-line system notice a join/leave post gets.
+    func testAnEphemeralAnswerIsDrawnAsARowOfThisChannel() async {
+        let service = FakeService(pageSize: 3, firstPages: [list([post("a", at: 1_000)])])
+        let model = model(service)
+        await model.load()
+
+        var answer = post("e1", at: 2_000)
+        answer.type = "system_ephemeral"
+        answer.message = "**Channels** - Stay connected with your team via 1:1 messaging."
+
+        XCTAssertEqual(model.handle(.ephemeralMessage(answer)), .appended)
+        XCTAssertEqual(model.loadedPostIDs, ["e1", "a"])
+
+        let row = model.items.compactMap { item -> PostRowModel? in
+            if case .post(let row) = item, row.id == "e1" { return row }
+            return nil
+        }.first
+        XCTAssertEqual(row?.isEphemeral, true)
+        XCTAssertEqual(row?.isSystem, false,
+                       "a command's answer is markdown, not a one-line system notice")
+        XCTAssertFalse(row?.blocks.isEmpty ?? true, "the answer's markdown was parsed")
+    }
+
+    /// The two ways an ephemeral frame is not this timeline's: another channel, and a command run in
+    /// a thread (a reply-shaped post belongs to the thread pane).
+    func testAnEphemeralAnswerOutsideThisTimelineIsIgnored() async {
+        let service = FakeService(pageSize: 3, firstPages: [list([post("a", at: 1_000)])])
+        let model = model(service)
+        await model.load()
+
+        var elsewhere = post("e2", at: 2_000)
+        elsewhere.type = "system_ephemeral"
+        elsewhere.channelId = "other"
+        XCTAssertEqual(model.handle(.ephemeralMessage(elsewhere)), .ignored)
+
+        var inThread = post("e3", at: 2_000)
+        inThread.type = "system_ephemeral"
+        inThread.rootId = "a"
+        XCTAssertEqual(model.handle(.ephemeralMessage(inThread)), .ignored)
+
+        XCTAssertEqual(model.loadedPostIDs, ["a"])
+    }
+
     func testOnlyThisChannelsTopLevelPostsAreAccepted() async {
         let service = FakeService(pageSize: 3, firstPages: [list([post("a", at: 1_000)])])
         let model = model(service)

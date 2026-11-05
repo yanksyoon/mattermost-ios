@@ -252,14 +252,16 @@ struct PostRowView: View {
     /// channel-context behaviour.
     var surface: PostOptionsSurface = .channel
 
-    private var showsHeader: Bool { !row.isGrouped && !row.isSystem }
+    private var showsHeader: Bool { !row.isGrouped && !row.isSystem && !row.isEphemeral }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             gutter
             VStack(alignment: .leading, spacing: 4) {
                 if showsHeader { header }
-                if row.isSystem {
+                if row.isEphemeral {
+                    ephemeralMessage
+                } else if row.isSystem {
                     systemMessage
                 } else if row.isDeleted {
                     deletedTombstone
@@ -340,7 +342,7 @@ struct PostRowView: View {
             } else {
                 PostAvatarView(author: row.author)
             }
-        } else if row.isSystem {
+        } else if row.isSystem || row.isEphemeral {
             Image(systemName: "info.circle")
                 .font(.system(size: 15))
                 .foregroundStyle(.secondary)
@@ -459,6 +461,27 @@ struct PostRowView: View {
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityIdentifier("post.\(row.id).system")
+    }
+
+    /// A slash command's answer (`/help`): markdown in a bordered card, with the sentence that says
+    /// only this reader can see it.
+    ///
+    /// It is drawn as a *message* rather than a system one-liner because the server's text is
+    /// markdown (bold, links) and, for `/help`, several paragraphs; and the caption is not
+    /// decoration — the same words are invisible to everyone else in the channel, and a reader who
+    /// thinks they posted them will be confused when the next client does not show them.
+    private var ephemeralMessage: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            body(for: row)
+            Text("Only visible to you")
+                .font(.scaled(11))
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("post.\(row.id).ephemeralCaption")
+        }
+        .padding(8)
+        .background(Color(uiColor: .secondarySystemBackground),
+                    in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityIdentifier("post.\(row.id).ephemeral")
     }
 
     private var deletedTombstone: some View {

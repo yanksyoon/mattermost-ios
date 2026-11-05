@@ -331,6 +331,16 @@ enum SocketEvent: Equatable, Sendable {
     case userUpdated(MMUser)
     case reactionAdded(MMReaction)
     case reactionRemoved(MMReaction)
+    /// The answer to a slash command, sent only to the person who ran it (`ephemeral_message`).
+    ///
+    /// `data.post` is a post, as a **JSON string**, exactly like `posted` — measured on 9.11.19
+    /// (`scripts/t4e_slash_probe.py`): `/help` answers `{"response_type":"ephemeral","text":…}` and
+    /// the server pushes the same text as a post with `type: "system_ephemeral"`, `broadcast.user_id`
+    /// set to the caller, and no ordinary `posted` frame. Upstream feeds this event into the same
+    /// handler as `posted` (`app/actions/websocket/event.ts`:
+    /// `case WebsocketEvents.POSTED: case WebsocketEvents.EPHEMERAL_MESSAGE: posts.handleNewPostEvent`),
+    /// so without this case a command's answer is received and dropped.
+    case ephemeralMessage(MMPost)
     /// The sidebar layout somebody wrote (`sidebar_category_updated`).
     case sidebarCategoryUpdated(SocketSidebarCategoryUpdate)
     /// A channel of a team appeared (`channel_created`).
@@ -384,6 +394,9 @@ enum SocketEvent: Equatable, Sendable {
         case "posted":
             guard let post = Self.post(from: frame.data) else { return nil }
             self = .posted(post)
+        case "ephemeral_message":
+            guard let post = Self.post(from: frame.data) else { return nil }
+            self = .ephemeralMessage(post)
         case "post_edited":
             guard let post = Self.post(from: frame.data) else { return nil }
             self = .postEdited(post)
@@ -605,6 +618,7 @@ enum SocketEvent: Equatable, Sendable {
         switch self {
         case .hello: return "hello"
         case .posted: return "posted"
+        case .ephemeralMessage: return "ephemeral_message"
         case .postEdited: return "post_edited"
         case .postDeleted: return "post_deleted"
         case .channelViewed: return "channel_viewed"
@@ -648,7 +662,8 @@ enum SocketEvent: Equatable, Sendable {
         switch self {
         case .hello(let hello):
             return "hello|\(hello.connectionID)|\(hello.serverVersion)"
-        case .posted(let post), .postEdited(let post), .postDeleted(let post):
+        case .posted(let post), .postEdited(let post), .postDeleted(let post),
+             .ephemeralMessage(let post):
             return "\(name)|\(post.id)|\(post.updateAt)|\(post.deleteAt)"
         case .userUpdated(let user):
             return "user_updated|\(user.id)|\(user.updateAt)"

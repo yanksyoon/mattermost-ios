@@ -403,7 +403,7 @@ final class GlobalThreadsViewModel: ObservableObject {
              .postEdited, .reactionAdded, .reactionRemoved, .channelViewed,
              .multipleChannelsViewed, .sidebarCategoryUpdated, .channelCreated, .channelDeleted,
              .channelUpdated, .channelRestored, .userAdded, .userRemoved,
-             .channelMemberUpdated, .postUnread, .plugin, .unhandled:
+             .channelMemberUpdated, .postUnread, .ephemeralMessage, .plugin, .unhandled:
             // `.plugin` frames belong to a plugin's own client code (Calls reads them off the socket
             // directly); a list of followed threads has no use for one.
             return record(.ignored)

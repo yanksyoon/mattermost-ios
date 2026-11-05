@@ -130,6 +130,14 @@ struct PostRowModel: Equatable, Identifiable, Sendable {
     var isGrouped: Bool
     /// `post.type != ""`: a system message ("x added y to the channel"), drawn as one line, never markdown.
     var isSystem: Bool
+    /// The answer to a slash command (`post.type == "system_ephemeral"`): the server sent it to this
+    /// reader alone and stored nothing.
+    ///
+    /// It is *not* a system line, even though its type is non-empty: upstream renders an ephemeral
+    /// post's body with the same markdown pipeline as a message (that is how `/help` shows bold text
+    /// and links), and the row belongs to the conversation this reader is looking at without being a
+    /// fact about it — hence the "Only visible to you" caption instead of an author header.
+    var isEphemeral: Bool = false
     var isDeleted: Bool
     var isEdited: Bool
     var isPinned: Bool
@@ -163,6 +171,8 @@ struct PostRowModel: Equatable, Identifiable, Sendable {
     /// their own wording (which is what a screen reader should say).
     var accessibleText: String {
         if isDeleted { return "This message was deleted." }
+        // System lines *and* ephemeral answers are plain strings; a command's answer is parsed into
+        // blocks (it is markdown), so the two halves are not the same sentence.
         if isSystem { return post.message }
         return blocks.map(\.plainText).joined(separator: "\n")
     }
@@ -380,14 +390,16 @@ enum PostListDerivation {
                     grouped: Bool,
                     expanded: Bool = false,
                     pending: Bool = false) -> PostRowModel {
-        let isSystem = !post.type.isEmpty
+        let isEphemeral = post.type == "system_ephemeral"
+        let isSystem = !post.type.isEmpty && !isEphemeral
         let isDeleted = post.deleteAt > 0
         let blocks = (isSystem || isDeleted) ? [] : MarkdownParser().parse(post.message)
         let fold = fold(for: post, blocks: blocks, expanded: expanded)
         return PostRowModel(post: post,
                             author: author(for: post, users: users),
-                            isGrouped: grouped && !isSystem && !isDeleted,
+                            isGrouped: grouped && !isSystem && !isDeleted && !isEphemeral,
                             isSystem: isSystem,
+                            isEphemeral: isEphemeral,
                             isDeleted: isDeleted,
                             isEdited: post.editAt > 0 && !isDeleted,
                             isPinned: post.isPinned,

@@ -126,6 +126,25 @@ final class T35ComposerViewModelTests: XCTestCase {
         }
 
         func me() async throws -> MMUser { meResult }
+
+        /// T4e: the `/` source. Recorded so a cache or a wiring test can tell "asked once" from
+        /// "never asked"; the answers are scripted like every other seam.
+        var commandList: Result<[MMCommand], Error> = .success([])
+        var executeResults: [Result<ComposerCommandResponse, Error>] = []
+        private(set) var commandFetches: [String] = []
+        private(set) var executedCommands: [(command: String, channelID: String, teamID: String?, rootID: String?)] = []
+
+        func commands(teamID: String) async throws -> [MMCommand] {
+            commandFetches.append(teamID)
+            return try commandList.get()
+        }
+
+        func executeCommand(_ command: String, channelID: String, teamID: String?,
+                            rootID: String?) async throws -> ComposerCommandResponse {
+            executedCommands.append((command, channelID, teamID, rootID))
+            guard !executeResults.isEmpty else { throw MMError.offline }
+            return try executeResults[min(executedCommands.count - 1, executeResults.count - 1)].get()
+        }
     }
 
     /// Records what the composer asked the list to do.

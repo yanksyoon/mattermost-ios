@@ -388,6 +388,25 @@ struct ComposerView: View {
 
     // MARK: Autocomplete
 
+    /// The glyph for a suggestion with no emoji character. A command is a `/`, a channel a `#`, and
+    /// a person an avatar.
+    private func iconName(for kind: ComposerSuggestion.Kind) -> String {
+        switch kind {
+        case .channel: return "number"
+        case .slash: return "slash.circle"
+        case .user, .specialMention, .emoji: return "person.crop.circle"
+        }
+    }
+
+    /// What VoiceOver reads for a row: the primary line, the argument grammar when there is one, and
+    /// the description — the same order the row draws them in.
+    private func accessibilityLabel(for suggestion: ComposerSuggestion) -> String {
+        var parts = [suggestion.label]
+        if let hint = suggestion.hint, !hint.isEmpty { parts.append(hint) }
+        if !suggestion.detail.isEmpty { parts.append(suggestion.detail) }
+        return parts.joined(separator: " ")
+    }
+
     private var suggestionList: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -401,7 +420,7 @@ struct ComposerView: View {
                             if let glyph = suggestion.glyph {
                                 Text(glyph).font(.system(size: 15))
                             } else {
-                                Image(systemName: suggestion.kind == .channel ? "number" : "person.crop.circle")
+                                Image(systemName: iconName(for: suggestion.kind))
                                     .font(.system(size: 14))
                                     .foregroundStyle(.secondary)
                                     // Decorative: the row is a button with its own label. Unhidden,
@@ -414,6 +433,16 @@ struct ComposerView: View {
                             Text(suggestion.label)
                                 .font(.scaled(15))
                                 .mmLineLimit(1)
+                            // The command's argument grammar, right after its trigger: upstream's
+                            // row reads "/invite @[username]... ~[channel]..." and nothing else
+                            // says what to type next.
+                            if let hint = suggestion.hint, !hint.isEmpty {
+                                Text(hint)
+                                    .font(.scaled(13))
+                                    .foregroundStyle(.secondary)
+                                    .mmLineLimit(1)
+                                    .accessibilityIdentifier("composerSuggestion.\(suggestion.id).hint")
+                            }
                             Text(suggestion.detail)
                                 .font(.scaled(12))
                                 .foregroundStyle(.secondary)
@@ -426,7 +455,7 @@ struct ComposerView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("composerSuggestion.\(suggestion.id)")
-                    .accessibilityLabel("\(suggestion.label) \(suggestion.detail)")
+                    .accessibilityLabel(accessibilityLabel(for: suggestion))
                     Divider().padding(.leading, 10)
                 }
             }

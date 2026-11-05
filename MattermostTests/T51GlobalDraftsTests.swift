@@ -400,4 +400,8 @@ private final class RefusingComposerService: ComposerServing {
     func channels(term: String, teamID: String, limit: Int) async throws -> [MMChannel] { [] }
     func channelMembers(channelID: String) async throws -> ComposerMembership.MemberList { .unknown }
     func me() async throws -> MMUser { MMUser(id: "u1", username: "me") }
+    func executeCommand(_ command: String, channelID: String, teamID: String?,
+                        rootID: String?) async throws -> ComposerCommandResponse {
+        throw MMError.offline
+    }
 }

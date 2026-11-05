@@ -28,6 +28,12 @@
 //      `in_channel_id`, plus a client check when the member list is complete).
 //   5. **Uploads are observable.** Progress comes from the transport's byte count, a cancel really
 //      cancels the task, and a failed upload is retryable without losing the message.
+//
+// T4e (this card) adds a sixth: **a message that starts with `/` is a command, not a post**. It has
+// no optimistic row (there is no post yet — the server may answer in the channel, ephemeral, or not
+// at all), a failure is the server's own sentence with the words still in the input, and the answer
+// arrives as an ordinary `ephemeral_message` socket row rather than as message text this object
+// invents.
 
 import Foundation
 import Combine
@@ -109,6 +115,8 @@ final class ComposerViewModel: ObservableObject {
     private enum PendingCommand {
         case create(ComposerPostBody, pendingID: String)
         case edit(postID: String, message: String)
+        /// A slash command, kept so Retry re-runs *it* and not the text it has since become.
+        case slash(String)
     }
 
     // MARK: Published state
@@ -130,6 +138,14 @@ final class ComposerViewModel: ObservableObject {
     /// True while the model is restoring the draft, so the view can hold the input back for one frame
     /// instead of flashing an empty composer.
     @Published private(set) var isRestoringDraft = false
+    /// The server's answer to the last slash command this composer ran.
+    ///
+    /// Not the surface that draws `/help` (that is the `ephemeral_message` socket row, exactly as
+    /// upstream treats it). It is kept because the answer is the only proof *this* command ran when
+    /// the socket is busy or the command's output went to the channel instead: a test can assert the
+    /// response type, and a later screen (a plugin dialog, `goto_location`) has the payload without
+    /// asking the server twice.
+    @Published private(set) var lastCommandResponse: ComposerCommandResponse?
 
     /// Whether the send button is enabled. An upload still in flight blocks the send: sending a file
     /// id that does not exist yet would post a message whose attachment never arrives.
@@ -186,6 +202,8 @@ final class ComposerViewModel: ObservableObject {
     /// The pane's custom-emoji catalogue, when the channel has one: `:` completion offers the names
     /// the server actually owns.
     private let emojiCatalogue: EmojiCatalogue?
+    /// The team's slash-command list, shared process-wide so ten channels do not ask ten times.
+    private let commandCatalogue: SlashCommandCatalogue
     private let now: () -> Date
     private let teamID: String?
     private let myUserID: String?
@@ -226,6 +244,7 @@ final class ComposerViewModel: ObservableObject {
          teamID: String? = nil,
          myUserID: String? = nil,
          emojiCatalogue: EmojiCatalogue? = nil,
+         commandCatalogue: SlashCommandCatalogue = .shared,
          now: @escaping () -> Date = { Date() },
          autocompleteDebounce: Duration = .milliseconds(200)) {
         self.channelID = channelID
@@ -235,6 +254,7 @@ final class ComposerViewModel: ObservableObject {
         self.teamID = teamID
         self.myUserID = myUserID
         self.emojiCatalogue = emojiCatalogue
+        self.commandCatalogue = commandCatalogue
         self.now = now
         self.autocompleteDebounce = autocompleteDebounce
     }
@@ -269,6 +289,12 @@ final class ComposerViewModel: ObservableObject {
 
     private func refreshTrigger() {
         let trigger = ComposerTriggerParser.trigger(in: text, caret: caret)
+        // An edit box holds a post's text, not a new message: running `/leave` while editing one of
+        // your own messages is not a thing, and the list would offer it.
+        if trigger?.kind == .slash, mode.isEditing {
+            cancelAutocomplete()
+            return
+        }
         activeTrigger = trigger
         guard let trigger else {
             cancelAutocomplete()
@@ -366,7 +392,22 @@ final class ComposerViewModel: ObservableObject {
             return await channelCandidates(term: trigger.term)
         case .emoji:
             return emojiCandidates(term: trigger.term)
+        case .slash:
+            return await slashCandidates(term: trigger.term)
         }
+    }
+
+    /// The team's commands, from the shared per-team cache.
+    ///
+    /// The fetch runs at most once per team per process (`SlashCommandCatalogue`); a failure answers
+    /// an empty list, which draws no list — the same state as typing a term that matches nothing —
+    /// rather than an error banner over the composer.
+    private func slashCandidates(term: String) async -> [ComposerSuggestion] {
+        guard let teamID, !teamID.isEmpty else { return [] }
+        let commands = await commandCatalogue.commands(teamID: teamID) { [service] in
+            try await service.commands(teamID: teamID)
+        }
+        return ComposerCommandList.suggestions(commands, term: term)
     }
 
     private func mentionCandidates(term: String) async -> [ComposerSuggestion] {
@@ -612,7 +653,46 @@ final class ComposerViewModel: ObservableObject {
         case .editing(let postID):
             await performEdit(postID: postID, message: body)
         case .newPost, .reply:
-            await performCreate(body: body)
+            // A message that begins with `/` is a command (upstream `sendMessage`:
+            // `value.indexOf('/') === 0 && !schedulingInfo` → `sendCommand`), so it is executed and
+            // never posted. An edit is not a command: the box holds an existing post's text.
+            if let command = ComposerSlashCommand.command(in: body) {
+                await performCommand(command)
+            } else {
+                await performCreate(body: body)
+            }
+        }
+    }
+
+    /// Run a slash command.
+    ///
+    /// Three differences from `performCreate`, and each is a rule the card names:
+    ///  * **no optimistic row.** A pending row is a promise that a post exists; a command may answer
+    ///    in the channel, answer to the reader alone, or not answer at all (`/leave`). Drawing one
+    ///    and then withdrawing it is the "pending post row" the card forbids;
+    ///  * **the server's sentence is the error.** `/nosuchcommand` refuses with a 404 whose body says
+    ///    "Command with a trigger of 'nosuchcommand' not found…"; `ComposerErrorCopy` shows exactly
+    ///    that, and the words stay in the input (upstream's `alertSlashCommandFailed` + no
+    ///    `clearDraft`);
+    ///  * **success clears the composer and the draft row**, because the line has been consumed by
+    ///    the server — leaving it behind would make a second Send re-run `/leave` (upstream clears
+    ///    the draft on success only).
+    private func performCommand(_ command: String) async {
+        pendingCommand = .slash(command)
+        phase = .sending
+        do {
+            let response = try await service.executeCommand(command,
+                                                           channelID: channelID,
+                                                           teamID: teamID,
+                                                           rootID: mode.rootID.isEmpty ? nil : mode.rootID)
+            lastCommandResponse = response
+            // The answer itself is a `posted`/`ephemeral_message` frame the pane draws; a command
+            // that answered in the channel already has its row. Nothing is inserted from here.
+            finishSuccessfully(note: nil)
+        } catch {
+            phase = .failed(ComposerErrorCopy.message(for: error))
+            // The words are the only copy of a command that may be worth fixing and retrying.
+            await saveDraftNow()
         }
     }
 
@@ -700,6 +780,10 @@ final class ComposerViewModel: ObservableObject {
                                 pendingID: pendingID)
         case .edit(let postID, _):
             await performEdit(postID: postID, message: ComposerMarkdownEditing.messageForSending(text))
+        case .slash(let command):
+            // The same line, not the text as it stands: a retry after a refusal must re-run the
+            // command the server refused (the input may have been edited since).
+            await performCommand(command)
         }
     }
 

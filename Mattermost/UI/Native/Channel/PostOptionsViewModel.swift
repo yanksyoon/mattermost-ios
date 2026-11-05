@@ -377,7 +377,7 @@ final class PostOptionsViewModel: ObservableObject {
              .statusChange, .userUpdated, .reactionAdded, .reactionRemoved,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelUpdated,
              .channelRestored, .userAdded, .userRemoved, .channelMemberUpdated, .postUnread,
-             .threadUpdated, .threadReadChanged, .plugin, .unhandled:
+             .threadUpdated, .threadReadChanged, .ephemeralMessage, .plugin, .unhandled:
             break
         }
     }

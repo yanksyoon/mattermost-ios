@@ -35,6 +35,15 @@ protocol ComposerServing: AnyObject {
     func channelMembers(channelID: String) async throws -> ComposerMembership.MemberList
     /// The signed-in user, so an optimistic row has a real author.
     func me() async throws -> MMUser
+
+    /// `GET /commands?team_id=` — the team's slash commands, unfiltered (the caller's
+    /// `ComposerCommandList.offered(_:)` decides which rows may be drawn).
+    func commands(teamID: String) async throws -> [MMCommand]
+    /// `POST /commands/execute` — run `command` (`/help`, `/invite @kim`) in the composer's channel.
+    func executeCommand(_ command: String,
+                        channelID: String,
+                        teamID: String?,
+                        rootID: String?) async throws -> ComposerCommandResponse
 }
 
 extension ComposerServing {
@@ -44,6 +53,10 @@ extension ComposerServing {
     func channelMembers(channelID: String) async throws -> ComposerMembership.MemberList {
         .unknown
     }
+    /// A service that predates commands (a test double for the draft rules) offers none. The
+    /// *execute* call has no default: a composer that believes it ran a command it never sent is
+    /// worse than one that does not compile.
+    func commands(teamID: String) async throws -> [MMCommand] { [] }
 }
 
 /// The production implementation: the session's own `APIClient`, resolved **per call** so a composer
@@ -114,5 +127,21 @@ final class SessionComposerService: ComposerServing {
 
     func me() async throws -> MMUser {
         try await client().currentUser()
+    }
+
+    func commands(teamID: String) async throws -> [MMCommand] {
+        guard !teamID.isEmpty else { return [] }
+        return try await client().commands(teamID: teamID)
+    }
+
+    func executeCommand(_ command: String,
+                        channelID: String,
+                        teamID: String?,
+                        rootID: String?) async throws -> ComposerCommandResponse {
+        let body = ComposerCommandBody(command: command,
+                                       channelId: channelID,
+                                       teamId: teamID.flatMap { $0.isEmpty ? nil : $0 },
+                                       rootId: rootID.flatMap { $0.isEmpty ? nil : $0 })
+        return try await client().executeCommand(body)
     }
 }

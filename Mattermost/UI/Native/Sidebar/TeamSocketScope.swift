@@ -48,6 +48,10 @@ struct TeamSocketScope: Equatable, Sendable {
         switch event {
         case .posted(let post), .postEdited(let post), .postDeleted(let post):
             return isInActiveTeam(channelID: post.channelId)
+        case .ephemeralMessage(let post):
+            // `/help` answered to this reader: the frame names the channel, and it is only ever
+            // delivered to the caller, so it belongs to whichever team that channel is on.
+            return isInActiveTeam(channelID: post.channelId)
         case .typing(let typing):
             return isInActiveTeam(channelID: typing.channelID)
         case .channelViewed(let viewed):
