@@ -1,0 +1,99 @@
+{
+  "workspace": "https://chat.canonical.com",
+  "channel": "",
+  "host": {
+    "model": "MacBookPro18,3",
+    "os": "26.3.1",
+    "arch": "arm64",
+    "cpu_count": 10,
+    "power_source": "Now drawing from 'AC Power'",
+    "measured_at": "2026-11-05 21:34:02 +0800"
+  },
+  "subjects": {
+    "native": {
+      "label": "native (Catalyst)",
+      "bundle": "/Applications/Mattermost(ios).app",
+      "running_pids": [
+        85787
+      ],
+      "version": "0.71.0",
+      "build": "371",
+      "workspace": "https://chat.canonical.com",
+      "has_session": false,
+      "server_name": "Canonical"
+    },
+    "electron": {
+      "label": "electron (official desktop)",
+      "bundle": "/Applications/Mattermost.app",
+      "running_pids": [],
+      "version": "6.3.1",
+      "build": "383788041691",
+      "workspace": "https://chat.canonical.com",
+      "servers_configured": [
+        "https://chat.canonical.com",
+        "https://chat.charmhub.io",
+        "http://mattermost-k8s:8065"
+      ],
+      "session_cookies": {
+        "cookie_db": "/Users/yangsooyoon/Library/Containers/Mattermost.Desktop/Data/Library/Application Support/Mattermost/Cookies",
+        "MMAUTHTOKEN": null,
+        "MMUSERID": {
+          "session_cookie": false,
+          "expires_epoch": 1806713900.0
+        }
+      },
+      "cookie_db": "/Users/yangsooyoon/Library/Containers/Mattermost.Desktop/Data/Library/Application Support/Mattermost/Cookies"
+    }
+  },
+  "checks": [
+    {
+      "name": "screen_unlocked",
+      "ok": true,
+      "blocking": true,
+      "detail": "CGSSessionScreenIsLocked=False; a locked session cannot show a frontmost window and window/first-paint detection returns 0 for every app"
+    },
+    {
+      "name": "native_bundle_present",
+      "ok": true,
+      "blocking": true,
+      "detail": "/Applications/Mattermost(ios).app version=0.71.0 build=371"
+    },
+    {
+      "name": "electron_bundle_present",
+      "ok": true,
+      "blocking": true,
+      "detail": "/Applications/Mattermost.app version=6.3.1 build=383788041691"
+    },
+    {
+      "name": "native_signed_in",
+      "ok": false,
+      "blocking": true,
+      "detail": "mm.servers hasSession=False for 'https://chat.canonical.com'"
+    },
+    {
+      "name": "electron_signed_in",
+      "ok": false,
+      "blocking": true,
+      "detail": "MMAUTHTOKEN for 'chat.canonical.com': absent from the cookie store"
+    },
+    {
+      "name": "same_workspace",
+      "ok": true,
+      "blocking": true,
+      "detail": "native=https://chat.canonical.com electron=['https://chat.canonical.com', 'https://chat.charmhub.io', 'http://mattermost-k8s:8065'] requested=https://chat.canonical.com"
+    },
+    {
+      "name": "channel_asserted",
+      "ok": false,
+      "blocking": true,
+      "detail": "--channel='': the operator asserts both clients sit on it"
+    },
+    {
+      "name": "both_quit_before_launch",
+      "ok": false,
+      "blocking": false,
+      "detail": "running now: native=[85787]"
+    }
+  ],
+  "blocked": true
+}

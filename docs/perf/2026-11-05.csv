@@ -1,0 +1,4 @@
+subject,phase,run,sample,t_wall,alive,rss_total_bytes,rss_app_bytes,rss_helpers_bytes,cpu_pct,threads,fds,children,power_w,to_process_ms,to_window_ms,processes,note
+preflight,blocked,,,,false,,,,,,,,,,,,native_signed_in: mm.servers hasSession=False for 'https://chat.canonical.com'
+preflight,blocked,,,,false,,,,,,,,,,,,electron_signed_in: MMAUTHTOKEN for 'chat.canonical.com': absent from the cookie store
+preflight,blocked,,,,false,,,,,,,,,,,,channel_asserted: --channel='': the operator asserts both clients sit on it

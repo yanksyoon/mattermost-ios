@@ -92,6 +92,12 @@ Mac with full Keychain support: open `Mattermost.xcodeproj`, select the `Matterm
 iPhone/iPad: open `Mattermost.xcodeproj`, select your Team in the same place, pick your device,
 Run.
 
+<!-- perf-compare:start -->
+### Performance vs the official desktop client
+
+Not measured yet. Comparing the two clients requires both to be signed in to the same workspace and sitting on the same channel; the blocked run and the reasons are recorded in [`docs/perf/2026-11-05-native-vs-electron.md`](docs/perf/2026-11-05-native-vs-electron.md). The harness (`scripts/perf_compare.py`) refuses to measure a login screen.
+<!-- perf-compare:end -->
+
 ## Tests
 
 ```bash
