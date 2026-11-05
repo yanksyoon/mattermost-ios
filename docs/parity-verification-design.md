@@ -208,7 +208,27 @@ covered by running something, and the document says which thing.
 
 ---
 
-## 8. Iteration record
+## 8. Iteration record (measured, not remembered)
 
-_To be completed with the run URL, cycle count and measured build time: filled from the CI runs, not
-from the local machine, because nothing here was compiled locally._
+Environment: GitHub-hosted `ubuntu-latest`, Lean from `lean/lean-toolchain` (`v4.15.0`) installed by
+`leanprover/lean-action@v1`. **Nothing was compiled on the development host** — no toolchain exists
+there, by owner decision — so every number below is a runner's.
+
+| cycle | run | outcome | what it forced |
+|---|---|---|---|
+| 1 | [41941054594](https://github.com/yanksyoon/mattermost-ios/actions/runs/41941054594) | red | `lean-action` refuses to configure without `lake-manifest.json`. The manifest is now committed (the package has zero dependencies) and `lake update` regenerates it in the build step, so a hand-written manifest cannot become a stale-format trap |
+| 2 | [41941189898](https://github.com/yanksyoon/mattermost-ios/actions/runs/41941189898) | red | three real Lean errors: core Lean exports no `Function.Injective` (the theorem is stated as the implication it is); `injection … with` already closed the goal, so the following `exact` had nothing to solve; and `decide` over the 12-field `Row` literal fails with "expected type must not contain free variables", so the two MOVE lemmas were restated over `cases` on the path |
+| 3 | [41941487416](https://github.com/yanksyoon/mattermost-ios/actions/runs/41941487416) | **green** at commit `1a91635` | `✔ [2/6] Built Parity.Basic`, `✔ [3/6] Built Parity.Join`, `✔ [4/6] Built Parity.Ladder`, `✔ [5/6] Built Parity`, `Build completed successfully.` — `join_key_injective` compiles, along with the rest of the package |
+| 4 | [41941696516](https://github.com/yanksyoon/mattermost-ios/actions/runs/41941696516) | **red on purpose** | the gate is not green by vacuity. One-line mutation `joinKey (i) := ⟨i.ns, ""⟩` — the F5 failure shape, every path in a namespace collapsing onto one key — and `join_key_injective` fails to elaborate at `Parity/Join.lean:35` (`'change' tactic failed`). The branch `lean/mutation-check-t_22c3f1ea` is kept as the witness and must never be merged |
+| 5 | run list for `lean/t_22c3f1ea` | **skipped** | the path filter decides. The commit that carried this section touches `docs/` only: `relevant-paths` reports `relevant=false` and job `lean` is skipped, so an unrelated change is not in the way and a required check still reports |
+
+Wall clock: first push `00:24:13Z` → first green `00:28:19Z` = **4m06s**, three runs, none of them
+local. Measured build: the `lake build` step is **2 s** with the toolchain cache warm (four modules,
+no Mathlib); the `lean` job is 23 s and the whole workflow 36 s, so the cost is runner overhead, not
+the proof. A cold run pays the elan + toolchain download once (~200–400 MB); the cache key is
+sha256(`lean/lean-toolchain`), so exactly a toolchain change invalidates it.
+
+Cycle count against the card's budget: **3 red/green cycles to land, 1 deliberate red to falsify the
+gate, 1 skip to check the filter** — well inside the 10–30 expected for a first proof, and no cycle
+was spent weakening a statement.
+
