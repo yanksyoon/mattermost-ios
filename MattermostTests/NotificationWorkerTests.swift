@@ -32,8 +32,10 @@ final class NotificationWorkerTests: XCTestCase {
         super.tearDown()
     }
 
-    private func makeWorker() -> NotificationWorker {
-        NotificationWorker(scheduling: mock, preferences: AppPreferences(defaults: defaults))
+    private func makeWorker(registration: NotificationRegistration = .unknown) -> NotificationWorker {
+        NotificationWorker(scheduling: mock,
+                           preferences: AppPreferences(defaults: defaults),
+                           registration: FixedNotificationRegistrationReader(registration))
     }
 
     /// The smallest shell a tap can land in: one configured server, a mounted view store, and the native
@@ -523,6 +525,8 @@ final class NotificationWorkerTests: XCTestCase {
     }
 
     /// Card item 4: one line that answers "why do I get no notifications?" from a log or report.
+    /// t_e4d5a252 added `registration=` beside `status=`, so the read-out can never say "allowed"
+    /// while the OS has no row to deliver into.
     func testDiagnosticsLineShape() async {
         mock.authorizationStatusValue = .denied
         let worker = makeWorker()
@@ -530,8 +534,131 @@ final class NotificationWorkerTests: XCTestCase {
         _ = await worker.prepareAuthorization() // denied installs do not re-ask
 
         XCTAssertEqual(worker.diagnosticsLine,
-                       "notifications=status=denied requested=false lastSchedule=none")
+                       "notifications=status=denied registration=unknown requested=false lastSchedule=none")
         XCTAssertEqual(worker.diagnosticsSnapshot.line, worker.diagnosticsLine)
+    }
+
+    // MARK: - t_e4d5a252: state-driven authorisation and the OS registration fact
+    //
+    // The reported failure was not a delivery bug: on a fresh install macOS has no notification
+    // registration row for this bundle, so every add() is dropped, and nothing ever asked because
+    // `prepareAuthorization` gated the ask on a *persisted* "already asked" flag. These tests pin the
+    // new rules: the OS status is the only gate (T1), a denial is never re-prompted (T2), an
+    // authorized install still schedules (T3), and the diagnostics/Settings read-out carries the
+    // registration fact (T4).
+
+    /// T1: `.notDetermined` asks **even when** the persisted flag says this install already asked —
+    /// the flag may not survive the code identity it belonged to.
+    func testNotDeterminedAsksEvenWhenThePersistedFlagSaysItAlreadyAsked() async {
+        mock.authorizationStatusValue = .notDetermined
+        let preferences = AppPreferences(defaults: defaults)
+        preferences.set(true, forKey: AppPreferences.Keys.notificationPermissionRequested)
+        let worker = NotificationWorker(scheduling: mock, preferences: preferences,
+                                        registration: FixedNotificationRegistrationReader(.unknown))
+
+        let status = await worker.prepareAuthorization()
+
+        XCTAssertEqual(mock.requestAuthorizationCount, 1,
+                       "a persisted permissionRequested=true must not swallow the ask")
+        XCTAssertEqual(mock.requestedOptions, [.alert, .sound, .badge])
+        XCTAssertEqual(status, .notDetermined)
+    }
+
+    /// T2: denied is never re-prompted, reads as denied, and points at System Settings.
+    func testDeniedIsNeverRePromptedAndPointsAtSystemSettings() async {
+        mock.authorizationStatusValue = .denied
+        let worker = makeWorker()
+
+        let first = await worker.prepareAuthorization()
+        let second = await worker.prepareAuthorization()
+
+        XCTAssertEqual(mock.requestAuthorizationCount, 0, "a denial cannot be re-asked")
+        XCTAssertEqual(first, .denied)
+        XCTAssertEqual(second, .denied)
+        XCTAssertEqual(worker.authorizationStatus, .denied)
+        XCTAssertEqual(worker.authorizationCopy, "Not allowed - open System Settings")
+        XCTAssertEqual(worker.statusLabel, "Not allowed")
+    }
+
+    /// T3: authorized still schedules a mention — the T8 behaviour must not regress.
+    func testAuthorizedMentionStillSchedules() async {
+        mock.authorizationStatusValue = .authorized
+        let worker = makeWorker(registration: .registered)
+        let serverStore = ServerStore(preferences: AppPreferences(defaults: defaults))
+        let server = makeServer()
+        _ = serverStore.add(server)
+        worker.serverStore = serverStore
+        worker.isAppActive = { false }
+
+        let outcome = await worker.presentMention(makeMention(), fromServerID: server.id)
+
+        guard case .scheduled = outcome else { return XCTFail("expected scheduled, got \(outcome)") }
+        XCTAssertEqual(mock.requestAuthorizationCount, 0)
+        XCTAssertEqual(mock.added.count, 1)
+        XCTAssertEqual(worker.lastScheduleOutcome, "scheduled")
+    }
+
+    /// T4: the diagnostics token carries `notRegistered` when the OS has no row for this bundle,
+    /// even though the system says `.authorized`.
+    func testDiagnosticsCarriesNotRegisteredWhenTheOSHasNoRow() async {
+        mock.authorizationStatusValue = .authorized
+        let worker = makeWorker(registration: .notRegistered)
+
+        await worker.reloadAuthorizationStatus()
+
+        XCTAssertEqual(worker.registrationState, .notRegistered)
+        XCTAssertEqual(worker.diagnosticsLine,
+                       "notifications=status=authorized registration=notRegistered requested=false lastSchedule=none")
+        XCTAssertEqual(worker.diagnosticsSnapshot.registration, "notRegistered")
+        XCTAssertEqual(worker.diagnosticsSnapshot.line, worker.diagnosticsLine)
+    }
+
+    /// The Settings row must not read "Allowed" for an authorized bundle the OS cannot deliver into.
+    func testAllowedCopyNamesTheMissingRegistration() async {
+        mock.authorizationStatusValue = .authorized
+        let worker = makeWorker(registration: .notRegistered)
+
+        await worker.reloadAuthorizationStatus()
+
+        XCTAssertEqual(worker.authorizationCopy, "Not registered with macOS - nothing can appear")
+        XCTAssertEqual(worker.statusLabel, "Not registered")
+        XCTAssertEqual(NotificationWorker.statusLabel(for: .authorized, registration: .registered), "Allowed")
+        XCTAssertEqual(NotificationWorker.authorizationCopy(for: .authorized, registration: .registered),
+                       "Allowed - notifications can appear")
+        XCTAssertEqual(NotificationWorker.authorizationCopy(for: .notDetermined, registration: .notRegistered),
+                       "Not allowed yet - the app has not been allowed to notify you",
+                       "a fresh install has no row yet; the copy still has to ask, not accuse")
+    }
+
+    /// Item 2: launch asks on a fresh install **with a session**, and stays quiet without one.
+    func testLaunchAsksWhenNotDeterminedAndASessionExists() async {
+        mock.authorizationStatusValue = .notDetermined
+        let worker = makeWorker()
+
+        await worker.askOnLaunchIfNeeded(hasSession: true)
+
+        XCTAssertEqual(mock.requestAuthorizationCount, 1)
+        XCTAssertTrue(worker.hasRequestedAuthorization)
+    }
+
+    func testLaunchDoesNotAskWithoutASession() async {
+        mock.authorizationStatusValue = .notDetermined
+        let worker = makeWorker()
+
+        await worker.askOnLaunchIfNeeded(hasSession: false)
+
+        XCTAssertEqual(mock.requestAuthorizationCount, 0, "nothing to notify about before sign-in")
+    }
+
+    /// A launch on an already-answered install does not re-prompt (the OS status is the gate).
+    func testLaunchDoesNotAskWhenTheOSHasAlreadyAnswered() async {
+        mock.authorizationStatusValue = .authorized
+        let worker = makeWorker(registration: .registered)
+
+        await worker.askOnLaunchIfNeeded(hasSession: true)
+
+        XCTAssertEqual(mock.requestAuthorizationCount, 0)
+        XCTAssertEqual(worker.registrationState, .registered)
     }
 
     // MARK: - Tap fallbacks when the post or channel is gone (t_14c96dfd)

@@ -402,6 +402,10 @@ struct MattermostApp: App {
                 // reader is away because they glanced at their notifications.
                 .onChange(of: scenePhase) { _, phase in
                     guard phase == .active || phase == .background else { return }
+                    // t_e4d5a252: a permission granted in System Settings while the app was in the
+                    // background changes both the status and the OS registration row; re-read them on
+                    // the way back so Settings and the diagnostics line stop reporting the old answer.
+                    if phase == .active { notificationWorker.activate() }
                     let servers = serverStore.servers
                     Task { await profileCoordinator.sceneChanged(isActive: phase == .active,
                                                                  servers: servers) }
@@ -460,6 +464,18 @@ struct MattermostApp: App {
                     seedWebviewSessionIfRequested()
                     #endif
                     await authCoordinator.restoreAll(serverStore.servers)
+
+                    // t_e4d5a252: on a fresh install the OS has no notification registration row for
+                    // this bundle, so every add() is dropped — and nothing ever asked, because the ask
+                    // lived behind Settings > Notifications and behind a persisted "already asked" flag.
+                    // Ask once here, after the sessions resolved, when this install has never been
+                    // answered and there is something to notify about. The system alert is the OS's,
+                    // it does not block the shell (`.task` is after the first frame).
+                    let hasSession = serverStore.servers.contains { server in
+                        authCoordinator.phase(for: server).isSignedIn
+                            || authCoordinator.hasStoredToken(for: server)
+                    }
+                    await notificationWorker.askOnLaunchIfNeeded(hasSession: hasSession)
                 }
                 .task { runShellSnapshotIfRequested() }
                 // T1617 evidence probe: `-threadBackSnapshot <dir> -threadBackTarget <channel>,<root>`

@@ -33,6 +33,31 @@ open /Applications/Mattermost.app
 
 Once. After the first approval macOS remembers it for that copy.
 
+## Notifications: allow once, then prove the OS agrees
+
+Every install is re-signed ad-hoc, which changes the app's code identity, and macOS discards the
+bundle's notification-registration row with it. `UNUserNotificationCenter.add()` keeps accepting
+requests while Notification Center has nowhere to show them — so "the app said it scheduled one" is
+not evidence of anything.
+
+On a fresh install with a signed-in server the app now asks for permission itself at launch. If the
+alert was missed:
+
+```
+Mattermost → Settings → Notifications → Enable notifications → Allow
+```
+
+Then run the gate as the last step of the install — **a build is not delivered until it exits 0**:
+
+```bash
+bash scripts/verify-notification-registration.sh
+```
+
+It reads `~/Library/Preferences/com.apple.ncprefs.plist` and fails, with the one-line fix, when
+`com.mattermost.ios` has no row. Only after it passes is `Send a test notification` meaningful.
+
+Why ad-hoc signing stays, and the cost of that decision: `docs/t_e4d5a252-notification-registration.md`.
+
 ## Details worth knowing
 
 - **Universal (arm64 + x86_64).** `ONLY_ACTIVE_ARCH=NO` on the Catalyst destination

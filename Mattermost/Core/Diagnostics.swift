@@ -260,20 +260,27 @@ struct PermissionsSnapshot: Equatable {
 }
 
 /// The notification worker's own facts, which the system status provider cannot see: whether this
-/// install has ever shown the permission prompt, and how the last scheduling attempt ended.
+/// install has ever shown the permission prompt, how the last scheduling attempt ended, and — since
+/// t_e4d5a252 — whether the OS actually holds a notification-registration row for this bundle.
 /// `NotificationWorker.diagnosticsSnapshot` produces it; `DiagnosticsContext.step6` writes it into
 /// the shareable report so "I get no notifications" is answerable without reading `ncprefs.plist`.
 struct NotificationDiagnosticsSnapshot: Equatable {
     var status: String
+    /// `registered`, `notRegistered`, or `unknown` (see `NotificationRegistration`).
+    var registration: String
     var requested: Bool
     var lastSchedule: String
 
-    /// The one line this card pins: `notifications=status=<status> requested=<bool> lastSchedule=<outcome>`.
+    /// The one line this card pins:
+    /// `notifications=status=<status> registration=<registered|notRegistered|unknown>
+    ///  requested=<bool> lastSchedule=<outcome>`.
     var line: String {
-        "notifications=status=\(status) requested=\(requested) lastSchedule=\(lastSchedule)"
+        "notifications=status=\(status) registration=\(registration) "
+            + "requested=\(requested) lastSchedule=\(lastSchedule)"
     }
 
     static let unknown = NotificationDiagnosticsSnapshot(status: "unknown",
+                                                         registration: "unknown",
                                                          requested: false,
                                                          lastSchedule: "none")
 }
@@ -697,6 +704,9 @@ extension DiagnosticsService {
                 let payload: [String: Any] = [
                     "notificationsSupported": snapshot.notificationsStatus != "not-determined",
                     "notificationsStatus": snapshot.notificationsStatus,
+                    // The OS-side fact (t_e4d5a252): `notRegistered` means the bundle has no row and
+                    // every request is dropped, whatever `notificationsStatus` answers.
+                    "notificationsRegistration": context.notificationDiagnostics.registration,
                     "notificationsRequested": context.notificationDiagnostics.requested,
                     "notificationsLastSchedule": context.notificationDiagnostics.lastSchedule,
                     // One line, exactly as the worker logs it (this card's diagnostic).

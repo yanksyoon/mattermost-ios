@@ -58,9 +58,22 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     /// Latest authorization status, surfaced for Settings UI (T11).
     @Published private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
+    /// Whether macOS has a notification-registration row for this bundle (card t_e4d5a252).
+    ///
+    /// This is deliberately separate from `authorizationStatus`: the system can answer `.authorized`
+    /// and still have no row to deliver into (every install re-signs ad-hoc, which changes the code
+    /// identity), and it can answer `.notDetermined` while a previous build's grant is already gone.
+    /// The Settings row and the diagnostics line both read this fact, so neither can say "Allowed"
+    /// while the OS has nowhere to put a banner.
+    @Published private(set) var registrationState: NotificationRegistration = .unknown
+
     /// Whether this install has ever shown the system prompt (persisted; see
     /// `AppPreferences.Keys.notificationPermissionRequested`). Published because the Settings row
     /// reports it in the diagnostics line.
+    ///
+    /// **Diagnostic only since t_e4d5a252.** It records history, it never gates the ask: a persisted
+    /// `true` from an earlier build must not swallow the prompt after the code identity changed and
+    /// the OS forgot the grant. The gate is the OS's own status.
     @Published private(set) var hasRequestedAuthorization: Bool
 
     /// How the last scheduling attempt ended, in one word, for the Settings diagnostics line.
@@ -116,6 +129,18 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
 
     private let scheduling: NotificationScheduling
     private let preferences: AppPreferences
+    private let registrationReader: any NotificationRegistrationReading
+
+    /// Whether **this process** has already shown the system prompt.
+    ///
+    /// Not persisted on purpose (t_e4d5a252). The system prompt can only be answered once per
+    /// code identity, but the *app* cannot know when that identity changed — macOS throws the
+    /// grant away on every ad-hoc re-sign while `mm.notifications.permissionRequested` survives in
+    /// UserDefaults. So the persisted flag is history, and this process-scoped bit is what keeps
+    /// one run's repeated `prepareAuthorization()` calls (a mention, a Settings tap, a test banner)
+    /// from re-asking while the alert is already up. A new launch asks again **iff the OS says
+    /// `.notDetermined`**.
+    private var didAskThisProcess = false
 
     /// Server ids whose SPA has signalled `react-app-initialized` (bridge). Used to decide
     /// whether a tapped notification can SPA-navigate immediately or must wait.
@@ -124,14 +149,19 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     private var pendingChannelPaths: [UUID: String] = [:]
 
     init(scheduling: NotificationScheduling = UNNotificationCenterAdapter(),
-         preferences: AppPreferences = AppPreferences()) {
+         preferences: AppPreferences = AppPreferences(),
+         registration: any NotificationRegistrationReading = NCPrefsNotificationRegistrationReader()) {
         self.scheduling = scheduling
         self.preferences = preferences
+        self.registrationReader = registration
         // AppPreferences persists Codable as JSON Data, so the flag round-trips through the
         // Codable getter, not the raw-Bool primitive reader (which would miss `false`).
         self.hasRequestedAuthorization = preferences.get(Bool.self,
             forKey: AppPreferences.Keys.notificationPermissionRequested) ?? false
         super.init()
+        // The registration fact is a cheap local file read: take it before the first frame so the
+        // Settings row is truthful on an install whose grant never carried over.
+        registrationState = registrationReader.registrationState()
         // The worker is the UNUserNotificationCenter delegate (willPresent / didReceive).
         // The center's delegate reference is weak; the app's @StateObject retains this worker.
         scheduling.delegate = self
@@ -148,6 +178,7 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
 
     func reloadAuthorizationStatus() async {
         authorizationStatus = await scheduling.authorizationStatus()
+        registrationState = registrationReader.registrationState()
         logDiagnostics("status-read")
     }
 
@@ -155,14 +186,38 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
 
     /// The plain-words state the Settings row draws. `notDetermined` is **not** silence: an install
     /// that has never been asked says so, because that is the reported failure (nothing ever asked).
-    nonisolated static func authorizationCopy(for status: UNAuthorizationStatus) -> String {
+    ///
+    /// `registration` is the OS-side fact (card t_e4d5a252). It only changes the copy when the system
+    /// answers "allowed": `.authorized` with no Notification Center row is the state in which every
+    /// `add()` is dropped, so that combination must never read as "Allowed".
+    nonisolated static func authorizationCopy(for status: UNAuthorizationStatus,
+                                              registration: NotificationRegistration = .unknown) -> String {
         switch status {
-        case .authorized: return "Allowed - notifications can appear"
-        case .provisional: return "Allowed quietly - notifications may not interrupt"
-        case .ephemeral: return "Allowed for this session"
+        case .authorized, .provisional, .ephemeral:
+            if registration == .notRegistered {
+                return "Not registered with macOS - nothing can appear"
+            }
+            switch status {
+            case .authorized: return "Allowed - notifications can appear"
+            case .provisional: return "Allowed quietly - notifications may not interrupt"
+            default: return "Allowed for this session"
+            }
         case .denied: return "Not allowed - open System Settings"
         case .notDetermined: return "Not allowed yet - the app has not been allowed to notify you"
         @unknown default: return "Unknown - the system did not report a permission"
+        }
+    }
+
+    /// The short form the row's leading label shows. Same rule as `authorizationCopy`: a bundle the
+    /// OS has no row for is **not** "Allowed", whatever `notificationSettings()` says.
+    nonisolated static func statusLabel(for status: UNAuthorizationStatus,
+                                        registration: NotificationRegistration = .unknown) -> String {
+        switch status {
+        case .authorized, .provisional, .ephemeral:
+            return registration == .notRegistered ? "Not registered" : "Allowed"
+        case .denied: return "Not allowed"
+        case .notDetermined: return "Not allowed yet"
+        @unknown default: return "Unknown"
         }
     }
 
@@ -179,18 +234,30 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     }
 
     /// The plain-words copy for the current status, observed by the Settings row.
-    var authorizationCopy: String { Self.authorizationCopy(for: authorizationStatus) }
+    var authorizationCopy: String {
+        Self.authorizationCopy(for: authorizationStatus, registration: registrationState)
+    }
+
+    /// The short label for the current status, observed by the Settings row.
+    var statusLabel: String {
+        Self.statusLabel(for: authorizationStatus, registration: registrationState)
+    }
 
     /// The one diagnostics line this card adds. Answers "why do I get no notifications?" from a log
     /// or a shared diagnostics report without reading `ncprefs.plist`.
+    ///
+    /// `registration=` was added by t_e4d5a252: without it the line could read
+    /// `status=authorized` on an install where the OS has no row and every banner is dropped.
     var diagnosticsLine: String {
         "notifications=status=\(Self.statusToken(authorizationStatus)) "
+            + "registration=\(registrationState.diagnosticsToken) "
             + "requested=\(hasRequestedAuthorization) lastSchedule=\(lastScheduleOutcome)"
     }
 
     /// The same line as value-type facts, for `DiagnosticsContext.step6` (the shareable report).
     var diagnosticsSnapshot: NotificationDiagnosticsSnapshot {
         NotificationDiagnosticsSnapshot(status: Self.statusToken(authorizationStatus),
+                                        registration: registrationState.diagnosticsToken,
                                         requested: hasRequestedAuthorization,
                                         lastSchedule: lastScheduleOutcome)
     }
@@ -218,28 +285,57 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         return outcome
     }
 
-    /// Ask for notification authorization exactly once per install, and report the answer.
+    /// Ask for notification authorization, driven by the **OS state** rather than a persisted flag.
     ///
     /// This is the first-mention prompt T8 specifies. It is a method of its own because T54's in-app
     /// banner is a delivery that schedules nothing: the banner path still has to ask, or an install whose
     /// mentions all arrive in the foreground would never be authorized and its first *backgrounded* mention
     /// would be dropped by `.authorizationNotDetermined` (and written to the ledger as handled).
     ///
-    /// Since this card it is also the `Enable notifications` control's action in Settings: the user can
-    /// ask without waiting for a mention to reach the delivery path. iOS only ever presents its prompt
-    /// once, so a `.denied` answer cannot be re-asked here — the copy tells the reader to open System
-    /// Settings instead.
+    /// Since this card it is also the `Enable notifications` control's action in Settings and the
+    /// launch-time ask (see `askOnLaunchIfNeeded(hasSession:)`). iOS only ever presents its prompt
+    /// once per code identity, so a `.denied` answer cannot be re-asked here — the copy tells the
+    /// reader to open System Settings instead.
+    ///
+    /// **Why the persisted flag is not the gate (t_e4d5a252).** The reported failure was an install
+    /// whose `mm.notifications.permissionRequested` said "already asked" from a previous build while
+    /// the OS had no registration row at all — so this method returned without ever showing a prompt,
+    /// and every `add()` was silently dropped. `didAskThisProcess` replaces it: one ask per process,
+    /// and a new process asks again whenever the OS still answers `.notDetermined`.
     @discardableResult
     func prepareAuthorization() async -> UNAuthorizationStatus {
         let statusBefore = await scheduling.authorizationStatus()
-        if statusBefore == .notDetermined && !hasRequestedAuthorization {
+        if statusBefore == .notDetermined && !didAskThisProcess {
+            didAskThisProcess = true
             hasRequestedAuthorization = true
             preferences.set(true, forKey: AppPreferences.Keys.notificationPermissionRequested)
             _ = try? await scheduling.requestAuthorization(options: [.alert, .sound, .badge])
         }
         let status = await scheduling.authorizationStatus()
         authorizationStatus = status
+        registrationState = registrationReader.registrationState()
         return status
+    }
+
+    /// Ask at launch, once, when this install has never been answered and a session exists.
+    ///
+    /// Why launch and not only Settings (card item 2): the runbook opens the app and reads a channel
+    /// list; it never opens Settings → Notifications, so an install that only asks there is asked
+    /// never. The call is deliberately gated on a **session**, because an install that has not signed
+    /// in has nothing to notify about yet and a prompt at that moment is noise.
+    ///
+    /// The ask is not awaited by any UI: `MattermostApp` starts it from the `.task` that already runs
+    /// after the first frame, and SwiftUI never blocks on the system alert.
+    func askOnLaunchIfNeeded(hasSession: Bool) async {
+        let status = await scheduling.authorizationStatus()
+        authorizationStatus = status
+        registrationState = registrationReader.registrationState()
+        guard hasSession, status == .notDetermined else {
+            logDiagnostics("launch-ask-skipped")
+            return
+        }
+        logDiagnostics("launch-ask")
+        _ = await prepareAuthorization()
     }
 
     // MARK: - Mention -> UNNotificationRequest (desktop displayMention)

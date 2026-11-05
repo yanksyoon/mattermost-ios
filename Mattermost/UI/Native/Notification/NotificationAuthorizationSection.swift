@@ -35,22 +35,34 @@ struct NotificationAuthorizationRows: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             LabeledContent {
-                Text(shortStatus)
+                Text(worker.statusLabel)
                     .accessibilityIdentifier("notificationAuthorization.status")
                     .accessibilityValue(worker.authorizationCopy)
             } label: {
                 Text("Notifications")
             }
             // The status in full, not only its short form: `notDetermined` must say the app has
-            // never been allowed rather than look like a silent "off" (card item 3).
+            // never been allowed rather than look like a silent "off" (card item 3), and an
+            // `authorized` answer with no OS registration row must say that no banner can appear
+            // (t_e4d5a252) rather than reading "Allowed".
             Text(worker.authorizationCopy)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("notificationAuthorization.copy")
+
+            if worker.registrationState == .notRegistered {
+                Text("Open System Settings > Notifications, find Mattermost in the list, and allow it. "
+                     + "Then reopen the app.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("notificationAuthorization.registrationHint")
+            }
         }
         // Re-read on entry: the reader may have changed the system permission while the sheet was
-        // closed, and a stale `.notDetermined` row would be the same lie this card removes.
+        // closed, and a stale `.notDetermined` row would be the same lie this card removes. The same
+        // read refreshes the OS registration fact, so a grant made in System Settings shows up here.
         .task { await worker.reloadAuthorizationStatus() }
 
         Button {
@@ -60,7 +72,7 @@ struct NotificationAuthorizationRows: View {
         }
         .accessibilityIdentifier("notificationAuthorization.enable")
 
-        if worker.authorizationStatus == .denied {
+        if worker.authorizationStatus == .denied || worker.registrationState == .notRegistered {
             Button {
                 openSystemSettings()
             } label: {
@@ -93,21 +105,23 @@ struct NotificationAuthorizationRows: View {
             .accessibilityIdentifier("notificationAuthorization.diagnostics")
     }
 
-    private var shortStatus: String {
-        switch worker.authorizationStatus {
-        case .authorized, .provisional, .ephemeral: return "Allowed"
-        case .denied: return "Not allowed"
-        case .notDetermined: return "Not allowed yet"
-        @unknown default: return "Unknown"
-        }
-    }
-
     private func sendTest() async {
         let outcome = await worker.sendTestNotification()
         testOutcome = Self.testOutcomeCopy(outcome)
     }
 
+    /// Where a reader who must fix this outside the app goes.
+    ///
+    /// On a Mac, the app's own Settings page does not list notification permission: it lives in
+    /// System Settings > Notifications, so the deep link names that pane (macOS has no public
+    /// per-app notification deep link). On iOS, the app's page is exactly right.
     private func openSystemSettings() {
+        #if targetEnvironment(macCatalyst)
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
+            openURL(url)
+            return
+        }
+        #endif
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         openURL(url)
     }
