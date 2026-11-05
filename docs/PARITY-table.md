@@ -20,7 +20,7 @@ same as `parity/out/*`. The machine record is `parity/*.tsv` + `parity/verdicts.
 
 | Module | Upstream feature | Upstream ref (path@pin) | Implemented | Evidence | To be implemented |
 |---|---|---|---|---|---|
-| apps_form | apps_form | app/screens/apps_form@v2.45.0 | no | - | - |
+| apps_form | apps_form | app/screens/apps_form@v2.45.0 | no | - | docs/t_61525849-s34-apps-forms-decision.md §5 D2 |
 
 ## attachment_options
 
@@ -239,7 +239,7 @@ same as `parity/out/*`. The machine record is `parity/*.tsv` + `parity/verdicts.
 
 | Module | Upstream feature | Upstream ref (path@pin) | Implemented | Evidence | To be implemented |
 |---|---|---|---|---|---|
-| dialog_router | dialog_router | app/screens/dialog_router@v2.45.0 | no | - | - |
+| dialog_router | dialog_router | app/screens/dialog_router@v2.45.0 | no | - | t_e14483c8 |
 
 ## draft_scheduled_post_options
 

@@ -6,7 +6,7 @@ Pins: M=v2.45.0@162f2560d0e1 ; W=v12.0.1@987e57120dca
 
 ## Summary
 
-159 capabilities: **135 yes**, **2 partial**, **16 to be implemented**, **6 out of scope** — of which **13** need an owner decision.
+160 capabilities: **135 yes**, **2 partial**, **16 to be implemented**, **7 out of scope** — of which **11** need an owner decision.
 
 A row lands in Implemented only with evidence that resolves (a test case, or a recorded observation). A claim without evidence is Partial, whatever the code looks like. Every gap carries a card id or the owner decision that blocks it.
 
@@ -163,7 +163,7 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 |---|---|---|
 | channel-header | ignore-mentions-in-a-channel | t_8525d2c8 (new card: ignore_channel_mentions toggle) |
 | channel-header | per-channel-auto-translation | blocker: enterprise feature, no licensed fixture; decide v1 scope |
-| channel-timeline | apps-bindings-and-interactive-attachments-inside-a-post | t_61525849 (new card: S34 decision) |
+| channel-timeline | message-attachments-fields-and-action-buttons | t_5dce3e67 |
 | channel-timeline | urgent-message-priority-badge | blocker: enterprise licence + fixture; owner to decide whether v1 keeps priority |
 | composer | archived-and-read-only-banners | t_03411e94 (new card: archived/read-only banners) |
 | composer | scheduled-posts-and-priority-from-the-composer | t_e5f917f9 (existing card T51-S (blocked: licence)) |
@@ -175,13 +175,14 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 | notifications | receive-a-real-apns-push | blocker: no APNs entitlement/certificate and no push proxy on this host; decide whether v1 ships local+poll only |
 | shell-transport | share-extension-to-post-a-file | blocker: needs a second app target/entitlement the current project does not declare; owner to decide v1 |
 | thread | mention-highlighting-in-thread-posts | t_0268627c (new card: mention background for the reader's own name) |
-| web-fallback | apps-integration-selector | t_61525849 (new card: S34 decision) |
-| web-fallback | apps-interactive-dialog-forms | t_61525849 (new card: S34 decision) |
+| web-fallback | apps-integration-selector | t_e14483c8 |
+| web-fallback | apps-interactive-dialog-forms | t_e14483c8 |
 
 ## Out of scope
 
 | Module | Feature | Why |
 |---|---|---|
+| channel-timeline | apps-bindings-inside-a-post | accepted out of scope — docs/t_61525849-s34-apps-forms-decision.md §5 D2 (decided 2026-11-05: not built in v1) |
 | profile-popover | shared-channels-and-team-section | deliberate divergence — divergence: shared-channel list omitted (mobile parity); owner to confirm |
 | search | a-search-supports-filters-the-webapp-has | deliberate divergence — divergence: typed modifiers + chips instead of the webapp's filter menus; owner to confirm |
 | thread | root-deleted-while-the-pane-is-open | deliberate divergence — divergence: we keep the pane and say the root was deleted instead of auto-popping; owner to confirm |

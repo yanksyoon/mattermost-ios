@@ -24,7 +24,7 @@ import sys
 COLS = ["module", "upstream_ref", "capability", "what_upstream_does", "ours", "ours_ref",
         "evidence", "verdict", "card"]
 OURS = {"native", "partial", "webview", "absent"}
-VERDICTS = {"parity", "gap", "owner-decision"}
+VERDICTS = {"parity", "gap", "owner-decision", "out-of-scope"}
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCAN = os.path.join(ROOT, "docs", "parity", "module-scan.tsv")
 DEFAULT_LOG = os.path.join(ROOT, "build", "logs", "parity-scan-unit.log")

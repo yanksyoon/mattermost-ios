@@ -5,7 +5,7 @@ M:app/components/post_list	tested	-	channelView
 M:app/products/boards	tested	-	-
 M:app/products/calls	tested	-	calls
 M:app/products/playbooks	tested	-	-
-M:app/screens/apps_form	absent	-	-
+M:app/screens/apps_form	absent	docs/t_61525849-s34-apps-forms-decision.md §5 D2	-
 M:app/screens/attachment_options	absent	-	-
 M:app/screens/bottom_sheet	absent	-	-
 M:app/screens/browse_channels	tested	-	channelInfo
@@ -26,7 +26,7 @@ M:app/screens/create_or_edit_channel	tested	t_e1ddfba4	channelInfo
 M:app/screens/custom_status	absent	-	-
 M:app/screens/custom_status_clear_after	absent	-	-
 M:app/screens/data_erased	absent	-	-
-M:app/screens/dialog_router	absent	-	-
+M:app/screens/dialog_router	absent	t_e14483c8	-
 M:app/screens/draft_scheduled_post_options	absent	-	-
 M:app/screens/edit_post	tested	-	composer
 M:app/screens/edit_profile	tested	-	-

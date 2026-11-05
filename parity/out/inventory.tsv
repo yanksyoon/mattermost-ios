@@ -5,7 +5,7 @@ M:app/components/post_list	channelView	tested	Mattermost/UI/Native/Channel	Matte
 M:app/products/boards	-	tested	Mattermost/UI/Native/Web	MattermostTests/T46WebFallbackTests.swift::testTheFixedRowsAddressExactlyTheWebAppsOwnRoutes	-	-
 M:app/products/calls	calls	tested	Mattermost/UI/Native/Calls	MattermostTests/T44DCallsSurfaceTests.swift::testParticipantRowsSurviveMissingProfilesAndMarkTheReader	-	-
 M:app/products/playbooks	-	tested	Mattermost/UI/Native/Web	MattermostTests/T46WebFallbackTests.swift::testTheFixedRowsAddressExactlyTheWebAppsOwnRoutes	-	-
-M:app/screens/apps_form	-	absent	-	-	-	-
+M:app/screens/apps_form	-	absent	-	-	-	docs/t_61525849-s34-apps-forms-decision.md §5 D2
 M:app/screens/attachment_options	-	absent	-	-	-	-
 M:app/screens/bottom_sheet	-	absent	-	-	-	-
 M:app/screens/browse_channels	channelInfo	tested	Mattermost/UI/Native/ChannelInfo	MattermostTests/T40ChannelInfoTests.swift::testAdminPermissionsOfferEveryActionOnAPublicChannel	-	-
@@ -26,7 +26,7 @@ M:app/screens/create_or_edit_channel	channelInfo	tested	Mattermost/UI/Native/Cha
 M:app/screens/custom_status	-	absent	-	-	-	-
 M:app/screens/custom_status_clear_after	-	absent	-	-	-	-
 M:app/screens/data_erased	-	absent	-	-	-	-
-M:app/screens/dialog_router	-	absent	-	-	-	-
+M:app/screens/dialog_router	-	absent	-	-	-	t_e14483c8
 M:app/screens/draft_scheduled_post_options	-	absent	-	-	-	-
 M:app/screens/edit_post	composer	tested	Mattermost/UI/Native/Composer	MattermostTests/T35ComposerModelsTests.swift::testAMentionIsTheWordBeforeTheCaret	-	-
 M:app/screens/edit_profile	-	tested	Mattermost/UI/Native/Profile	MattermostTests/T50EditProfileTests.swift::testPatchCarriesOnlyTheFieldsThatChanged	-	-

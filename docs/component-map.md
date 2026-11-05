@@ -440,15 +440,24 @@ at `987e5712…`; "decomposition" always follows §1 rules.
   (a JSON text frame is dropped by the plugin), the **client is the offerer**, and the pinned protocol
   source must match the plugin version under test. Conformance probe: `scripts/t44_calls_probe.py`.
 
-### S34 Apps framework — `hybrid` (native where feasible, webview fallback)
-- Sources: `M app/screens/apps_form/`, `M app/screens/dialog_router/`,
-  `M app/screens/integration_selector/`, `M app/components/autocomplete/slash_suggestion/app_command_parser/app_command_parser.ts`,
-  `M app/utils/apps.ts`, `M app/utils/dialog_utils.ts`, `M app/utils/dialog_conversion.ts`,
-  `M app/utils/interactive_dialog_adapter.ts`, `M app/client/rest/apps.ts`,
-  `M app/client/rest/integrations.ts`; webapp `W …/components/apps_form/*` (cross-check).
-- Decomposition: `AppsFormView` (message-attachment-style form), `DialogRouterView`,
-  `IntegrationSelectorView`, each with a VM (bindings/call, dialog submit/lookup).
-- Not ported: full Apps runtime; unknown `custom_*` plugin events tolerated, not modeled (§2 WS).
+### S34 Apps framework — `hybrid`, decided 2026-11-05 (t_61525849)
+- **In v1, native: the interactive-dialog runtime** — carded **t_e14483c8**. Sources:
+  `M app/screens/dialog_router/`, `M app/screens/apps_form/apps_form_component.tsx` (the form itself),
+  `M app/screens/integration_selector/` (the select-field picker, **not** a screen of its own),
+  `M app/utils/{dialog_utils,dialog_conversion,interactive_dialog_adapter}.ts`,
+  `M app/managers/integrations_manager.ts` (the `trigger_id` ↔ `open_dialog` correlation),
+  `M app/client/rest/integrations.ts` (submit/lookup); webapp `W …/components/interactive_dialog/*`
+  (cross-check).
+- Decomposition: `DialogRouterView` + `DialogViewModel` (correlation, multiform, refresh,
+  submit/cancel), `DialogFieldViews` (7 element types / 5 text subtypes), `DialogPickerView`
+  (channels / users / dynamic lookup).
+- **Out of scope for v1: the Apps protocol runtime** — bindings
+  (`GET /plugins/com.mattermost.apps/api/v1/bindings`), the `/api/v1/call` cycle,
+  `app_command_parser`, `embedded_bindings/`, `interactive_messages/`, and the `apps_form` screen they
+  drive. There is no native surface to host a binding until message attachments exist (carded
+  t_5dce3e67), and the pinned 9.11.19 fixture has no apps plugin to verify against. Decision:
+  `docs/t_61525849-s34-apps-forms-decision.md` §5 D2.
+- Not ported: unknown `custom_*` plugin events tolerated, not modeled (§2 WS).
 
 ### S35 Notifications (local + push) — `native` (T43)
 - Sources: `M app/screens/in_app_notification/`, `M app/actions/remote/notifications.ts`,
@@ -499,9 +508,9 @@ at `987e5712…`; "decomposition" always follows §1 rules.
   never copied, per ADR §3.
 - **System Console (S29), generic plugin screens (S30), Boards (S31), Playbooks (S32), Calls (S33)** —
   webview-only (T46); no native port, no files ported.
-- **Apps framework runtime (S34)** — hybrid only: native forms/dialogs where listed; the Apps
-  protocol/bindings machinery itself is not ported (REST calls flow through T28 as plain
-  `/plugins/com.mattermost.apps/api/v1/*`).
+- **Apps framework runtime (S34)** — the dialog/form runtime is native (t_e14483c8); the Apps
+  protocol/bindings machinery (`/plugins/com.mattermost.apps/api/v1/*`, bindings, app command parser)
+  is **out of scope for v1** and not ported — `docs/t_61525849-s34-apps-forms-decision.md` §5 D2.
 - **`marked`** (webapp parser) and **`dynamic-virtualized-list`** — not used by the pinned mobile
   client; the Swift layer ports `@mattermost/commonmark` AST semantics and uses SwiftUI windoiwng
   (§4, THIRD_PARTY_NOTICES §2 correction).

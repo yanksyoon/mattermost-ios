@@ -928,15 +928,21 @@ class Record:
         """The per-capability rows authored for t_0230e17e, validated on read.
 
         The five-section render refuses to guess: a row with the wrong arity or a vocabulary
-        word that is not `native|partial|webview|absent` / `parity|gap|owner-decision` is a hard
-        error, because a silently-dropped row is exactly how the last two scans lost capabilities.
+        word that is not `native|partial|webview|absent` / `parity|gap|owner-decision|out-of-scope`
+        is a hard error, because a silently-dropped row is exactly how the last two scans lost
+        capabilities.
+
+        `out-of-scope` is the fourth verdict, added by t_61525849: an absence the owner **decided**
+        to accept. Without it, "we are not building this" had only two dishonest encodings — `webview`
+        (which claims a renderer that does not exist) or a permanent `owner-decision` (which claims
+        nobody has looked). It renders in Out of scope as "accepted out of scope — <card>".
         """
         path = os.path.join(self.cfg.root, "docs/parity/module-scan.tsv")
         rows = []
         if not os.path.exists(path):
             return rows
         ours_ok = ("native", "partial", "webview", "absent")
-        verdict_ok = ("parity", "gap", "owner-decision")
+        verdict_ok = ("parity", "gap", "owner-decision", "out-of-scope")
         for lineno, line in enumerate(read_text(path).splitlines(), 1):
             if not line.strip() or line.startswith("#"):
                 continue
@@ -959,7 +965,9 @@ class Record:
         for r in rows:
             evidenced = bool(r["evidence"]) and "MISSING" not in r["evidence"]
             divergent = r["verdict"] == "owner-decision" and r["ours"] in ("native", "partial")
-            if r["ours"] == "webview":
+            if r["verdict"] == "out-of-scope":
+                oos.append(r)
+            elif r["ours"] == "webview":
                 oos.append(r)
             elif divergent:
                 oos.append(r)
@@ -1017,7 +1025,8 @@ class Record:
                for r in sorted(todo, key=lambda r: (r["module"], r["capability"]))])
         table("Out of scope", ["Module", "Feature", "Why"],
               [[r["module"], r["capability"],
-                ("deliberate divergence — " + r["card"]) if r["verdict"] == "owner-decision"
+                ("accepted out of scope — " + r["card"]) if r["verdict"] == "out-of-scope"
+                else ("deliberate divergence — " + r["card"]) if r["verdict"] == "owner-decision"
                 else ("webview by ADR — " + r["card"])]
                for r in sorted(oos, key=lambda r: (r["module"], r["capability"]))])
         return "\n".join(out)

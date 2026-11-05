@@ -1,8 +1,8 @@
-parity findings — 1 fatal, 274 report
+parity findings — 1 fatal, 272 report
 
   STALE-VERDICT               1
   GAP                         2
-  UNCARDED-GAP              263
+  UNCARDED-GAP              261
   APPROVED-WITHOUT-VERDICT    8
   VALIDATED-BUT-NOT-APPROVED    1
 
@@ -17,8 +17,7 @@ GAP (2)
   [note] GAP M:app/screens/apps_form — claim names no native path
   [note] GAP M:app/screens/dialog_router — claim names no native path
 
-UNCARDED-GAP (263)
-  [note] UNCARDED-GAP M:app/screens/apps_form — status absent, no card
+UNCARDED-GAP (261)
   [note] UNCARDED-GAP M:app/screens/attachment_options — status absent, no card
   [note] UNCARDED-GAP M:app/screens/bottom_sheet — status absent, no card
   [note] UNCARDED-GAP M:app/screens/channel_add_members — status absent, no card
@@ -34,7 +33,6 @@ UNCARDED-GAP (263)
   [note] UNCARDED-GAP M:app/screens/custom_status — status absent, no card
   [note] UNCARDED-GAP M:app/screens/custom_status_clear_after — status absent, no card
   [note] UNCARDED-GAP M:app/screens/data_erased — status absent, no card
-  [note] UNCARDED-GAP M:app/screens/dialog_router — status absent, no card
   [note] UNCARDED-GAP M:app/screens/draft_scheduled_post_options — status absent, no card
   [note] UNCARDED-GAP M:app/screens/edit_server — status absent, no card
   [note] UNCARDED-GAP M:app/screens/in_app_notification — status absent, no card
