@@ -133,7 +133,9 @@ must not deliver the post later.
 
 ## 6. Runs
 
-Raw output is in `build/logs/` (`t8525-units.log`, `t8525-live*.log`, `t8525-probe.log`).
+Raw output is in `build/logs/`: `t8525-units-isolated.log` (the worktree run), `t8525-units.log` (an earlier
+pass in place), `t8525-maintree.log` (the in-place rerun at the end), `t8525-live7.log` / `t8525-live8.log`,
+`t8525-probe.log`.
 
 **Unit — green.** Run in a throwaway worktree of `HEAD` holding only this card's diff, because three other
 cards are mid-flight in the shared checkout and one of them leaves its test target uncompilable:
