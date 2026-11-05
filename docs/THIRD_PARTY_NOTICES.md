@@ -350,6 +350,8 @@ point at.
 | `app/screens/thread/index.tsx`, `app/screens/thread/thread.tsx`, `thread_content.tsx` | the screen's data pass: one root per pane, the read-marking on mount, and the header/post-list/composer composition |
 | `app/screens/thread/thread_post_list/thread_post_list.tsx` | root drawn once and first, then replies oldest-first, "load earlier" above the chain, and the `fromPost`/`fromCreateAt` paging pair |
 | `app/screens/thread/thread_follow_button/thread_follow.tsx` | the bell as the only follow control, and the rule that the control follows the state it just wrote |
+| `app/screens/thread_options/thread_options.tsx`, `options/open_in_channel_option.tsx` | the thread pane's own "Open in Channel" entry (`showPermalink(serverUrl, '', threadId)`), offered for the thread's **root**: the pane's row menu jumps to the root's place in its channel (`PostOptionID.openInChannel`, `OpenInChannelJump`, t_510a5563) |
+| `app/utils/permalink/index.ts` (`displayPermalink`), `app/actions/remote/permalink.ts` (`showPermalink`) | where that jump goes: the current team resolves the route, and the permalink screen opens the post's channel focused on the post — here `NativeChannelRequest` + `ChannelViewModel.focus(postID:)` |
 | `app/components/post_list/thread_overview/thread_overview.tsx` | the reply line under a root: participant avatars then "N replies", and that tapping it opens the thread |
 | `app/screens/global_threads/global_threads.tsx`, `threads_list/index.tsx`, `threads_list/threads_list.tsx` | the followed list, its two tabs, `onEndReached` paging by the last thread id, and the end-of-list state |
 | `app/screens/global_threads/threads_list/thread/thread.tsx`, `threads_list/header/index.tsx`, `threads_list/empty_state.tsx` | the row's copy (root author, stripped one-line preview, reply count) and the All/Unreads header |
@@ -382,10 +384,11 @@ with no app involved — `scripts/t36_thread_probe.py`, output in `docs/t36-buil
   is 404, so there is no channel-scoped followed list to draw (upstream's `threads_button` opens the
   global one too).
 
-Not ported by this card (other cards own them, or the surface is out of scope): the thread options
-menu's "open in channel" entry (the model has mark-unread; the UI draws the bell only), a jump-to-unread
+Not ported by this card (other cards own them, or the surface is out of scope): a jump-to-unread
 anchor **inside** a long chain (the pane opens at the newest reply), the T29 store (no threads
-offline), and scheduled/permalink navigation from a thread row.
+offline), and scheduled/permalink navigation from a thread row. (The thread options menu's "open in
+channel" entry — listed here as not ported when T36 landed — is now implemented for the root row;
+see the two `thread_options` rows above.)
 
 Reimplementation notes that matter for the licence boundary: the Swift types are written against
 `https://api.mattermost.com` (the thread paths above) and this repo's existing `APIClient`/`MMPost`
