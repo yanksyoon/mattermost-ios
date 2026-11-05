@@ -1289,6 +1289,11 @@ private struct ChannelPaneTitle: View {
     /// The server's display name, or the shell's name until it arrives.
     private var displayTitle: String { model.title.isEmpty ? fallback : model.title }
 
+    /// What the second line says: `"{n} members"` when the count is known, `View info` otherwise
+    /// (`ChannelViewModel.headerSubtitle`, which is upstream's rule at
+    /// `app/screens/channel/header/header.tsx:255`).
+    private var subtitle: String { ChannelViewModel.headerSubtitle(memberCount: model.memberCount) }
+
     var body: some View {
         Button(action: onOpen) {
             HStack(spacing: 8) {
@@ -1302,9 +1307,10 @@ private struct ChannelPaneTitle: View {
                         .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
-                    // Upstream's subtitle fallback when there is no member count to show.
+                    // Upstream's subtitle: the member count, or its `View info` fallback when there is
+                    // no count to show (a DM, or the stats call has not answered).
                     HStack(spacing: 2) {
-                        Text("View info")
+                        Text(subtitle)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Image(systemName: "chevron.right")
@@ -1322,6 +1328,11 @@ private struct ChannelPaneTitle: View {
         // that already waits on `nativeChannelTitle`) addresses.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(displayTitle)
+        // t_0f8e0eb2: the subtitle is inside a `.ignore` container, so a count a sighted reader can
+        // see would be unreadable to VoiceOver — and unassertable by a live test. It rides as the
+        // control's **value**, which leaves the label (the display name, `nativeChannelTitle`'s only
+        // contract) exactly as it was.
+        .accessibilityValue(subtitle)
         .accessibilityHint("Shows this channel's details")
         .accessibilityIdentifier("nativeChannelTitle")
     }

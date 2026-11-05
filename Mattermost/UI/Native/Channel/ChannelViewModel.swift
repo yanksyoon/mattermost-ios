@@ -77,6 +77,15 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     /// `display_name` is `id__id`).
     @Published private(set) var title: String
     @Published private(set) var channelType: String = ""
+    /// The channel's `member_count` as the last load read it — **`nil` = unknown**, which is what the
+    /// header's `View info` fallback means (card t_0f8e0eb2).
+    ///
+    /// Upstream draws `"{count, plural, one {# member} other {# members}}"` in the header subtitle
+    /// (`app/screens/channel/header/header.tsx:255`) and falls back to `View info` when the count is
+    /// absent or zero; `undefined` is what a **direct message** gets
+    /// (`app/screens/channel/header/index.ts`: `dm ? undefined : ci?.memberCount`), so a DM keeps the
+    /// fallback even though the server would happily report its two members.
+    @Published private(set) var memberCount: Int64? = nil
     @Published private(set) var isLoadingMore = false
     @Published private(set) var hasMore = false
     /// A failed "load earlier" is reported next to the sentinel instead of replacing the list: the
@@ -478,6 +487,19 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
         }
     }
 
+    /// The header's subtitle line — upstream's rule, stated once so the view cannot drift from it.
+    ///
+    /// `app/screens/channel/header/header.tsx:255`:
+    /// `if (memberCount) { "{count, plural, one {# member} other {# members}}" } else { "View info" }`.
+    /// The test is *truthiness*, not `nil`: a **zero** count falls back to `View info` too, and so does
+    /// a count nobody has read yet (`nil`). The plural half is delegated to the same
+    /// `ChannelInfoHeader.membersText` the info screen's header draws, so "1 member" cannot mean two
+    /// different things on two screens.
+    static func headerSubtitle(memberCount: Int64?) -> String {
+        guard let memberCount, memberCount > 0 else { return "View info" }
+        return ChannelInfoHeader.membersText(count: memberCount)
+    }
+
     /// The header title. A DM's `name` is `<userID>__<userID>` and a GM's is an opaque hash; the only
     /// source of a human label is the participant, so the other id is resolved through the same
     /// batched profile request the rows use (this is the T33 note's "header shows id__id" gap).
@@ -503,6 +525,27 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
         default:
             title = channel.displayName.isEmpty ? channel.name : channel.displayName
         }
+        await loadMemberCount(for: channel)
+    }
+
+    /// Read the header's member count, after the channel's type is known.
+    ///
+    /// A **direct message** asks for nothing: upstream's connected header drops the count whenever the
+    /// conversation has a DM user (`app/screens/channel/header/index.ts`), so a DM keeps `View info`
+    /// even though `GET /channels/{id}/stats` would answer `member_count: 2`.
+    ///
+    /// A failure is *unknown*, not zero — the count stays `nil` and the subtitle stays on its fallback,
+    /// which is the same rule `membership(channelID:)` follows for `last_viewed_at`. The generation
+    /// guard is the load's: a count that arrives after a channel switch belongs to the old channel.
+    private func loadMemberCount(for channel: MMChannel) async {
+        guard channel.type != "D" else {
+            memberCount = nil
+            return
+        }
+        let requested = generation
+        let count = try? await service.memberCount(channelID: channelID)
+        guard requested == generation else { return }
+        memberCount = count
     }
 
     // MARK: - Socket
@@ -630,9 +673,21 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             // A thread's read position is the thread pane's business (and the global list's); the
             // channel timeline draws no per-thread read state.
             return record(.ignored)
+        case .userAdded(let change), .userRemoved(let change):
+            // t_0f8e0eb2: the header's subtitle counts people, so a join or a removal while the pane
+            // is open moves it — upstream observes the same `channel_info` row its socket handlers
+            // rewrite. Only a **known** count is adjusted (`nil` stays unknown: a delta cannot invent
+            // a total), only for this channel, and never below zero.
+            guard change.channelID == channelID, let current = memberCount else {
+                return record(.ignored)
+            }
+            let adding: Bool
+            if case .userAdded = event { adding = true } else { adding = false }
+            memberCount = max(0, current + (adding ? 1 : -1))
+            outcome = .patched
         case .hello, .typing, .statusChange, .preferencesChanged, .preferencesDeleted, .userUpdated,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelMemberUpdated,
-             .channelUpdated, .channelRestored, .userAdded, .userRemoved,
+             .channelUpdated, .channelRestored,
              .postUnread, .plugin, .unhandled:
             // `.plugin` is a plugin's own sub-protocol (`custom_<id>_<event>`), consumed by that
             // plugin's client code — for Calls, `CallsSignallingPort` reads it off the socket

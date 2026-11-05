@@ -335,6 +335,69 @@ final class T05ChannelHeaderUITests: XCTestCase {
         dumpAccessibilityTree(app, named: "channel-info-sheet-channelInfo-web")
     }
 
+    // MARK: - 6. The subtitle counts the channel's members (t_0f8e0eb2)
+
+    /// The defect: the subtitle was the constant `View info`, so a channel with 40 members looked
+    /// exactly like a direct message. Upstream (`app/screens/channel/header/header.tsx:255`) draws
+    /// `"{count, plural, one {# member} other {# members}}"` and falls back only when there is no
+    /// count.
+    ///
+    /// The **singular** is the number the server reports for a channel this test just created: one
+    /// member, the signed-in account. It is read off the control's accessibility **value** — the
+    /// subtitle lives inside an `.ignore` container, and the label is the display name that every
+    /// other suite waits on (`nativeChannelTitle`), so the value is the only honest window onto it.
+    ///
+    /// The count is not a literal in the test: `makeChannel` creates the channel through the API and
+    /// the app reads `GET /channels/{id}/stats`, so "1 member" is the server's answer to a question
+    /// this test did not pre-answer.
+    func testFTheSubtitleIsTheServersMemberCountNotAConstant() throws {
+        let channel = try makeChannel()
+        let app = launchApp()
+        openChannel(app, channel: channel)
+
+        let title = element(app, "nativeChannelTitle")
+        XCTAssertTrue(title.waitForExistence(timeout: 30),
+                      "the pane must draw its header:\n\(app.debugDescription)")
+
+        // The count arrives a beat after the title (it is a second request); the header shows the
+        // `View info` fallback until then, which is upstream's own behaviour.
+        XCTAssertTrue(waitUntil(timeout: 30) { (title.value as? String) == "1 member" },
+                      "the header subtitle must be the server's member count for a one-member "
+                      + "channel; it says \"\(title.value as? String ?? "nil")\".\n\(app.debugDescription)")
+
+        // The AX label is untouched: this is the contract the other 20-odd suites wait on.
+        XCTAssertEqual(title.label, channel.displayName,
+                       "the subtitle must not change the control's name")
+        dumpAccessibilityTree(app, named: "channel-header-member-count-singular")
+        attach(app, "06-header-member-count")
+    }
+
+    /// The plural half, from the server rather than from a string in the test: a second account is
+    /// added to a fresh channel **before** it is opened, so the pane's own load reads the count `2`.
+    ///
+    /// Skips when the fixture has no second account — the count path needs a real membership row, and
+    /// inventing one here would be the kind of fixture the card is trying to stop trusting.
+    func testGATwoMemberChannelSaysMembers() throws {
+        let buddy = try buddyUserID()
+        let channel = try makeChannel()
+        _ = try postJSON("/api/v4/channels/\(channel.id)/members", body: ["user_id": buddy])
+
+        // The server's own answer for the channel the test is about to open.
+        let stats = try getJSON("/api/v4/channels/\(channel.id)/stats") as? [String: Any] ?? [:]
+        XCTAssertEqual(stats["member_count"] as? Int, 2,
+                       "the fixture channel must have two members before the header is read")
+
+        let app = launchApp()
+        openChannel(app, channel: channel)
+
+        let title = element(app, "nativeChannelTitle")
+        XCTAssertTrue(title.waitForExistence(timeout: 30))
+        XCTAssertTrue(waitUntil(timeout: 30) { (title.value as? String) == "2 members" },
+                      "a two-member channel must say \"2 members\"; the header says "
+                      + "\"\(title.value as? String ?? "nil")\".\n\(app.debugDescription)")
+        dumpAccessibilityTree(app, named: "channel-header-member-count-plural")
+    }
+
     // MARK: - App driving
 
     private func launchApp() -> XCUIApplication {
@@ -526,6 +589,18 @@ final class T05ChannelHeaderUITests: XCTestCase {
         // list rather than an empty state.
         _ = try? postJSON("/api/v4/posts", body: ["channel_id": id, "message": "T05 header fixture"])
         return Channel(id: id, name: name, displayName: displayName)
+    }
+
+    /// The fixture's second account (`scripts/t43_notification_seed.py` creates `t43buddy`), by login.
+    ///
+    /// Used only by the plural case of the header subtitle: a count of two has to be a real
+    /// membership row on the server, not a number this test wrote.
+    private func buddyUserID() throws -> String {
+        let json = (try? getJSON("/api/v4/users/username/t43buddy")) as? [String: Any]
+        guard let id = json?["id"] as? String else {
+            throw XCTSkip("t05 plural fixture: no `t43buddy` account on this server")
+        }
+        return id
     }
 
     private func ping() throws {

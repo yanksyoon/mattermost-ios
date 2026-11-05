@@ -76,6 +76,14 @@ protocol ChannelServing: AnyObject {
     /// `DELETE /users/{user_id}/posts/{post_id}/reactions/{emoji_name}`.
     func removeReaction(postID: String, emojiName: String, userID: String) async throws
 
+    /// The channel's `member_count` (`GET /channels/{id}/stats`), for the header's subtitle.
+    ///
+    /// Optional, like `membership`: `nil` means **unknown**, which the header draws as upstream's
+    /// `View info` fallback. A DM never asks (upstream's `memberCount` is `undefined` for a direct
+    /// message — `app/screens/channel/header/index.ts` combines it with `dmUser`), so the count is a
+    /// fact about channels and group messages only.
+    func memberCount(channelID: String) async throws -> Int64?
+
     /// Page size, injectable so a test can page a fixture without 60 real posts.
     var pageSize: Int { get }
 }
@@ -96,6 +104,9 @@ extension ChannelServing {
     func removeReaction(postID: String, emojiName: String, userID: String) async throws {
         throw MMError.notFound
     }
+    /// A service that cannot answer the count leaves the header on its `View info` fallback — the
+    /// same degradation as an unsent reaction: nothing claims a number it did not read.
+    func memberCount(channelID: String) async throws -> Int64? { nil }
 }
 
 /// The production implementation: the server's own `AuthSession.client`, resolved **per call** so a
@@ -191,5 +202,13 @@ final class SessionChannelService: ChannelServing {
 
     func removeReaction(postID: String, emojiName: String, userID: String) async throws {
         try await client().removeReaction(postID: postID, emojiName: emojiName, userID: userID)
+    }
+
+    /// The header's subtitle: `GET /channels/{id}/stats` and only its `member_count`.
+    ///
+    /// No ETag (`APIClient.channelStats` asks without one for the same reason the info screen does):
+    /// people join and leave while the pane is open, and a cached 304 would pin the subtitle.
+    func memberCount(channelID: String) async throws -> Int64? {
+        try await client().channelStats(channelID: channelID).memberCount
     }
 }

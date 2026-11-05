@@ -6,7 +6,7 @@ Pins: M=v2.45.0@162f2560d0e1 ; W=v12.0.1@987e57120dca
 
 ## Summary
 
-159 capabilities: **132 yes**, **4 partial**, **17 to be implemented**, **6 out of scope** — of which **13** need an owner decision.
+159 capabilities: **133 yes**, **3 partial**, **17 to be implemented**, **6 out of scope** — of which **13** need an owner decision.
 
 A row lands in Implemented only with evidence that resolves (a test case, or a recorded observation). A claim without evidence is Partial, whatever the code looks like. Every gap carries a card id or the owner decision that blocks it.
 
@@ -34,6 +34,7 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 | channel-header | bookmarks-bar-in-the-header | app/screens/channel/header/header.tsx@162f2560 | MattermostTests/T05ChannelBookmarksTests.swift::testTheServersSortOrderIsTheDrawOrder; MattermostUITests/T05ChannelHeaderUITests.swift::testDABookmarks200DrawsTheBarInServerOrder |
 | channel-header | channel-files-list | app/screens/channel_info/options/channel_files/channel_files.tsx@162f2560 | MattermostTests/T52ChannelInfoCompletenessTests.swift::testFileRowsFollowTheServersOrder; ::testFilesIsNotOfferedForADirectOrGroupMessage |
 | channel-header | channel-members-list-with-roles | app/screens/channel_info/options/members/members.tsx@162f2560 | MattermostTests/T40ChannelInfoTests.swift::testMemberRowsSortByDisplayNameAndCarryTheAdminBadge; ::testPagingAsksForTheNextPageOnlyWhenAFullPageCameBack |
+| channel-header | member-count-subtitle | app/screens/channel/header/header.tsx@162f2560 | MattermostTests/T0fChannelHeaderSubtitleTests.swift::testAKnownCountIsTheServersNumberWithTheServerPlural; ::testNoCountAndAZeroCountBothFallBackToViewInfo; ::testAChannelLoadsItsCountIntoTheHeader; ::testADirectMessageKeepsTheFallbackAndAsksNobody; ::testAFailedStatsCallLeavesTheFallbackRatherThanZero; ::testJoinAndLeaveFramesMoveTheCountForThisChannelOnly; MattermostUITests/T05ChannelHeaderUITests.swift::testFTheSubtitleIsTheServersMemberCountNotAConstant; ::testGATwoMemberChannelSaysMembers |
 | channel-header | per-channel-notification-level | app/screens/channel_info/options/notification_preference/notification_preference.tsx@162f2560 | MattermostTests/T52ChannelInfoCompletenessTests.swift::testSavingNotificationPreferencesSendsOnlyChangedFieldsAndReadsTheServerBack; MattermostUITests/T52ChannelInfoUITests.swift::testANotificationLevelIsWrittenAndSurvivesARelaunch |
 | channel-header | pinned-messages-from-the-header | app/screens/channel_info/options/pinned_messages/pinned_messages.tsx@162f2560 | MattermostUITests/T52ChannelInfoUITests.swift::testThePinnedRowOpensTheChannelsPinnedSheet |
 | channel-header | the-title-opens-channel-info | app/screens/channel/header/header.tsx@162f2560 | MattermostUITests/T05ChannelHeaderUITests.swift::testBTheHeaderTapAndTheGlyphOpenTheSameSheetOnce; ::testATheHeaderAndItsControlsAreOnTheDefaultSurface |
@@ -152,7 +153,6 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 | Module | Upstream feature | Upstream ref | Evidence | What is missing |
 |---|---|---|---|---|
 | channel-header | auto-follow-new-threads | app/screens/channel_info/options/auto_follow_threads/auto_follow_threads.tsx@162f2560 | MISSING - the notify draft parses the field but no test asserts a write | no evidence that asserts it |
-| channel-header | member-count-subtitle | app/screens/channel/header/header.tsx@162f2560 | MISSING - no case asserts a member count; the subtitle is a constant | no evidence that asserts it |
 | files-attachments | zoom-and-share-an-image | app/screens/gallery/index.tsx@162f2560 | MISSING - no case asserts zoom or the share sheet; the store's full-byte path is tested (T38AttachmentTests::testOriginalBytesAreAvailableForTheFileReaders) | no evidence that asserts it |
 | notifications | tap-fallbacks-when-the-post-is-gone | app/utils/notification/index.ts@162f2560 | MISSING - the poller surfaces session expiry, but no test asserts the tap-through fallback copy for a deleted post or a left channel | no evidence that asserts it |
 
