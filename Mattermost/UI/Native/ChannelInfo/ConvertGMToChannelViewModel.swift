@@ -62,17 +62,24 @@ final class ConvertGMToChannelViewModel: ObservableObject {
     @Published private(set) var target: ConvertedChannelTarget?
 
     private let service: ChannelConversionServing
+    /// The in-flight registry the socket router reads (upstream's `EphemeralStore`).
+    ///
+    /// `nil` in a unit test that only exercises the form: the three calls are then no-ops, and the
+    /// screen still works. The shell passes `NativeNavigation`.
+    private let conversions: ChannelConversionTracking?
     private var myUserID: String?
     private var generation = 0
 
     init(channel: MMChannel,
          isGuest: Bool,
          serverVersion: String?,
-         service: ChannelConversionServing) {
+         service: ChannelConversionServing,
+         conversions: ChannelConversionTracking? = nil) {
         self.channel = channel
         self.isGuest = isGuest
         self.serverVersion = serverVersion ?? ""
         self.service = service
+        self.conversions = conversions
     }
 
     // MARK: Derived
@@ -211,6 +218,11 @@ final class ConvertGMToChannelViewModel: ObservableObject {
         let requestedTeamID = teamID
         let requestedType = ChannelInfoKind.privateChannel.rawValue
         let requestBody = draft.body(channelID: channel.id)
+        // Upstream's `EphemeralStore.addConvertingChannel` (`app/actions/remote/channel.ts:1560`):
+        // the socket's echo of this write is suppressed while it is in flight, and cleared in the
+        // `finally` on both answers (the `defer` below is the same bracket).
+        conversions?.beginChannelConversion(channel.id)
+        defer { conversions?.endChannelConversion(channel.id) }
         isConverting = true
         errorMessage = nil
         nameErrorMessage = nil

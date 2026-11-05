@@ -228,6 +228,11 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     /// Subscriptions that forward a collaborator's published state as this model's (T37: the reaction
     /// coordinator's failure banner lives in the list's overlay).
     private var cancellables = Set<AnyCancellable>()
+    /// The header read a `channel_converted` frame started (t_c407645a). The frame names only the
+    /// channel id, so the record has to be re-read — the same refetch the local conversion triggers
+    /// through `NativeNavigation.channelDidChange`. Kept so the read can be awaited by a test (and
+    /// cancelled if a second frame lands while the first is in flight).
+    private var conversionRefreshTask: Task<Void, Never>?
 
     /// How the view answers "where is the reader right now", measured from its scroll view.
     ///
@@ -399,6 +404,18 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     /// `reload()` would refetch the first page and drop the reader's place for no reason.
     func refreshHeader() async {
         await loadChannelHeader()
+    }
+
+    /// Wait for the header read a `channel_converted` frame started (t_c407645a).
+    ///
+    /// `handle(_:)` is synchronous by contract (a socket event never holds the receive loop on a
+    /// request), so the read lives in a task. This is the seam a test — and only a test — awaits to
+    /// assert what the frame did. Returns whether a read was in flight.
+    @discardableResult
+    func awaitHeaderRefresh() async -> Bool {
+        guard let task = conversionRefreshTask else { return false }
+        await task.value
+        return true
     }
 
     func retry() async {
@@ -657,9 +674,10 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     /// batched profile request the rows use (this is the T33 note's "header shows id__id" gap).
     private func loadChannelHeader() async {
         guard let channel = try? await service.channel(id: channelID) else { return }
-        channelType = channel.type
-        switch channel.type {
-        case "D":
+        applyHeader(from: channel)
+        if channel.type == "D" {
+            // A direct message's title is its other participant, which the record does not name
+            // (`name` is `id__id`). The rest of the header comes from the record alone.
             let parts = channel.name.components(separatedBy: "__")
             let other = parts.first(where: { $0 != myUserID && !$0.isEmpty }) ?? parts.first ?? ""
             if users[other] == nil, !other.isEmpty {
@@ -672,12 +690,27 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             } else {
                 title = "Direct message"
             }
+        }
+        await loadMemberCount(for: channel)
+    }
+
+    /// The **synchronous** half of the header: the facts a channel record alone answers — its type and
+    /// its title.
+    ///
+    /// Extracted (t_c407645a) so the socket path and the load path cannot disagree: a `channel_updated`
+    /// frame carries the whole record, and applying it here is the same rule `loadChannelHeader` runs.
+    /// A direct message is the one case this cannot answer (its title is a person's name), so its
+    /// title is left to the caller that can resolve the profile.
+    private func applyHeader(from channel: MMChannel) {
+        channelType = channel.type
+        switch channel.type {
+        case "D":
+            break
         case "G":
             title = "Group message"
         default:
             title = channel.displayName.isEmpty ? channel.name : channel.displayName
         }
-        await loadMemberCount(for: channel)
     }
 
     /// Read the header's member count, after the channel's type is known.
@@ -846,9 +879,30 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             if case .userAdded = event { adding = true } else { adding = false }
             memberCount = max(0, current + (adding ? 1 : -1))
             outcome = .patched
+        case .channelUpdated(let updated):
+            // t_c407645a: a channel's own record changed while its timeline is open. Before this the
+            // frame was dropped here, so a rename, a purpose edit — or, on 9.11.19, a **group message
+            // converted to a private channel** — left `title`/`channelType` stale until the pane was
+            // reopened. 9.11.19 sends exactly this frame for the conversion (measured: no
+            // `channel_converted` at all, `scripts/tc407_channel_converted_probe.py` Case A). The
+            // payload is the whole record, so the header is applied from it — no request.
+            guard updated.id == channelID else { return record(.ignored) }
+            applyHeader(from: updated)
+            outcome = .patched
+        case .channelConverted(let converted):
+            // `channel_converted` names only the channel id (measured, probe Case B: `data.channel_id`
+            // with `broadcast.channel_id` empty), so the record is re-read — the same read the local
+            // conversion asks for through `NativeNavigation.channelDidChange`.
+            guard converted.channelID == channelID else { return record(.ignored) }
+            conversionRefreshTask?.cancel()
+            conversionRefreshTask = Task { [weak self] in
+                guard let self else { return }
+                await self.refreshHeader()
+            }
+            outcome = .patched
         case .hello, .statusChange, .preferencesChanged, .preferencesDeleted, .userUpdated,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelMemberUpdated,
-             .channelUpdated, .channelRestored,
+             .channelRestored,
              .postUnread, .plugin, .unhandled:
             // `.plugin` is a plugin's own sub-protocol (`custom_<id>_<event>`), consumed by that
             // plugin's client code — for Calls, `CallsSignallingPort` reads it off the socket

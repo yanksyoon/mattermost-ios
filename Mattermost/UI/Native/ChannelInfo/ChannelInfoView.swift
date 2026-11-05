@@ -478,7 +478,7 @@ struct ChannelInfoView: View {
             // The tap builds the model; a row whose screen cannot be built reports why (the same rule as
             // the files row above) instead of pushing a spinner nothing fills in.
             Button {
-                if let created = model.makeConversionModel() {
+                if let created = model.makeConversionModel(conversions: navigation) {
                     conversionModel = created
                     showsConvert = true
                 } else {

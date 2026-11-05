@@ -348,6 +348,10 @@ final class TeamSidebarCoordinator: ObservableObject {
     private(set) var scopeSwitchCount = 0
     /// How many reconnects this coordinator was told about (one per `SocketClient` resync).
     private(set) var socketResyncCount = 0
+    /// How many channel-record frames were dropped as the echo of a conversion this app started.
+    /// Counted so a test (and the `-shellSnapshot` dump) can tell "suppressed on purpose" from
+    /// "never delivered" — the T43-AV lesson about invisible filters.
+    private(set) var suppressedConversionEchoCount = 0
 
     init(events: TeamEventSourcing? = nil,
          unreadRefreshDelay: TimeInterval = 1.5,
@@ -633,6 +637,19 @@ final class TeamSidebarCoordinator: ObservableObject {
     }
 
     private func handle(_ event: SocketEvent, serverID: UUID) async {
+        // t_c407645a: the echo of a conversion **this app** started is ignored, exactly as upstream
+        // ignores it (`app/actions/websocket/channel.ts:86,104` — both `channel_converted` and
+        // `channel_updated` are checked against `EphemeralStore.isConvertingChannel`). The flow that
+        // wrote the conversion already applied the record (it bumps `NativeNavigation.channelDidChange`,
+        // which the open pane refetches on and the sidebar refreshes on), so delivering the frame
+        // would race that navigation with a second read of the same channel. `onServerEvent` is not
+        // called either: a conversion echo is not a notification (the system post that follows the
+        // write is a separate `posted` frame and still arrives).
+        if let channelID = event.conversionEchoChannelID,
+           navigation?.isConvertingChannel(channelID) == true {
+            suppressedConversionEchoCount += 1
+            return
+        }
         // T43: notifications see every event, before the scope below can refuse an unattributable or
         // other-team one. Nothing else subscribes at this point on purpose — a screen's data is scoped,
         // a mention is not.

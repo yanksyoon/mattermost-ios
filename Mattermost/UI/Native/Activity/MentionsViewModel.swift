@@ -510,10 +510,14 @@ final class MentionsViewModel: ObservableObject {
             return record(.patched)
         case .hello, .typing, .statusChange, .preferencesChanged, .preferencesDeleted, .reactionAdded, .reactionRemoved,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelRestored,
+             .channelConverted,
              .userAdded, .userRemoved, .channelMemberUpdated, .threadUpdated, .threadFollowChanged,
              .channelViewed, .ephemeralMessage, .plugin, .unhandled:
             // `.plugin` frames belong to a plugin's own client code (Calls reads them off the socket
-            // directly); a mentions feed has no use for one.
+            // directly); a mentions feed has no use for one. A conversion (`channel_converted`) does
+            // not move a mention row: the row's facts are the post, its author and the channel's
+            // name, and the `channel_updated` frame that accompanies it (on every release that
+            // sends it) patches that name through the case above.
             return record(.ignored)
         }
     }

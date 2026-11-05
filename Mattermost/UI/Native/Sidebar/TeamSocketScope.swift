@@ -83,6 +83,14 @@ struct TeamSocketScope: Equatable, Sendable {
         case .channelRestored(let restored):
             return isInActiveTeam(channelID: restored.channelID)
                 || (!restored.teamID.isEmpty && restored.teamID == teamID)
+        case .channelConverted(let converted):
+            // A conversion names its channel in `data.channel_id` and its (new) team in the envelope
+            // (measured: `broadcast.channel_id` is empty on 9.11.19, T-c407 probe Case B). The
+            // channel→team map usually attributes it before the conversion; the envelope covers the
+            // case where the conversion moved the channel into the team on screen and the map is
+            // still holding the old listing.
+            return isInActiveTeam(channelID: converted.channelID)
+                || (!converted.teamID.isEmpty && converted.teamID == teamID)
         case .userAdded(let change), .userRemoved(let change):
             // A membership change names its channel in the envelope; the team is in the payload on an
             // add and absent on many removals, so the channel→team map is what usually attributes it.

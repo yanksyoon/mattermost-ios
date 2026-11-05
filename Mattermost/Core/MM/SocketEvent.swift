@@ -171,6 +171,34 @@ struct SocketChannelViewed: Equatable, Sendable {
     var userID: String
 }
 
+/// `channel_converted` — a channel's **privacy** changed (private ↔ public).
+///
+/// Measured on the pinned 9.11.19 server (`scripts/tc407_channel_converted_probe.py`, Case B):
+/// `PUT /channels/{id}/privacy` emits this frame with **`data.channel_id` only** — no
+/// `data.channel`, no `data.channel_type` on this release — and, unlike every other channel-scoped
+/// frame, **`broadcast.channel_id` is empty**: the routing id is `broadcast.team_id`. So the decode
+/// must read `data.channel_id`; a decode that looked at the envelope would drop every real frame.
+///
+/// Case A of the same probe measured the card's own scenario — a **group message converted to a
+/// private channel** — and 9.11.19 does **not** send this event for it: it sends `channel_updated`
+/// with the whole converted channel. Both are routed by the shell; this type exists for the release
+/// that does emit it (upstream's `CHANNEL_CONVERTED` handler reads `msg.data.channel_id` for the same
+/// reason, `app/actions/websocket/channel.ts:85`).
+struct SocketChannelConverted: Equatable, Sendable {
+    var channelID: String
+    /// The channel's team after the conversion, from the envelope (`data.team_id` on a release that
+    /// puts it there). Empty is "unknown".
+    var teamID: String
+    /// `data.channel_type` where the server sends it (newer releases); empty on 9.11.19.
+    var channelType: String
+
+    init(channelID: String, teamID: String = "", channelType: String = "") {
+        self.channelID = channelID
+        self.teamID = teamID
+        self.channelType = channelType
+    }
+}
+
 /// `sidebar_category_updated` — the server stored somebody's categories write (mine, or my own from
 /// another client) and hands back the layout it kept.
 ///
@@ -354,6 +382,10 @@ enum SocketEvent: Equatable, Sendable {
     /// An archived channel was restored (`channel_restored`). The payload names only the channel id, so
     /// the channel itself has to be re-read rather than guessed from the frame.
     case channelRestored(SocketChannelEvent)
+    /// A channel's **privacy** changed (`channel_converted`). The frame names only the id on 9.11.19,
+    /// so the pane re-reads its header; a group message converted to a private channel arrives as
+    /// `.channelUpdated` on that release instead (both are routed — see `SocketChannelConverted`).
+    case channelConverted(SocketChannelConverted)
     /// Somebody joined a channel (`user_added`) — T40's member list and its count.
     case userAdded(SocketMembershipChange)
     /// Somebody left or was removed from a channel (`user_removed`).
@@ -486,6 +518,18 @@ enum SocketEvent: Equatable, Sendable {
                     ?? frame.broadcast?.channelID, !channelID.isEmpty else { return nil }
             self = .channelRestored(SocketChannelEvent(channelID: channelID,
                                                        teamID: frame.broadcast?.teamID ?? ""))
+        case "channel_converted":
+            // Measured (T-c407, `scripts/tc407_channel_converted_probe.py` Case B): `data.channel_id`
+            // is the *only* payload key on 9.11.19, and `broadcast.channel_id` is **empty** — the
+            // routing id there is `broadcast.team_id`. Reading the envelope for the channel would
+            // drop every real frame; reading `data` and falling back to the envelope keeps a proxy
+            // that relocates the id working.
+            guard let channelID = frame.data?["channel_id"]?.stringValue
+                    ?? frame.broadcast?.channelID, !channelID.isEmpty else { return nil }
+            self = .channelConverted(SocketChannelConverted(
+                channelID: channelID,
+                teamID: frame.data?["team_id"]?.stringValue ?? frame.broadcast?.teamID ?? "",
+                channelType: frame.data?["channel_type"]?.stringValue ?? ""))
         case "user_added":
             // The channel lives only in the envelope; `data` carries `team_id` and `user_id`.
             guard let channelID = frame.broadcast?.channelID,
@@ -618,6 +662,25 @@ enum SocketEvent: Equatable, Sendable {
         return reaction
     }
 
+    /// The channel a **channel-record** frame names, when that frame can be the echo of a conversion
+    /// this app started.
+    ///
+    /// Upstream suppresses two frames for a channel in `EphemeralStore`: `channel_converted`
+    /// (`app/actions/websocket/channel.ts:86`) **and** `channel_updated` (`:104`) — because a
+    /// conversion arrives as one, the other, or both depending on the server release (measured: a
+    /// group-message conversion on 9.11.19 is a `channel_updated`; a privacy conversion is both).
+    /// The router asks this, then asks the registry; anything else is not suppressed.
+    var conversionEchoChannelID: String? {
+        switch self {
+        case .channelConverted(let converted):
+            return converted.channelID.isEmpty ? nil : converted.channelID
+        case .channelUpdated(let channel):
+            return channel.id.isEmpty ? nil : channel.id
+        default:
+            return nil
+        }
+    }
+
     /// The event name as the server spelled it (for diagnostics and `unhandled`).
     var name: String {
         switch self {
@@ -640,6 +703,7 @@ enum SocketEvent: Equatable, Sendable {
         case .channelDeleted: return "channel_deleted"
         case .channelUpdated: return "channel_updated"
         case .channelRestored: return "channel_restored"
+        case .channelConverted: return "channel_converted"
         case .userAdded: return "user_added"
         case .userRemoved: return "user_removed"
         case .channelMemberUpdated: return "channel_member_updated"
@@ -676,6 +740,7 @@ enum SocketEvent: Equatable, Sendable {
              .preferencesChanged, .preferencesDeleted,
              .reactionAdded, .reactionRemoved, .sidebarCategoryUpdated,
              .channelCreated, .channelDeleted, .channelUpdated, .channelRestored,
+             .channelConverted,
              .userAdded, .userRemoved, .channelMemberUpdated, .postUnread,
              .threadUpdated, .threadFollowChanged, .threadReadChanged,
              .plugin, .unhandled:

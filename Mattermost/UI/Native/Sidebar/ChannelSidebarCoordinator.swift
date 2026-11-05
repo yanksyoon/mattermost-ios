@@ -69,6 +69,13 @@ final class ChannelSidebarCoordinator: ObservableObject {
     /// `channel_created` arrived: the channel list itself changed).
     private var pendingReload: Set<UUID> = []
     private var locationSink: AnyCancellable?
+    /// The shell's per-channel "this record changed" revisions (t_c407645a). The conversion flow bumps
+    /// one when its write lands; the socket echo of that write is suppressed, so this is what keeps
+    /// the row from staying a group message.
+    private var revisionSink: AnyCancellable?
+    /// The revision counts already handled — `@Published` replays the current value on subscribe, and
+    /// the sink must not refresh the list for a change it has always known about.
+    private var seenChannelRevisions: [String: Int] = [:]
     /// One per list: the "the list has arrived, decide where to open" hook.
     private var launchSinks = Set<AnyCancellable>()
     /// The team each server's list was last asked for, so a location change that only moved the
@@ -108,6 +115,12 @@ final class ChannelSidebarCoordinator: ObservableObject {
         locationSink = navigation.$location
             .sink { [weak self] location in
                 self?.apply(location)
+            }
+        revisionSink?.cancel()
+        seenChannelRevisions = navigation.channelRevisions
+        revisionSink = navigation.$channelRevisions
+            .sink { [weak self] revisions in
+                self?.applyChannelRevisions(revisions)
             }
         apply(navigation.location)
     }
@@ -272,6 +285,30 @@ final class ChannelSidebarCoordinator: ObservableObject {
 
     /// Test/diagnostic surface: how many models this coordinator holds (one per active server).
     var modelCount: Int { models.count }
+
+    /// The shell reported that a channel's **record** changed outside its pane
+    /// (`NativeNavigation.channelDidChange`).
+    ///
+    /// t_c407645a: the conversion flow calls it when its write lands, and the socket's echo of that
+    /// same write is deliberately suppressed (upstream ignores it too — the flow already applied the
+    /// record). So this is the half that keeps the list honest for the app's **own** conversion: the
+    /// same debounced refresh the event would have scheduled reads `/users/me/teams/{t}/channels`,
+    /// which is where the row's type, name and team come from.
+    ///
+    /// One refresh per server, not per channel key: the refresh is a whole-list read anyway.
+    private func applyChannelRevisions(_ revisions: [String: Int]) {
+        defer { seenChannelRevisions = revisions }
+        var changed: Set<UUID> = []
+        for (key, count) in revisions where seenChannelRevisions[key] != count {
+            // Keyed `"<server uuid>/<channel id>"` (see `NativeNavigation.channelDidChange`).
+            guard let raw = key.split(separator: "/").first,
+                  let serverID = UUID(uuidString: String(raw)) else { continue }
+            changed.insert(serverID)
+        }
+        for serverID in changed where models[serverID] != nil {
+            scheduleRefresh(serverID: serverID)
+        }
+    }
 
     /// The list for a server **if it has been created**, without creating one.
     ///

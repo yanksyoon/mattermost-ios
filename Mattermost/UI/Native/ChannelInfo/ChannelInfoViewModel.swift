@@ -397,13 +397,14 @@ final class ChannelInfoViewModel: ObservableObject {
     /// service cannot perform the write — the caller then reports it instead of pushing a screen that
     /// cannot work. The model is **not** cached: it holds one draft for one attempt, and a cached one
     /// would reopen with the previous name in it (the T47-AV F6 failure, one screen over).
-    func makeConversionModel() -> ConvertGMToChannelViewModel? {
+    func makeConversionModel(conversions: ChannelConversionTracking? = nil) -> ConvertGMToChannelViewModel? {
         guard let channel, capabilities.canConvertGroupMessage else { return nil }
         guard let conversion = service as? ChannelConversionServing else { return nil }
         return ConvertGMToChannelViewModel(channel: channel,
                                            isGuest: myIsGuest,
                                            serverVersion: serverVersion,
-                                           service: conversion)
+                                           service: conversion,
+                                           conversions: conversions)
     }
 
     /// The banner a tap on the conversion row leaves when the screen cannot be built.

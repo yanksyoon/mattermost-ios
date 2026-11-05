@@ -488,6 +488,11 @@ final class ChannelListViewModel: ObservableObject {
     ///   makes a reorder/collapse/favourite made elsewhere visible without a relaunch (T33-AV F3).
     /// - `channel_created`: the list gained a channel; the caller reloads. `channel_deleted`: the
     ///   channel list read drops it, so the ordinary counter refresh is enough.
+    /// - `channel_updated`: the row's own record changed — a rename, an archive, or **a group message
+    ///   converted to a private channel** (t_c407645a; this is the frame 9.11.19 sends for that).
+    ///   Applied from the payload: type, display name and team are what the row is drawn from.
+    /// - `channel_converted`: the same fact from the releases that emit it, with **only the channel
+    ///   id** in the payload (measured) — so the row's record is re-read by the cheap refresh.
     /// - `user_added` / `user_removed` **for me**: my own membership moved, and the endpoint the list is
     ///   built from (`GET /users/me/teams/{t}/channels`) is "the channels *I* am in" — a counter
     ///   refresh reads the same endpoint, but the row has to be **added** (or dropped) rather than
@@ -538,9 +543,56 @@ final class ChannelListViewModel: ObservableObject {
             return .reloadNeeded
         case .channelDeleted:
             return .refreshNeeded
+        case .channelUpdated(let channel):
+            // t_c407645a: the row is drawn from the channel *record* (its type picks the glyph and
+            // whose names the label uses, its display name is the label, `delete_at` hides it), so a
+            // record change has to move the row. This is the frame the pinned server sends for a
+            // **group message converted to a private channel** (measured: 9.11.19 sends no
+            // `channel_converted` at all — `scripts/tc407_channel_converted_probe.py` Case A), which
+            // is why the row stopped being drawn as a group message only after a relaunch.
+            // The payload is the whole record, so it is applied directly: no request.
+            guard applyChannel(channel) else { return .ignored }
+            return .applied
+        case .channelConverted(let converted):
+            // The conversion frame names only the channel id (measured, probe Case B), so the record
+            // that says what the row now *is* has to be read: the cheap counter refresh reads the
+            // same `/users/me/teams/{t}/channels` list the row is built from.
+            guard data.channels.contains(where: { $0.id == converted.channelID }) else { return .ignored }
+            return .refreshNeeded
         default:
             return .ignored
         }
+    }
+
+    /// Replace (or drop) one channel record from a `channel_updated` payload.
+    ///
+    /// A row is drawn from this record, so this is what makes a rename, an archive — and the
+    /// conversion this card is about — visible in the list without a reload. Two shapes mean the row
+    /// must **go** rather than be replaced:
+    ///
+    ///  * `delete_at != 0`: archived. The derivation hides archived channels anyway, but keeping the
+    ///    record would let a stale `isSelected` draw it with an archive badge it no longer has;
+    ///  * a named channel (`O`/`P`) whose `team_id` is another team: a converted group message moves
+    ///    into a team, and this list is only *this* team's channels (`GET
+    ///    /users/me/teams/{t}/channels` — measured: the teams that do not own it stop listing it).
+    ///    A DM/GM has an empty `team_id`, so the rule must not apply to them.
+    ///
+    /// - Returns: `false` when this list does not hold the channel — another team's record, or a
+    ///   channel created after the load. Nothing is fetched for it: the scope has already established
+    ///   the frame belongs to this team, and a create carries its own `channel_created`.
+    private func applyChannel(_ channel: MMChannel) -> Bool {
+        guard let index = data.channels.firstIndex(where: { $0.id == channel.id }) else { return false }
+        let isDirect = ChannelSidebarDerivation.kind(of: channel)?.isDirect ?? false
+        let movedToAnotherTeam = !channel.teamId.isEmpty
+            && !isDirect
+            && (teamID.map { $0 != channel.teamId } ?? false)
+        if channel.deleteAt != 0 || movedToAnotherTeam {
+            data.channels.remove(at: index)
+        } else {
+            data.channels[index] = channel
+        }
+        rebuild()
+        return true
     }
 
     // MARK: Read (card t_e9550303)

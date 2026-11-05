@@ -335,8 +335,29 @@ enum NativeNavigationOutcome: Equatable {
 ///
 /// Layout-agnostic on purpose: the value here is *where*, and the compact/regular layouts decide
 /// *how* (a push on a phone, a detail column on a wide layout). See `NativeShellView`.
+
+// MARK: - Conversion tracking
+
+/// The in-flight conversion registry, as the conversion screen sees it.
+///
+/// Upstream keeps the same three calls on its `EphemeralStore` (`addConvertingChannel` /
+/// `removeConvertingChannel` / `isConvertingChannel`, `app/actions/remote/channel.ts:1560` and
+/// `app/actions/websocket/channel.ts:86`): the flow marks the channel before its write, clears it in a
+/// `defer`, and the socket handler asks the same question to decide whether a frame is its own echo.
+///
+/// Declared as a protocol so the conversion view model — which is unit-tested with a fake service —
+/// can be given a fake registry, and the only production implementation is `NativeNavigation`.
 @MainActor
-final class NativeNavigation: ObservableObject {
+protocol ChannelConversionTracking: AnyObject {
+    func beginChannelConversion(_ channelID: String)
+    func endChannelConversion(_ channelID: String)
+    func isConvertingChannel(_ channelID: String) -> Bool
+}
+
+/// Layout-agnostic on purpose: the value here is *where*, and the compact/regular layouts decide
+/// *how* (a push on a phone, a detail column on a wide layout). See `NativeShellView`.
+@MainActor
+final class NativeNavigation: ObservableObject, ChannelConversionTracking {
 
     // MARK: Wiring
 
@@ -387,6 +408,24 @@ final class NativeNavigation: ObservableObject {
     /// A counter rather than a "refresh" call so the pane keeps ownership of its own loading: the flow
     /// that changed the channel says *that* it changed, and the pane decides what to refetch.
     @Published private(set) var channelRevisions: [String: Int] = [:]
+    /// The channels this app is **converting right now** (upstream's
+    /// `EphemeralStore.isConvertingChannel`, `app/actions/remote/channel.ts:1560`).
+    ///
+    /// Written by the conversion flow around its write, read by the socket router: the server echoes
+    /// the record it stored as `channel_updated`/`channel_converted`, and applying that echo would
+    /// race the flow's own navigation with a second read of the same record (upstream ignores both
+    /// frames for exactly this reason — `app/actions/websocket/channel.ts:86,104`).
+    ///
+    /// An entry is removed in a `defer` on both the success and the failure path, so a refused
+    /// conversion cannot leave the channel silenced; a hung request is bounded by `expiry` at read
+    /// time rather than by a timer that could fire during a legitimate write.
+    @Published private(set) var convertingChannelIDs: Set<String> = []
+    /// When each entry in `convertingChannelIDs` was taken. Kept apart from the set so the published
+    /// value stays the plain membership a test can assert.
+    private var conversionStartedAt: [String: Date] = [:]
+    /// How long an un-ended entry is trusted. A request that never answers is a bug this registry must
+    /// not turn into a permanently stale channel.
+    static let conversionTrustWindow: TimeInterval = 120
     /// The active server's auth state, refreshed on every navigation and on appearance.
     @Published private(set) var authState: NativeAuthState = .signedIn
 
@@ -500,6 +539,39 @@ final class NativeNavigation: ObservableObject {
     func channelRevision(serverID: UUID?, channelID: String) -> Int? {
         guard let serverID else { return nil }
         return channelRevisions["\(serverID.uuidString)/\(channelID)"]
+    }
+
+    // MARK: Conversions in flight
+
+    /// This app started converting `channelID`; suppress the socket's echo of that record until
+    /// `endChannelConversion` (upstream `EphemeralStore.addConvertingChannel`).
+    func beginChannelConversion(_ channelID: String) {
+        guard !channelID.isEmpty else { return }
+        conversionStartedAt[channelID] = Date()
+        convertingChannelIDs.insert(channelID)
+    }
+
+    /// The conversion finished (either way) — the channel's frames are live again.
+    func endChannelConversion(_ channelID: String) {
+        conversionStartedAt[channelID] = nil
+        convertingChannelIDs.remove(channelID)
+    }
+
+    /// Whether an echo of this channel's record must be ignored.
+    ///
+    /// Read at routing time. An entry older than `conversionTrustWindow` is dropped here rather than
+    /// by a timer: a write whose answer never came must not silence the channel for the session, and
+    /// there is nothing to cancel if the request is stuck (the flow's `defer` still removes it when it
+    /// finally returns).
+    func isConvertingChannel(_ channelID: String) -> Bool {
+        guard convertingChannelIDs.contains(channelID) else { return false }
+        guard let started = conversionStartedAt[channelID],
+              Date().timeIntervalSince(started) > Self.conversionTrustWindow else {
+            return true
+        }
+        conversionStartedAt[channelID] = nil
+        convertingChannelIDs.remove(channelID)
+        return false
     }
 
     @discardableResult
