@@ -210,17 +210,26 @@ struct MMPrincipal: Codable, Equatable, Sendable {
     /// Space-separated role names, e.g. `system_user system_admin`.
     var roles: String
     var deleteAt: Int64
+    /// `GET /users/me`'s `notify_props`, carried for exactly one decision: the channel-info "Ignore
+    /// mentions" switch resolves a channel's `ignore_channel_mentions: "default"` against the account's
+    /// own `channel` setting, which is upstream's `isChannelMentionsIgnored`. Kept as the server's
+    /// verbatim object (the flags are strings on the wire) rather than decoded into a struct, so a value
+    /// this build has never seen is not silently dropped.
+    var notifyProps: JSONValue?
 
     enum CodingKeys: String, CodingKey {
         case id, username, roles
         case deleteAt = "delete_at"
+        case notifyProps = "notify_props"
     }
 
-    init(id: String = "", username: String = "", roles: String = "", deleteAt: Int64 = 0) {
+    init(id: String = "", username: String = "", roles: String = "", deleteAt: Int64 = 0,
+         notifyProps: JSONValue? = nil) {
         self.id = id
         self.username = username
         self.roles = roles
         self.deleteAt = deleteAt
+        self.notifyProps = notifyProps
     }
 
     init(from decoder: Decoder) throws {
@@ -229,6 +238,7 @@ struct MMPrincipal: Codable, Equatable, Sendable {
         username = try values.decodeIfPresent(String.self, forKey: .username) ?? ""
         roles = try values.decodeIfPresent(String.self, forKey: .roles) ?? ""
         deleteAt = try values.decodeIfPresent(Int64.self, forKey: .deleteAt) ?? 0
+        notifyProps = try values.decodeIfPresent(JSONValue.self, forKey: .notifyProps)
     }
 
     var roleNames: [String] { roles.split(separator: " ").map(String.init) }
@@ -236,6 +246,15 @@ struct MMPrincipal: Codable, Equatable, Sendable {
     /// `system_guest` is the server's own marker; a guest may leave the default channel, which is the
     /// one place the guest distinction changes a gate (`ChannelInfoCapabilities.derive`).
     var isGuest: Bool { roleNames.contains("system_guest") }
+
+    /// `notify_props.channel`: whether channel-wide mentions notify this account anywhere. `nil` when
+    /// the profile did not carry it (a fake that does not model it, or a server that omits it), which
+    /// the toggle treats as "cannot resolve" rather than "off".
+    var channelMentions: Bool? {
+        let raw = notifyProps?.objectValue?["channel"]
+        if let text = raw?.stringValue { return text.lowercased() == "true" }
+        return raw?.boolValue
+    }
 }
 
 /// The body of `PUT /users/{user_id}/preferences` for the DM/GM "close" write.

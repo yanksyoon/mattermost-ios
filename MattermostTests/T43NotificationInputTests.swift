@@ -285,12 +285,21 @@ final class T43NotificationInputTests: XCTestCase {
                        .drop(.channelNotificationsOff))
     }
 
-    func testAChannelThatIgnoresMentionsSuppressesThem() {
-        XCTAssertEqual(MentionNotificationPolicy.decision(post: makePost(message: "@perfprobe hi"),
+    /// T8525 correction, measured on the pinned server: `ignore_channel_mentions: "on"` removes only the
+    /// **broadcast** keys from the reader's mention vocabulary (`server/channels/app/mention_keywords.go:74`);
+    /// a post that names the reader still moves `mention_count` and therefore still delivers. The old
+    /// assertion here dropped the whole channel, which is the defect `t_8525d2c8` fixed.
+    func testAChannelThatIgnoresBroadcastMentionsStillDeliversADirectMention() {
+        XCTAssertEqual(MentionNotificationPolicy.decision(post: makePost(message: "@channel hi"),
                                                           reader: makeReader(),
                                                           channel: makeChannel(),
                                                           membership: makeMember(ignoreMentions: "on")),
                        .drop(.mentionsIgnored))
+        XCTAssertEqual(MentionNotificationPolicy.decision(post: makePost(message: "@perfprobe hi"),
+                                                          reader: makeReader(),
+                                                          channel: makeChannel(),
+                                                          membership: makeMember(ignoreMentions: "on")),
+                       .deliver(silent: false))
     }
 
     func testAMutedChannelStillDeliversARealMention() {

@@ -20,6 +20,15 @@
 //   * a **muted** channel still moves the server's `mention_count` when somebody names the reader
 //     (measured 0 -> 1), i.e. muting suppresses message notifications, not mentions. The policy below
 //     follows the measurement rather than the folklore.
+//
+// Measured for `ignore_channel_mentions` on the same fixture (`scripts/t8525_ignore_mentions_probe.py`,
+// 11/11 checks, which reads the counter delta one post moves):
+//   * `"on"` drops `@channel` (delta 0) and still counts a post that names the reader (delta +1);
+//   * `"default"` follows the mute: muted → delta 0, unmuted → delta +1; `"off"` while muted → +1;
+//   * `"all"` is stored by this server's write route but honoured like `"off"` (+1), so it is **not** a
+//     value of the setting even though a parity note says so;
+//   * the server's rule is `server/channels/app/mention_keywords.go:74` (release-9.11), which is why the
+//     drop below is scoped to the broadcast keys and not to the whole channel.
 
 import Foundation
 
@@ -69,7 +78,18 @@ enum MentionDropReason: String, Equatable, Sendable {
     case systemPost
     case notificationsDisabled
     case channelNotificationsOff
+    /// `notify_props.ignore_channel_mentions == "on"` on this channel: the reader asked not to be
+    /// notified for `@channel`/`@all`/`@here` here. Measured (9.11.19,
+    /// `scripts/t8525_ignore_mentions_probe.py`): only the broadcast keys are dropped — a post that
+    /// names the reader still moves `mention_count`, so it still delivers.
     case mentionsIgnored
+    /// The same drop, but caused by the mute rather than by the toggle: the server ignores
+    /// `@channel`/`@all`/`@here` for a **muted** channel whose `ignore_channel_mentions` is still
+    /// `"default"` (`server/channels/app/mention_keywords.go:74`, measured: delta 0 while
+    /// `mark_unread: "mention"` + `ignore_channel_mentions: "off"` keeps the mention, delta +1).
+    /// A separate reason because the two are different settings a reader can change, and the
+    /// diagnostic line has to say which one is doing it.
+    case mutedChannelMentionsIgnored
     case notAMention
     case alreadyDelivered
     case noChannelContext
@@ -83,7 +103,8 @@ enum MentionDropReason: String, Equatable, Sendable {
     /// and `noChannelContext` is a failed lookup that the next poll may well succeed at.
     var recordsAsHandled: Bool {
         switch self {
-        case .notificationsDisabled, .channelNotificationsOff, .mentionsIgnored:
+        case .notificationsDisabled, .channelNotificationsOff, .mentionsIgnored,
+             .mutedChannelMentionsIgnored:
             return true
         case .deleted, .ownPost, .systemPost, .notAMention, .alreadyDelivered, .noChannelContext:
             return false
@@ -99,7 +120,9 @@ enum MentionDropReason: String, Equatable, Sendable {
         case .systemPost: return "a system message"
         case .notificationsDisabled: return "desktop notifications are off for this account"
         case .channelNotificationsOff: return "notifications are off for this channel"
-        case .mentionsIgnored: return "this channel is set to ignore mentions"
+        case .mentionsIgnored: return "this channel is set to ignore @channel, @all and @here"
+        case .mutedChannelMentionsIgnored:
+            return "this channel is muted, so @channel, @all and @here do not notify you"
         case .notAMention: return "the message does not mention you"
         case .alreadyDelivered: return "already notified for this post"
         case .noChannelContext: return "the channel could not be resolved"
@@ -137,19 +160,35 @@ enum MentionNotificationPolicy {
         // 2. Account level: `desktop: "none"` means "do not notify me", whatever the channel says.
         if reader.desktopNotify.lowercased() == "none" { return .drop(.notificationsDisabled) }
 
-        // 3. Channel level. `desktop` is the per-channel override of the *account* setting;
-        //    `ignore_channel_mentions: "on"` explicitly asks not to be notified for @mentions here.
+        // 3. Channel level. `desktop` is the per-channel override of the *account* setting.
+        //
+        //    `ignore_channel_mentions` is **not** "silence this channel": measured on the pinned
+        //    9.11.19 server (`scripts/t8525_ignore_mentions_probe.py`, 11/11 checks) it removes only
+        //    the broadcast keys from the reader's mention vocabulary —
+        //      * `"on"`   → a `@channel` post no longer moves `mention_count` (delta 0), while a post
+        //                   that names the reader still does (delta +1);
+        //      * `"default"` → follows the mute: a **muted** channel drops `@channel` (delta 0) and an
+        //                   unmuted one keeps it (delta +1); `"off"` while muted keeps it (delta +1),
+        //                   so the mute alone is not the rule;
+        //      * `"all"` — the value a parity note claims — is stored verbatim by the write route and
+        //                   honoured like `"off"` (delta +1): it is not a value of this setting, and
+        //                   the client must not write it.
+        //    The rule the server applies is `server/channels/app/mention_keywords.go:74` (release-9.11).
         let props = membership?.notifyProps?.objectValue
         let channelDesktop = props?["desktop"]?.stringValue ?? "default"
         let muted = (props?["mark_unread"]?.stringValue ?? "all") == "mention"
-        let ignoresMentions = (props?["ignore_channel_mentions"]?.stringValue ?? "default") == "on"
+        let ignoreMentions = props?["ignore_channel_mentions"]?.stringValue ?? "default"
+        let dropsBroadcasts = ignoreMentions == "on" || (muted && ignoreMentions == "default")
         if channelDesktop.lowercased() == "none" { return .drop(.channelNotificationsOff) }
-        if ignoresMentions { return .drop(.mentionsIgnored) }
 
         // 4. What kind of post is it?
         //    - a DM/GM notifies as a *message* (upstream notifies direct messages without a mention),
-        //      so for those the trigger is the channel and its mute state, not the mention keys;
-        //    - a channel post notifies only when it names the reader.
+        //      so for those the trigger is the channel and its mute state, not the mention keys. The
+        //      broadcast setting does not apply: upstream draws no ignore-mentions row for a direct
+        //      message, and `@channel` names nobody in a conversation between individuals;
+        //    - a channel post notifies only when it names the reader — and a broadcast mention that a
+        //      mute or the ignore setting removed is dropped with its own reason, while a post that
+        //      names the reader still delivers.
         let isDirect = channel?.type == "D" || channel?.type == "G"
         if isDirect {
             // Measured: a DM membership reports `desktop: "default"` and `mark_unread: "all"`, i.e. the
@@ -160,13 +199,18 @@ enum MentionNotificationPolicy {
         }
 
         // A muted channel still notifies a real mention (measured: the mention counter moves), so
-        // `muted` is deliberately **not** consulted here.
+        // `muted` is deliberately **not** a drop of the whole channel here.
         //
         // The match includes the broadcast keys: an account that enabled channel mentions is notified by
         // `@channel`, which is the server's own rule. (The inbox uses the personal-keys-only rule; see
         // `MentionKeys.matchesIncludingBroadcasts` for why the two questions differ.)
-        guard reader.keys.matchesIncludingBroadcasts(post.message) else {
-            return .drop(.notAMention)
+        if !reader.keys.matches(post.message) {
+            guard reader.keys.matchesIncludingBroadcasts(post.message) else {
+                return .drop(.notAMention)
+            }
+            if dropsBroadcasts {
+                return .drop(ignoreMentions == "on" ? .mentionsIgnored : .mutedChannelMentionsIgnored)
+            }
         }
         return .deliver(silent: !reader.desktopSound)
     }

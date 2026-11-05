@@ -189,6 +189,80 @@ struct ChannelNotifyDraft: Equatable, Sendable {
     }
 }
 
+// MARK: - The channel-info "Ignore mentions" toggle
+
+/// What the channel-info "Ignore @channel, @here, @all" switch shows, and whether it may be used.
+///
+/// This is upstream's `isChannelMentionsIgnored` (`app/screens/channel_info/options/ignore_mentions/
+/// index.ts`), with one difference this repo makes everywhere: a value the build does not know is
+/// **named as the server's** rather than mapped onto `on` (upstream's `!== "off"` would call
+/// `"all"` — a value that server stores but does not honour — "ignoring").
+enum ChannelMentionIgnoreState: Equatable, Sendable {
+    /// The channel's setting resolves to "ignore channel-wide mentions".
+    case ignoring
+    /// …and to "notify me for them".
+    case notIgnoring
+    /// The channel stores a value this build does not know; it is quoted, never rewritten.
+    case unknown(String)
+    /// Neither the channel's value nor the account's `notify_props.channel` could be read, so there is
+    /// nothing to resolve `"default"` against. Nothing is drawn as a guessed "off".
+    case unreadable
+
+    /// Whether the switch can be flipped: only a resolved state has a value this build may write.
+    var isWritable: Bool {
+        switch self {
+        case .ignoring, .notIgnoring: return true
+        case .unknown, .unreadable: return false
+        }
+    }
+
+    var isOn: Bool { self == .ignoring }
+}
+
+/// The rule that turns the two server values into the switch's state.
+///
+/// Upstream, in order:
+///   1. the account's `notify_props.channel == "false"` means the reader asked **not** to be notified
+///      for channel-wide mentions anywhere, so `"default"` on a channel resolves to ignoring;
+///   2. an explicit channel value (`"on"` / `"off"`) wins over that default;
+///   3. `"default"` (or an absent value) follows the account setting.
+///
+/// The write is always explicit: `"on"` / `"off"`. Never `"default"` (turning the switch back off
+/// would otherwise re-inherit an account setting that is itself "ignore"), and never `"all"` —
+/// measured on the pinned 9.11.19 server, `"all"` is stored verbatim but behaves exactly like `"off"`
+/// (`scripts/t8525_ignore_mentions_probe.py`), so writing it would be a toggle that changes nothing.
+enum ChannelMentionIgnoreToggle {
+
+    static func resolve(channelValue: String?, accountChannelMentions: Bool?) -> ChannelMentionIgnoreState {
+        switch channelValue {
+        case let value? where value == ChannelNotifyIgnoreMentions.on.rawValue:
+            return .ignoring
+        case let value? where value == ChannelNotifyIgnoreMentions.off.rawValue:
+            return .notIgnoring
+        case let value? where value == ChannelNotifyIgnoreMentions.defaultValue.rawValue:
+            return resolveAccountDefault(accountChannelMentions)
+        case nil:
+            return resolveAccountDefault(accountChannelMentions)
+        case let value? where value.isEmpty:
+            return resolveAccountDefault(accountChannelMentions)
+        case let value?:
+            return .unknown(value)
+        }
+    }
+
+    /// The `"default"` branch: the account's own channel-mention setting decides, and an unknown account
+    /// setting is `.unreadable` rather than "off".
+    private static func resolveAccountDefault(_ accountChannelMentions: Bool?) -> ChannelMentionIgnoreState {
+        guard let accountChannelMentions else { return .unreadable }
+        return accountChannelMentions ? .notIgnoring : .ignoring
+    }
+
+    /// The value a flip writes.
+    static func wireValue(_ ignoring: Bool) -> String {
+        ignoring ? ChannelNotifyIgnoreMentions.on.rawValue : ChannelNotifyIgnoreMentions.off.rawValue
+    }
+}
+
 // MARK: - The row's copy
 
 /// What the channel-info row says under "Notification preferences", derived from the server's values.
