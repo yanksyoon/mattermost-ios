@@ -64,7 +64,9 @@ OSAnalytics  client log create type 309 result FAILED: Log limit exceeded
 Two things follow.
 
 1. A crash corpse exists, so the process died of a fatal signal. A jetsam kill leaves no corpse, and
-   no `memorystatus`/jetsam record names the app in either window.
+   the host's `com.apple.xnu:memorystatus` stream — 1,163 records across the 34 minutes that covered all
+   four class runs — contains **zero** mentions of the app and zero `jettisoned` records.
+
 2. **The missing `.ips` files in the original finding are a reporting rate limit, not a silent kill.**
    `Log limit exceeded` is OSAnalytics refusing to write the report; it happened in *both* runs here.
    So "two of three runs left no crash report" was not evidence of jetsam — the reports were dropped.
