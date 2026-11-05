@@ -899,6 +899,15 @@ struct ChannelPaneContent: View {
             // once per server and the catalogue is shared by every channel of it.
             await catalogue.loadNamesIfNeeded()
         }
+        .onChange(of: focusPostID) { _, requested in
+            // A route that names a post can land on a pane that is **already showing** this channel:
+            // the thread pane's "Open in Channel" (`OpenInChannelJump`) re-opens the conversation the
+            // reader came from, and on a wide layout the detail column is not rebuilt at all, so
+            // `.task(id: channelID)` does not run again. Without this the channel came back to the
+            // newest message and the jump did nothing visible (t_510a5563).
+            guard let requested, let model else { return }
+            Task { await model.focus(postID: requested) }
+        }
         .onChange(of: model?.threadJumpRootID) { _, rootID in
             // The jump target turned out to be a reply: it is not a row of this timeline, so open the
             // thread it lives in (which is where the message is actually drawn).

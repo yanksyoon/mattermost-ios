@@ -269,7 +269,30 @@ struct ThreadPaneContent: View {
                                       guard let composer else { return }
                                       Task { await composer.delete(postID: row.post.id) }
                                   },
-                                  onShowOptions: {})
+                                  // Replaced by the list, which owns the sheet (see
+                                  // ThreadPostListView.actions(for:)).
+                                  onShowOptions: {},
+                                  // The thread pane's own row (upstream `thread_options.tsx`):
+                                  // "Open in Channel" lands on this thread's root in the channel it
+                                  // belongs to. Offered for the root only — a reply's row is not the
+                                  // thread — and only when the root names a channel, which the
+                                  // derivation reads through `OpenInChannelJump` (a permalink-opened
+                                  // root still carries its `channel_id`, so this is the common case).
+                                  canOpenInChannel: OpenInChannelJump.request(for: row,
+                                                                              from: navigation.location) != nil,
+                                  onOpenInChannel: {
+                                      guard let request = OpenInChannelJump.request(for: row,
+                                                                                    from: navigation.location) else {
+                                          return
+                                      }
+                                      // The sheet dismisses first (its `onDismiss` runs before this
+                                      // closure); route on the next main-actor turn rather than in
+                                      // the same one, so the pane that owns the sheet is not
+                                      // replaced while its presentation is still being torn down.
+                                      Task { @MainActor in
+                                          navigation.openChannel(request)
+                                      }
+                                  })
         }
     }
 

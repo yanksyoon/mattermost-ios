@@ -1060,6 +1060,86 @@ final class T36ThreadsUITests: XCTestCase {
         attachScreenshot("t1617a-04-threads-list-returned")
     }
 
+    // MARK: - 9. Open in Channel (t_510a5563)
+
+    /// The thread pane's own menu action, upstream
+    /// `app/screens/thread_options/options/open_in_channel_option.tsx @162f2560`: "Open in Channel"
+    /// calls `showPermalink(serverUrl, '', threadId)` — it jumps from the pane to the **root's place
+    /// in its channel**. This build routes it through the path a search result or a notification
+    /// already uses (`ChannelViewModel.focus(postID:)`), so the assertion is the destination, not the
+    /// drawing: the router's channel is this channel, its post is this root, and the channel comes
+    /// back with the root's marking bar (`postFocus.<id>`) drawn.
+    func testOpenInChannelFromTheThreadMenuLandsOnTheRootInItsChannel() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let root = try post(message: "t510 open-in-channel root \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the root this test jumps to")
+        let rootID = try XCTUnwrap(root["id"] as? String)
+        let reply = try post(message: "t510 open-in-channel reply \(stamp)", rootID: rootID, as: token)
+        assertAuthoredBy(userID, reply, "the reply that makes the thread a thread")
+
+        let app = launchAndOpenChannel(extraArguments: ["-uiTestExposeNavigationLocation"])
+        XCTAssertTrue(revealPost(app, rootID, maxSwipes: 4).exists,
+                      "the root must be a row of the channel:\n\(app.debugDescription)")
+        XCTAssertFalse(element(app, "postFocus.\(rootID)").exists,
+                       "the premise: the channel is not already focused on the root before the tap")
+        openThread(app, rootID: rootID)
+        XCTAssertEqual(navigationLocation(app)?["pane"], "threads",
+                       "the reply line must have opened the thread pane")
+
+        // The thread opens at its newest reply, so the root — the only row that carries the option —
+        // is scrolled to.
+        let rootRow = revealThreadPost(app, rootID)
+        XCTAssertTrue(rootRow.waitForExistence(timeout: 20),
+                      "the thread must draw its root:\n\(app.debugDescription)")
+        let menu = element(app, "threadPostList")
+            .descendants(matching: .any)
+            .matching(identifier: "post.\(rootID).menu")
+            .firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 20),
+                      "the thread's root row must expose its options button:\n\(app.debugDescription)")
+        menu.tap()
+        XCTAssertTrue(element(app, "postOptions.cancel").waitForExistence(timeout: 25),
+                      "the root row's menu must open:\n\(app.debugDescription)")
+        // The sheet is a `.medium` detent: drag it up so the rows below the fold are drawn (the same
+        // harness rule T48 measured for this sheet).
+        app.swipeUp()
+        let option = revealSheetRow(app, "postOptions.openInChannel")
+        XCTAssertTrue(option.exists,
+                      "the thread's root row must offer Open in Channel:\n\(app.debugDescription)")
+        attachScreenshot("t510-01-thread-row-open-in-channel")
+        option.tap()
+
+        XCTAssertTrue(waitUntil(timeout: 25) { !element(app, "threadPane").exists },
+                      "choosing Open in Channel must leave the thread pane:\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 40),
+                      "…and land on the channel's timeline:\n\(app.debugDescription)")
+        let location = navigationLocation(app)
+        XCTAssertEqual(location?["pane"], "channel", "the router must be on a channel, not a thread")
+        XCTAssertEqual(location?["channel"], channelID,
+                       "the jump must open the root's own channel")
+        XCTAssertEqual(location?["post"], rootID,
+                       "the jump must name the root as the post the pane lands on")
+        XCTAssertTrue(element(app, "postFocus.\(rootID)").waitForExistence(timeout: 60),
+                      "the channel must come back focused on the root (the marking bar is drawn "
+                      + "only for the post the pane was asked to land on):\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "post.\(rootID)").exists,
+                      "…and the root must be a laid-out row:\n\(app.debugDescription)")
+        attachScreenshot("t510-02-channel-focused-on-root")
+    }
+
+    /// A sheet row that may be below the fold (see `openMenu`'s sibling in T48's suite).
+    @discardableResult
+    private func revealSheetRow(_ app: XCUIApplication, _ identifier: String,
+                                maxSwipes: Int = 4) -> XCUIElement {
+        let target = element(app, identifier)
+        guard !target.exists else { return target }
+        for _ in 0..<maxSwipes {
+            app.swipeUp()
+            if target.exists { return target }
+        }
+        return target
+    }
+
     /// A full-screen capture attached to the test result (`docs/t1617a-shots/` is exported from it).
     private func attachScreenshot(_ name: String) {
         let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())

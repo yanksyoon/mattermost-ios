@@ -201,6 +201,12 @@ struct PostRowActions {
     /// for the window; a row only says *which* post it was opened for.
     var canReact: Bool = false
     var onReact: () -> Void = {}
+    /// The thread pane's "Open in Channel" (upstream `thread_options.tsx`). The row only says it can
+    /// be done; the pane's closure builds the request and routes it (`OpenInChannelJump`). False —
+    /// the default — means no such row is drawn, which is what every host that is not a thread pane
+    /// wants.
+    var canOpenInChannel: Bool = false
+    var onOpenInChannel: () -> Void = {}
     /// T48: whether this host draws the post-options surface at all.
     ///
     /// The options that do not touch the composer — copy text, copy link, save, pin, mark unread,
@@ -741,6 +747,12 @@ struct PostOptionsSheet: View {
         case .delete:
             onDismiss()
             actions.onDelete()
+            return
+        case .openInChannel:
+            // A host option like reply/edit/delete: the pane owns the router, and the sheet has
+            // nothing to request. Dismiss first — the jump replaces the pane behind this sheet.
+            onDismiss()
+            actions.onOpenInChannel()
             return
         case .copyText, .copyLink, .save, .unsave, .pin, .unpin, .markUnread,
              .followThread, .unfollowThread:

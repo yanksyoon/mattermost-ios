@@ -5,7 +5,12 @@
 //        pin_channel_option,edit_option,delete_post_option}.tsx,
 //        app/components/common_post_options/{copy_permalink_option,follow_thread_option,
 //        save_option}.tsx, app/client/rest/posts.ts (`markPostAsUnread` path and body),
-//        app/actions/remote/post.ts (`markPostAsUnread` — the counters it writes afterwards).
+//        app/actions/remote/post.ts (`markPostAsUnread` — the counters it writes afterwards),
+//        app/screens/thread_options/thread_options.tsx (the thread pane's own menu: reply, follow,
+//        **open in channel**, mark unread, save, copy link),
+//        app/screens/thread_options/options/open_in_channel_option.tsx (`showPermalink(serverUrl,
+//        '', threadId)` — the root's place in its channel), app/utils/permalink/index.ts
+//        (`displayPermalink` → the permalink screen), app/actions/remote/permalink.ts.
 // Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §18; no
 // upstream source copied. The SwiftUI decomposition is this repo's own (docs/component-map.md §1).
 //
@@ -63,6 +68,10 @@ enum PostOptionID: String, Equatable, Sendable, CaseIterable {
     /// build only offers the Thread spelling (see the file header).
     case followThread
     case unfollowThread
+    /// Upstream `OpenInChannelOption` (the thread pane's own menu): jump to the **root's** place in
+    /// its channel. Offered on the thread surface, for the root row only — see
+    /// `PostOptionsCapabilities.offersOpenInChannel` and `OpenInChannelJump`.
+    case openInChannel
     case markUnread
     /// Upstream's `CopyPermalinkOption` — the option is labelled "Copy Link".
     case copyLink
@@ -80,6 +89,7 @@ enum PostOptionID: String, Equatable, Sendable, CaseIterable {
         case .reply: return "Reply"
         case .followThread: return "Follow Thread"
         case .unfollowThread: return "Unfollow Thread"
+        case .openInChannel: return "Open in Channel"
         case .markUnread: return "Mark as Unread"
         case .copyLink: return "Copy Link"
         case .save: return "Save"
@@ -98,6 +108,7 @@ enum PostOptionID: String, Equatable, Sendable, CaseIterable {
         case .reply: return "arrowshape.turn.up.left"
         case .followThread: return "bell"
         case .unfollowThread: return "bell.slash"
+        case .openInChannel: return "globe"
         case .markUnread: return "envelope.badge"
         case .copyLink: return "link"
         case .save: return "bookmark"
@@ -124,6 +135,7 @@ enum PostOptionID: String, Equatable, Sendable, CaseIterable {
         case .react: return "reaction"
         case .reply: return "reply"
         case .followThread, .unfollowThread: return "thread follow"
+        case .openInChannel: return "open the channel"
         case .markUnread: return "unread mark"
         case .save, .unsave: return "save"
         case .pin, .unpin: return "pin"
@@ -172,6 +184,11 @@ struct PostOptionFacts: Equatable, Sendable {
     var canReply: Bool = false
     var canEdit: Bool = false
     var canDelete: Bool = false
+    /// Whether this host can perform "Open in Channel" for the row — i.e. it owns a navigation
+    /// router and the row is a thread's root whose channel is known (`ThreadPaneContent` supplies
+    /// the closure). The option is the thread pane's (`thread_options.tsx`), so it is not offered
+    /// on the channel surface at all; without a host closure the row would be a dead control.
+    var canOpenInChannel: Bool = false
     /// The union of my role permissions on this server. `nil` = not loaded (or the lookup failed):
     /// permission-gated options are withheld rather than guessed.
     var permissions: Set<String>? = nil
@@ -272,6 +289,10 @@ struct PostOptionsCapabilities: Equatable, Sendable {
     var facts: PostOptionFacts
 
     var offersFollow: Bool
+    /// The thread pane's "Open in Channel" (`thread_options.tsx`): the root row, on the thread
+    /// surface, when the host can navigate. Never on the channel surface — there the reader is
+    /// already where the jump would go.
+    var offersOpenInChannel: Bool
     var offersMarkUnread: Bool
     var offersCopyLink: Bool
     var offersSave: Bool
@@ -286,6 +307,11 @@ struct PostOptionsCapabilities: Equatable, Sendable {
     /// The option rows, in upstream's render order (`post_options.tsx`): react, reply, follow,
     /// mark unread, copy link, (translation — deferred), save/unsave, copy text, pin/unpin, edit,
     /// delete.
+    ///
+    /// `openInChannel` is the thread pane's own row (upstream `thread_options.tsx`), and it sits
+    /// where that menu puts it relative to the rows both menus share: after reply/follow, before
+    /// mark unread. (Follow itself is a channel-surface option in this build — the thread pane has
+    /// its own bell — so the two never draw together; the position still follows upstream's order.)
     var offeredOptions: [PostOptionID] {
         var options: [PostOptionID] = []
         if facts.canReact { options.append(.react) }
@@ -293,6 +319,7 @@ struct PostOptionsCapabilities: Equatable, Sendable {
         if offersFollow, let following = facts.threadFollowing {
             options.append(following ? .unfollowThread : .followThread)
         }
+        if offersOpenInChannel { options.append(.openInChannel) }
         if offersMarkUnread { options.append(.markUnread) }
         if offersCopyLink { options.append(.copyLink) }
         if offersSave { options.append(facts.isSaved ? .unsave : .save) }
@@ -313,6 +340,15 @@ struct PostOptionsCapabilities: Equatable, Sendable {
         let hasThread = facts.isRootPost && facts.replyCount > 0
         let offersFollow = canWrite && facts.surface == .channel && hasThread
             && facts.threadFollowing != nil
+
+        // The thread pane's "Open in Channel" (`thread_options.tsx`): the menu belongs to the
+        // thread, and the jump lands on its **root**, so only the root row may offer it. The host
+        // term is required because the row is performed by the pane's router closure, not by a
+        // request this model can make — a sheet that drew it without one would draw a dead row.
+        // No write depends on it, so an archived channel does not withhold it (upstream offers it
+        // there too: reading the root's place in a read-only channel is still navigation).
+        let offersOpenInChannel = readable && facts.surface == .thread
+            && facts.isRootPost && facts.canOpenInChannel
 
         // Upstream `canMarkAsUnread`: `!isArchived && ((user.id !== post.userId && !isSystemMessage)
         // || isFromWebhook)`.
@@ -354,6 +390,7 @@ struct PostOptionsCapabilities: Equatable, Sendable {
 
         return PostOptionsCapabilities(facts: facts,
                                        offersFollow: offersFollow,
+                                       offersOpenInChannel: offersOpenInChannel,
                                        offersMarkUnread: offersMarkUnread,
                                        offersCopyLink: offersCopyLink,
                                        offersSave: offersSave,
@@ -388,6 +425,39 @@ enum PostPermalink {
         // an old deployment) must be escaped rather than pasted raw.
         let encodedTeam = team.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? team
         return "\(base)/\(encodedTeam)/pl/\(post)"
+    }
+}
+
+// MARK: - Open in Channel (the thread pane's jump)
+
+/// Where the thread pane's "Open in Channel" goes: **the root's own channel, at the root**.
+///
+/// Upstream (`app/screens/thread_options/options/open_in_channel_option.tsx`) calls
+/// `showPermalink(serverUrl, '', threadId)`, which resolves the current team and pushes the
+/// permalink screen for the thread's root; that screen opens the post's channel and scrolls to the
+/// post. This build already has that destination — `ChannelPaneContent.focusPostID` →
+/// `ChannelViewModel.focus(postID:)` (T39) — so the jump is a `NativeChannelRequest` with the
+/// channel id the root post carries and the root's id as the focused post. No permalink string is
+/// parsed and no channel is guessed: both facts come from the post itself.
+///
+/// The one fact a post does not carry is the channel's **name**. The route's name is used only when
+/// the route names the same channel; otherwise it describes a different conversation and is dropped
+/// (the pane then titles itself from the channel's id and fills the real name when it loads).
+enum OpenInChannelJump {
+    /// The request that opens the row's root in its channel, or `nil` when the row cannot be the
+    /// target — a reply (the jump belongs to the thread, not to a reply's own row) or a post whose
+    /// channel is not known.
+    static func request(for row: PostRowModel, from location: NativeLocation) -> NativeChannelRequest? {
+        guard row.post.rootId.isEmpty else { return nil }
+        let channelID = row.post.channelId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !channelID.isEmpty else { return nil }
+        let name = location.channelID == channelID ? location.channelName : nil
+        return NativeChannelRequest(serverID: location.serverID,
+                                    teamID: location.teamID,
+                                    teamName: location.teamName,
+                                    channelID: channelID,
+                                    channelName: name,
+                                    postID: row.id)
     }
 }
 

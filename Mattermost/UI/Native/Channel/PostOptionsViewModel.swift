@@ -132,6 +132,8 @@ final class PostOptionsViewModel: ObservableObject {
         facts.message = row.post.message
         facts.canReact = actions.canReact
         facts.canReply = actions.canReply
+        // The thread pane's jump: the host closure is the term, because the pane owns the router.
+        facts.canOpenInChannel = actions.canOpenInChannel
         // T48-AV F5: the row host answers *ownership* only (`ComposerRowPermissions.menu`), so a
         // revoked `edit_post`/`delete_post` and an archived channel both used to be over-offered.
         // The gate is applied here — where the permission union is already loaded — so the facts
@@ -297,7 +299,7 @@ final class PostOptionsViewModel: ObservableObject {
             return .copied(link)
         case .save, .unsave, .pin, .unpin, .markUnread, .followThread, .unfollowThread:
             break
-        case .react, .reply, .edit, .delete:
+        case .react, .reply, .edit, .delete, .openInChannel:
             // Reached only if a host wired the sheet without its own handler; refusing loudly is better
             // than a row that appears to work.
             return .failed("This action is not available in this window.")

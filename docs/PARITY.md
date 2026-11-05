@@ -6,7 +6,7 @@ Pins: M=v2.45.0@162f2560d0e1 ; W=v12.0.1@987e57120dca
 
 ## Summary
 
-159 capabilities: **131 yes**, **4 partial**, **18 to be implemented**, **6 out of scope** — of which **13** need an owner decision.
+159 capabilities: **132 yes**, **4 partial**, **17 to be implemented**, **6 out of scope** — of which **13** need an owner decision.
 
 A row lands in Implemented only with evidence that resolves (a test case, or a recorded observation). A claim without evidence is Partial, whatever the code looks like. Every gap carries a card id or the owner decision that blocks it.
 
@@ -136,6 +136,7 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 | thread | load-earlier-replies | app/screens/thread/thread_post_list/thread_post_list.tsx@162f2560 | MattermostTests/T36ThreadViewModelTests.swift::testLoadEarlierPrependsTheOlderReplyPage; ::testLoadEarlierStopsWhenThePageBringsNothingNew |
 | thread | mark-as-unread-from-the-row-menu | app/screens/thread_options/options/mark_as_unread_option.tsx@162f2560 | MattermostTests/T48PostOptionsTests.swift::testTheOrderIsUpstreamsRenderOrder |
 | thread | mark-the-thread-read-on-open-and-on-a-live-reply | app/screens/thread/thread_post_list/thread_post_list.tsx@162f2560 | MattermostTests/T36ThreadViewModelTests.swift::testMarkingReadMovesTheBadgeAndRecordsThatItWasDone; ::testAFailedMarkReadDoesNotTurnTheThreadIntoAnErrorScreen |
+| thread | open-in-channel-from-thread-options | app/screens/thread_options/options/open_in_channel_option.tsx@162f2560 | MattermostTests/ThreadOpenInChannelTests.swift::testTheJumpResolvesToTheRootsChannelAndTheRootItself; ::testOnlyTheThreadsRootRowOffersOpenInChannel; ::testTheRouteIsUsedForIdsAndOnlyItsOwnChannelNameIsReused; MattermostUITests/T36-ThreadsUITests.swift::testOpenInChannelFromTheThreadMenuLandsOnTheRootInItsChannel |
 | thread | reply-count-in-the-pane-header | webapp/channels/src/components/threading/thread_viewer/thread_viewer.tsx@987e5712 | MattermostTests/T36ThreadModelsTests.swift::testTheReplyCountPrefersTheServersNumberOverThePage; MattermostUITests/T36-ThreadsUITests.swift::testReplyingUpdatesTheRootsReplyCountAndTheThreadTakesSocketReplies |
 | thread | reply-count-on-the-channel-row | app/components/post_list/thread_overview/thread_overview.tsx@162f2560 | MattermostTests/T36ChannelReplyLineTests.swift::testThreadUpdatedSetsTheServersExactCount; ::testAReplyArrivingOnTheSocketRaisesItsRootsCountWithoutAddingARow |
 | thread | reply-from-the-pane-composer | app/screens/thread/thread_content.tsx@162f2560 | MattermostTests/T35ComposerViewModelTests.swift::testAThreadComposerIsStillInReplyModeAfterASend; MattermostTests/T36ThreadViewModelTests.swift::testAPendingReplyIsShownAtOnceAndReplacedByTheServersPost |
@@ -174,7 +175,6 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 | notifications | receive-a-real-apns-push | blocker: no APNs entitlement/certificate and no push proxy on this host; decide whether v1 ships local+poll only |
 | shell-transport | share-extension-to-post-a-file | blocker: needs a second app target/entitlement the current project does not declare; owner to decide v1 |
 | thread | mention-highlighting-in-thread-posts | t_0268627c (new card: mention background for the reader's own name) |
-| thread | open-in-channel-from-thread-options | t_510a5563 (new card: Open in Channel) |
 | web-fallback | apps-integration-selector | t_61525849 (new card: S34 decision) |
 | web-fallback | apps-interactive-dialog-forms | t_61525849 (new card: S34 decision) |
 
