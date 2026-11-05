@@ -6,7 +6,7 @@ Pins: M=v2.45.0@162f2560d0e1 ; W=v12.0.1@987e57120dca
 
 ## Summary
 
-159 capabilities: **133 yes**, **3 partial**, **17 to be implemented**, **6 out of scope** — of which **13** need an owner decision.
+159 capabilities: **135 yes**, **2 partial**, **16 to be implemented**, **6 out of scope** — of which **13** need an owner decision.
 
 A row lands in Implemented only with evidence that resolves (a test case, or a recorded observation). A claim without evidence is Partial, whatever the code looks like. Every gap carries a card id or the owner decision that blocks it.
 
@@ -24,6 +24,7 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 | auth | the-terms-gate-blocks-a-signed-in-session | app/screens/terms_of_service/index.tsx@162f2560 | MattermostTests/T49TermsOfServiceTests.swift::testPendingTermsBlockASignedInSession; ::testAcceptPostsTheCamelCaseBodyTheServerExpects; ::testAnUnreadableAnswerFailsClosedToTheGate |
 | channel-admin | add-members-and-create-a-dm | app/screens/channel_add_members/index.tsx@162f2560 | MattermostTests/T40ChannelInfoTests.swift::testPagingAsksForTheNextPageOnlyWhenAFullPageCameBack (picker paging); T47CreateChannelTests.swift::testADirectOrGroupMessageIsNotCreatedThroughThisBody |
 | channel-admin | browse-and-join-channels | app/screens/browse_channels/browse_channels.tsx@162f2560 | MattermostTests/T40ChannelInfoTests.swift::testBrowseSplitsJoinedFromOthersAndFiltersByTerm |
+| channel-admin | convert-a-group-message-to-a-channel | app/screens/convert_gm_to_channel/index.tsx@162f2560 | MattermostTests/Td088ConvertGMToChannelTests.swift::testTheInfoScreensGateAndTheConversionScreensGateAgree; ::testTheBodyCarriesTheMeasuredKeysAndTheTrimmedName; MattermostUITests/Td088ConvertGMUITests.swift (live, server oracle) |
 | channel-admin | create-a-channel-the-server-accepts | app/screens/create_or_edit_channel/index.tsx@162f2560 | MattermostTests/T47CreateChannelTests.swift::testTheRuleAcceptsLowercaseDigitsHyphenAndUnderscore; ::testTheDisplayNameDerivesADashedURLName; ::testTheMenuIsCreateBrowseDirectMessageInThatOrder |
 | channel-admin | edit-channel-name-purpose-header | app/screens/channel_configuration/index.tsx@162f2560 | MattermostTests/T40ChannelInfoTests.swift::testUnchangedDraftSendsNoPatch; ::testPurposeOnlyEditSendsOnlyThePurpose; ::testFieldLimitsAreTheServersOwn |
 | channel-admin | leave-archive-unarchive-with-permissions | app/screens/channel_info/destructive_options@162f2560 | MattermostTests/T40ChannelInfoTests.swift::testAdminPermissionsOfferEveryActionOnAPublicChannel; ::testDefaultChannelCannotBeLeftOrManagedExceptByAGuest; ::testArchivedChannelLosesManagementAndOffersUnarchiveToATeamAdmin; ::testLeaveIsACloseForDirectAndGroupMessages |
@@ -72,6 +73,7 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 | files-attachments | read-a-pdf-in-app | app/screens/pdf_viewer/index.tsx@162f2560 | MattermostTests/T38AttachmentTests.swift::testAPDFOpensInThePDFReader; ::testAPDFPastTheFetchLimitIsRefusedToo |
 | files-attachments | split-a-post-s-attachments-into-images-and-file-rows | app/components/files/files.tsx@162f2560 | MattermostTests/T38AttachmentTests.swift::testTenImagesThreeFilesAndAPDFSplitIntoAGridAndFourRows; ::testTheServersOrderIsKeptInsideEachHalf; ::testOneImageGetsAFullWidthCellAndTenImagesGetAThreeColumnGrid |
 | files-attachments | the-row-shows-name-type-and-size | app/components/files/file.tsx@162f2560 | MattermostTests/T38AttachmentTests.swift::testTheRowShowsTheServersNameTheTypeAndTheSize; ::testAnUnknownTypeIsNamedRatherThanGuessed |
+| files-attachments | zoom-and-share-an-image | app/screens/gallery/index.tsx@162f2560 | MattermostUITests/T38AttachmentsUITests.swift::testDoubleTapAndPinchZoomToTheCapAndTheSecondDoubleTapRestores; ::testTheShareControlHandsTheSheetTheFilesOwnBytesNotTheDownsampledBitmap; MattermostTests/T38AttachmentTests.swift::testAStagedShareIsTheFilesOwnBytesAndNotItsGalleryBitmap; ::testSharingABlockedFileIsRefusedWithTheExistingCopyAndAsksNobody; ::testAFileWhoseBytesCannotBeFetchedGetsTheSameRefusalAndHadBeenAskedFor; ::testAHostileNameCannotEscapeTheShareDirectory |
 | mentions-activity | mention-keys-from-notify-props | app/actions/remote/notifications.ts@162f2560 | MattermostTests/T42ActivityTests.swift::testKeysAreUpstreamsOrderAndShape; ::testMatchingIgnoresCaseForHandlesButNotForFirstNameKeys; ::testAKeyMustNotBeGluedToAWordCharacter |
 | mentions-activity | mentions-paging-in-the-mobile-client | app/screens/home/recent_mentions/recent_mentions.tsx@162f2560 | MattermostTests/T42ActivityTests.swift::testLoadAsksForTheKeysWindowAndBuildsRowsWithTheirReadState |
 | mentions-activity | pull-to-refresh-and-empty-state | app/screens/home/recent_mentions/recent_mentions.tsx@162f2560 | MattermostTests/T42ActivityTests.swift::testTheSubtitleAndEmptyCopySayWhatIsActuallyThere |
@@ -153,14 +155,12 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 | Module | Upstream feature | Upstream ref | Evidence | What is missing |
 |---|---|---|---|---|
 | channel-header | auto-follow-new-threads | app/screens/channel_info/options/auto_follow_threads/auto_follow_threads.tsx@162f2560 | MISSING - the notify draft parses the field but no test asserts a write | no evidence that asserts it |
-| files-attachments | zoom-and-share-an-image | app/screens/gallery/index.tsx@162f2560 | MISSING - no case asserts zoom or the share sheet; the store's full-byte path is tested (T38AttachmentTests::testOriginalBytesAreAvailableForTheFileReaders) | no evidence that asserts it |
 | notifications | tap-fallbacks-when-the-post-is-gone | app/utils/notification/index.ts@162f2560 | MISSING - the poller surfaces session expiry, but no test asserts the tap-through fallback copy for a deleted post or a left channel | no evidence that asserts it |
 
 ## To be implemented
 
 | Module | Upstream feature | Blocked on |
 |---|---|---|
-| channel-admin | convert-a-group-message-to-a-channel | t_d088f075 (new card: convert GM to channel) |
 | channel-header | ignore-mentions-in-a-channel | t_8525d2c8 (new card: ignore_channel_mentions toggle) |
 | channel-header | per-channel-auto-translation | blocker: enterprise feature, no licensed fixture; decide v1 scope |
 | channel-timeline | apps-bindings-and-interactive-attachments-inside-a-post | t_61525849 (new card: S34 decision) |

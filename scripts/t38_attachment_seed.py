@@ -16,6 +16,12 @@ through the same public API a browser would use (`POST /files` multipart, then `
     content type the uploader sent, so this is reachable input, not a hypothetical);
   * 1 oversized text file (`dump.log`, 300 KB) for the text reader's byte cap.
 
+A third post (`props.t38_key = t38-share`) carries one **2560×1600** PNG. It exists because the
+gallery draws every image at a 2048 px long edge (`ChannelImageStore.galleryMaxPixel`) and shares the
+file's own bytes: on an image larger than that cap, "shared the original" and "shared the downsampled
+bitmap" are different byte counts and different digests, which is what the share case measures. On the
+640×480 fixtures the two are indistinguishable by size, so the trap would be unobservable.
+
 Idempotency: the post is keyed on `props.t38_key`, so re-running reuses the existing post instead of
 creating a second one. The script prints the post id and each file id as JSON — the UI test and the
 capture script read the fixture from the channel itself, never from a copied id.
@@ -49,6 +55,12 @@ CHANNEL_DISPLAY = "T38 attachments"
 CHANNEL_PURPOSE = "T38 fixture: a post with 10 images, 3 files, a PDF and two hostile files"
 POST_KEY_IMAGES = "t38-images"
 POST_KEY_FILES = "t38-files"
+POST_KEY_SHARE = "t38-share"
+# The share fixture's shape. Kept next to the key so the test's expectation ("this file is bigger than
+# the gallery's 2048 px cap") and the seed cannot drift apart.
+SHARE_IMAGE_NAME = "t38-panorama.png"
+SHARE_IMAGE_WIDTH = 2560
+SHARE_IMAGE_HEIGHT = 1600
 
 
 def ensure_post(client: Client, channel_id: str, key: str, message: str,
@@ -83,33 +95,6 @@ def ensure_post(client: Client, channel_id: str, key: str, message: str,
     return {"post_id": post["id"], "file_ids": file_ids, "reused": False,
             "files": [{"id": info["id"], "name": info.get("name"),
                        "mime_type": info.get("mime_type"), "size": info.get("size")} for info in infos]}
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--url", default="http://127.0.0.1:8065")
-    parser.add_argument("--reset", action="store_true",
-                        help="delete the existing T38 fixture posts before recreating them")
-    args = parser.parse_args()
-
-    client = login(args.url, USERNAME, PASSWORD)
-    teams = [t for t in client.must("GET", "/users/me/teams")[0] if t.get("name") == TEAM_NAME]
-    if not teams:
-        raise SystemExit(f"team #{TEAM_NAME} is missing — run scripts/perf_seed.py first")
-    team_id = teams[0]["id"]
-    channel = ensure_channel(client, team_id)
-    fixtures = fixture_files()
-
-    images = ensure_post(client, channel["id"], POST_KEY_IMAGES,
-                         "T38 fixture A: ten image attachments (the server's hard cap is ten per post).",
-                         fixtures["images"], args.reset)
-    files = ensure_post(client, channel["id"], POST_KEY_FILES,
-                        "T38 fixture B: three files, a PDF, a page saved as .html and an oversized log.",
-                        fixtures["files"], args.reset)
-
-    print(json.dumps({"channel_id": channel["id"], "channel_name": CHANNEL_NAME,
-                      "images": images, "files": files}, indent=2))
-    return 0
 
 
 class APIError(RuntimeError):
@@ -262,7 +247,9 @@ def fixture_files() -> dict[str, list[tuple[str, str, bytes]]]:
     # Two posts, not one: 10 is a **hard** server limit per post ("Attachments per message 10",
     # Mattermost product limits; `POST /posts` answers 400 `model.post.is_valid.file_ids.app_error`
     # with "uploads are limited to 10 files maximum" for 16 file ids — measured on 9.11.19 here).
-    return {"images": images, "files": files + pdf + hostile}
+    share = [(SHARE_IMAGE_NAME, "image/png",
+              fixture_png(SHARE_IMAGE_WIDTH, SHARE_IMAGE_HEIGHT, 96))]
+    return {"images": images, "files": files + pdf + hostile, "share": share}
 
 
 # ---------------------------------------------------------------------------- server helpers
@@ -322,9 +309,13 @@ def main() -> int:
     files = ensure_post(client, channel["id"], POST_KEY_FILES,
                         "T38 fixture B: three files, a PDF, a page saved as .html and an oversized log.",
                         fixtures["files"], args.reset)
+    share = ensure_post(client, channel["id"], POST_KEY_SHARE,
+                        "T38 fixture C: one 2560×1600 image — larger than the gallery's 2048 px draw "
+                        "cap, so a share of the draw bitmap would not be the file.",
+                        fixtures["share"], args.reset)
 
     print(json.dumps({"channel_id": channel["id"], "channel_name": CHANNEL_NAME,
-                      "images": images, "files": files}, indent=2))
+                      "images": images, "files": files, "share": share}, indent=2))
     return 0
 
 

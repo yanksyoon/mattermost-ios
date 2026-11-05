@@ -851,6 +851,119 @@ final class T38ChannelImageStoreTests: XCTestCase {
     }
 }
 
+// MARK: - 9b. Share: the file's own bytes, and the refusal a blocked file gets
+
+/// The gallery's Share action, asserted as a decision rather than as a `@State` in a view.
+///
+/// The card calls this the documented trap: the gallery draws a **downsampled** bitmap
+/// (`galleryMaxPixel`, 2048) while the share must hand over the file's own bytes. Every case below
+/// therefore uses an image wider than the draw cap, where confusing the two is observable in both the
+/// byte count and the digest.
+@MainActor
+final class T38AttachmentShareTests: XCTestCase {
+
+    private var service: T38FakeFileService!
+    private var store: ChannelImageStore!
+
+    override func setUp() async throws {
+        service = T38FakeFileService()
+        store = ChannelImageStore(service: service)
+    }
+
+    override func tearDown() async throws {
+        store.clear()
+        store = nil
+        service = nil
+    }
+
+    private func stager(width: CGFloat = 2560, height: CGFloat = 1600) -> Data {
+        T38Image.png(width: width, height: height,
+                     color: UIColor(red: 0.2, green: 0.6, blue: 0.9, alpha: 1))
+    }
+
+    func testAStagedShareIsTheFilesOwnBytesAndNotItsGalleryBitmap() async throws {
+        let original = stager()
+        service.blobs["big"] = original
+        let attachment = t38Attachment("big", name: "t38-panorama.png")
+
+        // What the gallery draws for the reader: a bitmap no larger than the draw cap.
+        let loaded = await store.galleryImage(for: attachment)
+        let bitmap = try XCTUnwrap(loaded)
+        XCTAssertLessThanOrEqual(max(bitmap.size.width, bitmap.size.height),
+                                 CGFloat(ChannelImageStore.galleryMaxPixel))
+        let bitmapBytes = try XCTUnwrap(bitmap.pngData())
+        XCTAssertNotEqual(bitmapBytes, original, "the draw bitmap is not the file's bytes")
+
+        // What Share hands the sheet: the file.
+        guard case .success(let staged) = await AttachmentShareFlow.stage(attachment, from: store) else {
+            return XCTFail("an image with bytes must stage")
+        }
+        XCTAssertEqual(staged.name, "t38-panorama.png")
+        XCTAssertEqual(staged.byteCount, original.count, "the share carries the file's own byte count")
+        XCTAssertEqual(staged.digest, AttachmentShare.digest(of: original))
+        XCTAssertNotEqual(staged.digest, AttachmentShare.digest(of: bitmapBytes),
+                          "a share of the draw bitmap would carry this digest instead")
+        XCTAssertTrue(staged.summary.contains("bytes=\(original.count)"), staged.summary)
+        XCTAssertTrue(staged.summary.contains("sha256=\(staged.digest)"), staged.summary)
+
+        // And the file the sheet is handed is byte-identical, inside the share directory.
+        XCTAssertEqual(try Data(contentsOf: staged.url), original)
+        XCTAssertEqual(staged.url.deletingLastPathComponent().lastPathComponent, "attachment-share")
+        XCTAssertEqual(store.cachedOriginalCount, 1)
+    }
+
+    /// A blocked file is refused with the sentence the reader already sees, and costs no request:
+    /// `ChannelImageStore.originalData` answers nil before it fetches (the refusal the download path
+    /// also makes — `AttachmentDownloadState.failed("the server blocked this file")` is the row's).
+    func testSharingABlockedFileIsRefusedWithTheExistingCopyAndAsksNobody() async {
+        service.blobs["b1"] = stager()
+        let blocked = t38Attachment("b1", name: "secret.png", blocked: true)
+        guard case .failure(let refusal) = await AttachmentShareFlow.stage(blocked, from: store) else {
+            return XCTFail("a file the server blocked must never reach the share sheet")
+        }
+        XCTAssertEqual(refusal, .bytesUnavailable)
+        XCTAssertEqual(refusal.message, "This image could not be loaded to share.")
+        XCTAssertTrue(service.requested.isEmpty, "the refusal happens before any download")
+        XCTAssertEqual(store.cachedOriginalCount, 0)
+    }
+
+    /// The same sentence when the bytes simply cannot be fetched, and the fetch *was* attempted: the
+    /// blocked case is special in costing nothing, not in what the reader is told.
+    func testAFileWhoseBytesCannotBeFetchedGetsTheSameRefusalAndHadBeenAskedFor() async {
+        guard case .failure(let refusal) = await AttachmentShareFlow.stage(
+            t38Attachment("gone", name: "gone.png"), from: store) else {
+            return XCTFail("no bytes means no share")
+        }
+        XCTAssertEqual(refusal, .bytesUnavailable)
+        XCTAssertEqual(service.requested, ["gone"], "an unblocked file is asked for first")
+    }
+
+    /// A hostile stored name cannot escape the share directory: the staged file keeps the leaf, and
+    /// the bytes are unchanged.
+    func testAHostileNameCannotEscapeTheShareDirectory() async throws {
+        let original = stager()
+        service.blobs["h"] = original
+        let attachment = t38Attachment("h", name: "../../../../etc/passwd.png")
+        guard case .success(let staged) = await AttachmentShareFlow.stage(attachment, from: store) else {
+            return XCTFail("a hostile name is sanitised, not refused")
+        }
+        XCTAssertEqual(staged.name, "passwd.png")
+        XCTAssertEqual(staged.url.deletingLastPathComponent().lastPathComponent, "attachment-share")
+        XCTAssertFalse(staged.url.path.contains(".."), staged.url.path)
+        XCTAssertEqual(try Data(contentsOf: staged.url), original)
+    }
+
+    /// The digest is a label for the bytes, not a channel: it is a prefix of SHA-256 in hex.
+    func testTheDigestIsAShortHexPrefixOfTheBytesHash() {
+        let data = Data("T38 share".utf8)
+        let digest = AttachmentShare.digest(of: data)
+        XCTAssertEqual(digest.count, 16, "eight bytes, hex")
+        XCTAssertTrue(digest.allSatisfy { $0.isHexDigit })
+        XCTAssertEqual(digest, AttachmentShare.digest(of: data), "stable for the same bytes")
+        XCTAssertNotEqual(digest, AttachmentShare.digest(of: Data("T38 share.".utf8)))
+    }
+}
+
 // MARK: - 10. The download coordinator (one journal, no second downloader)
 
 @MainActor

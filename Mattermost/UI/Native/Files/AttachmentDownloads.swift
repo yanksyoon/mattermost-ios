@@ -13,6 +13,7 @@
 
 import Foundation
 import Combine
+import CryptoKit
 import UIKit
 import SwiftUI
 
@@ -118,7 +119,27 @@ final class AttachmentDownloads: ObservableObject {
 /// nothing useful at all. So a share writes the bytes to a temporary file first, under the *same*
 /// sanitised name the download path uses (`DownloadWorker.sanitizedFilename`), so a hostile file name
 /// cannot escape the temporary directory.
+///
+/// The bytes written are the file's **own** bytes (`ChannelImageStore.originalData`), never the
+/// gallery's downsampled bitmap: a 2560×1600 photograph is drawn at 2048 px so the view's memory does
+/// not scale with the file, and a share of that bitmap would hand the receiving app a reduced image
+/// under the original file's name — the reader's file, quietly cropped. The live case
+/// `testTheShareControlHandsTheSheetTheFilesOwnBytesNotTheDownsampledBitmap` pins this by comparing
+/// the staged digest with the server's own bytes.
 enum AttachmentShare {
+
+    /// What a share handed the system sheet: the file on disk, plus a stable, non-reversible label for
+    /// the bytes in it (the first 8 bytes of SHA-256, the convention `EditProfileView.digest` set).
+    /// Accessibility text is not a data channel, so the label is a hash and the cases assert on it.
+    struct Staged: Equatable {
+        let url: URL
+        let name: String
+        let byteCount: Int
+        let digest: String
+
+        /// `name=… bytes=… sha256=…` — the value the gallery's share seam publishes.
+        var summary: String { "name=\(name) bytes=\(byteCount) sha256=\(digest)" }
+    }
 
     @MainActor
     static func temporaryFile(named name: String, data: Data) -> URL? {
@@ -137,6 +158,51 @@ enum AttachmentShare {
             Logger.error("AttachmentShare", "could not stage \(name): \(error.localizedDescription)")
             return nil
         }
+    }
+
+    /// Stage the bytes and describe them. Nil means the write failed; the caller shows its own sentence.
+    @MainActor
+    static func stage(named name: String, data: Data) -> Staged? {
+        guard let url = temporaryFile(named: name, data: data) else { return nil }
+        return Staged(url: url,
+                      name: DownloadWorker.sanitizedFilename(name),
+                      byteCount: data.count,
+                      digest: digest(of: data))
+    }
+
+    /// The first 8 bytes of SHA-256, hex — the same shape `EditProfileView.digest` uses.
+    static func digest(of data: Data) -> String {
+        let hash = SHA256.hash(data: data)
+        return hash.prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+/// Why a share did not reach the sheet, with the sentence the reader sees.
+///
+/// These are the two sentences the gallery has always shown — the card asks for the refusal "with the
+/// existing copy", so the strings moved here unchanged rather than being reworded. They live next to
+/// the staging code (and not inside the view) so a test can assert the decision instead of a `@State`.
+enum AttachmentShareRefusal: String, Error, Equatable {
+    /// No bytes to give. A file the server marked blocked lands here **without a request**:
+    /// `ChannelImageStore.originalData` refuses it before it fetches, which is why a blocked file
+    /// cannot cost a download and why this is the copy that appears.
+    case bytesUnavailable = "This image could not be loaded to share."
+    /// The bytes arrived but could not be written to the temporary directory.
+    case stagingFailed = "This image could not be staged for sharing."
+
+    var message: String { rawValue }
+}
+
+/// The gallery's Share action as a value: the bytes to stage, or the sentence saying why not.
+@MainActor
+enum AttachmentShareFlow {
+    static func stage(_ attachment: PostAttachment,
+                      from store: ChannelImageStore) async -> Result<AttachmentShare.Staged, AttachmentShareRefusal> {
+        guard let data = await store.originalData(for: attachment) else { return .failure(.bytesUnavailable) }
+        guard let staged = AttachmentShare.stage(named: attachment.name, data: data) else {
+            return .failure(.stagingFailed)
+        }
+        return .success(staged)
     }
 }
 

@@ -29,6 +29,8 @@
 // Every test skips (never fails) when the environment or the fixture is missing.
 
 import XCTest
+import CryptoKit
+import UIKit
 
 final class T38AttachmentsUITests: XCTestCase {
 
@@ -46,6 +48,12 @@ final class T38AttachmentsUITests: XCTestCase {
     private var filesPost: [String: Any] = [:]
     private var imageFiles: [[String: Any]] = []
     private var otherFiles: [[String: Any]] = []
+
+    /// `scripts/t38_attachment_seed.py`'s third post: one 2560×1600 image, i.e. **larger than the
+    /// gallery's 2048 px draw cap**. The zoom and share cases use it because on the 640×480 fixtures
+    /// "the file" and "the bitmap the gallery draws" are indistinguishable by size.
+    private var sharePost: [String: Any] = [:]
+    private var shareFiles: [[String: Any]] = []
 
     override func setUpWithError() throws {
         let env = ProcessInfo.processInfo.environment
@@ -269,6 +277,117 @@ final class T38AttachmentsUITests: XCTestCase {
         attach(app, "t38-11-downloads-row")
     }
 
+    // MARK: - 5. Zoom: a double-tap reaches the cap, and the next one restores
+
+    /// The gallery's zoom half, on the one fixture image bigger than the 2048 px draw cap.
+    ///
+    /// The reader's gestures and the *result* are both asserted: a pinch zooms in, a double-tap while
+    /// zoomed restores, a double-tap at rest zooms to the cap (`ZoomableImageView.maximumZoom`, 4×),
+    /// and the next double-tap restores again. The scale is read from the page's own seam
+    /// (`attachmentGallery.page.<fileID>.zoom`, `-uiTestExposeGalleryDiagnostics`), whose value carries
+    /// both the scale on screen and the highest it ever reached — a single number read mid-animation
+    /// would prove nothing about the cap.
+    func testDoubleTapAndPinchZoomToTheCapAndTheSecondDoubleTapRestores() throws {
+        try XCTSkipUnless(shareFiles.count == 1,
+                          "the T38 share fixture is missing — run scripts/t38_attachment_seed.py")
+        let postID = try XCTUnwrap(sharePost["id"] as? String)
+        let fileID = try XCTUnwrap(shareFiles[0]["id"] as? String)
+
+        let app = launchAndOpenChannel(galleryDiagnostics: true)
+        XCTAssertTrue(revealPost(app, postID).exists, "the fixture post must be a row:\n\(app.debugDescription)")
+        element(app, "post.\(postID).attachment.\(fileID)").tap()
+        XCTAssertTrue(element(app, "attachmentGallery").waitForExistence(timeout: 20),
+                      "the gallery must open:\n\(app.debugDescription)")
+
+        // The page and its zoom seam are addressable by the server's file id, at rest.
+        let page = element(app, "attachmentGallery.page.\(fileID)")
+        XCTAssertTrue(page.waitForExistence(timeout: 20),
+                      "the page must carry a stable id:\n\(app.debugDescription)")
+        let seam = "attachmentGallery.page.\(fileID).zoom"
+        XCTAssertTrue(element(app, seam).waitForExistence(timeout: 20),
+                      "the zoom seam must be published:\n\(app.debugDescription)")
+        XCTAssertTrue(waitForZoom(app, seam, "at rest") { current, _ in abs(current - 1) < 0.05 },
+                      "the page must start at 1×: \(seamValue(app, seam))")
+        attach(app, "t38-12-zoom-at-rest")
+
+        // 1. A pinch zooms in.
+        page.pinch(withScale: 3, velocity: 3)
+        XCTAssertTrue(waitForZoom(app, seam, "pinched in") { current, _ in current > 1.5 },
+                      "a pinch must zoom the page: \(seamValue(app, seam))")
+        attach(app, "t38-13-zoom-pinched")
+
+        // 2. A double-tap while zoomed restores — the "and restores" half.
+        page.doubleTap()
+        XCTAssertTrue(waitForZoom(app, seam, "restored") { current, _ in current < 1.1 },
+                      "a double-tap while zoomed must restore 1×: \(seamValue(app, seam))")
+
+        // 3. A double-tap at rest zooms to the cap (4×).
+        page.doubleTap()
+        XCTAssertTrue(waitForZoom(app, seam, "at the cap") { current, peak in
+            current > 3.8 && peak > 3.8
+        }, "a double-tap must zoom to the 4× cap: \(seamValue(app, seam))")
+        attach(app, "t38-14-zoom-at-cap")
+
+        // 4. And the next double-tap restores again.
+        page.doubleTap()
+        XCTAssertTrue(waitForZoom(app, seam, "restored again") { current, _ in current < 1.1 },
+                      "the second double-tap must go back to 1×: \(seamValue(app, seam))")
+        attach(app, "t38-15-zoom-restored")
+    }
+
+    // MARK: - 6. Share: the sheet is handed the file, not the bitmap on screen
+
+    /// The gallery's share half. The oracle is the server itself: the case downloads the fixture file
+    /// through the API, hashes it, and requires the share's staged payload to carry the **same byte
+    /// count and digest**. The gallery draws that image at a 2048 px long edge
+    /// (`ChannelImageStore.galleryMaxPixel`) while the file is 2560 px, so a share that handed over the
+    /// bitmap on screen — the trap `AttachmentDownloads.swift` documents — would miss on both numbers.
+    func testTheShareControlHandsTheSheetTheFilesOwnBytesNotTheDownsampledBitmap() throws {
+        try XCTSkipUnless(shareFiles.count == 1,
+                          "the T38 share fixture is missing — run scripts/t38_attachment_seed.py")
+        let postID = try XCTUnwrap(sharePost["id"] as? String)
+        let fileID = try XCTUnwrap(shareFiles[0]["id"] as? String)
+        let fileName = try XCTUnwrap(shareFiles[0]["name"] as? String)
+
+        // The server's own bytes: the file as stored, which is what "the original" means here.
+        let original = try fileBytes(fileID)
+        let metaSize = try XCTUnwrap(shareFiles[0]["size"] as? Int)
+        XCTAssertEqual(original.count, metaSize, "the fixture's bytes match its metadata size")
+        let expectedDigest = Self.digest(of: original)
+        // …and it really is larger than the gallery's draw cap, or the trap would be unobservable.
+        let image = try XCTUnwrap(UIImage(data: original), "the fixture must be a decodable image")
+        XCTAssertGreaterThan(max(image.size.width, image.size.height), 2048,
+                             "the fixture must exceed ChannelImageStore.galleryMaxPixel (2048)")
+
+        let app = launchAndOpenChannel(galleryDiagnostics: true)
+        XCTAssertTrue(revealPost(app, postID).exists, "the fixture post must be a row:\n\(app.debugDescription)")
+        element(app, "post.\(postID).attachment.\(fileID)").tap()
+        XCTAssertTrue(element(app, "attachmentGallery").waitForExistence(timeout: 20),
+                      "the gallery must open:\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "attachmentGallery.page.\(fileID)").waitForExistence(timeout: 20),
+                      "the page must be drawn before sharing:\n\(app.debugDescription)")
+
+        let share = element(app, "attachmentGallery.share")
+        XCTAssertTrue(share.waitForExistence(timeout: 20),
+                      "the share control must be addressable:\n\(app.debugDescription)")
+        share.tap()
+
+        // The sheet itself, and what it was handed. `-uiTestExposeGalleryDiagnostics` publishes the
+        // staged payload's name, byte count and digest as an accessibility value; a hash is a label,
+        // not a data channel.
+        let seam = "attachmentGallery.share.staged"
+        let expected = "name=\(fileName) bytes=\(original.count) sha256=\(expectedDigest)"
+        let staged = waitUntil(timeout: 30) { seamValue(app, seam) == expected }
+        // The share sheet is presented over the gallery, so the seam is read before/while it comes up.
+        attach(app, "t38-16-share-sheet")
+        XCTAssertTrue(staged,
+                      "the share must stage the file's own bytes (\(expected)); seam said "
+                      + "\"\(seamValue(app, seam))\"\n\(app.debugDescription)")
+        XCTAssertTrue(shareSheetIsUp(app),
+                      "tapping Share must present a sheet:\n\(app.debugDescription)")
+        attach(app, "t38-17-share-presented")
+    }
+
     // MARK: - Fixture
 
     private func loadFixture() throws {
@@ -291,6 +410,10 @@ final class T38AttachmentsUITests: XCTestCase {
         filesPost = files
         imageFiles = try metadataFiles(of: images)
         otherFiles = try metadataFiles(of: files)
+        if let share = found["t38-share"] {
+            sharePost = share
+            shareFiles = try metadataFiles(of: share)
+        }
         try XCTSkipUnless(imageFiles.count == 10, "the images post must carry ten files, has \(imageFiles.count)")
         try XCTSkipUnless(otherFiles.count == 6, "the files post must carry six files, has \(otherFiles.count)")
     }
@@ -371,6 +494,76 @@ final class T38AttachmentsUITests: XCTestCase {
         return try JSONSerialization.jsonObject(with: data)
     }
 
+    /// A file's bytes exactly as the server stores them (`GET /api/v4/files/{id}`) — the oracle for
+    /// "the share carries the original", not a re-download of anything the app did.
+    private func fileBytes(_ fileID: String) throws -> Data {
+        guard let url = URL(string: "/api/v4/files/\(fileID)", relativeTo: serverURL) else {
+            throw XCTSkip("could not build the file URL")
+        }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
+        request.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
+        let (data, response) = try synchronous(request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard status == 200, !data.isEmpty else {
+            throw XCTSkip("the fixture file \(fileID) answered \(status)")
+        }
+        return data
+    }
+
+    /// The first 8 bytes of SHA-256, hex — the same digest the app publishes in the share seam
+    /// (`AttachmentShare.digest`).
+    static func digest(of data: Data) -> String {
+        SHA256.hash(data: data).prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
+
+    // MARK: - Reading the gallery's seams
+
+    private func seamValue(_ app: XCUIApplication, _ identifier: String) -> String {
+        (element(app, identifier).value as? String) ?? ""
+    }
+
+    /// `current=1.00 peak=4.00` → (1.0, 4.0). Zeroes when the seam is absent (the assertion then fails
+    /// with the sentence it was given).
+    private func zoomReading(_ app: XCUIApplication, _ identifier: String)
+        -> (current: Double, peak: Double) {
+        var current = 0.0
+        var peak = 0.0
+        for field in seamValue(app, identifier).split(separator: " ") {
+            let parts = field.split(separator: "=")
+            guard parts.count == 2, let value = Double(parts[1]) else { continue }
+            if parts[0] == "current" { current = value }
+            if parts[0] == "peak" { peak = value }
+        }
+        return (current, peak)
+    }
+
+    /// Re-read the zoom seam until `condition` holds. Polling, not one read: a zoom is animated, and a
+    /// scale sampled at the wrong instant says nothing about where it ended.
+    private func waitForZoom(_ app: XCUIApplication, _ identifier: String, _ what: String,
+                             timeout: TimeInterval = 10,
+                             _ condition: (_ current: Double, _ peak: Double) -> Bool) -> Bool {
+        let reading = { self.zoomReading(app, identifier) }
+        let reached = waitUntil(timeout: timeout) { condition(reading().current, reading().peak) }
+        if !reached {
+            print("T38 zoom never reached \(what); seam said \"\(seamValue(app, identifier))\"")
+        }
+        return reached
+    }
+
+    /// Is a share sheet on screen? Its identifier has been stable across iOS releases
+    /// (`ActivityListView`), and the activity cells it lists are its visible proof: "Copy" is the one
+    /// every iPhone offers and is present whether or not anything is installed to share to.
+    private func shareSheetIsUp(_ app: XCUIApplication) -> Bool {
+        if app.otherElements["ActivityListView"].waitForExistence(timeout: 10) { return true }
+        if app.collectionViews["ActivityListView"].exists { return true }
+        if app.buttons["Copy"].waitForExistence(timeout: 5) { return true }
+        if app.staticTexts["Copy"].exists { return true }
+        // A modal presentation disables the gallery under it: if the sheet came up, the gallery's own
+        // close control can no longer be tapped.
+        return !element(app, "attachmentGallery.close").isHittable
+    }
+
     /// An ephemeral session with cookies off: the `Authorization` header is then the only identity a
     /// fixture call can carry, so a fixture read cannot silently belong to the app's session.
     private static let fixtureSession: URLSession = {
@@ -406,7 +599,8 @@ final class T38AttachmentsUITests: XCTestCase {
 
     // MARK: - App driving
 
-    private func launchArguments(resetState: Bool, forgetSession: Bool) -> [String] {
+    private func launchArguments(resetState: Bool, forgetSession: Bool,
+                                 galleryDiagnostics: Bool = false) -> [String] {
         var args: [String] = ["-uiTestSeedServer", serverURL.absoluteString,
                               "-uiTestSeedServerName", "Local Mattermost"]
         if resetState { args.insert("-uiTestResetPersistedState", at: 0) }
@@ -418,12 +612,16 @@ final class T38AttachmentsUITests: XCTestCase {
                                  "-surfaceMode", "sidebar=native",
                                  "-surfaceMode", "composer=native",
                                  "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
+        // The gallery's zoom scale and what the last share staged are only published as accessibility
+        // values when this flag is on (`AttachmentGalleryDiagnostics`), like every other seam here.
+        if galleryDiagnostics { args.append("-uiTestExposeGalleryDiagnostics") }
         return args
     }
 
-    private func launchAndOpenChannel() -> XCUIApplication {
+    private func launchAndOpenChannel(galleryDiagnostics: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = launchArguments(resetState: true, forgetSession: true)
+        app.launchArguments = launchArguments(resetState: true, forgetSession: true,
+                                             galleryDiagnostics: galleryDiagnostics)
         app.launch()
         signIn(app)
         openChannel(app)

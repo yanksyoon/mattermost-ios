@@ -22,6 +22,7 @@ M:app/screens/code	absent	-	-
 M:app/screens/component_library	absent	-	-
 M:app/screens/convert_gm_to_channel	absent	-	-
 M:app/screens/create_direct_message	absent	-	-
+M:app/screens/create_or_edit_channel	tested	t_e1ddfba4	channelInfo
 M:app/screens/custom_status	absent	-	-
 M:app/screens/custom_status_clear_after	absent	-	-
 M:app/screens/data_erased	absent	-	-

@@ -22,6 +22,25 @@ struct SharePayload: Identifiable {
     var id: URL { url }
 }
 
+/// `-uiTestExposeGalleryDiagnostics` publishes what the gallery is *doing* as accessibility values:
+/// the current page's zoom scale (and the highest it ever reached) and what the last Share staged.
+///
+/// Gated on a launch argument, exactly like `ChannelUITestHook`, `ScrollGeometrySeam` and the media
+/// seams: a build a person launches cannot reach this code. The values are a scale and a SHA-256
+/// prefix — a measurement, not the bytes.
+enum AttachmentGalleryDiagnostics {
+    static var isEnabled: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestExposeGalleryDiagnostics")
+    }
+
+    /// `current=1.00 peak=4.00`. Two numbers, not one: a double-tap animates, so a test that reads
+    /// `current` too early sees the scale halfway there; `peak` is what "it zoomed to the cap" means,
+    /// and `current` is what "it went back" means.
+    static func zoomValue(current: CGFloat, peak: CGFloat) -> String {
+        String(format: "current=%.2f peak=%.2f", current, peak)
+    }
+}
+
 struct AttachmentGalleryView: View {
     let target: AttachmentGalleryTarget
     let imageStore: ChannelImageStore?
@@ -31,6 +50,8 @@ struct AttachmentGalleryView: View {
     @State private var page: Int
     @State private var shareItem: SharePayload?
     @State private var failure: String?
+    /// What the last Share handed the sheet (`AttachmentShare.Staged`), or nil before the first one.
+    @State private var staged: AttachmentShare.Staged?
 
     init(target: AttachmentGalleryTarget,
          imageStore: ChannelImageStore?,
@@ -135,9 +156,26 @@ struct AttachmentGalleryView: View {
             .disabled(current == nil)
             .accessibilityLabel("Save to Downloads")
             .accessibilityIdentifier("attachmentGallery.save")
+
+            if AttachmentGalleryDiagnostics.isEnabled {
+                shareSeam
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    /// The `-uiTestExposeGalleryDiagnostics` share seam: a four-point clear square that names the file
+    /// the last Share staged and the digest of the bytes in it, so a live case can compare what the
+    /// sheet was handed with what the server actually stores (the downsampled bitmap would not match).
+    private var shareSeam: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 4, height: 4)
+            .accessibilityElement()
+            .accessibilityLabel("Share staged report")
+            .accessibilityValue(staged?.summary ?? "none")
+            .accessibilityIdentifier("attachmentGallery.share.staged")
     }
 
     // MARK: Actions
@@ -145,15 +183,14 @@ struct AttachmentGalleryView: View {
     private func shareCurrent() {
         guard let attachment = current, let imageStore else { return }
         Task {
-            guard let data = await imageStore.originalData(for: attachment) else {
-                failure = "This image could not be loaded to share."
-                return
+            switch await AttachmentShareFlow.stage(attachment, from: imageStore) {
+            case .success(let stagedShare):
+                staged = stagedShare
+                shareItem = SharePayload(url: stagedShare.url)
+            case .failure(let refusal):
+                staged = nil
+                failure = refusal.message
             }
-            guard let url = AttachmentShare.temporaryFile(named: attachment.name, data: data) else {
-                failure = "This image could not be staged for sharing."
-                return
-            }
-            shareItem = SharePayload(url: url)
         }
     }
 
@@ -176,11 +213,14 @@ struct AttachmentGalleryPage: View {
 
     @State private var image: UIImage?
     @State private var didFail = false
+    /// The scale on screen and the highest it has reached — only fed when the diagnostics seam is on.
+    @State private var zoom: CGFloat = 1
+    @State private var peakZoom: CGFloat = 1
 
     var body: some View {
         Group {
             if let image {
-                ZoomableImageView(image: image)
+                ZoomableImageView(image: image, onZoomChange: zoomReport)
             } else if didFail {
                 VStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")
@@ -202,11 +242,40 @@ struct AttachmentGalleryPage: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .topTrailing) {
+            if AttachmentGalleryDiagnostics.isEnabled {
+                zoomSeam
+            }
+        }
         .task(id: "\(attachment.id)-\(isCurrent)") {
             guard isCurrent, image == nil, !didFail else { return }
             await load()
         }
+        // The page is the addressable unit of the gallery: one stable id per file, so a case can name
+        // the page it pinched rather than "the second scroll view on screen".
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("attachmentGallery.page.\(attachment.id)")
+    }
+
+    /// The `-uiTestExposeGalleryDiagnostics` zoom seam, four points in the page's top-right corner:
+    /// `current=…` is the scale on screen now, `peak=…` the highest it has ever been on this page.
+    private var zoomSeam: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 4, height: 4)
+            .accessibilityElement()
+            .accessibilityLabel("Zoom report")
+            .accessibilityValue(AttachmentGalleryDiagnostics.zoomValue(current: zoom, peak: peakZoom))
+            .accessibilityIdentifier("attachmentGallery.page.\(attachment.id).zoom")
+    }
+
+    /// Nil unless the seam is on: a shipping build does no per-frame work for a test's benefit.
+    private var zoomReport: ((CGFloat, CGFloat) -> Void)? {
+        guard AttachmentGalleryDiagnostics.isEnabled else { return nil }
+        return { current, peak in
+            zoom = current
+            peakZoom = peak
+        }
     }
 
     private func reload() {
@@ -225,6 +294,9 @@ struct AttachmentGalleryPage: View {
 struct ZoomableImageView: UIViewRepresentable {
     let image: UIImage
     var maximumZoom: CGFloat = 4
+    /// Reports `(current, peak)` on every zoom change. Nil in a shipping build: the gallery passes it
+    /// only when `-uiTestExposeGalleryDiagnostics` is on.
+    var onZoomChange: ((CGFloat, CGFloat) -> Void)? = nil
 
     func makeUIView(context: Context) -> UIScrollView {
         let scrollView = UIScrollView()
@@ -235,6 +307,7 @@ struct ZoomableImageView: UIViewRepresentable {
         scrollView.showsVerticalScrollIndicator = false
         scrollView.delegate = context.coordinator
         scrollView.backgroundColor = .clear
+        context.coordinator.onZoomChange = onZoomChange
 
         let imageView = context.coordinator.imageView
         imageView.image = image
@@ -259,12 +332,17 @@ struct ZoomableImageView: UIViewRepresentable {
 
     func updateUIView(_ scrollView: UIScrollView, context: Context) {
         context.coordinator.imageView.image = image
+        context.coordinator.onZoomChange = onZoomChange
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     final class Coordinator: NSObject, UIScrollViewDelegate {
         let imageView = UIImageView()
+        /// The highest scale this page has reached. Kept here, not in the observer, so it survives the
+        /// SwiftUI state updates a zoom animation would otherwise coalesce.
+        private(set) var peakScale: CGFloat = 1
+        var onZoomChange: ((CGFloat, CGFloat) -> Void)?
         private let parent: ZoomableImageView
 
         init(_ parent: ZoomableImageView) {
@@ -273,6 +351,19 @@ struct ZoomableImageView: UIViewRepresentable {
         }
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
+
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            report(scrollView)
+        }
+
+        func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+            report(scrollView)
+        }
+
+        private func report(_ scrollView: UIScrollView) {
+            peakScale = max(peakScale, scrollView.zoomScale)
+            onZoomChange?(scrollView.zoomScale, peakScale)
+        }
 
         @objc func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
             guard let scrollView = gesture.view as? UIScrollView else { return }
