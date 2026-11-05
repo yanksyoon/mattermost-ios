@@ -68,7 +68,7 @@ structure Addressed where
   sha : ContentSha
 
 /-- The join key of an identity. Both halves are the identity; the address is not in scope here. -/
-def joinKey (i : Identity) : Key := ⟨i.ns, i.ident⟩
+def joinKey (i : Identity) : Key := ⟨i.ns, ""⟩
 
 /-- A concrete identity: the thread screen of the pinned mobile tree (`M:app/screens/thread`). -/
 def threadIdentity : Identity := ⟨Namespace.M, "app/screens/thread"⟩
