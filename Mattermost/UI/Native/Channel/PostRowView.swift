@@ -230,6 +230,18 @@ struct PostRowReactionActions {
     var onAdd: () -> Void
 }
 
+/// Which renderer draws a post body.
+///
+/// T56 (card t_38e0eac6): the shipped path is one selectable surface for the whole body
+/// (`SelectableMarkdownBody`). `-uiTestLegacyBlockBody` restores the previous per-block `Text`
+/// rendering **only** so the AV pass can run the same drag against both and show that the revert
+/// fails — a seam, not a setting, exactly like every other `-uiTest…` hook in this shell.
+enum PostBodyRendering {
+    static var usesPerBlockText: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestLegacyBlockBody")
+    }
+}
+
 struct PostRowView: View {
     let row: PostRowModel
     let isExpanded: Bool
@@ -433,7 +445,19 @@ struct PostRowView: View {
             // No identifier on this container: SwiftUI merges sibling `Text`s into one accessibility
             // element, so an identifier here would swallow the "(edited)" marker and the fold button
             // below it (that is exactly what made the first UI run unable to find them).
-            MarkdownView(blocks: blocks, identifierPrefix: "post.\(row.id).body", emoji: emoji)
+            //
+            // T56 (card t_38e0eac6): the body is **one** selectable surface, not one per block — a
+            // cross-paragraph drag cannot exist while each paragraph is its own `Text`
+            // (`MarkdownView.swift`'s `.textSelection(.enabled)` is scoped to one `Text`). The legacy
+            // renderer is kept behind `-uiTestLegacyBlockBody` only so the AV pass can prove the new
+            // surface is what makes the drag possible.
+            if PostBodyRendering.usesPerBlockText {
+                MarkdownView(blocks: blocks, identifierPrefix: "post.\(row.id).body", emoji: emoji)
+            } else {
+                SelectableMarkdownBody(blocks: blocks,
+                                       identifierPrefix: "post.\(row.id).body",
+                                       emoji: emoji)
+            }
             if row.isEdited && row.isGrouped {
                 // A grouped row has no header, so the "(edited)" that lives there would be lost.
                 // Upstream simply omits it on a grouped row; hiding the fact that a message changed is
