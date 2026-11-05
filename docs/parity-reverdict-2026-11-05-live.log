@@ -1,0 +1,57 @@
+# Evidence extract for parity/verdicts.json (live half), re-taken 2026-11-05.
+#
+# Filtered extract, not a raw xcodebuild log: every XCTest outcome line, the suite totals,
+# the T46 cycle states, and the first line of each failure. Raw logs are
+# build/logs/t2fc694a9-verdict-live.log and build/logs/t2fc694a9-t46-cycles.log (build/ is
+# gitignored, so this extract is the committed artifact).
+#
+# tree     : de59f71ba67951abe3ff532c8465fe2f94b95eef (detached worktree of the repo at HEAD)
+# worktree : /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_2fc694a9/repo
+# fixture  : mm-perf, Mattermost 9.11.19, http://127.0.0.1:8065, account perfprobe
+# sim      : 'T47AVR2 iPhone 16 Pro' (iOS 18.3.1), simulator id 4844768F-1CDA-437F-A397-F1066C010201
+# host     : macOS 26.3.1, Xcode 26
+#
+# Run A (t2fc694a9-verdict-live): T47CreateChannelUITests + T46WebFallbackUITests.
+#   xcresult: ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t2fc694a9/TestResults/t2fc694a9-verdict-live-*.xcresult
+#   xcresult summary: passedTests 5, failedTests 2, skippedTests 0, result Failed
+# Run B (t2fc694a9-t46-cycles), an attempted second run of
+#   T46WebFallbackUITests/testTwentyOpenCloseCyclesEachRender, is NOT included: it stalled in
+#   xcodebuild's build phase with no log output from 11:58:54 for over five minutes (0.1% CPU)
+#   while four other agents' test runs were in flight on this host, was killed, and is not used
+#   as evidence either way.
+#
+# command (both runs): TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065
+#   TEST_RUNNER_MM_AUTH_LOGIN=perfprobe TEST_RUNNER_MM_AUTH_PASSWORD=<fixture>
+#   python3 scripts/qa-test.py --sim id=<id> --derived-data <dd> --log-dir build/logs
+#   --label <label> --only-testing <spec>
+
+== Run A: t2fc694a9-verdict-live ==
+Test Case '-[MattermostUITests.T46WebFallbackUITests testAPluginRouteIsAddressableByID]' passed (57.960 seconds).
+Test Case '-[MattermostUITests.T46WebFallbackUITests testBoardsIsEitherPaintedOrSaysItIsNotEnabled]' passed (28.543 seconds).
+T46 webFallbackRow.playbooks state: loaded|installed|http://127.0.0.1:8065/playbooks/start|chars=1358|requested=http://127.0.0.1:8065/playbooks
+Test Case '-[MattermostUITests.T46WebFallbackUITests testPlaybooksOpensAtItsOwnRoute]' passed (21.343 seconds).
+T46 webFallbackRow.systemConsole state: loaded|installed|http://127.0.0.1:8065/admin_console/about/license|chars=2148|requested=http://127.0.0.1:8065/admin_console
+Test Case '-[MattermostUITests.T46WebFallbackUITests testTheSystemConsoleOpensSignedInAndReturnsToTheShell]' passed (23.194 seconds).
+T46 webFallbackRow.systemConsole state: loaded|installed|http://127.0.0.1:8065/admin_console/about/license|chars=2106|requested=http://127.0.0.1:8065/admin_console
+T46 cycle 1 state: loaded|installed|http://127.0.0.1:8065/admin_console/about/license|chars=2106|requested=http://127.0.0.1:8065/admin_console
+T46 webFallbackRow.systemConsole state: loaded|installed|http://127.0.0.1:8065/admin_console/about/license|chars=2106|requested=http://127.0.0.1:8065/admin_console
+T46 cycle 2 state: loaded|installed|http://127.0.0.1:8065/admin_console/about/license|chars=2106|requested=http://127.0.0.1:8065/admin_console
+T46 webFallbackRow.systemConsole state: loaded|installed|http://127.0.0.1:8065/admin_console/about/license|chars=2148|requested=http://127.0.0.1:8065/admin_console
+T46 cycle 3 state: loaded|installed|http://127.0.0.1:8065/admin_console/about/license|chars=2148|requested=http://127.0.0.1:8065/admin_console
+Restarting after unexpected exit, crash, or test timeout; summary will include totals from previous launches.
+Test Suite 'T46WebFallbackUITests' passed at 2026-11-05 11:48:52.065.
+Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Case '-[MattermostUITests.T47CreateChannelUITests testTheCreateMenuSendsPostChannelsAndTheNewChannelSurvivesRelaunch]' passed (176.252 seconds).
+/Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_2fc694a9/repo/MattermostUITests/T47CreateChannelUITests.swift:372: error: -[MattermostUITests.T47CreateChannelUITests testTheCreate
+Test Case '-[MattermostUITests.T47CreateChannelUITests testTheCreateMenuStartsADirectMessageWithATeammate]' failed (235.994 seconds).
+Test Suite 'T47CreateChannelUITests' failed at 2026-11-05 11:55:44.318.
+Executed 2 tests, with 1 failure (0 unexpected) in 412.246 (412.253) seconds
+Test Suite 'MattermostUITests.xctest' failed at 2026-11-05 11:55:44.318.
+Executed 2 tests, with 1 failure (0 unexpected) in 412.246 (412.254) seconds
+Test Suite 'Selected tests' failed at 2026-11-05 11:55:44.319.
+Executed 2 tests, with 1 failure (0 unexpected) in 412.246 (412.255) seconds
+
+# Outcome of the fifth T46 case, from the xcresult (no XCTest line exists for it because the
+# runner was restarted): T46WebFallbackUITests/testTwentyOpenCloseCyclesEachRender()
+#   "Test crashed with signal term."
+# xcresult summary: passedTests 5, failedTests 2 (this one and the T47 DM case above).

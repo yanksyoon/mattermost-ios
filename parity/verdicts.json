@@ -1,31 +1,38 @@
 {
   "M:app/screens/create_or_edit_channel": {
     "card": "t_e1ddfba4",
-    "commit": "8643fbff4bbf6e2095f62aea057a9d53c642cdb1",
-    "verdict": "PASS-WITH-FINDINGS",
-    "source": "docs/t47-av-verdict.md",
-    "findings": [
-      "T47-AV: the shipped live suite does not reproduce at HEAD (0/2 on two runs; revealSidebarRow queries collectionViews since T8f moved the sidebar to a ScrollView) — F7/F8, harness not product"
-    ],
+    "commit": "de59f71ba67951abe3ff532c8465fe2f94b95eef",
     "evidence": [
+      {
+        "kind": "test",
+        "ref": "MattermostTests/T47CreateChannelTests.swift::testTheRuleAcceptsLowercaseDigitsHyphenAndUnderscore"
+      },
       {
         "kind": "test",
         "ref": "MattermostTests/T47CreateChannelTests.swift::testTheDisplayNameDerivesADashedURLName"
       },
       {
+        "kind": "test",
+        "ref": "MattermostTests/T40ChannelInfoTests.swift::testMemberRowsSortByDisplayNameAndCarryTheAdminBadge"
+      },
+      {
         "kind": "log",
-        "ref": "docs/t47-channel-probe-2026-10-27.log"
+        "ref": "docs/parity-reverdict-2026-11-05-unit.log"
+      },
+      {
+        "kind": "log",
+        "ref": "docs/parity-reverdict-2026-11-05-live.log"
       }
-    ]
+    ],
+    "findings": [
+      "F1: the live DM case (T47CreateChannelUITests/testTheCreateMenuStartsADirectMessageWithATeammate) is red at HEAD only at its final sidebar-listing assertion (line 372): perfprobe has 410 channels on team Perf (29 sidebar pages) and revealSidebarRow is bounded at 25 swipes each way, so the row is out of reach; the conversation exists in the server's channel list and steps 1-4 passed. Harness capacity, not a product regression; carded for QA."
+    ],
+    "source": "docs/t47-av-verdict-2026-11-05.md",
+    "verdict": "PASS-WITH-FINDINGS"
   },
   "X:web-fallback": {
     "card": "t_a07e4108",
-    "commit": "7cb3e5415e75678b2c06019a3e9190c824526a2c",
-    "verdict": "PASS",
-    "source": "docs/t46-av2-verdict.md",
-    "findings": [
-      "F1-F4 repaired by t_14afc3a5; the plugin row renders the catalogue's rowTitle and the live suite asserts the row's own label"
-    ],
+    "commit": "de59f71ba67951abe3ff532c8465fe2f94b95eef",
     "evidence": [
       {
         "kind": "test",
@@ -36,9 +43,22 @@
         "ref": "MattermostTests/T46WebFallbackTests.swift::testAPluginIDThatCouldEscapeThePluginRootHasNoRoute"
       },
       {
-        "kind": "observation",
-        "ref": "docs/t46-shots/t46-plugin-route-request.png"
+        "kind": "test",
+        "ref": "MattermostTests/T46WebFallbackTests.swift::testANativeSessionIsInstalledWhenTheWebViewHasNoCookie"
+      },
+      {
+        "kind": "log",
+        "ref": "docs/parity-reverdict-2026-11-05-unit.log"
+      },
+      {
+        "kind": "log",
+        "ref": "docs/parity-reverdict-2026-11-05-live.log"
       }
-    ]
+    ],
+    "findings": [
+      "F1: T46WebFallbackUITests/testTwentyOpenCloseCyclesEachRender aborts at HEAD with 'Test crashed with signal term' after cycle 3 (all three cycles rendered loaded|installed); the documented host WebKit-fault kill. The 20-cycle render/teardown claim and the leak ceiling are not re-measured in this re-take; a rerun stalled in xcodebuild's build phase and was killed."
+    ],
+    "source": "docs/t46-av-verdict-2026-11-05.md",
+    "verdict": "PASS-WITH-FINDINGS"
   }
 }

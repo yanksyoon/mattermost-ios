@@ -1,0 +1,159 @@
+# Evidence extract for parity/verdicts.json, re-taken 2026-11-05.
+#
+# This is a filtered extract, not the raw xcodebuild log. It keeps every
+# XCTest outcome line and the suite totals, and nothing else. The raw log is
+# build/logs/t2fc694a9-verdict-retake.log in the worktree below (build/ is gitignored,
+# so the raw file is not committed; the extract is the committed artifact).
+#
+# tree          : de59f71ba67951abe3ff532c8465fe2f94b95eef (detached worktree of the repo at HEAD, clean: yes)
+# worktree      : /Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_2fc694a9/repo
+# command       : python3 scripts/qa-test.py --sim id=4844768F-1CDA-437F-A397-F1066C010201 --derived-data ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t2fc694a9 --log-dir build/logs --label t2fc694a9-verdict-retake --only-testing MattermostTests/T47CreateChannelTests --only-testing MattermostTests/T40ChannelInfoTests --only-testing MattermostTests/T46WebFallbackTests
+# xcresult      : ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-t2fc694a9/TestResults/t2fc694a9-verdict-retake-9ad92b.xcresult
+# host          : macOS 26.3.1, Xcode 26, simulator 'T47AVR2 iPhone 16 Pro' (iOS 18.3.1)
+# started       : 2026-11-05 11:41 HKT; 145 s wall; xcodebuild rc=0
+# result        : 130 run, 0 skipped, 0 failed - RESULT: PASS
+#
+# Regenerate with:
+#   grep -E "^(Test Case|Test Suite)" <raw log> | grep -E "(passed|failed|skipped)"
+
+Test Suite 'T40ChannelInfoTests' passed at 2026-11-05 11:43:25.593.
+Executed 50 tests, with 0 failures (0 unexpected) in 0.412 (0.477) seconds
+Test Suite 'T46WebFallbackTests' passed at 2026-11-05 11:43:29.720.
+Executed 34 tests, with 0 failures (0 unexpected) in 4.115 (4.127) seconds
+Test Suite 'T47CreateChannelTests' passed at 2026-11-05 11:43:30.193.
+Executed 46 tests, with 0 failures (0 unexpected) in 0.155 (0.473) seconds
+Test Suite 'MattermostTests.xctest' passed at 2026-11-05 11:43:30.193.
+Executed 130 tests, with 0 failures (0 unexpected) in 4.682 (5.078) seconds
+Test Suite 'Selected tests' passed at 2026-11-05 11:43:30.194.
+Executed 130 tests, with 0 failures (0 unexpected) in 4.682 (5.079) seconds
+
+Test Case '-[MattermostTests.T40ChannelInfoTests testAddMembersIsOptimisticAndConfirmedByTheServer]' passed (0.144 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testAddMembersWithoutThePermissionPerformsNoWrite]' passed (0.003 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testAdminFallbackComesFromTheRolesStringWhenSchemeAdminIsAbsent]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testAdminPermissionsOfferEveryActionOnAPublicChannel]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testAFailedAddRollsTheOptimisticRowBack]' passed (0.007 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testAnUnknownChannelTypeIsTreatedAsPublic]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testAPermissiveRoleNamedUserStillGrantsItsPermissions]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testArchiveCopyNamesTheChannelType]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testArchivedChannelLosesManagementAndOffersUnarchiveToATeamAdmin]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testArchiveFlipsTheScreenIntoTheArchivedState]' passed (0.002 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testBrowseSplitsJoinedFromOthersAndFiltersByTerm]' passed (0.005 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testChannelDeletedEventShowsTheArchivedState]' passed (0.002 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testChannelUpdatedEventRetitlesAndRegates]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testDefaultChannelCannotBeLeftOrManagedExceptByAGuest]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testDirectAndGroupMessagesOfferNoAdminActions]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testDirectMessagePatchCarriesOnlyTheHeader]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testFieldLimitsAreTheServersOwn]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testInitialsAreGraphemeSafe]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testJoinAddsTheMemberAndAnswersTheChannelToOpen]' passed (0.003 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testJoinWithoutThePermissionPerformsNoWrite]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testLeaveIsACloseForDirectAndGroupMessages]' passed (0.005 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testLeavingADirectMessageClosesItInsteadOfRemovingTheMembership]' passed (0.002 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testLeavingAPublicChannelRemovesTheMembership]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testLoadDerivesCapabilitiesMembersAndCount]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testLoadSurfacesAChannelFailureAsARetryableState]' passed (0.174 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testMemberRowsSortByDisplayNameAndCarryTheAdminBadge]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testMissingProfileFallsBackToTheUserID]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testMyOwnRemoveEventClosesTheScreen]' passed (0.018 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testNoChannelOffersNothing]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testPagingAsksForTheNextPageOnlyWhenAFullPageCameBack]' passed (0.006 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testPermissionLookupFailureLeavesTheScreenReadOnly]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testPermissionUnionIsTheRolesOwnIds]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testPickerDoesNotOfferADeactivatedTeamMemberInEitherRead]' passed (0.003 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testPickerOpensOnAListAndSearchesWhenGivenATerm]' passed (0.002 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testPickerSelectionSurvivesATermChange]' passed (0.003 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testPlainMemberIsOfferedOnlyTheMemberList]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testPrivateChannelUsesItsOwnPermissionIds]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testPurposeOnlyEditSendsOnlyThePurpose]' passed (0.003 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testRemoveMemberOptimisticallyRemovesAndRestoresOnFailure]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testRemoveMemberWithoutThePermissionPerformsNoWrite]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testRemovingMyselfIsALeave]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testRoleNameGrantsNothingWithoutPermissions]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testRoleNamesUnionAllThreeSourcesAndDeduplicate]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testSaveAppliesTheServersAnswer]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testSaveRefusesWithoutTheSettingsPermission]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testStatusChangeEventUpdatesAnExistingRowOnly]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testTappingAChannelIAmAlreadyInDoesNotJoin]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testUnarchiveNeedsManageTeam]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testUnchangedDraftSendsNoPatch]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T40ChannelInfoTests testUserAddedEventAddsTheMemberExactlyOnce]' passed (0.002 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testAFallbackSeesTheCookieTheWebViewAlreadyHas]' passed (0.810 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testANativeSessionIsInstalledWhenTheWebViewHasNoCookie]' passed (0.585 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testAnExistingWebSessionIsNeverOverwrittenByTheNativeToken]' passed (0.415 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testAnUnaddressableSurfaceCreatesNoWebViewAtAll]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testAnUnaddressableSurfaceHasNoURL]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testAnUnansweredPluginListingStillOpensTheSurface]' passed (0.020 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testAnythingThatIsNotASameServerSurfaceIsNotFollowed]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testAPluginIDThatCouldEscapeThePluginRootHasNoRoute]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testAPluginScreenIsOneSegmentUnderThePluginRoot]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testASessionCookiesExistOnlyForAnHttpOrigin]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testASignedOutServerInstallsNothing]' passed (0.008 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testASurfaceWhosePluginTheServerDoesNotServeIsNotEnabled]' passed (0.008 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testASurfaceWhosePluginTheServerServesLoads]' passed (0.009 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testATokenOnlyStoreIsRepairedIntoAUsableSession]' passed (0.947 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testATokenWithNoUserIDIsNotHandedOver]' passed (0.031 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testClosingTheFallbackDoesNotLogTheServerOut]' passed (0.863 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testPlaybooksSaysWhichProductIsMissing]' passed (0.019 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTeardownDropsTheDelegatesAndTheKeepAlive]' passed (0.007 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheConsoleAndPluginRoutesAreNeverGated]' passed (0.011 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheFixedRowsAddressExactlyTheWebAppsOwnRoutes]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheLandingPageIsLeftAtMostOncePerPresentation]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheLandingPageNamesTheSurfaceItReplaced]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheMintedCSRFTokenLooksLikeTheServers]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheObservableStateCarriesHowMuchThePagePainted]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheObservableStateCarriesLifecycleSessionAndURL]' passed (0.007 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheObservableStateCarriesTheCookieNamesTheStoreHeld]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testThePaintProbeReadsNothingButThePageText]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testThePluginListingKeepsASubPathInstall]' passed (0.020 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testThePluginListingReadsTheServersOwnAnswer]' passed (0.008 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheProductSurfacesNameThePluginTheyNeed]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheRouteKeepsASubPathInstall]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheSessionCookieIsScopedToTheServerOrigin]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTheSessionHandoffIsTheServersOwnThreeCookies]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T46WebFallbackTests testTwentyFallbacksLeaveNoWebViewAlive]' passed (0.333 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testAChannelOfTheWrongKindIsNotNavigatedTo]' passed (0.003 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testACreateWithoutThePermissionSendsNothing]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testACreateWithPermissionSendsTheBodyAndPublishesTheServersChannel]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testADirectOrGroupMessageIsNotCreatedThroughThisBody]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testADisplayNameWithNoUsableCharactersSuggestsNothing]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testADuplicateNameSurfacesTheServersOwnSentence]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testAFailedRoleReadIsAFailureAndNotAnEmptyMenuOfNoPermission]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testAFailedTeamMembershipReadFailsTheLoadInsteadOfDroppingTheTeamRoles]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testAKindSwitchedDuringTheRoundTripDoesNotSpoilATruthfulAnswer]' passed (0.005 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testALeadingSeparatorIsNamedInTheMessage]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testALongDisplayNameIsTruncatedTo64WithoutATrailingSeparator]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testAMalformedURLNameIsRefusedEvenWhenTheDisplayNameIsFine]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testAResetDraftOpensOnAKindTheReaderMayCreate]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testARetryAfterAFailedReadLoadsAgainAndOffersTheMenu]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testAValidationFailureSendsNothing]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testAWrongKindDuringTheRoundTripIsRefusedEvenWhenItMatchesTheMovedDraft]' passed (0.004 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testCreateIsOfferedWithEitherCreateIdAndTheKindsFollowTheGrant]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testDiacriticsAreFoldedIntoTheURLName]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testEveryDerivedNameIsAcceptedByTheRule]' passed (0.006 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testLeadingAndTrailingSeparatorsAreTrimmed]' passed (0.068 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testNoPermissionsOfferAnEmptyMenu]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testPunctuationCollapsesToASingleSeparator]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testResetDraftEmptiesTheFieldsTheErrorAndTheCreatedChannel]' passed (0.008 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testRoleNamesGrantNothingWithoutTheirPermissionIds]' passed (0.013 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTappingARowCreatesTheConversationWithBothIdsAndPublishesIt]' passed (0.003 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTheBodyCarriesTheServersOwnFieldNamesAndTheChosenType]' passed (0.003 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTheDisplayNameDerivesADashedURLName]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTheFormLoadsTheUnionOfSystemAndTeamRoleIds]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTheFormOpensOnAKindTheReaderMayCreate]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTheKindCannotBeSwitchedToAKindWithoutItsPermission]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTheMenuIsCreateBrowseDirectMessageInThatOrder]' passed (0.002 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testThePickerCarriesPresenceAndSaysUnknownRatherThanOffline]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testThePickerDoesNotBuildAListWithoutThePrincipal]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testThePickerDoesNotOfferADeactivatedTeamMember]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testThePickerListsTheTeamWithoutMe]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testThePickerNamesAnExpiredSessionRatherThanANetworkFailure]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testThePickerRefusesToCreateAConversationWithNoSignedInUser]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testThePickerRetriesTheLoadOnceThePrincipalReads]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testThePickerTermMatchesTheDisplayNameAndTheUsername]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testThePickerTreatsAnEmptyPrincipalAsSignedOut]' passed (0.003 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTheRuleAccepts64CharactersAndRefuses65]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTheRuleAcceptsATrailingHyphenBecauseTheServerDoes]' passed (0.008 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTheRuleAcceptsLowercaseDigitsHyphenAndUnderscore]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTheRuleRefusesTheShapesTheServerRefuses]' passed (0.000 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testTheURLNameFollowsTheDisplayNameUntilTheReaderEditsIt]' passed (0.001 seconds).
+Test Case '-[MattermostTests.T47CreateChannelTests testValidationRefusesAnEmptyDisplayNameAndTheServersLimits]' passed (0.001 seconds).

@@ -1,17 +1,13 @@
-parity findings — 2 fatal, 273 report
+parity findings — 0 fatal, 273 report
 
-  STALE-VERDICT               2
   GAP                         2
   UNCARDED-GAP              263
-  APPROVED-WITHOUT-VERDICT    8
+  APPROVED-WITHOUT-VERDICT    7
+  VALIDATED-BUT-NOT-APPROVED    1
 
-status tally: native=0 validated=0 tested=46 claimed=2 absent=263
+status tally: native=1 validated=1 tested=44 claimed=2 absent=263
   (263 keys are absent: an unclaimed key is the metric, not a failure — design §3.5)
   (protocol scope: 227 of the uncarded gaps are REST/WS rows — v2, B §8; they are not card proposals)
-
-STALE-VERDICT (2)
-  [FAIL] STALE-VERDICT M:app/screens/create_or_edit_channel — 7 commit(s) after 8643fbff4bbf touched the claimed files
-  [FAIL] STALE-VERDICT X:web-fallback — 1 commit(s) after 7cb3e5415e75 touched the claimed files
 
 GAP (2)
   [note] GAP M:app/screens/apps_form — claim names no native path
@@ -282,12 +278,14 @@ UNCARDED-GAP (263)
   [note] UNCARDED-GAP WS:user_updated — status absent, no card
   [note] UNCARDED-GAP WS:webrtc — status absent, no card
 
-APPROVED-WITHOUT-VERDICT (8)
+APPROVED-WITHOUT-VERDICT (7)
   [note] APPROVED-WITHOUT-VERDICT - — .activity is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
   [note] APPROVED-WITHOUT-VERDICT - — .auth is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
   [note] APPROVED-WITHOUT-VERDICT - — .calls is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
-  [note] APPROVED-WITHOUT-VERDICT - — .channelInfo is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
   [note] APPROVED-WITHOUT-VERDICT - — .channelView is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
   [note] APPROVED-WITHOUT-VERDICT - — .composer is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
   [note] APPROVED-WITHOUT-VERDICT - — .search is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
   [note] APPROVED-WITHOUT-VERDICT - — .sidebar is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
+
+VALIDATED-BUT-NOT-APPROVED (1)
+  [note] VALIDATED-BUT-NOT-APPROVED X:web-fallback — validated but surface '(none)' is not in nativeApprovedSurfaces

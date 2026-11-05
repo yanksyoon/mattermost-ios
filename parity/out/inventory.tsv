@@ -22,7 +22,7 @@ M:app/screens/code	-	absent	-	-	-	-
 M:app/screens/component_library	-	absent	-	-	-	-
 M:app/screens/convert_gm_to_channel	-	absent	-	-	-	-
 M:app/screens/create_direct_message	-	absent	-	-	-	-
-M:app/screens/create_or_edit_channel	channelInfo	tested	Mattermost/UI/Native/ChannelInfo	MattermostTests/T47CreateChannelTests.swift::testTheRuleAcceptsLowercaseDigitsHyphenAndUnderscore	8643fbff4bbf:PASS-WITH-FINDINGS	-
+M:app/screens/create_or_edit_channel	channelInfo	native	Mattermost/UI/Native/ChannelInfo	MattermostTests/T47CreateChannelTests.swift::testTheRuleAcceptsLowercaseDigitsHyphenAndUnderscore	de59f71ba679:PASS-WITH-FINDINGS	t_e1ddfba4
 M:app/screens/custom_status	-	absent	-	-	-	-
 M:app/screens/custom_status_clear_after	-	absent	-	-	-	-
 M:app/screens/data_erased	-	absent	-	-	-	-
@@ -309,4 +309,4 @@ X:notification-input	-	tested	Mattermost/UI/Native/Notification;Mattermost/Core/
 X:parity-record	-	claimed	parity/generate.py;docs/parity-map-design.md	-	-	t_e56d2589
 X:push-proxy	-	claimed	PushProxy	-	-	-
 X:transport	-	tested	Mattermost/Core/MM	MattermostTests/APIClientTests.swift::testSuccessDecodesTypedResponseAndSkipsAuthForPing	-	-
-X:web-fallback	-	tested	Mattermost/UI/Native/Web	MattermostTests/T46WebFallbackTests.swift::testTheFixedRowsAddressExactlyTheWebAppsOwnRoutes	7cb3e5415e75:PASS	-
+X:web-fallback	-	validated	Mattermost/UI/Native/Web	MattermostTests/T46WebFallbackTests.swift::testTheFixedRowsAddressExactlyTheWebAppsOwnRoutes	de59f71ba679:PASS-WITH-FINDINGS	t_a07e4108
