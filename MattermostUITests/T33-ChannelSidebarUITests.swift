@@ -505,6 +505,95 @@ final class T33ChannelSidebarUITests: XCTestCase {
         attachShot(app, named: "t33-13-external-view")
     }
 
+    // MARK: - 8b. Opening an unread channel clears it (t_e9550303)
+
+    /// The owner-reported defect, end to end: *"once I've read the message, the blue dot and the
+    /// bolded text does not go away on the channel."*
+    ///
+    /// Before this card the channel pane never posted a view at all, so the server's cursor never
+    /// moved when a channel was opened by a person: the row kept its bold/dot until something else
+    /// (the Mentions feed's mark-read, or another client) moved it. This test causes the unread with
+    /// **another user's post over the real socket**, opens the channel the way a reader does, and
+    /// then requires two independent facts:
+    ///
+    ///  1. the server's own read cursor moved (`msg_count == total_msg_count`) — proof the running
+    ///     app sent `POST /channels/members/me/view`, not the test;
+    ///  2. the row no longer reads "Unread" after returning to the list — proof it cleared without a
+    ///     relaunch. The group marker needs *no* other unread channel, which is the unit tests'
+    ///     subject (`ReadStateTests`), so this test only posts to candidates it may not clear.
+    ///
+    /// Candidates come from `GET /users/me/channel_members`, not the whole channel list: that answer
+    /// is paginated (60 rows by default on the fixture server) and the sidebar draws counters only
+    /// for rows in it, so a channel picked from `/users/me/teams/{team}/channels` alone may have no
+    /// badge to clear. A launch also opens a channel by itself (t_295b0a32); posting to three
+    /// candidates and taking the first one still unread keeps that from emptying the test.
+    func testOpeningAnUnreadChannelClearsItsRow() throws {
+        let channels = try teamChannels()
+        let known = Set(try myMembershipIDs())
+        try markAllRead(channels)
+        let bot = try botSession()
+        var postedIDs: [String] = []
+        defer {
+            for id in postedIDs { try? delete(id, token: bot.token) }
+            try? markAllRead(channels)
+        }
+
+        let candidates = Array(channels.filter {
+            known.contains($0.id) && ($0.type == "O" || $0.type == "P") && $0.name != "town-square"
+        }.prefix(3))
+        XCTAssertFalse(candidates.isEmpty,
+                       "no public channel with a counter row: the fixture cannot show a badge")
+        for candidate in candidates {
+            if let id = try post("t_e9550303: opening this channel in the app must clear it",
+                                 channelID: candidate.id, token: bot.token) {
+                postedIDs.append(id)
+            } else {
+                return XCTFail("the other user's post to \(candidate.name) must succeed")
+            }
+        }
+
+        let app = launchAndSignIn()
+        var target: (channel: Channel, row: XCUIElement)?
+        for candidate in candidates {
+            let row = revealRow(app, "channelSidebar.channel.\(candidate.id)")
+            guard row.waitForExistence(timeout: 20) else { continue }
+            if waitUntil(timeout: 15, { (row.value as? String ?? "").contains("Unread") }) {
+                target = (candidate, row)
+                break
+            }
+        }
+        guard let target else {
+            return XCTFail("none of \(candidates.map(\.name)) showed a badge; rows read "
+                           + "\(candidates.map { (revealRow(app, "channelSidebar.channel.\($0.id)").value as? String) ?? "nil" })")
+        }
+        attachShot(app, named: "t9550303-01-unread-before-open")
+
+        // The reader opens the channel — the action the card is about.
+        target.row.tap()
+        let pane = app.otherElements["nativeChannelPane"]
+        XCTAssertTrue(pane.waitForExistence(timeout: 30),
+                      "tapping the row must open the channel pane:\n\(app.debugDescription)")
+
+        // The server's cursor is the proof the app posted the view. The test never calls the view
+        // endpoint itself in this window.
+        let total = try totalMsgCount(channelID: target.channel.id)
+        XCTAssertTrue(waitUntil(timeout: 30) {
+            (try? myMembership(channelID: target.channel.id))?.msgCount == total
+        }, "opening the channel must post the view and move the server's read cursor "
+           + "(msg_count \((try? myMembership(channelID: target.channel.id))?.msgCount ?? -1) of total \(total))")
+
+        // Back to the list: the row must already be clear, from the local apply of the view
+        // response — not from a refresh that may never arrive.
+        ShellSettle.revealChannelList(app)
+        let cleared = revealRow(app, "channelSidebar.channel.\(target.channel.id)")
+        XCTAssertTrue(cleared.waitForExistence(timeout: 20),
+                      "the channel row must be back on screen:\n\(app.debugDescription)")
+        XCTAssertFalse((cleared.value as? String ?? "").contains("Unread"),
+                       "the row must lose bold/dot as soon as the channel is read, got "
+                       + "'\(cleared.value ?? "nil")'")
+        attachShot(app, named: "t9550303-02-read-after-open")
+    }
+
     // MARK: - 9. The shell's chrome covers a scrolled list (T8g §4)
 
     /// T8g §4: over a scrolled phone sidebar **no list row may be drawn among the toolbar's own
@@ -753,6 +842,33 @@ final class T33ChannelSidebarUITests: XCTestCase {
         }
         return Member(msgCount: row["msg_count"] as? Int ?? 0,
                       mentionCount: row["mention_count"] as? Int ?? 0)
+    }
+
+    /// My own membership row for one channel (`GET /channels/{id}/members/me`).
+    ///
+    /// Used instead of `memberRow` by the read-cursor test: the account is in hundreds of channels, so
+    /// `/users/me/channel_members` may page past the one this test cares about.
+    private func myMembership(channelID: String) throws -> Member {
+        let row = try getJSON("/api/v4/channels/\(channelID)/members/me") as? [String: Any] ?? [:]
+        return Member(msgCount: row["msg_count"] as? Int ?? 0,
+                      mentionCount: row["mention_count"] as? Int ?? 0)
+    }
+
+    /// Channel ids on the user's counter page (`per_page=200`, the server's cap).
+    ///
+    /// The sidebar reads the same answer without a page parameter and takes the 60 rows it gets, so
+    /// a live badge can only appear for channels in this set — a test that picks a channel outside it
+    /// would assert against a row that can never be bold.
+    private func myMembershipIDs() throws -> [String] {
+        var components = URLComponents(
+            url: serverURL.appendingPathComponent("/api/v4/users/me/channel_members"),
+            resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "per_page", value: "200")]
+        var request = URLRequest(url: components.url!)
+        request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
+        let (data, _) = try synchronous(request)
+        let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
+        return rows.compactMap { $0["channel_id"] as? String }
     }
 
     /// Mark every channel of the fixture team read, so "no bold" is a fact rather than a leftover.

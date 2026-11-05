@@ -83,6 +83,14 @@ final class ChannelPaneCoordinator: ObservableObject {
     /// then announces nothing.
     var typingSender: ((ServerConfig, String, String?) async -> Void)?
 
+    /// t_e9550303: a pane posted its read cursor and the server answered.
+    ///
+    /// Bound in `MattermostApp.bindShellStores` to the sidebar's own clear and to the badge. It lives
+    /// here — not in the view — because the model that posts the view knows the channel but not the
+    /// server, and the app's one wiring point is where the three derived values are fed from the same
+    /// answer.
+    var onChannelRead: ((ServerConfig, String, MMChannelViewResponse) -> Void)?
+
     /// Diagnostics: how many models are alive (one test asserts the cache is bounded).
     var modelCount: Int { models.values.reduce(0) { $0 + $1.count } }
 
@@ -136,6 +144,11 @@ final class ChannelPaneCoordinator: ObservableObject {
                                      myUserID: auth?.userID(for: server.id),
                                      profiles: UserProfileCache.shared(for: server.id),
                                      typing: typingTransport(for: server))
+        // t_e9550303: the pane's landed read goes to one app-level handler, so the sidebar row, the
+        // group dot and the badge are cleared from the same server answer.
+        model.onViewed = { [weak self] viewedChannelID, response in
+            self?.onChannelRead?(server, viewedChannelID, response)
+        }
         models[server.id, default: [:]][channelID] = model
         touch(serverID: server.id, channelID: channelID)
         evictIfNeeded(serverID: server.id)

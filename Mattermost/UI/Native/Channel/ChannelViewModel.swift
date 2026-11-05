@@ -237,6 +237,123 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
     /// `setScrollAnchor` was given.
     var readerAnchorProvider: (() -> ScrollAnchor?)?
 
+    // MARK: - Read state (card t_e9550303)
+
+    /// The server answered a `POST /channels/members/me/view` for this channel.
+    ///
+    /// The pane cannot clear the sidebar itself (the sidebar owns its rows) and the badge has a third
+    /// owner again (`SessionStore`), so the coordinator installs this closure when it builds the model.
+    /// One landing point means the row's emphasis, the group's dot and the badge are updated from the
+    /// **same** server answer, in the same tick — never from a sidebar refresh that may not arrive.
+    var onViewed: ((String, MMChannelViewResponse) -> Void)?
+
+    /// How many view calls this window made (diagnostics/tests). A failed call still counts: the
+    /// attempt is what "opening a channel posts a view" is about.
+    private(set) var viewCallCount = 0
+    /// Why the last view did not land, for the shell snapshot. A failed read is never drawn in the
+    /// list — the reader keeps reading and the next trigger retries.
+    private(set) var lastViewError: String?
+
+    /// The three facts that together make "this channel is being read" true. Each is pushed in by the
+    /// view: the pane's own appearance, the scene phase, and whether the newest row is on screen.
+    ///
+    /// All three start closed. A model built without a view (unit tests, a future non-SwiftUI host)
+    /// therefore posts **nothing** until a host says otherwise — the failure direction the card
+    /// demands: a cursor that advances while nobody is looking is worse than a dot that lingers.
+    private var paneIsVisible = false
+    private var sceneIsActive = false
+    private var readerIsAtNewest = true
+    /// Set by the transitions upstream treats as "read it again" (the pane appearing, the app coming
+    /// back to the foreground) and by a failed call. Cleared when a call is sent.
+    private var viewNeedsRefresh = true
+    private var isViewing = false
+    /// The newest post id at the moment the last view landed. The guard against re-posting on every
+    /// publish: nothing new on screen means nothing new to mark.
+    private var lastViewedPostID: String?
+
+    /// The view's one call: "pane is visible, scene is active, newest row is on screen".
+    ///
+    /// Separate facts rather than one boolean so a test can move exactly one of them and prove the
+    /// other two are respected (`T3` in the card).
+    func setReadingState(paneVisible: Bool, sceneActive: Bool, readerAtNewest: Bool) {
+        let paneAppeared = paneVisible && !paneIsVisible
+        let sceneWoke = sceneActive && !sceneIsActive
+        paneIsVisible = paneVisible
+        sceneIsActive = sceneActive
+        readerIsAtNewest = readerAtNewest
+        if paneAppeared || sceneWoke { viewNeedsRefresh = true }
+        postViewIfNeeded()
+    }
+
+    /// Wait until no view call is in flight, including a re-send for a post that arrived mid-flight.
+    ///
+    /// Test/diagnostic seam: the view itself does not need it — it reacts to published state — but a
+    /// unit test must not race the `Task` the model spawns.
+    func awaitViewSettled() async {
+        var spins = 0
+        while isViewing, spins < 200 {
+            spins += 1
+            try? await Task.sleep(for: .milliseconds(2))
+        }
+    }
+
+    /// Post the view if — and only if — the channel is genuinely being read.
+    ///
+    /// Mirrors upstream's triggers without inventing a timer: `switchToChannelById` posts on the
+    /// switch (`app/actions/remote/channel.ts:1201`), `channel_post_list.tsx:92-109` posts when the
+    /// post count grows while `appState === 'active'` and when the app becomes active. Upstream has
+    /// **no** time-based throttle on these paths; the only coalescing is an in-flight guard here, so
+    /// a burst of socket frames cannot stack requests, and a second call is only sent when the
+    /// newest row has actually changed.
+    private func postViewIfNeeded() {
+        guard paneIsVisible, sceneIsActive, readerIsAtNewest,
+              phase == .loaded, !isViewing else { return }
+        let newest = posts.first?.id ?? ""
+        guard viewNeedsRefresh || newest != lastViewedPostID else { return }
+        viewNeedsRefresh = false
+        isViewing = true
+        viewCallCount += 1
+        lastViewError = nil
+        let sent = newest
+        let channelID = self.channelID
+        Task { [weak self] in
+            guard let self else { return }
+            let result: Result<MMChannelViewResponse, Error>
+            do {
+                result = .success(try await self.service.viewChannel(channelID: channelID,
+                                                                     previousChannelID: nil))
+            } catch {
+                result = .failure(error)
+            }
+            self.finishView(result, newestAtSend: sent)
+        }
+    }
+
+    private func finishView(_ result: Result<MMChannelViewResponse, Error>, newestAtSend: String) {
+        isViewing = false
+        switch result {
+        case .success(let response):
+            lastViewedPostID = newestAtSend
+            if let cursor = response.lastViewedAtTimes[channelID] {
+                // The server's number, not this device's clock — a skewed phone must not move the
+                // "New messages" divider past rows the server has not read.
+                lastViewedAt = max(lastViewedAt ?? 0, cursor)
+                lastViewedAtIsAuthoritative = true
+                rebuild()
+            }
+            onViewed?(channelID, response)
+            // A post that arrived while the call was in flight is not covered by the cursor the
+            // server just stamped. `lastViewedPostID` is still the row that was sent, so the guard
+            // inside `postViewIfNeeded` re-sends for the newer newest row — and if the socket's own
+            // handler already did, the in-flight guard absorbs this one (no duplicate).
+            postViewIfNeeded()
+        case .failure(let error):
+            lastViewError = Self.message(for: error)
+            // No loop: the next genuine trigger (a new post, a foreground, a re-appearance) retries.
+            viewNeedsRefresh = true
+        }
+    }
+
     init(channelID: String,
          channelName: String? = nil,
          service: ChannelServing,
@@ -323,6 +440,10 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             adoptReactionState(for: posts)
             rebuild()
             phase = .loaded
+            // t_e9550303: the page is on screen — the first honest moment this pane can say "the
+            // newest row is being read". Upstream posts the view on the channel switch itself; the
+            // pane posts it here because before the page lands there is nothing to claim was read.
+            postViewIfNeeded()
         } catch {
             guard requested == generation else { return }
             phase = .failed(Self.message(for: error))
@@ -383,6 +504,9 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             guard requested == generation else { return 0 }
             rebuild()
             lastResyncInsertedCount = fresh.count
+            // t_e9550303: a reconnect can have missed the newest posts. If any landed in the window
+            // the reader is looking at, the cursor moved with them.
+            if !fresh.isEmpty { postViewIfNeeded() }
             return fresh.count
         } catch {
             return 0
@@ -732,6 +856,11 @@ final class ChannelViewModel: ObservableObject, ComposerPostSink {
             return record(.ignored)
         }
         rebuild()
+        // t_e9550303: a new row while the reader is looking at it is a new read cursor. Upstream's
+        // `channel_post_list.tsx:92` posts on exactly this transition (`posts.length` grows while
+        // `appState === 'active'`); the state gate inside keeps a scrolled-up or backgrounded pane
+        // silent.
+        if outcome == .appended { postViewIfNeeded() }
         return record(outcome)
     }
 

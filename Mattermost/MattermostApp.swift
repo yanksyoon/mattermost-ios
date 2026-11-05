@@ -476,6 +476,11 @@ struct MattermostApp: App {
                 // and what one/two activations do. Release product (outside `#if DEBUG` on purpose),
                 // inert without the argument.
                 .task { runDMPagingSnapshotIfRequested() }
+                // t_e9550303 evidence probe: `-readStateSnapshot <dir>` opens the first unread
+                // channel (or `-readStateChannel <name>`) through the one navigation funnel and
+                // photographs the row and the group header before and after the read. Release
+                // product (outside `#if DEBUG` on purpose), inert without the argument.
+                .task { runReadStateSnapshotIfRequested() }
                 #if DEBUG
                 // T30 evidence probe: `-nativeShellSnapshot <dir>` writes light/dark PNGs of the
                 // shell (plus an accessibility text size pair). Inert without the argument.
@@ -627,6 +632,28 @@ struct MattermostApp: App {
         // socket action, measured in `scripts/t4f_typing_probe.py`).
         channelPaneCoordinator.typingSender = { [weak teams = teamSidebarCoordinator] server, channelID, parentID in
             await teams?.sendTyping(for: server, channelID: channelID, parentID: parentID)
+        }
+        // t_e9550303: a pane's read cursor lands in exactly two places — the sidebar row (bold and dot)
+        // and `SessionStore` (the badge). `ChannelReadApplication` is the one function that applies
+        // both, so the three derived values move from the same server answer; the follow-up counter
+        // read is the mention poller's own request, which is what lets the server remain the source of
+        // the unread dot when other channels or teams are involved.
+        channelPaneCoordinator.onChannelRead = { [weak channelSidebarCoordinator, weak sessionStore,
+                                                  weak authCoordinator] server, channelID, response in
+            ChannelReadApplication.apply(channelID: channelID,
+                                         response: response,
+                                         sidebar: channelSidebarCoordinator?.loadedModel(for: server.id),
+                                         sessionStore: sessionStore,
+                                         serverID: server.id)
+            guard let authCoordinator, let sessionStore else { return }
+            Task {
+                let counters = try? await SessionActivityService {
+                    (try? authCoordinator.session(for: server))?.client
+                }.badgeCounters()
+                ChannelReadApplication.applyCounters(counters,
+                                                     sessionStore: sessionStore,
+                                                     serverID: server.id)
+            }
         }
         // T36: the thread panes resolve their service from the same session, and hold the channel
         // panes so a reply's count reaches the row it belongs to. No socket of its own.
@@ -1401,6 +1428,188 @@ struct MattermostApp: App {
             try? (lines.joined(separator: "\n") + "\n")
                 .write(to: URL(fileURLWithPath: dir + "/sidebar-groups.txt"),
                        atomically: true, encoding: .utf8)
+        }
+    }
+
+    // MARK: Read-state evidence (t_e9550303 — ships in Release)
+
+    /// `-readStateSnapshot <dir> [-readStateChannel <name>] [-readStateListOnly]`: where the read-state
+    /// probe writes its PNGs + note, which channel to open (by name or display name; default: the
+    /// first unread row), and whether to only photograph the list (used for the before/after pair —
+    /// the pane is a push, so the list is not on screen while the channel is).
+    private var readStateProbe: (dir: String, name: String?, listOnly: Bool)? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let d = args.firstIndex(of: "-readStateSnapshot"), args.indices.contains(d + 1)
+        else { return nil }
+        var name: String?
+        if let n = args.firstIndex(of: "-readStateChannel"), args.indices.contains(n + 1) {
+            name = args[n + 1]
+        }
+        return (args[d + 1], name, args.contains("-readStateListOnly"))
+    }
+
+    /// Evidence probe for the read cursor **on a Release product** (card t_e9550303).
+    ///
+    /// The defect was visual and shipped: a row kept its bold and dot after the message was read. The
+    /// unit suite proves the model arithmetic and `T33ChannelSidebarUITests` proves the tap end to
+    /// end, but neither can run in the configuration the app ships in (the test targets use `@testable`
+    /// and `PerfProbe`, both Debug-only). So this photographs the shipping build doing it:
+    ///
+    ///  1. find an unread row, photograph the list (header dot + row), and record the model's numbers;
+    ///  2. open the channel through `NativeNavigation.openChannel` — the same funnel a tap uses, so the
+    ///     pane's visibility/reader-position gate runs for real;
+    ///  3. wait for the row's emphasis to disappear and photograph the pane;
+    ///  4. `popToRoot()` back to the list and photograph it again.
+    ///
+    /// The unread has to exist when the app launches (the launch's own view call reads the channel it
+    /// opens), so the unread is seeded by another user beforehand — the probe only observes and opens.
+    /// Inert without the argument; no `#if DEBUG`, so it exists in the shipped configuration.
+    private func runReadStateSnapshotIfRequested() {
+        guard let probe = readStateProbe else { return }
+        let dir = probe.dir
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            guard let server = serverStore.servers.first(where: { $0.id == serverStore.activeServerID })
+                    ?? serverStore.servers.first else {
+                writeThreadBackNote(dir + "/read-state.txt", ["error": "no server"])
+                return
+            }
+            let model = channelSidebarCoordinator.model(for: server)
+            var waited = 0
+            while model.groups.isEmpty && waited < 40 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                waited += 1
+            }
+            // Start from the list, not from whatever channel the launch opened. The launch's own route
+            // can still be applied after restore, so wait for the router to actually be at the root.
+            nativeNavigation.popToRoot()
+            var popped = 0
+            while nativeNavigation.location.opensADestination && popped < 10 {
+                nativeNavigation.popToRoot()
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                popped += 1
+            }
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+
+            @MainActor func entry(_ id: String) -> ChannelSidebarEntry? {
+                model.groups.flatMap(\.entries).first { $0.id == id }
+            }
+            @MainActor func groupContaining(_ id: String) -> ChannelSidebarGroup? {
+                model.groups.first { $0.entries.contains(where: { $0.id == id }) }
+            }
+            let unread = model.groups.flatMap(\.entries).filter(\.showsUnreadEmphasis)
+            if probe.listOnly {
+                writeWindowSnapshot(to: dir + "/read-state-list.png")
+                var note: [String: String] = [
+                    "mode": "list",
+                    "server": server.url.absoluteString,
+                    "team": model.teamID ?? "none",
+                    "unreadRows": "\(unread.count)",
+                    "groups": model.groups.map {
+                        "\($0.displayName)|unreadChannels=\($0.unreadChannels)|badge=\($0.headerBadge)|value=\($0.accessibilityValue)"
+                    }.joined(separator: "\n"),
+                    "rows": model.groups.flatMap { group in
+                        group.entries.map {
+                            "\(group.displayName)|\($0.name)|unread=\($0.unreadCount)|mentions=\($0.mentionCount)|emphasis=\($0.showsUnreadEmphasis)|value=\($0.accessibilityValue)"
+                        }
+                    }.joined(separator: "\n"),
+                ]
+                if let name = probe.name,
+                   let row = model.groups.flatMap(\.entries).first(where: {
+                       $0.name == name || $0.displayName == name
+                   }) {
+                    note["namedChannel"] = name
+                    note["namedUnread"] = "\(row.unreadCount)"
+                    note["namedMentions"] = "\(row.mentionCount)"
+                    note["namedEmphasis"] = "\(row.showsUnreadEmphasis)"
+                    note["namedBadge"] = "\(row.badge)"
+                    note["namedValue"] = row.accessibilityValue
+                }
+                writeThreadBackNote(dir + "/read-state.txt", note)
+                return
+            }
+            let chosen: ChannelSidebarEntry?
+            if let name = probe.name {
+                // The launch may have opened (and read) the named channel; take the next unread row
+                // rather than failing, and say so in the note.
+                chosen = unread.first { $0.name == name || $0.displayName == name } ?? unread.first
+            } else {
+                chosen = unread.first
+            }
+            guard let before = chosen else {
+                writeThreadBackNote(dir + "/read-state.txt", [
+                    "error": "no unread row",
+                    "phase": "\(model.phase)",
+                    "team": model.teamID ?? "none",
+                    "unreadRows": "\(unread.count)",
+                ])
+                writeWindowSnapshot(to: dir + "/read-state-01-unread.png")
+                return
+            }
+
+            let groupBefore = groupContaining(before.id)
+            writeWindowSnapshot(to: dir + "/read-state-01-unread.png")
+            var note: [String: String] = [
+                "server": server.url.absoluteString,
+                "team": model.teamID ?? "none",
+                "channel": "\(before.name) (\(before.displayName))",
+                "channelID": before.id,
+                "before_unread": "\(before.unreadCount)",
+                "before_mentions": "\(before.mentionCount)",
+                "before_emphasis": "\(before.showsUnreadEmphasis)",
+                "before_badge": "\(before.badge)",
+                "before_rowValue": before.accessibilityValue,
+                "before_group": groupBefore?.displayName ?? "none",
+                "before_groupUnreadChannels": "\(groupBefore?.unreadChannels ?? -1)",
+                "before_groupBadge": "\(groupBefore.map { "\($0.headerBadge)" } ?? "none")",
+                "before_groupValue": groupBefore?.accessibilityValue ?? "none",
+            ]
+
+            // Open it the way a tap does.
+            nativeNavigation.openChannel(NativeChannelRequest(serverID: server.id,
+                                                             teamID: model.teamID,
+                                                             channelID: before.id,
+                                                             channelName: before.name))
+            var ticks = 0
+            while entry(before.id)?.showsUnreadEmphasis == true && ticks < 30 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                ticks += 1
+            }
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            writeWindowSnapshot(to: dir + "/read-state-02-channel.png")
+            let afterOpen = entry(before.id)
+            let groupOpen = groupContaining(before.id)
+            note["secondsToClear"] = "\(ticks)"
+            note["paneChannel"] = nativeNavigation.location.channelID ?? "none"
+            note["open_emphasis"] = "\(afterOpen?.showsUnreadEmphasis ?? true)"
+            note["open_rowValue"] = afterOpen?.accessibilityValue ?? "none"
+            note["open_badge"] = "\(afterOpen.map { "\($0.badge)" } ?? "none")"
+            note["open_groupUnreadChannels"] = "\(groupOpen?.unreadChannels ?? -1)"
+            note["open_groupBadge"] = "\(groupOpen.map { "\($0.headerBadge)" } ?? "none")"
+            note["open_groupValue"] = groupOpen?.accessibilityValue ?? "none"
+
+            // Back to the list the reader sees after reading.
+            nativeNavigation.popToRoot()
+            var back = 0
+            while nativeNavigation.location.opensADestination && back < 10 {
+                nativeNavigation.popToRoot()
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                back += 1
+            }
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            writeWindowSnapshot(to: dir + "/read-state-03-list-after.png")
+            note["returnedToRoot"] = "\(back)"
+            note["afterPane"] = nativeNavigation.location.channelID ?? "none"
+            let after = entry(before.id)
+            let groupAfter = groupContaining(before.id)
+            note["after_emphasis"] = "\(after?.showsUnreadEmphasis ?? true)"
+            note["after_rowValue"] = after?.accessibilityValue ?? "none"
+            note["after_badge"] = "\(after.map { "\($0.badge)" } ?? "none")"
+            note["after_groupUnreadChannels"] = "\(groupAfter?.unreadChannels ?? -1)"
+            note["after_groupBadge"] = "\(groupAfter.map { "\($0.headerBadge)" } ?? "none")"
+            note["after_groupValue"] = groupAfter?.accessibilityValue ?? "none"
+            note["remainingUnreadRows"] = "\(model.groups.lazy.flatMap(\.entries).filter(\.showsUnreadEmphasis).count)"
+            writeThreadBackNote(dir + "/read-state.txt", note)
         }
     }
 

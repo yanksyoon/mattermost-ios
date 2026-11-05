@@ -86,11 +86,29 @@ protocol ChannelServing: AnyObject {
 
     /// Page size, injectable so a test can page a fixture without 60 real posts.
     var pageSize: Int { get }
+
+    /// `POST /channels/members/me/view` — the read cursor for a channel the reader is **looking at**
+    /// (card t_e9550303).
+    ///
+    /// The same route upstream's `markChannelAsRead` uses (`app/actions/remote/channel.ts:746` →
+    /// `client.viewMyChannel`, `app/client/rest/channels.ts:369`), and deliberately not
+    /// `mark_read`: `mark_read` is the activity screen's bulk write, while this call says "this
+    /// conversation is on screen", which is also the frame that clears the reader's badge in their
+    /// other sessions. The answer carries the server's own `last_viewed_at_times`, so the local clear
+    /// is the server's number rather than this client's clock.
+    ///
+    /// Defaults to a failure: a service that has not implemented the read path must not pretend it
+    /// marked anything (the same degradation rule as `addReaction`). The pane swallows the error — a
+    /// read that did not land must never disturb the list — but the call is still counted.
+    func viewChannel(channelID: String, previousChannelID: String?) async throws -> MMChannelViewResponse
 }
 
 extension ChannelServing {
     var pageSize: Int { 60 }
     func membership(channelID: String) async throws -> MMChannelMember? { nil }
+    func viewChannel(channelID: String, previousChannelID: String?) async throws -> MMChannelViewResponse {
+        throw MMError.notSignedIn
+    }
     /// A service that cannot answer one post by id simply has no jump target: the pane then reports
     /// "that message is no longer in this channel" instead of scrolling to an id it does not hold.
     func post(id: String) async throws -> MMPost { throw MMError.notFound }
@@ -174,6 +192,11 @@ final class SessionChannelService: ChannelServing {
         // A missing membership row is not a reason to fail the page: without `last_viewed_at` the
         // list simply draws no unread divider (`nil` = unknown, never "everything is read").
         try? await client().channelMembership(channelID: channelID)
+    }
+
+    /// The read cursor for the channel on screen (card t_e9550303).
+    func viewChannel(channelID: String, previousChannelID: String?) async throws -> MMChannelViewResponse {
+        try await client().viewChannel(channelID: channelID, previousChannelID: previousChannelID)
     }
 
     /// S18/T38: the download path. `/api/v4/files/{id}` with the session's own bearer token, built by

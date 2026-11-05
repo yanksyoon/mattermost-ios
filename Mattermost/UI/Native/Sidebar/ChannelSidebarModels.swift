@@ -313,6 +313,24 @@ struct ChannelSidebarTotals: Equatable, Sendable {
     }
 }
 
+/// What one **landed read** removed from the sidebar (card t_e9550303).
+///
+/// The number matters as much as the fact: `SessionStore` holds the server-wide mention count, and the
+/// only honest way to drop this channel's share of it in the same tick is to know how many mentions
+/// the row carried before the clear. `totals` is the sidebar's own re-derived aggregate afterwards
+/// (muted channels already excluded, as the badge rule states).
+struct ChannelReadOutcome: Equatable, Sendable {
+    /// Whether the channel's row was loaded and therefore cleared. A read for a channel this list does
+    /// not know about (another team, a DM the list has not read yet) is not a sidebar fact.
+    var applied = false
+    /// Mentions the row carried before the clear — `SessionStore` subtracts exactly this.
+    var clearedMentions = 0
+    /// Unread messages the row carried before the clear (diagnostics).
+    var clearedUnreadMessages = 0
+    /// The sidebar's totals after the clear.
+    var totals = ChannelSidebarTotals()
+}
+
 // MARK: - One load of the sidebar
 
 /// Everything one load of the channel sidebar needs, straight off the wire.

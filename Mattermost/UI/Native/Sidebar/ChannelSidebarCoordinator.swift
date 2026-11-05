@@ -273,6 +273,21 @@ final class ChannelSidebarCoordinator: ObservableObject {
     /// Test/diagnostic surface: how many models this coordinator holds (one per active server).
     var modelCount: Int { models.count }
 
+    /// The list for a server **if it has been created**, without creating one.
+    ///
+    /// t_e9550303: a landed read must not bring a sidebar into existence (a model built here would
+    /// have no data, and clearing it would be clearing nothing). The read path uses this.
+    func loadedModel(for serverID: UUID) -> ChannelListViewModel? { models[serverID] }
+
+    /// A pane read this channel: clear its row now and report what the clear removed.
+    ///
+    /// The caller (`ChannelPaneCoordinator.onChannelRead` → `MattermostApp.bindShellStores`) uses the
+    /// returned numbers for the badge, so the row, the group dot and the badge move from one update.
+    @discardableResult
+    func applyRead(serverID: UUID, channelID: String, cursors: [String: Int64]) -> ChannelReadOutcome {
+        models[serverID]?.applyRead(channelID: channelID, cursors: cursors) ?? ChannelReadOutcome()
+    }
+
     func loadedTeam(for serverID: UUID) -> String? { loadedTeams[serverID] }
 
     // MARK: Location → models

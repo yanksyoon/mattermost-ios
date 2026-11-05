@@ -67,6 +67,26 @@ extension APIClient {
         try await getData(path: "/files/\(fileID)\(thumbnail ? "/thumbnail" : "")")
     }
 
+    /// `POST /channels/members/me/view` — "I am reading this channel now".
+    ///
+    /// Upstream's `client.viewMyChannel` (`app/client/rest/channels.ts:369`, pinned 162f2560) is this
+    /// exact route and body: `channel_id`, `prev_channel_id` and `collapsed_threads_supported: true`.
+    /// It is **not** `POST /channels/{id}/view` (there is no such route on 9.11.19 — `api4/channel.go`
+    /// carries `viewChannel` under `members/me/view`) and it is not `mark_read`, which is the
+    /// activity screen's bulk "these channels are read" write.
+    ///
+    /// The answer is the server's `ChannelViewResponse`; `last_viewed_at_times` is the authoritative
+    /// cursor the read path applies locally, and the call also emits `channel_viewed` to the user's
+    /// other sessions — which is what clears the badges there (upstream's
+    /// `handleChannelViewedEvent`).
+    func viewChannel(channelID: String, previousChannelID: String? = nil) async throws -> MMChannelViewResponse {
+        try await post(MMChannelViewResponse.self,
+                       path: "/channels/members/me/view",
+                       body: ChannelViewBody(channelId: channelID,
+                                             prevChannelId: previousChannelID,
+                                             collapsedThreadsSupported: true))
+    }
+
     /// `GET /channels/{channel_id}/members/me` — my membership row.
     ///
     /// T34 needs one field from it, `last_viewed_at`: it is the only honest source for where the
@@ -92,5 +112,22 @@ extension APIClient {
     /// `GET /emoji/{emoji_id}/image` — the PNG the server generated when the emoji was uploaded.
     func emojiImage(emojiID: String) async throws -> Data {
         try await getData(path: "/emoji/\(emojiID)/image", useETag: false)
+    }
+}
+
+/// The body of `POST /channels/members/me/view`, spelled field-for-field as upstream sends it.
+///
+/// `prevChannelId` is omitted when `nil` (Swift's synthesised encoder uses `encodeIfPresent`), which is
+/// what `JSON.stringify` does with upstream's `prev_channel_id: undefined` — the server treats an
+/// absent `prev_channel_id` the same as an empty one.
+private struct ChannelViewBody: Encodable {
+    let channelId: String
+    let prevChannelId: String?
+    let collapsedThreadsSupported: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case channelId = "channel_id"
+        case prevChannelId = "prev_channel_id"
+        case collapsedThreadsSupported = "collapsed_threads_supported"
     }
 }

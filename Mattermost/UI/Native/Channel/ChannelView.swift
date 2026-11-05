@@ -82,6 +82,13 @@ struct ChannelPostListView: View {
     /// T53: the pane's media staging + poster cache. Nil draws video posters that cannot load and
     /// names audio as a row — a host with no transport offers no player.
     var media: ChannelMedia? = nil
+    /// t_e9550303: whether the newest row is on screen right now.
+    ///
+    /// The read cursor may only advance while this is true: a reader scrolled back through history is
+    /// not reading the newest message, and marking it read there would clear a dot they never saw.
+    /// Reported on the 8 Hz position sample (and once on appearance), never on a row-frame callback —
+    /// the same reason `pollReaderPosition` exists at all.
+    var onReaderAtNewestChange: ((Bool) -> Void)? = nil
 
     /// True while a top visit must not page: the reader has not been away from the top since the last
     /// auto-load, so this is the same visit. Cleared once the viewport is a screen away from the top.
@@ -288,6 +295,10 @@ struct ChannelPostListView: View {
             .onAppear {
                 // T635-A: the pane's own first look at the list, before any page lands.
                 ChannelScrollDiagnostics.record("list onAppear")
+                // t_e9550303: the pane opens at its newest message, so this is the first honest
+                // "the newest row is on screen" report. The position sample corrects it as soon as a
+                // jump or a scroll moves the reader.
+                onReaderAtNewestChange?(readerIsAtBottom)
             }
             .onChange(of: model.items.last?.id) { previous, current in
                 // A post that arrives over the socket while the reader is looking at the newest
@@ -577,7 +588,14 @@ struct ChannelPostListView: View {
         guard scrollController.isAttached else { return }
         let distance = scrollController.distanceFromTop
         let userScrolling = scrollController.isUserScrolling
-        readerIsAtBottom = scrollController.distanceFromBottom <= 40
+        let atBottom = scrollController.distanceFromBottom <= 40
+        if atBottom != readerIsAtBottom {
+            readerIsAtBottom = atBottom
+            // t_e9550303: this is the read cursor's gate. Scrolling away from the newest message
+            // stops the view from being posted; returning to it makes the next post (or the return
+            // itself) mark the channel read.
+            onReaderAtNewestChange?(atBottom)
+        }
         // The latch is re-armed only by the reader travelling away from the top *by hand*. A merge
         // lengthens the content above them, which also makes `distance` large — treating that as "they
         // left the top" is what let one visit page in three windows' worth of posts.
@@ -755,6 +773,12 @@ struct ChannelPaneContent: View {
     /// t_05caa678: the header's bookmarks bar for this channel (absent when the server has none or
     /// does not have the route).
     @State private var bookmarks: ChannelBookmarksViewModel?
+    /// t_e9550303: the three facts the read cursor needs. `paneIsVisible` follows this view's own
+    /// appearance (a thread pushed on top hides it), `scenePhase` comes from the environment, and
+    /// `readerAtNewest` is the post list's own answer. All start closed except the position, which
+    /// defaults to "at the newest message" because that is where the pane opens.
+    @State private var paneIsVisible = false
+    @State private var readerAtNewest = true
 
     /// Whether the write surface renders natively (T35's `.composer` surface).
     ///
@@ -823,7 +847,13 @@ struct ChannelPaneContent: View {
                                     // position and the initial placement must not move it.
                                     opensAtPost: focusPostID != nil,
                                     postOptions: postOptions,
-                                    media: media)
+                                    media: media,
+                                    // t_e9550303: the read cursor's third fact, sampled by the list's
+                                    // own position poll.
+                                    onReaderAtNewestChange: { atNewest in
+                                        readerAtNewest = atNewest
+                                        syncReadingState()
+                                    })
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -844,6 +874,9 @@ struct ChannelPaneContent: View {
         // once however many rows and sheets (a reaction list, a profile popover) draw it.
         .environment(\.avatarImages, avatarStore)
         .task(id: channelID) {
+            // t_e9550303: a pane routed at an older post is not showing the newest message; do not
+            // let the default "at the bottom" claim mark the channel read before the jump lands.
+            if focusPostID != nil { readerAtNewest = false }
             let resolved = panes.model(for: server, channelID: channelID, channelName: channelName)
             model = resolved
             imageStore = panes.imageStore(for: server)
@@ -883,6 +916,10 @@ struct ChannelPaneContent: View {
                                           emojiCatalogue: catalogue)
             }
             await panes.activate(server: server, channelID: channelID, channelName: channelName)
+            // t_e9550303: the page is loaded and the pane is visible — the read cursor's first
+            // opportunity to advance. `syncReadingState` is idempotent; the model only posts when the
+            // newest row is actually on screen.
+            syncReadingState()
             // t_05caa678: the header's bookmarks bar. `load()` cannot throw — a 404 on a server
             // without the route, an empty list and a transport failure all mean "no bar" — so it can
             // never decide whether the header, the post list or the composer exists.
@@ -950,11 +987,36 @@ struct ChannelPaneContent: View {
             ProfileSheet(server: server, userID: target.userID, navigation: navigation)
         }
         .onChange(of: scenePhase) { _, phase in
+            // t_e9550303: the scene is one of the three facts that make "this channel is being read"
+            // true. Coming back to the foreground re-arms the cursor (upstream posts the view on
+            // exactly this transition, `channel_post_list.tsx:102`).
+            syncReadingState()
             // Backgrounding is the moment the debounce may not have fired yet: a message typed and
             // then interrupted must still be on disk when the app is killed.
             guard phase != .active, let composer else { return }
             Task { await composer.saveDraftNow() }
         }
+        // t_e9550303: the pane's own appearance is the other lifecycle fact. A thread pushed on top
+        // (or another tab taking the screen) hides this pane; a read cursor that kept advancing there
+        // would mark messages nobody is looking at.
+        .onAppear {
+            paneIsVisible = true
+            syncReadingState()
+        }
+        .onDisappear {
+            paneIsVisible = false
+            syncReadingState()
+        }
+    }
+
+    /// Tell the model the three facts the read cursor depends on.
+    ///
+    /// Idempotent: `ChannelViewModel.setReadingState` only forces a re-post on a false→true
+    /// transition, so every lifecycle hook can call this without producing duplicate views.
+    private func syncReadingState() {
+        model?.setReadingState(paneVisible: paneIsVisible,
+                               sceneActive: scenePhase == .active,
+                               readerAtNewest: readerAtNewest)
     }
 
     /// T36: open a root's thread. The request carries both the post **and** the channel, so the thread

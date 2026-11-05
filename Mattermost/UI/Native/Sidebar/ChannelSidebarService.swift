@@ -543,6 +543,40 @@ final class ChannelListViewModel: ObservableObject {
         }
     }
 
+    // MARK: Read (card t_e9550303)
+
+    /// A pane's `POST /channels/members/me/view` landed: this channel is read **now**.
+    ///
+    /// Without this the sidebar only changed when (a) a refresh returned, or (b) the server's own
+    /// `channel_viewed` echo arrived — and the owner-reported defect is exactly the window in which
+    /// neither does, with the row bold and dotted while the reader is looking at its newest message.
+    ///
+    /// The clear is the same arithmetic `clearCounters` applies to the echo (every mention, the cursor
+    /// moved to the channel's own `total_msg_count`, "keep as unread" dropped), with the cursor taken
+    /// from the server's `last_viewed_at_times` when the answer carries it. `rebuild()` re-derives the
+    /// row's emphasis, its badge and every group roll-up in the same update.
+    @discardableResult
+    func applyRead(channelID: String, cursors: [String: Int64]) -> ChannelReadOutcome {
+        guard let index = data.members.firstIndex(where: { $0.channelId == channelID }) else {
+            return ChannelReadOutcome()
+        }
+        let clearedMentions = Int(data.members[index].mentionCount)
+        let total = data.channels.first(where: { $0.id == channelID })?.totalMsgCount
+            ?? data.members[index].msgCount
+        let clearedMessages = max(0, Int(total - data.members[index].msgCount))
+        data.members[index].mentionCount = 0
+        data.members[index].msgCount = total
+        data.members[index].manuallyUnread = false
+        if let cursor = cursors[channelID] {
+            data.members[index].lastViewedAt = max(data.members[index].lastViewedAt, cursor)
+        }
+        rebuild()
+        return ChannelReadOutcome(applied: true,
+                                  clearedMentions: clearedMentions,
+                                  clearedUnreadMessages: clearedMessages,
+                                  totals: totals)
+    }
+
     /// Local "this channel is read now" — optimistic, and corrected by the next refresh.
     private func clearCounters(channelID: String) {
         guard let index = data.members.firstIndex(where: { $0.channelId == channelID }) else { return }

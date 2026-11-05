@@ -84,6 +84,22 @@ final class SessionStore: ObservableObject {
         recomputeTotals()
     }
 
+    /// One channel on this device was just read (card t_e9550303).
+    ///
+    /// Its mentions leave the badge **in the same tick** the server answered the view — the owner's
+    /// defect was a badge that only moved when some later poll happened to run. Only the mention
+    /// component is adjusted here, and deliberately so: whether the server still has *any* unread
+    /// message is a cross-channel, cross-team fact that one channel cannot answer, and guessing it
+    /// downwards would clear the dot while another conversation is still waiting. The view path
+    /// therefore also asks the server for its counters and applies them through
+    /// `applyServerCounters` when they land; this call is what makes the number move now.
+    func noteChannelRead(serverID: UUID, clearedMentions: Int) {
+        guard clearedMentions > 0, var state = states[serverID] else { return }
+        state.mentionCount = max(0, state.mentionCount - clearedMentions)
+        states[serverID] = state
+        recomputeTotals()
+    }
+
     /// Drop all state for a server — used when its session is signed out (desktop
     /// `clearServer` on SERVER_LOGGED_IN_CHANGED=false).
     func clear(serverID: UUID) {
