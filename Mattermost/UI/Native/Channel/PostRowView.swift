@@ -78,7 +78,15 @@ struct PostDateSeparatorView: View {
 
 // MARK: - New messages
 
+/// The "New messages" line: the first post the reader has not seen.
+///
+/// The identifier is a **parameter**, not a constant, because the two lists that draw this line must
+/// not answer each other's queries — the same rule the thread pane's rows follow (`thread.post.<id>`
+/// never `post.<id>`). The channel timeline keeps `channelNewMessages` (the identifier every T34 test
+/// and `docs/PARITY.md` cite); the thread pane passes `threadNewMessages`.
 struct NewMessagesDividerView: View {
+    var identifier: String = "channelNewMessages"
+
     var body: some View {
         HStack(spacing: 8) {
             Rectangle().fill(Color.accentColor).frame(height: 1)
@@ -89,7 +97,7 @@ struct NewMessagesDividerView: View {
         }
         .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("channelNewMessages")
+        .accessibilityIdentifier(identifier)
     }
 }
 

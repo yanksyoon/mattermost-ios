@@ -110,6 +110,15 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     var loadedReplyIDs: [String] { replies.map(\.id) }
     var lastLoadedReplyID: String? { replies.last?.id }
     func reply(id: String) -> MMPost? { repliesByID[id] }
+    /// The post the pane's unread divider is drawn in front of (`nil` when there is no divider).
+    /// Diagnostics/tests: the line is an item between rows, so a test that asks "where is the divider"
+    /// should not have to re-implement the list walk.
+    var unreadDividerPostID: String? {
+        guard let index = items.firstIndex(of: .newMessages), items.indices.contains(index + 1) else {
+            return nil
+        }
+        return items[index + 1].postID
+    }
 
     // MARK: Collaborators
 
@@ -134,7 +143,28 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     private var threadRow: MMThread?
     /// Where the unread divider goes: `thread_row.last_viewed_at`, or the value a `thread_read_changed`
     /// frame carried. `nil` = unknown, so no divider is invented.
+    ///
+    /// This is the *server's* read position — the one the unread counters are about. It is **not**
+    /// what the pane's divider is drawn from; see `dividerViewedAt`.
     private var lastViewedAt: Int64?
+    /// The read position the pane's unread divider is drawn from — upstream's `thread.viewed_at`,
+    /// which is deliberately a different value from the thread's `last_viewed_at`
+    /// (`app/database/models/server/thread.ts:43` vs `:58`; `thread_post_list.tsx:89` reads
+    /// `thread?.viewedAt`).
+    ///
+    /// Taken **once**, when the thread row arrives with the load, from its `last_viewed_at`: where the
+    /// reader left off, so the line sits in front of the first reply they have not read. It is not
+    /// moved by this pane's own read — `markRead` on mount answers a thread whose `last_viewed_at` is
+    /// *now*, and upstream skips `viewed_at` for a thread that is on screen
+    /// (`isThreadVisible` in `app/actions/websocket/threads.ts`). Without that rule the divider exists
+    /// only for the frames between the load and the read answer, which is unobservable in the app and
+    /// unassertable in a live test. It moves only when the read position changes **outside** this
+    /// pane: a whole-team mark-read, or "mark as unread" (which stamps one millisecond before that
+    /// post, `app/actions/remote/thread.ts` `markThreadAsUnread`).
+    private var dividerViewedAt: Int64?
+    /// Whether `dividerViewedAt` has been taken from a thread row yet. A thread the reader does not
+    /// follow has no row, so no read position — and therefore no divider.
+    private var hasTakenDividerPosition = false
     /// Rows the composer inserted optimistically (`pending:<uuid>`).
     private var pendingReplyIDs: Set<String> = []
     /// Client id → the row id currently representing it.
@@ -231,6 +261,7 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
                 followState = .following
                 unread = row.unread
                 lastViewedAt = row.lastViewedAt
+                takeDividerPosition(row.lastViewedAt)
                 replyCount = ThreadDerivation.replyCount(root: root ?? MMPost(id: rootID),
                                                          replies: replies,
                                                          serverCount: max(row.replyCount, replyCount))
@@ -315,7 +346,9 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     ///    it" — the same rule `ThreadDerivation.chain` states;
     ///  - it refreshes the root post, the server's `reply_count` / `last_reply_at`, and the
     ///    follow/unread row, adopting a `last_viewed_at` that moved **forward** only (the thread was
-    ///    read on another client) — never moving the unread divider back;
+    ///    read on another client). The divider's own position is not touched: it is taken once, when
+    ///    the pane opens (`dividerViewedAt`), so a repaint can never slide the line the reader is
+    ///    looking at;
     ///  - it leaves `phase` alone: the chain on screen is still the server's page as of the last load,
     ///    so a failed sweep costs a retry on the next gap, not an error screen;
     ///  - it is a no-op on a pane that never loaded (its first load is the fetch).
@@ -458,6 +491,14 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
 
     /// Mark the thread unread from a reply (upstream's "mark unread" action, same endpoint family).
     func markUnread(from postID: String) async {
+        // Upstream stamps the *local* divider position one millisecond before the post
+        // (`app/actions/remote/thread.ts` `markThreadAsUnread`: `viewed_at: post.createAt - 1`), so the
+        // line appears in front of the row the reader picked without waiting for a socket frame. The
+        // server's answer then carries the counters; its `last_viewed_at` is not what draws the line.
+        if let post = repliesByID[postID] ?? (root?.id == postID ? root : nil) {
+            hasTakenDividerPosition = true
+            dividerViewedAt = max(0, post.createAt - 1)
+        }
         do {
             let updated = try await service.markUnread(teamID: teamID, threadID: rootID, postID: postID)
             apply(thread: updated)
@@ -567,6 +608,13 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
                 // The whole team was marked read; this thread's counters move with it.
                 unread = .none
                 lastViewedAt = max(lastViewedAt ?? 0, change.timestamp)
+                // A whole-team read happened **outside** this pane, so the divider's position moves
+                // with it too (upstream `markTeamThreadsAsRead` rewrites every thread's `viewed_at`;
+                // only the per-thread frame withholds that while the thread is on screen). A thread
+                // this pane never had a read position for stays without a divider.
+                if hasTakenDividerPosition {
+                    dividerViewedAt = max(dividerViewedAt ?? 0, change.timestamp)
+                }
                 outcome = .unread
             } else {
                 guard change.threadID == rootID else { return record(.ignored) }
@@ -629,7 +677,10 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
                               mentions: readChange.unreadMentions,
                               isUrgent: unread.isUrgent)
         // The counters are the server's own, so the badge cannot drift from what the thread list
-        // shows; the divider reads `lastViewedAt`, which the same frame moved.
+        // shows. `lastViewedAt` moves with them; `dividerViewedAt` deliberately does not — this frame
+        // is the read this pane just performed (or one made while it is open), and a divider that
+        // erases itself the moment it is drawn would never be seen (upstream's `isThreadVisible`
+        // rule in `app/actions/websocket/threads.ts`).
     }
 
     private func replaceReply(_ post: MMPost) {
@@ -937,6 +988,18 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
 
     func isExpanded(_ postID: String) -> Bool { expandedPostIDs.contains(postID) }
 
+    /// Take the divider's position from the thread row, once, when the pane loads.
+    ///
+    /// Later rows (a follow toggle, a gap sweep, a `thread_updated`) carry a `last_viewed_at` that the
+    /// server may have moved — but the line the reader is looking at must stay where it was put when
+    /// the pane opened, or it would slide down the list as they read. That is upstream's rule, stated
+    /// at `dividerViewedAt`: the position moves on reads that happen *outside* this pane only.
+    private func takeDividerPosition(_ viewedAt: Int64) {
+        guard !hasTakenDividerPosition else { return }
+        hasTakenDividerPosition = true
+        dividerViewedAt = viewedAt
+    }
+
     // MARK: - Derivation
 
     /// Tell the owning pane what the root row should now say. Called from every path that changes the
@@ -953,10 +1016,14 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
             return
         }
         let chain = ThreadDerivation.chain(root: root, replies: replies)
+        // The divider comes from the same `PostListDerivation` the channel timeline uses, with the
+        // pane's own read position — one rule for both lists, so `thread.viewed_at` handling cannot
+        // drift from `channel_member.last_viewed_at` handling. The frozen position is the one to draw
+        // from; before the thread row has been read the server's own position is all there is.
         items = PostListDerivation.items(posts: chain,
                                          users: users,
                                          myUserID: myUserID,
-                                         lastViewedAt: lastViewedAt,
+                                         lastViewedAt: dividerViewedAt ?? lastViewedAt,
                                          expandedPostIDs: expandedPostIDs,
                                          pendingPostIDs: pendingReplyIDs,
                                          now: now(),

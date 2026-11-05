@@ -249,6 +249,126 @@ final class T36ThreadViewModelTests: XCTestCase {
         XCTAssertTrue(model.unread.isUnread, "the badge stays until a read actually lands")
     }
 
+    // MARK: - The unread divider (t_dbf5395b)
+
+    /// The pane's rows are derived by the same `PostListDerivation` as the channel timeline, fed with
+    /// the thread's own read position: the line goes in front of the first reply created after
+    /// `last_viewed_at`, and after the root and the replies the reader has already seen.
+    func testTheUnreadDividerSitsBeforeTheFirstUnseenReply() async {
+        let service = FakeThreadService()
+        service.root = post("root", at: 100)
+        service.pages = [page(root: "root", replies: [("r1", 200), ("r2", 300)])]
+        service.threadRow = MMThread(id: "root", replyCount: 2, lastReplyAt: 300,
+                                     lastViewedAt: 150, post: post("root", at: 100),
+                                     unreadReplies: 2)
+        let model = makeModel(service: service)
+
+        await model.load()
+
+        XCTAssertEqual(model.items.compactMap(\.postID), ["root", "r1", "r2"],
+                       "the divider is an item between rows, never a row of its own")
+        guard let divider = model.items.firstIndex(of: .newMessages) else {
+            return XCTFail("no unread divider though two replies are newer than "
+                           + "last_viewed_at 150: \(model.items.map(\.id))")
+        }
+        XCTAssertGreaterThan(divider, model.items.firstIndex(where: { $0.postID == "root" })!,
+                             "the root was read at 150, so the line belongs below it")
+        XCTAssertEqual(model.items[divider + 1].postID, "r1",
+                       "the divider must precede the first unseen reply, not the newest one")
+    }
+
+    /// `nil` is unknown, never "everything is read": a thread the reader does not follow has no row,
+    /// so there is no read position to place a line at, and a thread read up to its newest reply has
+    /// nothing to mark. Neither case may invent a divider.
+    func testNoDividerWithoutAFollowedRowOrWhenEverythingIsRead() async {
+        let service = FakeThreadService()
+        service.root = post("root", at: 100)
+        service.pages = [page(root: "root", replies: [("r1", 200)])]
+        service.threadRow = nil
+        let unfollowed = makeModel(service: service)
+
+        await unfollowed.load()
+
+        XCTAssertEqual(unfollowed.followState, .notFollowing)
+        XCTAssertFalse(unfollowed.items.contains(.newMessages),
+                       "a thread with no thread row has no read position to draw a line from")
+
+        service.threadRow = MMThread(id: "root", replyCount: 1, lastReplyAt: 200,
+                                     lastViewedAt: 900, post: post("root", at: 100))
+        let read = makeModel(service: service)
+
+        await read.load()
+
+        XCTAssertFalse(read.items.contains(.newMessages), "nothing is newer than where the reader stopped")
+    }
+
+    /// **The upstream rule this card exists for** (`app/actions/websocket/threads.ts`: a
+    /// `thread_read_changed` frame does not move `viewed_at` while that thread is on screen).
+    ///
+    /// Opening a thread marks it read, and the read answer carries `last_viewed_at = now`. If the
+    /// divider were drawn from that number it would exist only for the frames between the load and
+    /// the read answer — invisible in the app, unassertable in a live test. The line therefore stays
+    /// where the load put it, and only a read made *outside* this pane moves it.
+    func testOpeningThePaneDoesNotEraseTheDividerItJustDrew() async {
+        let service = FakeThreadService()
+        service.root = post("root", at: 100)
+        service.pages = [page(root: "root", replies: [("r1", 200), ("r2", 300)])]
+        service.threadRow = MMThread(id: "root", replyCount: 2, lastReplyAt: 300,
+                                     lastViewedAt: 150, post: post("root", at: 100),
+                                     unreadReplies: 2)
+        service.readAnswer = MMThread(id: "root", replyCount: 2, lastReplyAt: 300,
+                                      lastViewedAt: 10_000, post: post("root", at: 100),
+                                      unreadReplies: 0, unreadMentions: 0)
+        let model = makeModel(service: service)
+        await model.load()
+
+        await model.markRead()
+
+        XCTAssertTrue(model.didMarkRead)
+        XCTAssertFalse(model.unread.isUnread, "the badge is cleared by the read that landed")
+        XCTAssertEqual(model.unreadDividerPostID, "r1",
+                       "the line must outlive the read the pane performed on mount")
+
+        // A read frame for *this* thread (another client, or this pane's own echo) is the same rule.
+        _ = model.handle(.threadReadChanged(SocketThreadReadChanged(threadID: "root",
+                                                                    channelID: "c1",
+                                                                    timestamp: 20_000,
+                                                                    unreadReplies: 0,
+                                                                    unreadMentions: 0,
+                                                                    previousUnreadReplies: 0,
+                                                                    previousUnreadMentions: 0)))
+        XCTAssertEqual(model.unreadDividerPostID, "r1", "a frame for the open thread does not move it")
+
+        // A whole-team read happened with this thread off the screen, so it does move.
+        _ = model.handle(.threadReadChanged(SocketThreadReadChanged(threadID: "",
+                                                                    channelID: "",
+                                                                    timestamp: 20_000,
+                                                                    unreadReplies: 0,
+                                                                    unreadMentions: 0,
+                                                                    previousUnreadReplies: 0,
+                                                                    previousUnreadMentions: 0)))
+        XCTAssertNil(model.unreadDividerPostID,
+                     "a team-wide read of 20_000 is past every row here, so nothing is new")
+    }
+
+    /// "Mark as unread" on a reply puts the line in front of **that** reply, which is what upstream
+    /// does by stamping `viewed_at = post.createAt - 1` (`app/actions/remote/thread.ts`).
+    func testMarkUnreadPutsTheDividerInFrontOfTheChosenReply() async {
+        let service = FakeThreadService()
+        service.root = post("root", at: 100)
+        service.pages = [page(root: "root", replies: [("r1", 200), ("r2", 300)])]
+        service.threadRow = MMThread(id: "root", replyCount: 2, lastReplyAt: 300,
+                                     lastViewedAt: 900, post: post("root", at: 100))
+        let model = makeModel(service: service)
+        await model.load()
+        XCTAssertNil(model.unreadDividerPostID, "everything is read before the action")
+
+        await model.markUnread(from: "r2")
+
+        XCTAssertEqual(model.unreadDividerPostID, "r2")
+        XCTAssertEqual(service.markUnreadCalls.map(\.postID), ["r2"])
+    }
+
     // MARK: - Paging
 
     func testLoadEarlierPrependsTheOlderReplyPage() async {
@@ -644,6 +764,7 @@ final class FakeThreadService: ThreadServing {
     private(set) var threadListRequests: [(teamID: String, before: String?, unreadOnly: Bool)] = []
     private(set) var followWrites: [(following: Bool, threadID: String)] = []
     private(set) var readCalls: [(timestamp: Int64, threadID: String)] = []
+    private(set) var markUnreadCalls: [(threadID: String, postID: String)] = []
     private var servedPages = 0
     /// The thread list answers keyed by the `before` cursor (`nil` = first page).
     var threadPages: [String?: MMThreadList] = [:]
@@ -684,7 +805,8 @@ final class FakeThreadService: ThreadServing {
     }
 
     func markUnread(teamID: String, threadID: String, postID: String) async throws -> MMThread {
-        readAnswer ?? MMThread(id: threadID, post: root ?? MMPost(id: threadID))
+        markUnreadCalls.append((threadID: threadID, postID: postID))
+        return readAnswer ?? MMThread(id: threadID, post: root ?? MMPost(id: threadID))
     }
 
     func post(id: String) async throws -> MMPost {

@@ -601,6 +601,101 @@ final class T36ThreadsUITests: XCTestCase {
         attach(app, "t36-13-read-cleared")
     }
 
+    // MARK: - 9. The unread divider inside the pane (t_dbf5395b)
+
+    /// Opening a thread that has unread replies draws the "New messages" line in front of the first
+    /// reply the reader has not read — placed from the server's own `last_viewed_at`, through the same
+    /// `PostListDerivation` the channel timeline uses.
+    ///
+    /// What makes this assertable instead of a race:
+    ///  * the fixture **writes** the read marker (`PUT …/read/{ts}`) and posts the unseen replies
+    ///    after it, so "first unseen" is a fact about the server, not about when the app launched;
+    ///  * opening the pane marks the thread read, so the server's `unread_replies` drops to **0**
+    ///    while the line stays on screen. A divider drawn straight from the read answer would be gone
+    ///    by then (`last_viewed_at` is now); upstream keeps `viewed_at` fixed for the thread being read
+    ///    (`isThreadVisible` in `app/actions/websocket/threads.ts`), and this asserts that rule end to
+    ///    end rather than trusting the unit case alone;
+    ///  * the pane's line has its own identifier (`threadNewMessages`), so this cannot pass on the
+    ///    channel timeline's `channelNewMessages` — which must not be on screen at all here.
+    func testTheUnreadDividerSitsBeforeTheFirstUnseenReply() throws {
+        let stamp = Int(Date().timeIntervalSince1970)
+        let root = try post(message: "t36 divider root \(stamp)", rootID: nil, as: secondToken)
+        assertAuthoredBy(secondUserID, root, "the divider fixture root")
+        let rootID = try XCTUnwrap(root["id"] as? String)
+        // A reply of mine, so the fixture also has a row on the *seen* side of the marker.
+        let mine = try post(message: "t36 divider seen \(stamp)", rootID: rootID, as: token)
+        assertAuthoredBy(userID, mine, "the reply before the read marker")
+        let seenID = try XCTUnwrap(mine["id"] as? String)
+        try follow(rootID)
+
+        // The read marker itself: everything created up to here is read. Written, not assumed.
+        let marker = try markThreadRead(rootID)
+        // A gap larger than a scheduler hiccup, so the replies below are unambiguously newer.
+        Thread.sleep(forTimeInterval: 0.4)
+        let unseen1 = try post(message: "t36 divider unseen one \(stamp)", rootID: rootID, as: secondToken)
+        assertAuthoredBy(secondUserID, unseen1, "the first unseen reply")
+        let firstUnseenID = try XCTUnwrap(unseen1["id"] as? String)
+        Thread.sleep(forTimeInterval: 0.2)
+        let unseen2 = try post(message: "t36 divider unseen two \(stamp)", rootID: rootID, as: secondToken)
+        assertAuthoredBy(secondUserID, unseen2, "the second unseen reply")
+
+        // The oracle, from the server: two unread replies, and the marker really is where we put it.
+        var entry: ThreadEntry?
+        XCTAssertTrue(waitUntil(timeout: 20) {
+            entry = self.fetchThread(rootID)
+            return entry?.unreadReplies == 2
+        }, "the fixture leaves two unread replies; the server says \(String(describing: entry))")
+        let lastViewedAt = try XCTUnwrap(entry?.lastViewedAt,
+                                         "the thread row must carry last_viewed_at — the divider is placed from it")
+        XCTAssertEqual(lastViewedAt, marker,
+                       "the fixture's read marker is what the server stores as last_viewed_at")
+
+        let entries = try threadEntries(rootID)
+        let unseen = chronological(entries.filter { $0.createAt > lastViewedAt })
+        XCTAssertEqual(unseen.first, firstUnseenID,
+                       "by the server's own create_at the first unseen post is the fixture's first unseen "
+                       + "reply; the thread answers \(entries) with last_viewed_at \(lastViewedAt)")
+        XCTAssertTrue(unseen.contains(try XCTUnwrap(unseen2["id"] as? String)))
+        XCTAssertFalse(unseen.contains(seenID), "my reply was created before the marker, so it is read")
+
+        let app = launchAndOpenChannel()
+        element(app, "nativeChannelThreadsButton").tap()
+        XCTAssertTrue(element(app, "nativeThreadsList").waitForExistence(timeout: 40),
+                      "the Threads button must open the followed list:\n\(app.debugDescription)")
+        let row = element(app, "globalThreads.row.\(rootID)")
+        XCTAssertTrue(row.waitForExistence(timeout: 40),
+                      "the fixture thread must be a row of the followed list:\n\(app.debugDescription)")
+        row.tap()
+        XCTAssertTrue(element(app, "threadPane").waitForExistence(timeout: 40),
+                      "the unread thread must open its pane:\n\(app.debugDescription)")
+
+        // The read that opening performs lands on the server…
+        XCTAssertTrue(waitUntil(timeout: 25) {
+            (self.fetchThread(rootID)?.unreadReplies ?? -1) == 0
+        }, "opening a thread marks it read on the server (T36-AV criterion 4)")
+        // …and the line it drew is still there. That is the whole point: it is not a pre-read frame.
+        let divider = element(app, "threadNewMessages")
+        XCTAssertTrue(divider.waitForExistence(timeout: 20),
+                      "a thread opened with unread replies must draw the divider, and keep it after the "
+                      + "read it performs on mount:\n\(app.debugDescription)")
+        XCTAssertEqual(divider.label, "New messages")
+        XCTAssertFalse(element(app, "channelNewMessages").exists,
+                       "the pane's divider carries the pane's identifier, not the channel timeline's")
+
+        let firstUnseen = element(app, "thread.post.\(firstUnseenID)")
+        XCTAssertTrue(firstUnseen.waitForExistence(timeout: 20),
+                      "the first unseen reply must be a row of the pane:\n\(app.debugDescription)")
+        let seenRow = element(app, "thread.post.\(seenID)")
+        XCTAssertTrue(seenRow.exists, "the reply before the marker is still a row:\n\(app.debugDescription)")
+        XCTAssertLessThan(divider.frame.minY, firstUnseen.frame.minY,
+                          "the divider must sit above the first unseen reply; frames: divider "
+                          + "\(divider.frame), first unseen \(firstUnseen.frame)")
+        XCTAssertGreaterThan(divider.frame.minY, seenRow.frame.minY,
+                             "and below the last reply the reader had already seen; frames: divider "
+                             + "\(divider.frame), seen \(seenRow.frame)")
+        attach(app, "t36-14-pane-divider")
+    }
+
     // MARK: - Server helpers
 
     struct ThreadEntry {
@@ -608,6 +703,9 @@ final class T36ThreadsUITests: XCTestCase {
         let unreadReplies: Int
         let unreadMentions: Int
         let replyCount: Int
+        /// The server's own read position for this thread (`last_viewed_at`, ms) — the value the pane
+        /// places its unread divider from.
+        let lastViewedAt: Int64
         /// The root post's author, as the row's copy names it.
         let authorLabel: String
 
@@ -737,6 +835,31 @@ final class T36ThreadsUITests: XCTestCase {
                        "the fixture's explicit follow must be accepted")
     }
 
+    /// `PUT /users/me/teams/{team}/threads/{thread_id}/read/{timestamp}` — write the read marker the
+    /// unread divider is placed from, and answer the timestamp that was sent.
+    ///
+    /// Measured on the 9.11.19 fixture: the answer is the thread object and carries
+    /// `last_viewed_at` = the timestamp that was sent, which is why a test can assert the marker's
+    /// exact position instead of "some time around now".
+    @discardableResult
+    private func markThreadRead(_ threadID: String) throws -> Int64 {
+        let marker = Int64(Date().timeIntervalSince1970 * 1000)
+        var request = URLRequest(url: serverURL.appendingPathComponent(
+            "api/v4/users/me/teams/\(teamID!)/threads/\(threadID)/read/\(marker)"))
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(token!)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("XMLHttpRequest", forHTTPHeaderField: "XMLHttpRequest")
+        request.httpBody = Data("{}".utf8)
+        let (data, response) = try synchronous(request)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200,
+                       "the fixture's read marker must be accepted")
+        let answer = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(answer?["last_viewed_at"] as? Int64, marker,
+                       "the read answer carries the marker it stored, so the divider's placement is exact")
+        return marker
+    }
+
     /// The server's own list entry for one thread, from the same page shape the app asks for.
     private func teamThreadEntry(_ threadID: String, perPage: Int = 60) throws -> ThreadEntry? {
         try teamThreads(perPage: perPage).first { $0.id == threadID }
@@ -791,6 +914,7 @@ final class T36ThreadsUITests: XCTestCase {
                                unreadReplies: entry["unread_replies"] as? Int ?? 0,
                                unreadMentions: entry["unread_mentions"] as? Int ?? 0,
                                replyCount: entry["reply_count"] as? Int ?? 0,
+                               lastViewedAt: entry["last_viewed_at"] as? Int64 ?? 0,
                                authorLabel: post?["username"] as? String ?? "")
         }
     }
@@ -813,6 +937,7 @@ final class T36ThreadsUITests: XCTestCase {
                            unreadReplies: entry["unread_replies"] as? Int ?? 0,
                            unreadMentions: entry["unread_mentions"] as? Int ?? 0,
                            replyCount: entry["reply_count"] as? Int ?? 0,
+                           lastViewedAt: entry["last_viewed_at"] as? Int64 ?? 0,
                            authorLabel: post?["username"] as? String ?? "")
     }
 

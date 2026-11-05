@@ -508,7 +508,10 @@ struct ThreadPostListView: View {
         case .dateSeparator(let separator):
             PostDateSeparatorView(separator: separator)
         case .newMessages:
-            NewMessagesDividerView()
+            // The pane's own identifier: the channel timeline's `channelNewMessages` is the same
+            // component, and a live case that asserts *where* the line sits must be able to say which
+            // list it is looking at (t_dbf5395b).
+            NewMessagesDividerView(identifier: "threadNewMessages")
         case .gap(let gap):
             // A thread's window is loaded whole (root + every reply), so it never produces one; the
             // case is drawn anyway rather than swallowing it, so the two lists cannot drift.

@@ -6,7 +6,7 @@ Pins: M=v2.45.0@162f2560d0e1 ; W=v12.0.1@987e57120dca
 
 ## Summary
 
-159 capabilities: **130 yes**, **5 partial**, **18 to be implemented**, **6 out of scope** — of which **13** need an owner decision.
+159 capabilities: **131 yes**, **4 partial**, **18 to be implemented**, **6 out of scope** — of which **13** need an owner decision.
 
 A row lands in Implemented only with evidence that resolves (a test case, or a recorded observation). A claim without evidence is Partial, whatever the code looks like. Every gap carries a card id or the owner decision that blocks it.
 
@@ -143,6 +143,7 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 | thread | socket-liveness-in-the-pane | app/screens/thread/thread_post_list/thread_post_list.tsx@162f2560 | MattermostTests/T36ThreadViewModelTests.swift::testAReplyArrivingOnTheSocketLandsOnceAtIndexWithoutARefetch; ::testADeleteOnTheSocketTurnsTheReplyIntoATombstone |
 | thread | tap-a-root-s-reply-line-to-open-the-pane | app/screens/thread/index.tsx@162f2560 | MattermostTests/T36ChannelReplyLineTests.swift::testTheLineIsDrawnOnlyForARootOnTheChannelSurface |
 | thread | thread-drafts-are-per-root | app/components/post_draft/draft_handler/draft_handler.tsx@162f2560 | MattermostTests/T35ComposerDraftStoreTests.swift::testAChannelAndItsThreadKeepSeparateDrafts; T35ComposerViewModelTests.swift::testAThreadDraftIsSeparateFromTheChannelsDraft |
+| thread | unread-divider-from-thread-viewed-at | app/screens/thread/thread_post_list/thread_post_list.tsx@162f2560 | MattermostTests/T36ThreadViewModelTests.swift::testTheUnreadDividerSitsBeforeTheFirstUnseenReply; ::testOpeningThePaneDoesNotEraseTheDividerItJustDrew; MattermostUITests/T36-ThreadsUITests.swift::testTheUnreadDividerSitsBeforeTheFirstUnseenReply |
 | web-fallback | server-capability-probe-before-offering-a-surface | app/products/manifest@162f2560 | MattermostTests/SurfaceModeResolverTests.swift::testOnlyTheApprovedRegistryDefaultsToNative |
 
 ## Partial
@@ -153,7 +154,6 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 | channel-header | member-count-subtitle | app/screens/channel/header/header.tsx@162f2560 | MISSING - no case asserts a member count; the subtitle is a constant | no evidence that asserts it |
 | files-attachments | zoom-and-share-an-image | app/screens/gallery/index.tsx@162f2560 | MISSING - no case asserts zoom or the share sheet; the store's full-byte path is tested (T38AttachmentTests::testOriginalBytesAreAvailableForTheFileReaders) | no evidence that asserts it |
 | notifications | tap-fallbacks-when-the-post-is-gone | app/utils/notification/index.ts@162f2560 | MISSING - the poller surfaces session expiry, but no test asserts the tap-through fallback copy for a deleted post or a left channel | no evidence that asserts it |
-| thread | unread-divider-from-thread-viewed-at | app/screens/thread/thread_post_list/thread_post_list.tsx@162f2560 | MISSING - no case asserts the divider in the thread pane; the same rule is only tested on the channel (T34PostListTests::testUnreadDividerSitsBeforeTheFirstUnseenPostAndSkipsMyOwn) | no evidence that asserts it |
 
 ## To be implemented
 
