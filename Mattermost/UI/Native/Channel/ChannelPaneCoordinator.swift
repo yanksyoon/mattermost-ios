@@ -61,6 +61,10 @@ final class ChannelPaneCoordinator: ObservableObject {
     /// T4f: the per-server typing seam (socket + `/config/client`), shared by the pane and its
     /// composer so both read the same interval.
     private var typingTransports: [UUID: SessionComposerTypingTransport] = [:]
+    /// T4g: the per-server posting-policy read (the channel's `delete_at` + the role permissions),
+    /// shared by every composer of that server — a channel's pane and the thread pane opened on it
+    /// must not hold two different answers about whether the channel admits a write.
+    private var postingPolicies: [UUID: ComposerPostingPolicyServing] = [:]
 
     /// Test seam: replaces the production session-backed service (T33's `serviceFactory`).
     var serviceFactory: ((ServerConfig) -> ChannelServing)?
@@ -72,6 +76,8 @@ final class ChannelPaneCoordinator: ObservableObject {
     var bookmarkServiceFactory: ((ServerConfig) -> ChannelBookmarkServing)?
     /// Test seam: replaces the production draft store.
     var draftStoreFactory: ((ServerConfig) -> ComposerDraftStoring)?
+    /// Test seam: replaces the production posting policy (T4g).
+    var postingPolicyFactory: ((ServerConfig) -> ComposerPostingPolicyServing)?
     /// T4f: how a `user_typing` frame leaves the app — the rail's one socket per server. Bound in
     /// `MattermostApp.bindShellStores`; unset in a host with no rail (unit tests), where the composer
     /// then announces nothing.
@@ -263,6 +269,23 @@ final class ChannelPaneCoordinator: ObservableObject {
         return draftStores.store(for: server)
     }
 
+    /// T4g: one posting policy per server, shared by the channel composers and the thread composers
+    /// (`ThreadCoordinator.postingPolicy(for:)` borrows this one).
+    ///
+    /// Per server, not per channel: the read is stateless — it asks the channel id it is given — and a
+    /// single object keeps the "resolved per call" session rule in one place.
+    func postingPolicy(for server: ServerConfig) -> ComposerPostingPolicyServing {
+        if let postingPolicyFactory { return postingPolicyFactory(server) }
+        if let existing = postingPolicies[server.id] { return existing }
+        let auth = self.auth
+        let policy = SessionComposerPostingPolicy {
+            guard let auth, let session = try? auth.session(for: server) else { return nil }
+            return session.client
+        }
+        postingPolicies[server.id] = policy
+        return policy
+    }
+
     private func postOptionsService(for server: ServerConfig) -> PostOptionsServing {
         if let postOptionsServiceFactory { return postOptionsServiceFactory(server) }
         let auth = self.auth
@@ -329,7 +352,8 @@ final class ChannelPaneCoordinator: ObservableObject {
                                          teamID: teamID,
                                          myUserID: auth?.userID(for: server.id),
                                          emojiCatalogue: emojiCatalogue,
-                                         typing: typingTransport(for: server))
+                                         typing: typingTransport(for: server),
+                                         posting: postingPolicy(for: server))
         composers[server.id, default: [:]][channelID] = composer
         return composer
     }
@@ -376,6 +400,12 @@ final class ChannelPaneCoordinator: ObservableObject {
         // threads list), and its menu still has to follow a pin or a save from another client.
         for (_, options) in postOptionsModels[serverID] ?? [:] {
             options.handle(event)
+        }
+        // T4g: every warm composer follows the channel's lifecycle. It is the only way a reader who is
+        // *in* a channel when somebody archives it (or moves their membership into a read-only scheme)
+        // learns it without leaving the pane: the composer's state is not a post, so no window sees it.
+        for (_, composer) in composers[serverID] ?? [:] {
+            composer.handle(event)
         }
         guard let byChannel = models[serverID], !byChannel.isEmpty else { return }
         for (_, model) in byChannel {
@@ -425,6 +455,8 @@ final class ChannelPaneCoordinator: ObservableObject {
         // T4f: the typing seam carries the previous session's socket wiring; a signed-out server
         // must not announce anything on it.
         typingTransports[serverID] = nil
+        // T4g: the posting policy's client resolution belongs to the session that just ended.
+        postingPolicies[serverID] = nil
         // The composer goes with the list: a draft is already in the store, and the store is cleared
         // below (a signed-out device keeps no half-typed messages from the previous session).
         composers[serverID] = nil

@@ -152,10 +152,21 @@ final class ComposerViewModel: ObservableObject {
     /// response type, and a later screen (a plugin dialog, `goto_location`) has the payload without
     /// asking the server twice.
     @Published private(set) var lastCommandResponse: ComposerCommandResponse?
+    /// T4g: whether this channel admits a write at all, and if not, the sentence that says why.
+    ///
+    /// Starts `.open` and is re-derived from the server's own facts when the view appears and on
+    /// every channel-lifecycle socket event. It deliberately does **not** start in a "resolving"
+    /// state: the read costs four round trips (`GET /channels/{id}`, `/users/me`, the memberships and
+    /// `POST /roles/names`) and holding the input back for them would blank the composer of every
+    /// healthy channel for as long as they take. In a channel that turns out to be archived the
+    /// input is replaced by the banner a moment after it appears, and the send is refused either way
+    /// (`send()`), so the window cannot produce a request the server would reject.
+    @Published private(set) var posting: ComposerPostingState = .open
 
     /// Whether the send button is enabled. An upload still in flight blocks the send: sending a file
     /// id that does not exist yet would post a message whose attachment never arrives.
     var canSend: Bool {
+        guard posting.canPost else { return false }
         guard phase != .sending, !isUploading else { return false }
         let body = ComposerMarkdownEditing.messageForSending(text)
         if mode.isEditing { return !body.isEmpty }
@@ -252,6 +263,14 @@ final class ComposerViewModel: ObservableObject {
     private var typingSettingsTask: Task<Void, Never>?
     /// When this message's last `user_typing` frame went out — upstream's `lastTypingEventSent`.
     private var lastTypingAnnouncement: Date?
+    /// T4g: where the posting state's facts come from. `nil` in a host with no server (a preview, the
+    /// composer's draft fixtures, a test double that predates this card): the state stays `.open` and
+    /// the composer behaves exactly as it did before.
+    private let postingPolicy: ComposerPostingPolicyServing?
+    /// The last facts the policy answered, so a socket event can patch them (`channel_updated` carries
+    /// the channel, `channel_deleted` a `delete_at`) without asking the server again.
+    private var postingFacts: ComposerPostingFacts?
+    private var postingTask: Task<Void, Never>?
 
     init(channelID: String,
          service: ComposerServing,
@@ -262,6 +281,7 @@ final class ComposerViewModel: ObservableObject {
          emojiCatalogue: EmojiCatalogue? = nil,
          commandCatalogue: SlashCommandCatalogue = .shared,
          typing: ComposerTypingTransporting? = nil,
+         posting: ComposerPostingPolicyServing? = nil,
          now: @escaping () -> Date = { Date() },
          autocompleteDebounce: Duration = .milliseconds(200)) {
         self.channelID = channelID
@@ -273,6 +293,7 @@ final class ComposerViewModel: ObservableObject {
         self.emojiCatalogue = emojiCatalogue
         self.commandCatalogue = commandCatalogue
         self.typingTransport = typing
+        self.postingPolicy = posting
         self.now = now
         self.autocompleteDebounce = autocompleteDebounce
     }
@@ -281,6 +302,90 @@ final class ComposerViewModel: ObservableObject {
     /// view exists). Weak, because the list owns the composer's lifetime, not the other way round.
     func attach(sink: ComposerPostSink) {
         self.sink = sink
+    }
+
+    // MARK: - Posting state (T4g)
+
+    /// Ask the server whether this channel admits a write, and re-derive the state from the answer.
+    ///
+    /// Called when the composer's view appears (once per pane appearance) and again on every
+    /// channel-lifecycle socket event. A no-op when the host installed no policy.
+    ///
+    /// Answers that arrive out of order are impossible: a new call cancels the one before it, so the
+    /// state always reflects the most recently *asked* question rather than the most recently
+    /// *answered* one (the same generation rule the autocomplete uses).
+    func refreshPostingState() {
+        guard postingPolicy != nil else { return }
+        postingTask?.cancel()
+        postingTask = Task { [weak self] in
+            await self?.resolvePostingState()
+        }
+    }
+
+    /// The worker behind `refreshPostingState()`: ask, then apply. Internal rather than private so a
+    /// test can await the same code the fire-and-forget entry point runs (the cancellation guard is
+    /// the caller's, and a test has nothing to cancel).
+    func resolvePostingState() async {
+        guard let postingPolicy else { return }
+        let facts = await postingPolicy.facts(channelID: channelID, teamID: teamID)
+        guard !Task.isCancelled else { return }
+        // No answer is not a denial: keep whatever the composer knew (see `ComposerPosting`'s
+        // header). The next channel event, or the next pane appearance, asks again.
+        guard let facts else { return }
+        apply(posting: facts)
+    }
+
+    /// Apply one socket event that can change the posting state.
+    ///
+    /// Only the channel's own lifecycle, and each half is a different repair:
+    ///  * `channel_deleted` / a `channel_updated` with a non-zero `delete_at` — the frame already
+    ///    carries the fact, so the banner is drawn without a request;
+    ///  * `channel_restored` — the frame names only the id (9.11.19), so the whole answer is re-read
+    ///    rather than the archive flag guessed at.
+    ///
+    /// Deliberately not `channel_created`: a composer exists for one channel id, and a creation names
+    /// another. Membership changes (`user_added`/`user_removed`) re-read too: a role set that lost
+    /// `create_post` is exactly the read-only case, and the server publishes the row it changed.
+    func handle(_ event: SocketEvent) {
+        switch event {
+        case .channelUpdated(let channel) where channel.id == channelID:
+            var facts = postingFacts ?? ComposerPostingFacts(channel: channel, permissions: nil)
+            facts.channel = channel
+            apply(posting: facts)
+        case .channelDeleted(let deleted) where deleted.channelID == channelID:
+            var facts = postingFacts ?? ComposerPostingFacts(channel: MMChannel(id: channelID),
+                                                            permissions: nil)
+            facts.channel.deleteAt = deleted.deleteAt == 0 ? 1 : deleted.deleteAt
+            apply(posting: facts)
+        case .channelRestored(let restored) where restored.channelID == channelID:
+            refreshPostingState()
+        case .channelMemberUpdated(let update) where update.channelID == channelID:
+            // My own membership row changed (a scheme move, an admin edit): the roles it carries are
+            // one of the three sources of the permission union, so the union is re-read.
+            if update.member.userId == myUserID { refreshPostingState() }
+        case .userAdded(let change) where change.channelID == channelID:
+            if change.userID == myUserID { refreshPostingState() }
+        case .userRemoved(let change) where change.channelID == channelID:
+            if change.userID == myUserID { refreshPostingState() }
+        default:
+            break
+        }
+    }
+
+    /// Store the facts and re-derive. One place, so the socket patch and the initial read cannot
+    /// disagree about the rule.
+    private func apply(posting facts: ComposerPostingFacts) {
+        postingFacts = facts
+        let next = ComposerPostingState.derive(facts)
+        guard next != posting else { return }
+        posting = next
+        // A posting state that forbids a write also ends an in-flight suggestion list: offering
+        // completions for a message that cannot be sent is a control that leads nowhere.
+        if !next.canPost {
+            suggestions = []
+            activeTrigger = nil
+            autocompleteTask?.cancel()
+        }
     }
 
     // MARK: - Text entry
@@ -738,7 +843,18 @@ final class ComposerViewModel: ObservableObject {
     // MARK: - Send / edit / delete
 
     /// Send the current mode. Safe to call twice: the second call is refused while `phase == .sending`.
+    ///
+    /// T4g: a channel that admits no write refuses **here**, locally, with the banner's own sentence
+    /// — before `canSend` (which is also false) could swallow the attempt silently. The text, the
+    /// attachments and the draft all stay: nothing was sent, so nothing may be lost. This is the
+    /// second line; the first is the view, which draws the banner instead of an input
+    /// (`ComposerView.postingBanner`), so a reader never reaches this guard in practice — a Return key
+    /// that was already in flight, a Retry, or a host that draws its own input is what it is for.
     func send() async {
+        guard posting.canPost else {
+            phase = .failed(posting.message)
+            return
+        }
         guard canSend else { return }
         let body = ComposerMarkdownEditing.messageForSending(text)
         switch mode {
@@ -861,6 +977,12 @@ final class ComposerViewModel: ObservableObject {
     /// id) it is treated as a success instead of being sent twice — the failure mode a blind retry has.
     func retry() async {
         guard case .failed = phase, let command = pendingCommand else { return }
+        // T4g: the channel may have been archived (or the membership narrowed) since the attempt — a
+        // retry is a second write, and the same sentence refuses it.
+        guard posting.canPost else {
+            phase = .failed(posting.message)
+            return
+        }
         if case .create(_, let pendingID) = command, let landed = sink?.post(withPendingID: pendingID) {
             sink?.confirmPendingPost(id: pendingID, with: landed)
             finishSuccessfully(note: nil)

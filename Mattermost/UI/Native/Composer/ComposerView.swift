@@ -3,11 +3,11 @@
 //        (the growing text input), send_button/send_button.tsx, quick_actions/quick_actions.tsx
 //        (attach / camera / emoji), uploads/uploads.tsx (the attachment tray with progress + cancel),
 //        autocomplete/autocomplete.tsx (the suggestion list above the input), typing/typing.tsx,
-//        app/screens/edit_post/edit_post.tsx (the "Editing" header), thread/reply banner.
-//        Read and **not** drawn: archived/ + read_only/ (the banners that replace the input when
-//        posting is not possible) — this build has no archived-channel or read-only-membership state,
-//        so the input stays and the server's refusal reaches the failure banner instead
-//        (docs/t35-build-note.md §5).
+//        app/screens/edit_post/edit_post.tsx (the "Editing" header), thread/reply banner,
+//        post_draft/archived/index.tsx + post_draft/read_only/index.tsx (the banners that replace the
+//        input when posting is not possible). T4g draws those two banners: the state they state is
+//        derived in ComposerPosting.swift from the channel's `delete_at` and the membership's role
+//        permissions, and `send()` refuses with the same sentence.
 // Licence: Apache-2.0 — behaviour ported with attribution per docs/THIRD_PARTY_NOTICES.md §12; no
 // upstream source copied. The SwiftUI decomposition is this repo's own (component-map.md §3).
 
@@ -228,15 +228,12 @@ struct ComposerView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        VStack(spacing: 6) {
-            if let note = model.statusNote { statusLine(note) }
-            if case .failed(let reason) = model.phase { failureBanner(reason) }
-            if model.mode != .newPost { modeBanner }
-            if !model.suggestions.isEmpty { suggestionList }
-            if model.isPreviewing { preview }
-            if !model.attachments.isEmpty { attachmentTray }
-            if let typing { TypingRow(indicator: typing, identifier: typingRowIdentifier) }
-            inputRow
+        Group {
+            if model.posting.canPost {
+                composerBody
+            } else {
+                postingBanner
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
@@ -249,6 +246,10 @@ struct ComposerView: View {
         .accessibilityIdentifier("channelComposer")
         .task {
             await model.restoreDraftIfNeeded()
+            // T4g: the write surface's state, asked once per pane appearance. The draft restore above
+            // already ran, so the words a reader left here are in the model even if the banner is
+            // about to replace the input (they are simply not sendable until the channel is restored).
+            model.refreshPostingState()
             attachUITestFileIfRequested()
         }
         .onChange(of: model.mode) { _, _ in
@@ -267,6 +268,20 @@ struct ComposerView: View {
             if case .success(let urls) = result, let url = urls.first {
                 load(url: url)
             }
+        }
+    }
+
+    /// Everything the reader types with: input, controls, autocomplete, attachments, banners.
+    private var composerBody: some View {
+        VStack(spacing: 6) {
+            if let note = model.statusNote { statusLine(note) }
+            if case .failed(let reason) = model.phase { failureBanner(reason) }
+            if model.mode != .newPost { modeBanner }
+            if !model.suggestions.isEmpty { suggestionList }
+            if model.isPreviewing { preview }
+            if !model.attachments.isEmpty { attachmentTray }
+            if let typing { TypingRow(indicator: typing, identifier: typingRowIdentifier) }
+            inputRow
         }
     }
 
@@ -573,6 +588,41 @@ struct ComposerView: View {
     }
 
     // MARK: Banners
+
+    /// The replacement for the whole write surface when posting is impossible — upstream's
+    /// `post_draft/archived/index.tsx` and `post_draft/read_only/index.tsx`.
+    ///
+    /// Drawn *instead of* the input, the controls and the send button (upstream returns the banner
+    /// from `PostDraft` before `DraftHandler` is built), so there is no control here that could only
+    /// fail. The copy is the model's (`ComposerPostingState.message`), which is also the sentence
+    /// `send()` refuses with — one string, so the banner and the refusal cannot disagree.
+    ///
+    /// Two deliberate differences from upstream, both about affordances this shell already owns:
+    ///  * the archived banner has **no "Close Channel" button**: upstream's is a *navigation* device
+    ///    for a pushed screen, and this pane's header already carries Back, so a second control would
+    ///    only be another way to do one thing;
+    ///  * the copy is drawn without upstream's markdown emphasis (`**archived channel**`), because a
+    ///    plain `Text` would otherwise be read out with the asterisks by VoiceOver.
+    private var postingBanner: some View {
+        HStack(spacing: 9) {
+            Image(systemName: model.posting.glyph)
+                .font(.system(size: 18))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text(model.posting.message)
+                .font(.scaled(15))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .background(Color(uiColor: .secondarySystemBackground),
+                    in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(model.posting.message)
+        .accessibilityIdentifier(model.posting.identifier)
+    }
 
     private var modeBanner: some View {
         HStack(spacing: 8) {

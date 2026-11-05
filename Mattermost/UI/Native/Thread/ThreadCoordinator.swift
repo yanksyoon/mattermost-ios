@@ -138,7 +138,8 @@ final class ThreadCoordinator: ObservableObject {
                                          teamID: model.teamID,
                                          myUserID: auth?.userID(for: server.id),
                                          emojiCatalogue: emojiCatalogue,
-                                         typing: typingTransport(for: server))
+                                         typing: typingTransport(for: server),
+                                         posting: postingPolicy(for: server))
         composer.beginReply(to: root, authorLabel: model.rootAuthorLabel)
         composers[server.id, default: [:]][key] = composer
         trackComposer(serverID: server.id, key: key)
@@ -153,6 +154,14 @@ final class ThreadCoordinator: ObservableObject {
     /// object; this coordinator reaches it through the reference it holds for reply counts.
     private func typingTransport(for server: ServerConfig) -> ComposerTypingTransporting? {
         channelPanes?.typingTransport(for: server)
+    }
+
+    /// T4g: the posting-state seam, borrowed for the same reason as the typing transport: it asks
+    /// about a **channel**, and the channel panes' owner already holds one resolver per server. A
+    /// thread composer that decided "you may post here" from its own second copy could disagree with
+    /// the channel composer behind it.
+    private func postingPolicy(for server: ServerConfig) -> ComposerPostingPolicyServing? {
+        channelPanes?.postingPolicy(for: server)
     }
 
     private func trackComposer(serverID: UUID, key: String) {
@@ -307,6 +316,12 @@ final class ThreadCoordinator: ObservableObject {
         }
         for (_, list) in globalModels[serverID] ?? [:] {
             list.handle(event)
+        }
+        // T4g: a thread composer is a composer for a channel too — archiving that channel (or a
+        // membership that loses `create_post`) must replace its reply box with the same banner the
+        // channel pane draws.
+        for (_, composer) in composers[serverID] ?? [:] {
+            composer.handle(event)
         }
     }
 
