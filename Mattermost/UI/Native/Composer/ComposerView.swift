@@ -36,33 +36,76 @@ struct ComposerTextView: UIViewRepresentable {
     var placeholder: String
     var onEdit: (String, NSRange) -> Void
     var onSelection: (NSRange) -> Void
+    /// The height policy for the current text and device: 34/88 on a phone, 34/150 on a tablet or
+    /// Mac window, 56/220 at accessibility sizes (see `ComposerInputHeight`). Passed in rather than
+    /// read from the environment here, because the view is also built by fixtures with no Dynamic Type.
+    var limits: ComposerInputHeight.Limits
+    /// The measured height, reported upward. The frame is driven by this value — never by a
+    /// `maxHeight` — so the field grows with its text and stops exactly at the cap.
+    var onMeasure: (ComposerInputHeight.Measurement) -> Void
+    /// The `-uiTestExposeComposerInputGeometry` probe, or `nil` in every other build.
+    var probe: ComposerInputGeometryProbe? = nil
     /// Return sends; Shift+Return is a newline (see `ComposerReturnPolicy`).
     var onReturn: (Bool) -> Void
+    /// Whether hardware Shift is held.
+    ///
+    /// A property and not a direct `GCKeyboard` read inside the delegate, because Shift+Return at the
+    /// cap is one of the behaviours this card has to prove and a simulator cannot simulate the
+    /// keyboard: a unit test substitutes this closure. The default is the platform's answer.
+    var isShiftPressed: () -> Bool = { ComposerTextView.hardwareShiftIsPressed() }
 
-    func makeUIView(context: Context) -> UITextView {
-        let view = UITextView()
+    /// A hardware shift, where the platform can report one.
+    ///
+    /// `NSEvent` is not available to Mac Catalyst, so the modifier comes from GameController's view of
+    /// the attached keyboard. No keyboard (or no permission to see it) reads as "not shifted", which
+    /// makes Return send — the same as the on-screen key.
+    static func hardwareShiftIsPressed() -> Bool {
+        guard let input = GCKeyboard.coalesced?.keyboardInput else { return false }
+        return input.button(forKeyCode: .leftShift)?.isPressed == true
+            || input.button(forKeyCode: .rightShift)?.isPressed == true
+    }
+
+    func makeUIView(context: Context) -> ComposerInputTextView {
+        let view = ComposerInputTextView()
         view.delegate = context.coordinator
         view.backgroundColor = .clear
         view.font = .preferredFont(forTextStyle: .body)
         view.textContainerInset = UIEdgeInsets(top: 6, left: 2, bottom: 6, right: 2)
         view.textContainer.lineFragmentPadding = 0
+        // Not hard-off (that was the defect): the field measures itself and the scroller comes on only
+        // once the text is taller than the cap. See `ComposerInputTextView.remeasure`.
         view.isScrollEnabled = false
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         view.accessibilityIdentifier = "channelComposer.input"
         view.accessibilityLabel = placeholder
+        view.limits = limits
+        view.onMeasure = { [weak coordinator = context.coordinator] measurement in
+            guard let coordinator else { return }
+            coordinator.parent.onMeasure(measurement)
+        }
+        probe?.view = view
         return view
     }
 
-    func updateUIView(_ uiView: UITextView, context: Context) {
+    func updateUIView(_ uiView: ComposerInputTextView, context: Context) {
         context.coordinator.parent = self
+        // Dynamic Type: the font has to follow the setting *before* the height is measured, or the
+        // stored height belongs to the previous size class (requirement 4).
+        let font = UIFont.preferredFont(forTextStyle: .body)
+        if uiView.font != font { uiView.font = font }
+        uiView.limits = limits
         if uiView.text != text {
             uiView.text = text
-            // A programmatic edit (a suggestion, a toolbar action, a draft restore) carries its own
-            // caret; a keystroke does not reach this branch at all.
+            // A programmatic edit (a suggestion, a toolbar action, a draft restore, the clear after a
+            // send) carries its own caret; a keystroke does not reach this branch at all.
             let length = (text as NSString).length
             uiView.selectedRange = NSRange(location: max(0, min(caret, length)), length: 0)
         }
         uiView.accessibilityValue = text
+        // Re-measure on every update: a drawer of a restored draft, a suggestion insert, a font change
+        // and the clear after a send all arrive here, and each of them changes the right height.
+        uiView.remeasure()
+        uiView.keepCaretVisible()
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
@@ -76,6 +119,12 @@ struct ComposerTextView: UIViewRepresentable {
 
         func textViewDidChange(_ textView: UITextView) {
             parent.onEdit(textView.text, textView.selectedRange)
+            // Requirement 3: the caret follows the text. Past the cap the field scrolls instead of
+            // growing, and without this every character typed at the end would land below the visible
+            // region — the everyday form of the reported defect.
+            guard let view = textView as? ComposerInputTextView else { return }
+            view.remeasure()
+            view.keepCaretVisible()
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
@@ -90,21 +139,10 @@ struct ComposerTextView: UIViewRepresentable {
                       replacementText text: String) -> Bool {
             guard text == "\n" else { return true }
             let action = ComposerReturnPolicy.action(isReturnKey: true,
-                                                     shiftPressed: Self.shiftIsPressed)
+                                                     shiftPressed: parent.isShiftPressed())
             guard action == .send else { return action == .newline }
             parent.onReturn(true)
             return false
-        }
-
-        /// A hardware shift, where the platform can report one.
-        ///
-        /// `NSEvent` is not available to Mac Catalyst, so the modifier comes from GameController's
-        /// view of the attached keyboard. No keyboard (or no permission to see it) reads as "not
-        /// shifted", which makes Return send — the same as the on-screen key.
-        static var shiftIsPressed: Bool {
-            guard let input = GCKeyboard.coalesced?.keyboardInput else { return false }
-            return input.button(forKeyCode: .leftShift)?.isPressed == true
-                || input.button(forKeyCode: .rightShift)?.isPressed == true
         }
     }
 }
@@ -167,6 +205,16 @@ struct ComposerView: View {
     @State private var isEmojiPickerPresented = false
     /// The last selection the input reported, used to place a toolbar edit.
     @State private var selection = NSRange(location: 0, length: 0)
+    /// The input's measured height (kanban t_fbc576a2). A frame that caps a text view is not a
+    /// growing field: past the cap the view had nowhere to draw and its scroller was off, so the text
+    /// was clipped and the caret walked off-screen. The height now comes *from* the measurement
+    /// (`ComposerInputTextView.remeasure`), clamped to `ComposerInputHeight.Limits`, and the frame
+    /// follows it exactly. The initial value is the phone floor; the first layout pass replaces it
+    /// with the measurement for the device, the text size and the text actually present.
+    @State private var inputHeight = ComposerInputHeight.Limits.phone.minimum
+    /// The `-uiTestExposeComposerInputGeometry` probe: what the input measured, published as an
+    /// accessibility value for the live UI test. Unused (and unread) without the launch argument.
+    @StateObject private var inputProbe = ComposerInputGeometryProbe()
 
     /// The debounce-free view of the model's text, so the preview and the toolbar can read it.
     private var message: String { model.text }
@@ -278,6 +326,15 @@ struct ComposerView: View {
                                  selection = range
                                  model.caretMoved(to: NSMaxRange(range))
                              },
+                             limits: ComposerInputHeight.limits(for: typeSize),
+                             onMeasure: { measurement in
+                                 // Only a *changed* height is written: re-measuring with the same
+                                 // answer must not cost a SwiftUI render (a layout pass measures).
+                                 if inputHeight != measurement.height {
+                                     inputHeight = measurement.height
+                                 }
+                             },
+                             probe: ComposerInputDiagnostics.isEnabled ? inputProbe : nil,
                              onReturn: { _ in
                                  // Same entry point as the send button: one send path, so a
                                  // Return and a click cannot disagree about draft, uploads or
@@ -285,8 +342,15 @@ struct ComposerView: View {
                                  guard model.canSend else { return }
                                  Task { await model.send() }
                              })
-                .frame(minHeight: typeSize.isAccessibilitySize ? 56 : 34,
-                       maxHeight: typeSize.isAccessibilitySize ? 220 : 140)
+                // The height is the measurement, not a window it is allowed to grow into. The
+                // previous `minHeight/maxHeight` frame is what clipped a message past the cap: the
+                // text view kept drawing at its frame and had no scroller to reach the rest.
+                .frame(height: inputHeight)
+                .overlay(alignment: .topTrailing) {
+                    if ComposerInputDiagnostics.isEnabled {
+                        ComposerInputGeometrySeam(probe: inputProbe)
+                    }
+                }
         }
         .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : nil,
                alignment: .leading)
