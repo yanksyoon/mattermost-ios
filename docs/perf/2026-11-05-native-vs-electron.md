@@ -19,6 +19,8 @@ Observed state of each subject at preflight time:
 
 To make the comparison measurable, sign both clients in to the same workspace, open the same channel in both, and re-run `scripts/perf_compare.py run --workspace <url> --channel <name>`.
 
+Either workspace works as long as both clients use it. The throwaway local fixture this repository already uses for the webview baseline is the cheapest reproducible option: bring up the docker server, seed it with `scripts/perf_seed.py` (user `perfprobe`, team `perf`, channel `#perf-feed` with 200 posts), sign both clients into it, then run with `--workspace http://127.0.0.1:8065 --channel perf-feed`.
+
 The card names the native subject as *0.1.7 build 8*; the installed bundle reports the version above, and the artefact records what is installed and preflighted rather than what the card expected.
 
 No win or loss is named here: no RSS, CPU, launch or energy number was taken for either subject, so any sentence about which client is faster would be invention. The table below keeps every row and says why it is empty.

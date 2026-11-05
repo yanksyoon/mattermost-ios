@@ -944,6 +944,13 @@ def render_markdown(preflight_data: dict, summaries: dict, args: argparse.Namesp
                      "workspace, open the same channel in both, and re-run "
                      "`scripts/perf_compare.py run --workspace <url> --channel <name>`.")
         lines.append("")
+        lines.append("Either workspace works as long as both clients use it. The throwaway local "
+                     "fixture this repository already uses for the webview baseline is the "
+                     "cheapest reproducible option: bring up the docker server, seed it with "
+                     "`scripts/perf_seed.py` (user `perfprobe`, team `perf`, channel `#perf-feed` "
+                     "with 200 posts), sign both clients into it, then run with "
+                     "`--workspace http://127.0.0.1:8065 --channel perf-feed`.")
+        lines.append("")
         lines.append("The card names the native subject as *0.1.7 build 8*; the installed bundle "
                      "reports the version above, and the artefact records what is installed and "
                      "preflighted rather than what the card expected.")
