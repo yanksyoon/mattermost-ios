@@ -306,16 +306,43 @@ struct SessionDataSnapshot: Equatable {
 
 /// Reads MMUSERID / MMCSRF / MMAUTHTOKEN cookies from the server's isolated website-data store
 /// (the same store the shell's webview session lives in).
+///
+/// ## The main-thread rule this type keeps (measured, t_d393d211 → t_249bc296)
+///
+/// `WKWebsiteDataStore` / `WKHTTPCookieStore` are UI-process API and are **not** executor-neutral:
+/// the first call that needs the store's WebKit **Networking** process creates it synchronously on
+/// the calling thread, and that path traps off-main. Measured on iPhone 16 Pro / iOS 18.3.1: a
+/// `setCookie` reached from a **nonisolated** async function ran on a cooperative thread and the
+/// host died instantly with `EXC_BREAKPOINT` in `WebKit::allDataStores()`
+/// (`HTTPCookieStore::setCookies` → `filterAppBoundCookies` → `NetworkProcessProxy`, crash report
+/// `Mattermost-2026-11-05-073146.ips`). `allCookies()` has not been observed to create the process
+/// on its own, but it is the same API on the same object, and this reader is entered from
+/// `DiagnosticStep.run` — a nonisolated async closure — so the executor it lands on is whatever the
+/// diagnostics runner happens to be awaited from, not the main actor by contract.
+///
+/// So the hop lives here, at the one place that touches WebKit: `DiagnosticsSessionProviding` stays
+/// nonisolated (the unit suite's `FakeSessionProvider` must stay usable from any context), and only
+/// the WebKit work is `@MainActor` (see `cookiesOnMain`).
 struct WebKitCookieSessionProvider: DiagnosticsSessionProviding {
     func sessionData(for server: ServerConfig) async -> SessionDataSnapshot {
-        let store = WKWebsiteDataStore(forIdentifier: server.id)
-        let cookies = await store.httpCookieStore.allCookies()
+        let cookies = await cookiesOnMain(forStoreOf: server.id)
         return SessionDataSnapshot(
             hasUserID: cookies.contains { $0.name == DiagnosticsConstants.cookieUserID },
             hasCSRF: cookies.contains { $0.name == DiagnosticsConstants.cookieCSRF },
             hasAuthToken: cookies.contains { $0.name == DiagnosticsConstants.cookieAuthToken }
         )
     }
+}
+
+/// The main-actor side of `WebKitCookieSessionProvider` — see the note on that type.
+///
+/// The `WKWebsiteDataStore(forIdentifier:)` construction is on this side too, deliberately: it is
+/// the first WebKit call the reader makes, so it must not be the one that can start a networking
+/// process from a cooperative thread.
+@MainActor
+private func cookiesOnMain(forStoreOf identifier: UUID) async -> [HTTPCookie] {
+    let store = WKWebsiteDataStore(forIdentifier: identifier)
+    return await store.httpCookieStore.allCookies()
 }
 
 /// Snapshot of the shell's persisted settings + identity, built on the main thread by the app

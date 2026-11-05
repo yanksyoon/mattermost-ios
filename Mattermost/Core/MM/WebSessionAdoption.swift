@@ -132,6 +132,21 @@ private func allCookiesOnMain(in dataStore: WKWebsiteDataStore) async -> [HTTPCo
     await dataStore.httpCookieStore.allCookies()
 }
 
+/// The reader's production path: **resolve the store and read it on one main-actor turn**.
+///
+/// The resolution is the point. `WKWebsiteDataStore(forIdentifier:)` is not a plain object
+/// construction: it goes through WebKit's data-store registry (`WebKit::allDataStores()`), which is
+/// UI-process state and traps off-main — measured on t_249bc296 (iPhone 16 Pro / iOS 18.3.1,
+/// `EXC_BREAKPOINT`, "Test crashed with signal trap") with a reader built from a **nonisolated**
+/// async test method, the same executor the t_d393d211 crash report
+/// (`Mattermost-2026-11-05-073146.ips`) was captured on. Hopping only the `allCookies()` call was
+/// therefore not enough: the initializer had already touched the registry by then.
+@MainActor
+private func allCookiesOnMain(forServerID serverID: UUID) async -> [HTTPCookie] {
+    let dataStore = WKWebsiteDataStore(forIdentifier: serverID)
+    return await dataStore.httpCookieStore.allCookies()
+}
+
 /// Install cookies into a webview data store, and **verify that they landed**.
 ///
 /// ## Why a verification loop, and not `setCookie` alone (measured)
@@ -345,22 +360,46 @@ enum WebSessionCookiePolicy {
 /// and a reader pointed at it answers `nil` for every real sign-in. There is therefore no
 /// default-value initializer: a caller has to say which store it means — either the server id
 /// (production) or a store it already owns (tests, diagnostics).
+///
+/// ## The main-thread rule this type keeps (measured, t_d393d211 → t_249bc296)
+///
+/// Both the store resolution and the cookie read happen on the main actor inside
+/// `allCookiesOnMain(forServerID:)`, whichever executor `authToken(for:)` is awaited from. That is
+/// not a nicety: `WKWebsiteDataStore(forIdentifier:)` reaches `WebKit::allDataStores()` and traps
+/// off-main (iPhone 16 Pro / iOS 18.3.1, `EXC_BREAKPOINT`, crash report
+/// `Mattermost-2026-11-05-073146.ips`; reproduced on the initializer itself by t_249bc296). The hop
+/// is in `authToken`, not in the initializers, so `SessionCookieReading` stays nonisolated and the
+/// struct stays constructible from any context.
 struct WebKitSessionCookieReader: SessionCookieReading {
-    let dataStore: WKWebsiteDataStore
+    /// Where the store comes from. The store itself is resolved *inside* `cookiesOnMain` — see the
+    /// note on that helper: resolving a per-identifier store is a WebKit data-store-registry call,
+    /// so it may not happen in this (nonisolated) initializer or anywhere else off the main actor.
+    fileprivate enum Source {
+        case server(UUID)
+        case store(WKWebsiteDataStore)
+    }
+
+    fileprivate let source: Source
 
     /// Production: the isolated store of the server whose webview signed in.
     init(serverID: UUID) {
-        self.dataStore = WKWebsiteDataStore(forIdentifier: serverID)
+        self.source = .server(serverID)
     }
 
     /// Explicit store (tests, and callers that already hold the server's `WebViewStore`). No
     /// default argument: `.default()` is never the store a server's session lives in.
     init(dataStore: WKWebsiteDataStore) {
-        self.dataStore = dataStore
+        self.source = .store(dataStore)
     }
 
     func authToken(for serverURL: URL) async -> String? {
-        let cookies = await allCookiesOnMain(in: dataStore)
+        let cookies: [HTTPCookie]
+        switch source {
+        case .server(let serverID):
+            cookies = await allCookiesOnMain(forServerID: serverID)
+        case .store(let store):
+            cookies = await allCookiesOnMain(in: store)
+        }
         return SessionCookiePolicy.value(named: SessionCookiePolicy.authCookieName,
                                          in: cookies,
                                          for: serverURL)

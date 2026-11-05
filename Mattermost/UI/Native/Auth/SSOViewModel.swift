@@ -21,16 +21,44 @@ protocol SessionCookieClearing {
 /// Production implementation: the server's **own** persistent `WKWebsiteDataStore(forIdentifier:)`,
 /// the same store `WebKitSessionCookieReader` reads and `WebViewStore` writes. `WKWebsiteDataStore`
 /// hands back the same underlying store for the same identifier, so this reaches the live cookie.
+///
+/// ## The main-thread rule this type keeps (measured, t_d393d211 → t_249bc296)
+///
+/// `WKWebsiteDataStore` / `WKHTTPCookieStore` are UI-process API and are **not** executor-neutral:
+/// the first call that needs the store's WebKit **Networking** process creates it synchronously on
+/// the calling thread, and that path traps off-main. Measured on iPhone 16 Pro / iOS 18.3.1: a
+/// `setCookie` reached from a **nonisolated** async function ran on a cooperative thread and the
+/// host died instantly with `EXC_BREAKPOINT` in `WebKit::allDataStores()`
+/// (`HTTPCookieStore::setCookies` → `filterAppBoundCookies` → `NetworkProcessProxy`, crash report
+/// `Mattermost-2026-11-05-073146.ips`). `deleteCookie` needs the same networking process, so it
+/// carries the same trap on a cold store — and sign-out is exactly when a server's store may be
+/// cold (a session restored from the vault after a relaunch never touched the cookie jar).
+///
+/// `AuthCoordinator` is `@MainActor` today so its callers happen to be on the main actor, but that
+/// is an accident of the caller, not a contract of this type. The hop therefore lives here, at the
+/// WebKit boundary: `SessionCookieClearing` stays nonisolated (the unit suite's `FakeCookieClearing`
+/// must stay usable from any context) and only the store work is `@MainActor`
+/// (see `clearAuthCookieOnMain`).
 struct WebKitSessionCookieClearing: SessionCookieClearing {
 
     func clearAuthCookie(for serverURL: URL, serverID: UUID) async {
-        let dataStore = WKWebsiteDataStore(forIdentifier: serverID)
-        let cookies = await dataStore.httpCookieStore.allCookies()
-        for cookie in cookies where cookie.name == SessionCookiePolicy.authCookieName
-            && SessionCookiePolicy.domainMatches(cookieDomain: cookie.domain,
-                                                 host: serverURL.host?.lowercased() ?? "") {
-            await dataStore.httpCookieStore.deleteCookie(cookie)
-        }
+        await clearAuthCookieOnMain(for: serverURL, serverID: serverID)
+    }
+}
+
+/// The main-actor side of `WebKitSessionCookieClearing` — see the note on that type.
+///
+/// The `WKWebsiteDataStore(forIdentifier:)` construction is on this side too, deliberately: it is
+/// the first WebKit call this path makes, so it must not be the one that can start a networking
+/// process from a cooperative thread.
+@MainActor
+private func clearAuthCookieOnMain(for serverURL: URL, serverID: UUID) async {
+    let dataStore = WKWebsiteDataStore(forIdentifier: serverID)
+    let cookies = await dataStore.httpCookieStore.allCookies()
+    for cookie in cookies where cookie.name == SessionCookiePolicy.authCookieName
+        && SessionCookiePolicy.domainMatches(cookieDomain: cookie.domain,
+                                             host: serverURL.host?.lowercased() ?? "") {
+        await dataStore.httpCookieStore.deleteCookie(cookie)
     }
 }
 
