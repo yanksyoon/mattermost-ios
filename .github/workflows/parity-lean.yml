@@ -1,0 +1,127 @@
+name: parity-lean
+
+# The Lean specification in lean/ is verified HERE and only here (docs/parity-verification-design.md
+# §5). No Lean toolchain is installed on the development host; `scripts/lean_check.sh` prints that
+# and exits 0 rather than pretending to have compiled anything.
+#
+# Why the trigger is not simply `paths:` (the shape the card asked for):
+# a *required* status check that never reports leaves every unrelated pull request stuck at
+# "Expected — waiting for status to be reported", forever. Required checks and trigger-level path
+# filters cannot coexist without that trap. So the relevance decision is the first job (a git diff,
+# ~10s) and the Lean job is skipped when nothing relevant changed — a skipped job satisfies a
+# required check. Relevant change => a real gate; unrelated change => not in the way.
+#
+# Push to main keeps the path filter: a push that cannot have changed the proof should not spend a
+# run at all, and a push needs no required check.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - "lean/**"
+      - "parity/**"
+      - ".github/workflows/parity-lean.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parity-lean-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: relevant-paths
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.diff.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        name: did this change touch the proof or the record it describes?
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          else
+            base="${{ github.event.before }}"
+            head="${{ github.sha }}"
+          fi
+
+          # Fail safe: an unknown base (new branch, force push, manual run) runs the gate. A gate
+          # that silently skips when it cannot tell is worse than a gate that runs too often.
+          if [ -z "${base}" ] || [ "${base}" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "base commit unknown (${base:-empty}) — running the gate"
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed="$(git diff --name-only "${base}" "${head}")"
+          echo "changed files:"
+          echo "${changed:-<none>}"
+
+          if printf '%s\n' "${changed}" \
+             | grep -Eq '^(lean/|parity/|\.github/workflows/parity-lean\.yml$)'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            echo "### Lean job: RUNS (the change touches lean/, parity/ or this workflow)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "### Lean job: skipped (no change under lean/, parity/ or this workflow)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  lean:
+    name: lean
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: toolchain
+        name: key the cache on the pinned toolchain
+        run: echo "key=$(sha256sum lean/lean-toolchain | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan
+            lean/.lake
+          key: elan-${{ steps.toolchain.outputs.key }}
+          restore-keys: |
+            elan-
+
+      # Installs elan + the toolchain named by lean/lean-toolchain and nothing else: no Mathlib, no
+      # dependencies (lakefile.toml has none). `build: false` because the build below tees a log to
+      # a file, so a failure can be cited from an artifact rather than from a job log that expires.
+      - name: toolchain (pinned, no Mathlib)
+        uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: lean
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+          use-github-cache: false
+          use-mathlib-cache: false
+
+      - name: lake build
+        run: |
+          set -o pipefail
+          export PATH="$HOME/.elan/bin:$PATH"
+          cd lean
+          lake build 2>&1 | tee build.log
+
+      - name: upload the build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lean-build-log
+          path: lean/build.log
+          if-no-files-found: warn
