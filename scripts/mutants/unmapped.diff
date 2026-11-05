@@ -1,0 +1,11 @@
+--- a/parity/generate.py
++++ b/parity/generate.py
+@@ -690,7 +690,7 @@
+             for name in sorted(os.listdir(self.cfg.native_root)):
+                 if name.startswith(".") or name == "__pycache__":
+                     continue
+-                if name not in covered:
++                if name not in covered and False:
+                     findings.append(Finding("UNMAPPED", "-", "%s/%s is a native unit no claim covers"
+                                             % (os.path.relpath(self.cfg.native_root, self.cfg.root), name)))
+ 

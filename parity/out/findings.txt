@@ -1,0 +1,293 @@
+parity findings — 2 fatal, 273 report
+
+  STALE-VERDICT               2
+  GAP                         2
+  UNCARDED-GAP              263
+  APPROVED-WITHOUT-VERDICT    8
+
+status tally: native=0 validated=0 tested=46 claimed=2 absent=263
+  (263 keys are absent: an unclaimed key is the metric, not a failure — design §3.5)
+  (protocol scope: 227 of the uncarded gaps are REST/WS rows — v2, B §8; they are not card proposals)
+
+STALE-VERDICT (2)
+  [FAIL] STALE-VERDICT M:app/screens/create_or_edit_channel — 7 commit(s) after 8643fbff4bbf touched the claimed files
+  [FAIL] STALE-VERDICT X:web-fallback — 1 commit(s) after 7cb3e5415e75 touched the claimed files
+
+GAP (2)
+  [note] GAP M:app/screens/apps_form — claim names no native path
+  [note] GAP M:app/screens/dialog_router — claim names no native path
+
+UNCARDED-GAP (263)
+  [note] UNCARDED-GAP M:app/screens/apps_form — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/attachment_options — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/bottom_sheet — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/channel_add_members — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/channel_configuration — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/channel_files — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/channel_notification_preferences — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/channel_settings — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/channel_share — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/code — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/component_library — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/convert_gm_to_channel — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/create_direct_message — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/custom_status — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/custom_status_clear_after — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/data_erased — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/dialog_router — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/draft_scheduled_post_options — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/edit_server — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/in_app_notification — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/integration_selector — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/invite — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/join_team — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/latex — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/mm_blocks_content — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/pdf_viewer — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/post_priority_picker — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/report_a_problem — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/reschedule_draft — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/review_app — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/share_feedback — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/show_translation — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/snack_bar — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/table — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/thread_options — status absent, no card
+  [note] UNCARDED-GAP M:app/screens/watermark — status absent, no card
+  [note] UNCARDED-GAP REST:DELETE /channels/{channel_id} — status absent, no card
+  [note] UNCARDED-GAP REST:DELETE /channels/{channel_id}/members/{user_id} — status absent, no card
+  [note] UNCARDED-GAP REST:DELETE /posts/schedule — status absent, no card
+  [note] UNCARDED-GAP REST:DELETE /posts/{post_id} — status absent, no card
+  [note] UNCARDED-GAP REST:DELETE /posts/{post_id}/burn — status absent, no card
+  [note] UNCARDED-GAP REST:DELETE /teams/{team_id} — status absent, no card
+  [note] UNCARDED-GAP REST:DELETE /teams/{team_id}/members/{user_id} — status absent, no card
+  [note] UNCARDED-GAP REST:DELETE /users/{user_id}/image — status absent, no card
+  [note] UNCARDED-GAP REST:DELETE /users/{user_id}/posts — status absent, no card
+  [note] UNCARDED-GAP REST:DELETE /users/{user_id}/status/custom — status absent, no card
+  [note] UNCARDED-GAP REST:GET /channels — status absent, no card
+  [note] UNCARDED-GAP REST:GET /channels/{channel_id}/access_control/attributes — status absent, no card
+  [note] UNCARDED-GAP REST:GET /channels/{channel_id}/bookmarks — status absent, no card
+  [note] UNCARDED-GAP REST:GET /channels/{channel_id}/common_teams — status absent, no card
+  [note] UNCARDED-GAP REST:GET /channels/{channel_id}/members — status absent, no card
+  [note] UNCARDED-GAP REST:GET /channels/{channel_id}/members/{user_id} — status absent, no card
+  [note] UNCARDED-GAP REST:GET /channels/{channel_id}/pinned — status absent, no card
+  [note] UNCARDED-GAP REST:GET /channels/{channel_id}/posts — status absent, no card
+  [note] UNCARDED-GAP REST:GET /channels/{channel_id}/stats — status absent, no card
+  [note] UNCARDED-GAP REST:GET /channels/{channel_id}/timezones — status absent, no card
+  [note] UNCARDED-GAP REST:GET /commands — status absent, no card
+  [note] UNCARDED-GAP REST:GET /custom_profile_attributes/fields — status absent, no card
+  [note] UNCARDED-GAP REST:GET /data_retention/policy — status absent, no card
+  [note] UNCARDED-GAP REST:GET /emoji — status absent, no card
+  [note] UNCARDED-GAP REST:GET /emoji/autocomplete — status absent, no card
+  [note] UNCARDED-GAP REST:GET /emoji/name — status absent, no card
+  [note] UNCARDED-GAP REST:GET /files/{file_id}/info — status absent, no card
+  [note] UNCARDED-GAP REST:GET /files/{file_id}/link — status absent, no card
+  [note] UNCARDED-GAP REST:GET /plugins/com.mattermost.apps/api/v1/bindings — status absent, no card
+  [note] UNCARDED-GAP REST:GET /plugins/webapp — status absent, no card
+  [note] UNCARDED-GAP REST:GET /posts/scheduled/team — status absent, no card
+  [note] UNCARDED-GAP REST:GET /posts/{post_id} — status absent, no card
+  [note] UNCARDED-GAP REST:GET /posts/{post_id}/files/info — status absent, no card
+  [note] UNCARDED-GAP REST:GET /posts/{post_id}/info — status absent, no card
+  [note] UNCARDED-GAP REST:GET /posts/{post_id}/reactions — status absent, no card
+  [note] UNCARDED-GAP REST:GET /posts/{post_id}/reveal — status absent, no card
+  [note] UNCARDED-GAP REST:GET /posts/{post_id}/thread — status absent, no card
+  [note] UNCARDED-GAP REST:GET /remotecluster — status absent, no card
+  [note] UNCARDED-GAP REST:GET /sharedchannels — status absent, no card
+  [note] UNCARDED-GAP REST:GET /sharedchannels/{channel_id}/remotes — status absent, no card
+  [note] UNCARDED-GAP REST:GET /system/timezones — status absent, no card
+  [note] UNCARDED-GAP REST:GET /teams — status absent, no card
+  [note] UNCARDED-GAP REST:GET /teams/{team_id}/channels/autocomplete — status absent, no card
+  [note] UNCARDED-GAP REST:GET /teams/{team_id}/channels/managed_categories — status absent, no card
+  [note] UNCARDED-GAP REST:GET /teams/{team_id}/channels/search_autocomplete — status absent, no card
+  [note] UNCARDED-GAP REST:GET /teams/{team_id}/commands/autocomplete — status absent, no card
+  [note] UNCARDED-GAP REST:GET /teams/{team_id}/commands/autocomplete_suggestions — status absent, no card
+  [note] UNCARDED-GAP REST:GET /teams/{team_id}/members — status absent, no card
+  [note] UNCARDED-GAP REST:GET /teams/{team_id}/members/{user_id} — status absent, no card
+  [note] UNCARDED-GAP REST:GET /teams/{team_id}/stats — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/autocomplete — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/email — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/known — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/sessions/attributes/manifest — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/username — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id} — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/channel_members — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/channels — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/custom_profile_attributes — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/data_retention/channel_policies — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/data_retention/team_policies — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/posts/flagged — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/preferences — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/sessions — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/status — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/teams — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/teams/members — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/teams/{team_id}/channels/categories — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/teams/{team_id}/channels/categories/order — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/teams/{team_id}/channels/categories/{category_id} — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/teams/{team_id}/threads — status absent, no card
+  [note] UNCARDED-GAP REST:GET /users/{user_id}/teams/{team_id}/threads/{thread_id} — status absent, no card
+  [note] UNCARDED-GAP REST:PATCH /custom_profile_attributes/values — status absent, no card
+  [note] UNCARDED-GAP REST:POST /channels — status absent, no card
+  [note] UNCARDED-GAP REST:POST /channels/direct — status absent, no card
+  [note] UNCARDED-GAP REST:POST /channels/group — status absent, no card
+  [note] UNCARDED-GAP REST:POST /channels/members/me/view — status absent, no card
+  [note] UNCARDED-GAP REST:POST /channels/search — status absent, no card
+  [note] UNCARDED-GAP REST:POST /channels/{channel_id}/bookmarks/{bookmark_id}/sort_order — status absent, no card
+  [note] UNCARDED-GAP REST:POST /channels/{channel_id}/convert_to_channel — status absent, no card
+  [note] UNCARDED-GAP REST:POST /channels/{channel_id}/members — status absent, no card
+  [note] UNCARDED-GAP REST:POST /channels/{channel_id}/members/ids — status absent, no card
+  [note] UNCARDED-GAP REST:POST /channels/{channel_id}/restore — status absent, no card
+  [note] UNCARDED-GAP REST:POST /commands — status absent, no card
+  [note] UNCARDED-GAP REST:POST /commands/execute — status absent, no card
+  [note] UNCARDED-GAP REST:POST /emoji/search — status absent, no card
+  [note] UNCARDED-GAP REST:POST /plugins/com.mattermost.apps/api/v1/call — status absent, no card
+  [note] UNCARDED-GAP REST:POST /plugins/{plugin_id}/api/v1/give_feedback — status absent, no card
+  [note] UNCARDED-GAP REST:POST /posts — status absent, no card
+  [note] UNCARDED-GAP REST:POST /posts/{post_id}/actions — status absent, no card
+  [note] UNCARDED-GAP REST:POST /posts/{post_id}/pin — status absent, no card
+  [note] UNCARDED-GAP REST:POST /posts/{post_id}/unpin — status absent, no card
+  [note] UNCARDED-GAP REST:POST /reactions — status absent, no card
+  [note] UNCARDED-GAP REST:POST /remotecluster/{remote_id}/channels/{channel_id}/invite — status absent, no card
+  [note] UNCARDED-GAP REST:POST /remotecluster/{remote_id}/channels/{channel_id}/uninvite — status absent, no card
+  [note] UNCARDED-GAP REST:POST /roles/names — status absent, no card
+  [note] UNCARDED-GAP REST:POST /teams — status absent, no card
+  [note] UNCARDED-GAP REST:POST /teams/members/invite — status absent, no card
+  [note] UNCARDED-GAP REST:POST /teams/{team_id}/channels/search — status absent, no card
+  [note] UNCARDED-GAP REST:POST /teams/{team_id}/channels/search_archived — status absent, no card
+  [note] UNCARDED-GAP REST:POST /teams/{team_id}/invite-guests/email — status absent, no card
+  [note] UNCARDED-GAP REST:POST /teams/{team_id}/invite/email — status absent, no card
+  [note] UNCARDED-GAP REST:POST /teams/{team_id}/members — status absent, no card
+  [note] UNCARDED-GAP REST:POST /teams/{team_id}/members/batch — status absent, no card
+  [note] UNCARDED-GAP REST:POST /teams/{team_id}/members/ids — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/group_channels — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/ids — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/login — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/login/sso/code-exchange — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/login/type — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/logout — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/mfa — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/password/reset/send — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/search — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/status/ids — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/usernames — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/{user_id}/demote — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/{user_id}/posts — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/{user_id}/preferences/delete — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/{user_id}/status/custom/recent/delete — status absent, no card
+  [note] UNCARDED-GAP REST:POST /users/{user_id}/terms_of_service — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /channels/{channel_id} — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /channels/{channel_id}/members — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /channels/{channel_id}/members/{user_id}/autotranslation — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /channels/{channel_id}/members/{user_id}/notify_props — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /channels/{channel_id}/patch — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /channels/{channel_id}/privacy — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /posts/schedule — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /posts/{post_id} — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /posts/{post_id}/patch — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /teams/{team_id} — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /teams/{team_id}/patch — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /users/sessions/device — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /users/{user_id} — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /users/{user_id}/patch — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /users/{user_id}/preferences — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /users/{user_id}/status — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /users/{user_id}/status/custom — status absent, no card
+  [note] UNCARDED-GAP REST:PUT /users/{user_id}/teams/{team_id}/channels/categories — status absent, no card
+  [note] UNCARDED-GAP WS:added_to_team — status absent, no card
+  [note] UNCARDED-GAP WS:burn_on_read_all_revealed — status absent, no card
+  [note] UNCARDED-GAP WS:channel_access_control_updated — status absent, no card
+  [note] UNCARDED-GAP WS:channel_bookmark_created — status absent, no card
+  [note] UNCARDED-GAP WS:channel_bookmark_deleted — status absent, no card
+  [note] UNCARDED-GAP WS:channel_bookmark_sorted — status absent, no card
+  [note] UNCARDED-GAP WS:channel_bookmark_updated — status absent, no card
+  [note] UNCARDED-GAP WS:channel_converted — status absent, no card
+  [note] UNCARDED-GAP WS:channel_created — status absent, no card
+  [note] UNCARDED-GAP WS:channel_deleted — status absent, no card
+  [note] UNCARDED-GAP WS:channel_member_updated — status absent, no card
+  [note] UNCARDED-GAP WS:channel_restored — status absent, no card
+  [note] UNCARDED-GAP WS:channel_scheme_updated — status absent, no card
+  [note] UNCARDED-GAP WS:channel_updated — status absent, no card
+  [note] UNCARDED-GAP WS:channel_viewed — status absent, no card
+  [note] UNCARDED-GAP WS:config_changed — status absent, no card
+  [note] UNCARDED-GAP WS:custom_profile_attributes_field_created — status absent, no card
+  [note] UNCARDED-GAP WS:custom_profile_attributes_field_deleted — status absent, no card
+  [note] UNCARDED-GAP WS:custom_profile_attributes_field_updated — status absent, no card
+  [note] UNCARDED-GAP WS:custom_profile_attributes_values_updated — status absent, no card
+  [note] UNCARDED-GAP WS:delete_team — status absent, no card
+  [note] UNCARDED-GAP WS:direct_added — status absent, no card
+  [note] UNCARDED-GAP WS:emoji_added — status absent, no card
+  [note] UNCARDED-GAP WS:ephemeral_message — status absent, no card
+  [note] UNCARDED-GAP WS:file_download_rejected — status absent, no card
+  [note] UNCARDED-GAP WS:group_added — status absent, no card
+  [note] UNCARDED-GAP WS:group_member_add — status absent, no card
+  [note] UNCARDED-GAP WS:group_member_delete — status absent, no card
+  [note] UNCARDED-GAP WS:hello — status absent, no card
+  [note] UNCARDED-GAP WS:increase_post_visibility_by_one — status absent, no card
+  [note] UNCARDED-GAP WS:leave_team — status absent, no card
+  [note] UNCARDED-GAP WS:license_changed — status absent, no card
+  [note] UNCARDED-GAP WS:memberrole_updated — status absent, no card
+  [note] UNCARDED-GAP WS:multiple_channels_viewed — status absent, no card
+  [note] UNCARDED-GAP WS:open_dialog — status absent, no card
+  [note] UNCARDED-GAP WS:permission_policy_updated — status absent, no card
+  [note] UNCARDED-GAP WS:ping — status absent, no card
+  [note] UNCARDED-GAP WS:plugin_disabled — status absent, no card
+  [note] UNCARDED-GAP WS:plugin_enabled — status absent, no card
+  [note] UNCARDED-GAP WS:plugin_statuses_changed — status absent, no card
+  [note] UNCARDED-GAP WS:pong — status absent, no card
+  [note] UNCARDED-GAP WS:post_acknowledgement_added — status absent, no card
+  [note] UNCARDED-GAP WS:post_acknowledgement_removed — status absent, no card
+  [note] UNCARDED-GAP WS:post_burned — status absent, no card
+  [note] UNCARDED-GAP WS:post_deleted — status absent, no card
+  [note] UNCARDED-GAP WS:post_edited — status absent, no card
+  [note] UNCARDED-GAP WS:post_revealed — status absent, no card
+  [note] UNCARDED-GAP WS:post_translation_updated — status absent, no card
+  [note] UNCARDED-GAP WS:post_unread — status absent, no card
+  [note] UNCARDED-GAP WS:posted — status absent, no card
+  [note] UNCARDED-GAP WS:preference_changed — status absent, no card
+  [note] UNCARDED-GAP WS:preferences_changed — status absent, no card
+  [note] UNCARDED-GAP WS:preferences_deleted — status absent, no card
+  [note] UNCARDED-GAP WS:property_field_created — status absent, no card
+  [note] UNCARDED-GAP WS:property_field_deleted — status absent, no card
+  [note] UNCARDED-GAP WS:property_field_updated — status absent, no card
+  [note] UNCARDED-GAP WS:property_values_updated — status absent, no card
+  [note] UNCARDED-GAP WS:reaction_added — status absent, no card
+  [note] UNCARDED-GAP WS:reaction_removed — status absent, no card
+  [note] UNCARDED-GAP WS:received_group — status absent, no card
+  [note] UNCARDED-GAP WS:received_group_associated_to_channel — status absent, no card
+  [note] UNCARDED-GAP WS:received_group_associated_to_team — status absent, no card
+  [note] UNCARDED-GAP WS:received_group_not_associated_to_channel — status absent, no card
+  [note] UNCARDED-GAP WS:received_group_not_associated_to_team — status absent, no card
+  [note] UNCARDED-GAP WS:restore_team — status absent, no card
+  [note] UNCARDED-GAP WS:role_updated — status absent, no card
+  [note] UNCARDED-GAP WS:scheduled_post_created — status absent, no card
+  [note] UNCARDED-GAP WS:scheduled_post_deleted — status absent, no card
+  [note] UNCARDED-GAP WS:scheduled_post_updated — status absent, no card
+  [note] UNCARDED-GAP WS:show_toast — status absent, no card
+  [note] UNCARDED-GAP WS:sidebar_category_created — status absent, no card
+  [note] UNCARDED-GAP WS:sidebar_category_deleted — status absent, no card
+  [note] UNCARDED-GAP WS:sidebar_category_order_updated — status absent, no card
+  [note] UNCARDED-GAP WS:sidebar_category_updated — status absent, no card
+  [note] UNCARDED-GAP WS:status_change — status absent, no card
+  [note] UNCARDED-GAP WS:stop_typing — status absent, no card
+  [note] UNCARDED-GAP WS:thread_follow_changed — status absent, no card
+  [note] UNCARDED-GAP WS:thread_read_changed — status absent, no card
+  [note] UNCARDED-GAP WS:thread_updated — status absent, no card
+  [note] UNCARDED-GAP WS:typing — status absent, no card
+  [note] UNCARDED-GAP WS:update_team — status absent, no card
+  [note] UNCARDED-GAP WS:user_added — status absent, no card
+  [note] UNCARDED-GAP WS:user_removed — status absent, no card
+  [note] UNCARDED-GAP WS:user_role_updated — status absent, no card
+  [note] UNCARDED-GAP WS:user_updated — status absent, no card
+  [note] UNCARDED-GAP WS:webrtc — status absent, no card
+
+APPROVED-WITHOUT-VERDICT (8)
+  [note] APPROVED-WITHOUT-VERDICT - — .activity is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
+  [note] APPROVED-WITHOUT-VERDICT - — .auth is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
+  [note] APPROVED-WITHOUT-VERDICT - — .calls is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
+  [note] APPROVED-WITHOUT-VERDICT - — .channelInfo is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
+  [note] APPROVED-WITHOUT-VERDICT - — .channelView is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
+  [note] APPROVED-WITHOUT-VERDICT - — .composer is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
+  [note] APPROVED-WITHOUT-VERDICT - — .search is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface
+  [note] APPROVED-WITHOUT-VERDICT - — .sidebar is in nativeApprovedSurfaces but no fresh validated verdict names a key on that surface

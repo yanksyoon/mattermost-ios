@@ -157,6 +157,13 @@ final class T31HarvestCookieInstallTests: XCTestCase {
     /// The chain that exists in the app: install into a server's own persistent store with the
     /// installer, then read it with `WebKitSessionCookieReader(serverID:)` — the reader
     /// `AuthCoordinator` uses when there is no vault token (the harvest).
+    ///
+    /// **This case is not skippable, and it is why `WebKitCookieStore` answers on the main actor.**
+    /// Reached from a nonisolated `async` function (`install(_:)`), the first write used to enter
+    /// WebKit off-main, create the store's Networking process on a cooperative thread, and trap the
+    /// whole host in `WebKit::allDataStores()` — the suite's only red was a crash, with 0 assertion
+    /// failures (t_d393d211, crash report `Mattermost-2026-11-05-073146.ips`). It is the only test
+    /// that proves the installer against a real store, so it runs rather than skips.
     func testARealStoreKeepsTheInstalledCookieAndTheProductionReaderFindsIt() async throws {
         let serverID = UUID()
         let dataStore = WKWebsiteDataStore(forIdentifier: serverID)

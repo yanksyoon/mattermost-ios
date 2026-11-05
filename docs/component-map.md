@@ -11,7 +11,7 @@
 - **Licence:** all paths below are Apache-2.0 (mobile `app/` + Gekidou, webapp `webapp/channels/src/`),
   MIT/BSD for the supporting libs — see `docs/THIRD_PARTY_NOTICES.md` (verified 2026-10-24). Every
   ported file carries the §3 attribution header.
-- **Consumer contract:** `docs/parity.md` remains the module→native mapping for the desktop shell;
+- **Consumer contract:** `docs/PARITY.md` (generated) is the module→capability record; `docs/parity-legacy.md` is the superseded hand-typed checklist;
   this doc is the per-surface source-file map for the Path B chat client.
 
 ---

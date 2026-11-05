@@ -1,4 +1,14 @@
-# Mattermost Desktop → iOS Parity Checklist
+# Mattermost Desktop → iOS Parity Checklist (superseded, kept for history)
+
+> **Superseded on 2026-11-05 (t_0230e17e).** The hand-typed table below is no longer the record:
+> it was the artefact that let code-present rows sit next to behaviour-missing ones (thread back
+> button, reply counts in the pane, invisible header/bookmarks, notifications, DM labels, reaction
+> shortcodes). The record is now **`docs/PARITY.md`**, generated from
+> `docs/parity/module-scan.tsv` + `parity/claims.tsv` + `parity/verdicts.json` by
+> `python3 parity/generate.py --render-md`; the per-capability evidence lives in
+> `docs/parity/module-scan.tsv` and the narrative in `docs/parity/module-scan-2026-11-05.md`.
+> This file is retained verbatim (its prose history is not regenerated) and is **not** checked by
+> the generator. Do not add rows here.
 
 Single source of truth for the module→native mapping. Updated at each phase boundary.
 Legend: `native` = implemented, `-` = not started / deferred to a later card/phase.

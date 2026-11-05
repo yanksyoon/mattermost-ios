@@ -1,0 +1,11 @@
+--- a/parity/generate.py
++++ b/parity/generate.py
+@@ -155,7 +155,7 @@
+     kinds = []
+     if f.claim_exists and paths_state == "none":
+         kinds.append("GAP")
+-    if f.claim_exists and paths_state == "missing":
++    if f.claim_exists and paths_state == "missing" and False:
+         kinds.append("STALE")
+     if f.has_verdict:
+         if not f.verdict_ancestor:

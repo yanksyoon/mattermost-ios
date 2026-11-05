@@ -88,12 +88,48 @@ protocol SessionCookieStoring {
 }
 
 /// The production cookie store: `WKWebsiteDataStore.httpCookieStore`, unwrapped to this protocol.
+///
+/// ## The main-thread rule this type exists to keep (measured, t_d393d211)
+///
+/// `WKHTTPCookieStore` is UI-process API, and `setCookie` is **not** executor-neutral: the first
+/// write into a store whose WebKit **Networking** process is not up yet creates that process
+/// synchronously on the calling thread, and that path traps off-main. Measured against
+/// `WKWebsiteDataStore(forIdentifier:)` on iPhone 16 Pro / iOS 18.3.1: a Swift `async` caller that
+/// reached `install(_:)` from a **nonisolated** async function ran on a cooperative thread and the
+/// test host died instantly with `EXC_BREAKPOINT` in `WebKit::allDataStores()`
+/// (`HTTPCookieStore::setCookies` → `filterAppBoundCookies` → `NetworkProcessProxy`, crash report
+/// `Mattermost-2026-11-05-073146.ips`). The same write issued from a `@MainActor` test body
+/// (`AuthSessionTests`) passes.
+///
+/// So the hop lives *here*, at the one place that touches WebKit: `SessionCookieStoring` stays
+/// nonisolated (the scripted double in the unit suite must be usable from any context), and the
+/// production conformance answers its `async` requirements on the main actor regardless of where
+/// it was awaited from.
 struct WebKitCookieStore: SessionCookieStoring {
     let store: WKHTTPCookieStore
 
-    func allCookies() async -> [HTTPCookie] { await store.allCookies() }
+    func allCookies() async -> [HTTPCookie] { await allCookiesOnMain(in: store) }
 
-    func setCookie(_ cookie: HTTPCookie) async { await store.setCookie(cookie) }
+    func setCookie(_ cookie: HTTPCookie) async { await setCookieOnMain(cookie, in: store) }
+}
+
+/// The main-actor side of `WebKitCookieStore` — see the note on that type.
+@MainActor
+private func allCookiesOnMain(in store: WKHTTPCookieStore) async -> [HTTPCookie] {
+    await store.allCookies()
+}
+
+/// The main-actor side of `WebKitCookieStore` — see the note on that type.
+@MainActor
+private func setCookieOnMain(_ cookie: HTTPCookie, in store: WKHTTPCookieStore) async {
+    await store.setCookie(cookie)
+}
+
+/// The same rule for the reader: reach the store's cookie store from the main actor, so the
+/// property access and the WebKit call share one thread.
+@MainActor
+private func allCookiesOnMain(in dataStore: WKWebsiteDataStore) async -> [HTTPCookie] {
+    await dataStore.httpCookieStore.allCookies()
 }
 
 /// Install cookies into a webview data store, and **verify that they landed**.
@@ -324,7 +360,7 @@ struct WebKitSessionCookieReader: SessionCookieReading {
     }
 
     func authToken(for serverURL: URL) async -> String? {
-        let cookies = await dataStore.httpCookieStore.allCookies()
+        let cookies = await allCookiesOnMain(in: dataStore)
         return SessionCookiePolicy.value(named: SessionCookiePolicy.authCookieName,
                                          in: cookies,
                                          for: serverURL)

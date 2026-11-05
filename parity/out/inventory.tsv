@@ -1,0 +1,312 @@
+# key	surface	status	native_paths	test_refs	verdict	card
+M:app/components/autocomplete	composer	tested	Mattermost/UI/Native/Composer	MattermostTests/T35ComposerModelsTests.swift::testAMentionIsTheWordBeforeTheCaret	-	-
+M:app/components/post_draft	composer	tested	Mattermost/UI/Native/Composer	MattermostTests/T35ComposerModelsTests.swift::testAMentionIsTheWordBeforeTheCaret	-	-
+M:app/components/post_list	channelView	tested	Mattermost/UI/Native/Channel	MattermostTests/T34PostListTests.swift::testItemsAreOldestFirstEvenWhenGivenNewestFirst	-	-
+M:app/products/boards	-	tested	Mattermost/UI/Native/Web	MattermostTests/T46WebFallbackTests.swift::testTheFixedRowsAddressExactlyTheWebAppsOwnRoutes	-	-
+M:app/products/calls	calls	tested	Mattermost/UI/Native/Calls	MattermostTests/T44DCallsSurfaceTests.swift::testParticipantRowsSurviveMissingProfilesAndMarkTheReader	-	-
+M:app/products/playbooks	-	tested	Mattermost/UI/Native/Web	MattermostTests/T46WebFallbackTests.swift::testTheFixedRowsAddressExactlyTheWebAppsOwnRoutes	-	-
+M:app/screens/apps_form	-	absent	-	-	-	-
+M:app/screens/attachment_options	-	absent	-	-	-	-
+M:app/screens/bottom_sheet	-	absent	-	-	-	-
+M:app/screens/browse_channels	channelInfo	tested	Mattermost/UI/Native/ChannelInfo	MattermostTests/T40ChannelInfoTests.swift::testAdminPermissionsOfferEveryActionOnAPublicChannel	-	-
+M:app/screens/channel	channelView	tested	Mattermost/UI/Native/Channel	MattermostTests/T34ChannelViewModelTests.swift::testFirstPageLoadsNewestFirstAndRendersOldestFirst	-	-
+M:app/screens/channel_add_members	-	absent	-	-	-	-
+M:app/screens/channel_bookmark	channelInfo	tested	Mattermost/UI/Native/ChannelInfo;Mattermost/UI/Native/Channel	MattermostTests/T05ChannelBookmarksTests.swift::testTheServersSortOrderIsTheDrawOrder	-	-
+M:app/screens/channel_configuration	-	absent	-	-	-	-
+M:app/screens/channel_files	-	absent	-	-	-	-
+M:app/screens/channel_info	channelInfo	tested	Mattermost/UI/Native/ChannelInfo	MattermostTests/T52ChannelInfoCompletenessTests.swift::testLevelVocabularyIsTheServersOwnStrings	-	-
+M:app/screens/channel_notification_preferences	-	absent	-	-	-	-
+M:app/screens/channel_settings	-	absent	-	-	-	-
+M:app/screens/channel_share	-	absent	-	-	-	-
+M:app/screens/code	-	absent	-	-	-	-
+M:app/screens/component_library	-	absent	-	-	-	-
+M:app/screens/convert_gm_to_channel	-	absent	-	-	-	-
+M:app/screens/create_direct_message	-	absent	-	-	-	-
+M:app/screens/create_or_edit_channel	channelInfo	tested	Mattermost/UI/Native/ChannelInfo	MattermostTests/T47CreateChannelTests.swift::testTheRuleAcceptsLowercaseDigitsHyphenAndUnderscore	8643fbff4bbf:PASS-WITH-FINDINGS	-
+M:app/screens/custom_status	-	absent	-	-	-	-
+M:app/screens/custom_status_clear_after	-	absent	-	-	-	-
+M:app/screens/data_erased	-	absent	-	-	-	-
+M:app/screens/dialog_router	-	absent	-	-	-	-
+M:app/screens/draft_scheduled_post_options	-	absent	-	-	-	-
+M:app/screens/edit_post	composer	tested	Mattermost/UI/Native/Composer	MattermostTests/T35ComposerModelsTests.swift::testAMentionIsTheWordBeforeTheCaret	-	-
+M:app/screens/edit_profile	-	tested	Mattermost/UI/Native/Profile	MattermostTests/T50EditProfileTests.swift::testPatchCarriesOnlyTheFieldsThatChanged	-	-
+M:app/screens/edit_server	-	absent	-	-	-	-
+M:app/screens/emoji_picker	composer	tested	Mattermost/UI/Native/Emoji;Mattermost/UI/Native/Reactions	MattermostTests/EmojiShortcodeTableTests.swift::testTheBundledTableIsCompleteAndNotDegraded	-	-
+M:app/screens/find_channels	channelInfo	tested	Mattermost/UI/Native/ChannelInfo	MattermostTests/T40ChannelInfoTests.swift::testPlainMemberIsOfferedOnlyTheMemberList	-	-
+M:app/screens/forgot_password	auth	tested	Mattermost/UI/Native/Auth	MattermostTests/T49TermsOfServiceTests.swift::testPasswordResetPostsTheEmailToTheServersEndpoint	-	-
+M:app/screens/gallery	channelView	tested	Mattermost/UI/Native/Files	MattermostTests/T38AttachmentTests.swift::testAPNGIsAnImageAndItsTypeLabelNamesTheFormat	-	-
+M:app/screens/global_drafts	-	tested	Mattermost/UI/Native/Drafts	MattermostTests/T51GlobalDraftsTests.swift::testASnippetCollapsesEveryKindOfWhitespace	-	-
+M:app/screens/global_threads	-	tested	Mattermost/UI/Native/Thread	MattermostTests/T36GlobalThreadsViewModelTests.swift::testLoadShowsTheNewestThreadFirstAndTheServersCounters	-	-
+M:app/screens/home	sidebar	tested	Mattermost/UI/Native/Sidebar;Mattermost/UI/Native/Search	MattermostTests/T33-ChannelSidebarTests.swift::testCategoryDecodesTheServersShape	-	-
+M:app/screens/in_app_notification	-	absent	-	-	-	-
+M:app/screens/integration_selector	-	absent	-	-	-	-
+M:app/screens/invite	-	absent	-	-	-	-
+M:app/screens/join_team	-	absent	-	-	-	-
+M:app/screens/latex	-	absent	-	-	-	-
+M:app/screens/login	auth	tested	Mattermost/UI/Native/Auth	MattermostTests/T31-AuthTests.swift::testSubmitIsDisabledUntilBothFieldsCarrySomething	-	-
+M:app/screens/manage_channel_members	channelInfo	tested	Mattermost/UI/Native/ChannelInfo	MattermostTests/T40ChannelInfoTests.swift::testPlainMemberIsOfferedOnlyTheMemberList	-	-
+M:app/screens/mentions	activity	tested	Mattermost/UI/Native/Activity	MattermostTests/T42ActivityTests.swift::testKeysAreUpstreamsOrderAndShape	-	-
+M:app/screens/mfa	auth	tested	Mattermost/UI/Native/Auth	MattermostTests/T31-AuthTests.swift::testMFARequiredMovesToTheSecondStepAndVerifiesWithTheSameCredential	-	-
+M:app/screens/mm_blocks_content	-	absent	-	-	-	-
+M:app/screens/onboarding	-	tested	Mattermost/UI/WelcomeView.swift	MattermostTests/WelcomeViewTests.swift::testStartsAtRequestedIndex	-	-
+M:app/screens/pdf_viewer	-	absent	-	-	-	-
+M:app/screens/permalink	-	tested	Mattermost/Core/DeepLinkRouter.swift	MattermostTests/DeepLinkRouterTests.swift::testParsesMattermostScheme	-	-
+M:app/screens/pinned_messages	search	tested	Mattermost/UI/Native/Search	MattermostTests/T39SearchTests.swift::testEachDocumentedModifierIsParsedComposedAndSentVerbatim	-	-
+M:app/screens/post_options	channelView	tested	Mattermost/UI/Native/Channel	MattermostTests/T48PostOptionsTests.swift::testTheOrderIsUpstreamsRenderOrder	-	-
+M:app/screens/post_priority_picker	-	absent	-	-	-	-
+M:app/screens/reactions	channelView	tested	Mattermost/UI/Native/Reactions	MattermostTests/T37ReactionTests.swift::testAliasesShareOnePillName	-	-
+M:app/screens/report_a_problem	-	absent	-	-	-	-
+M:app/screens/reschedule_draft	-	absent	-	-	-	-
+M:app/screens/review_app	-	absent	-	-	-	-
+M:app/screens/scheduled_post_options	-	tested	Mattermost/UI/Native/Drafts	MattermostTests/T51GlobalDraftsTests.swift::testASnippetCollapsesEveryKindOfWhitespace	-	-
+M:app/screens/search	search	tested	Mattermost/UI/Native/Search	MattermostTests/T39SearchTests.swift::testEachDocumentedModifierIsParsedComposedAndSentVerbatim	-	-
+M:app/screens/select_team	sidebar	tested	Mattermost/UI/Native/Sidebar	MattermostTests/T32-TeamSidebarTests.swift::testTeamUnreadDecodesTheServersRowAndIgnoresExtraCounters	-	-
+M:app/screens/server	-	tested	Mattermost/UI/ServerFormView.swift;Mattermost/Core/ServerFormModel.swift;Mattermost/Core/ServerURLValidator.swift	MattermostTests/ServerURLValidatorTests.swift::testValidServerReturnsOKWithNameProbe	-	-
+M:app/screens/settings	-	tested	Mattermost/UI/SettingsView.swift;Mattermost/Core/AppSettings.swift	MattermostTests/SettingsViewTests.swift::testDefaultsMirrorDesktopDefaultPreferences	-	-
+M:app/screens/share_feedback	-	absent	-	-	-	-
+M:app/screens/show_translation	-	absent	-	-	-	-
+M:app/screens/snack_bar	-	absent	-	-	-	-
+M:app/screens/sso	auth	tested	Mattermost/UI/Native/Auth	MattermostTests/T31-AuthTests.swift::testAnAlreadySignedInWebviewIsAdoptedOnTheFirstPoll	-	-
+M:app/screens/table	-	absent	-	-	-	-
+M:app/screens/terms_of_service	auth	tested	Mattermost/UI/Native/Auth	MattermostTests/T49TermsOfServiceTests.swift::testPendingTermsBlockASignedInSession	-	-
+M:app/screens/thread	channelView	tested	Mattermost/UI/Native/Thread;Mattermost/Core/MM/MMThreadTypes.swift	MattermostTests/T36ThreadModelsTests.swift::testTheChainStartsWithTheRootEvenThoughTheServerReturnsItAmongTheReplies	-	-
+M:app/screens/thread_options	-	absent	-	-	-	-
+M:app/screens/user_profile	-	tested	Mattermost/UI/Native/Profile	MattermostTests/T41ProfileTests.swift::testAProfileDecodesRolesTimezonePropsAndTheCustomStatus	-	-
+M:app/screens/watermark	-	absent	-	-	-	-
+REST:DELETE /channels/{channel_id}	-	absent	-	-	-	-
+REST:DELETE /channels/{channel_id}/members/{user_id}	-	absent	-	-	-	-
+REST:DELETE /posts/schedule	-	absent	-	-	-	-
+REST:DELETE /posts/{post_id}	-	absent	-	-	-	-
+REST:DELETE /posts/{post_id}/burn	-	absent	-	-	-	-
+REST:DELETE /teams/{team_id}	-	absent	-	-	-	-
+REST:DELETE /teams/{team_id}/members/{user_id}	-	absent	-	-	-	-
+REST:DELETE /users/{user_id}/image	-	absent	-	-	-	-
+REST:DELETE /users/{user_id}/posts	-	absent	-	-	-	-
+REST:DELETE /users/{user_id}/status/custom	-	absent	-	-	-	-
+REST:GET /channels	-	absent	-	-	-	-
+REST:GET /channels/{channel_id}/access_control/attributes	-	absent	-	-	-	-
+REST:GET /channels/{channel_id}/bookmarks	-	absent	-	-	-	-
+REST:GET /channels/{channel_id}/common_teams	-	absent	-	-	-	-
+REST:GET /channels/{channel_id}/members	-	absent	-	-	-	-
+REST:GET /channels/{channel_id}/members/{user_id}	-	absent	-	-	-	-
+REST:GET /channels/{channel_id}/pinned	-	absent	-	-	-	-
+REST:GET /channels/{channel_id}/posts	-	absent	-	-	-	-
+REST:GET /channels/{channel_id}/stats	-	absent	-	-	-	-
+REST:GET /channels/{channel_id}/timezones	-	absent	-	-	-	-
+REST:GET /commands	-	absent	-	-	-	-
+REST:GET /custom_profile_attributes/fields	-	absent	-	-	-	-
+REST:GET /data_retention/policy	-	absent	-	-	-	-
+REST:GET /emoji	-	absent	-	-	-	-
+REST:GET /emoji/autocomplete	-	absent	-	-	-	-
+REST:GET /emoji/name	-	absent	-	-	-	-
+REST:GET /files/{file_id}/info	-	absent	-	-	-	-
+REST:GET /files/{file_id}/link	-	absent	-	-	-	-
+REST:GET /plugins/com.mattermost.apps/api/v1/bindings	-	absent	-	-	-	-
+REST:GET /plugins/webapp	-	absent	-	-	-	-
+REST:GET /posts/scheduled/team	-	absent	-	-	-	-
+REST:GET /posts/{post_id}	-	absent	-	-	-	-
+REST:GET /posts/{post_id}/files/info	-	absent	-	-	-	-
+REST:GET /posts/{post_id}/info	-	absent	-	-	-	-
+REST:GET /posts/{post_id}/reactions	-	absent	-	-	-	-
+REST:GET /posts/{post_id}/reveal	-	absent	-	-	-	-
+REST:GET /posts/{post_id}/thread	-	absent	-	-	-	-
+REST:GET /remotecluster	-	absent	-	-	-	-
+REST:GET /sharedchannels	-	absent	-	-	-	-
+REST:GET /sharedchannels/{channel_id}/remotes	-	absent	-	-	-	-
+REST:GET /system/timezones	-	absent	-	-	-	-
+REST:GET /teams	-	absent	-	-	-	-
+REST:GET /teams/{team_id}/channels/autocomplete	-	absent	-	-	-	-
+REST:GET /teams/{team_id}/channels/managed_categories	-	absent	-	-	-	-
+REST:GET /teams/{team_id}/channels/search_autocomplete	-	absent	-	-	-	-
+REST:GET /teams/{team_id}/commands/autocomplete	-	absent	-	-	-	-
+REST:GET /teams/{team_id}/commands/autocomplete_suggestions	-	absent	-	-	-	-
+REST:GET /teams/{team_id}/members	-	absent	-	-	-	-
+REST:GET /teams/{team_id}/members/{user_id}	-	absent	-	-	-	-
+REST:GET /teams/{team_id}/stats	-	absent	-	-	-	-
+REST:GET /users	-	absent	-	-	-	-
+REST:GET /users/autocomplete	-	absent	-	-	-	-
+REST:GET /users/email	-	absent	-	-	-	-
+REST:GET /users/known	-	absent	-	-	-	-
+REST:GET /users/sessions/attributes/manifest	-	absent	-	-	-	-
+REST:GET /users/username	-	absent	-	-	-	-
+REST:GET /users/{user_id}	-	absent	-	-	-	-
+REST:GET /users/{user_id}/channel_members	-	absent	-	-	-	-
+REST:GET /users/{user_id}/channels	-	absent	-	-	-	-
+REST:GET /users/{user_id}/custom_profile_attributes	-	absent	-	-	-	-
+REST:GET /users/{user_id}/data_retention/channel_policies	-	absent	-	-	-	-
+REST:GET /users/{user_id}/data_retention/team_policies	-	absent	-	-	-	-
+REST:GET /users/{user_id}/posts/flagged	-	absent	-	-	-	-
+REST:GET /users/{user_id}/preferences	-	absent	-	-	-	-
+REST:GET /users/{user_id}/sessions	-	absent	-	-	-	-
+REST:GET /users/{user_id}/status	-	absent	-	-	-	-
+REST:GET /users/{user_id}/teams	-	absent	-	-	-	-
+REST:GET /users/{user_id}/teams/members	-	absent	-	-	-	-
+REST:GET /users/{user_id}/teams/{team_id}/channels/categories	-	absent	-	-	-	-
+REST:GET /users/{user_id}/teams/{team_id}/channels/categories/order	-	absent	-	-	-	-
+REST:GET /users/{user_id}/teams/{team_id}/channels/categories/{category_id}	-	absent	-	-	-	-
+REST:GET /users/{user_id}/teams/{team_id}/threads	-	absent	-	-	-	-
+REST:GET /users/{user_id}/teams/{team_id}/threads/{thread_id}	-	absent	-	-	-	-
+REST:PATCH /custom_profile_attributes/values	-	absent	-	-	-	-
+REST:POST /channels	-	absent	-	-	-	-
+REST:POST /channels/direct	-	absent	-	-	-	-
+REST:POST /channels/group	-	absent	-	-	-	-
+REST:POST /channels/members/me/view	-	absent	-	-	-	-
+REST:POST /channels/search	-	absent	-	-	-	-
+REST:POST /channels/{channel_id}/bookmarks/{bookmark_id}/sort_order	-	absent	-	-	-	-
+REST:POST /channels/{channel_id}/convert_to_channel	-	absent	-	-	-	-
+REST:POST /channels/{channel_id}/members	-	absent	-	-	-	-
+REST:POST /channels/{channel_id}/members/ids	-	absent	-	-	-	-
+REST:POST /channels/{channel_id}/restore	-	absent	-	-	-	-
+REST:POST /commands	-	absent	-	-	-	-
+REST:POST /commands/execute	-	absent	-	-	-	-
+REST:POST /emoji/search	-	absent	-	-	-	-
+REST:POST /plugins/com.mattermost.apps/api/v1/call	-	absent	-	-	-	-
+REST:POST /plugins/{plugin_id}/api/v1/give_feedback	-	absent	-	-	-	-
+REST:POST /posts	-	absent	-	-	-	-
+REST:POST /posts/{post_id}/actions	-	absent	-	-	-	-
+REST:POST /posts/{post_id}/pin	-	absent	-	-	-	-
+REST:POST /posts/{post_id}/unpin	-	absent	-	-	-	-
+REST:POST /reactions	-	absent	-	-	-	-
+REST:POST /remotecluster/{remote_id}/channels/{channel_id}/invite	-	absent	-	-	-	-
+REST:POST /remotecluster/{remote_id}/channels/{channel_id}/uninvite	-	absent	-	-	-	-
+REST:POST /roles/names	-	absent	-	-	-	-
+REST:POST /teams	-	absent	-	-	-	-
+REST:POST /teams/members/invite	-	absent	-	-	-	-
+REST:POST /teams/{team_id}/channels/search	-	absent	-	-	-	-
+REST:POST /teams/{team_id}/channels/search_archived	-	absent	-	-	-	-
+REST:POST /teams/{team_id}/invite-guests/email	-	absent	-	-	-	-
+REST:POST /teams/{team_id}/invite/email	-	absent	-	-	-	-
+REST:POST /teams/{team_id}/members	-	absent	-	-	-	-
+REST:POST /teams/{team_id}/members/batch	-	absent	-	-	-	-
+REST:POST /teams/{team_id}/members/ids	-	absent	-	-	-	-
+REST:POST /users	-	absent	-	-	-	-
+REST:POST /users/group_channels	-	absent	-	-	-	-
+REST:POST /users/ids	-	absent	-	-	-	-
+REST:POST /users/login	-	absent	-	-	-	-
+REST:POST /users/login/sso/code-exchange	-	absent	-	-	-	-
+REST:POST /users/login/type	-	absent	-	-	-	-
+REST:POST /users/logout	-	absent	-	-	-	-
+REST:POST /users/mfa	-	absent	-	-	-	-
+REST:POST /users/password/reset/send	-	absent	-	-	-	-
+REST:POST /users/search	-	absent	-	-	-	-
+REST:POST /users/status/ids	-	absent	-	-	-	-
+REST:POST /users/usernames	-	absent	-	-	-	-
+REST:POST /users/{user_id}/demote	-	absent	-	-	-	-
+REST:POST /users/{user_id}/posts	-	absent	-	-	-	-
+REST:POST /users/{user_id}/preferences/delete	-	absent	-	-	-	-
+REST:POST /users/{user_id}/status/custom/recent/delete	-	absent	-	-	-	-
+REST:POST /users/{user_id}/terms_of_service	-	absent	-	-	-	-
+REST:PUT /channels/{channel_id}	-	absent	-	-	-	-
+REST:PUT /channels/{channel_id}/members	-	absent	-	-	-	-
+REST:PUT /channels/{channel_id}/members/{user_id}/autotranslation	-	absent	-	-	-	-
+REST:PUT /channels/{channel_id}/members/{user_id}/notify_props	-	absent	-	-	-	-
+REST:PUT /channels/{channel_id}/patch	-	absent	-	-	-	-
+REST:PUT /channels/{channel_id}/privacy	-	absent	-	-	-	-
+REST:PUT /posts/schedule	-	absent	-	-	-	-
+REST:PUT /posts/{post_id}	-	absent	-	-	-	-
+REST:PUT /posts/{post_id}/patch	-	absent	-	-	-	-
+REST:PUT /teams/{team_id}	-	absent	-	-	-	-
+REST:PUT /teams/{team_id}/patch	-	absent	-	-	-	-
+REST:PUT /users/sessions/device	-	absent	-	-	-	-
+REST:PUT /users/{user_id}	-	absent	-	-	-	-
+REST:PUT /users/{user_id}/patch	-	absent	-	-	-	-
+REST:PUT /users/{user_id}/preferences	-	absent	-	-	-	-
+REST:PUT /users/{user_id}/status	-	absent	-	-	-	-
+REST:PUT /users/{user_id}/status/custom	-	absent	-	-	-	-
+REST:PUT /users/{user_id}/teams/{team_id}/channels/categories	-	absent	-	-	-	-
+WS:added_to_team	-	absent	-	-	-	-
+WS:burn_on_read_all_revealed	-	absent	-	-	-	-
+WS:channel_access_control_updated	-	absent	-	-	-	-
+WS:channel_bookmark_created	-	absent	-	-	-	-
+WS:channel_bookmark_deleted	-	absent	-	-	-	-
+WS:channel_bookmark_sorted	-	absent	-	-	-	-
+WS:channel_bookmark_updated	-	absent	-	-	-	-
+WS:channel_converted	-	absent	-	-	-	-
+WS:channel_created	-	absent	-	-	-	-
+WS:channel_deleted	-	absent	-	-	-	-
+WS:channel_member_updated	-	absent	-	-	-	-
+WS:channel_restored	-	absent	-	-	-	-
+WS:channel_scheme_updated	-	absent	-	-	-	-
+WS:channel_updated	-	absent	-	-	-	-
+WS:channel_viewed	-	absent	-	-	-	-
+WS:config_changed	-	absent	-	-	-	-
+WS:custom_profile_attributes_field_created	-	absent	-	-	-	-
+WS:custom_profile_attributes_field_deleted	-	absent	-	-	-	-
+WS:custom_profile_attributes_field_updated	-	absent	-	-	-	-
+WS:custom_profile_attributes_values_updated	-	absent	-	-	-	-
+WS:delete_team	-	absent	-	-	-	-
+WS:direct_added	-	absent	-	-	-	-
+WS:emoji_added	-	absent	-	-	-	-
+WS:ephemeral_message	-	absent	-	-	-	-
+WS:file_download_rejected	-	absent	-	-	-	-
+WS:group_added	-	absent	-	-	-	-
+WS:group_member_add	-	absent	-	-	-	-
+WS:group_member_delete	-	absent	-	-	-	-
+WS:hello	-	absent	-	-	-	-
+WS:increase_post_visibility_by_one	-	absent	-	-	-	-
+WS:leave_team	-	absent	-	-	-	-
+WS:license_changed	-	absent	-	-	-	-
+WS:memberrole_updated	-	absent	-	-	-	-
+WS:multiple_channels_viewed	-	absent	-	-	-	-
+WS:open_dialog	-	absent	-	-	-	-
+WS:permission_policy_updated	-	absent	-	-	-	-
+WS:ping	-	absent	-	-	-	-
+WS:plugin_disabled	-	absent	-	-	-	-
+WS:plugin_enabled	-	absent	-	-	-	-
+WS:plugin_statuses_changed	-	absent	-	-	-	-
+WS:pong	-	absent	-	-	-	-
+WS:post_acknowledgement_added	-	absent	-	-	-	-
+WS:post_acknowledgement_removed	-	absent	-	-	-	-
+WS:post_burned	-	absent	-	-	-	-
+WS:post_deleted	-	absent	-	-	-	-
+WS:post_edited	-	absent	-	-	-	-
+WS:post_revealed	-	absent	-	-	-	-
+WS:post_translation_updated	-	absent	-	-	-	-
+WS:post_unread	-	absent	-	-	-	-
+WS:posted	-	absent	-	-	-	-
+WS:preference_changed	-	absent	-	-	-	-
+WS:preferences_changed	-	absent	-	-	-	-
+WS:preferences_deleted	-	absent	-	-	-	-
+WS:property_field_created	-	absent	-	-	-	-
+WS:property_field_deleted	-	absent	-	-	-	-
+WS:property_field_updated	-	absent	-	-	-	-
+WS:property_values_updated	-	absent	-	-	-	-
+WS:reaction_added	-	absent	-	-	-	-
+WS:reaction_removed	-	absent	-	-	-	-
+WS:received_group	-	absent	-	-	-	-
+WS:received_group_associated_to_channel	-	absent	-	-	-	-
+WS:received_group_associated_to_team	-	absent	-	-	-	-
+WS:received_group_not_associated_to_channel	-	absent	-	-	-	-
+WS:received_group_not_associated_to_team	-	absent	-	-	-	-
+WS:restore_team	-	absent	-	-	-	-
+WS:role_updated	-	absent	-	-	-	-
+WS:scheduled_post_created	-	absent	-	-	-	-
+WS:scheduled_post_deleted	-	absent	-	-	-	-
+WS:scheduled_post_updated	-	absent	-	-	-	-
+WS:show_toast	-	absent	-	-	-	-
+WS:sidebar_category_created	-	absent	-	-	-	-
+WS:sidebar_category_deleted	-	absent	-	-	-	-
+WS:sidebar_category_order_updated	-	absent	-	-	-	-
+WS:sidebar_category_updated	-	absent	-	-	-	-
+WS:status_change	-	absent	-	-	-	-
+WS:stop_typing	-	absent	-	-	-	-
+WS:thread_follow_changed	-	absent	-	-	-	-
+WS:thread_read_changed	-	absent	-	-	-	-
+WS:thread_updated	-	absent	-	-	-	-
+WS:typing	-	absent	-	-	-	-
+WS:update_team	-	absent	-	-	-	-
+WS:user_added	-	absent	-	-	-	-
+WS:user_removed	-	absent	-	-	-	-
+WS:user_role_updated	-	absent	-	-	-	-
+WS:user_updated	-	absent	-	-	-	-
+WS:webrtc	-	absent	-	-	-	-
+X:accessibility	-	tested	Mattermost/UI/Native/Accessibility	MattermostTests/T45A11yTests.swift::testEveryRoleHasATextStyleAndAPlausibleDefaultSize	-	-
+X:deep-link	-	tested	Mattermost/Core/DeepLinkRouter.swift	MattermostTests/DeepLinkRouterTests.swift::testParsesMattermostScheme	-	-
+X:diagnostics	-	tested	Mattermost/Core/Diagnostics.swift	MattermostTests/DiagnosticsTests.swift::testStepEnumerationMatchesDesktopStepSet	-	-
+X:local-store	-	tested	Mattermost/Core/Store	MattermostTests/MMStoreTests.swift::testFreshStoreIsAtCurrentSchemaVersion	-	-
+X:native-shell	-	tested	Mattermost/UI/Native/NativeShellView.swift;Mattermost/UI/Native/NativePanePlaceholders.swift;Mattermost/UI/Native/SheetHost.swift	MattermostTests/NativeNavigationTests.swift::testChannelPathParsesTeamAndChannelName	-	-
+X:notification-input	-	tested	Mattermost/UI/Native/Notification;Mattermost/Core/NotificationWorker.swift;Mattermost/Core/MentionPoller.swift	MattermostTests/T43NotificationInputTests.swift::testANativePaneMakesTheSocketTheInput	-	-
+X:parity-record	-	claimed	parity/generate.py;docs/parity-map-design.md	-	-	t_e56d2589
+X:push-proxy	-	claimed	PushProxy	-	-	-
+X:transport	-	tested	Mattermost/Core/MM	MattermostTests/APIClientTests.swift::testSuccessDecodesTypedResponseAndSkipsAuthForPing	-	-
+X:web-fallback	-	tested	Mattermost/UI/Native/Web	MattermostTests/T46WebFallbackTests.swift::testTheFixedRowsAddressExactlyTheWebAppsOwnRoutes	7cb3e5415e75:PASS	-

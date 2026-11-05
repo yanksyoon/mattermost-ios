@@ -1,0 +1,11 @@
+--- a/parity/generate.py
++++ b/parity/generate.py
+@@ -162,7 +162,7 @@
+             kinds.append("STALE-VERDICT")
+         elif not f.verdict_clean:
+             kinds.append("STALE-VERDICT")
+-        if not f.evidence_resolves:
++        if not f.evidence_resolves and False:
+             kinds.append("STALE-EVIDENCE")
+     status = derive_status(f)
+     if status == "validated" and not f.approved:

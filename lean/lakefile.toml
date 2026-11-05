@@ -1,0 +1,10 @@
+# The parity specification. Self-contained on purpose: no dependencies, no Mathlib.
+#
+# A dependency bump is how a proof rots (docs/parity-verification-design.md §5). Everything here
+# compiles against the toolchain pinned in `lean-toolchain` and nothing else.
+name = "parity"
+version = "0.1.0"
+defaultTargets = ["Parity"]
+
+[[lean_lib]]
+name = "Parity"
