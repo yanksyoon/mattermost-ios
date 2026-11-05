@@ -154,6 +154,15 @@ which forbids demotion.
   `lean/.lake` keyed on the sha256 of `lean-toolchain`.
 * **Relevant paths**: `lean/**`, `parity/**`, `.github/workflows/parity-lean.yml`. A change to the
   parity record is a change to the thing the model claims to describe, so it re-runs the proof job.
+  On a pull request the relevance is computed over the **whole PR diff**, so every push to a PR that
+  touches `lean/` runs the gate even when that particular push is only a doc edit — intended, and it
+  is why the PR carrying this document shows the `lean` job on its last commit too.
+* **The workflow must exist on the base ref.** A workflow file that lives only on a feature branch
+  does not run for a PR opened against `main`: `pull_request` workflows are taken from the merge ref
+  of base and head, and a branch based on `main` does not contain `lean/`'s workflow file. Before
+  this landed, a probe PR off `main` produced **no run at all** (PR #2, closed unmerged) — not a skip,
+  no run. The filter was therefore verified with the Lean branch as the PR base instead (run
+  `41942231351`, §8).
 * **Why the relevance decision is a job and not a trigger filter.** The card asked for
   `on: pull_request: paths: [...]` **and** for the check to be required. Those cannot coexist: a
   required check that never reports leaves every unrelated pull request at "Expected — waiting for
@@ -165,6 +174,24 @@ which forbids demotion.
 * **Local**: no toolchain, and none is installed. `scripts/lean_check.sh` prints
   `Lean is verified in CI only: .github/workflows/parity-lean.yml (see docs/parity-verification-design.md)`
   and exits 0. If a toolchain does happen to be present it runs the same `lake build` and nothing else.
+
+### What is deliberately not done yet, and why
+
+* **The PR is green and unmerged.** Its head commit has a green `lean` run, but the branch sits on the
+  local `main`, which is three commits ahead of `origin/main` — and those three commits are other
+  cards' work that their own handoffs declared *local-only* (`69c7bf4` the parity record, `12e244f`
+  the capability scan, `8ab30cf` a WebSession fix). Merging would publish them. That is a decision for
+  the owner, not a side effect of a proof card; and rebasing this branch onto `origin/main` alone
+  would leave this document describing a `parity/` record that is not on `main`.
+* **The `lean` check is not registered as required yet.** It cannot be, in the only order that does
+  not break other work: a ruleset that requires `lean` on `refs/heads/main` *before* the workflow
+  exists there makes every unrelated PR wait for a check that can never be reported — the mirror image
+  of the trap in §5. An attempt to register it non-blockingly was rejected by the plan:
+  `gh api -X POST repos/yanksyoon/mattermost-ios/rulesets` with `"enforcement": "evaluate"` returns
+  `422 Enforcement evaluate option is not supported on this plan`. So the order is: land the branch,
+  then create the rule in `active` mode. The exact body is in §8; the check name to require is `lean`
+  (the job name, not the workflow name).
+
 
 ---
 
@@ -220,7 +247,7 @@ there, by owner decision — so every number below is a runner's.
 | 2 | [41941189898](https://github.com/yanksyoon/mattermost-ios/actions/runs/41941189898) | red | three real Lean errors: core Lean exports no `Function.Injective` (the theorem is stated as the implication it is); `injection … with` already closed the goal, so the following `exact` had nothing to solve; and `decide` over the 12-field `Row` literal fails with "expected type must not contain free variables", so the two MOVE lemmas were restated over `cases` on the path |
 | 3 | [41941487416](https://github.com/yanksyoon/mattermost-ios/actions/runs/41941487416) | **green** at commit `1a91635` | `✔ [2/6] Built Parity.Basic`, `✔ [3/6] Built Parity.Join`, `✔ [4/6] Built Parity.Ladder`, `✔ [5/6] Built Parity`, `Build completed successfully.` — `join_key_injective` compiles, along with the rest of the package |
 | 4 | [41941696516](https://github.com/yanksyoon/mattermost-ios/actions/runs/41941696516) | **red on purpose** | the gate is not green by vacuity. One-line mutation `joinKey (i) := ⟨i.ns, ""⟩` — the F5 failure shape, every path in a namespace collapsing onto one key — and `join_key_injective` fails to elaborate at `Parity/Join.lean:35` (`'change' tactic failed`). The branch `lean/mutation-check-t_22c3f1ea` is kept as the witness and must never be merged |
-| 5 | run list for `lean/t_22c3f1ea` | **skipped** | the path filter decides. The commit that carried this section touches `docs/` only: `relevant-paths` reports `relevant=false` and job `lean` is skipped, so an unrelated change is not in the way and a required check still reports |
+| 5 | [41942231351](https://github.com/yanksyoon/mattermost-ios/actions/runs/41942231351) | **skipped** | the path filter decides. An empty commit on top of the Lean branch, PR'd against the Lean branch (a workflow must exist on the base ref to run at all — the probe against `main`, PR #2, produced *no run*, which is why the base here is `lean/t_22c3f1ea`): `relevant-paths` success, `relevant=false`, job `lean` **skipped**. An unrelated change is not in the way, and a required check still reports |
 
 Wall clock: first push `00:24:13Z` → first green `00:28:19Z` = **4m06s**, three runs, none of them
 local. Measured build: the `lake build` step is **2 s** with the toolchain cache warm (four modules,
@@ -231,4 +258,26 @@ sha256(`lean/lean-toolchain`), so exactly a toolchain change invalidates it.
 Cycle count against the card's budget: **3 red/green cycles to land, 1 deliberate red to falsify the
 gate, 1 skip to check the filter** — well inside the 10–30 expected for a first proof, and no cycle
 was spent weakening a statement.
+
+### Landing it (the exact commands, for whoever decides to publish)
+
+```
+# Fast-forward the branch onto main. Local main is 3 ahead / 0 behind origin/main, so this publishes
+# the branch's seven commits as they are — a squash would fold four cards into one commit.
+git push git@github.com:yanksyoon/mattermost-ios.git lean/t_22c3f1ea:main
+
+# Then, only once parity-lean.yml is on main, make the check required (job name `lean`):
+gh api -X POST repos/yanksyoon/mattermost-ios/rulesets --input parity-lean-ruleset.json
+#   {"name": "parity-lean: required when it exists",
+#    "target": "branch",
+#    "enforcement": "active",
+#    "conditions": {"ref_name": {"include": ["refs/heads/main"]}},
+#    "rules": [{"type": "required_status_checks",
+#               "parameters": {"strict_required_status_checks_policy": false,
+#                              "required_status_checks": [{"context": "lean"}]}}]}
+```
+
+`git push` over HTTPS fails on this checkout — `origin` embeds a token GitHub now rejects
+(`remote: Invalid username or token`); the SSH remote (`git@github.com:yanksyoon/…`) works and is what
+every command in this section assumes.
 
