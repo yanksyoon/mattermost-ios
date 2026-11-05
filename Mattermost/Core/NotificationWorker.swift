@@ -67,6 +67,14 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     /// while the OS has nowhere to put a banner.
     @Published private(set) var registrationState: NotificationRegistration = .unknown
 
+    /// The delivery style the system says it will use (card t_e4d5a252).
+    ///
+    /// `alertStyle == "none"` is the state that looks like "notifications are broken" while every
+    /// other read-out says "allowed": the request is accepted and delivered to Notification Center,
+    /// but no banner is ever drawn. `UNNotificationSettings.alertStyle` is the only public answer,
+    /// so it is read beside the status and named by the Settings row and the diagnostics line.
+    @Published private(set) var deliverySettings: NotificationDeliverySettings = .unknown
+
     /// Whether this install has ever shown the system prompt (persisted; see
     /// `AppPreferences.Keys.notificationPermissionRequested`). Published because the Settings row
     /// reports it in the diagnostics line.
@@ -150,7 +158,7 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
 
     init(scheduling: NotificationScheduling = UNNotificationCenterAdapter(),
          preferences: AppPreferences = AppPreferences(),
-         registration: any NotificationRegistrationReading = NCPrefsNotificationRegistrationReader()) {
+         registration: any NotificationRegistrationReading = SystemNotificationRegistrationReader()) {
         self.scheduling = scheduling
         self.preferences = preferences
         self.registrationReader = registration
@@ -179,6 +187,7 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     func reloadAuthorizationStatus() async {
         authorizationStatus = await scheduling.authorizationStatus()
         registrationState = registrationReader.registrationState()
+        deliverySettings = await scheduling.deliverySettings()
         logDiagnostics("status-read")
     }
 
@@ -191,11 +200,15 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     /// answers "allowed": `.authorized` with no Notification Center row is the state in which every
     /// `add()` is dropped, so that combination must never read as "Allowed".
     nonisolated static func authorizationCopy(for status: UNAuthorizationStatus,
-                                              registration: NotificationRegistration = .unknown) -> String {
+                                              registration: NotificationRegistration = .unknown,
+                                              delivery: NotificationDeliverySettings = .unknown) -> String {
         switch status {
         case .authorized, .provisional, .ephemeral:
             if registration == .notRegistered {
                 return "Not registered with macOS - nothing can appear"
+            }
+            if delivery.alertStyle == "none" {
+                return "Allowed, but notifications are set to none - no banner can appear"
             }
             switch status {
             case .authorized: return "Allowed - notifications can appear"
@@ -209,12 +222,15 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     }
 
     /// The short form the row's leading label shows. Same rule as `authorizationCopy`: a bundle the
-    /// OS has no row for is **not** "Allowed", whatever `notificationSettings()` says.
+    /// OS has no row for, or a style the OS will not draw, is **not** plain "Allowed".
     nonisolated static func statusLabel(for status: UNAuthorizationStatus,
-                                        registration: NotificationRegistration = .unknown) -> String {
+                                        registration: NotificationRegistration = .unknown,
+                                        delivery: NotificationDeliverySettings = .unknown) -> String {
         switch status {
         case .authorized, .provisional, .ephemeral:
-            return registration == .notRegistered ? "Not registered" : "Allowed"
+            if registration == .notRegistered { return "Not registered" }
+            if delivery.alertStyle == "none" { return "No banners" }
+            return "Allowed"
         case .denied: return "Not allowed"
         case .notDetermined: return "Not allowed yet"
         @unknown default: return "Unknown"
@@ -235,22 +251,41 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
 
     /// The plain-words copy for the current status, observed by the Settings row.
     var authorizationCopy: String {
-        Self.authorizationCopy(for: authorizationStatus, registration: registrationState)
+        Self.authorizationCopy(for: authorizationStatus, registration: registrationState,
+                               delivery: deliverySettings)
     }
 
     /// The short label for the current status, observed by the Settings row.
     var statusLabel: String {
-        Self.statusLabel(for: authorizationStatus, registration: registrationState)
+        Self.statusLabel(for: authorizationStatus, registration: registrationState,
+                         delivery: deliverySettings)
+    }
+
+    /// Whether the system reports this app as allowed (any allowed flavour).
+    var isAllowed: Bool {
+        switch authorizationStatus {
+        case .authorized, .provisional, .ephemeral: return true
+        default: return false
+        }
+    }
+
+    /// Whether the reader has to leave the app to fix what this row reports.
+    var needsSystemSettings: Bool {
+        authorizationStatus == .denied
+            || registrationState == .notRegistered
+            || (deliverySettings.alertStyle == "none" && isAllowed)
     }
 
     /// The one diagnostics line this card adds. Answers "why do I get no notifications?" from a log
     /// or a shared diagnostics report without reading `ncprefs.plist`.
     ///
-    /// `registration=` was added by t_e4d5a252: without it the line could read
-    /// `status=authorized` on an install where the OS has no row and every banner is dropped.
+    /// `registration=` and `alerts=` were added by t_e4d5a252: without them the line could read
+    /// `status=authorized` on an install where the OS has no row, or where the style is `none` and
+    /// no banner can be drawn, and every request is dropped or delivered silently.
     var diagnosticsLine: String {
         "notifications=status=\(Self.statusToken(authorizationStatus)) "
             + "registration=\(registrationState.diagnosticsToken) "
+            + "alerts=\(deliverySettings.alertStyle) "
             + "requested=\(hasRequestedAuthorization) lastSchedule=\(lastScheduleOutcome)"
     }
 
@@ -258,6 +293,7 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     var diagnosticsSnapshot: NotificationDiagnosticsSnapshot {
         NotificationDiagnosticsSnapshot(status: Self.statusToken(authorizationStatus),
                                         registration: registrationState.diagnosticsToken,
+                                        alerts: deliverySettings.alertStyle,
                                         requested: hasRequestedAuthorization,
                                         lastSchedule: lastScheduleOutcome)
     }
@@ -303,9 +339,9 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     /// and every `add()` was silently dropped. `didAskThisProcess` replaces it: one ask per process,
     /// and a new process asks again whenever the OS still answers `.notDetermined`.
     @discardableResult
-    func prepareAuthorization() async -> UNAuthorizationStatus {
+    func prepareAuthorization(registeringAuthorizedInstall: Bool = false) async -> UNAuthorizationStatus {
         let statusBefore = await scheduling.authorizationStatus()
-        if statusBefore == .notDetermined && !didAskThisProcess {
+        if shouldAsk(status: statusBefore, includingAuthorized: registeringAuthorizedInstall) {
             didAskThisProcess = true
             hasRequestedAuthorization = true
             preferences.set(true, forKey: AppPreferences.Keys.notificationPermissionRequested)
@@ -314,7 +350,25 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         let status = await scheduling.authorizationStatus()
         authorizationStatus = status
         registrationState = registrationReader.registrationState()
+        deliverySettings = await scheduling.deliverySettings()
         return status
+    }
+
+    /// Whether this process still owes the system a registration call.
+    ///
+    /// `includingAuthorized` is true only for the launch reconciliation, never for a delivery: a
+    /// mention must not turn into a permission round-trip on an install that already reads allowed.
+    ///
+    /// Two states deserve a call:
+    /// * `.notDetermined` — the ordinary first-run prompt.
+    /// * `.authorized` with `hasRequestedAuthorization == false` **at launch** — measured on this card:
+    ///   macOS 26 answers `.authorized` for an app that has never asked (the launch log read
+    ///   `status=authorized registration=registered alerts=banner requested=false`). One silent call
+    ///   on launch makes `requested` a fact instead of a stale local flag.
+    private func shouldAsk(status: UNAuthorizationStatus, includingAuthorized: Bool) -> Bool {
+        guard !didAskThisProcess else { return false }
+        if status == .notDetermined { return true }
+        return includingAuthorized && status == .authorized && !hasRequestedAuthorization
     }
 
     /// Ask at launch, once, when this install has never been answered and a session exists.
@@ -330,12 +384,13 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         let status = await scheduling.authorizationStatus()
         authorizationStatus = status
         registrationState = registrationReader.registrationState()
-        guard hasSession, status == .notDetermined else {
+        deliverySettings = await scheduling.deliverySettings()
+        guard hasSession, shouldAsk(status: status, includingAuthorized: true) else {
             logDiagnostics("launch-ask-skipped")
             return
         }
         logDiagnostics("launch-ask")
-        _ = await prepareAuthorization()
+        _ = await prepareAuthorization(registeringAuthorizedInstall: true)
     }
 
     // MARK: - Mention -> UNNotificationRequest (desktop displayMention)
@@ -880,6 +935,18 @@ extension NotificationTapResolving {
 
 // MARK: - Scheduling seam
 
+/// The delivery style the system will use for this app, as far as the public API reports it.
+///
+/// Only `alertStyle` is carried: `none` is the one value that explains "allowed, scheduled, and
+/// nothing ever appears" without a second cause, and `UNNotificationSettings.alertStyle` is the
+/// public way to read it. `unknown` is a host that could not answer (never rendered as a failure).
+struct NotificationDeliverySettings: Equatable {
+    /// `none`, `banner`, `alert`, or `unknown`.
+    var alertStyle: String
+
+    static let unknown = NotificationDeliverySettings(alertStyle: "unknown")
+}
+
 /// The notification-center surface the worker depends on. Abstracted so the worker's logic is
 /// unit-testable without the real `UNUserNotificationCenter` (which cannot be instantiated).
 protocol NotificationScheduling: AnyObject {
@@ -887,7 +954,13 @@ protocol NotificationScheduling: AnyObject {
     var delegate: UNUserNotificationCenterDelegate? { get set }
     func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool
     func authorizationStatus() async -> UNAuthorizationStatus
+    func deliverySettings() async -> NotificationDeliverySettings
     func add(_ request: UNNotificationRequest) async throws
+}
+
+extension NotificationScheduling {
+    /// A host that cannot report the style keeps the worker behaving exactly as before.
+    func deliverySettings() async -> NotificationDeliverySettings { .unknown }
 }
 
 /// Concrete adapter over `UNUserNotificationCenter` (the only place the framework is touched).
@@ -910,6 +983,18 @@ final class UNNotificationCenterAdapter: NSObject, NotificationScheduling {
 
     func authorizationStatus() async -> UNAuthorizationStatus {
         await center.notificationSettings().authorizationStatus
+    }
+
+    func deliverySettings() async -> NotificationDeliverySettings {
+        let settings = await center.notificationSettings()
+        let style: String
+        switch settings.alertStyle {
+        case .none: style = "none"
+        case .banner: style = "banner"
+        case .alert: style = "alert"
+        @unknown default: style = "unknown"
+        }
+        return NotificationDeliverySettings(alertStyle: style)
     }
 
     func add(_ request: UNNotificationRequest) async throws {

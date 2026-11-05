@@ -1,41 +1,71 @@
 #!/usr/bin/env bash
-# Gate an install on one OS fact: does Notification Center hold a row for this app?
+# Gate an install on one OS fact: does the system hold a notification-registration row for this app?
 #
 # Why this exists (card t_e4d5a252): the Mac build is signed ad-hoc and re-signed on every install,
-# which changes the code identity. macOS then drops the bundle's notification-registration row
-# while `UNUserNotificationCenter.add()` still accepts every request — so the app reports
-# "scheduled" and nothing ever appears. The app cannot ask "am I registered?" through any public
-# API, but the OS writes the answer in `~/Library/Preferences/com.apple.ncprefs.plist` under
-# `apps[*].bundle-id`. This script reads that table and fails loudly when the row is missing.
+# which changes the code identity and re-registers the bundle. The app cannot ask "am I registered?"
+# through any public API, but the system keeps the answer in two plists. This script reads them and
+# fails loudly when the bundle is in neither.
+#
+# WHICH TABLE (measured 2026-11-05, macOS 26.3.1):
+#   * live:   ~/Library/Group Containers/group.com.apple.usernoted/Library/Preferences/
+#             group.com.apple.usernoted.plist  (written on every register; mtime that day)
+#   * legacy: ~/Library/Preferences/com.apple.ncprefs.plist
+#             (last written 2026-02-25 on this host and missing every app installed since —
+#              Firefox 2026-09-17, this bundle 2026-11-05 — so it is a fallback, not the truth)
+# The live table wins. A bundle found in either one counts as registered; a bundle absent from both
+# readable tables is a failure, because then no registration row exists at all.
 #
 # Run it as the LAST step of every install; a build is not delivered until it exits 0.
 #
 # Usage:
 #   scripts/verify-notification-registration.sh
-#   scripts/verify-notification-registration.sh --bundle-id com.mattermost.ios --plist PATH
+#   scripts/verify-notification-registration.sh --bundle-id com.mattermost.ios \
+#       --live-plist PATH --legacy-plist PATH
 #   scripts/verify-notification-registration.sh --self-test     # proves its own verdicts
 #
-# Exit codes: 0 registered, 1 not registered, 2 cannot read the table / bad usage.
+# Exit codes: 0 registered, 1 not registered, 2 no table readable / bad usage.
 set -uo pipefail
 
 BUNDLE_ID="com.mattermost.ios"
-PLIST="$HOME/Library/Preferences/com.apple.ncprefs.plist"
+LIVE_PLIST="$HOME/Library/Group Containers/group.com.apple.usernoted/Library/Preferences/group.com.apple.usernoted.plist"
+LEGACY_PLIST="$HOME/Library/Preferences/com.apple.ncprefs.plist"
 
 usage() {
-  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'
 }
 
-check() {
+# 0 = the table names the bundle, 1 = it does not, 2 = it cannot be read.
+table_verdict() {
   local plist="$1" bundle="$2"
   if [ ! -r "$plist" ]; then
-    echo "FAIL: cannot read $plist - is this a Mac with Notification Center?" >&2
     return 2
   fi
   if plutil -p "$plist" 2>/dev/null | grep -Fq "\"bundle-id\" => \"$bundle\""; then
-    echo "OK: $bundle is registered with Notification Center ($plist)"
     return 0
   fi
-  echo "FAIL: $bundle has no Notification Center registration in $plist - open the app > Settings > Notifications > Enable notifications > Allow (or System Settings > Notifications > Mattermost), then re-run this check." >&2
+  return 1
+}
+
+check() {
+  local live="$1" legacy="$2" bundle="$3"
+  local live_rc=2 legacy_rc=2
+
+  table_verdict "$live" "$bundle"; live_rc=$?
+  if [ "$live_rc" -eq 0 ]; then
+    echo "OK: $bundle is registered with the system notification table (live: $live)"
+    return 0
+  fi
+  table_verdict "$legacy" "$bundle"; legacy_rc=$?
+  if [ "$legacy_rc" -eq 0 ]; then
+    echo "OK: $bundle is registered with the system notification table (legacy: $legacy)"
+    return 0
+  fi
+
+  if [ "$live_rc" -eq 2 ] && [ "$legacy_rc" -eq 2 ]; then
+    echo "FAIL: cannot read any notification table (live: $live; legacy: $legacy) - is this a Mac?" >&2
+    return 2
+  fi
+  echo "FAIL: $bundle has no notification-registration row in the live table ($live) or the legacy one ($legacy) - open the app > Settings > Notifications > Enable notifications > Allow (or System Settings > Notifications > Mattermost), then re-run this check." >&2
   return 1
 }
 
@@ -59,7 +89,7 @@ write_fixture() { # path, bundle id (or empty)
 }
 
 self_test() {
-  local tmp with without missing rc failures=0
+  local tmp live_with legacy_with legacy_only absent missing failures=0
 
   if ! tmp="$(mktemp -d "${TMPDIR:-/tmp}/t-e4d5a252.XXXXXX")"; then
     echo "FAIL: mktemp could not create a fixture directory" >&2
@@ -68,44 +98,44 @@ self_test() {
   # shellcheck disable=SC2064
   trap "rm -rf '$tmp'" RETURN
 
-  with="$tmp/with.plist"
-  without="$tmp/without.plist"
+  live_with="$tmp/live-with.plist"
+  legacy_with="$tmp/legacy-with.plist"
+  legacy_only="$tmp/legacy-only.plist"
+  absent="$tmp/absent.plist"
   missing="$tmp/missing.plist"
-  write_fixture "$with" "$BUNDLE_ID"
-  write_fixture "$without"
+  write_fixture "$live_with" "$BUNDLE_ID"
+  write_fixture "$legacy_with" "$BUNDLE_ID"
+  write_fixture "$legacy_only" "$BUNDLE_ID"
+  write_fixture "$absent"
 
-  "$0" --plist "$with" --bundle-id "$BUNDLE_ID" >/dev/null 2>&1
-  rc=$?
-  if [ "$rc" -ne 0 ]; then
-    echo "FAIL: self-test expected 0 for a table that names the bundle, got $rc" >&2
-    failures=$((failures + 1))
-  fi
+  run_case() { # expected, label, live, legacy
+    local expected="$1" label="$2" live="$3" legacy="$4" got
+    "$0" --live-plist "$live" --legacy-plist "$legacy" --bundle-id "$BUNDLE_ID" >/dev/null 2>&1
+    got=$?
+    if [ "$got" -ne "$expected" ]; then
+      echo "FAIL: self-test expected $expected for $label, got $got" >&2
+      failures=$((failures + 1))
+    fi
+  }
 
-  "$0" --plist "$without" --bundle-id "$BUNDLE_ID" >/dev/null 2>&1
-  rc=$?
-  if [ "$rc" -ne 1 ]; then
-    echo "FAIL: self-test expected 1 for a table without the bundle, got $rc" >&2
-    failures=$((failures + 1))
-  fi
-
-  "$0" --plist "$missing" --bundle-id "$BUNDLE_ID" >/dev/null 2>&1
-  rc=$?
-  if [ "$rc" -ne 2 ]; then
-    echo "FAIL: self-test expected 2 for an unreadable table, got $rc" >&2
-    failures=$((failures + 1))
-  fi
+  run_case 0 "a live table that names the bundle" "$live_with" "$absent"
+  run_case 0 "a legacy table that names the bundle" "$absent" "$legacy_only"
+  run_case 0 "both tables naming the bundle" "$live_with" "$legacy_with"
+  run_case 1 "both readable tables without the bundle" "$absent" "$absent"
+  run_case 2 "no readable table" "$missing" "$missing"
 
   if [ "$failures" -ne 0 ]; then
     return 1
   fi
-  echo "OK: self-test passed (registered -> 0, absent -> 1, unreadable -> 2)"
+  echo "OK: self-test passed (live or legacy row -> 0, absent from both -> 1, unreadable -> 2)"
   return 0
 }
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --bundle-id) BUNDLE_ID="${2:-}"; shift 2 ;;
-    --plist) PLIST="${2:-}"; shift 2 ;;
+    --live-plist) LIVE_PLIST="${2:-}"; shift 2 ;;
+    --legacy-plist|--plist) LEGACY_PLIST="${2:-}"; shift 2 ;;
     --self-test) self_test; exit $? ;;
     -h|--help) usage; exit 0 ;;
     *) echo "FAIL: unknown argument $1" >&2; usage >&2; exit 2 ;;
@@ -116,10 +146,10 @@ if [ -z "$BUNDLE_ID" ]; then
   echo "FAIL: --bundle-id must not be empty" >&2
   exit 2
 fi
-if [ -z "$PLIST" ]; then
-  echo "FAIL: --plist must not be empty" >&2
+if [ -z "$LIVE_PLIST" ] && [ -z "$LEGACY_PLIST" ]; then
+  echo "FAIL: at least one table path must be given" >&2
   exit 2
 fi
 
-check "$PLIST" "$BUNDLE_ID"
+check "$LIVE_PLIST" "$LEGACY_PLIST" "$BUNDLE_ID"
 exit $?

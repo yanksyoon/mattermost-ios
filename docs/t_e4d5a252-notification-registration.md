@@ -2,83 +2,138 @@
 
 Reported (owner): "Can you tell me why notification doesn't work?"
 
-The answer is **not** the earlier delivery bugs (`t_6a2b0fb4`/`t_ba355551` fixed those). The app was
-examining mentions and scheduling requests; the operating system had nowhere to put them.
+## The answer
 
-## The measured state (2026-11-05, this Mac)
+**On this Mac the system does hold a notification row for `com.mattermost.ios`.** The card's evidence
+was read from `~/Library/Preferences/com.apple.ncprefs.plist`, which macOS 26 stopped maintaining in
+February 2026; every app installed since is missing from it, and all of them are present in the live
+table the delivery daemon actually uses. Measured inside a running build of this app:
 
-Installed build: `/Applications/Mattermost(ios).app`, 0.71.0 (371), `CFBundleIdentifier =
-com.mattermost.ios`, signed ad-hoc.
-
-1. **The mention ledger advances.** `defaults read com.mattermost.ios` →
-   `mm.mentions.state.3E4B80BD-…` has `watermarkTs 1793883323855` and 115 notified post ids, so the
-   app reads mentions and writes them as handled.
-2. **The OS has no notification row for the bundle.**
-
-   ```
-   plutil -p ~/Library/Preferences/com.apple.ncprefs.plist | grep -i mattermost
-     "bundle-id" => "Mattermost.Desktop"          # the official Electron client
-   ```
-
-   The same table lists 114 bundle ids; `com.mattermost.ios` is not one of them.
-3. **This install never asked.** `mm.notifications.permissionRequested` is absent from the domain.
-
-Consequence: `UNUserNotificationCenter.add()` accepts the request into the queue and the OS drops
-it. `notificationSettings()` can still answer `.authorized` (from an identity the new build no
-longer has) or `.notDetermined`. The app's own "scheduled" outcome therefore proves nothing about
-presentation.
-
-### Why nothing ever asked again
-
-`NotificationWorker.prepareAuthorization()` asked only when
-
-```swift
-statusBefore == .notDetermined && !hasRequestedAuthorization
+```
+notifications=status=authorized registration=registered alerts=banner requested=false
 ```
 
-and `hasRequestedAuthorization` came from a **persisted** UserDefaults flag
-(`mm.notifications.permissionRequested`). The flag outlives the code identity that earned it: every
-install re-signs ad-hoc (`codesign --force --deep -s -`), macOS discards the registration, and the
-flag keeps saying "already asked". The only two callers were Settings → Notifications and the first
-mention that reached the in-app banner path; the install runbook opens neither, so the prompt was
-never presented.
+So registration was not the blocker here. What was missing is what that `requested=false` says: the
+install had **never asked the system**, while `notificationSettings()` answered `.authorized` anyway
+(macOS 26 reports an allow state for an app that was never prompted). Nothing in the app could tell
+those two situations apart, and nothing could see the other state that looks identical to a user —
+`alertStyle = none`, where every request is delivered into Notification Center and no banner is ever
+drawn. Both are now read, named, and driven by the fix.
+
+This is still **not** the earlier delivery bugs (`t_6a2b0fb4`/`t_ba355551` fixed those): the ledger
+advances and requests reach `UNUserNotificationCenter`.
+
+## What was measured (2026-11-05, macOS 26.3.1)
+
+### Two tables, one of them stale
+
+| Table | mtime | rows | contains `com.mattermost.ios` |
+| ----- | ----- | ---- | ---------------------------- |
+| `~/Library/Preferences/com.apple.ncprefs.plist` (legacy) | **2026-02-25 07:59** | 114 | **no** |
+| `~/Library/Group Containers/group.com.apple.usernoted/Library/Preferences/group.com.apple.usernoted.plist` (live) | **2026-11-05 22:24** | 137 | **yes** |
+
+24 bundle ids exist only in the live table, and 1 only in the legacy one. Every app-level bundle in the
+live-only set was installed **after** the legacy file's last write: Firefox (2026-09-17), ego lite
+(09-08), Cap (05-13), CapCut (03-15) and this bundle (11-05). (The single exception is
+`com.google.Chrome.framework.AlertNotificationService`, a helper Chrome registers on its own schedule,
+not an app install.) Reading the legacy file alone therefore reports "not registered" for everything
+installed this year — and would have failed every install on this host forever.
+
+The live row for this bundle, read with `plistlib`:
+
+```
+mattermost.ios: auth=7 flags=312483854 path='/Applications/Mattermost(ios).app' src_entries=42
+```
+
+`src` holds one code-requirement entry per ad-hoc build this checkout has produced — that is the
+re-signing cost this card documents, not a missing row. `auth=7` is the same value the working
+per-app rows carry (Firefox, Element).
+
+### Nothing had ever asked
+
+```
+defaults read com.mattermost.ios  ->  mm.notifications.permissionRequested is absent
+```
+
+A launch of the build made by this card logged:
+
+```
+2026-11-05 22:24:00 status-read    notifications=status=authorized registration=registered alerts=banner requested=false
+2026-11-05 22:24:02 launch-ask     notifications=status=authorized registration=registered alerts=banner requested=false
+```
+
+`launch-ask` is the new reconciliation firing; `status-read` never follows it because the system
+dialog owns the answer (see "What this does not claim").
+
+### The reader, executed against this host
+
+The app's reader source, compiled unchanged and run on the real tables:
+
+```
+tables:
+  [0] exists=true  .../Group Containers/group.com.apple.usernoted/Library/Preferences/group.com.apple.usernoted.plist
+  [1] exists=true  .../Library/Preferences/com.apple.ncprefs.plist
+bundle=com.mattermost.ios                            state=registered
+bundle=com.example.definitely.not.installed          state=notRegistered
+```
+
+## Why the card's premise did not survive verification
+
+The failure the card describes — no row, every `add()` dropped — is real and is still detected: the
+gate fails when **both readable tables** lack the bundle. It was not this install's state. Two
+corrections follow from the measurements:
+
+1. **The legacy file is a fallback, not the truth.** The reader reads the live table first and falls
+   back to `com.apple.ncprefs.plist`; `.notRegistered` requires every readable table to lack the
+   bundle, and `.unknown` (neither readable — e.g. a phone, which has no such table) is never rendered
+   as a failure.
+2. **"Allowed" was not the only misleading reading.** An authorized, registered install whose
+   `alertStyle` is `none` draws nothing at all, and previously read as healthy. The worker now reads
+   `UNNotificationSettings.alertStyle` beside the status, and both the Settings row and the
+   diagnostics line name it (`alerts=none` → "No banners").
 
 ## What this change does
 
 | # | Requirement | Where |
 | - | ----------- | ----- |
-| 1 | Authorization is **state-driven**: `.notDetermined` may always ask; the persisted flag is history, never a gate | `NotificationWorker.prepareAuthorization()` — gate is `didAskThisProcess` (process-scoped) + the OS status |
-| 2 | Ask at first launch of a new install when a session exists | `NotificationWorker.askOnLaunchIfNeeded(hasSession:)`, called from `MattermostApp`'s scene `.task` after `restoreAll` |
-| 3 | Settings names the missing-registration case and offers a way out | `NotificationWorker.authorizationCopy/statusLabel(for:registration:)`; `NotificationAuthorizationRows` shows "Not registered with macOS - nothing can appear", a hint, and `Open System Settings` |
-| 4 | The diagnostics line carries the OS registration fact | `registration=<registered\|notRegistered\|unknown>` in `NotificationWorker.diagnosticsLine`; `notificationsRegistration` in diagnostics step 6 |
-| 5 | The install runbook gates on it | `scripts/verify-notification-registration.sh` |
+| 1 | Authorization is **state-driven**: the persisted flag is history, never the gate | `NotificationWorker.shouldAsk(status:includingAuthorized:)` → `prepareAuthorization(registeringAuthorizedInstall:)`; `didAskThisProcess` is process-scoped |
+| 2 | Ask at first launch of a new install when a session exists, and reconcile the macOS 26 case where the OS says `.authorized` without ever having asked | `NotificationWorker.askOnLaunchIfNeeded(hasSession:)`, called from `MattermostApp`'s scene `.task` after `restoreAll` |
+| 3 | Settings names the state that is actually blocking a banner and offers a way out | `authorizationCopy/statusLabel(for:registration:delivery:)`; `NotificationAuthorizationRows` shows "Not registered with macOS - nothing can appear" / "Allowed, but notifications are set to none - no banner can appear", a hint, and `Open System Settings` |
+| 4 | The diagnostics line carries the OS facts | `registration=<registered\|notRegistered\|unknown> alerts=<none\|banner\|alert\|unknown>` in `NotificationWorker.diagnosticsLine`; `notificationsRegistration` + `notificationsAlertStyle` in step 6 |
+| 5 | The install runbook gates on registration | `scripts/verify-notification-registration.sh` (live table first, legacy fallback) |
 | 6 | The signing trade-off is decided and recorded | this document, §"Signing decision" |
 
 New seam: `Mattermost/UI/Native/Notification/NotificationRegistration.swift`
 
-- `NotificationRegistration` (`.registered` / `.notRegistered` / `.unknown`) with the diagnostics
-  token; `.unknown` is what a phone answers (there is no such table in iOS) and is never rendered as
-  a failure.
-- `NCPrefsNotificationRegistrationReader` parses `apps[*].bundle-id` out of
-  `~/Library/Preferences/com.apple.ncprefs.plist`. It resolves the path through the user-domain
-  `Library` directory rather than `homeDirectoryForCurrentUser` (unavailable in the iOS SDK). The Mac
-  build is not sandboxed (`codesign -d --entitlements` on the Catalyst product shows no
-  `com.apple.security.app-sandbox`), so that is the real `~/Library`.
+- `NotificationRegistration` (`.registered` / `.notRegistered` / `.unknown`) with its diagnostics
+  token.
+- `SystemNotificationRegistrationReader` parses `apps[*].bundle-id` out of every configured table, in
+  precedence order. Paths are built from the user-domain `Library` directory rather than
+  `homeDirectoryForCurrentUser` (unavailable in the iOS SDK). The Mac build is not sandboxed
+  (`codesign -d --entitlements` on the Catalyst product shows no `com.apple.security.app-sandbox`),
+  so that is the real `~/Library`.
 - `FixedNotificationRegistrationReader` for tests.
+- `NotificationDeliverySettings(alertStyle:)` beside the scheduling seam, read from
+  `UNNotificationCenterAdapter.deliverySettings()`.
 
-The worker re-reads the fact at launch, on every foreground (`MattermostApp.onChange(of: scenePhase)`
-→ `activate()`), whenever Settings appears, and after every authorization round-trip, so a grant made
-in System Settings stops the row saying "Not registered" without a relaunch.
+The worker re-reads both facts at launch, on every foreground (`MattermostApp.onChange(of:
+scenePhase)` → `activate()`), whenever Settings appears, and after every authorization round-trip, so
+a change made in System Settings is reflected without a relaunch.
 
 ## Verification
 
-### Unit tests (iPhone 16 Pro simulator, iOS 18.3.1, id `81A7F251-…`)
+### Unit tests (iPhone 16 Pro simulator, id `81A7F251-…`)
 
 ```
 python3 scripts/qa-test.py --only-testing MattermostTests \
-  --label t_e4d5a252-full
-  -> 2493 run / 8 skipped / 0 failed, xcodebuild rc=0 (111 s)
-  log: build/logs/t_e4d5a252-full.log
+  --label t_e4d5a252-full3
+  -> 2501 run / 8 skipped / 0 failed, xcodebuild rc=0 (79 s)
+  log: build/logs/t_e4d5a252-full3.log
+
+python3 scripts/qa-test.py --only-testing MattermostTests/NotificationWorkerTests \
+  --only-testing MattermostTests/NotificationRegistrationTests \
+  --only-testing MattermostTests/DiagnosticsTests --label t_e4d5a252-final
+  -> 93 run / 0 skipped / 0 failed, xcodebuild rc=0
 ```
 
 The card's tests, in `MattermostTests/NotificationWorkerTests.swift` unless noted:
@@ -87,70 +142,67 @@ The card's tests, in `MattermostTests/NotificationWorkerTests.swift` unless note
 | ---- | ---- |
 | `testNotDeterminedAsksEvenWhenThePersistedFlagSaysItAlreadyAsked` (T1) | a persisted `permissionRequested=true` does not swallow the ask |
 | `testDeniedIsNeverRePromptedAndPointsAtSystemSettings` (T2) | denial is not re-prompted; status/copy are denied |
-| `testAuthorizedMentionStillSchedules` (T3) | the T8 mention → request path is unchanged |
+| `testAuthorizedMentionStillSchedules` (T3) | the T8 mention → request path is unchanged, and delivery still does not re-ask |
 | `testDiagnosticsCarriesNotRegisteredWhenTheOSHasNoRow` (T4) | `registration=notRegistered` beside `status=authorized` |
-| `testAllowedCopyNamesTheMissingRegistration` (T4/Settings) | the row says "Not registered with macOS - nothing can appear" |
-| `testLaunchAsksWhenNotDeterminedAndASessionExists` / `…WithoutASession` / `…AlreadyAnswered` | the launch ask, and its two silences |
-| `NotificationRegistrationTests` (new file) | the reader's parser: present, absent, similar id, missing table, empty id, broken file, tokens |
+| `testDiagnosticsAndCopyNameTheSilentStyle` (T4) | `alerts=none` → "No banners", the copy, and the Settings detour |
+| `testBannerStyleKeepsThePlainAllowedReading` | a drawable style keeps the plain "Allowed" |
+| `testAllowedCopyNamesTheMissingRegistration` | the row says "Not registered with macOS - nothing can appear" |
+| `testLaunchAsksWhenNotDeterminedAndASessionExists` / `…WithoutASession` / `…AlreadyAnswered` / `testLaunchRegistersOnceWhenTheOSSaysAuthorizedButNeverAsked` | the launch ask, its two silences, and the macOS 26 authorized-but-never-asked reconciliation (one call per process) |
+| `NotificationRegistrationTests` (new file) | the parser: live-only, legacy fallback, absent from both, unreadable table, similar id, empty id, broken file, default precedence, tokens |
+| `DiagnosticsTests.testPermissionsStepReflectsProviderSnapshot` | `notificationsRegistration` + `notificationsAlertStyle` + the one-line read-out in the report |
 
-AV pass — restore the old gate (`&& !hasRequestedAuthorization`) and re-run T1:
+AV — restore the pre-card gate and re-run the two behaviour tests:
 
 ```
---only-testing MattermostTests/NotificationWorkerTests/testNotDeterminedAsksEvenWhenThePersistedFlagSaysItAlreadyAsked
-  XCTAssertEqual failed: ("0") is not equal to ("1") - a persisted permissionRequested=true must not swallow the ask
-  RESULT: FAIL        (build/logs/t_e4d5a252-av-revert.log)
+python3 scripts/qa-test.py \
+  --only-testing MattermostTests/NotificationWorkerTests/testNotDeterminedAsksEvenWhenThePersistedFlagSaysItAlreadyAsked \
+  --only-testing MattermostTests/NotificationWorkerTests/testLaunchRegistersOnceWhenTheOSSaysAuthorizedButNeverAsked \
+  --label t_e4d5a252-av-final
+  -> 2 run, 5 assertions failed, xcodebuild rc=65
+     testNotDeterminedAsks…: ("0") is not equal to ("1") - a persisted permissionRequested=true must not swallow the ask
+     testLaunchRegistersOnce…: ("0") is not equal to ("1")
+  log: build/logs/t_e4d5a252-av-final.log
 ```
 
-With the fix restored, the same test passes in the 2493-test run above.
+With the fix restored, both pass in the 93-test and 2501-test runs above.
 
 ### Mac Catalyst product
-
-The XCUITest target does not compile for Catalyst on this host (`XCUIElement.pinch`, pre-existing,
-unrelated), so the unit-test scheme cannot run there; the **app target** does build:
 
 ```
 xcrun xcodebuild build -project Mattermost.xcodeproj -scheme Mattermost \
   -destination 'platform=macOS,variant=Mac Catalyst'
-  -> BUILD SUCCEEDED, 0 errors        (build/logs/t_e4d5a252-macbuild.log)
+  -> ** BUILD SUCCEEDED **
 ```
 
-### The real reader against the real table
-
-The reader source from the app target, compiled unchanged and run against this host:
-
-```
-path=/Users/yangsooyoon/Library/Preferences/com.apple.ncprefs.plist
-com.mattermost.ios=notRegistered
-Mattermost.Desktop=registered
-com.example.definitely-absent=notRegistered
-```
-
-So the parse answers the two questions that matter: the Electron client's row is found, this
-bundle's missing row is reported, and an absent id is not mistaken for one of them.
+This also proves `UNNotificationSettings.alertStyle` compiles for the Catalyst target.
 
 ### The install gate
 
 ```
 bash scripts/verify-notification-registration.sh --self-test
-  OK: self-test passed (registered -> 0, absent -> 1, unreadable -> 2)     exit 0
+  OK: self-test passed (live or legacy row -> 0, absent from both -> 1, unreadable -> 2)   exit 0
 
 bash scripts/verify-notification-registration.sh
-  FAIL: com.mattermost.ios has no Notification Center registration in
-        /Users/yangsooyoon/Library/Preferences/com.apple.ncprefs.plist - open the app >
-        Settings > Notifications > Enable notifications > Allow (or System Settings >
-        Notifications > Mattermost), then re-run this check.                exit 1
+  OK: com.mattermost.ios is registered with the system notification table
+      (live: …/group.com.apple.usernoted.plist)                                            exit 0
+
+bash scripts/verify-notification-registration.sh --bundle-id com.example.not.installed
+  FAIL: … has no notification-registration row in the live table … or the legacy one …     exit 1
 ```
 
-That exit 1 is the reported failure, reproduced by the gate that will now block a "delivered" claim.
+The passing live check is the corrected fact, not a regression: the row exists on this OS. A build
+whose bundle is in neither table still fails, and the message names the two ways to fix it.
 
 ## Runbook (mandatory last step of every install)
 
 ```
 1. Install /Applications/Mattermost(ios).app
-2. Open it. On a fresh code identity it now asks by itself (launch ask, when a session exists).
+2. Open it. On a fresh code identity it asks by itself (launch ask, when a session exists), including
+   on macOS 26 installs that already read "authorized" without ever having asked.
    If it does not: Settings → Notifications → Enable notifications → Allow.
 3. bash scripts/verify-notification-registration.sh          # must exit 0
-4. Settings → Notifications → Send a test notification       # only now is a banner meaningful
+4. Check the diagnostics line still reads alerts=banner (not alerts=none).
+5. Settings → Notifications → Send a test notification       # only now is a banner meaningful
 ```
 
 A build is not delivered until step 3 passes. The cleanup/install card `t_e8c5ee86` should call the
@@ -165,39 +217,40 @@ between builds — was evaluated and not taken on this host:
 
 | Option | Grant survives a reinstall | Cost measured here |
 | ------ | -------------------------- | ------------------ |
-| ad-hoc `codesign -s -` (current) | **no** — every build is a new code identity | one human "Allow" per install; the app now asks for it itself, and the gate proves it |
-| self-signed identity | yes, while the certificate and its designated requirement are unchanged | requires creating and importing a code-signing identity into the login keychain (`security find-identity -v -p codesigning` → **0 valid identities** on this host), keeping its private key stable across machines, and teaching every build/publish script to use the name instead of `-`. Notification Center registration is also keyed to bundle id + path, so a moved `.app` can still reset it. |
+| ad-hoc `codesign -s -` (current) | **no** — every build is a new code identity, and the live table grows one `src` entry per build | one human "Allow" per install; the app now asks for it itself, and the gate proves the row exists |
+| self-signed identity | yes, while the certificate and its designated requirement are unchanged | requires creating and importing a code-signing identity into the login keychain (`security find-identity -v -p codesigning` → **0 valid identities** on this host), keeping its private key stable, and teaching every build/publish script to use the name instead of `-`. Registration is also keyed to bundle id + path, so a moved `.app` can still reset it. |
 
 Rationale: the self-signed identity is a *distribution* decision, not just a build flag — a release
 downloaded by someone else cannot carry this host's private key, so the grant still resets for them
 unless the same identity is shipped (which is not a thing). Ad-hoc keeps the artifact reproducible
-from any machine; the price is one Allow per install, and the card's whole point is that the app
-now asks for it by itself and the install script refuses to call the build delivered until the OS
-agrees.
+from any machine; the price is one Allow per install, and the app now asks for it by itself.
 
 If this ever becomes a paid-developer-account build (board card H1), Developer ID signing gives a
 stable designated requirement for free and this table's second row becomes the right answer.
 
 ## What this does **not** claim
 
-- No notification can be presented until a human clicks Allow once for the current code identity.
-  The fix makes the app ask and makes the miss visible; it cannot fabricate a registration.
-- Real APNs and a live Mattermost Push Proxy are not exercised here (no certificate/credentials on
-  this host). Everything above is the local-banner path.
-- The screenshot proof of a presented banner belongs to `t_6a2b0fb4`; this card supplies the gate
-  that makes such a capture trustworthy.
+- **The Allow click is not verified here.** On this host the launch log shows `event=launch-ask` and no
+  resulting `status-read` within 15 s: the system dialog owns the answer, and this session cannot see
+  or click a window (`screencapture` → "could not create image from display"). So no screenshot of a
+  presented banner is claimed. What is verified is that the app asks, that it reads the OS facts
+  correctly from the real tables, and that the read-out names every state that suppresses a banner.
+- Real APNs and a live Mattermost Push Proxy are not exercised (no certificate/credentials on this
+  host). Everything above is the local-banner path.
+- The legacy `ncprefs.plist` may gain a row again if the user changes the app's style in System
+  Settings. The gate prefers the live table either way, so that cannot flip a verdict.
 
 ## Files
 
 ```
-Mattermost/UI/Native/Notification/NotificationRegistration.swift   (new: the OS registration reader)
-Mattermost/Core/NotificationWorker.swift                           (state-driven ask; launch ask; copy; diagnostics)
-Mattermost/Core/Diagnostics.swift                                  (registration in the snapshot and step 6)
-Mattermost/UI/Native/Notification/NotificationAuthorizationSection.swift  (state naming, hint, Settings button)
+Mattermost/UI/Native/Notification/NotificationRegistration.swift   (new: the OS registration reader + delivery settings)
+Mattermost/Core/NotificationWorker.swift                           (state-driven ask; launch reconciliation; copy; diagnostics)
+Mattermost/Core/Diagnostics.swift                                  (registration + alert style in the snapshot and step 6)
+Mattermost/UI/Native/Notification/NotificationAuthorizationSection.swift  (state naming, hints, Settings button)
 Mattermost/MattermostApp.swift                                     (launch ask after restoreAll; refresh on foreground)
-MattermostTests/NotificationWorkerTests.swift                      (T1–T4 + launch ask)
-MattermostTests/NotificationRegistrationTests.swift                (new: reader parser)
-MattermostTests/DiagnosticsTests.swift                             (registration in step 6)
+MattermostTests/NotificationWorkerTests.swift                      (T1–T4, silent style, launch ask + reconciliation)
+MattermostTests/NotificationRegistrationTests.swift                (new: reader parser and precedence)
+MattermostTests/DiagnosticsTests.swift                             (registration + style in step 6)
 scripts/verify-notification-registration.sh                        (new: install gate + self-test)
 docs/installing.md                                                 (runbook step)
 ```

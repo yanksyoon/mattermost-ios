@@ -268,19 +268,22 @@ struct NotificationDiagnosticsSnapshot: Equatable {
     var status: String
     /// `registered`, `notRegistered`, or `unknown` (see `NotificationRegistration`).
     var registration: String
+    /// `none`, `banner`, `alert`, or `unknown` (the system's `alertStyle`).
+    var alerts: String
     var requested: Bool
     var lastSchedule: String
 
     /// The one line this card pins:
     /// `notifications=status=<status> registration=<registered|notRegistered|unknown>
-    ///  requested=<bool> lastSchedule=<outcome>`.
+    ///  alerts=<none|banner|alert|unknown> requested=<bool> lastSchedule=<outcome>`.
     var line: String {
-        "notifications=status=\(status) registration=\(registration) "
+        "notifications=status=\(status) registration=\(registration) alerts=\(alerts) "
             + "requested=\(requested) lastSchedule=\(lastSchedule)"
     }
 
     static let unknown = NotificationDiagnosticsSnapshot(status: "unknown",
                                                          registration: "unknown",
+                                                         alerts: "unknown",
                                                          requested: false,
                                                          lastSchedule: "none")
 }
@@ -704,9 +707,11 @@ extension DiagnosticsService {
                 let payload: [String: Any] = [
                     "notificationsSupported": snapshot.notificationsStatus != "not-determined",
                     "notificationsStatus": snapshot.notificationsStatus,
-                    // The OS-side fact (t_e4d5a252): `notRegistered` means the bundle has no row and
-                    // every request is dropped, whatever `notificationsStatus` answers.
+                    // The OS-side facts (t_e4d5a252): `notRegistered` means the bundle has no row and
+                    // every request is dropped; `notificationsAlertStyle` = none means the row exists
+                    // but the system will not draw a banner.
                     "notificationsRegistration": context.notificationDiagnostics.registration,
+                    "notificationsAlertStyle": context.notificationDiagnostics.alerts,
                     "notificationsRequested": context.notificationDiagnostics.requested,
                     "notificationsLastSchedule": context.notificationDiagnostics.lastSchedule,
                     // One line, exactly as the worker logs it (this card's diagnostic).

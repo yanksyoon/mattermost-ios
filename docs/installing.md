@@ -35,13 +35,14 @@ Once. After the first approval macOS remembers it for that copy.
 
 ## Notifications: allow once, then prove the OS agrees
 
-Every install is re-signed ad-hoc, which changes the app's code identity, and macOS discards the
-bundle's notification-registration row with it. `UNUserNotificationCenter.add()` keeps accepting
-requests while Notification Center has nowhere to show them — so "the app said it scheduled one" is
-not evidence of anything.
+Every install is re-signed ad-hoc, which changes the app's code identity and adds a new entry to the
+system's per-app notification record. `UNUserNotificationCenter.add()` keeps accepting requests
+whether or not the system will draw anything — so "the app said it scheduled one" is not evidence of
+anything.
 
-On a fresh install with a signed-in server the app now asks for permission itself at launch. If the
-alert was missed:
+On a fresh install with a signed-in server the app now asks for permission itself at launch — also on
+macOS 26 installs that already report "authorized" without ever having prompted. If the alert was
+missed:
 
 ```
 Mattermost → Settings → Notifications → Enable notifications → Allow
@@ -53,8 +54,13 @@ Then run the gate as the last step of the install — **a build is not delivered
 bash scripts/verify-notification-registration.sh
 ```
 
-It reads `~/Library/Preferences/com.apple.ncprefs.plist` and fails, with the one-line fix, when
-`com.mattermost.ios` has no row. Only after it passes is `Send a test notification` meaningful.
+It reads the live per-app table
+(`~/Library/Group Containers/group.com.apple.usernoted/Library/Preferences/group.com.apple.usernoted.plist`,
+falling back to `~/Library/Preferences/com.apple.ncprefs.plist`, which macOS 26 stopped updating in
+February 2026) and fails, with the one-line fix, when `com.mattermost.ios` has no row in either. It
+does not prove a banner will be *drawn*: if the app's style is "none" the app says so in Settings →
+Notifications ("No banners") and in the diagnostics line (`alerts=none`). Only after the gate passes
+is `Send a test notification` meaningful.
 
 Why ad-hoc signing stays, and the cost of that decision: `docs/t_e4d5a252-notification-registration.md`.
 

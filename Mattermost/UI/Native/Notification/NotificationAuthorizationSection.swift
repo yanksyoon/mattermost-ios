@@ -58,6 +58,15 @@ struct NotificationAuthorizationRows: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("notificationAuthorization.registrationHint")
+            } else if worker.isAllowed && worker.deliverySettings.alertStyle == "none" {
+                // t_e4d5a252: the row exists and the app is allowed, but the system's style for it is
+                // "none" — the request is delivered to Notification Center and no banner is ever drawn.
+                Text("Mattermost is allowed, but its notification style is set to none. "
+                     + "Open System Settings > Notifications > Mattermost and choose Banners or Alerts.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("notificationAuthorization.styleHint")
             }
         }
         // Re-read on entry: the reader may have changed the system permission while the sheet was
@@ -72,7 +81,7 @@ struct NotificationAuthorizationRows: View {
         }
         .accessibilityIdentifier("notificationAuthorization.enable")
 
-        if worker.authorizationStatus == .denied || worker.registrationState == .notRegistered {
+        if worker.needsSystemSettings {
             Button {
                 openSystemSettings()
             } label: {

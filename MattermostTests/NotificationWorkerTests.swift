@@ -32,10 +32,12 @@ final class NotificationWorkerTests: XCTestCase {
         super.tearDown()
     }
 
-    private func makeWorker(registration: NotificationRegistration = .unknown) -> NotificationWorker {
-        NotificationWorker(scheduling: mock,
-                           preferences: AppPreferences(defaults: defaults),
-                           registration: FixedNotificationRegistrationReader(registration))
+    private func makeWorker(registration: NotificationRegistration = .unknown,
+                            delivery: NotificationDeliverySettings = .unknown) -> NotificationWorker {
+        mock.deliverySettingsValue = delivery
+        return NotificationWorker(scheduling: mock,
+                                  preferences: AppPreferences(defaults: defaults),
+                                  registration: FixedNotificationRegistrationReader(registration))
     }
 
     /// The smallest shell a tap can land in: one configured server, a mounted view store, and the native
@@ -525,8 +527,8 @@ final class NotificationWorkerTests: XCTestCase {
     }
 
     /// Card item 4: one line that answers "why do I get no notifications?" from a log or report.
-    /// t_e4d5a252 added `registration=` beside `status=`, so the read-out can never say "allowed"
-    /// while the OS has no row to deliver into.
+    /// t_e4d5a252 added `registration=` beside `status=` (and `alerts=`, the style the system will
+    /// draw), so the read-out can never say "allowed" while nothing can appear.
     func testDiagnosticsLineShape() async {
         mock.authorizationStatusValue = .denied
         let worker = makeWorker()
@@ -534,7 +536,7 @@ final class NotificationWorkerTests: XCTestCase {
         _ = await worker.prepareAuthorization() // denied installs do not re-ask
 
         XCTAssertEqual(worker.diagnosticsLine,
-                       "notifications=status=denied registration=unknown requested=false lastSchedule=none")
+                       "notifications=status=denied registration=unknown alerts=unknown requested=false lastSchedule=none")
         XCTAssertEqual(worker.diagnosticsSnapshot.line, worker.diagnosticsLine)
     }
 
@@ -608,9 +610,41 @@ final class NotificationWorkerTests: XCTestCase {
 
         XCTAssertEqual(worker.registrationState, .notRegistered)
         XCTAssertEqual(worker.diagnosticsLine,
-                       "notifications=status=authorized registration=notRegistered requested=false lastSchedule=none")
+                       "notifications=status=authorized registration=notRegistered alerts=unknown requested=false lastSchedule=none")
         XCTAssertEqual(worker.diagnosticsSnapshot.registration, "notRegistered")
         XCTAssertEqual(worker.diagnosticsSnapshot.line, worker.diagnosticsLine)
+    }
+
+    /// The other half of the same confusion (found while verifying T4): the OS **has** a row, the app
+    /// is allowed, and the system's style for it is `none` — so every request is delivered to
+    /// Notification Center and no banner is ever drawn. The read-out must say that, not "Allowed".
+    func testDiagnosticsAndCopyNameTheSilentStyle() async {
+        mock.authorizationStatusValue = .authorized
+        let worker = makeWorker(registration: .registered,
+                                delivery: NotificationDeliverySettings(alertStyle: "none"))
+
+        await worker.reloadAuthorizationStatus()
+
+        XCTAssertEqual(worker.diagnosticsLine,
+                       "notifications=status=authorized registration=registered alerts=none requested=false lastSchedule=none")
+        XCTAssertEqual(worker.statusLabel, "No banners")
+        XCTAssertEqual(worker.authorizationCopy,
+                       "Allowed, but notifications are set to none - no banner can appear")
+        XCTAssertTrue(worker.needsSystemSettings, "the reader can only fix this in System Settings")
+        XCTAssertTrue(worker.isAllowed, "the authorization itself is not the problem here")
+    }
+
+    /// A registered, allowed bundle whose style can be drawn is plain "Allowed" and needs no detour.
+    func testBannerStyleKeepsThePlainAllowedReading() async {
+        mock.authorizationStatusValue = .authorized
+        let worker = makeWorker(registration: .registered,
+                                delivery: NotificationDeliverySettings(alertStyle: "banner"))
+
+        await worker.reloadAuthorizationStatus()
+
+        XCTAssertEqual(worker.statusLabel, "Allowed")
+        XCTAssertFalse(worker.needsSystemSettings)
+        XCTAssertEqual(worker.diagnosticsSnapshot.alerts, "banner")
     }
 
     /// The Settings row must not read "Allowed" for an authorized bundle the OS cannot deliver into.
@@ -650,15 +684,33 @@ final class NotificationWorkerTests: XCTestCase {
         XCTAssertEqual(mock.requestAuthorizationCount, 0, "nothing to notify about before sign-in")
     }
 
-    /// A launch on an already-answered install does not re-prompt (the OS status is the gate).
+    /// An install that already asked is never asked again (the persisted fact plus the status gate).
     func testLaunchDoesNotAskWhenTheOSHasAlreadyAnswered() async {
+        mock.authorizationStatusValue = .authorized
+        let worker = makeWorker(registration: .registered)
+        _ = await worker.prepareAuthorization(registeringAuthorizedInstall: true) // e.g. Settings already did
+        XCTAssertEqual(mock.requestAuthorizationCount, 1)
+
+        await worker.askOnLaunchIfNeeded(hasSession: true)
+
+        XCTAssertEqual(mock.requestAuthorizationCount, 1, "launch does not repeat an answered ask")
+        XCTAssertEqual(worker.registrationState, .registered)
+    }
+
+    /// Measured on this card: macOS 26 answers `.authorized` for an app that was never asked, so an
+    /// install can read `authorized` with `requested=false` forever. One silent registration call on
+    /// launch makes the records agree; a second launch does not repeat it.
+    func testLaunchRegistersOnceWhenTheOSSaysAuthorizedButNeverAsked() async {
         mock.authorizationStatusValue = .authorized
         let worker = makeWorker(registration: .registered)
 
         await worker.askOnLaunchIfNeeded(hasSession: true)
 
-        XCTAssertEqual(mock.requestAuthorizationCount, 0)
-        XCTAssertEqual(worker.registrationState, .registered)
+        XCTAssertEqual(mock.requestAuthorizationCount, 1)
+        XCTAssertTrue(worker.hasRequestedAuthorization)
+
+        await worker.askOnLaunchIfNeeded(hasSession: true)
+        XCTAssertEqual(mock.requestAuthorizationCount, 1, "one registration call per process")
     }
 
     // MARK: - Tap fallbacks when the post or channel is gone (t_14c96dfd)
@@ -963,6 +1015,7 @@ private final class MockScheduling: NotificationScheduling {
     var delegate: UNUserNotificationCenterDelegate?
 
     var authorizationStatusValue: UNAuthorizationStatus = .notDetermined
+    var deliverySettingsValue: NotificationDeliverySettings = .unknown
     var onRequestAuthorization: (() -> Void)?
 
     private(set) var requestAuthorizationCount = 0
@@ -978,6 +1031,10 @@ private final class MockScheduling: NotificationScheduling {
 
     func authorizationStatus() async -> UNAuthorizationStatus {
         authorizationStatusValue
+    }
+
+    func deliverySettings() async -> NotificationDeliverySettings {
+        deliverySettingsValue
     }
 
     func add(_ request: UNNotificationRequest) async throws {
