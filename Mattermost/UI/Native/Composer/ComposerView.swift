@@ -109,6 +109,37 @@ struct ComposerTextView: UIViewRepresentable {
     }
 }
 
+// MARK: - The typing row
+
+/// "X is typing…" above the input — upstream's `post_draft/typing/index.tsx`.
+///
+/// It observes the indicator itself rather than taking a `String?` from the pane: the row appears and
+/// vanishes on its own timers, and the pane's post list must not be re-derived because somebody
+/// started typing. `nil` text draws **nothing** (not an empty line), which is how upstream's
+/// `StatusIndicator(visible: typing.length > 0)` behaves.
+private struct TypingRow: View {
+    @ObservedObject var indicator: TypingIndicator
+    /// Which pane's row this is. The channel and a thread draw the same component, and both can be
+    /// mounted at once on a wide layout — a single identifier would make "the row exists" true because
+    /// of the *other* pane.
+    let identifier: String
+
+    var body: some View {
+        if let label = indicator.label {
+            Text(label)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(label)
+                .accessibilityIdentifier(identifier)
+        }
+    }
+}
+
 // MARK: - The composer
 
 /// The write surface for one channel (or one thread): input, toolbar, attachments, autocomplete, send.
@@ -118,6 +149,13 @@ struct ComposerView: View {
     var emoji: EmojiCatalogue?
     /// T37: the picker's "recently used" row (one store per server and user, shared with the list).
     var recents: EmojiRecentsStore? = nil
+    /// T4f: the pane's typing row ("X is typing…"), drawn above the input exactly where upstream's
+    /// `post_draft/typing/index.tsx` sits inside `PostDraft`. `nil` for a host with no pane (a bare
+    /// SwiftUI preview, the composer's own unit fixtures), which draws no row at all.
+    var typing: TypingIndicator? = nil
+    /// T4f: which pane's row this is (see `TypingRow.identifier`). Defaults to the channel's, because
+    /// that is the pane every other caller is.
+    var typingRowIdentifier: String = "channelComposer.typing"
 
     /// True while the input has keyboard focus; the suggested list is only useful then.
     @State private var isFocused = false
@@ -149,6 +187,7 @@ struct ComposerView: View {
             if !model.suggestions.isEmpty { suggestionList }
             if model.isPreviewing { preview }
             if !model.attachments.isEmpty { attachmentTray }
+            if let typing { TypingRow(indicator: typing, identifier: typingRowIdentifier) }
             inputRow
         }
         .padding(.horizontal, 8)

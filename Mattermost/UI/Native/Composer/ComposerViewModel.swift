@@ -34,6 +34,12 @@
 // at all), a failure is the server's own sentence with the words still in the input, and the answer
 // arrives as an ordinary `ephemeral_message` socket row rather than as message text this object
 // invents.
+//
+// T4f (this card) adds a seventh: **a message being written is announced**. `textChanged` runs the
+// server's own throttle (`TimeBetweenUserTypingUpdatesMilliseconds`) and asks the server whether the
+// feature is on at all (`EnableUserTypingMessages`), then sends one `user_typing` frame on the rail's
+// one socket. The receiving half — the names, the thread/channel addressing and the expiry — lives in
+// `TypingIndicator`, because it is the pane's socket handler that sees those frames.
 
 import Foundation
 import Combine
@@ -237,6 +243,16 @@ final class ComposerViewModel: ObservableObject {
 
     // MARK: Init
 
+    /// T4f: the socket/config seam that announces "… is typing". `nil` in a host that has no socket
+    /// (unit tests that predate typing, the drafts store's own tests): the composer then stays silent
+    /// instead of inventing a frame.
+    private let typingTransport: ComposerTypingTransporting?
+    /// The server's answer to "may I announce typing, and how often", once it has arrived.
+    private var typingSettings: MMTypingSettings?
+    private var typingSettingsTask: Task<Void, Never>?
+    /// When this message's last `user_typing` frame went out — upstream's `lastTypingEventSent`.
+    private var lastTypingAnnouncement: Date?
+
     init(channelID: String,
          service: ComposerServing,
          drafts: ComposerDraftStoring,
@@ -245,6 +261,7 @@ final class ComposerViewModel: ObservableObject {
          myUserID: String? = nil,
          emojiCatalogue: EmojiCatalogue? = nil,
          commandCatalogue: SlashCommandCatalogue = .shared,
+         typing: ComposerTypingTransporting? = nil,
          now: @escaping () -> Date = { Date() },
          autocompleteDebounce: Duration = .milliseconds(200)) {
         self.channelID = channelID
@@ -255,6 +272,7 @@ final class ComposerViewModel: ObservableObject {
         self.myUserID = myUserID
         self.emojiCatalogue = emojiCatalogue
         self.commandCatalogue = commandCatalogue
+        self.typingTransport = typing
         self.now = now
         self.autocompleteDebounce = autocompleteDebounce
     }
@@ -277,6 +295,80 @@ final class ComposerViewModel: ObservableObject {
         if case .failed = phase { phase = .idle }
         scheduleDraftSave()
         refreshTrigger()
+        // T4f: the same entry point that writes the draft and refreshes the trigger announces typing,
+        // so a paste, a dictation result and an emoji insert are "the reader is typing" too.
+        if newText.isEmpty { resetTypingAnnouncement() }
+        announceTypingIfDue()
+    }
+
+    // MARK: - Typing (T4f)
+
+    /// Announce that a message is being written.
+    ///
+    /// The rule is upstream's (`post_input.tsx:271-279`), and it is a **leading-edge throttle**, not a
+    /// trailing debounce: the first keystroke of a message goes out at once — so the other side reads
+    /// "… is typing" while the words are being written, not after a pause — and further keystrokes
+    /// refresh it at most once per the server's `TimeBetweenUserTypingUpdatesMilliseconds`. (The card
+    /// says "debounce"; upstream's own gate is the interval comparison below, and a trailing timer
+    /// would both show the row late and spend a cancel per keystroke.)
+    ///
+    /// Gates, all of them upstream's, plus one this client has to add:
+    ///  * a **non-empty** value — deleting the last character is not "typing";
+    ///  * never in **edit** mode: the edit screen announces nothing (upstream wires the typing props
+    ///    from `post_draft` only, not from `edit_post`);
+    ///  * the server's `EnableUserTypingMessages`, **once the answer is known**. Until it is, nothing
+    ///    is sent: inventing "enabled" is precisely the guess the card forbids. The read is kicked off
+    ///    here and the composer announces as soon as it lands, so a reader who starts typing instantly
+    ///    still shows up.
+    private func announceTypingIfDue() {
+        guard !text.isEmpty, !mode.isEditing else { return }
+        guard let transport = typingTransport else { return }
+        guard let settings = typingSettings else {
+            loadTypingSettings(transport)
+            return
+        }
+        guard settings.isEnabled else { return }
+        let now = self.now()
+        if let last = lastTypingAnnouncement,
+           now.timeIntervalSince(last) < settings.interval {
+            return
+        }
+        lastTypingAnnouncement = now
+        let rootID = mode.rootID
+        Task { [weak transport] in
+            await transport?.sendTyping(channelID: channelID, parentID: rootID.isEmpty ? nil : rootID)
+        }
+    }
+
+    /// Read `/config/client` once and retry the announcement through the same gate.
+    ///
+    /// Retrying matters: the first keystroke usually beats the answer (the request is in flight while
+    /// the reader types), and without this a reader's first message of a session would never show up
+    /// as typing.
+    private func loadTypingSettings(_ transport: ComposerTypingTransporting) {
+        guard typingSettingsTask == nil else { return }
+        typingSettingsTask = Task { [weak self] in
+            let settings = await transport.settings()
+            guard let self else { return }
+            // No answer (offline, a proxy that strips `/config/client`): stay silent, and let the next
+            // keystroke ask again. `typingSettings` stays nil, which is what re-arms the read.
+            if let settings {
+                self.typingSettings = settings
+                self.announceTypingIfDue()
+            }
+            self.typingSettingsTask = nil
+        }
+    }
+
+    /// The message went away (sent, cleared, discarded, or the mode changed): the next message starts
+    /// a fresh window.
+    ///
+    /// The Mattermost protocol has no "stopped typing" action — the measured set is `user_typing` only
+    /// (`scripts/t4f_typing_probe.py`) — so the other clients' rows expire on their own. What this
+    /// prevents is *this* client re-announcing during the same interval right after a send, which
+    /// would restart their row for a message that has already been posted.
+    private func resetTypingAnnouncement() {
+        lastTypingAnnouncement = nil
     }
 
     /// The caret moved without an edit (a tap, an arrow key).
@@ -801,6 +893,7 @@ final class ComposerViewModel: ObservableObject {
         uploadData.removeAll()
         suggestions = []
         activeTrigger = nil
+        resetTypingAnnouncement()
         if !keepMode { leaveTransientMode() }
         isPreviewing = false
         didRestoreDraft = false
@@ -872,6 +965,7 @@ final class ComposerViewModel: ObservableObject {
         activeTrigger = nil
         replyTarget = nil
         phase = .idle
+        resetTypingAnnouncement()
     }
 
     /// Reply mode: the next send carries `root_id`.
@@ -888,6 +982,7 @@ final class ComposerViewModel: ObservableObject {
         caret = 0
         attachments = []
         didRestoreDraft = false
+        resetTypingAnnouncement()
         Task { await restoreDraftIfNeeded() }
     }
 
@@ -917,6 +1012,7 @@ final class ComposerViewModel: ObservableObject {
         phase = .idle
         pendingCommand = nil
         didRestoreDraft = false
+        resetTypingAnnouncement()
         await restoreDraftIfNeeded()
     }
 
@@ -982,6 +1078,7 @@ final class ComposerViewModel: ObservableObject {
         suggestions = []
         activeTrigger = nil
         phase = .idle
+        resetTypingAnnouncement()
     }
 
     /// A draft write, captured **when the change happened**.

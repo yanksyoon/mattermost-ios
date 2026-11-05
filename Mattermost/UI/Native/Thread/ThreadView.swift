@@ -95,7 +95,9 @@ struct ThreadPaneContent: View {
             }
             Divider()
             if composerIsNative, let composer {
-                ComposerView(model: composer, emoji: emoji, recents: emojiRecents)
+                ComposerView(model: composer, emoji: emoji, recents: emojiRecents,
+                             typing: model?.typing,
+                             typingRowIdentifier: "threadComposer.typing")
             } else {
                 composerPlaceholder
             }

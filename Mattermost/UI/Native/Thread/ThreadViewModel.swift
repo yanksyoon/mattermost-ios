@@ -50,6 +50,8 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
         case reactions
         case following
         case unread
+        /// T4f: a `typing` frame for this thread's row.
+        case typing
     }
 
     // MARK: Identity
@@ -139,6 +141,12 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     private var repliesByID: [String: MMPost] = [:]
     /// Profiles for the chain (and, for T37, the reactor sheet).
     private(set) var users: [String: MMUser] = [:]
+    /// T4f: the row above this thread's composer ("X is typing…"), fed by the `typing` frames whose
+    /// `parent_id` is this thread's root.
+    let typing: TypingIndicator
+    /// T4f: the per-server socket + `/config/client` seam, read for the row's expiry window only.
+    private weak var typingTransport: ComposerTypingTransporting?
+    private var didLoadTypingSettings = false
     /// The thread row the server answered (`GET …/threads/{id}`), when it answered at all.
     private var threadRow: MMThread?
     /// Where the unread divider goes: `thread_row.last_viewed_at`, or the value a `thread_read_changed`
@@ -183,6 +191,7 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
          teamID: String,
          service: ThreadServing,
          myUserID: String? = nil,
+         typing: ComposerTypingTransporting? = nil,
          now: @escaping () -> Date = { Date() },
          calendar: Calendar = .current,
          locale: Locale = .current) {
@@ -191,6 +200,8 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
         self.teamID = teamID
         self.service = service
         self.myUserID = myUserID
+        self.typingTransport = typing
+        self.typing = TypingIndicator(channelID: channelID, parentID: rootID)
         self.now = now
         self.calendar = calendar
         self.locale = locale
@@ -229,6 +240,7 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
             guard let loadedRoot else { throw MMError.notFound }
             root = loadedRoot
             if channelID.isEmpty { channelID = loadedRoot.channelId }
+            typing.retarget(channelID: channelID)
             replies = ThreadDerivation.chain(root: loadedRoot,
                                              replies: ordered.filter { $0.id != rootID })
                 .dropFirst().map { $0 }
@@ -386,6 +398,7 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
                 merged.lastReplyAt = max(serverRoot.lastReplyAt, root?.lastReplyAt ?? 0)
                 root = merged
                 if channelID.isEmpty { channelID = serverRoot.channelId }
+                typing.retarget(channelID: channelID)
             }
 
             await loadProfiles(for: Set(inserted.map(\.userId))
@@ -621,7 +634,15 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
                 apply(readChange: change)
                 outcome = .unread
             }
-        case .hello, .typing, .statusChange, .preferencesChanged, .preferencesDeleted, .userUpdated,
+        case .typing(let typing):
+            // T4f: only a frame whose `parent_id` is **this thread's root** belongs to this pane. A
+            // channel composer's frames (`parent_id == ""`) are the channel pane's row, and another
+            // thread's are somebody else's entirely — the same comparison upstream's typing row makes
+            // (`(msg.parentId || msg.rootId || '') === rootId`).
+            guard self.typing.accepts(typing) else { return record(.ignored) }
+            noteTyping(typing)
+            return record(.typing)
+        case .hello, .statusChange, .preferencesChanged, .preferencesDeleted, .userUpdated,
              .sidebarCategoryUpdated, .channelCreated, .channelDeleted, .channelMemberUpdated,
              .channelUpdated, .channelRestored, .userAdded, .userRemoved,
              .channelViewed, .multipleChannelsViewed, .postUnread, .ephemeralMessage, .plugin, .unhandled:
@@ -636,6 +657,41 @@ final class ThreadViewModel: ObservableObject, ComposerPostSink {
     private func record(_ outcome: EventOutcome) -> EventOutcome {
         lastEventOutcome = outcome
         return outcome
+    }
+
+    // MARK: - Typing (T4f)
+
+    /// Show one typist above this thread's composer, resolving their display name.
+    ///
+    /// The frame carries an id and nothing else; the chain's own participants usually answer it, and
+    /// otherwise a profile request does. Until it lands the row reads "Someone is typing…" and
+    /// `rename` corrects it in place.
+    private func noteTyping(_ typing: SocketTyping) {
+        loadTypingSettingsIfNeeded()
+        let name = users[typing.userID].map(PostListDerivation.displayName)
+        self.typing.receive(userID: typing.userID, name: name)
+        guard name == nil else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            await self.loadProfiles(for: Set([typing.userID]))
+            if let user = self.users[typing.userID] {
+                self.typing.rename(userID: typing.userID,
+                                   name: PostListDerivation.displayName(for: user))
+            }
+        }
+    }
+
+    /// Read the server's typing interval once (`TimeBetweenUserTypingUpdatesMilliseconds`), so the
+    /// row expires on the server's own window.
+    private func loadTypingSettingsIfNeeded() {
+        guard !didLoadTypingSettings else { return }
+        didLoadTypingSettings = true
+        guard let transport = typingTransport else { return }
+        Task { [weak self] in
+            guard let settings = await transport.settings(), settings.interval > 0 else { return }
+            guard let self else { return }
+            self.typing.expiry = settings.interval
+        }
     }
 
     /// Take the server's thread object as the truth for counters, participants and read position.

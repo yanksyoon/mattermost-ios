@@ -622,6 +622,12 @@ struct MattermostApp: App {
         channelPaneCoordinator.bind(auth: authCoordinator,
                                     navigation: nativeNavigation,
                                     serverStore: serverStore)
+        // T4f: the composer's `user_typing` leaves through the rail's **one** socket per server — never
+        // a second connection, and never a REST call (9.11.19 has no typing endpoint; the frame is a
+        // socket action, measured in `scripts/t4f_typing_probe.py`).
+        channelPaneCoordinator.typingSender = { [weak teams = teamSidebarCoordinator] server, channelID, parentID in
+            await teams?.sendTyping(for: server, channelID: channelID, parentID: parentID)
+        }
         // T36: the thread panes resolve their service from the same session, and hold the channel
         // panes so a reply's count reaches the row it belongs to. No socket of its own.
         threadCoordinator.bind(auth: authCoordinator,

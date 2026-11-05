@@ -70,6 +70,14 @@ protocol TeamEventSourcing: AnyObject {
     /// holds no view, so the app answers here; `false` while uninstalled (and that state is logged when
     /// a client is built, because a seam nothing passes is exactly what shipped silently in T34-R5).
     func setSurfaceVisibilityHandler(_ handler: @escaping @Sendable (UUID) async -> Bool)
+
+    /// T4f: one `user_typing` frame on the server's **one** socket (`SocketClient.sendTyping`).
+    ///
+    /// The composer announces typing through this seam rather than opening anything of its own: the
+    /// app holds exactly one WebSocket per server, and a second connection per keystroke would be both
+    /// wrong and expensive. A source that has no live connection for the server sends nothing — the
+    /// native socket is the input, and there is nothing to announce on.
+    func sendTyping(for server: ServerConfig, channelID: String, parentID: String?) async
 }
 
 extension TeamEventSourcing {
@@ -81,6 +89,9 @@ extension TeamEventSourcing {
     func setResyncHandler(_ handler: @escaping @Sendable (UUID) async -> Void) {}
 
     func setSurfaceVisibilityHandler(_ handler: @escaping @Sendable (UUID) async -> Bool) {}
+
+    /// A fake source that never opened a connection has nothing to send on.
+    func sendTyping(for server: ServerConfig, channelID: String, parentID: String?) async {}
 }
 
 /// Production source: `SocketClient` per server, with the shared `CertTrust` the webview uses (so a
@@ -235,6 +246,15 @@ final class SocketTeamEventSource: TeamEventSourcing {
         // second client for this server).
         _ = await events(for: server, token: token)
         return clients[server.id]
+    }
+
+    /// T4f: one `user_typing` frame on the server's one socket.
+    ///
+    /// Deliberately does **not** open a connection: a typing announcement is worth nothing to a
+    /// reader whose socket is down, and the rail opens the client when the server is activated. The
+    /// frame is dropped by `SocketClient.send` while the socket is closed — by design, silently.
+    func sendTyping(for server: ServerConfig, channelID: String, parentID: String?) async {
+        await clients[server.id]?.sendTyping(channelID: channelID, parentID: parentID)
     }
 }
 
@@ -495,6 +515,15 @@ final class TeamSidebarCoordinator: ObservableObject {
             return nil
         }
         return await events.transport(for: server, token: token)
+    }
+
+    /// T4f: one `user_typing` frame for a composer, on this server's **one** socket.
+    ///
+    /// No token check: the frame travels on a connection that is already authenticated, and a server
+    /// whose socket was never opened simply has nothing to send on (`SocketTeamEventSource.sendTyping`
+    /// does not create a connection).
+    func sendTyping(for server: ServerConfig, channelID: String, parentID: String?) async {
+        await events.sendTyping(for: server, channelID: channelID, parentID: parentID)
     }
 
     func scope(for serverID: UUID) -> TeamSocketScope? { scopes[serverID] }

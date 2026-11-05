@@ -420,8 +420,13 @@ enum SocketEvent: Equatable, Sendable {
                 userID: frame.broadcast?.userID ?? "",
                 channelTimes: channelTimes))
         case "typing":
+            // Measured (`scripts/t4f_typing_probe.py`, 9.11.19): a typing frame names the channel in
+            // **`broadcast.channel_id`**; `data` carries only `parent_id` and `user_id`. Upstream's
+            // handler reads the broadcast for the same reason (`app/actions/websocket/users.ts:91-127`
+            // — `msg.broadcast.channel_id`). Reading `data.channel_id` first keeps a client that also
+            // puts it there working; falling back to the broadcast is what makes the real frame route.
             self = .typing(SocketTyping(
-                channelID: frame.data?["channel_id"]?.stringValue ?? "",
+                channelID: frame.data?["channel_id"]?.stringValue ?? frame.broadcast?.channelID ?? "",
                 parentID: frame.data?["parent_id"]?.stringValue ?? "",
                 userID: frame.data?["user_id"]?.stringValue ?? ""))
         case "status_change":

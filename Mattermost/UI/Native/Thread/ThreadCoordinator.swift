@@ -74,7 +74,8 @@ final class ThreadCoordinator: ObservableObject {
                                     channelID: channelID ?? "",
                                     teamID: teamID(for: server),
                                     service: service(for: server),
-                                    myUserID: auth?.userID(for: server.id))
+                                    myUserID: auth?.userID(for: server.id),
+                                    typing: typingTransport(for: server))
         // A reply moves the root's count on the channel timeline. Wired here (not in the view) so the
         // patch still happens when the channel pane is not the one on screen — the reader can open a
         // thread from the global list while a channel model is warm behind it.
@@ -136,11 +137,22 @@ final class ThreadCoordinator: ObservableObject {
                                          sink: model,
                                          teamID: model.teamID,
                                          myUserID: auth?.userID(for: server.id),
-                                         emojiCatalogue: emojiCatalogue)
+                                         emojiCatalogue: emojiCatalogue,
+                                         typing: typingTransport(for: server))
         composer.beginReply(to: root, authorLabel: model.rootAuthorLabel)
         composers[server.id, default: [:]][key] = composer
         trackComposer(serverID: server.id, key: key)
         return composer
+    }
+
+    /// T4f: the typing seam, borrowed from the channel panes' owner.
+    ///
+    /// Borrowed, not built: `/config/client` and the rail's socket are per **server**, and a thread
+    /// pane whose composer throttled at one interval while the channel's row expired at another is a
+    /// bug with no symptom except a row that flickers. `ChannelPaneCoordinator` already owns that
+    /// object; this coordinator reaches it through the reference it holds for reply counts.
+    private func typingTransport(for server: ServerConfig) -> ComposerTypingTransporting? {
+        channelPanes?.typingTransport(for: server)
     }
 
     private func trackComposer(serverID: UUID, key: String) {

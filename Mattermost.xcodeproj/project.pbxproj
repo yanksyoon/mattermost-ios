@@ -70,6 +70,7 @@
 		F3000000000000000000006A /* ServerTrustPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000006A /* ServerTrustPolicy.swift */; };
 		F3000000000000000000006B /* SocketEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000006B /* SocketEvent.swift */; };
 		F3000000000000000000006C /* SocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000006C /* SocketClient.swift */; };
+		F3000000000000000000006D /* MMTypingSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000006D /* MMTypingSettings.swift */; };
 		F30000000000000000000077 /* WebSessionAdoption.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000077 /* WebSessionAdoption.swift */; };
 		F30000000000000000000078 /* MMMultipart.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000078 /* MMMultipart.swift */; };
 		F3000000000000000000002C /* SurfaceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000048 /* SurfaceHost.swift */; };
@@ -196,6 +197,7 @@
 		F2000000000000000000006A /* ServerTrustPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerTrustPolicy.swift; sourceTree = "<group>"; };
 		F2000000000000000000006B /* SocketEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketEvent.swift; sourceTree = "<group>"; };
 		F2000000000000000000006C /* SocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketClient.swift; sourceTree = "<group>"; };
+		F2000000000000000000006D /* MMTypingSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMTypingSettings.swift; sourceTree = "<group>"; };
 		F20000000000000000000077 /* WebSessionAdoption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSessionAdoption.swift; sourceTree = "<group>"; };
 		F20000000000000000000078 /* MMMultipart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMMultipart.swift; sourceTree = "<group>"; };
 		F20000000000000000000090 /* MMStoreModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MMStoreModels.swift; sourceTree = "<group>"; };
@@ -362,6 +364,7 @@
 				F2000000000000000000006A /* ServerTrustPolicy.swift */,
 				F2000000000000000000006B /* SocketEvent.swift */,
 				F2000000000000000000006C /* SocketClient.swift */,
+				F2000000000000000000006D /* MMTypingSettings.swift */,
 				F20000000000000000000077 /* WebSessionAdoption.swift */,
 				F20000000000000000000078 /* MMMultipart.swift */,
 			);
@@ -643,6 +646,7 @@
 				F3000000000000000000006A /* ServerTrustPolicy.swift in Sources */,
 				F3000000000000000000006B /* SocketEvent.swift in Sources */,
 				F3000000000000000000006C /* SocketClient.swift in Sources */,
+				F3000000000000000000006D /* MMTypingSettings.swift in Sources */,
 				F30000000000000000000077 /* WebSessionAdoption.swift in Sources */,
 				F30000000000000000000078 /* MMMultipart.swift in Sources */,
 				F30000000000000000000090 /* MMStoreModels.swift in Sources */,

@@ -58,6 +58,9 @@ final class ChannelPaneCoordinator: ObservableObject {
     /// reason as `postOptionsModels`: it is a fact about the channel, and a pane re-appearance must
     /// not refetch a bar it already has.
     private var bookmarkModels: [UUID: [String: ChannelBookmarksViewModel]] = [:]
+    /// T4f: the per-server typing seam (socket + `/config/client`), shared by the pane and its
+    /// composer so both read the same interval.
+    private var typingTransports: [UUID: SessionComposerTypingTransport] = [:]
 
     /// Test seam: replaces the production session-backed service (T33's `serviceFactory`).
     var serviceFactory: ((ServerConfig) -> ChannelServing)?
@@ -69,6 +72,10 @@ final class ChannelPaneCoordinator: ObservableObject {
     var bookmarkServiceFactory: ((ServerConfig) -> ChannelBookmarkServing)?
     /// Test seam: replaces the production draft store.
     var draftStoreFactory: ((ServerConfig) -> ComposerDraftStoring)?
+    /// T4f: how a `user_typing` frame leaves the app — the rail's one socket per server. Bound in
+    /// `MattermostApp.bindShellStores`; unset in a host with no rail (unit tests), where the composer
+    /// then announces nothing.
+    var typingSender: ((ServerConfig, String, String?) async -> Void)?
 
     /// Diagnostics: how many models are alive (one test asserts the cache is bounded).
     var modelCount: Int { models.values.reduce(0) { $0 + $1.count } }
@@ -121,11 +128,33 @@ final class ChannelPaneCoordinator: ObservableObject {
                                      channelName: channelName,
                                      service: service(for: server),
                                      myUserID: auth?.userID(for: server.id),
-                                     profiles: UserProfileCache.shared(for: server.id))
+                                     profiles: UserProfileCache.shared(for: server.id),
+                                     typing: typingTransport(for: server))
         models[server.id, default: [:]][channelID] = model
         touch(serverID: server.id, channelID: channelID)
         evictIfNeeded(serverID: server.id)
         return model
+    }
+
+    /// T4f: the per-server typing seam (the socket + `/config/client`), one per server.
+    ///
+    /// One object per server so the composer's send gate and the pane's receive window read the same
+    /// `/config/client` answer — a composer and its list disagreeing about the interval would make the
+    /// row vanish at a moment the sender did not choose.
+    func typingTransport(for server: ServerConfig) -> ComposerTypingTransporting? {
+        if let existing = typingTransports[server.id] { return existing }
+        guard let typingSender else { return nil }
+        let auth = self.auth
+        let transport = SessionComposerTypingTransport(
+            resolve: {
+                guard let auth, let session = try? auth.session(for: server) else { return nil }
+                return session.client
+            },
+            deliver: { channelID, parentID in
+                await typingSender(server, channelID, parentID)
+            })
+        typingTransports[server.id] = transport
+        return transport
     }
 
     /// Attachment bytes for one server (one cache per server, shared by every channel's rows).
@@ -299,7 +328,8 @@ final class ChannelPaneCoordinator: ObservableObject {
                                          sink: list,
                                          teamID: teamID,
                                          myUserID: auth?.userID(for: server.id),
-                                         emojiCatalogue: emojiCatalogue)
+                                         emojiCatalogue: emojiCatalogue,
+                                         typing: typingTransport(for: server))
         composers[server.id, default: [:]][channelID] = composer
         return composer
     }
@@ -392,6 +422,9 @@ final class ChannelPaneCoordinator: ObservableObject {
         recent[serverID] = nil
         postOptionsModels[serverID] = nil
         bookmarkModels[serverID] = nil
+        // T4f: the typing seam carries the previous session's socket wiring; a signed-out server
+        // must not announce anything on it.
+        typingTransports[serverID] = nil
         // The composer goes with the list: a draft is already in the store, and the store is cleared
         // below (a signed-out device keeps no half-typed messages from the previous session).
         composers[serverID] = nil
