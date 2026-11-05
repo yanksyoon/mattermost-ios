@@ -19,6 +19,13 @@ Two things this runner does about it:
      samples the test host, kills the run and exits non-zero with the diagnostic -- a wedge can
      never again look like "still running".
 
+And one thing it does about the *other* half of the same wedge (t_fc31e308): it predicts a run
+that reads the checkout at run time. A test that builds a path from `#filePath` and opens it is
+reading `~/Documents` from the test host -- the same tccd request, the same `open()` that never
+returns, except the trigger is the source file instead of the debug map. When the checkout itself
+is inside a TCC-protected folder and any test target still does that, the runner refuses instead
+of discovering the wedge 4000 test cases later (see `source_scan_guard`).
+
 Usage:
   scripts/qa-test.py                        # whole scheme on the iOS simulator, all tests
   scripts/qa-test.py --only-testing MattermostTests/WebViewStoreTests
@@ -78,6 +85,67 @@ def tcc_guard(derived: Path, allow: bool) -> None:
             sys.exit(2)
         log("WARNING: TCC-unsafe derived data requested; a failing test may wedge")
         print(msg, file=sys.stderr)
+
+
+# A test that builds a path from its own source location and opens it reads the *checkout*. When
+# the checkout is inside a TCC-protected folder that open() is the same wedge as the debug-map one:
+# sandboxd asks tccd for Documents access on behalf of the test host, the prompt cannot be answered
+# in a non-interactive run, and the run stops dead on one test case (t_fc31e308 --
+# T56SelectionTests.testNoHTMLParserInEitherRenderer, 4000+ cases into the suite, twice).
+#
+# The fix for that class is to give the test a copy of what it scans (MattermostTests/SourceScan.swift
+# reads the "Bundle Scanned Sources" build phase's output from the test bundle). This guard keeps the
+# class from coming back: it predicts the wedge before a build starts instead of after 240 s of silence.
+SOURCE_PATH_READ = re.compile(r"URL\(\s*fileURLWithPath:\s*#file(?:Path)?\s*\)")
+SCANNED_TEST_DIRS = ("MattermostTests", "MattermostUITests")
+
+
+def within(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def source_scan_guard(allow: bool) -> None:
+    """Refuse a run whose tests would read the checkout from a TCC-protected location."""
+    protected = [p for p in TCC_PROTECTED if within(REPO, p)]
+    if not protected:
+        log(f"source-scan guard: checkout {REPO} is outside Documents/Desktop/Downloads, no wedge to predict")
+        return
+    offenders: list[str] = []
+    for directory in SCANNED_TEST_DIRS:
+        for path in sorted((REPO / directory).rglob("*.swift")):
+            try:
+                lines = path.read_text(errors="replace").splitlines()
+            except OSError as exc:  # unreadable source is its own problem, not a silent pass
+                log(f"source-scan guard: cannot read {path}: {exc}")
+                continue
+            for number, line in enumerate(lines, 1):
+                code = line.split("//", 1)[0]  # a comment may *discuss* the pattern
+                if SOURCE_PATH_READ.search(code):
+                    offenders.append(f"  {path.relative_to(REPO)}:{number}: {line.strip()}")
+    if not offenders:
+        log(f"source-scan guard: no test reads its own source from the checkout ({REPO} is TCC-protected)")
+        return
+    msg = (
+        "these test lines build a path from their own source file and read it:\n"
+        + "\n".join(offenders)
+        + f"\n  The checkout ({REPO}) is inside {protected[0]}, which macOS TCC protects. The test\n"
+        "  host's open() on a path there blocks on a consent prompt that never arrives in a\n"
+        "  non-interactive run, so the suite stops dead mid-run (rc=124, 240 s of silence) instead\n"
+        "  of failing -- exactly the t_fc31e308 wedge.\n"
+        "  Give the test the bytes at build time instead: see MattermostTests/SourceScan.swift and\n"
+        "  the \"Bundle Scanned Sources\" phase on the MattermostTests target. If the read is\n"
+        "  intentional and you accept the risk, pass --allow-tcc-unsafe-source-read."
+    )
+    if not allow:
+        log("REFUSING TO RUN")
+        print(msg, file=sys.stderr)
+        sys.exit(2)
+    log("WARNING: TCC-unsafe source read requested; the run may wedge mid-suite")
+    print(msg, file=sys.stderr)
 
 
 def find_host(pattern: str) -> list[str]:
@@ -399,6 +467,8 @@ def main() -> int:
     ap.add_argument("--timeout", type=int, default=2400, help="hard wall clock limit (s)")
     ap.add_argument("--stall-timeout", type=int, default=240, help="kill when test output stops for this long (s)")
     ap.add_argument("--allow-tcc-unsafe-derived-data", action="store_true")
+    ap.add_argument("--allow-tcc-unsafe-source-read", action="store_true",
+                    help="run even though a test reads the TCC-protected checkout at run time (may wedge)")
     ap.add_argument("--self-test", action="store_true", help="break-proof: prove a failing test reports")
     ap.add_argument("extra", nargs="*", help="extra xcodebuild args (after --)")
     args = ap.parse_args()
@@ -406,6 +476,7 @@ def main() -> int:
     if "=" not in args.sim:
         args.sim = f"id={args.sim}" if re.fullmatch(r"[0-9A-Fa-f-]{36}", args.sim) else f"name={args.sim}"
     tcc_guard(Path(args.derived_data), args.allow_tcc_unsafe_derived_data)
+    source_scan_guard(args.allow_tcc_unsafe_source_read)
     if shutil.which("xcodebuild") is None:
         log("xcodebuild not found")
         return 2

@@ -775,19 +775,37 @@ final class FixturePageService: ChannelServing {
     }
 }
 
-/// Loads the captured JSON from the test bundle, falling back to the source tree so the test also
-/// runs when the fixture is not a bundle resource (a synchronized project group copies Swift files,
-/// not necessarily arbitrary JSON).
+/// Loads the captured JSON from the test bundle.
+///
+/// The fixtures are `MattermostTests/Fixtures/*.json`; the target's synchronized group copies
+/// non-Swift files into the test bundle's resources, so `Bundle(for:)` finds them on both the
+/// simulator and Catalyst. There is deliberately **no** source-tree fallback: the old one read
+/// `#filePath`-relative files, and from the shared checkout that is `~/Documents`, where a test
+/// host's `open()` blocks on a TCC consent prompt that never arrives headlessly (card
+/// t_fc31e308). A missing fixture must fail with a path, not hang the runner.
 enum T34FixtureLoader {
     private final class BundleToken {}
 
     static func data(named name: String) throws -> Data {
-        if let url = Bundle(for: BundleToken.self).url(forResource: name, withExtension: "json") {
-            return try Data(contentsOf: url)
+        let bundle = Bundle(for: BundleToken.self)
+        guard let url = bundle.url(forResource: name, withExtension: "json") else {
+            throw T34FixtureError.missing(name: name, bundlePath: bundle.bundlePath)
         }
-        let sourceTree = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .appendingPathComponent("Fixtures/\(name).json")
-        return try Data(contentsOf: sourceTree)
+        return try Data(contentsOf: url)
+    }
+}
+
+enum T34FixtureError: Error, CustomStringConvertible {
+    case missing(name: String, bundlePath: String)
+
+    var description: String {
+        switch self {
+        case let .missing(name, bundlePath):
+            return """
+            fixture \(name).json is not in the test bundle (\(bundlePath)). It lives in \
+            MattermostTests/Fixtures and is copied as a bundle resource; there is no source-tree \
+            fallback because reading the checkout from the test host wedges on TCC (t_fc31e308).
+            """
+        }
     }
 }

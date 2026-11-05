@@ -466,6 +466,7 @@
 			buildPhases = (
 				F60000000000000000000004 /* Sources */,
 				F60000000000000000000005 /* Frameworks */,
+				F6000000000000000000000A /* Bundle Scanned Sources */,
 				F60000000000000000000006 /* Resources */,
 			);
 			buildRules = (
@@ -551,6 +552,31 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		F6000000000000000000000A /* Bundle Scanned Sources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 0;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Mattermost/UI/Native/Channel/Markdown/MarkdownView.swift",
+				"$(SRCROOT)/Mattermost/UI/Native/Channel/Markdown/MarkdownSelectionView.swift",
+			);
+			name = "Bundle Scanned Sources";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/SourceScan/MarkdownSelectionView.swift",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/SourceScan/MarkdownView.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n# The unit suite scans these two renderer sources for the T5 invariant (no HTML parser, no web\n# view). They are copied into the test bundle here instead of being read from the checkout at\n# run time: the shared checkout lives under ~/Documents, and a test host that opens() a file\n# there blocks on a TCC consent prompt that never arrives in a non-interactive run -- the whole\n# Mac/iOS unit lane wedged at T56SelectionTests (t_fc31e308). The copy keeps the invariant and\n# removes the TCC dependency.\n#\n# TARGET_BUILD_DIR, not BUILT_PRODUCTS_DIR: this is an app-hosted test bundle, so the product is\n# built into the host's Contents/PlugIns (Catalyst) or PlugIns (iOS) and a stray bundle at\n# BUILT_PRODUCTS_DIR is not the one that runs.\nsrc=\"${SRCROOT}/Mattermost/UI/Native/Channel/Markdown\"\ndest=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SourceScan\"\nmkdir -p \"$dest\"\ncp -f \"$src/MarkdownView.swift\" \"$dest/MarkdownView.swift\"\ncp -f \"$src/MarkdownSelectionView.swift\" \"$dest/MarkdownSelectionView.swift\"\necho \"note: bundled scanned sources -> $dest\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 /* Begin PBXResourcesBuildPhase section */
 		F60000000000000000000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;

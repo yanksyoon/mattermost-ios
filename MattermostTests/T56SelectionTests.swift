@@ -162,27 +162,23 @@ final class T56SelectionTests: XCTestCase {
     }
 
     func testNoHTMLParserInEitherRenderer() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let files = [
-            "Mattermost/UI/Native/Channel/Markdown/MarkdownView.swift",
-            "Mattermost/UI/Native/Channel/Markdown/MarkdownSelectionView.swift"
-        ]
-        for file in files {
-            let source = try String(contentsOf: root.appendingPathComponent(file), encoding: .utf8)
-            // Comments are allowed to *discuss* the invariant (`MarkdownView.swift`'s header names the
-            // HTML initialiser it does not call); only executable lines are scanned.
-            let code = source.split(separator: "\n", omittingEmptySubsequences: false)
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.hasPrefix("//") && !$0.hasPrefix("///") }
-                .joined(separator: "\n")
+        // The two renderer sources are copied into the test bundle at build time ("Bundle Scanned
+        // Sources", MattermostTests target) and read from there. They used to be read from the
+        // checkout via `#filePath`; from the shared checkout that path is under `~/Documents`, so
+        // the test host's open() blocked on a TCC consent prompt and wedged the whole lane at this
+        // test (card t_fc31e308). The scan itself is unchanged — same files, same lines, same
+        // assertions — only its input is now a build product.
+        for file in ScannedSource.allCases {
+            let code = try SourceScan.executableLines(of: file).joined(separator: "\n")
+            XCTAssertTrue(code.contains(file.declaration),
+                          "the scan of \(file.rawValue) is reading the wrong file: "
+                          + "\(file.declaration) is absent")
             XCTAssertFalse(code.contains("NSAttributedString(html"),
-                           "\(file) must not parse HTML")
+                           "\(file.rawValue) must not parse HTML")
             XCTAssertFalse(code.contains("NSAttributedString(data:"),
-                           "\(file) must not parse HTML from data")
+                           "\(file.rawValue) must not parse HTML from data")
             XCTAssertFalse(code.contains("WKWebView("),
-                           "\(file) must not render a post in a web view")
+                           "\(file.rawValue) must not render a post in a web view")
         }
     }
 

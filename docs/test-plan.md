@@ -192,6 +192,24 @@ Rule that follows: **never point a test run's derived data into `~/Documents`** 
 `xcodebuild`. A `build/…` path is fine for plain `xcodebuild build`, but any run in which a test
 may fail will hang there.
 
+**The same rule applies to the test's *inputs*, not just its derived data** (t_fc31e308). A test
+that builds a path from `#filePath` and opens it reads the checkout — `~/Documents` from the shared
+checkout — and the test host's `open()` blocks on the same consent that never arrives. The suite
+then dies mid-run on that one case: the full `MattermostTests` lane stopped at
+`T56SelectionTests.testNoHTMLParserInEitherRenderer` (4681 cases into one run, 8874 into another),
+`sample` of the host showing 100 % of samples in `open()` under
+`String(contentsOf:)`, and `qa-test.py` returning 124 after 240 s of silence. Fix in place:
+
+- the two renderer sources that T56 scans are copied into the test bundle at build time by the
+  **"Bundle Scanned Sources"** phase on the MattermostTests target, and
+  `MattermostTests/SourceScan.swift` reads them from `Bundle(for:)` — the invariant still scans the
+  real source text of the build under test, but nothing reads the checkout at run time;
+- `qa-test.py` now *predicts* the whole class: if the checkout is inside `~/Documents`,
+  `~/Desktop` or `~/Downloads` and any `MattermostTests`/`MattermostUITests` line still builds a
+  URL from `#filePath`, it refuses before building (exit 2, naming file:line) unless
+  `--allow-tcc-unsafe-source-read` is given. That is on top of the stall watcher: the guard is for
+  the next regression, the watcher is for everything nobody predicted.
+
 ## 7. Harness: enumerating a long list one element at a time kills the UI-test host (T34-QA)
 
 Second harness failure, different from §6 and unrelated to TCC. On a long post list the **app
