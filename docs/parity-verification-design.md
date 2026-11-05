@@ -259,9 +259,9 @@ Cycle count against the card's budget: **3 red/green cycles to land, 1 deliberat
 gate, 1 skip to check the filter** — well inside the 10–30 expected for a first proof, and no cycle
 was spent weakening a statement.
 
-The head commit handed over is `ffdce25`, green at
-[41942508974](https://github.com/yanksyoon/mattermost-ios/actions/runs/41942508974) (`relevant-paths`
-success, `lean` success) — that is the commit a merge would carry.
+The head of this branch carries its own green run — the PR's checks are the record, and the first
+green (on the commit that first compiled all four modules) is
+[41941487416](https://github.com/yanksyoon/mattermost-ios/actions/runs/41941487416) at `1a91635`.
 
 ### Landing it (the exact commands, for whoever decides to publish)
 
