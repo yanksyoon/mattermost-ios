@@ -116,7 +116,11 @@ jobs:
           set -o pipefail
           export PATH="$HOME/.elan/bin:$PATH"
           cd lean
-          lake build 2>&1 | tee build.log
+          # `lake update` regenerates the committed manifest for the pinned toolchain. The package
+          # has zero dependencies, so this is offline and instant; it also means a manifest written
+          # by hand (there is no local toolchain to generate one) can never be a stale-format trap.
+          lake update 2>&1 | tee build.log
+          lake build 2>&1 | tee -a build.log
 
       - name: upload the build log on failure
         if: failure()
