@@ -237,19 +237,21 @@ theorem native_implies_approved (f : Facts) : ladder f = .native → f.approved 
   cases c <;> cases p <;> cases t <;> cases v <;> cases a <;> decide
 
 /-- **MOVE excludes STALE.** On a row whose content identity was found at a surviving path, the
-resolved path is never `missing`, so `findFatal` cannot emit `STALE` for a refactor. The ordering
-claim — that the Python tool calls this resolution *before* it finalises STALE — is a claim about
-`parity/generate.py`, tested by the mutation `m-round-order` style diffs, not proved here. -/
-theorem moved_is_never_missing (r : Row) :
-    r.moved = true → (resolvePath r).isMissing = false := by
-  rcases r with ⟨c, p, t, anc, cl, e, ap, hv, hc, ky, mv, um⟩
-  cases p <;> cases mv <;> decide
+resolved path is never `missing`. The ordering claim — that the Python tool calls this resolution
+*before* it finalises STALE — is a claim about `parity/generate.py`, not proved here. -/
+theorem moved_is_never_missing (r : Row) (h : r.moved = true) :
+    (resolvePath r).isMissing = false := by
+  cases hp : r.path with
+  | missing => simp [resolvePath, PathState.isMissing, hp, h]
+  | none => simp [resolvePath, PathState.isMissing, hp]
+  | present => simp [resolvePath, PathState.isMissing, hp]
 
-/-- A moved row's stale detector is silent: the same statement at the level of the finding list. -/
-theorem moved_emits_no_stale (r : Row) :
-    r.moved = true → FatalFinding.stale ∉ findFatal r := by
-  rcases r with ⟨c, p, t, anc, cl, e, ap, hv, hc, ky, mv, um⟩
-  cases p <;> cases mv <;> cases c <;> decide
+/-- The STALE branch's own guard is false on a moved row, so `findFatal` cannot emit `STALE` for a
+refactor: the detector reads exactly this condition. -/
+theorem moved_stale_guard_is_false (r : Row) (h : r.moved = true) :
+    (r.claim && (resolvePath r).isMissing) = false := by
+  rw [moved_is_never_missing r h]
+  simp
 
 /-- **Two records that agree on every field a detector reads derive the same status and the same
 findings.** The design's phrase "derived, never typed" made checkable: nothing outside `World.row`

@@ -24,13 +24,14 @@ here. The boundary is stated in `docs/parity-verification-design.md` §4 and mus
 namespace Parity
 
 /-- **The theorem this card exists for.** Distinct identities never share a join key: the join is
-injective on identity, so it cannot collapse two distinguishable upstream units onto one row. -/
-theorem join_key_injective : Function.Injective joinKey := by
-  intro a b h
+injective on identity, so it cannot collapse two distinguishable upstream units onto one row.
+(Stated directly rather than as `Function.Injective`, which core Lean does not export.) -/
+theorem join_key_injective (a b : Identity) : joinKey a = joinKey b → a = b := by
   cases a with
   | mk ns1 id1 =>
   cases b with
   | mk ns2 id2 =>
+  intro h
   change Key.mk ns1 id1 = Key.mk ns2 id2 at h
   injection h with hns hid
   cases hns
@@ -60,17 +61,14 @@ accepted scheme; this theorem is why the rejected one cannot be smuggled back in
 type, and a type change is visible in a diff. -/
 theorem sha_in_key_is_not_a_function_of_identity :
     ¬ ∃ j : Identity → ShaKey, ∀ a : Addressed, j a.id = shaKey a := by
-  intro ⟨j, hj⟩
-  have h1 : j threadIdentity = shaKey ⟨threadIdentity, shaBefore⟩ :=
+  rintro ⟨j, hj⟩
+  have h1 : j threadIdentity = ShaKey.mk Namespace.M "app/screens/thread" shaBefore :=
     hj ⟨threadIdentity, shaBefore⟩
-  have h2 : j threadIdentity = shaKey ⟨threadIdentity, shaAfter⟩ :=
+  have h2 : j threadIdentity = ShaKey.mk Namespace.M "app/screens/thread" shaAfter :=
     hj ⟨threadIdentity, shaAfter⟩
   rw [h1] at h2
   have hne : shaBefore ≠ shaAfter := by decide
-  apply hne
-  change ShaKey.mk Namespace.M "app/screens/thread" shaBefore
-      = ShaKey.mk Namespace.M "app/screens/thread" shaAfter at h2
-  injection h2 with _hns _hid hsha
-  exact hsha
+  refine hne ?_
+  simpa [ShaKey.mk.injEq] using h2
 
 end Parity
