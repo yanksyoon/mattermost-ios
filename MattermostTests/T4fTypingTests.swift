@@ -479,6 +479,16 @@ final class T4fTypingTests: XCTestCase {
         let indicator = TypingIndicator(channelID: channelID, parentID: "", expiry: 5, clock: clock)
 
         indicator.receive(userID: "u2", name: "Terry Buddy")
+        // The first frame's window must be parked *before* the second frame is sent. Both windows
+        // are unstructured `Task`s, and their start order is not their creation order: a probe of
+        // exactly this shape (two gated tasks, 500 rounds) parked in reverse 24 times on an idle
+        // machine (kanban t_9f5de5d7). With the send-both-then-wait shape, `releaseOne()` would
+        // then resume the *newer* window — whose expiry is legitimate — and the assertion below
+        // read `nil` and failed the way it did in build/logs/t21b2-mac-unit-head2.log. Waiting for
+        // the first park makes "the first frame's window ends" true by construction; both windows
+        // are still created, still parked, and still released separately.
+        let firstParked = await waitForParks(clock, count: 1)
+        XCTAssertTrue(firstParked, "the first frame's window parks")
         indicator.receive(userID: "u2", name: "Terry Buddy")   // still typing
         let bothParked = await waitForParks(clock, count: 2)
         XCTAssertTrue(bothParked)

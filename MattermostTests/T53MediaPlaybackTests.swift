@@ -502,7 +502,7 @@ final class T53MediaFootprintTests: XCTestCase {
         let url = try XCTUnwrap(try? result.get())
         let after = footprint()
 
-        let size = (try FileManager.default.attributesOfItem(atPath: url.path))[.size] as? NSNumber
+        let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber
         XCTAssertEqual(size?.int64Value, Int64(payloadBytes), "all \(payloadBytes) bytes are on disk")
         let delta = after - before
         print("T53FOOTPRINT payload=\(payloadBytes) before=\(before) after=\(after) delta=\(delta)")
@@ -512,8 +512,32 @@ final class T53MediaFootprintTests: XCTestCase {
         // `Data` (plus the task's own buffers) would grow by at least the payload, and a regression
         // that copied it twice would grow by two payloads. What this test *does* prove exactly is the
         // line above it: all 32 MB are on disk, and the file is served by the app's own cache.
+        //
+        // On Mac Catalyst the number above cannot carry that claim, and it is not a matter of
+        // tolerance (kanban t_9f5de5d7, all measured on this binary):
+        //
+        //   * this transfer grew `phys_footprint` by 281, 513, 565 and 807 MB on four runs — and
+        //     `core` (`TASK_VM_INFO.internal`) by 544 MB in the run that printed it, i.e. real dirty
+        //     memory, not compression. That is CFNetwork's own scratch, allocated and released around
+        //     the transfer, not the cache holding the payload;
+        //   * a repeated transfer measured 1.6, 5.6 and 14.2 MB on quiet runs but 79.7 MB on a busy
+        //     one, so `delta < payload` is a coin flip here rather than a guard;
+        //   * decisively, a simulated buffering transport (the finished payload copied and retained)
+        //     moved the delta by 0 MB, because CFNetwork's scratch is allocated and released inside
+        //     the same window. The assertion is blind to the regression it exists to catch.
+        //
+        // The same simulation on iOS moved the number by 3.1 MB, not 32 MB (the retained pages were
+        // reclaimed inside the window), so even where the assertion runs it is a coarse guard — a
+        // gross buffering regression, not a single copy. That gap is carded separately; the exact
+        // claim this test makes on every platform is the disk line above.
+        //
+        // The guard therefore stays where it is stable — iOS, same code, same payload: 0.98 MB
+        // (build/logs/t9f-probe-ios.log). Catalyst keeps the assertion that is exact on both
+        // platforms: the 32 MB on disk above, written by the app's own cache.
+        #if !targetEnvironment(macCatalyst)
         XCTAssertLessThan(delta, Int64(payloadBytes),
                           "staging \(payloadBytes) bytes grew the footprint by \(delta) bytes")
+        #endif
     }
 }
 

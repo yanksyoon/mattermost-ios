@@ -251,3 +251,75 @@ Rules that follow (implemented in `ScrollRestoreRunner` + `T34ScrollRestorePathT
    property, and QA's mutation B (scroll the pane to the bottom on purpose) proves it can fail. The
    report answers "did our code run", the frame answers "is the reader where they were". A green run
    needs both.
+
+## 9. Platform metrics: Catalyst's `UIFontMetrics` ignores the trait, `phys_footprint` does not measure retention, and unstructured `Task`s do not start in order (t_9f5de5d7)
+
+The Mac lane (`scripts/qa-test.py --platform mac --only-testing MattermostTests`) compiles and runs
+the whole 2526-case unit target; with `t_21b2f119` landed it finally reported a verdict instead of
+`Executed 0 tests`, and three assertion failures were left over. All three were the *test* asserting a
+platform metric, not product defects — but two of them had to be re-measured rather than relaxed,
+because "the number is different on Catalyst" is true of a working test too.
+
+**1. Dynamic Type cannot be synthesized through a trait on Catalyst.** A probe in
+`MattermostTests` (deleted after the measurement) resolved `.body` four ways:
+
+| call | iOS 18.5 sim | Mac Catalyst |
+|---|---|---|
+| `UIFont.preferredFont(forTextStyle: .body)` (ambient) | 17.0 | 17.0 |
+| `UIFontMetrics(forTextStyle: .body).scaledFont(for:compatibleWith: AX5 traits)` | **48.0** | **17.0** |
+| `UIFont.preferredFont(forTextStyle: .body, compatibleWith: AX5 traits)` | **53.0** | **17.0** |
+| `UIFontMetrics(forTextStyle: .body).scaledValue(for: 17, compatibleWith: AX5 traits)` | **48.0** | **17.0** |
+
+`UIWindowScene.traitCollection.preferredContentSizeCategory` is `.large` on both. So Catalyst ignores
+an explicitly handed trait collection, and a Catalyst process has no way to ask for a larger text size
+through one. The *product* is not affected: `ComposerView` assigns
+`UIFont.preferredFont(forTextStyle: .body)` (ambient) and takes its limits from
+`@Environment(\.dynamicTypeSize)` — the same ambient source — so a Mac at the default text size gets
+17 pt and `.tablet` limits, with no split between font and box.
+
+Rule: **a test that needs an accessibility text size must assign the font.** It may not rely on
+`UIFontMetrics(scaledFont:compatibleWith:)` on Catalyst. `ComposerInputHeightTests
+.testChangingTheLimitsReMeasuresTheSameText` now assigns the size the iOS run resolves and still
+asserts growth; a mutant that makes `remeasure()` ignore the view's font fails it with
+`78.0 is not greater than 78.0` on Catalyst.
+
+Not validated: a Mac whose *Accessibility → Display → Text Size* is set larger (this host has
+`FontSizeCategory.global = DEFAULT` in `com.apple.universalaccess`; a test run must not change a
+user's accessibility setting). If Catalyst maps that setting into the trait collection at all, the
+ambient paths above are the ones the composer already uses — unverified either way.
+
+**2. `phys_footprint` around a 32 MB `URLSession` download cannot answer "is the payload held in
+memory".** Measured on Catalyst, same binary, same 32 MB payload:
+
+- the first chunked transfer: **+281, +513, +565, +807 MB** (`TASK_VM_INFO.internal` +544 MB in the
+  run that printed it — real dirty memory, not compression). That is CFNetwork's own scratch;
+- an identical repeated transfer: +1.6, +5.6, +14.2 MB on quiet runs, **+79.7 MB** while the machine
+  was busy — so `delta < payload` is a coin flip there, not a guard;
+- a simulated buffering transport (the finished payload copied and retained inside the download
+  window): **+0 MB on Catalyst, +3.1 MB on iOS**. The retained pages are reclaimed inside the same
+  window, so one payload's retention is invisible on both platforms.
+
+Rules: `T53MediaFootprintTests` asserts the exact, platform-independent claim on both platforms (all
+32 MB on disk, served by the app's own cache) and the footprint bound only on iOS
+(`#if !targetEnvironment(macCatalyst)`); do not "fix" a Catalyst delta by widening the bound — it is
+noise, not a tolerance. And do not read the iOS bound as tight: it catches a gross buffering
+regression, not a single copy (carded).
+
+**3. Two unstructured `Task`s do not start in creation order.** `T4fTypingTests
+.testANewFrameRestartsTheWindowAndTheOldTimerCannotClearIt` sent two typing frames and then waited for
+two parks on the gated clock, assuming park order == frame order. It is not: a probe of exactly that
+shape (400 tasks) parked in reverse ~390 times out of 400 under load, and even **two** tasks parked in
+reverse in **24 of 500 rounds** on an idle machine. `releaseOne()` then resumed the *newer* window,
+whose expiry is legitimate, and the case failed with `nil != "Terry Buddy is typing..."` — the same
+message a real product regression produces. The case now waits for the first park before sending the
+second frame (`build/logs/t21b2-mac-unit-head2.log` was the observed flake).
+
+Rule: **a gated-clock test must establish the order it is about, not assume it**: wait for the earlier
+park before emitting the next event. The claim stays falsifiable — deleting the cancel check *and* the
+generation guard still fails the reordered case with the original message.
+
+**4. `MediaFileCache.existingFile(fileID:)` matches by prefix.** A file staged under id
+`big-control` is returned for a later request for `big` (`hasPrefix(fileID + "-")`), so a "warm-up
+then measure" version of the T53 case measured *nothing*: the second `stagedFile` short-circuited to
+the control file, the disk assertion passed trivially and the delta was 0. Any test that stages twice
+in one process needs ids where neither is a prefix of the other.

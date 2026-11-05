@@ -309,6 +309,11 @@ final class ComposerInputHeightTests: XCTestCase {
         XCTAssertEqual(report.values.last, narrow)
     }
 
+    /// The `.body` point size `UIFontMetrics` resolves for
+    /// `.accessibilityExtraExtraExtraLarge` on iOS, measured with a probe (17 → 48) — see
+    /// `testChangingTheLimitsReMeasuresTheSameText` for why Catalyst needs it as a literal.
+    private static let accessibilityBodyPointSize: CGFloat = 48
+
     /// The Dynamic Type half of requirement 4. A Dynamic Type change reaches the view as **both** an
     /// environment change (which recomputes `limits`) and a new `preferredFont` (which `updateUIView`
     /// assigns before re-measuring); this drives the same pair, because only the two together are the
@@ -317,8 +322,23 @@ final class ComposerInputHeightTests: XCTestCase {
         let view = makeInput(limits: .phone)
         let small = enter(text(lines: 3), in: view)
         let traits = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
-        view.font = UIFontMetrics(forTextStyle: .body)
-            .scaledFont(for: .preferredFont(forTextStyle: .body), compatibleWith: traits)
+        let body = UIFont.preferredFont(forTextStyle: .body)
+        let scaled = UIFontMetrics(forTextStyle: .body).scaledFont(for: body, compatibleWith: traits)
+        // The AX5 `.body` font. On iOS `UIFontMetrics` honours the trait (measured 17 → 48). On Mac
+        // Catalyst it returns the base 17 pt even when the trait is handed over explicitly —
+        // `scaledFont(for:compatibleWith:)` 17.0, `preferredFont(forTextStyle:compatibleWith:)` 17.0,
+        // `scaledValue(for: 17)` 17.0, while the ambient category is `.large` — so a Catalyst process
+        // cannot ask for a larger size through a trait collection at all (kanban t_9f5de5d7).
+        // Assigning the size the iOS run resolves keeps the assertions below unchanged on both
+        // platforms: the same text, the same font the app would carry, and a re-measure that must
+        // show the growth. The alternative — skipping the case on Catalyst — would leave the Mac lane
+        // with no proof that a larger font re-measures taller.
+        view.font = scaled.pointSize > body.pointSize
+            ? scaled
+            : body.withSize(Self.accessibilityBodyPointSize)
+        XCTAssertGreaterThan(view.font?.pointSize ?? 0, body.pointSize,
+                             "the field must hold a larger font; UIFontMetrics returned "
+                             + "\(scaled.pointSize) pt for \(traits.preferredContentSizeCategory.rawValue)")
         view.limits = .accessibility
         let large = view.measurement
         XCTAssertEqual(view.limits, .accessibility, "the limits assignment re-measured")
