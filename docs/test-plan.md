@@ -306,22 +306,61 @@ Not validated: a Mac whose *Accessibility → Display → Text Size* is set larg
 user's accessibility setting). If Catalyst maps that setting into the trait collection at all, the
 ambient paths above are the ones the composer already uses — unverified either way.
 
-**2. `phys_footprint` around a 32 MB `URLSession` download cannot answer "is the payload held in
-memory".** Measured on Catalyst, same binary, same 32 MB payload:
+**2. "Is the payload held in memory" has two shapes, and no single counter sees both** (t_9f5de5d7,
+reworked by t_822c89af). All numbers below are from this host on 2026-11-06: iOS 18.3 simulator
+`81A7F251` (Xcode 26.6, iOS 26.5 SDK) and Mac Catalyst on the same tree outside TCC.
 
-- the first chunked transfer: **+281, +513, +565, +807 MB** (`TASK_VM_INFO.internal` +544 MB in the
-  run that printed it — real dirty memory, not compression). That is CFNetwork's own scratch;
-- an identical repeated transfer: +1.6, +5.6, +14.2 MB on quiet runs, **+79.7 MB** while the machine
-  was busy — so `delta < payload` is a coin flip there, not a guard;
-- a simulated buffering transport (the finished payload copied and retained inside the download
-  window): **+0 MB on Catalyst, +3.1 MB on iOS**. The retained pages are reclaimed inside the same
-  window, so one payload's retention is invisible on both platforms.
+*The primitive*, with no `URLSession` anywhere — one 32 MB file, one retained `Data`
+(`build/logs/t822-data-ios1.log`):
 
-Rules: `T53MediaFootprintTests` asserts the exact, platform-independent claim on both platforms (all
-32 MB on disk, served by the app's own cache) and the footprint bound only on iOS
-(`#if !targetEnvironment(macCatalyst)`); do not "fix" a Catalyst delta by widening the bound — it is
-noise, not a tolerance. And do not read the iOS bound as tight: it catches a gross buffering
-regression, not a single copy (carded).
+| retention | `phys_footprint` | `internal` | `external` | `resident` | `virtual_size` |
+|---|---|---|---|---|---|
+| `Data(contentsOf:)` | **+33.6 MB** | +33.6 MB | +32 KB | +33.6 MB | +33.6 MB |
+| `Data(contentsOf:options: .mappedIfSafe)` | **0** | 0 | 0 | 0 | **+33.6 MB** |
+
+So a *heap* retention is footprint, and a *mapped* retention is invisible to footprint, `internal`,
+`external` and `resident` alike — it is address space only. Which one `Data(contentsOf:)` produces is
+Foundation's choice, not the test's: on the 18.5 runtime the same mutant measured **+3.1 MB**
+(t_9f5de5d7) while here on 18.3 it measures **+36.6 MB** (t822-case-ios-m-read.log). A guard built on
+one shape silently passes the other.
+
+*Peak sampling does not rescue it.* Sampling `TASK_VM_INFO.phys_footprint` every 0.5 ms through a
+clean 32 MB chunked transfer peaks **47–62 MB** above the start (`build/logs/t822-probe-ios2.log`) —
+CFNetwork's own scratch, i.e. above the payload the peak was supposed to bound. The kernel's own
+`ledger_phys_footprint_peak`/`internal_peak` tell the same story (+65 MB of scratch).
+
+*Catalyst's scratch is worse than a tolerance problem.* Six identical transfers in one process:
+**+806 MB**, +0.85, 0, +1.6, **+98.8**, 0 (`build/logs/t822-probe-mac-clean6.log`). The bursts do not
+go away after a warm-up, so no before/after or peak bound is assertable there on a working build.
+
+What `T53MediaFootprintTests` asserts now:
+
+1. **both platforms, exact**: all 32 MB are on disk, written by the app's own cache;
+2. **both platforms, exact**: no VM region of this process is backed by a file in the cache
+   directory (walk with `mach_vm_region_recurse` + `proc_regionfilename`; match on the directory's
+   UUID name, because the kernel reports `/private/var/...` where `FileManager` says `/var/...`).
+   This is the mapped shape, and it is the only memory claim Catalyst can carry;
+3. **iOS only**: `phys_footprint` grew by less than the payload — the heap shape. Do not "fix" a
+   Catalyst delta by widening the bound; it is noise, not a tolerance.
+
+The falsifier is `scripts/t53_retention_mutant.py` (never committed to the tree; `apply`/`revert` a
+six-line retention in `MediaFileCache`), and the case is required to fail on it:
+
+| mutant | iOS 18.3 | Mac Catalyst |
+|---|---|---|
+| `read` — `Data(contentsOf:)` kept | **FAIL** footprint 36,553,024 | PASS — heap retention, no bound here |
+| `heap` — byte copy kept | **FAIL** footprint 36,061,440 | PASS — same |
+| `mapped` — `.mappedIfSafe` kept | **FAIL** region 33,554,432 (footprint only 1,966,144) | **FAIL** region 33,554,432 |
+
+Clean runs for the same case: four fresh iOS processes at 1.05–2.75 MB of footprint with no mapped
+region, and inside the whole 2526-case bundle 1.05 MB (iOS) / 37.6 MB (Catalyst, unasserted) — so the
+iOS bound has a >10x margin on this host. It is still a *bound*, not an audit: retention of less than
+a whole payload inside the window is not caught, and the comment in the case says so.
+
+Not validated: the heap shape on Mac Catalyst (unmeasurable above); and the 18.5 runtime, which
+today's build cannot run on this host at all — dyld aborts on the missing
+`libswiftWebKit.dylib` before the test host connects (`build/logs/t822-probe-ios1.log`), so the 3.1 MB
+reading in t_822c89af was not reproducible here and is carried as that card's measurement only.
 
 **3. Two unstructured `Task`s do not start in creation order.** `T4fTypingTests
 .testANewFrameRestartsTheWindowAndTheOldTimerCannotClearIt` sent two typing frames and then waited for

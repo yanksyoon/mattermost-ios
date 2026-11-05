@@ -468,9 +468,58 @@ final class T53MediaFileCacheTests: XCTestCase {
 
 // MARK: - 7. Streaming keeps the payload out of memory
 
+/// The VM regions of this process that are backed by a file whose path contains `directoryName`, at
+/// least `minSize` bytes each.
+///
+/// A *mapped* payload — `Data(contentsOf:options: [.mappedIfSafe])`, or any reader that hands the
+/// file to the process as a mapping — is invisible to every footprint-side counter (measured:
+/// `phys_footprint`, `internal`, `external` and `resident` all move **0**; `docs/test-plan.md`
+/// §9.2). Its VM regions, however, name the very file they hold, which makes this check exact:
+/// nothing in a clean staging maps the cache directory, and the mapped-retention mutant shows the
+/// staged file as a 32 MB region under it (log `build/logs/t822-regfile-mapped.log`).
+///
+/// The match is on the directory's name (a fresh UUID per test) rather than its path, because
+/// `proc_regionfilename` reports the kernel's view of the path — on Catalyst that is
+/// `/private/var/...` where `FileManager` says `/var/...`.
+///
+/// `mach_vm_region_recurse` and `proc_regionfilename` are public C API that Swift does not import
+/// (`libproc.h` is not in the iOS SDK's module map), so they are declared at the bottom of this
+/// file. Both exist on iOS and on Mac Catalyst.
+private enum T53MappedFiles {
+
+    static func regions(insideDirectoryNamed directoryName: String, atLeast minSize: Int64) -> [String] {
+        var found: [String] = []
+        var address: mach_vm_address_t = 0
+        while true {
+            var size: mach_vm_size_t = 0
+            var info = vm_region_submap_info_data_64_t()
+            var count = mach_msg_type_number_t(MemoryLayout<vm_region_submap_info_data_64_t>.size
+                                               / MemoryLayout<Int32>.size)
+            var depth: mach_msg_type_number_t = 1
+            let result = withUnsafeMutablePointer(to: &info) { pointer in
+                pointer.withMemoryRebound(to: Int32.self, capacity: Int(count)) { rebound in
+                    t53_region_recurse(mach_task_self_, &address, &size, &depth, rebound, &count)
+                }
+            }
+            guard result == KERN_SUCCESS, size > 0 else { break }
+            if Int64(size) >= minSize, info.is_submap == 0, info.external_pager != 0 {
+                var buffer = [CChar](repeating: 0, count: 4096)
+                if t53_region_filename(getpid(), address, &buffer, 4096) > 0 {
+                    let path = String(cString: buffer)
+                    if path.contains(directoryName) {
+                        found.append("\(size) bytes of \(path)")
+                    }
+                }
+            }
+            address += size
+        }
+        return found
+    }
+}
+
 final class T53MediaFootprintTests: XCTestCase {
 
-    /// Physical footprint of this process, in bytes (`-1` when the kernel refused the query).
+    /// This process's physical footprint, in bytes (`-1` when the kernel refused the query).
     private func footprint() -> Int64 {
         var info = task_vm_info_data_t()
         var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size
@@ -501,39 +550,34 @@ final class T53MediaFootprintTests: XCTestCase {
                                             request: URLRequest(url: URL(string: "https://fixture.invalid/big")!))
         let url = try XCTUnwrap(try? result.get())
         let after = footprint()
+        let mapped = T53MappedFiles.regions(insideDirectoryNamed: directory.lastPathComponent,
+                                           atLeast: Int64(payloadBytes) / 4)
 
         let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber
-        XCTAssertEqual(size?.int64Value, Int64(payloadBytes), "all \(payloadBytes) bytes are on disk")
         let delta = after - before
-        print("T53FOOTPRINT payload=\(payloadBytes) before=\(before) after=\(after) delta=\(delta)")
-        // Isolated runs measured 0.44 MB and 5.1 MB of growth; a whole-bundle run, in a process that
-        // already held 217 MB of other tests, measured 22.3 MB. The allocator's state is the noise, so
-        // the guard is deliberately the payload size itself: a transport that held the body as one
-        // `Data` (plus the task's own buffers) would grow by at least the payload, and a regression
-        // that copied it twice would grow by two payloads. What this test *does* prove exactly is the
-        // line above it: all 32 MB are on disk, and the file is served by the app's own cache.
+        print("T53MEM payload=\(payloadBytes) footprintDelta=\(delta) mappedRegions=\(mapped)")
+        XCTAssertEqual(size?.int64Value, Int64(payloadBytes), "all \(payloadBytes) bytes are on disk")
+        // Two assertions, because "held in memory" has two shapes and no single counter sees both
+        // (all numbers below measured on this host; docs/test-plan.md §9.2):
         //
-        // On Mac Catalyst the number above cannot carry that claim, and it is not a matter of
-        // tolerance (kanban t_9f5de5d7, all measured on this binary):
+        //   1. *Mapped* payload — `phys_footprint` +0, `internal` +0, `external` +0, `resident` +0.
+        //      Only the VM regions name it. This check is exact on both platforms: a clean staging
+        //      maps nothing under the cache directory, while the mapped-retention mutant leaves the
+        //      staged file behind as a 32 MB region. It is also the only memory-shape claim Mac
+        //      Catalyst can carry.
+        //   2. *Heap* payload — the payload copied into a `Data`: `phys_footprint` +33.6 MB for one
+        //      32 MB payload, and no VM region. Asserted on iOS only, because Catalyst's CFNetwork
+        //      scratch is dirty memory that survives the window: +806 MB on the first transfer of a
+        //      process and still +100 MB on a later, cooled-down one (build/logs/t822-probe-mac-clean6.log),
+        //      so a footprint bound there is a coin flip on a working build.
         //
-        //   * this transfer grew `phys_footprint` by 281, 513, 565 and 807 MB on four runs — and
-        //     `core` (`TASK_VM_INFO.internal`) by 544 MB in the run that printed it, i.e. real dirty
-        //     memory, not compression. That is CFNetwork's own scratch, allocated and released around
-        //     the transfer, not the cache holding the payload;
-        //   * a repeated transfer measured 1.6, 5.6 and 14.2 MB on quiet runs but 79.7 MB on a busy
-        //     one, so `delta < payload` is a coin flip here rather than a guard;
-        //   * decisively, a simulated buffering transport (the finished payload copied and retained)
-        //     moved the delta by 0 MB, because CFNetwork's scratch is allocated and released inside
-        //     the same window. The assertion is blind to the regression it exists to catch.
-        //
-        // The same simulation on iOS moved the number by 3.1 MB, not 32 MB (the retained pages were
-        // reclaimed inside the window), so even where the assertion runs it is a coarse guard — a
-        // gross buffering regression, not a single copy. That gap is carded separately; the exact
-        // claim this test makes on every platform is the disk line above.
-        //
-        // The guard therefore stays where it is stable — iOS, same code, same payload: 0.98 MB
-        // (build/logs/t9f-probe-ios.log). Catalyst keeps the assertion that is exact on both
-        // platforms: the 32 MB on disk above, written by the app's own cache.
+        // What this guard catches is the regression it names, and it is a *bound*: retention of a
+        // whole payload. It does not audit every intermediate buffer — a transport that held, say,
+        // 1 MB of the payload would pass. The falsifier is `scripts/t53_retention_mutant.py`
+        // (`read`, `heap`, `mapped`), and each variant has been measured to fail these assertions
+        // on the platform(s) claimed (docs/test-plan.md §9.2).
+        XCTAssertEqual(mapped, [],
+                       "the staged payload is mapped into this process: \(mapped)")
         #if !targetEnvironment(macCatalyst)
         XCTAssertLessThan(delta, Int64(payloadBytes),
                           "staging \(payloadBytes) bytes grew the footprint by \(delta) bytes")
@@ -868,3 +912,22 @@ final class T53PlaybackControllerTests: XCTestCase {
 final class T53URLLog {
     var urls: [URL] = []
 }
+
+// MARK: - Public C API that Swift does not import
+//
+// Both are declared in headers the Swift importer does not carry for this SDK (`libproc.h` is not
+// in the iOS SDK's module map; `mach_vm_region_recurse` lives in mach_vm.h). They are used by
+// `T53MappedFiles` to see a payload held as a file mapping — the one shape of retention that no
+// footprint-side counter can see (docs/test-plan.md §9.2).
+
+@_silgen_name("mach_vm_region_recurse")
+private func t53_region_recurse(_ target: mach_port_t,
+                                _ address: UnsafeMutablePointer<mach_vm_address_t>,
+                                _ size: UnsafeMutablePointer<mach_vm_size_t>,
+                                _ depth: UnsafeMutablePointer<mach_msg_type_number_t>,
+                                _ info: UnsafeMutablePointer<Int32>,
+                                _ count: UnsafeMutablePointer<mach_msg_type_number_t>) -> kern_return_t
+
+@_silgen_name("proc_regionfilename")
+private func t53_region_filename(_ pid: Int32, _ address: UInt64,
+                                 _ buffer: UnsafeMutableRawPointer, _ size: UInt32) -> Int32
