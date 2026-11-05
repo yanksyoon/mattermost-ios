@@ -287,6 +287,11 @@ final class T38AttachmentsUITests: XCTestCase {
     /// (`attachmentGallery.page.<fileID>.zoom`, `-uiTestExposeGalleryDiagnostics`), whose value carries
     /// both the scale on screen and the highest it ever reached — a single number read mid-animation
     /// would prove nothing about the cap.
+    ///
+    /// Platform note: `XCUIElement.pinch` exists only on iOS, so the pinch prefix of this case is
+    /// compiled for iOS alone (`#if !targetEnvironment(macCatalyst)`) and the Catalyst run drives the
+    /// zoom through the double-tap halves instead. The case stays a real gesture test on both
+    /// platforms; on neither is it skipped or reduced to reading the seam alone.
     func testDoubleTapAndPinchZoomToTheCapAndTheSecondDoubleTapRestores() throws {
         try XCTSkipUnless(shareFiles.count == 1,
                           "the T38 share fixture is missing — run scripts/t38_attachment_seed.py")
@@ -311,6 +316,18 @@ final class T38AttachmentsUITests: XCTestCase {
         attach(app, "t38-12-zoom-at-rest")
 
         // 1. A pinch zooms in.
+        //
+        // `XCUIElement.pinch(withScale:velocity:)` is iOS-only: it does not exist in the Catalyst
+        // build of XCTest (`value of type 'XCUIElement' has no member 'pinch'`), and without this
+        // guard the *whole Mac test action* fails to compile, so every `qa-test.py --platform mac`
+        // run executes zero tests. On Catalyst the pinch has no equivalent, but the case must not
+        // degrade into a no-op there: the double-tap halves below drive the same `ZoomableImageView`
+        // and read the same published seam, so steps 3–4 still prove a real zoom-to-cap-and-restore
+        // on Mac. Only the pinch-then-restore prefix is iOS-only, and the iOS run keeps it whole.
+        #if targetEnvironment(macCatalyst)
+        // Nothing has zoomed in yet, so the "double-tap while zoomed restores" step has no
+        // precondition on this platform; the sequence starts at rest and runs steps 3–4 below.
+        #else
         page.pinch(withScale: 3, velocity: 3)
         XCTAssertTrue(waitForZoom(app, seam, "pinched in") { current, _ in current > 1.5 },
                       "a pinch must zoom the page: \(seamValue(app, seam))")
@@ -320,6 +337,7 @@ final class T38AttachmentsUITests: XCTestCase {
         page.doubleTap()
         XCTAssertTrue(waitForZoom(app, seam, "restored") { current, _ in current < 1.1 },
                       "a double-tap while zoomed must restore 1×: \(seamValue(app, seam))")
+        #endif
 
         // 3. A double-tap at rest zooms to the cap (4×).
         page.doubleTap()
