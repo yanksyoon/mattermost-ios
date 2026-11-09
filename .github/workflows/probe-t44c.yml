@@ -1,9 +1,7 @@
 name: probe (throwaway, t_6904c92b)
 
-# Diagnostic only: answers "does the Catalyst leg fail because of the host, or because of
-# what earlier tests leave behind?". Two jobs, the same commit, one dispatch:
-#   * isolated - only the three tests that are red on main today
-#   * full     - the whole suite as the release gate runs it
+# Diagnostic only: which earlier test class makes the T44C teardown / T49 logger tests miss
+# their hang detectors on the hosted runner? Same commit, three jobs, one push.
 # Deleted before the final push; it is not part of the pipeline.
 
 on:
@@ -23,8 +21,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: isolated
+          - name: diag
             args: >-
+              -only-testing:MattermostTests/DiagnosticsTests
+              -only-testing:MattermostTests/T44CCallsMediaTeardownQueueTests
+              -only-testing:MattermostTests/T49LoggerConcurrencyTests
+          - name: engine
+            args: >-
+              -only-testing:MattermostTests/T44CCallsEngineTests
               -only-testing:MattermostTests/T44CCallsMediaTeardownQueueTests
               -only-testing:MattermostTests/T49LoggerConcurrencyTests
           - name: full
@@ -46,6 +50,7 @@ jobs:
         run: xcodebuild -resolvePackageDependencies -project Mattermost.xcodeproj -scheme Mattermost
 
       - name: Unit tests
+        id: tests
         run: |
           set -uo pipefail
           LOG="$RUNNER_TEMP/probe-${{ matrix.name }}.log"
@@ -62,10 +67,10 @@ jobs:
             > "$LOG" 2>&1
           RC=$?
           echo "xcodebuild exit: $RC"
-          sed -n '/Failing tests:/,/TEST FAILED/p' "$LOG" | head -30
-          grep -E "Test Case .*(T44CCallsMediaTeardownQueueTests|T49LoggerConcurrencyTests).*" "$LOG" | head -20
-          grep -cE "Failed to load a display context|On-demand launch of the Window Server" "$LOG" \
-            | sed 's/^/window-server complaints: /'
+          sed -n '/Failing tests:/,/TEST FAILED/p' "$LOG" | head -30 || true
+          grep -E "Test Case .*(T44CCallsMediaTeardownQueueTests|T49LoggerConcurrencyTests).*" "$LOG" | head -20 || true
+          echo "window-server complaints: $(grep -cE 'Failed to load a display context|On-demand launch of the Window Server' "$LOG" || true)"
+          echo "test cases seen: $(grep -cE 'Test Case .* (passed|failed) \(' "$LOG" || true)"
           exit $RC
 
       - name: Upload log

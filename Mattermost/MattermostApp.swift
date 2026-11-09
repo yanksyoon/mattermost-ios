@@ -12,6 +12,16 @@ import WebKit
 struct MattermostApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    /// True when this process is the XCTest host for the unit-test bundle.
+    ///
+    /// XCTest injects `XCTestConfigurationFilePath` into the *host app's* environment. The
+    /// class check is the second signal for a host that wraps the bundle differently (a
+    /// `testWithoutHost` bundle loads XCTest into the runner, where the file is absent).
+    /// Used for exactly one decision: whether to build the app's shell (t_6904c92b).
+    static let isUnitTestHost =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        || NSClassFromString("XCTestCase") != nil
+
     /// T41: the app's own foreground/background state, which drives presence (auto-away). Read here
     /// rather than in a screen because it must apply with no screen open.
     @Environment(\.scenePhase) private var scenePhase
@@ -342,8 +352,22 @@ struct MattermostApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(serverStore: serverStore, viewStore: viewStore,
-                     notificationPath: notificationPath, notificationFeed: notificationFeed)
+            Group {
+                if Self.isUnitTestHost {
+                    // t_6904c92b: the unit suite runs *inside* the app (TEST_HOST). Building the
+                    // shell would open each server's WKWebView, and on a host with no window
+                    // server - the hosted CI runner - every WebContent launch fails and the
+                    // process is left with blocked worker threads, so later concurrency tests
+                    // miss hang detectors that are correct (T44C teardown, T49 logger). The tests
+                    // construct the stores they need; the shell is not part of their fixture.
+                    // Nothing else changes: a UI test drives a normally-launched app (no XCTest
+                    // config in its environment), so this branch is never taken there.
+                    Color.clear
+                } else {
+                    RootView(serverStore: serverStore, viewStore: viewStore,
+                             notificationPath: notificationPath, notificationFeed: notificationFeed)
+                }
+            }
                 .environmentObject(deepLinkRouter)
                 .environmentObject(downloadWorker)
                 .environmentObject(appSettings)
