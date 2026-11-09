@@ -195,7 +195,7 @@ same as `parity/out/*`. The machine record is `parity/*.tsv` + `parity/verdicts.
 
 | Module | Upstream feature | Upstream ref (path@pin) | Implemented | Evidence | To be implemented |
 |---|---|---|---|---|---|
-| create_or_edit_channel | create_or_edit_channel | app/screens/create_or_edit_channel@v2.45.0 | partial | MattermostTests/T47CreateChannelTests.swift::testTheRuleAcceptsLowercaseDigitsHyphenAndUnderscore | t_e1ddfba4 |
+| create_or_edit_channel | create_or_edit_channel | app/screens/create_or_edit_channel@v2.45.0 | yes | MattermostTests/T47CreateChannelTests.swift::testTheRuleAcceptsLowercaseDigitsHyphenAndUnderscore | t_e1ddfba4 |
 
 ## custom_profile_attributes
 

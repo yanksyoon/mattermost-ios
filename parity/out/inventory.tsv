@@ -22,7 +22,7 @@ M:app/screens/code	-	absent	-	-	-	-
 M:app/screens/component_library	-	absent	-	-	-	-
 M:app/screens/convert_gm_to_channel	-	absent	-	-	-	-
 M:app/screens/create_direct_message	-	absent	-	-	-	-
-M:app/screens/create_or_edit_channel	channelInfo	tested	Mattermost/UI/Native/ChannelInfo	MattermostTests/T47CreateChannelTests.swift::testTheRuleAcceptsLowercaseDigitsHyphenAndUnderscore	de59f71ba679:PASS-WITH-FINDINGS	t_e1ddfba4
+M:app/screens/create_or_edit_channel	channelInfo	native	Mattermost/UI/Native/ChannelInfo	MattermostTests/T47CreateChannelTests.swift::testTheRuleAcceptsLowercaseDigitsHyphenAndUnderscore	8a276daeaabd:PASS-WITH-FINDINGS	t_e1ddfba4
 M:app/screens/custom_status	-	absent	-	-	-	-
 M:app/screens/custom_status_clear_after	-	absent	-	-	-	-
 M:app/screens/data_erased	-	absent	-	-	-	-

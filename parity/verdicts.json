@@ -1,7 +1,7 @@
 {
   "M:app/screens/create_or_edit_channel": {
-    "card": "t_e1ddfba4",
-    "commit": "de59f71ba67951abe3ff532c8465fe2f94b95eef",
+    "card": "t_3650f36b",
+    "commit": "8a276daeaabdf1063b9e160649ec2333b690431d",
     "evidence": [
       {
         "kind": "test",
@@ -13,21 +13,29 @@
       },
       {
         "kind": "test",
+        "ref": "MattermostTests/T47CreateChannelTests.swift::testTheMenuIsCreateBrowseDirectMessageInThatOrder"
+      },
+      {
+        "kind": "test",
         "ref": "MattermostTests/T40ChannelInfoTests.swift::testMemberRowsSortByDisplayNameAndCarryTheAdminBadge"
       },
       {
-        "kind": "log",
-        "ref": "docs/parity-reverdict-2026-11-05-unit.log"
+        "kind": "test",
+        "ref": "MattermostTests/T40ChannelInfoTests.swift::testAGroupMessageOnAnOldServerOffersNoConversion"
       },
       {
         "kind": "log",
-        "ref": "docs/parity-reverdict-2026-11-05-live.log"
+        "ref": "docs/parity-reverdict-2026-11-09-unit.log"
+      },
+      {
+        "kind": "log",
+        "ref": "docs/parity-reverdict-2026-11-09-live.log"
       }
     ],
     "findings": [
-      "F1: the live DM case (T47CreateChannelUITests/testTheCreateMenuStartsADirectMessageWithATeammate) is red at HEAD only at its final sidebar-listing assertion (line 372): perfprobe has 410 channels on team Perf (29 sidebar pages) and revealSidebarRow is bounded at 25 swipes each way, so the row is out of reach; the conversation exists in the server's channel list and steps 1-4 passed. Harness capacity, not a product regression; carded for QA."
+      "F1: the live DM case (T47CreateChannelUITests/testTheCreateMenuStartsADirectMessageWithATeammate) is red at HEAD only at its final sidebar-listing assertion (line 372): perfprobe has 427 channels on team Perf (368 public, 56 direct, 2 group, 1 private) and the sidebar reports 29 pages, while this tree's revealSidebarRow is bounded at 25 swipes each way and does not collapse the groups above Direct messages. t_60bbf19d repaired exactly that helper (collapse each group header, then press the DM group's Load more) in a8c4025 on branch qa/t_60bbf19d and reported the case 3/3 green there (not re-executed here); a8c4025 is not an ancestor of 8a276da, so the red is expected in this tree. The conversation exists in the server's channel list, the pane opened on it, and the preceding server-record/membership assertions passed. Harness defect with a local fix pending merge, not a product regression; re-measured (was 410 channels on 2026-11-05)."
     ],
-    "source": "docs/t47-av-verdict-2026-11-05.md",
+    "source": "docs/t47-av-verdict-2026-11-09.md",
     "verdict": "PASS-WITH-FINDINGS"
   },
   "X:web-fallback": {

@@ -1,0 +1,56 @@
+# Evidence extract for parity/verdicts.json (live half), re-taken 2026-11-09.
+#
+# Filtered extract, not a raw xcodebuild log: every XCTest outcome line, the suite totals, the
+# one failure line, and the sidebar fact that explains it. Raw log is
+# build/logs/parity-reverdict-2026-11-09-live.log (build/ is gitignored, so this extract is the
+# committed artifact).
+#
+# tree     : 8a276daeaabdf1063b9e160649ec2333b690431d (HEAD of qa/t_fc31e308, clean: yes)
+# fixture  : mm-perf, Mattermost 9.11.19 team edition, http://127.0.0.1:8065, account perfprobe
+# sim      : iPhone 16 Pro 81A7F251-8B31-4945-8783-5A264C14B8D5 (iOS 18.3.1)
+# host     : macOS 26.3.1, Xcode 26.6
+#
+# command  : TEST_RUNNER_MM_AUTH_SERVER=http://127.0.0.1:8065
+#            TEST_RUNNER_MM_AUTH_LOGIN=perfprobe TEST_RUNNER_MM_AUTH_PASSWORD=<fixture>
+#            python3 scripts/qa-test.py --platform ios --sim id=81A7F251-8B31-4945-8783-5A264C14B8D5
+#            --label parity-reverdict-2026-11-09-live
+#            --only-testing MattermostUITests/T47CreateChannelUITests
+# xcresult : ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa/TestResults/parity-reverdict-2026-11-09-live-*.xcresult
+# started  : 2026-11-09 18:26 HKT; 344 s; xcodebuild rc=65 with ** TEST FAILED **
+# result   : 2 run / 0 skipped / 1 failed
+#
+# fixture, measured read-only at 2026-11-09 18:36 HKT (GET /users/{id}/teams/{team_id}/channels,
+# GET /users/me/teams/{team_id}/channels/categories with the same login the suite uses):
+#   team Perf ocz148uck3r88dcjikj497bosh, user perfprobe -> 427 channels: O=368, D=56, G=2, P=1
+#   sidebar categories, all uncollapsed: 8 x "T8G group N" (10 channels each), "Channels" (319),
+#   "Direct Messages" (58). The DM category therefore starts ~399 rows down; the suite's
+#   revealSidebarRow is bounded at 25 swipes each way and the app reports the sidebar scroll bar
+#   as "Vertical scroll bar, 29 pages, value: 0%" at the failing assertion.
+#
+# Regenerate with:
+#   grep -E "^(Test Case|Test Suite)" <raw log> | grep -E "(passed|failed|skipped)"
+
+Test Case '-[MattermostUITests.T47CreateChannelUITests testTheCreateMenuSendsPostChannelsAndTheNewChannelSurvivesRelaunch]' passed (126.398 seconds).
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/MattermostUITests/T47CreateChannelUITests.swift:372: error: -[MattermostUITests.T47CreateChannelUITests testTheCreateMenuStartsADirectMessageWithATeammate] : XCTAssertTrue failed - the sidebar must list the conversation that was just opened:
+Test Case '-[MattermostUITests.T47CreateChannelUITests testTheCreateMenuStartsADirectMessageWithATeammate]' failed (217.548 seconds).
+Test Suite 'T47CreateChannelUITests' failed at 2026-11-09 18:32:27.147.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 343.947 (343.948) seconds
+Test Suite 'MattermostUITests.xctest' failed at 2026-11-09 18:32:27.149.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 343.947 (343.950) seconds
+Test Suite 'Selected tests' failed at 2026-11-09 18:32:27.149.
+	 Executed 2 tests, with 1 failure (0 unexpected) in 343.947 (343.951) seconds
+
+# The failing assertion's own accessibility dump (raw log line 1482):
+#   Other, {{369.0, 152.3}, {30.0, 638.7}}, label: 'Vertical scroll bar, 29 pages', value: 0%
+#
+# The four assertions before line 372 passed (no other error lines in the log):
+#   1. the picker row for the teammate exists and was tapped;
+#   2. the pane opens titled with the person;
+#   3. the server's record of the pair is the same channel the pre-tap check named, type 'D',
+#      with both members;
+#   4. the conversation's create_at/membership reads back from the server.
+# Only the "it is in the sidebar" assertion is red, and the sidebar cannot be crossed by
+# the harness in this tree. The repair to that helper exists in commit a8c4025 on branch
+# qa/t_60bbf19d (t_60bbf19d; not an ancestor of 8a276da, reported green 3/3 there), so the red
+# is expected here until that branch lands. Recorded as F1 in parity/verdicts.json; not a
+# product verdict.
