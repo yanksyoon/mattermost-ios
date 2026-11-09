@@ -1,7 +1,8 @@
 name: probe (throwaway, t_6904c92b)
 
-# Diagnostic only: runs the two passes the release gate will run, on both legs, before they
-# land on main. Deleted before the final push; it is not part of the pipeline.
+# Diagnostic only: runs the three passes the release gate runs, on both legs, before they
+# land on main. Same xcodebuild flags, same scripts/test_verdict.sh, so a green probe means
+# the gate will be green. Deleted before the final push; it is not part of the pipeline.
 
 on:
   push:
@@ -20,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         leg: [catalyst, ios-simulator]
-        pass: [logic, platform]
+        pass: [gate, timing, platform]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,8 +30,6 @@ jobs:
       - name: Toolchain and host
         run: |
           xcodebuild -version
-          echo "WindowServer: $(pgrep -x WindowServer || echo none)"
-          echo "gui domain: $(launchctl print gui/$(id -u) >/dev/null 2>&1 && echo yes || echo no)"
           echo "cpus: $(sysctl -n hw.ncpu)"
 
       - name: Resolve packages
@@ -47,18 +46,24 @@ jobs:
             SIGN="CODE_SIGNING_ALLOWED=NO"
           fi
           LOG="$RUNNER_TEMP/${{ matrix.pass }}-${{ matrix.leg }}.log"
-          if [ "${{ matrix.pass }}" = "logic" ]; then
-            SCOPE="-skip-testing:MattermostUITests \
-              -skip-testing:MattermostTests/T31HarvestCookieInstallTests \
-              -skip-testing:MattermostTests/T35PasteTests \
-              -skip-testing:MattermostTests/T46WebFallbackTests \
-              -skip-testing:MattermostTests/T56SelectionTests"
-          else
-            SCOPE="-only-testing:MattermostTests/T31HarvestCookieInstallTests \
-              -only-testing:MattermostTests/T35PasteTests \
-              -only-testing:MattermostTests/T46WebFallbackTests \
-              -only-testing:MattermostTests/T56SelectionTests"
-          fi
+          case "${{ matrix.pass }}" in
+            gate)
+              SCOPE="-skip-testing:MattermostUITests \
+                -skip-testing:MattermostTests/T31HarvestCookieInstallTests \
+                -skip-testing:MattermostTests/T35PasteTests \
+                -skip-testing:MattermostTests/T46WebFallbackTests \
+                -skip-testing:MattermostTests/T56SelectionTests \
+                -skip-testing:MattermostTests/T44CCallsMediaTeardownQueueTests \
+                -skip-testing:MattermostTests/T49LoggerConcurrencyTests" ;;
+            timing)
+              SCOPE="-only-testing:MattermostTests/T44CCallsMediaTeardownQueueTests \
+                -only-testing:MattermostTests/T49LoggerConcurrencyTests" ;;
+            platform)
+              SCOPE="-only-testing:MattermostTests/T31HarvestCookieInstallTests \
+                -only-testing:MattermostTests/T35PasteTests \
+                -only-testing:MattermostTests/T46WebFallbackTests \
+                -only-testing:MattermostTests/T56SelectionTests" ;;
+          esac
           # shellcheck disable=SC2086
           xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
             -destination "$DEST" -derivedDataPath "$RUNNER_TEMP/dd" \
@@ -67,8 +72,13 @@ jobs:
           RC=$?
           echo "xcodebuild exit: $RC"
           grep -E "^\*\* TEST|Executed [0-9]+ tests" "$LOG" | tail -3 || true
-          sed -n '/Failing tests:/,/^$/p' "$LOG" | head -12 || true
-          bash scripts/classify_platform_tests.sh "$LOG" || true
+          sed -n '/^Failing tests:/,/^$/p' "$LOG" | head -12 || true
+          if [ "${{ matrix.pass }}" = "platform" ]; then
+            bash scripts/classify_platform_tests.sh "$LOG" || true
+          else
+            bash scripts/test_verdict.sh --log "$LOG" --leg "${{ matrix.leg }}" \
+              --pass "${{ matrix.pass }}" || exit 1
+          fi
           exit $RC
 
       - name: Upload log

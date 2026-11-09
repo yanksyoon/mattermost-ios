@@ -68,8 +68,8 @@ places carry the reason, and they are all on the run page, not buried in a log:
 
 * the **guard** annotates its decision (`::notice::guard: ...` or `::notice::SKIP: this
   push is superseded ...`) and appends it to the run summary;
-* the **test** job's red path annotates the first failing test (see **The window-server
-  caveat**) and appends the same line to the summary;
+* the **test** job's red path annotates the first failing test (see **Three passes, and why
+  they are three**) and appends the same line to the summary;
 * the **release** job annotates every non-publishing outcome — `SKIP: <sha> is not the tip
   of main ...`, `SKIP: already published: <tag> at <sha> - nothing to do`, `REFUSED` for a
   pre-release tag — and exports `reason` so the **verdict** job can print one of:
@@ -158,70 +158,83 @@ against, so CI runs the real toolchain rather than a stand-in.
    `release_publish_selftest.sh`, which replays the shipped *Publish the release* step
    itself (see **Self-testing** below).
 3. Resolves SPM dependencies (GRDB).
-4. `xcodebuild test -scheme Mattermost -skip-testing:MattermostUITests`, with
-   `-test-timeouts-enabled YES` so a hung harness reports instead of eating the
-   timeout. Signing differs by leg and is load-bearing: the **Catalyst** leg uses
-   `CODE_SIGNING_ALLOWED=NO` (the macOS Keychain does not demand an
-   application-identifier, so signing can be switched off), while the **simulator** leg
-   signs ad-hoc (`CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=-`)
-   because switching signing off strips the entitlements blob and every Keychain call then
-   fails with `-34018`.
-5. Fails unless the log contains `** TEST SUCCEEDED **`, and uploads the full log as
-   an artifact either way. The failure branch emits **one** `::error::` line, and that line
-   carries the diagnosis rather than a fixed sentence: the first entry of xcodebuild's
-   `Failing tests:` block, else the test name recovered from an `exceeded execution time
-   allowance` line (with the allowance that blew), else the old generic
-   `TEST SUCCEEDED not found in the <leg> log`. That line is the check-run annotation a
-   reader sees on the run — `gh api repos/.../check-runs/<id>/annotations` — and before
-   t_f427b00b it named nothing, so a 5-minute hang was filed as "TEST SUCCEEDED not found".
-   `scripts/test_annotation_selftest.sh` replays the shipped block against log fixtures on
-   every source push (see **Self-testing** below).
+4. Runs the suite in **three passes** (table below), with `-test-timeouts-enabled YES` so a
+   hung harness reports instead of eating the job's timeout. Signing differs by leg and is
+   load-bearing: the **Catalyst** leg uses `CODE_SIGNING_ALLOWED=NO` (the macOS Keychain
+   does not demand an application-identifier, so signing can be switched off), while the
+   **simulator** leg signs ad-hoc (`CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO
+   CODE_SIGN_IDENTITY=-`) because switching signing off strips the entitlements blob and
+   every Keychain call then fails with `-34018`.
+5. Decides each pass through `scripts/test_verdict.sh` — one shared implementation, so the
+   three passes cannot annotate differently. On a red log it emits **one** `::error::`
+   line, which is the check-run annotation a reader sees on the run page:
+   * a **product assertion** — `test (catalyst): <Class.test> failed its assertions, not a
+     hang - <the assertion line>`. The assertion is quoted, so the reader does not open the
+     job to learn what broke.
+   * a **hang** with WebKit's services refused — `WebKit cannot start in this test host -
+     <Class.test> hung (timed out after 30s ...) ... Environment, not product`.
+   * a hang with no WebKit refusal — the test name and the allowance/hang text, no excuse
+     attached.
+   * no name anywhere (a build or destination failure) — the generic
+     `TEST SUCCEEDED not found in the <leg> log`.
+
+   The environment is blamed only on the two facts together: the named test **hung**, and
+   WebKit refused its helper services. Every full-suite log carries WebKit refusal lines (33
+   of them in run `42617348657`), so an assertion is never filed as runner noise — that was
+   the defect this rule replaced (t_6904c92b). `scripts/test_annotation_selftest.sh` replays
+   the shipped script against log fixtures on every source push, including one where WebKit
+   noise and a real assertion appear in the same log, plus the negative control that restores
+   the old rule and must mis-file it (see **Self-testing** below).
 
 The UI bundle is excluded on purpose: `MattermostUITests` drives a **live Mattermost
 server** at `127.0.0.1:8065`, which CI does not provide. Those runs stay local and are
 what a card's own gate covers.
 
-### The window-server caveat
+### Three passes, and why they are three
 
-The hosted `macos-26` runner is a VM (`Apple Virtual Machine 1`) with **no window
-server**. The test host is the app itself, so when the suite starts the app opens its
-window and WebKit tries to launch a `WebContent` process — and cannot:
+The hosted `macos-26` runner is an `Apple Virtual Machine 1` with **3 vCPUs**. The test host
+is the app itself, and WebKit's helper services cannot be started from that host — every
+attempt is refused:
 
 ```
+Could not signal service com.apple.WebKit.WebContent: 113: Could not find specified service
 [DisplayConfigurationFetch] WebContent[13750] Failed to load a display context,
   even though we are not a headless app.
-WebContent[13749] Server root port lookup error - bootstrap: not privileged
-WebContent[13749] On-demand launch of the Window Server is allowed for root user only.
 ```
 
-What that does to a run, measured on run `42608725459` (2026-11-09, job `test (catalyst)`):
-the tests that wait for a signal WebKit never delivers fail — `T44CCallsMediaTeardownQueueTests`
-(timed out after 30 s waiting for the first close to start), `T49LoggerConcurrencyTests`
-(`XCTAssertEqual failed: ("timedOut") is not equal to ("success")`), and the webview
-teardown/footprint cases — 400 s of test time and no name in xcodebuild's own summary.
-The first red on this lane (`41719495855`, 2026-11-03T21:11Z) was a single case,
-`T53MediaFootprintTests.testAStagedPayloadIsWrittenToDiskRatherThanHeldInMemory`; the lane
-was green earlier the same day (`41691474450`, 18:11Z), which is why this is a *runner*
-condition and not a product regression. `fe1a638` re-measured the three platform-metric
-cases on 2026-11-06.
+This is **not** a missing window server: probe `42614060467` printed `WindowServer: 163`,
+`gui domain: yes`, `cpus: 3` on the runner. Three measurements decided the split (all
+2026-11-09, Xcode 26.6 / 17F113):
 
-The pipeline's answer, and the limits of it, stated plainly:
+| measurement | result |
+| --- | --- |
+| the whole gate scope on a 10-vCPU Mac (local `xcodebuild test`, same skips) | 2462 tests, **0 failures, 88.5 s** |
+| the same scope on the 3-vCPU runner (run `42617348657`, job `probe (catalyst / logic)`) | 2462 tests, **10 failures, 352 s** — the failures are `T44CCallsMediaTeardownQueueTests` (both cases) and `T49LoggerConcurrencyTests` |
+| those classes alone on the same runner (run `42614060467`, job `probe (isolated)`) | **all green** — 1.07 s, 2.02 s, 0.21 s, `xcodebuild exit: 0` |
 
-* The gate is **not** relaxed. A red leg still blocks the tag and the release.
-* The annotation now says **which** failure it is. When the log carries the WebKit lines
-  above, the check-run annotation reads
-  `test (catalyst): no window server on this runner - <test> failed or timed out while
-  WebKit could not start its WebContent process ... Environment, not product` instead of a
-  bare test name. `scripts/test_annotation_selftest.sh` case 6 replays a log fixture cut
-  from that run and asserts the exact text, so the sentence is proven, not hoped for.
-* **What can still be missed:** a genuine webview regression that only reproduces on a
-  headless Catalyst host looks the same as this environment failure, and a fix for the
-  environment would hide it. That is why the same suites run on the iOS Simulator leg,
-  where a display exists, and why a webview-touching change should be checked on a Mac
-  with a GUI session before it is called done. A Catalyst-only path (AppKit window,
-  `NSWorkspace`, Catalyst-specific keychain behaviour) is **not covered by CI** today;
-  the honest fix is a self-hosted Mac runner with a logged-in GUI session, and until one
-  exists this paragraph is the disclosure.
+So the three cases are not flaky and not hung: they are timing detectors (30 s / 60 s hang
+windows, per `T28TestSupport`'s contract) that a 3-vCPU VM cannot honour while 2,400 other
+cases and WebKit's refused child processes compete for its threads. The suite therefore runs
+in three passes on every leg, and **nothing is skipped** — every class runs exactly once per
+leg, and every pass is a gate:
+
+| pass | step | what it runs | a failure means |
+| --- | --- | --- | --- |
+| **gate** | `Unit tests` | everything except the four platform-service classes, the two timing-sensitive classes, and `MattermostUITests` | a **red leg**: an assertion or a hang blocks the tag and the release |
+| **timing** | `Timing-sensitive tests (own process, required)` | `T44CCallsMediaTeardownQueueTests`, `T49LoggerConcurrencyTests` | a **red leg**. These get their own process so the detectors measure the queue, not the runner's load |
+| **platform** | `Platform-service tests (reported, not certified here)` | `T31HarvestCookieInstallTests`, `T35PasteTests`, `T46WebFallbackTests`, `T56SelectionTests` | an **assertion** is a red leg, exactly like the gate; a **hang** is reported by name as *did not complete on this runner* (`::warning::`, job summary) and certifies nothing |
+
+`scripts/classify_platform_tests.sh` makes the platform decision in one place and has a
+self-test (green / hung / asserted / unknown, including "an assertion outranks a hang in the
+same log"). The gate and timing passes both go through `scripts/test_verdict.sh`.
+
+**What is not certified on CI, said out loud:** a **hang** in the four platform-service
+classes is reported, not failed — so a Catalyst-only webview path (AppKit window,
+`NSWorkspace`, pasteboard, the real cookie store) can regress on a runner where WebKit never
+answers and still ship. Their assertions *are* a red leg, and they were green on both legs in
+run `42617348657`. A self-hosted Mac runner with a logged-in GUI session would close the gap;
+until one exists, this paragraph is the disclosure, and it is repeated in each release's
+notes.
 
 The iOS destination is resolved by `scripts/ci_simulator.py` from the image's actual
 simulator list, because runner images rename devices between OS releases and a
@@ -328,7 +341,7 @@ Seven properties worth knowing, because each one was a deliberate choice:
   step's own verdict: it replays the shipped failure branch and the shipped summary below
   it against six log fixtures cut from the real logs of runs 40899137785 (red: timeout,
   assertion, timeout-without-a-`Failing tests:`-block, and a red with no test name at all),
-  42608725459 (red with the WebKit "no window server" lines) and 40906839823 (green),
+  42608725459 (red, cut from the real catalyst leg) and 40906839823 (green),
   asserting the exact `::error::` text in each case (20 checks), with the pre-fix
   fixed-sentence body as the negative control — it must still produce the generic
   annotation, or the checks are green by construction.
@@ -367,6 +380,28 @@ python3 scripts/verify_release_asset.py --repo yanksyoon/mattermost-ios --tag v0
 All of these are read-only and safe during a card run — they only read tags, simulator
 state and the GitHub API, and each self-test works entirely inside a `mktemp`
 directory.
+
+The test suite, the way CI runs it (the gate pass; add `-only-testing:` for the timing and
+platform passes). On a Mac Catalyst leg, sign ad-hoc — `CODE_SIGNING_ALLOWED=NO` fails to
+load the unsigned `WebRTC.framework` out of DerivedData (`Trying to load an unsigned
+library`), which looks like a test failure and is not one:
+
+```bash
+xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
+  -destination 'platform=macOS,variant=Mac Catalyst' \
+  -skip-testing:MattermostUITests \
+  -skip-testing:MattermostTests/T31HarvestCookieInstallTests \
+  -skip-testing:MattermostTests/T35PasteTests \
+  -skip-testing:MattermostTests/T46WebFallbackTests \
+  -skip-testing:MattermostTests/T56SelectionTests \
+  -skip-testing:MattermostTests/T44CCallsMediaTeardownQueueTests \
+  -skip-testing:MattermostTests/T49LoggerConcurrencyTests \
+  -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
+  CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=-
+```
+
+On a 10-vCPU Mac that ran **2462 tests, 9 skipped, 0 failures in 88.5 s** (2026-11-09,
+Xcode 26.6) — the control for the three-pass split in § *Three passes*.
 
 ## Stage 3 — package (macos-26)
 
