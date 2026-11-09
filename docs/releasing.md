@@ -612,6 +612,54 @@ $ codesign --verify --deep --strict --verbose=2 Mattermost-macOS-v0.72.0/Matterm
 download does, which is why the release body's install line strips it after unpacking).
 sha256 `0b05fc33b7e5b6a8123f7cebc60838ccfbdf80a599d76401f97dca73da076b73`.
 
+### Installed from the release, on a real Mac
+
+The **published bytes**, installed at `/Applications/Mattermost(ios).app` on 2026-11-09 —
+not a build from the tree, because the question is whether the download works, not whether
+the checkout builds:
+
+```
+$ gh release download v0.72.4 --repo yanksyoon/mattermost-ios \
+    --pattern 'Mattermost-macOS-v0.72.4.zip' --dir asset-check
+$ shasum -a 256 asset-check/Mattermost-macOS-v0.72.4.zip
+619ca49c9d9eb6b20bf6a9e670aa6b457ca620fa323afabfced28ae6ed6d895d   # the asset's own digest
+$ ditto -x -k Mattermost-macOS-v0.72.4.zip unz
+$ codesign -dv --verbose=2 unz/Mattermost-macOS-v0.72.4/Mattermost.app
+Identifier=com.mattermost.ios
+Format=app bundle with Mach-O universal (x86_64 arm64)
+CodeDirectory v=20400 size=81579 flags=0x2(adhoc) hashes=2543+3 location=embedded
+Signature=adhoc
+TeamIdentifier=not set
+$ codesign --verify --deep --strict unz/Mattermost-macOS-v0.72.4/Mattermost.app   # rc=0
+```
+
+Then `mv` the previous bundle aside, `ditto` the verified one to the install path,
+`xattr -dr com.apple.quarantine`, `lsregister -f`, `open -n`. **No re-sign here:** the
+version stamp and the signature already come from the package job, and re-signing on the
+installing Mac would only make the installed copy stop being the published artifact. The
+`codesign --force --deep -s -` step documented in `docs/installing.md` is for a build taken
+straight from the tree, where editing `Info.plist` breaks the seal.
+
+Observed on the installed copy:
+
+```
+Info.plist: 0.72.4 (194), com.mattermost.ios, LSMinimumSystemVersion 14.0
+codesign --verify --deep --strict: rc=0
+xattr: com.apple.provenance                 (no com.apple.quarantine)
+System Events: "Mattermost, 1, Mattermost"  (one window, (244, 79) 1024x768)
+scripts/verify-notification-registration.sh: rc=0 ("registered with the system notification table")
+```
+
+It replaced a copy that reported `0.1.7 (8)` — a build that never went through the package
+job, so the tag was never stamped into its `Info.plist`. That is the drift this install
+closes, and why the installed version is now claimable as a fact rather than a memory.
+
+`v0.72.4`'s own run was documentation only, so its test legs show **skipped** by the G2
+policy above, not green. The binary it ships is built from the tree that the fully green run
+[42646382529](https://github.com/yanksyoon/mattermost-ios/actions/runs/42646382529) tested:
+`git diff --stat v0.72.3 v0.72.4` is one file — `docs/releasing.md`, 32 insertions — and
+nothing outside `*.md`.
+
 ## Relationship to the board's closing gate
 
 Two different assertions, both required before a card closes:
