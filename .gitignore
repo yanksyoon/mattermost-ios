@@ -18,6 +18,9 @@ xcuserdata/
 *.profraw
 *.profdata
 
+# Python helpers (scripts/) run by hand; their bytecode is not part of the tree
+__pycache__/
+
 # Parallel-work checkouts live INSIDE the repo (git worktrees), so they must never
 # be tracked: one `git add -A` would otherwise sweep a whole second checkout into
 # a commit. `scripts/verify-pushed.py` fails the card if any of this is tracked.

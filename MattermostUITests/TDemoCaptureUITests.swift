@@ -2,6 +2,11 @@ import XCTest
 
 /// T74 — the capture driver behind `docs/media/demo/native-demo.gif`.
 ///
+/// The same story films both surfaces. On the simulator `scripts/demo_capture.sh` records the
+/// framebuffer; on the Mac Catalyst destination it launches the app with `-demoFrameCapture`
+/// (`MM_DEMO_FRAME_DIR` below), so the app writes its own window as a PNG sequence while this
+/// test drives it — Screen Recording TCC is not available to the unattended capture shell.
+///
 /// This is not an acceptance suite for a surface; it is the **script the camera follows**.
 /// `scripts/demo_capture.sh` starts `xcrun simctl io <udid> recordVideo`, runs this one test,
 /// and cuts the recording at the `DEMO-BEAT` lines this test prints on stdout. Everything the
@@ -209,6 +214,18 @@ final class TDemoCaptureUITests: XCTestCase {
             "-surfaceMode", "sidebar=native",
             "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
         ]
+        // Desktop segment (T74 v2): the capture script asks the app to film its own window,
+        // because Screen Recording TCC is not available to the unattended shell that runs the
+        // Mac take. Absent on the simulator runs, where `simctl io recordVideo` is the camera.
+        let env = ProcessInfo.processInfo.environment
+        if let frames = env["MM_DEMO_FRAME_DIR"], !frames.isEmpty {
+            app.launchArguments += [
+                "-demoFrameCapture", frames,
+                "-demoFrameScheme", env["MM_DEMO_FRAME_SCHEME"] ?? "dark",
+                "-demoFrameInterval", env["MM_DEMO_FRAME_INTERVAL"] ?? "0.2",
+                "-demoFrameSeconds", env["MM_DEMO_FRAME_SECONDS"] ?? "180",
+            ]
+        }
         app.launch()
         return app
     }

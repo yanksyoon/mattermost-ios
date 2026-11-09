@@ -1,127 +1,138 @@
 # Demo assets
 
-The README's hero demo: one continuous take of the native shell against a throwaway
-server, recorded from the iOS simulator's framebuffer.
+The README's hero demo is **one GIF with two segments**, in the order a reader can install
+the product: the Mac Catalyst window first, then the same workspace in the iPhone layout.
 
 | File | What it is |
 |---|---|
-| `native-demo.gif` | the embeddable demo, light appearance, ≤ 8 MB |
-| `native-demo.mp4` | the same cut, full device resolution, no audio — linked, never embedded (GitHub READMEs do not render `<video>`) |
-| `poster.png` | a still from the `channel` beat, for the README's `<img>` fallback |
-| `native-demo-dark.gif` / `native-demo-dark.mp4` / `poster-dark.png` | the same story in dark appearance |
+| `native-demo.gif` | the embeddable demo, light appearance: desktop segment then phone segment, ≤ 8 MB |
+| `native-demo.mp4` | the same canvas composition, full window resolution, no audio — linked, never embedded (GitHub READMEs do not render `<video>`) |
+| `poster.png` | a still of the **desktop** segment (the `channel` beat), for the README's `<img>` fallback, ≤ 500 KB |
+| `native-demo-dark.gif` / `native-demo-dark.mp4` / `poster-dark.png` | the same two segments in dark appearance |
 
-Re-shoot everything with:
+Measured on the shipped assets (2026-11-10):
+
+| File | Bytes | Notes |
+|---|---|---|
+| `native-demo.gif` | 4 779 618 | 1000×750, 12 fps, 34.3 s |
+| `native-demo-dark.gif` | 4 077 778 | 1000×750, 12 fps, 34.5 s |
+| `native-demo.mp4` | 1 388 227 | 1330×998 canvas, H.264, no audio |
+| `native-demo-dark.mp4` | 1 211 277 | 1330×998 canvas, H.264, no audio |
+| `poster.png` | 452 589 | still of the desktop segment |
+| `poster-dark.png` | 467 010 | still of the desktop segment |
+
+## The two segments
+
+1. **Desktop (Mac Catalyst), ~11 s.** The app's own window at 1330×998 pt: the grouped
+   sidebar (WORKSPACE / WEB VIEW / CHANNELS) with #Design review unread and a mention badge,
+   #Town Square on launch, opening #Design review, scrolling, opening a thread, typing and
+   sending a reply, and the reply arriving in the thread. Cut on the `DEMO-BEAT` lines of
+   `TDemoCaptureUITests` (`sidebar` → `reply`) at **2.6×** so the ~29 s of XCTest-paced story
+   lands at ~11 s, as the card asks.
+2. **Phone (iPhone 16 Pro, iOS 18.3), ~23 s.** The unchanged T74 simulator-framebuffer take
+   (`xcrun simctl io recordVideo`, 1206×2622 at 1.3×). It is placed centred on the same canvas;
+   the side bands are the theme background, not a fade.
+
+There is no montage inside a segment: every frame between a segment's first and last beat
+comes from one continuous capture. The two segments are concatenated once, desktop first.
+
+## Capture route (what was used and why)
+
+The desktop segment is filmed by **the app itself**: `-demoFrameCapture <dir>` writes the
+window to `frame-<epoch-ms>.png` ~4 times a second via `drawHierarchy`, with `frames.jsonl`
+recording each frame's wall clock, while the same `TDemoCaptureUITests` story is driven by
+XCUITest. `-demoFrameScheme light|dark` forces the appearance for the take (this host's desktop
+stays in dark mode; the light take is not a different machine).
+
+| Route | Cost | Permissions | Output | Agent-repeatable here | Verdict |
+|---|---|---|---|---|---|
+| app films its own window (`-demoFrameCapture`) | free | **none** — `drawHierarchy` on the app's own window needs no Screen Recording TCC | window only, no other windows/dock, ~4.1 fps source | **yes**, scripted end to end | **chosen** |
+| `screencapture -v` / QuickTime on the Catalyst window | free | Screen Recording TCC for the capturing process | the best-looking take: includes the AppKit titlebar and traffic lights | **no on this host** — `screencapture -x` still exits "could not create image from display" unattended (re-measured 2026-11-10) | fallback if chrome is required; needs the owner to grant TCC |
+| `XCUIScreen.main.screenshot()` loop in the UI test | free | none (XCTest is exempt) | the whole display, including other windows and the dock; 2–4 fps | yes, but the take would need a crop and desktop hygiene | rejected: the window can be filmed directly |
+| `XCUIScreen.main.startVideoRecording()` | — | — | — | **not available**: no such API in the XCUIAutomation headers shipped with Xcode 26.6 (checked) | rejected |
+| `xcrun simctl io recordVideo` | free | none | device-accurate phone framebuffer | yes | used for the phone segment (T74, unchanged) |
+
+## Re-shoot
 
 ```bash
-scripts/demo_capture.sh                 # light + dark takes, ~4 minutes
+scripts/demo_capture.sh                    # both surfaces, light + dark, then compose (~10 min)
+scripts/demo_capture.sh --surface desktop  # desktop segment only, then compose
+scripts/demo_capture.sh --surface ios      # phone segment only, then compose
 DEMO_VARIANTS=light scripts/demo_capture.sh
 ```
 
-## How the capture works
+`--surface desktop` needs the phone takes in `build/demo/phone-<variant>.mp4` and
+`--surface ios` needs the desktop cuts in `build/demo/desktop-<variant>.mp4`; the script fails
+with the missing path instead of publishing a one-segment hero.
 
-1. `scripts/demo_seed.py` rebuilds the throwaway workspace on the local Docker server
-   (`127.0.0.1:8065`): team `demo` / "Northwind Studio", channels Town Square,
-   Announcements, Design review, Engineering, four synthetic accounts, a conversation
-   with a three-reply thread and an unread state. Everything is synthetic — no real
-   name, DM, or server URL appears on screen.
-2. `xcrun simctl io <udid> recordVideo` records the simulator's own framebuffer.
-3. `MattermostUITests/TDemoCaptureUITests` drives the story and prints a `DEMO-BEAT`
-   timestamp at each beat. It runs signed in through the product's own vault seam, and
-   it asserts each surface it films (header present, reply line on the root, Back
-   returns to the channel) plus that the reply it types actually reached the server.
-4. `scripts/demo_render.py` cuts the take at those beats with ffmpeg, writes the mp4
-   (muted, faststart), the poster, and the palette-optimised GIF, stepping the width
-   down until the file fits 8 MB.
+Host specifics that are load-bearing (all measured on this machine):
 
-The XCUITest runner's own waits (accessibility snapshots, idle waits) make the raw take
-slower than a human would drive the app, so both outputs run the **same continuous
-take** at `1.3x` (`DEMO_SPEED`). There are no cuts and no montage: every frame between
-launch and the return to the channel comes from one recording.
+* **Deployment target override.** The UITest target declares a macOS 26.5 deployment target;
+  this host is 26.3.1, so `xcodebuild` refuses to run it. The script passes
+  `MACOSX_DEPLOYMENT_TARGET=13.0` (the app's own target) to both `build-for-testing` and
+  `test-without-building`.
+* **Unsigned build, ad-hoc re-sign of *both* bundles.** `CODE_SIGNING_ALLOWED=NO` for the
+  build, then `codesign --force --deep -s -` on `Mattermost.app` **and**
+  `MattermostUITests-Runner.app`. Signing only the app leaves an unsigned runner, and macOS's
+  AppleSystemPolicy kills it before it connects (`... Runner encountered an error (Early
+  unexpected exit ... Test crashed with signal kill before establishing connection)` —
+  reproduced 2026-11-10).
+* **`-clonedSourcePackagesDirPath`.** The Catalyst build reuses the SourcePackages checkout
+  from the simulator DerivedData; a fresh package resolve hangs on GRDB's SQLiteLib submodule.
+* **ffmpeg with libx264.** `/usr/local/bin/ffmpeg` on this host is a 2022 build with no
+  libx264; `scripts/demo_render.py` / `scripts/demo_compose.py` pick `/opt/homebrew/bin/ffmpeg`
+  explicitly (override with `DEMO_FFMPEG`).
 
-## Capture tooling: the options, measured on this host
+The fixture is `scripts/demo_seed.py`: team `demo` / "Northwind Studio", channels Town Square,
+Announcements, Design review, Engineering, Off-Topic, accounts robin / ava / jordan / riley —
+all synthetic, against the throwaway server on `127.0.0.1:8065`. Nothing from a real
+workspace is on screen: no real server hostname, no real names, no email addresses, and the
+mention badge is the fixture's own seeded `@robin` mention.
 
-The card asked for a comparison before committing to a method. "Agent-repeatable" means
-a non-interactive shell can run it end to end, on this machine, without a human click.
+## Cutting and composing
 
-| Option | Cost | Permissions | Output quality | Agent-repeatable here | Verdict |
-|---|---|---|---|---|---|
-| `xcrun simctl io <udid> recordVideo` | free (Xcode) | none — records the simulator framebuffer, so **no** Screen Recording TCC | device-accurate 1206×2622 H.264 of the real native app; no audio; no cursor | **yes** — one command, deterministic app state from a UI test | **chosen** |
-| `screencapture -v` / QuickTime on the Mac Catalyst app | free | Screen Recording TCC for the capturing process | the best-looking and most representative build (real Mac window, larger type) | **no on this host** — `screencapture` exits with "could not create image from display" in an unattended shell (measured again on 2026-11-09); a human can record it manually, an agent cannot | rejected for now; see "known gaps" |
-| `vhs` / `asciinema` | free | none (terminal) | excellent for CLIs, but they record a terminal — there is no GUI surface to capture | yes, but it cannot record this product | rejected: wrong shape |
-| CleanShot X / Kap / Screen Studio | paid (CleanShot ~$29, Screen Studio ~$89; Kap free) | Screen Recording TCC; manual operation | polished (cursor smoothing, zooms, backgrounds) | no — third-party install plus human-driven capture, not reproducible from a script | rejected |
-| static screenshot sequence → GIF | free (`simctl io screenshot` + ffmpeg) | none | fully deterministic but no motion, no typing, no transitions — lowest fidelity | yes | fallback only; not needed |
+`scripts/demo_compose.py desktop` maps each output frame to the captured frame nearest its
+real capture time (so a slow `drawHierarchy` cannot silently speed the take up), hard-links
+the sequence and encodes it. `scripts/demo_compose.py combine` puts desktop and phone on one
+canvas, writes the mp4 source of truth, and steps the GIF down in fps/width until it fits
+8 MB (each try is printed).
 
-The one honest cost of the chosen path: it films the **iPhone** build, not the Mac
-Catalyst window. The GIF therefore shows the phone layout, which is the layout the
-same SwiftUI code draws on a phone; the Catalyst window is not in it.
+Prove the segments are what the table says without trusting prose:
+
+```bash
+ffmpeg -i docs/media/demo/native-demo.gif -vf "select=eq(n\,0)"  -frames:v 1 frame-1.png
+ffmpeg -i docs/media/demo/native-demo.gif -vf "select=eq(n\,15)" -frames:v 1 frame-15.png
+```
+
+Both are the **desktop** layout: a ~240 pt grouped sidebar beside a timeline and a composer
+row, which the iPhone layout does not draw. They are not the phone (a narrow single column).
 
 ## Known gaps (what this asset does not prove)
 
-* No audio track, by design.
-* Recorded against a local, seeded, throwaway server. The product behaviour is real —
-  the app talks to Mattermost 9.11.19 over its HTTP and websocket APIs — but the content
-  is fixture data.
-* The Mac Catalyst window is not shown (Screen Recording TCC, above). Re-shooting that
-  is a manual job: QuickTime/`screencapture -v` while a human drives the app.
-* The GIF is a 1.3× time-lapse of a continuous take; the mp4 is the same window and the
-  same treatment, so the two always match.
+* **No AppKit chrome.** `drawHierarchy` captures the app's window *content*; the titlebar and
+  the red/yellow/green traffic lights are drawn by AppKit above it and are not in the frame.
+  What identifies the segment as the Mac build is the desktop layout and window proportions
+  (sidebar beside timeline, 1330×998 pt), not the window buttons. A take that shows the
+  titlebar still needs Screen Recording TCC plus `screencapture -v` while the same UI test
+  drives the app (the pre-`bb40ed7` take did that and does show traffic lights).
+* **Stepped motion.** The source cadence is ~4.1 fps (PNG encode on the app's main actor). The
+  desktop segment is played at 2.6× on a 12 fps canvas, so typing and the arriving reply read
+  as fast-but-stepped rather than smooth. This was checked by eye on extracted frames
+  (sidebar → channel → thread → typed → sent), not asserted.
+* **Debug build.** The demo test needs the Debug-only `-uiTestSeededStoredToken` /
+  `-surfaceMode` / `-demoFrameCapture` seams.
+* **Different recording days.** The phone segment is the 2026-11-09 take, so its clock text
+  differs from the desktop take's; the conversation, workspace and story are the same seed.
+* No audio track, by design. The content is fixture data; the app talks to a real Mattermost
+  9.11.19 over REST + WebSocket.
 
 ## Maintenance
 
-Re-run `scripts/demo_capture.sh` after any UI change that the story touches (sidebar,
-channel timeline, post row, thread pane, composer). If a beat's identifier changed, the
-capture test fails and publishes nothing — it never ships a take where a step silently
-did nothing.
+Re-run `scripts/demo_capture.sh` after any UI change the story touches (sidebar, channel
+timeline, post row, thread pane, composer). If a beat's identifier changed, the capture test
+fails and publishes nothing.
 
-Keep the README pointing at this file **in-repo** (`docs/media/demo/native-demo.gif`).
-GitHub only routes images through the camo proxy when they are hosted elsewhere; camo
-drops any response over 5 MB, which the 6.5 MB GIF would hit. If these assets ever move
-to a CDN/jsDelivr, re-encode under 5 MB first (`GIF_WIDTH_CHOICES` / `GIF_FPS_CHOICES`
-in `scripts/demo_render.py`).
-
-## Desktop take (2026-11-09)
-
-`desktop-demo.gif` (4.2 MB, 35 s), `desktop-demo.mp4`, `desktop-poster.png` are the same story
-filmed on the **Mac Catalyst** build, screen-recorded from a real window rather than the simulator
-framebuffer. The story, the fixture and the beat names are identical to the phone take; only the
-capture path differs.
-
-Route: the host's Screen Recording grant went to the terminal app, so `screencapture -v` is
-scriptable here. The take is driven by the same `TDemoCaptureUITests` — no human hands on the app.
-
-```bash
-# 1. fixture (team "Northwind Studio", accounts robin/ava/jordan/riley, all synthetic)
-python3 scripts/demo_seed.py --url http://127.0.0.1:8065 \
-  --creds-out /tmp/demo_creds.json --env-out /tmp/demo_env.sh
-
-# 2. build the UI test bundle. Two overrides are needed on this host:
-#    - the UITest target declares a macOS 26.5 deployment target and the host is 26.3.1, so
-#      xcodebuild refuses to run it; override down to 13.0 (the app's own target).
-#    - an ad-hoc signed test *bundle* cannot load into an ad-hoc signed runner ("mapping process
-#      and mapped file (non-platform) have different Team IDs"), so the bundle is built unsigned
-#      and the app is re-signed afterwards, which is what lets it launch.
-xcodebuild build-for-testing -project Mattermost.xcodeproj -scheme Mattermost \
-  -destination 'platform=macOS,variant=Mac Catalyst' -derivedDataPath /tmp/mm-demo-dd \
-  MACOSX_DEPLOYMENT_TARGET=13.0 CODE_SIGNING_ALLOWED=NO
-codesign --force --deep -s - /tmp/mm-demo-dd/Build/Products/Debug-maccatalyst/Mattermost.app
-
-# 3. record the display, drive the test, stop the recorder
-screencapture -v -x /tmp/demo_desktop.mov &          # SIGINT the *screencapture* pid, not the shell
-set -a; . /tmp/demo_env.sh; set +a
-xcodebuild test-without-building -project Mattermost.xcodeproj -scheme Mattermost \
-  -destination 'platform=macOS,variant=Mac Catalyst' -derivedDataPath /tmp/mm-demo-dd \
-  MACOSX_DEPLOYMENT_TARGET=13.0 -only-testing:MattermostUITests/TDemoCaptureUITests
-
-# 4. cut on the DEMO-BEAT timestamps, crop to the window, encode
-ffmpeg -ss <launch-beat> -to <back-beat+2> -i /tmp/demo_desktop.mov \
-  -vf "crop=2070:1535:470:175,scale=1280:-2:flags=lanczos" -c:v h264_videotoolbox -b:v 6M take.mp4
-ffmpeg -ss 17 -to 52.5 -i take.mp4 \
-  -vf "fps=12,scale=1080:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=192:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle" \
-  -loop 0 desktop-demo.gif
-```
-
-Known gaps of this take: it is a **Debug** build (the demo test needs the Debug-only
-`-uiTestSeedStoredToken` / `-surfaceMode` seams), the appearance is the host's dark mode, so there
-is no light desktop variant yet, and the window geometry is whatever the test inherits — the crop
-rectangle above is tied to this host's display size (3024x1964). Re-derive it from a frame if the
-display changes.
+Keep the README pointing at this file **in-repo** (`docs/media/demo/native-demo.gif`). GitHub
+only routes images through the camo proxy when they are hosted elsewhere; camo drops any
+response over 5 MB, which both GIFs would hit. If these assets move to a CDN, re-encode under
+5 MB first (`GIF_WIDTH_CHOICES` in `scripts/demo_compose.py`).

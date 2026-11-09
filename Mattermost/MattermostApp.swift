@@ -511,6 +511,9 @@ struct MattermostApp: App {
                 // T31-R evidence probe: `-authSurfaceSnapshot <dir>` — the four captures for the
                 // auth screens (light/dark × normal/AX3). Inert without the argument.
                 .task { runAuthSurfaceSnapshotIfRequested() }
+                // T74 demo film: `-demoFrameCapture <dir>` — the app films its own window as a
+                // PNG sequence (no Screen Recording TCC). Inert without the argument.
+                .task { runDemoFrameCaptureIfRequested() }
                 #endif
                 #if DEBUG || PERF_PROBE
                 .task { runPerfProbeIfRequested() }
@@ -1026,6 +1029,85 @@ struct MattermostApp: App {
             window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
         }
         try? image.pngData()?.write(to: URL(fileURLWithPath: path))
+    }
+
+    /// `-demoFrameCapture <dir>`: film the app's **own window** as a PNG sequence — the desktop
+    /// half of the README demo (T74 v2).
+    ///
+    /// Why a frame loop and not `screencapture`: the Mac Catalyst window is the segment a
+    /// macOS reader should see first, but Screen Recording TCC is denied to the unattended
+    /// capture shell on the build host (`screencapture -v` -> "could not create image from
+    /// display", re-measured 2026-11-10), and a UI-test-driven `XCUIScreen` loop is the
+    /// whole display at 2-4 fps. `drawHierarchy` on the app's own window needs no TCC at
+    /// all — it is the mechanism `-nativeShellSnapshot` already uses — so the app films
+    /// itself while the capture test drives it.
+    ///
+    /// Arguments (all validated; inert without the first):
+    ///   -demoFrameCapture  <dir>        output directory for `frame-<epoch-ms>.png`
+    ///   -demoFrameScheme   light|dark   appearance forced for the take (default: system)
+    ///   -demoFrameInterval <seconds>    capture period (default 0.2 = 5 fps)
+    ///   -demoFrameSeconds  <seconds>    how long to keep capturing (default 180)
+    ///
+    /// `<dir>/frames.jsonl` records `{"file":…,"epoch":…}` per frame so the cutter places
+    /// every frame on the wall clock the test's `DEMO-BEAT` lines use, instead of assuming
+    /// the loop hit its period exactly.
+    private func runDemoFrameCaptureIfRequested() {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-demoFrameCapture"), args.indices.contains(i + 1) else { return }
+        let dir = args[i + 1]
+        func value(_ flag: String) -> String? {
+            guard let j = args.firstIndex(of: flag), args.indices.contains(j + 1) else { return nil }
+            return args[j + 1]
+        }
+        let scheme: SwiftUI.ColorScheme?
+        switch value("-demoFrameScheme") {
+        case "light": scheme = .light
+        case "dark": scheme = .dark
+        default: scheme = nil
+        }
+        let interval = max(0.1, Double(value("-demoFrameInterval") ?? "") ?? 0.2)
+        let seconds = max(1.0, Double(value("-demoFrameSeconds") ?? "") ?? 180)
+
+        Task { @MainActor in
+            // The appearance change is a relayout: force it first, let the shell settle, and
+            // only then open the first frame, so the take never shows a half-applied theme.
+            if let scheme { snapshotColorScheme = scheme }
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            let index = dir + "/frames.jsonl"
+            FileManager.default.createFile(atPath: index, contents: nil)
+            let handle = try? FileHandle(forWritingTo: URL(fileURLWithPath: index))
+            let deadline = Date().addingTimeInterval(seconds)
+            var written = 0
+            while Date() < deadline {
+                let began = Date()
+                let epoch = began.timeIntervalSince1970
+                // `%013lld`: epoch milliseconds are 13 digits; `%d` truncates an Int on 64-bit.
+                let name = "frame-" + String(format: "%013lld", Int64((epoch * 1000).rounded())) + ".png"
+                if let window = Self.keyWindow() {
+                    let format = UIGraphicsImageRendererFormat.preferred()
+                    // Window points, not device pixels: the PNG is the layout at 1x, which is
+                    // what the GIF is scaled from anyway and ~4x cheaper to encode per frame.
+                    format.scale = 1
+                    let renderer = UIGraphicsImageRenderer(bounds: window.bounds, format: format)
+                    let image = renderer.image { _ in
+                        window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+                    }
+                    if let data = image.pngData(),
+                       (try? data.write(to: URL(fileURLWithPath: dir + "/" + name))) != nil {
+                        let line = "{\"file\":\"\(name)\",\"epoch\":\(epoch)}\n"
+                        handle?.write(Data(line.utf8))
+                        written += 1
+                    }
+                }
+                let spent = Date().timeIntervalSince(began)
+                if spent < interval {
+                    try? await Task.sleep(nanoseconds: UInt64((interval - spent) * 1_000_000_000))
+                }
+            }
+            try? handle?.close()
+            Logger.info("T74", "demo frame capture: \(written) frames in \(dir)")
+        }
     }
     #endif
 

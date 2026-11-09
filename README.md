@@ -17,22 +17,15 @@ not affiliated with Mattermost, Inc.; it signs in to your own server and reloads
 third party.
 
 <picture>
-  <img src="docs/media/demo/desktop-demo.gif" width="760" alt="The Mac Catalyst client: the Northwind Studio workspace, opening #Design review, scrolling the timeline, opening a four-reply thread, typing a reply and sending it, then returning to the channel">
-</picture>
-
-35 seconds of the Mac build running as an ordinary desktop window against a local test server, cut
-from one continuous take — open a channel → scroll the timeline → open a thread → type and send a
-reply → back. [Watch the MP4](docs/media/demo/desktop-demo.mp4) (muted) ·
-[still frame](docs/media/demo/desktop-poster.png) · [how it was recorded](docs/media/demo/README.md)
-
-<picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/demo/native-demo-dark.gif">
   <source media="(prefers-color-scheme: light)" srcset="docs/media/demo/native-demo.gif">
-  <img src="docs/media/demo/native-demo.gif" width="300" alt="The native iOS client: launch, the channel sidebar with an unread mention, opening #design-review, scrolling the timeline, opening a three-reply thread, typing and sending a reply, then returning to the channel">
+  <img src="docs/media/demo/native-demo.gif" width="760" alt="Two segments in one take. First the Mac Catalyst window in the Northwind Studio workspace: the grouped channel sidebar with an unread mention, opening #Design review, scrolling the timeline, opening a thread, typing a reply and sending it, and the reply arriving in the thread. Then the same workspace in the iPhone layout at device resolution: launch, the channel sidebar, the timeline, a thread, a sent reply, back to the channel.">
 </picture>
 
-The same story on iPhone, 23 seconds at device resolution, from the same seeded workspace.
-[Watch the MP4](docs/media/demo/native-demo.mp4) (muted, device resolution) ·
+One GIF, two segments: the **Mac Catalyst window** first — the build you install on a Mac:
+grouped sidebar, timeline, thread, composer, a reply sent — then the same workspace in the
+**iPhone** layout at device resolution. Both are live runs against a local throwaway server,
+cut from continuous takes. [Watch the MP4](docs/media/demo/native-demo.mp4) (muted) ·
 [still frame](docs/media/demo/poster.png) · [how it was recorded](docs/media/demo/README.md)
 
 > **Start here:** [`docs/quickstart.md`](docs/quickstart.md) — build it, sign in, and read a

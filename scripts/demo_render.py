@@ -31,6 +31,7 @@ import argparse
 import datetime as _dt
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -39,6 +40,33 @@ MIN_SECONDS, MAX_SECONDS = 15.0, 25.0
 GIF_FPS_CHOICES = (13, 12)
 GIF_WIDTH_CHOICES = (640, 600, 560, 520, 480, 440)
 PALETTE_COLOURS = 128
+
+
+def _resolve_tools() -> tuple[str, str]:
+    """An ffmpeg that actually has libx264, and its matching ffprobe.
+
+    Measured on the build host 2026-11-10: `/usr/local/bin/ffmpeg` is a 2022 build with no
+    libx264 (`-c:v libx264` -> "Unrecognized option 'preset'"), and it sorts before
+    Homebrew's 8.0.1 in PATH. Silently falling back to `h264_videotoolbox` would change the
+    encode settings under the caller, so pick the encoder explicitly instead.
+    """
+    wanted = [os.environ.get("DEMO_FFMPEG", ""), "/opt/homebrew/bin/ffmpeg",
+              shutil.which("ffmpeg") or ""]
+    for candidate in wanted:
+        if not candidate or not os.path.exists(candidate):
+            continue
+        try:
+            out = subprocess.run([candidate, "-hide_banner", "-encoders"],
+                                 capture_output=True, text=True, timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if "libx264" in out.stdout:
+            probe = os.path.join(os.path.dirname(candidate), "ffprobe")
+            return candidate, probe if os.path.exists(probe) else (shutil.which("ffprobe") or "ffprobe")
+    return shutil.which("ffmpeg") or "ffmpeg", shutil.which("ffprobe") or "ffprobe"
+
+
+FFMPEG, FFPROBE = _resolve_tools()
 
 
 def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
@@ -66,7 +94,7 @@ def beats_from_log(path: str) -> dict[str, float]:
 
 
 def probe_duration(path: str) -> float:
-    out = run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+    out = run([FFPROBE, "-v", "error", "-show_entries", "format=duration",
                "-of", "json", path])
     if out.returncode != 0:
         raise SystemExit(f"ffprobe failed on {path}: {out.stderr[-500:]}")
@@ -74,7 +102,7 @@ def probe_duration(path: str) -> float:
 
 
 def has_audio(path: str) -> bool:
-    out = run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries",
+    out = run([FFPROBE, "-v", "error", "-select_streams", "a", "-show_entries",
                "stream=index", "-of", "csv=p=0", path])
     return bool(out.stdout.strip())
 
@@ -141,7 +169,7 @@ def main() -> int:
     # "view raw" starts playing immediately. A speed other than 1.0 is a **uniform**
     # time-lapse of the same continuous take (setpts), never a cut.
     speed_filter = [] if args.speed == 1.0 else ["-filter:v", f"setpts=PTS/{args.speed},fps=30"]
-    out = run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{start:.3f}",
+    out = run([FFMPEG, "-y", "-loglevel", "error", "-ss", f"{start:.3f}",
                "-to", f"{end:.3f}", "-i", args.mov, "-an", *speed_filter,
                "-c:v", "libx264", "-preset", "slow", "-crf", "21",
                "-pix_fmt", "yuv420p", "-movflags", "+faststart", mp4])
@@ -154,11 +182,11 @@ def main() -> int:
     if args.poster_name:
         poster = os.path.join(args.out_dir, args.poster_name)
         shot = at(args.poster_beat, 1.2)
-        out = run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{shot:.3f}",
+        out = run([FFMPEG, "-y", "-loglevel", "error", "-ss", f"{shot:.3f}",
                    "-i", args.mov, "-frames:v", "1", poster])
         if out.returncode != 0:
             raise SystemExit(f"ffmpeg poster failed: {out.stderr[-800:]}")
-        size = run(["ffprobe", "-v", "error", "-select_streams", "v",
+        size = run([FFPROBE, "-v", "error", "-select_streams", "v",
                     "-show_entries", "stream=width,height", "-of", "csv=p=0", poster])
         print(f"poster    : {poster} ({size.stdout.strip()})")
 
@@ -173,7 +201,7 @@ def main() -> int:
                 f"[a]palettegen=max_colors={PALETTE_COLOURS}:stats_mode=diff[p];"
                 f"[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle"
             )
-            out = run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{start:.3f}",
+            out = run([FFMPEG, "-y", "-loglevel", "error", "-ss", f"{start:.3f}",
                        "-to", f"{end:.3f}", "-i", args.mov, "-loop", "0",
                        "-filter_complex", filter_chain, gif])
             if out.returncode != 0:
@@ -188,7 +216,7 @@ def main() -> int:
     if not chosen:
         raise SystemExit(f"no GIF candidate fits {args.max_gif_bytes} bytes")
     fps, width, size = chosen
-    frames = run(["ffprobe", "-v", "error", "-count_frames", "-select_streams", "v",
+    frames = run([FFPROBE, "-v", "error", "-count_frames", "-select_streams", "v",
                   "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0", gif])
     print(f"gif       : {gif} ({size / 1e6:.2f} MB, {width} px, {fps} fps, "
           f"{frames.stdout.strip() or '?'} frames)")
