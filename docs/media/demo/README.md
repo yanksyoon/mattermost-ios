@@ -78,3 +78,50 @@ GitHub only routes images through the camo proxy when they are hosted elsewhere;
 drops any response over 5 MB, which the 6.5 MB GIF would hit. If these assets ever move
 to a CDN/jsDelivr, re-encode under 5 MB first (`GIF_WIDTH_CHOICES` / `GIF_FPS_CHOICES`
 in `scripts/demo_render.py`).
+
+## Desktop take (2026-11-09)
+
+`desktop-demo.gif` (4.2 MB, 35 s), `desktop-demo.mp4`, `desktop-poster.png` are the same story
+filmed on the **Mac Catalyst** build, screen-recorded from a real window rather than the simulator
+framebuffer. The story, the fixture and the beat names are identical to the phone take; only the
+capture path differs.
+
+Route: the host's Screen Recording grant went to the terminal app, so `screencapture -v` is
+scriptable here. The take is driven by the same `TDemoCaptureUITests` — no human hands on the app.
+
+```bash
+# 1. fixture (team "Northwind Studio", accounts robin/ava/jordan/riley, all synthetic)
+python3 scripts/demo_seed.py --url http://127.0.0.1:8065 \
+  --creds-out /tmp/demo_creds.json --env-out /tmp/demo_env.sh
+
+# 2. build the UI test bundle. Two overrides are needed on this host:
+#    - the UITest target declares a macOS 26.5 deployment target and the host is 26.3.1, so
+#      xcodebuild refuses to run it; override down to 13.0 (the app's own target).
+#    - an ad-hoc signed test *bundle* cannot load into an ad-hoc signed runner ("mapping process
+#      and mapped file (non-platform) have different Team IDs"), so the bundle is built unsigned
+#      and the app is re-signed afterwards, which is what lets it launch.
+xcodebuild build-for-testing -project Mattermost.xcodeproj -scheme Mattermost \
+  -destination 'platform=macOS,variant=Mac Catalyst' -derivedDataPath /tmp/mm-demo-dd \
+  MACOSX_DEPLOYMENT_TARGET=13.0 CODE_SIGNING_ALLOWED=NO
+codesign --force --deep -s - /tmp/mm-demo-dd/Build/Products/Debug-maccatalyst/Mattermost.app
+
+# 3. record the display, drive the test, stop the recorder
+screencapture -v -x /tmp/demo_desktop.mov &          # SIGINT the *screencapture* pid, not the shell
+set -a; . /tmp/demo_env.sh; set +a
+xcodebuild test-without-building -project Mattermost.xcodeproj -scheme Mattermost \
+  -destination 'platform=macOS,variant=Mac Catalyst' -derivedDataPath /tmp/mm-demo-dd \
+  MACOSX_DEPLOYMENT_TARGET=13.0 -only-testing:MattermostUITests/TDemoCaptureUITests
+
+# 4. cut on the DEMO-BEAT timestamps, crop to the window, encode
+ffmpeg -ss <launch-beat> -to <back-beat+2> -i /tmp/demo_desktop.mov \
+  -vf "crop=2070:1535:470:175,scale=1280:-2:flags=lanczos" -c:v h264_videotoolbox -b:v 6M take.mp4
+ffmpeg -ss 17 -to 52.5 -i take.mp4 \
+  -vf "fps=12,scale=1080:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=192:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle" \
+  -loop 0 desktop-demo.gif
+```
+
+Known gaps of this take: it is a **Debug** build (the demo test needs the Debug-only
+`-uiTestSeedStoredToken` / `-surfaceMode` seams), the appearance is the host's dark mode, so there
+is no light desktop variant yet, and the window geometry is whatever the test inherits — the crop
+rectangle above is tied to this host's display size (3024x1964). Re-derive it from a frame if the
+display changes.
