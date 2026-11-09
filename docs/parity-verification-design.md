@@ -9,9 +9,9 @@ compile.
 The blocking local checks are unchanged and do not depend on Lean at all:
 
 ```
-python3 parity/generate.py --self-test     # asserts + six planted faults + two-run byte compare
-python3 scripts/differential.py            # 128 status worlds + 10 finding worlds vs reference.py
-python3 scripts/mutate-test.py             # six detector mutants, each must kill its own fault
+python3 parity/generate.py --self-test     # asserts + seven planted faults + two-run byte compare
+python3 scripts/differential.py            # 128 status worlds + docstring ladder + 10 finding worlds vs reference.py
+python3 scripts/mutate-test.py             # seven detector mutants, each must kill its own fault
 python3 parity/generate.py --check --report
 ```
 
@@ -68,8 +68,8 @@ package in this change; the others are the blocking checks named at the top.
 | **F1** runtime breakage while status says `native` | **no** — by construction; no Boolean the checker can compute is true exactly when a screen works | no | no | no | **yes** — the only instrument that touches a running app | a screen must be driven to be judged; nothing static closes this |
 | **F2** evidence pruned, verdict still fresh | the **rule** is proved (`ladder` cannot reach `validated`/`native` with `freshVerdict = false`) — one of the five facts in `Facts` | **yes** — world `verdict-evidence-missing` → `STALE-EVIDENCE`; assert 5 asserts the demotion | **yes** — `scripts/mutants/stale_evidence.diff` | **yes** — fault 5 (deleted screenshot) fires alone | no | the *plumbing* (does this ref resolve **to the case it names**?) is only exercised by fixture worlds; a ref resolving to a different case would pass |
 | **F3** registry flip with no verdict | the **join** is proved: `native_implies_approved`, and `native` requires every earlier rung, so approval alone cannot upgrade a key | partly — `VALIDATED-BUT-NOT-APPROVED` in the finding worlds; `APPROVED-WITHOUT-VERDICT` is surface-level and outside the per-row table | **yes** — `approved_without_verdict.diff` | **yes** — fault 6; assert 3 parses the literal and checks pane-owning ⊆ approved | partly (an owner decision is a human act) | the Swift literal is *parsed*, and the parse is asserted only to succeed — not that it parsed the same list it parsed yesterday |
-| **F4** refactor reads as "feature deleted" | the **ordering rule** is proved: `moved_is_never_missing`, `moved_stale_guard_is_false` — a moved row can never be `missing`, and the STALE guard reads that function | no — MOVE is not in the status or finding tables | **no — this is the gap.** No mutant covers MOVE-before-STALE; a reordering in `generate.py` would not be caught by any blocking check | **partly** — assert 4 asserts rename *detection* (recorded rename, then content identity), not that the finding kind is `MOVE` and not `STALE` | no | the ordering claim about `generate.py` itself. Design §5.1 says the self-test plants a rename and asserts `MOVE`, not `STALE`; the implemented assert 4 does **not** assert the finding kind. Recorded as a finding (§6) |
-| **F5** content sha inside the join key | **YES — the only theorem with teeth.** `join_key_injective`, `join_key_ignores_content`, and the negative `sha_in_key_is_not_a_function_of_identity` | no | no | **claimed, not delivered** — assert 1 prints "a sha in the key is rejected", but the grammar accepts `M:app/screens/thread@9f3a8c1` (see §6 and `scripts/probe_key_grammar.py`) | no | `generate.py` could append a sha when *building* keys and nothing would test it; the grammar does not forbid the shape |
+| **F4** refactor reads as "feature deleted" | the **ordering rule** is proved: `moved_is_never_missing`, `moved_stale_guard_is_false` — a moved row can never be `missing`, and the STALE guard reads that function | no — MOVE is not in the status or finding tables | **yes** — `scripts/mutants/move.diff` disables the before-STALE resolution, so a planted rename reports `STALE` and the set kills it (t_93d9cafb) | **yes** — fault 7 (`MOVE`) asserts the *emitted finding kind*, not just rename detection assert 4 | no | the detector's heuristics (`git log --follow`, then content identity) are still exercised only by fixtures; the ordering claim is now pinned by a mutant |
+| **F5** content sha inside the join key | **YES — the only theorem with teeth.** `join_key_injective`, `join_key_ignores_content`, and the negative `sha_in_key_is_not_a_function_of_identity` | no | no | **yes** — assert 1 asserts the sha *shape* (`M:app/screens/thread@9f3a8c1`), and `key_is_well_formed` refuses an M: key whose last `@`-segment is 7–40 lowercase hex (t_93d9cafb; `scripts/probe_key_grammar.py`) | no | the grammar now forbids the shape, so a key built with a sha would be a `MALFORMED ROW` at load time; what is still unproved about the tool is that *nothing prevents a future grammar widening* except that probe |
 
 Reading the table honestly: **Lean adds coverage on exactly one row (F5), strengthens one rule on F2
 and F3, and closes nothing on F1 or the F4 plumbing.** Its value is that F5 now has a statement with a
@@ -198,7 +198,9 @@ which forbids demotion.
 ## 6. Findings recorded while building this (not softened)
 
 These were found by building the model, not by looking for them; they are reported rather than fixed
-here, because each one belongs to the parity record, not to the proof.
+here, because each one belongs to the parity record, not to the proof. Card `t_93d9cafb` (the parity
+record's own repair card) has since fixed all three; each entry keeps its original text and records
+the repair under it.
 
 1. **`scripts/reference.py`'s prose contradicts its own table.** The docstring states the ladder as
    `otherwise -> native if approved else validated`, which makes the world `1 1 0 1 1 1 1` `native`;
@@ -206,6 +208,11 @@ here, because each one belongs to the parity record, not to the proof.
    is stale since the Delta 5 correction that the same file's changelog records. The reference is a
    file whose own header says a diff needs a second reviewer, so it is reported here rather than
    edited in passing.
+   *Repair (t_93d9cafb):* the paragraph now reads `otherwise -> claimed if not test; else native if
+   approved else validated`, and `scripts/differential.py` check 2 reads that paragraph back and
+   diffs it against all 128 rows, so prose and table cannot diverge again. Run before the fix, that
+   check failed on exactly the two `test=0` worlds (`1 1 0 1 1 1 0`, `1 1 0 1 1 1 1`). A changelog
+   line records the edit; a second reviewer is still required by the file's header.
 2. **The key grammar accepts the F5 shape.** `assert 1` in `--self-test` prints "a sha in the key is
    rejected", but its only check is `not key_is_well_formed("S13")` — a malformed *namespace*.
    `M:app/screens/thread@9f3a8c1` passes `KEY_PATTERNS["M"]` (the class includes `@`), verified with
@@ -213,10 +220,21 @@ here, because each one belongs to the parity record, not to the proof.
    `generate.py` never appends a sha when building keys — nothing tests that either. This is the
    strongest argument for the Lean theorem in this change and the strongest argument for a follow-up
    on the record.
+   *Repair (t_93d9cafb):* `key_is_well_formed` now also refuses the shape — an `M:` key whose last
+   `@`-segment is 7–40 lowercase hex (`key_carries_content_sha`) — `assert 1` asserts
+   `M:app/screens/thread@9f3a8c1` is rejected, and `scripts/probe_key_grammar.py` fails if either
+   fact moves. `@` stays in the M class (measured first: `grep -c '@' parity/upstream-keys.tsv` is
+   0), and no live key changed, so `parity/out/*` needed no regeneration.
 3. **No mutant covers MOVE-before-STALE.** The six mutants are `stale`, `orphan`, `unmapped`,
    `stale_verdict`, `stale_evidence`, `approved_without_verdict`. Design §5.1 says `--self-test` plants
    a pure rename and asserts the finding kind is `MOVE`, not `STALE`; assert 4 asserts rename
    *detection* only.
+   *Repair (t_93d9cafb):* fault 7 of `--self-test` plants a pure rename and asserts the emitted kind
+   is `MOVE`, and `scripts/mutants/move.diff` disables the before-STALE resolution so that rename
+   reports `STALE` — the set kills it, 7/7. While adding the assert it turned out MOVE never fired at
+   all: the survivor substitution made `paths_state` `present`, so the `STALE`-to-`MOVE` conversion
+   was unreachable. MOVE now emits from the recorded moves directly, after the resolution and before
+   the findings are sorted.
 
 ---
 

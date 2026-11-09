@@ -19,7 +19,7 @@ Commands:
 
     generate.py                       regenerate the artifacts
     generate.py --check [--report]    regen to a temp dir, diff, exit 1 on drift
-    generate.py --self-test           six planted faults fire, asserts run, two runs byte-identical
+    generate.py --self-test           seven planted faults fire, asserts run, two runs byte-identical
     generate.py --query NAME|KEY|SURFACE [--json]
     generate.py --render-md [--out docs/PARITY-table.md]
     generate.py --bootstrap [--force] seed pins/keys/claims from the checked-in extracts
@@ -110,10 +110,22 @@ def key_namespace(key):
     return key.split(":", 1)[0] if ":" in key else ""
 
 
+# F5 (docs/parity-map-design.md §1.1): a content sha inside the join key, `M:app/screens/<module> @
+# <sha>`. `@` must stay in the M class — an upstream path may legitimately carry it — so the grammar
+# alone cannot say "identity is the path". The shape is refused explicitly instead: an M: key whose
+# last `@`-segment is 7–40 lowercase hex. Measured before adding it: `grep -c '@'
+# parity/upstream-keys.tsv` is 0, so no live key depends on the segment, and none can be a sha.
+CONTENT_SHA_IN_KEY = re.compile(r"^M:.*@[0-9a-f]{7,40}$")
+
+
+def key_carries_content_sha(key):
+    return bool(CONTENT_SHA_IN_KEY.match(key))
+
+
 def key_is_well_formed(key):
     ns = key_namespace(key)
     pat = KEY_PATTERNS.get(ns)
-    return bool(pat and pat.match(key))
+    return bool(pat and pat.match(key)) and not key_carries_content_sha(key)
 
 
 @dataclass(frozen=True)
@@ -668,11 +680,16 @@ class Record:
             pstate = self.paths_state(key)
             statuses[key] = derive_status(facts)
             for kind in find_row_findings(facts, pstate):
-                if kind == "STALE" and key in self.moves:
-                    old, new = self.moves[key]
-                    findings.append(Finding("MOVE", key, "%s → %s (content-identical; re-point claims.tsv)" % (old, new)))
-                    continue
                 findings.append(Finding(kind, key, self._message(kind, key, facts, state, pstate)))
+
+        # MOVE — decided *before* STALE is finalised (design §5.1). effective_paths() has already
+        # replaced every missing declared path with its content-identical survivor and recorded the
+        # pair in self.moves, so the key is reported as MOVE and never as "the feature was deleted".
+        # (Until t_93d9cafb this branch hung off a STALE that the substitution had already
+        # prevented, so MOVE never fired at all; scripts/mutants/move.diff now pins the ordering.)
+        for key, (old, new) in sorted(self.moves.items()):
+            findings.append(Finding("MOVE", key, "%s → %s (content-identical; re-point claims.tsv)"
+                                    % (old, new)))
 
         # statuses for keys that only exist in claims (orphans) — surfaced, never silently native
         for key in sorted(self.claims):
@@ -1604,7 +1621,7 @@ def cmd_plan(root=ROOT, board=None, protocol=False):
 
 
 # --------------------------------------------------------------------------------------
-# self-test — asserts + six planted faults + two-run byte compare
+# self-test — asserts + seven planted faults + two-run byte compare
 # --------------------------------------------------------------------------------------
 
 
@@ -1727,6 +1744,13 @@ def _fixture_world(base, fault=None):
     elif fault == "APPROVED-WITHOUT-VERDICT":
         _write(os.path.join(root, "Mattermost/Core/RenderMode.swift"),
                FIXTURE_REGISTRY.replace("[.channelView]", "[.channelView, .activity]"))
+    elif fault == "MOVE":
+        # a pure rename: identical bytes, new path (design §5.1). The emitted finding kind must be
+        # MOVE, not STALE — a refactor must never read as "the feature was deleted".
+        git(["mv", "Mattermost/UI/Native/Beta", "Mattermost/UI/Native/Unit/BetaRenamed"],
+            cwd=root, check=True)
+        git(["add", "-A"], cwd=root, check=True)
+        git(["commit", "-q", "-m", "rename Beta, identical bytes"], cwd=root, check=True)
     elif fault:
         raise SystemExit("unknown fault %r" % fault)
 
@@ -1742,12 +1766,17 @@ def cmd_self_test():
     try:
         # assert 1/2 — key grammar and evidence typing, before any lookup
         assert key_is_well_formed("M:app/screens/thread")
+        assert key_is_well_formed("M:app/screens/share@2x")  # `@` is legitimate in an upstream path
         assert key_is_well_formed("REST:GET /channels/{id}/posts")
         assert key_is_well_formed("WS:posted")
         assert key_is_well_formed("X:notification-input")
         assert not key_is_well_formed("M:app/screens/thread @ deadbeef")
+        # F5: the sha shape, not just a malformed namespace. Both a 7-char and an 8-char segment.
+        assert not key_is_well_formed("M:app/screens/thread@9f3a8c1")
+        assert not key_is_well_formed("M:app/screens/thread@deadbeef")
         assert not key_is_well_formed("S13")
-        print("assert 1 ok — key grammar (identity is the path; a sha in the key is rejected)")
+        print("assert 1 ok — key grammar (namespace syntax, and an M: key whose last @segment is a "
+              "7–40-char lowercase-hex content sha is rejected)")
 
         # assert 2 — every native path a claim names must exist (else STALE, never silence)
         clean = _fixture_world(base, None)
@@ -1793,7 +1822,8 @@ def cmd_self_test():
         if found != "Mattermost/UI/Native/B/Thing.swift":
             failures.append("a content-identical move was not found (got %r)" % (found,))
         if not any("rename" in f or "move" in f for f in failures):
-            print("assert 4 ok — rename detection runs (git log --follow, then content identity)")
+            print("assert 4 ok — rename detection runs (git log --follow, then content identity); "
+                  "the emitted finding kind is asserted as fault MOVE in assert 6")
 
         # assert 5 — evidence must resolve before `validated` is granted
         facts = Facts(True, True, True, True, True, False, True, True)
@@ -1801,9 +1831,13 @@ def cmd_self_test():
             failures.append("an unresolvable evidence ref did not demote validated")
         print("assert 5 ok — unresolved evidence demotes the status (validated needs every ref)")
 
-        # assert 6 — the six faults each fire, and only their own kind. The one legal cascade:
-        # demoting the only native key on an approved surface must surface that approval gap.
-        faults = ["STALE", "ORPHAN", "UNMAPPED", "STALE-VERDICT", "STALE-EVIDENCE", "APPROVED-WITHOUT-VERDICT"]
+        # assert 6 — the seven faults each fire, and only their own kind. MOVE is one of them: a
+        # planted rename must emit MOVE, never STALE (design §5.1), and scripts/mutants/move.diff
+        # proves this assert is the thing that catches a reordering of the MOVE/STALE logic.
+        # The one legal cascade: demoting the only native key on an approved surface must surface
+        # that approval gap.
+        faults = ["STALE", "ORPHAN", "UNMAPPED", "MOVE", "STALE-VERDICT", "STALE-EVIDENCE",
+                  "APPROVED-WITHOUT-VERDICT"]
         cascade = {"STALE-VERDICT": {"APPROVED-WITHOUT-VERDICT"},
                    "STALE-EVIDENCE": {"APPROVED-WITHOUT-VERDICT"}}
         baseline = set()

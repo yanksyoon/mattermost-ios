@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """scripts/mutate-test.py — mutation certification for the parity checker.
 
-The six detectors in parity/generate.py are mutated as DATA (scripts/mutants/*.diff), each applied to
+The seven detectors in parity/generate.py are mutated as DATA (scripts/mutants/*.diff), each applied to
 a throwaway copy in isolation. A mutant must make its own planted fault stop firing, and must leave
-the other five working — that is the *sensitivity* property a self-authored assert cannot supply
-(design appendix, "verification design", item 3).
+the other six working — that is the *sensitivity* property a self-authored assert cannot supply
+(design appendix, "verification design", item 3). `move.diff` is the ordering mutant: it lets the
+declared path be finalised as missing before the content-identical survivor is resolved, so a
+planted rename reports STALE instead of MOVE (design §5.1).
 
     python3 scripts/mutate-test.py            # all mutants
     python3 scripts/mutate-test.py stale      # one, by name
@@ -27,6 +29,7 @@ EXPECTED = {
     "stale.diff": "STALE",
     "orphan.diff": "ORPHAN",
     "unmapped.diff": "UNMAPPED",
+    "move.diff": "MOVE",
     "stale_verdict.diff": "STALE-VERDICT",
     "stale_evidence.diff": "STALE-EVIDENCE",
     "approved_without_verdict.diff": "APPROVED-WITHOUT-VERDICT",

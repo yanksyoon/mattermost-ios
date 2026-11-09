@@ -1,0 +1,12 @@
+--- a/parity/generate.py
++++ b/parity/generate.py
+@@ -618,7 +618,7 @@
+             if os.path.exists(os.path.join(self.cfg.root, path)):
+                 out.append(path)
+                 continue
+             survivor = move_candidate(path, cwd=self.cfg.root)
+-            if survivor:
++            if survivor and False:
+                 self.moves[key] = (path, survivor)
+                 out.append(survivor)
+         return out

@@ -21,7 +21,7 @@ evaluated in this order:
 
     not (claim and path)                     -> absent
     not (ancestor and clean and evidence)    -> tested if test else claimed
-    otherwise                                -> native if approved else validated
+    otherwise                                -> claimed if not test; else native if approved else validated
 
 The table itself was typed out from that paragraph, one row per world, 128 rows. It is deliberately
 NOT derived from parity/generate.py: regenerating goldens from the implementation would make the
@@ -35,6 +35,13 @@ CHANGELOG
               second is `validated`. Found by the differential, NOT by copying generate.py; the
               decision is recorded as Delta 5 of the design appendix. Still needs a second reviewer
               before the next edit.
+  2026-11-09  the ladder *paragraph* above corrected to that Delta 5 form (t_93d9cafb). It read
+              `otherwise -> native if approved else validated`, which makes the test=0 worlds
+              `1 1 0 1 1 1 0` and `1 1 0 1 1 1 1` validated/native while the table says `claimed`;
+              the changelog entry above corrected the rows but not the prose. The table is unchanged
+              in this edit. scripts/differential.py check 2 now reads this docstring back and diffs
+              it against all 128 rows, so the paragraph cannot go stale again. Second reviewer:
+              required by this header — review is requested on t_93d9cafb.
 """
 
 TABLE_ORDER = ("claim", "path", "test", "ancestor", "clean", "evidence", "approved")

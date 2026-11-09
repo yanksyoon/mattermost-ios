@@ -339,6 +339,8 @@ asserts each fires with its own finding kind:
 4. a verdict whose commit is not an ancestor of HEAD → `STALE-VERDICT`
 5. a verdict citing a deleted screenshot → `STALE-EVIDENCE`
 6. a registry entry with no fresh verdict → `APPROVED-WITHOUT-VERDICT`
+7. a pure rename (identical bytes, new path) → `MOVE`, **not** `STALE` (added by t_93d9cafb;
+   `scripts/mutants/move.diff` proves this assert catches a reordering of the MOVE/STALE logic)
 
 Then it runs the generator **twice and byte-compares** the two outputs. Determinism means: sorted
 output, no timestamps in the artifact body (stamp a hash of the inputs instead), no clock, no random,
@@ -557,10 +559,11 @@ seed claims more than the artifacts support, which is B's promotion check withou
 
 ### Delta 9 — verification: the differential and the mutants are primary
 
-`--self-test` is no longer the main guarantee. It runs six runtime asserts, the six planted faults and
-a two-run byte compare; `scripts/differential.py` (128 status worlds + 10 finding worlds, against the
-hand-authored `scripts/reference.py`) and `scripts/mutate-test.py` (six detector mutations as data in
-`scripts/mutants/*.diff`) are the blocking checks. All four run in the `parity` CI job.
+`--self-test` is no longer the main guarantee. It runs six runtime asserts, the seven planted faults
+and a two-run byte compare; `scripts/differential.py` (128 status worlds + 10 finding worlds + the
+reference docstring's own ladder, against the hand-authored `scripts/reference.py`) and
+`scripts/mutate-test.py` (seven detector mutations as data in `scripts/mutants/*.diff`) are the
+blocking checks. All four run in the `parity` CI job.
 
 ### Delta 10 — the protocol rows are mapped but not claimed
 
