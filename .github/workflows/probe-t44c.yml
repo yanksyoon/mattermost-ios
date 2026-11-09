@@ -1,0 +1,75 @@
+name: probe (throwaway, t_6904c92b)
+
+# Diagnostic only: answers "does the Catalyst leg fail because of the host, or because of
+# what earlier tests leave behind?". Two jobs, the same commit, one dispatch:
+#   * isolated - only the three tests that are red on main today
+#   * full     - the whole suite as the release gate runs it
+# Deleted before the final push; it is not part of the pipeline.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: probe (${{ matrix.name }})
+    runs-on: macos-26
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: isolated
+            args: >-
+              -only-testing:MattermostTests/T44CCallsMediaTeardownQueueTests
+              -only-testing:MattermostTests/T49LoggerConcurrencyTests
+          - name: full
+            args: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Toolchain and host
+        run: |
+          xcodebuild -version
+          sw_vers
+          echo "WindowServer: $(pgrep -x WindowServer || echo none)"
+          echo "gui domain: $(launchctl print gui/$(id -u) >/dev/null 2>&1 && echo yes || echo no)"
+          echo "cpus: $(sysctl -n hw.ncpu)"
+
+      - name: Resolve packages
+        run: xcodebuild -resolvePackageDependencies -project Mattermost.xcodeproj -scheme Mattermost
+
+      - name: Unit tests
+        run: |
+          set -uo pipefail
+          LOG="$RUNNER_TEMP/probe-${{ matrix.name }}.log"
+          xcodebuild test \
+            -project Mattermost.xcodeproj \
+            -scheme Mattermost \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
+            -skip-testing:MattermostUITests \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 300 \
+            CODE_SIGNING_ALLOWED=NO \
+            ${{ matrix.args }} \
+            > "$LOG" 2>&1
+          RC=$?
+          echo "xcodebuild exit: $RC"
+          sed -n '/Failing tests:/,/TEST FAILED/p' "$LOG" | head -30
+          grep -E "Test Case .*(T44CCallsMediaTeardownQueueTests|T49LoggerConcurrencyTests).*" "$LOG" | head -20
+          grep -cE "Failed to load a display context|On-demand launch of the Window Server" "$LOG" \
+            | sed 's/^/window-server complaints: /'
+          exit $RC
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-${{ matrix.name }}
+          path: ${{ runner.temp }}/probe-${{ matrix.name }}.log
+          if-no-files-found: warn
