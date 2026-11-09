@@ -14,24 +14,25 @@ Measured on the shipped assets (2026-11-10):
 
 | File | Bytes | Notes |
 |---|---|---|
-| `native-demo.gif` | 4 779 618 | 1000×750, 12 fps, 34.3 s |
-| `native-demo-dark.gif` | 4 077 778 | 1000×750, 12 fps, 34.5 s |
-| `native-demo.mp4` | 1 388 227 | 1330×998 canvas, H.264, no audio |
-| `native-demo-dark.mp4` | 1 211 277 | 1330×998 canvas, H.264, no audio |
-| `poster.png` | 452 589 | still of the desktop segment |
-| `poster-dark.png` | 467 010 | still of the desktop segment |
+| `native-demo.gif` | 4 278 334 | 1000×750, 12 fps, 35.6 s |
+| `native-demo-dark.gif` | 4 025 003 | 1000×750, 12 fps, 34.8 s |
+| `native-demo.mp4` | 1 298 040 | 1330×998 canvas, H.264, no audio |
+| `native-demo-dark.mp4` | 1 230 785 | 1330×998 canvas, H.264, no audio |
+| `poster.png` | 451 840 | still of the desktop segment |
+| `poster-dark.png` | 467 123 | still of the desktop segment |
 
 ## The two segments
 
-1. **Desktop (Mac Catalyst), ~11 s.** The app's own window at 1330×998 pt: the grouped
+1. **Desktop (Mac Catalyst), ~12 s.** The app's own window at 1330×998 pt: the grouped
    sidebar (WORKSPACE / WEB VIEW / CHANNELS) with #Design review unread and a mention badge,
    #Town Square on launch, opening #Design review, scrolling, opening a thread, typing and
-   sending a reply, and the reply arriving in the thread. Cut on the `DEMO-BEAT` lines of
-   `TDemoCaptureUITests` (`sidebar` → `reply`) at **2.6×** so the ~29 s of XCTest-paced story
-   lands at ~11 s, as the card asks.
-2. **Phone (iPhone 16 Pro, iOS 18.3), ~23 s.** The unchanged T74 simulator-framebuffer take
-   (`xcrun simctl io recordVideo`, 1206×2622 at 1.3×). It is placed centred on the same canvas;
-   the side bands are the theme background, not a fade.
+   sending a reply, and the reply arriving in the thread. Cut on the `DEMO_BEAT` lines of
+   `TDemoCaptureUITests` (`sidebar` → `reply`) at **2.6×** so the ~32 s of XCTest-paced story
+   lands at ~12 s, as the card asks.
+2. **Phone (iPhone 16 Pro, iOS 18.3), ~23 s.** The T74 simulator-framebuffer take
+   (`xcrun simctl io recordVideo`, 1206×2622 at 1.3×), recorded from the same seed in the same
+   session. It is placed centred on the same canvas; the side bands are the theme background,
+   not a fade.
 
 There is no montage inside a segment: every frame between a segment's first and last beat
 comes from one continuous capture. The two segments are concatenated once, desktop first.
@@ -121,8 +122,9 @@ row, which the iPhone layout does not draw. They are not the phone (a narrow sin
   (sidebar → channel → thread → typed → sent), not asserted.
 * **Debug build.** The demo test needs the Debug-only `-uiTestSeededStoredToken` /
   `-surfaceMode` / `-demoFrameCapture` seams.
-* **Different recording days.** The phone segment is the 2026-11-09 take, so its clock text
-  differs from the desktop take's; the conversation, workspace and story are the same seed.
+* **Two takes, two clocks.** The segments were recorded back to back on 2026-11-10 from the
+  same seed, but the phone's status-bar clock and the desktop timestamps differ by a few
+  minutes. Nothing is re-stamped in post; the conversation and the story are identical.
 * No audio track, by design. The content is fixture data; the app talks to a real Mattermost
   9.11.19 over REST + WebSocket.
 
