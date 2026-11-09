@@ -7,6 +7,8 @@ name: probe (throwaway, t_6904c92b)
 # Deleted before the final push; it is not part of the pipeline.
 
 on:
+  push:
+    branches: [cd/t_6904c92b]
   workflow_dispatch:
 
 permissions:
