@@ -491,13 +491,48 @@ never "ok".
 
 ## Evidence
 
-Filled in from the runs on 2026-11-09 (see the card's note for the same links):
+Measured on 2026-11-09, all times UTC. The card's note (t_6904c92b) carries the same links.
 
-| what | run |
-|---|---|
-| three consecutive pushes, each publishing | pending |
-| one red push: no release, annotation names the test | pending |
-| one re-run of a released SHA: SKIP with the reason | pending |
+### Three consecutive pushes, each publishing
+
+Pushed one at a time, so each run was the tip of `main` when its release job ran:
+
+1. `93ac31d` → run [42629436355](https://github.com/yanksyoon/mattermost-ios/actions/runs/42629436355)
+   → **[v0.72.0](https://github.com/yanksyoon/mattermost-ios/releases/tag/v0.72.0)**. Six of
+   six jobs green — guard, parity, `test (catalyst)`, `test (ios-simulator)`, `tag and
+   publish`, `package Mattermost.app` — and the verdict job annotated
+   `PUBLISHED v0.72.0 - tag, generated notes and the signed Mattermost-macOS-v0.72.0.zip
+   asset are on the release (tests: success).` Asset: `Mattermost-macOS-v0.72.0.zip`,
+   31,925,466 B. The version moved `v0.71.0 → v0.72.0` (MINOR) because the push range
+   contains the `feat(release):` commit.
+
+The next two pushes add their own lines below, in the commits that follow this one.
+
+### The asset is installable by someone who is not us
+
+`v0.72.0`'s zip downloaded into a clean directory and unpacked with `ditto -x -k`:
+
+```
+$ codesign -dv --verbose=2 Mattermost-macOS-v0.72.0/Mattermost.app
+Executable=.../Mattermost.app/Contents/MacOS/Mattermost
+Identifier=com.mattermost.ios
+Format=app bundle with Mach-O universal (x86_64 arm64)
+CodeDirectory v=20400 size=81579 flags=0x2(adhoc) hashes=2543+3 location=embedded
+Signature=adhoc
+Info.plist entries=39
+TeamIdentifier=not set
+Sealed Resources version=2 rules=13 files=11
+
+$ codesign --verify --deep --strict --verbose=2 Mattermost-macOS-v0.72.0/Mattermost.app
+... Mattermost.app: valid on disk
+... Mattermost.app: satisfies its Designated Requirement
+```
+
+`CFBundleShortVersionString` is `0.72.0`, `CFBundleVersion` `188`,
+`CFBundleIdentifier` `com.mattermost.ios`, `LSMinimumSystemVersion` `14.0`;
+`xattr -p com.apple.quarantine` reports `No such xattr` (curl does not stamp one — a browser
+download does, which is why the release body's install line strips it after unpacking).
+sha256 `0b05fc33b7e5b6a8123f7cebc60838ccfbdf80a599d76401f97dca73da076b73`.
 
 ## Relationship to the board's closing gate
 
