@@ -499,6 +499,17 @@ paused scheduler. `QUIET` is printed but green, because a repository nobody push
 not a broken pipeline. A failure to *ask* the API exits 2 and says so — "cannot tell" is
 never "ok".
 
+Proof on GitHub, 2026-11-09: run
+[42646475013](https://github.com/yanksyoon/mattermost-ios/actions/runs/42646475013) (the
+workflow dispatched by hand; the schedule `17 */6 * * *` fires on the default branch, which is
+where it lives) printed `SELF-TEST: PASS`, then
+`release watchdog: OK - last release v0.72.2 was published 0.6 h ago (window 24 h)` and the
+same line as a `::notice::`. The alarm path, run against the same API with the window forced
+to zero, printed
+`STALE - no release in 0.7 h (last: v0.72.2) and main has moved since it (main 95cd4844,
+released 17278e6d) - pushes are not reaching main, or the pipeline is not publishing`
+and exited 1 — a red report, not a switch.
+
 ## Evidence
 
 Measured on 2026-11-09, all times UTC. The card's note (t_6904c92b) carries the same links.
@@ -553,6 +564,27 @@ after it) and pushed it to `main`: run
   It names the test, quotes the assertion, and does **not** say "Environment, not product" —
   the log for that run carries WebKit refusal lines, which is exactly the case the old rule
   mis-filed.
+
+### A re-run of the same SHA: SKIP, never a second release
+
+The red commit's correction (`95cd484`, which also drops the probe test) produced
+run [42646382529](https://github.com/yanksyoon/mattermost-ios/actions/runs/42646382529) →
+**[v0.72.3](https://github.com/yanksyoon/mattermost-ios/releases/tag/v0.72.3)**, six of six
+jobs green.
+
+Re-running that commit's release job (`gh run rerun 42646382529 --job 129275826419`, while
+`95cd484` was still the tip) produced, as the check-run annotation:
+
+```
+SKIP: already published: v0.72.3 at 95cd4844 - nothing to do (re-run or duplicate delivery
+of a commit that already has its release)
+```
+
+and the release list still held exactly one `v0.72.3` (target `95cd484`), so the second
+attempt cut nothing. Only the release job was re-run here, to keep the macOS minutes down: a
+full re-run would execute the gate again first and then take this same path — the decision is
+`git tag --points-at HEAD` plus `gh release view`, neither of which depends on which pass
+failed or how the run was started.
 
 ### The asset is installable by someone who is not us
 
