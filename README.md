@@ -1,7 +1,7 @@
 <h1><img src="docs/media/logo.png" alt="Mattermost native client app icon" width="44" align="absmiddle">&nbsp;&nbsp;Mattermost for Mac &amp; iOS</h1>
 
-[![Release](https://img.shields.io/github/v/release/yanksyoon/mattermost-ios?style=for-the-badge&logo=github&label=release)](https://github.com/yanksyoon/mattermost-ios/releases)
-[![CI](https://img.shields.io/github/actions/workflow/status/yanksyoon/mattermost-ios/release.yml?branch=main&style=for-the-badge&logo=github&label=CI)](https://github.com/yanksyoon/mattermost-ios/actions/workflows/release.yml)
+[![Release](https://img.shields.io/github/v/release/yanksyoon/mattermost-ios?style=for-the-badge&logo=github&label=release)](https://github.com/yanksyoon/mattermost-ios/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/yanksyoon/mattermost-ios/release.yml?branch=main&style=for-the-badge&logo=github&label=CI)](https://github.com/yanksyoon/mattermost-ios/actions/workflows/release.yml?query=branch%3Amain)
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20%7C%20iOS%2017%2B-blue?style=for-the-badge&logo=apple)](https://github.com/yanksyoon/mattermost-ios)
 [![License](https://img.shields.io/badge/license-personal%20project-lightgrey?style=for-the-badge)](README.md#licence)
 

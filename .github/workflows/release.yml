@@ -2,9 +2,11 @@ name: release
 
 # Push to main -> run the tests -> publish a release.
 #
-# The release job only runs when every test leg is green, and the version is cut
-# automatically at the MINOR position (v0.2.0 -> v0.3.0, patch reset to 0).
-# See scripts/release_version.py and scripts/release_notes.py.
+# The release job only runs when every test leg is green, and the version moves by the
+# position the commit history earns (Conventional Commits): a `feat:` in the push is a
+# MINOR bump, anything else - `fix:`, `docs:`, `test:`, `chore:`, a merge - is a PATCH
+# bump. Every push still publishes. See scripts/release_version.py and
+# scripts/release_notes.py, and docs/releasing.md for the trade-off.
 #
 # Guarantees:
 #   * tests gate the release - a red suite means no tag, no release, no notes
@@ -12,6 +14,9 @@ name: release
 #     so a re-run or duplicate delivery is a no-op, never a second release
 #   * serialised - concurrent pushes queue instead of racing for the same tag
 #   * self-testing - the version, note and push-gate rules are proven before tagging
+#   * every skip says why - the guard, the release job and the closing `verdict` job
+#     write the reason to the run page as an annotation and a summary line, so nobody
+#     has to read a red X and guess (t_6904c92b)
 #
 # CI uses macos-26, whose default Xcode is 26.6 (17F113) - the same build the app is
 # developed against locally, so this is the real toolchain and not a stand-in.
@@ -83,6 +88,36 @@ jobs:
           python3 scripts/ci_plan.py --head "$HEAD_SHA" --tip "$TIP" \
             --changed-files "$CHANGED" --format github-env \
             --summary-file "$GITHUB_STEP_SUMMARY" | tee -a "$GITHUB_OUTPUT"
+
+      # The decision is written on the run itself, not only in a job log a reader has to
+      # open: an annotation is the sentence that shows on the run page, and the summary
+      # is what the run's "Summary" tab shows first (t_6904c92b).
+      - name: Say the decision on the run
+        if: always()
+        env:
+          IS_TIP: ${{ steps.plan.outputs.is_tip }}
+          RUN_TESTS: ${{ steps.plan.outputs.run_tests }}
+          DOCS_ONLY: ${{ steps.plan.outputs.docs_only }}
+          REASON: ${{ steps.plan.outputs.reason }}
+        run: |
+          set -euo pipefail
+          SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          if [ -z "${REASON:-}" ]; then
+            echo "::error::the guard produced no decision - refusing to guess (ls-remote or ci_plan failed above)"
+            { echo ""; echo "**guard:** no decision - the pipeline is blocked before any macOS minutes."; } >> "$SUMMARY"
+            exit 1
+          fi
+          if [ "$IS_TIP" = "true" ] && [ "$RUN_TESTS" = "true" ]; then
+            LINE="tests run, then release, then package - ${REASON}"
+            echo "::notice::guard: ${LINE}"
+          elif [ "$IS_TIP" = "true" ]; then
+            LINE="test legs skipped by policy (${REASON}); the release and the package job still run"
+            echo "::notice::guard: ${LINE}"
+          else
+            LINE="SKIP: this push is superseded (${REASON}); no macOS minutes spent, the tip run releases"
+            echo "::notice::${LINE}"
+          fi
+          { echo ""; echo "**guard:** ${LINE}"; } >> "$SUMMARY"
 
   # Parity record — cheap, Linux, no network, no platform build. Report mode first (design
   # docs/parity-map-design.md §4.4): a mapping finding does not fail the build while the claims
@@ -209,6 +244,21 @@ jobs:
             # "FAIL" — t_d398053f §7), then the old generic sentence as the fallback.
             FAILING_TESTS=$(sed -n '/^Failing tests:/,/^$/p' "$LOG" | head -20 || true)
             TIMEOUT_LINES=$(grep -E "exceeded execution time allowance" "$LOG" | head -5 || true)
+            # A hosted macOS VM has no window server, so every WKWebView's WebContent
+            # process fails to launch:
+            #   [DisplayConfigurationFetch] WebContent[..] Failed to load a display context,
+            #     even though we are not a headless app.
+            #   [DisplayConfigurationFetch] WebContent[..] On-demand launch of the Window
+            #     Server is allowed for root user only.
+            # A test that waits for a signal a wedged WebKit never delivers then fails, and
+            # "no window server on this runner" is a different sentence from "a test
+            # failed" - the reader must be told which (t_6904c92b). Detected from the log
+            # itself, so it needs no flag and cannot drift away from the runner's reality.
+            NO_DISPLAY=""
+            if grep -q "On-demand launch of the Window Server is allowed for root user only" "$LOG" \
+               || grep -q "Failed to load a display context" "$LOG"; then
+              NO_DISPLAY="yes"
+            fi
             NAMED=$(printf '%s\n' "$FAILING_TESTS" \
               | sed -n 's/^[[:space:]]*\(.*\)[[:space:]]*()$/\1/p' | head -1 || true)
             if [ -z "$NAMED" ]; then
@@ -233,10 +283,28 @@ jobs:
                 | grep -m1 -o "exceeded execution time allowance of [^.]*" || true)
             fi
             if [ -n "$NAMED" ]; then
-              echo "::error::test (${{ matrix.name }}): $NAMED${REASON:+ ($REASON)}"
+              if [ -n "$NO_DISPLAY" ]; then
+                echo "::error::test (${{ matrix.name }}): no window server on this runner - $NAMED failed or timed out while WebKit could not start its WebContent process (\"Failed to load a display context\" / \"On-demand launch of the Window Server is allowed for root user only\"). Environment, not product: run this leg on a host with a GUI session - see docs/releasing.md, \"The window-server caveat\"."
+              else
+                echo "::error::test (${{ matrix.name }}): $NAMED${REASON:+ ($REASON)}"
+              fi
             else
-              echo "::error::TEST SUCCEEDED not found in the ${{ matrix.name }} log"
+              if [ -n "$NO_DISPLAY" ]; then
+                echo "::error::test (${{ matrix.name }}): no window server on this runner and no test name in the log - WebKit's WebContent process never started (\"Failed to load a display context\"). Environment, not product."
+              else
+                echo "::error::TEST SUCCEEDED not found in the ${{ matrix.name }} log"
+              fi
             fi
+            # The same sentence on the run page, plus what the reader needs to reproduce it.
+            {
+              echo ""
+              echo "### test (${{ matrix.name }}): RED"
+              # shellcheck disable=SC2016  # the backticks are markdown, not a subshell
+              echo "- first failing test: \`${NAMED:-<no test name in the log>}\`"
+              if [ -n "$NO_DISPLAY" ]; then
+                echo "- **no window server on this runner**: WebKit reported \`Failed to load a display context\` and \`On-demand launch of the Window Server is allowed for root user only\`."
+              fi
+            } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
             # The detail stays in the step log, where GitHub truncates nothing.
             if [ -n "$FAILING_TESTS" ]; then printf '%s\n' "$FAILING_TESTS"; fi
             if [ -n "$TIMEOUT_LINES" ]; then printf '%s\n' "$TIMEOUT_LINES"; fi
@@ -249,6 +317,11 @@ jobs:
           echo "--- result summary ---"
           grep -E "Executed [0-9]+ tests" "$LOG" | tail -3 || true
           grep -E "^\*\* TEST" "$LOG" | tail -1 || true
+          {
+            echo ""
+            echo "### test (${{ matrix.name }}): green"
+            echo "- $(grep -E "Executed [0-9]+ tests" "$LOG" | tail -1 || echo 'no suite count in the log')"
+          } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 
       - name: Upload log
         if: always()
@@ -291,6 +364,8 @@ jobs:
     # macOS minutes on a zip with nowhere to go, the package job is skipped.
     outputs:
       published: ${{ steps.publish.outputs.published }}
+      reason: ${{ steps.publish.outputs.reason }}
+      tag: ${{ steps.publish.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -311,12 +386,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          # What actually happened on the gate, so the release body cannot claim "green"
+          # for a push whose legs were skipped by the docs-only policy.
+          TESTS: ${{ needs.test.result }}
         run: |
           set -euo pipefail
           # Default is "no release for this commit": every path that publishes overrides
           # it. A caller (the package job) reads this, so an unset output can never be
           # mistaken for a published release.
           echo "published=false" >> "${GITHUB_OUTPUT:-/dev/null}"
+          echo "reason=none" >> "${GITHUB_OUTPUT:-/dev/null}"
+          echo "tag=" >> "${GITHUB_OUTPUT:-/dev/null}"
+
+          # Every path that does not publish says why, on the run itself: an annotation
+          # for the run page and a line for the run's summary tab. A reader seeing a
+          # skipped tag-and-publish must not have to open a job to learn the reason
+          # (t_6904c92b). `$2` is the machine word the verdict job reads.
+          skip() { # $1 = sentence, $2 = reason word
+            echo "::notice::SKIP: $1"
+            echo "reason=$2" >> "${GITHUB_OUTPUT:-/dev/null}"
+            { echo ""; echo "**release:** SKIP - $1"; } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+          }
+
           git fetch --tags --force --quiet
           SHA=$(git rev-parse HEAD)
           SHORT=$(git rev-parse --short=8 HEAD)
@@ -327,7 +418,7 @@ jobs:
           # commit, putting the ladder out of order (v0.6.0 on a commit below v0.5.0).
           TIP=$(git ls-remote origin refs/heads/main | cut -f1)
           if [ "$TIP" != "$SHA" ]; then
-            echo "$SHORT is not the tip of main (${TIP:0:8}); superseded, no release cut."
+            skip "$SHORT is not the tip of main (${TIP:0:8}); superseded, no release cut." superseded
             exit 0
           fi
 
@@ -363,10 +454,12 @@ jobs:
               | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
             if [ -z "$EXISTING" ]; then
               echo "::error::SKIP with no release tag on HEAD $SHORT (a non-release tag, such as a pre-release suffix, is on HEAD; nothing cut - delete the tag or push a new commit)"
+              echo "reason=non-release-tag" >> "${GITHUB_OUTPUT:-/dev/null}"
+              { echo ""; echo "**release:** REFUSED - only a non-release tag (a pre-release suffix) is on HEAD; nothing cut."; } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
               exit 1
             fi
             if gh release view "$EXISTING" --repo "$REPO" >/dev/null 2>&1; then
-              echo "already published: $EXISTING at $SHORT - nothing to do"
+              skip "already published: $EXISTING at $SHORT - nothing to do (re-run or duplicate delivery of a commit that already has its release)" already-published
               echo "published=true" >> "${GITHUB_OUTPUT:-/dev/null}"
               exit 0
             fi
@@ -380,6 +473,9 @@ jobs:
             PREV=$(git describe --tags --abbrev=0 "$SHA^" 2>/dev/null || echo "")
           fi
 
+          # The tag is now decided (new, or an existing tag whose release is incomplete).
+          echo "tag=$TAG" >> "${GITHUB_OUTPUT:-/dev/null}"
+
           # Notes come from commit subjects plus any PR references inside them, so this
           # works whether commits arrive directly or through pull requests.
           if [ -n "$PREV" ]; then
@@ -388,10 +484,28 @@ jobs:
             python3 scripts/release_notes.py --to "$SHA" --repo "$REPO" > /tmp/notes.md || true
           fi
           [ -s /tmp/notes.md ] || echo "Release $TAG at $SHA." > /tmp/notes.md
+          ASSET="Mattermost-macOS-${TAG}.zip"
           {
             echo ""
-            echo "**Verified** on Xcode 26.6 (17F113): unit suites green on iOS Simulator and Mac Catalyst."
+            # Say what actually ran. A docs-only push skips both test legs by policy
+            # (gap G2), and a release body that claimed "suites green" for it would be a
+            # claim nobody made (t_6904c92b).
+            if [ "${TESTS:-}" = "skipped" ]; then
+              echo "**Tests:** skipped for this push - documentation only (policy in docs/releasing.md)."
+            elif [ "${TESTS:-}" = "success" ]; then
+              echo "**Verified** on Xcode 26.6 (17F113): unit suites green on iOS Simulator and Mac Catalyst."
+            else
+              echo "**Tests:** see the workflow run for this commit."
+            fi
             echo "**Full Changelog**: https://github.com/${REPO}/compare/${PREV:-root}...$TAG"
+            echo ""
+            echo "### Install (one line, macOS)"
+            echo ""
+            echo '```bash'
+            echo "curl -fL -o /tmp/mm.zip https://github.com/${REPO}/releases/download/${TAG}/${ASSET} && rm -rf /tmp/mm-unz /Applications/Mattermost.app && ditto -x -k /tmp/mm.zip /tmp/mm-unz && xattr -dr com.apple.quarantine /tmp/mm-unz/Mattermost-macOS-${TAG}/Mattermost.app && cp -R /tmp/mm-unz/Mattermost-macOS-${TAG}/Mattermost.app /Applications/ && open /Applications/Mattermost.app"
+            echo '```'
+            echo ""
+            echo "The app is ad-hoc signed, not notarized (\`codesign --force --deep -s -\`, no Apple Developer account), so the one line above clears the quarantine bit for you. Downloading it by hand instead needs the same step; see \`docs/installing.md\`."
           } >> /tmp/notes.md
 
           # shellcheck disable=SC2086  # TARGET_ARGS is a deliberate word-split flag list
@@ -414,6 +528,8 @@ jobs:
           gh release view "$TAG" --repo "$REPO" --json tagName,isDraft,url \
             --jq '"published \(.tagName) -> \(.url)"'
           echo "published=true" >> "${GITHUB_OUTPUT:-/dev/null}"
+          echo "reason=published" >> "${GITHUB_OUTPUT:-/dev/null}"
+          { echo ""; echo "**release:** PUBLISHED \`$TAG\` at \`$SHORT\`"; } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
           echo "RELEASE CREATED: $TAG at $SHORT"
 
   package:
@@ -588,3 +704,77 @@ jobs:
           name: mattermost-macos-app
           path: ${{ runner.temp }}/*.zip
           if-no-files-found: error
+
+  # The one sentence a reader needs, on the run itself.
+  #
+  # Before this job existed a run that published nothing showed a red X on a test job and
+  # two grey "skipped" boxes, and the reason lived in a log line somebody had to know to
+  # look for. Every outcome now lands in the run summary and as an annotation on this job
+  # (t_6904c92b): published, skipped (superseded / already published), refused, or blocked
+  # (tests red, guard could not decide). It never changes the outcome - it explains it.
+  verdict:
+    name: verdict (why this run released or did not)
+    needs: [guard, parity, test, release, package]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: State the outcome in one sentence
+        env:
+          GUARD: ${{ needs.guard.result }}
+          PARITY: ${{ needs.parity.result }}
+          TEST: ${{ needs.test.result }}
+          RELEASE: ${{ needs.release.result }}
+          PACKAGE: ${{ needs.package.result }}
+          REASON: ${{ needs.release.outputs.reason }}
+          TAG: ${{ needs.release.outputs.tag }}
+          PUBLISHED: ${{ needs.release.outputs.published }}
+        run: |
+          set -euo pipefail
+          SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          if [ "$GUARD" != "success" ]; then
+            LINE="BLOCKED: the guard could not decide ($GUARD) - nothing ran. See the guard job's annotation."
+            echo "::error::$LINE"
+          elif [ "$REASON" = "published" ] || [ "$PUBLISHED" = "true" ]; then
+            if [ "$PACKAGE" = "success" ]; then
+              LINE="PUBLISHED ${TAG:-a release} - tag, generated notes and the signed Mattermost-macOS-${TAG}.zip asset are on the release (tests: $TEST)."
+            else
+              LINE="PUBLISHED ${TAG:-a release} WITHOUT the app asset (package: $PACKAGE) - read the package job before telling anyone to download it."
+              echo "::warning::$LINE"
+            fi
+            echo "::notice::$LINE"
+          elif [ "$REASON" = "already-published" ]; then
+            LINE="SKIP: this commit already has its release ${TAG:-} - a re-run or a duplicate delivery never cuts a second one. Nothing was published."
+            echo "::notice::$LINE"
+          elif [ "$REASON" = "superseded" ]; then
+            LINE="SKIP: this push was superseded by a newer commit on main before it reached the release stage. Nothing was published; the tip run releases."
+            echo "::notice::$LINE"
+          elif [ "$TEST" = "failure" ]; then
+            LINE="BLOCKED: the test gate is red on this push, so no tag and no release were cut. The test job's annotation names the failing test (and says so when the cause is a runner without a window server)."
+            echo "::error::$LINE"
+          elif [ "$TEST" = "cancelled" ]; then
+            LINE="BLOCKED: the test gate was cancelled, so nothing was released."
+            echo "::error::$LINE"
+          elif [ "$RELEASE" = "failure" ]; then
+            LINE="BLOCKED: the release stage failed - read its annotation; published=false, so the package job did not build anything."
+            echo "::error::$LINE"
+          elif [ "$RELEASE" = "skipped" ]; then
+            LINE="SKIP: the release job did not run (guard said is_tip=false, or the docs-only policy and a red leg disagreed). tests=$TEST release=$RELEASE."
+            echo "::warning::$LINE"
+          else
+            LINE="NO RELEASE: tests=$TEST release=$RELEASE package=$PACKAGE - read the job above that is not green."
+            echo "::warning::$LINE"
+          fi
+          {
+            echo ""
+            echo "### verdict"
+            echo ""
+            echo "$LINE"
+            echo ""
+            echo "| job | result |"
+            echo "|---|---|"
+            echo "| parity record | $PARITY |"
+            echo "| test legs | $TEST |"
+            echo "| release (tag and publish) | $RELEASE |"
+            echo "| package (Mattermost.app) | $PACKAGE |"
+          } >> "$SUMMARY"

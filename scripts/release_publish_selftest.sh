@@ -120,7 +120,11 @@ seed() { # $1 = scenario dir, $2 = commit to take the scripts/workflow from (opt
     git tag v0.4.0
     echo two >> f
     git add -A
-    git commit -qm "c2: the commit under test"
+    # A `feat:` subject, because scripts/release_version.py derives the bump position from
+    # the commit history (Conventional Commits): v0.4.0 + one feat is v0.5.0. The old
+    # fixture said "c2: the commit under test" and expected the same tag, from the days
+    # when every push bumped the minor position whatever it contained.
+    git commit -qm "feat: the commit under test"
     git remote add origin "$base/origin.git"
     git push -q origin main --tags
   ) || return 1

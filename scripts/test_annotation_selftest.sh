@@ -170,6 +170,25 @@ xcodebuild: error: Unable to find a destination matching the provided destinatio
 ** TEST FAILED **
 EOF
 
+# Real: run 42608725459, job test (catalyst), 2026-11-09T11:30:44-11:35:20. The hosted macOS
+# VM has no window server, so every WebKit WebContent process fails to launch; the tests that
+# wait on a signal WebKit never delivers then fail, and the log carries no product assertion
+# at all. "No window server" is a different sentence from "a test failed" (t_6904c92b).
+cat > "$WORK/red-no-display.log" <<'EOF'
+Test Case '-[MattermostTests.T44CCallsMediaTeardownQueueTests testOneHeldCloseDoesNotHoldUpTheNextCallsClose]' started.
+2026-11-09 11:30:44.465126+0000 Mattermost[13460:41359] [DisplayConfigurationFetch] WebContent[13750] Failed to load a display context, even though we are not a headless app.
+2026-11-09 11:30:44.471433+0000 Mattermost[13460:41359] WebContent[13749] Server root port lookup error - bootstrap: not privileged
+2026-11-09 11:30:44.471564+0000 Mattermost[13460:41359] WebContent[13749] On-demand launch of the Window Server is allowed for root user only.
+/Users/runner/work/mattermost-ios/mattermost-ios/MattermostTests/T44CCallsMediaTeardownQueueTests.swift:111: error: -[MattermostTests.T44CCallsMediaTeardownQueueTests testOneHeldCloseDoesNotHoldUpTheNextCallsClose] : XCTAssertTrue failed - timed out after 30s waiting for the first close to start
+Test Case '-[MattermostTests.T44CCallsMediaTeardownQueueTests testOneHeldCloseDoesNotHoldUpTheNextCallsClose]' failed (150.231 seconds).
+Failing tests:
+	T44CCallsMediaTeardownQueueTests.testOneHeldCloseDoesNotHoldUpTheNextCallsClose()
+
+** TEST FAILED **
+
+Testing started
+EOF
+
 # Real: the green catalyst leg of run 40906839823 (the suite's own summary line).
 cat > "$WORK/green.log" <<'EOF'
 Test Suite 'MattermostTests.xctest' passed at 2026-10-29 16:57:00.000.
@@ -211,7 +230,17 @@ expect "emits no annotation" annotation_count_is green 0
 expect "prints the runner's own summary" out_has green 'Executed 1777 tests, with 9 tests skipped and 0 failures'
 expect "prints the verdict" out_has green '** TEST SUCCEEDED **'
 
-say "== 6. negative control: the pre-fix body must NOT name the test =="
+say "== 6. red with no window server: the annotation names the environment, not a product bug =="
+run_case red-no-display catalyst "$WORK/red-no-display.log"
+expect "exits 1" rc_is red-no-display 1
+expect "one annotation" annotation_count_is red-no-display 1
+expect "it says there is no window server and names the test" out_has red-no-display \
+  '::error::test (catalyst): no window server on this runner - T44CCallsMediaTeardownQueueTests.testOneHeldCloseDoesNotHoldUpTheNextCallsClose'
+expect "it says environment, not product" out_has red-no-display 'Environment, not product'
+expect_absent "it is not the generic sentence" annotation_is red-no-display \
+  '::error::TEST SUCCEEDED not found in the catalyst log'
+
+say "== 7. negative control: the pre-fix body must NOT name the test =="
 # The defect this card fixed: a fixed "::error::" sentence. Rebuild it and replay it against
 # fixture 1. If it names the test, the checks above are green by construction.
 sed 's|^\( *\)echo "::error::test .*$|\1echo "::error::TEST SUCCEEDED not found in the ${{ matrix.name }} log"|' \
