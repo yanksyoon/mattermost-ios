@@ -234,6 +234,14 @@ leg, and every pass is a gate:
 self-test (green / hung / asserted / unknown, including "an assertion outranks a hang in the
 same log"). The gate and timing passes both go through `scripts/test_verdict.sh`.
 
+One more thin test surfaced on the first real run of this gate (run `42623940630`, 13:51Z,
+2026-11-09): `T41ProfileTests.testThePresenceLoopStopsWhenItsTaskIsCancelled` slept 220 ms
+and then required that two polls had happened — one poll in 220 ms on the loaded simulator,
+so a working loop red the leg. That is a host measurement, not a loop property: it now waits
+for the second poll with a 10 s hang detector and stops as soon as it lands (the
+`TestSignal` contract this repo already uses, T28TestSupport). It was **not** moved into the
+timing pass, because the fix belongs in the test, not in the split.
+
 **What is not certified on CI, said out loud:** a **hang** in the four platform-service
 classes is reported, not failed — so a Catalyst-only webview path (AppKit window,
 `NSWorkspace`, pasteboard, the real cookie store) can regress on a runner where WebKit never

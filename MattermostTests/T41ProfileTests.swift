@@ -733,6 +733,15 @@ final class T41ProfileTests: XCTestCase {
 
     /// The loop stops when its task is cancelled — that is what closes the requests when the sheet
     /// goes away, and it is the only reason a poll is acceptable at all.
+    ///
+    /// "It polls while it runs" is a *property wait*, not a latency budget (the `TestSignal`
+    /// contract, T28TestSupport). This test used to sleep 220 ms and then require that two
+    /// polls had happened — a statement about the host, not about the loop. Run 42623940630
+    /// (2026-11-09, 3-vCPU iOS Simulator) recorded one poll in that window and red a loop
+    /// that was working: the first iteration took longer than the sleep. The wait is now
+    /// bounded at 10 s and stops as soon as the second poll lands, so a slow host costs time
+    /// instead of a false red, and a loop that really stopped polling still reds it — after
+    /// the hang detector rather than after 220 ms.
     func testThePresenceLoopStopsWhenItsTaskIsCancelled() async {
         let service = FakeProfileService()
         service.profiles[otherID] = profile(id: otherID)
@@ -742,8 +751,13 @@ final class T41ProfileTests: XCTestCase {
         let readsAfterLoad = service.statusRequests.count
 
         let task = Task { await model.runPresenceUpdates(interval: 0.05) }
-        // Let at least two periods elapse, then stop.
-        try? await Task.sleep(nanoseconds: 220_000_000)
+        // Wait for the *property* (a second poll), not for the clock: 10 s is a hang
+        // detector, not a budget, and the loop's 50 ms interval normally satisfies it in
+        // well under 200 ms.
+        let deadline = Date().addingTimeInterval(10)
+        while service.statusRequests.count - readsAfterLoad < 2, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
         task.cancel()
         await task.value
         let readsWhenCancelled = service.statusRequests.count
