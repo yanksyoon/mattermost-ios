@@ -1,6 +1,6 @@
 import Foundation
 
-// The OS-side fact the app has never been able to see (card t_e4d5a252).
+// The OS-side fact the app has never been able to see (cards t_e4d5a252, t_54798d27).
 //
 // Why this exists: on macOS a locally-built Catalyst app is re-signed ad-hoc on every install
 // (`codesign --force --deep -s -`). That changes the code identity, and the system's notification
@@ -8,50 +8,84 @@ import Foundation
 // app's own authorization record, not from the table the delivery daemon reads, so an install can
 // read "allowed" in the app while the system has nowhere to put a banner.
 //
-// ## Which file is the table (measured 2026-11-05, macOS 26.3.1)
+// ## What the probe reads, and what it can actually see (measured 2026-11-09, macOS 26.3.1)
 //
-// There are two candidate stores, and the obvious one is stale on this OS:
+// Two plists carry a per-bundle `apps` array:
 //
-//   * `~/Library/Preferences/com.apple.ncprefs.plist` — the legacy per-app table. Its mtime is
-//     **2026-02-25**, and it contains no app registered after that date: Firefox (installed
-//     2026-09-17), ego lite (09-08), Cap (05-13), CapCut (03-15) and this bundle (11-05) are all
-//     missing from it, while every one of them has a row in the live store. Reading only this file
-//     would report "not registered" for every app installed this year.
 //   * `~/Library/Group Containers/group.com.apple.usernoted/Library/Preferences/
-//     group.com.apple.usernoted.plist` — the live table, written whenever an app registers or
-//     re-registers (mtime 2026-11-05 21:20 during this card). It carries the same `apps` array
-//     shape, one dictionary per bundle, with `bundle-id`, `path`, `auth`, `flags` and a `src` list
-//     of code requirements. `com.mattermost.ios` **is** in it, with one `src` entry per ad-hoc
-//     build this checkout has ever produced.
+//     group.com.apple.usernoted.plist` — the live table the delivery daemon maintains. This bundle
+//     **is** in it (verified from a Terminal with `plutil`, and the daemon's own database
+//     `group.com.apple.usernoted/db2/db` has `app.identifier = com.mattermost.ios`).
+//   * `~/Library/Preferences/com.apple.ncprefs.plist` — the legacy table. It stopped being written
+//     on 2026-02-25 on this host and does not contain this bundle (only `Mattermost.Desktop`).
 //
-// So the reader prefers the live table and falls back to the legacy one (older macOS, or a host
-// that keeps ncprefs current). Only when **both** readable tables lack the bundle is the answer
-// `.notRegistered`; when neither can be read it is `.unknown`, which is never rendered as a
-// failure — a phone has no such table at all.
+// **But the app cannot read the live table.** A LaunchServices-launched app bundle (the shipping
+// shape of this app, sandbox entitlements or not) gets `EPERM` on everything inside
+// `group.com.apple.usernoted` — `fileExists` is true, `isReadableFile` is false, `Data(contentsOf:)`
+// fails with `NSCocoaErrorDomain 257` / `errno 1`. The same binary run directly from a terminal can
+// read it. `t_54798d27` measured both shapes with an instrumented Catalyst probe. So, inside the
+// app, the only readable table is the legacy one, and "this bundle is not in a table I could read"
+// is a statement about **what the app can see**, not about whether the OS registered it.
+//
+// At the same time the app is demonstrably working: the daemon's `record` table holds 12 rows for
+// this bundle with `presented = 1`, the most recent on 2026-11-09, and its `app` row carries a
+// non-zero badge. So "no row in the readable table" must never be rendered as "nothing can appear".
+//
+// That is why the failure-ish case is named `.settingsRowAbsent`, not `.notRegistered`: the old
+// token claimed something the probe cannot know. The probe also reports, per table, whether the row
+// was found, the table was readable and lacked it, was missing, or existed but could not be read —
+// `tables=usernoted:unreadable,ncprefs:absent` is the diagnostics shape on this OS.
 
-/// Whether the OS holds a notification-registration row for this app's bundle.
+/// Whether a readable OS notification table holds a row for this app's bundle.
 enum NotificationRegistration: Equatable {
-    /// The bundle has a row in a readable system notification table.
+    /// A readable table names the bundle.
     case registered
-    /// Every readable table exists and this bundle is **not** in any of them.
-    case notRegistered
-    /// No table can be read (no such file, an unparsable file, or a platform without one). Never
-    /// rendered as a failure.
+    /// No readable table names the bundle. This says **nothing** about whether the OS registered
+    /// the app: on macOS 26 the authoritative table is unreadable from inside an app bundle, so the
+    /// only fact established is that no readable settings row exists.
+    case settingsRowAbsent
+    /// No table could be parsed at all (no such file, an unparsable file, or a platform without
+    /// one). Never rendered as a failure.
     case unknown
 
     /// The token the diagnostics line and the shareable report carry.
     var diagnosticsToken: String {
         switch self {
         case .registered: return "registered"
-        case .notRegistered: return "notRegistered"
+        case .settingsRowAbsent: return "settingsRowAbsent"
         case .unknown: return "unknown"
         }
     }
 }
 
-/// The seam: an object that can say whether the OS has registered this bundle.
+/// What the probe saw, per table, in one value.
+///
+/// `tableSummary` is a comma-joined list in the reader's precedence order, e.g.
+/// `usernoted:unreadable,ncprefs:absent` or `usernoted:row`. It exists because the *reason* a row
+/// was not found is the difference between "the app cannot read the store" and "the store has no
+/// row" — the two states t_54798d27 could not tell apart.
+struct NotificationRegistrationProbe: Equatable {
+    var state: NotificationRegistration
+    var tableSummary: String
+
+    init(state: NotificationRegistration, tableSummary: String = "") {
+        self.state = state
+        self.tableSummary = tableSummary
+    }
+}
+
+/// The seam: an object that can say what the OS tables hold for this bundle.
 protocol NotificationRegistrationReading {
     func registrationState() -> NotificationRegistration
+    /// The same answer plus the per-table detail the diagnostics line carries.
+    func registrationProbe() -> NotificationRegistrationProbe
+}
+
+extension NotificationRegistrationReading {
+    /// A reader with no table detail (tests, fixed answers) still reports the state.
+    func registrationProbe() -> NotificationRegistrationProbe {
+        NotificationRegistrationProbe(state: registrationState())
+    }
 }
 
 /// The real reader: parses the `apps` array of the system's notification tables.
@@ -60,7 +94,7 @@ protocol NotificationRegistrationReading {
 /// instead of the host's live table.
 struct SystemNotificationRegistrationReader: NotificationRegistrationReading {
     /// The tables to consult, in precedence order. The first one that names the bundle answers
-    /// `.registered`; `.notRegistered` requires **all readable** tables to lack it.
+    /// `.registered`; `.settingsRowAbsent` means no **readable** table names it.
     var tables: [URL]
     var bundleIdentifier: String
 
@@ -92,21 +126,52 @@ struct SystemNotificationRegistrationReader: NotificationRegistrationReading {
     }
 
     func registrationState() -> NotificationRegistration {
-        guard !bundleIdentifier.isEmpty else { return .unknown }
+        registrationProbe().state
+    }
+
+    func registrationProbe() -> NotificationRegistrationProbe {
+        guard !bundleIdentifier.isEmpty else {
+            return NotificationRegistrationProbe(state: .unknown)
+        }
+        var outcomes: [String] = []
         var readAnyTable = false
-        for url in tables {
-            guard let data = FileManager.default.contents(atPath: url.path),
-                  let plist = try? PropertyListSerialization.propertyList(from: data, format: nil),
+        for (index, url) in tables.enumerated() {
+            let name = Self.tableName(for: url, index: index)
+            guard let data = FileManager.default.contents(atPath: url.path) else {
+                // A table that exists but cannot be read (EPERM inside a LaunchServices app) is
+                // not evidence of absence; record it so the diagnostics say which it was.
+                let exists = FileManager.default.fileExists(atPath: url.path)
+                outcomes.append("\(name):\(exists ? "unreadable" : "missing")")
+                continue
+            }
+            guard let plist = try? PropertyListSerialization.propertyList(from: data, format: nil),
                   let root = plist as? [String: Any],
                   let apps = root["apps"] as? [[String: Any]] else {
+                outcomes.append("\(name):unreadable")
                 continue
             }
             readAnyTable = true
             if apps.contains(where: { ($0["bundle-id"] as? String) == bundleIdentifier }) {
-                return .registered
+                outcomes.append("\(name):row")
+                return NotificationRegistrationProbe(state: .registered,
+                                                      tableSummary: outcomes.joined(separator: ","))
             }
+            outcomes.append("\(name):absent")
         }
-        return readAnyTable ? .notRegistered : .unknown
+        let state: NotificationRegistration = readAnyTable ? .settingsRowAbsent : .unknown
+        return NotificationRegistrationProbe(state: state, tableSummary: outcomes.joined(separator: ","))
+    }
+
+    /// A stable short name for the log: the two real tables get their familiar names, a custom
+    /// fixture keeps its file stem so a test failure still says which table answered.
+    static func tableName(for url: URL, index: Int) -> String {
+        switch url.lastPathComponent {
+        case "group.com.apple.usernoted.plist": return "usernoted"
+        case "com.apple.ncprefs.plist": return "ncprefs"
+        default:
+            let stem = url.deletingPathExtension().lastPathComponent
+            return stem.isEmpty ? "table\(index)" : stem
+        }
     }
 }
 

@@ -58,14 +58,22 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     /// Latest authorization status, surfaced for Settings UI (T11).
     @Published private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
-    /// Whether macOS has a notification-registration row for this bundle (card t_e4d5a252).
+    /// Whether a **readable** macOS notification settings table has a row for this bundle (cards
+    /// t_e4d5a252, t_54798d27).
     ///
-    /// This is deliberately separate from `authorizationStatus`: the system can answer `.authorized`
-    /// and still have no row to deliver into (every install re-signs ad-hoc, which changes the code
-    /// identity), and it can answer `.notDetermined` while a previous build's grant is already gone.
-    /// The Settings row and the diagnostics line both read this fact, so neither can say "Allowed"
-    /// while the OS has nowhere to put a banner.
+    /// This is deliberately separate from `authorizationStatus`, and it is not a registration
+    /// verdict. On macOS 26 the authoritative table lives in `group.com.apple.usernoted`, which a
+    /// LaunchServices-launched app cannot read (`EPERM`); the only readable table is the legacy
+    /// `ncprefs.plist`, which stopped being updated in February 2026. So on this OS the probe
+    /// answers `.settingsRowAbsent` for an app that is in fact registered and presenting banners
+    /// (measured by t_54798d27). The Settings row and the diagnostics line say exactly that rather
+    /// than turning an unreadable table into "not registered".
     @Published private(set) var registrationState: NotificationRegistration = .unknown
+
+    /// The per-table detail behind `registrationState`, e.g.
+    /// `usernoted:unreadable,ncprefs:absent`. Carried in the diagnostics line so "no row" and
+    /// "could not read the store" are never reported as the same thing (t_54798d27).
+    @Published private(set) var registrationTableSummary: String = ""
 
     /// The delivery style the system says it will use (card t_e4d5a252).
     ///
@@ -167,9 +175,9 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         self.hasRequestedAuthorization = preferences.get(Bool.self,
             forKey: AppPreferences.Keys.notificationPermissionRequested) ?? false
         super.init()
-        // The registration fact is a cheap local file read: take it before the first frame so the
+        // The table facts are a cheap local file read: take them before the first frame so the
         // Settings row is truthful on an install whose grant never carried over.
-        registrationState = registrationReader.registrationState()
+        readRegistration()
         // The worker is the UNUserNotificationCenter delegate (willPresent / didReceive).
         // The center's delegate reference is weak; the app's @StateObject retains this worker.
         scheduling.delegate = self
@@ -186,9 +194,16 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
 
     func reloadAuthorizationStatus() async {
         authorizationStatus = await scheduling.authorizationStatus()
-        registrationState = registrationReader.registrationState()
+        readRegistration()
         deliverySettings = await scheduling.deliverySettings()
         logDiagnostics("status-read")
+    }
+
+    /// Re-read the OS tables and keep both the state and the per-table detail.
+    private func readRegistration() {
+        let probe = registrationReader.registrationProbe()
+        registrationState = probe.state
+        registrationTableSummary = probe.tableSummary
     }
 
     // MARK: - Settings surface (this card: an always-available way to authorise)
@@ -196,19 +211,25 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     /// The plain-words state the Settings row draws. `notDetermined` is **not** silence: an install
     /// that has never been asked says so, because that is the reported failure (nothing ever asked).
     ///
-    /// `registration` is the OS-side fact (card t_e4d5a252). It only changes the copy when the system
-    /// answers "allowed": `.authorized` with no Notification Center row is the state in which every
-    /// `add()` is dropped, so that combination must never read as "Allowed".
+    /// `registration` is the OS-table fact (cards t_e4d5a252, t_54798d27). It only changes the copy
+    /// when the system answers "allowed": `.settingsRowAbsent` means no *readable* settings table
+    /// names this app — on macOS 26 that is the normal state of a working install, because the live
+    /// table is unreadable from inside an app bundle. The copy therefore states the fact and says
+    /// banners still work (measured by t_54798d27: the daemon presented this bundle's notifications
+    /// while the only readable table lacked its row); it never turns "no readable row" into "nothing
+    /// can appear".
     nonisolated static func authorizationCopy(for status: UNAuthorizationStatus,
                                               registration: NotificationRegistration = .unknown,
                                               delivery: NotificationDeliverySettings = .unknown) -> String {
         switch status {
         case .authorized, .provisional, .ephemeral:
-            if registration == .notRegistered {
-                return "Not registered with macOS - nothing can appear"
-            }
+            // A style the system will not draw is the one measured suppression; it wins over the
+            // settings-row fact because it has an action ("choose Banners or Alerts").
             if delivery.alertStyle == "none" {
                 return "Allowed, but notifications are set to none - no banner can appear"
+            }
+            if registration == .settingsRowAbsent {
+                return Self.missingSettingsRowCopy
             }
             switch status {
             case .authorized: return "Allowed - notifications can appear"
@@ -221,14 +242,20 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         }
     }
 
-    /// The short form the row's leading label shows. Same rule as `authorizationCopy`: a bundle the
-    /// OS has no row for, or a style the OS will not draw, is **not** plain "Allowed".
+    /// What an allowed install says when the only notification table it can read has no row.
+    /// Phrased as a limit of the reader, not as a registration verdict: on macOS 26 the app cannot
+    /// read the authoritative table at all, and the daemon presents this bundle's notifications
+    /// (t_54798d27 measured both).
+    nonisolated static let missingSettingsRowCopy =
+        "Allowed - macOS has no notification settings row this app can read; badges and banners still work"
+
+    /// The short form the row's leading label shows. A style the OS will not draw is **not** plain
+    /// "Allowed"; a missing *readable* row is, because the app is allowed and delivery works.
     nonisolated static func statusLabel(for status: UNAuthorizationStatus,
                                         registration: NotificationRegistration = .unknown,
                                         delivery: NotificationDeliverySettings = .unknown) -> String {
         switch status {
         case .authorized, .provisional, .ephemeral:
-            if registration == .notRegistered { return "Not registered" }
             if delivery.alertStyle == "none" { return "No banners" }
             return "Allowed"
         case .denied: return "Not allowed"
@@ -270,36 +297,49 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     }
 
     /// Whether the reader has to leave the app to fix what this row reports.
+    ///
+    /// A missing readable settings row is **not** one of those reasons (t_54798d27): the OS already
+    /// allows the app and delivery works, so sending the reader to System Settings would be a detour
+    /// to fix nothing.
     var needsSystemSettings: Bool {
         authorizationStatus == .denied
-            || registrationState == .notRegistered
             || (deliverySettings.alertStyle == "none" && isAllowed)
     }
 
     /// The one diagnostics line this card adds. Answers "why do I get no notifications?" from a log
     /// or a shared diagnostics report without reading `ncprefs.plist`.
     ///
-    /// `registration=` and `alerts=` were added by t_e4d5a252: without them the line could read
-    /// `status=authorized` on an install where the OS has no row, or where the style is `none` and
-    /// no banner can be drawn, and every request is dropped or delivered silently.
+    /// `registration=`/`tables=` and `alerts=` were added by t_e4d5a252 and t_54798d27. The line
+    /// names three independent facts so no token has to claim two:
+    ///   * the app's authorization status;
+    ///   * whether a *readable* notification table names the bundle, and per-table why not
+    ///     (`usernoted:unreadable,ncprefs:absent` on macOS 26 — the authoritative table is closed to
+    ///     an app bundle);
+    ///   * the style the system will draw, because `alerts=none` is a real suppression.
     var diagnosticsLine: String {
-        "notifications=status=\(Self.statusToken(authorizationStatus)) "
-            + "registration=\(registrationState.diagnosticsToken) "
-            + "alerts=\(deliverySettings.alertStyle) "
+        var line = "notifications=status=\(Self.statusToken(authorizationStatus)) "
+            + "registration=\(registrationState.diagnosticsToken)"
+        if !registrationTableSummary.isEmpty {
+            line += " tables=\(registrationTableSummary)"
+        }
+        line += " alerts=\(deliverySettings.alertStyle) "
             + "requested=\(hasRequestedAuthorization) lastSchedule=\(lastScheduleOutcome)"
+        return line
     }
 
     /// The same line as value-type facts, for `DiagnosticsContext.step6` (the shareable report).
     var diagnosticsSnapshot: NotificationDiagnosticsSnapshot {
         NotificationDiagnosticsSnapshot(status: Self.statusToken(authorizationStatus),
                                         registration: registrationState.diagnosticsToken,
+                                        registrationTables: registrationTableSummary,
                                         alerts: deliverySettings.alertStyle,
                                         requested: hasRequestedAuthorization,
                                         lastSchedule: lastScheduleOutcome)
     }
 
-    private func logDiagnostics(_ event: String) {
-        Logger.info("NotificationWorker", "\(diagnosticsLine) event=\(event)")
+    private func logDiagnostics(_ event: String, reason: String? = nil) {
+        let suffix = reason.map { " reason=\($0)" } ?? ""
+        Logger.info("NotificationWorker", "\(diagnosticsLine) event=\(event)\(suffix)")
     }
 
     /// Record what a scheduling attempt did (Settings line + diagnostics) and hand the outcome back
@@ -335,9 +375,10 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     ///
     /// **Why the persisted flag is not the gate (t_e4d5a252).** The reported failure was an install
     /// whose `mm.notifications.permissionRequested` said "already asked" from a previous build while
-    /// the OS had no registration row at all — so this method returned without ever showing a prompt,
-    /// and every `add()` was silently dropped. `didAskThisProcess` replaces it: one ask per process,
-    /// and a new process asks again whenever the OS still answers `.notDetermined`.
+    /// the OS was never prompted — so this method returned without ever showing a prompt. (The
+    /// "no registration row" half of the original diagnosis did not survive t_54798d27's measurement:
+    /// the app cannot read the live table at all.) `didAskThisProcess` replaces the flag: one ask per
+    /// process, and a new process asks again whenever the OS still answers `.notDetermined`.
     @discardableResult
     func prepareAuthorization(registeringAuthorizedInstall: Bool = false) async -> UNAuthorizationStatus {
         let statusBefore = await scheduling.authorizationStatus()
@@ -349,7 +390,7 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
         }
         let status = await scheduling.authorizationStatus()
         authorizationStatus = status
-        registrationState = registrationReader.registrationState()
+        readRegistration()
         deliverySettings = await scheduling.deliverySettings()
         return status
     }
@@ -383,14 +424,39 @@ final class NotificationWorker: NSObject, ObservableObject, UNUserNotificationCe
     func askOnLaunchIfNeeded(hasSession: Bool) async {
         let status = await scheduling.authorizationStatus()
         authorizationStatus = status
-        registrationState = registrationReader.registrationState()
+        readRegistration()
         deliverySettings = await scheduling.deliverySettings()
         guard hasSession, shouldAsk(status: status, includingAuthorized: true) else {
-            logDiagnostics("launch-ask-skipped")
+            // Say *why* nothing was asked. "launch-ask-skipped" alone was indistinguishable from
+            // "nothing tried", which is the ambiguity t_54798d27 removes.
+            logDiagnostics("launch-ask-skipped",
+                           reason: Self.launchAskSkipReason(status: status,
+                                                           hasSession: hasSession,
+                                                           didAskThisProcess: didAskThisProcess))
             return
         }
         logDiagnostics("launch-ask")
         _ = await prepareAuthorization(registeringAuthorizedInstall: true)
+    }
+
+    /// The machine-readable reason the launch ask did not fire, for the log line.
+    ///
+    /// Pure and `nonisolated` so a test can pin every branch without a worker. The important one is
+    /// `status-authorized`: the OS already allows notifications, so no prompt is owed — that is the
+    /// justification the card requires to be visible rather than implied.
+    nonisolated static func launchAskSkipReason(status: UNAuthorizationStatus,
+                                                hasSession: Bool,
+                                                didAskThisProcess: Bool) -> String {
+        if !hasSession { return "no-session" }
+        if didAskThisProcess { return "asked-this-process" }
+        switch status {
+        case .authorized: return "status-authorized"
+        case .denied: return "status-denied"
+        case .notDetermined: return "status-notDetermined"
+        case .provisional: return "status-provisional"
+        case .ephemeral: return "status-ephemeral"
+        @unknown default: return "status-\(statusToken(status))"
+        }
     }
 
     // MARK: - Mention -> UNNotificationRequest (desktop displayMention)

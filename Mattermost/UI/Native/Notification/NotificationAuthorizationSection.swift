@@ -42,25 +42,19 @@ struct NotificationAuthorizationRows: View {
                 Text("Notifications")
             }
             // The status in full, not only its short form: `notDetermined` must say the app has
-            // never been allowed rather than look like a silent "off" (card item 3), and an
-            // `authorized` answer with no OS registration row must say that no banner can appear
-            // (t_e4d5a252) rather than reading "Allowed".
+            // never been allowed rather than look like a silent "off" (card item 3). A missing
+            // *readable* settings row is named in the copy too, but as a fact about the reader —
+            // never as "not registered with macOS - nothing can appear" (t_54798d27).
             Text(worker.authorizationCopy)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("notificationAuthorization.copy")
 
-            if worker.registrationState == .notRegistered {
-                Text("Open System Settings > Notifications, find Mattermost in the list, and allow it. "
-                     + "Then reopen the app.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("notificationAuthorization.registrationHint")
-            } else if worker.isAllowed && worker.deliverySettings.alertStyle == "none" {
-                // t_e4d5a252: the row exists and the app is allowed, but the system's style for it is
-                // "none" — the request is delivered to Notification Center and no banner is ever drawn.
+            if worker.isAllowed && worker.deliverySettings.alertStyle == "none" {
+                // t_e4d5a252: the app is allowed, but the system's style for it is "none" — the
+                // request is delivered to Notification Center and no banner is ever drawn. This is
+                // the one measured suppression the reader can act on.
                 Text("Mattermost is allowed, but its notification style is set to none. "
                      + "Open System Settings > Notifications > Mattermost and choose Banners or Alerts.")
                     .font(.caption)

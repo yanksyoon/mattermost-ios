@@ -478,6 +478,13 @@ struct MattermostApp: App {
                     await notificationWorker.askOnLaunchIfNeeded(hasSession: hasSession)
                 }
                 .task { runShellSnapshotIfRequested() }
+                // t_54798d27 evidence probe: `-testNotificationProbe <seconds>` schedules the
+                // Settings test banner through the product path after a delay, so the OS log and the
+                // delivery daemon's record can be observed. Release product (outside `#if DEBUG` on
+                // purpose): the XCUITest bundle cannot run on this host's Catalyst destination, and
+                // the probe must run in the same LaunchServices app shape as the shipping app —
+                // which is itself the thing being measured. Inert without the argument.
+                .task { runTestNotificationProbeIfRequested() }
                 // T1617 evidence probe: `-threadBackSnapshot <dir> -threadBackTarget <channel>,<root>`
                 // photographs the thread pane and the screen its leading control returns to, on a
                 // Release product (outside `#if DEBUG` on purpose). Inert without the arguments.
@@ -1055,6 +1062,31 @@ struct MattermostApp: App {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-shellSnapshot"), args.indices.contains(i + 1) else { return nil }
         return args[i + 1]
+    }
+
+    /// The delay before the t_54798d27 test-notification probe schedules its banner.
+    private var testNotificationProbeDelay: Double? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-testNotificationProbe"),
+              args.indices.contains(i + 1) else { return nil }
+        return Double(args[i + 1])
+    }
+
+    /// Evidence probe for t_54798d27: schedule exactly one test banner through
+    /// `NotificationWorker.sendTestNotification()` — the same request path a mention uses — after a
+    /// delay, then log its outcome. The delay is what lets the caller put the app in the background
+    /// (activate another app) before delivery, which is the system-banner path rather than the
+    /// in-app `willPresent` path. Inert without `-testNotificationProbe <seconds>`.
+    ///
+    /// The probe writes nothing itself: the worker's `schedule` diagnostics line, the unified log,
+    /// and the delivery daemon's `Presenting … as banner` line are the evidence.
+    private func runTestNotificationProbeIfRequested() {
+        guard let delay = testNotificationProbeDelay, delay >= 0 else { return }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            let outcome = await notificationWorker.sendTestNotification()
+            Logger.info("NotificationWorker", "test-notification-probe outcome=\(outcome)")
+        }
     }
 
     /// Debounced capture: wait until the primary server's webview has committed a URL and

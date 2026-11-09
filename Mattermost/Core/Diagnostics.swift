@@ -261,28 +261,34 @@ struct PermissionsSnapshot: Equatable {
 
 /// The notification worker's own facts, which the system status provider cannot see: whether this
 /// install has ever shown the permission prompt, how the last scheduling attempt ended, and — since
-/// t_e4d5a252 — whether the OS actually holds a notification-registration row for this bundle.
+/// t_e4d5a252/t_54798d27 — what the OS notification tables say for this bundle, per table.
 /// `NotificationWorker.diagnosticsSnapshot` produces it; `DiagnosticsContext.step6` writes it into
 /// the shareable report so "I get no notifications" is answerable without reading `ncprefs.plist`.
 struct NotificationDiagnosticsSnapshot: Equatable {
     var status: String
-    /// `registered`, `notRegistered`, or `unknown` (see `NotificationRegistration`).
+    /// `registered`, `settingsRowAbsent`, or `unknown` (see `NotificationRegistration`).
     var registration: String
+    /// Per-table detail in precedence order, e.g. `usernoted:unreadable,ncprefs:absent`.
+    var registrationTables: String
     /// `none`, `banner`, `alert`, or `unknown` (the system's `alertStyle`).
     var alerts: String
     var requested: Bool
     var lastSchedule: String
 
     /// The one line this card pins:
-    /// `notifications=status=<status> registration=<registered|notRegistered|unknown>
-    ///  alerts=<none|banner|alert|unknown> requested=<bool> lastSchedule=<outcome>`.
+    /// `notifications=status=<status> registration=<registered|settingsRowAbsent|unknown>
+    ///  [tables=<per-table detail>] alerts=<none|banner|alert|unknown>
+    ///  requested=<bool> lastSchedule=<outcome>`.
     var line: String {
-        "notifications=status=\(status) registration=\(registration) alerts=\(alerts) "
-            + "requested=\(requested) lastSchedule=\(lastSchedule)"
+        var line = "notifications=status=\(status) registration=\(registration)"
+        if !registrationTables.isEmpty { line += " tables=\(registrationTables)" }
+        line += " alerts=\(alerts) requested=\(requested) lastSchedule=\(lastSchedule)"
+        return line
     }
 
     static let unknown = NotificationDiagnosticsSnapshot(status: "unknown",
                                                          registration: "unknown",
+                                                         registrationTables: "",
                                                          alerts: "unknown",
                                                          requested: false,
                                                          lastSchedule: "none")
@@ -734,10 +740,12 @@ extension DiagnosticsService {
                 let payload: [String: Any] = [
                     "notificationsSupported": snapshot.notificationsStatus != "not-determined",
                     "notificationsStatus": snapshot.notificationsStatus,
-                    // The OS-side facts (t_e4d5a252): `notRegistered` means the bundle has no row and
-                    // every request is dropped; `notificationsAlertStyle` = none means the row exists
-                    // but the system will not draw a banner.
+                    // The OS-table facts (t_e4d5a252/t_54798d27): `settingsRowAbsent` means no
+                    // *readable* table names the bundle — on macOS 26 the authoritative table is
+                    // unreadable from an app, so this is not "unregistered" — and
+                    // `notificationsAlertStyle` = none means the system will not draw a banner.
                     "notificationsRegistration": context.notificationDiagnostics.registration,
+                    "notificationsRegistrationTables": context.notificationDiagnostics.registrationTables,
                     "notificationsAlertStyle": context.notificationDiagnostics.alerts,
                     "notificationsRequested": context.notificationDiagnostics.requested,
                     "notificationsLastSchedule": context.notificationDiagnostics.lastSchedule,

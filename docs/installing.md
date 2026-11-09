@@ -62,6 +62,13 @@ does not prove a banner will be *drawn*: if the app's style is "none" the app sa
 Notifications ("No banners") and in the diagnostics line (`alerts=none`). Only after the gate passes
 is `Send a test notification` meaningful.
 
+**Expected, not a failure:** the app's own diagnostics line will say
+`registration=settingsRowAbsent tables=usernoted:unreadable,ncprefs:absent` on macOS 26 even when the
+gate passes. A LaunchServices-launched app cannot read the `group.com.apple.usernoted` container
+(`EPERM`), so the only table it can read is the stale legacy one. The token names that limit; it is
+not a registration verdict, and notification banners still present (measured by t_54798d27 — see
+`docs/t_54798d27-notification-registration-diagnostic.md`).
+
 Why ad-hoc signing stays, and the cost of that decision: `docs/t_e4d5a252-notification-registration.md`.
 
 ## Details worth knowing

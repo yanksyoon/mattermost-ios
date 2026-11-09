@@ -1,18 +1,23 @@
 import XCTest
 @testable import Mattermost
 
-/// Unit tests for the OS registration reader (card t_e4d5a252).
+/// Unit tests for the OS notification-table reader (cards t_e4d5a252, t_54798d27).
 ///
-/// The reader's whole job is to answer one question the notification API cannot: does the system
-/// hold a notification-registration row for this bundle? Its input is a file, so these tests write
-/// the shapes that matter — a table that names the bundle, a table that does not, a missing table —
-/// instead of touching the host's live notification tables.
+/// The reader answers one question the notification API cannot: does a **readable** system table
+/// hold a notification settings row for this bundle? Its input is a file, so these tests write the
+/// shapes that matter — a table that names the bundle, a table that does not, a missing table, a
+/// table that exists but cannot be read — instead of touching the host's live tables.
 ///
-/// The two-table precedence is the measured correction to the card: `com.apple.ncprefs.plist`
-/// stopped being updated on macOS 26 (absent: every app installed after 2026-02-25), while
-/// `group.com.apple.usernoted.plist` is written on every register. So the live table must be enough
-/// on its own, the legacy one must still work as a fallback, and only "absent from both readable
-/// tables" may be reported as `.notRegistered`.
+/// Two measured corrections are pinned here:
+///
+/// 1. `com.apple.ncprefs.plist` stopped being updated on macOS 26, while
+///    `group.com.apple.usernoted.plist` is the live store. The live table is consulted first and the
+///    legacy one is the fallback.
+/// 2. The live table is inside `group.com.apple.usernoted`, which a LaunchServices-launched app
+///    bundle cannot read (`EPERM`). So "no readable table names the bundle" is `.settingsRowAbsent`,
+///    not `.notRegistered` — the latter claimed a registration verdict the probe cannot reach. The
+///    probe's per-table summary is asserted too, because that detail is what distinguishes "the store
+///    was closed to us" from "the store has no row" (t_54798d27).
 final class NotificationRegistrationTests: XCTestCase {
 
     private var directory: URL!
@@ -42,6 +47,15 @@ final class NotificationRegistrationTests: XCTestCase {
         return url
     }
 
+    /// A table path that `fileExists` reports but `contents(atPath:)` cannot read, i.e. the shape of
+    /// `group.com.apple.usernoted/...` inside a LaunchServices-launched app. A directory at the path
+    /// gives exactly that pair of answers without depending on file-mode quirks of the test host.
+    private func unreadableTable(named name: String) throws -> URL {
+        let url = directory.appendingPathComponent(name)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
     func testReadsRegisteredWhenTheBundleHasARow() throws {
         let url = try writeTable(bundleIDs: ["com.apple.mail", "com.mattermost.ios", "Mattermost.Desktop"])
         let reader = SystemNotificationRegistrationReader(preferencesURL: url,
@@ -50,13 +64,13 @@ final class NotificationRegistrationTests: XCTestCase {
         XCTAssertEqual(reader.registrationState(), .registered)
     }
 
-    func testReadsNotRegisteredWhenTheTableHasNoRowForTheBundle() throws {
-        // The failure state the card describes: the table exists and lists other apps, not this one.
+    func testReadsSettingsRowAbsentWhenTheTableHasNoRowForTheBundle() throws {
+        // The table exists and lists other apps, not this one.
         let url = try writeTable(bundleIDs: ["com.apple.mail", "Mattermost.Desktop"])
         let reader = SystemNotificationRegistrationReader(preferencesURL: url,
                                                          bundleIdentifier: "com.mattermost.ios")
 
-        XCTAssertEqual(reader.registrationState(), .notRegistered)
+        XCTAssertEqual(reader.registrationState(), .settingsRowAbsent)
     }
 
     /// The live table answers on its own: a host whose legacy file is stale still reads `.registered`.
@@ -79,14 +93,29 @@ final class NotificationRegistrationTests: XCTestCase {
         XCTAssertEqual(reader.registrationState(), .registered)
     }
 
-    /// `.notRegistered` requires every readable table to lack the bundle.
-    func testAbsentFromBothReadableTablesIsNotRegistered() throws {
+    /// No readable table names the bundle: the state the diagnostics must not call "unregistered".
+    func testAbsentFromEveryReadableTableIsTheAbsentState() throws {
         let live = try writeTable(bundleIDs: ["com.apple.mail"], name: "live.plist")
         let legacy = try writeTable(bundleIDs: ["Mattermost.Desktop"], name: "ncprefs.plist")
         let reader = SystemNotificationRegistrationReader(tables: [live, legacy],
                                                          bundleIdentifier: "com.mattermost.ios")
 
-        XCTAssertEqual(reader.registrationState(), .notRegistered)
+        XCTAssertEqual(reader.registrationState(), .settingsRowAbsent)
+        XCTAssertEqual(reader.registrationProbe().tableSummary, "live:absent,ncprefs:absent")
+    }
+
+    /// The measured macOS 26 shape inside the app: the live store exists but is closed to the
+    /// process, and the legacy table is readable and does not name the bundle. That is
+    /// `.settingsRowAbsent` with the *reason* visible — never `.unknown` (a table was read) and
+    /// never a claim that the OS has no registration.
+    func testUnreadableLiveStorePlusAbsentLegacyTableNamesBothFacts() throws {
+        let live = try unreadableTable(named: "group.com.apple.usernoted.plist")
+        let legacy = try writeTable(bundleIDs: ["Mattermost.Desktop"], name: "com.apple.ncprefs.plist")
+        let reader = SystemNotificationRegistrationReader(tables: [live, legacy],
+                                                         bundleIdentifier: "com.mattermost.ios")
+
+        XCTAssertEqual(reader.registrationState(), .settingsRowAbsent)
+        XCTAssertEqual(reader.registrationProbe().tableSummary, "usernoted:unreadable,ncprefs:absent")
     }
 
     /// An unreadable table is skipped, not treated as "no row".
@@ -97,6 +126,7 @@ final class NotificationRegistrationTests: XCTestCase {
                                                          bundleIdentifier: "com.mattermost.ios")
 
         XCTAssertEqual(reader.registrationState(), .registered)
+        XCTAssertEqual(reader.registrationProbe().tableSummary, "missing-live:missing,ncprefs:row")
     }
 
     /// A bundle id must match exactly: `Mattermost.Desktop` is a different app.
@@ -105,7 +135,7 @@ final class NotificationRegistrationTests: XCTestCase {
         let reader = SystemNotificationRegistrationReader(preferencesURL: url,
                                                          bundleIdentifier: "com.mattermost.ios")
 
-        XCTAssertEqual(reader.registrationState(), .notRegistered)
+        XCTAssertEqual(reader.registrationState(), .settingsRowAbsent)
     }
 
     func testMissingTableIsUnknownNotAbsent() {
@@ -114,7 +144,7 @@ final class NotificationRegistrationTests: XCTestCase {
                                                          bundleIdentifier: "com.mattermost.ios")
 
         XCTAssertEqual(reader.registrationState(), .unknown,
-                       "a host with no such table (an iPhone) must not be reported as unregistered")
+                       "a host with no such table (an iPhone) must not be reported as absent")
     }
 
     func testEmptyBundleIdentifierIsUnknown() throws {
@@ -131,6 +161,7 @@ final class NotificationRegistrationTests: XCTestCase {
                                                          bundleIdentifier: "com.mattermost.ios")
 
         XCTAssertEqual(reader.registrationState(), .unknown)
+        XCTAssertEqual(reader.registrationProbe().tableSummary, "broken:unreadable")
     }
 
     /// Pins the default precedence: live usernoted table first, legacy ncprefs second.
@@ -142,10 +173,17 @@ final class NotificationRegistrationTests: XCTestCase {
         XCTAssertTrue(tables[1].path.hasSuffix("Preferences/com.apple.ncprefs.plist"))
     }
 
+    /// A fixed reader (the worker tests) still answers the probe with its state and no detail.
+    func testFixedReaderAnswersTheProbe() {
+        let probe = FixedNotificationRegistrationReader(.settingsRowAbsent).registrationProbe()
+        XCTAssertEqual(probe.state, .settingsRowAbsent)
+        XCTAssertEqual(probe.tableSummary, "")
+    }
+
     /// The tokens are the diagnostics contract; pin them so a rename cannot silently change reports.
     func testDiagnosticsTokens() {
         XCTAssertEqual(NotificationRegistration.registered.diagnosticsToken, "registered")
-        XCTAssertEqual(NotificationRegistration.notRegistered.diagnosticsToken, "notRegistered")
+        XCTAssertEqual(NotificationRegistration.settingsRowAbsent.diagnosticsToken, "settingsRowAbsent")
         XCTAssertEqual(NotificationRegistration.unknown.diagnosticsToken, "unknown")
     }
 }

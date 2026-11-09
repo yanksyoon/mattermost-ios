@@ -6,14 +6,19 @@
 # through any public API, but the system keeps the answer in two plists. This script reads them and
 # fails loudly when the bundle is in neither.
 #
-# WHICH TABLE (measured 2026-11-05, macOS 26.3.1):
+# Which table (measured 2026-11-05, corrected 2026-11-09 by t_54798d27):
 #   * live:   ~/Library/Group Containers/group.com.apple.usernoted/Library/Preferences/
-#             group.com.apple.usernoted.plist  (written on every register; mtime that day)
+#             group.com.apple.usernoted.plist  (written on every register)
 #   * legacy: ~/Library/Preferences/com.apple.ncprefs.plist
 #             (last written 2026-02-25 on this host and missing every app installed since —
 #              Firefox 2026-09-17, this bundle 2026-11-05 — so it is a fallback, not the truth)
-# The live table wins. A bundle found in either one counts as registered; a bundle absent from both
-# readable tables is a failure, because then no registration row exists at all.
+# The live table wins. A bundle found in either one counts as registered.
+#
+# An unreadable table is NOT an absent row. This script normally runs in a Terminal, which can read
+# the live table; an app bundle launched by LaunchServices cannot (EPERM on the whole
+# group.com.apple.usernoted container — t_54798d27 measured this). So when the live table exists but
+# cannot be read, a missing legacy row is reported as "cannot read" (exit 2), never as "not
+# registered" (exit 1): absence from the table we could read does not prove absence from the OS.
 #
 # Run it as the LAST step of every install; a build is not delivered until it exits 0.
 #
@@ -31,7 +36,7 @@ LIVE_PLIST="$HOME/Library/Group Containers/group.com.apple.usernoted/Library/Pre
 LEGACY_PLIST="$HOME/Library/Preferences/com.apple.ncprefs.plist"
 
 usage() {
-  sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'
+  awk 'NR > 1 && /^set -uo/ { exit } NR > 1 { print }' "$0" | sed 's/^# \{0,1\}//'
 }
 
 # 0 = the table names the bundle, 1 = it does not, 2 = it cannot be read.
@@ -53,6 +58,8 @@ check() {
   table_verdict "$live" "$bundle"; live_rc=$?
   if [ "$live_rc" -eq 0 ]; then
     echo "OK: $bundle is registered with the system notification table (live: $live)"
+    echo "note: the app itself cannot read this table on macOS 26 (a LaunchServices app gets EPERM);"
+    echo "      its diagnostics will say registration=settingsRowAbsent with tables=usernoted:unreadable."
     return 0
   fi
   table_verdict "$legacy" "$bundle"; legacy_rc=$?
@@ -61,6 +68,11 @@ check() {
     return 0
   fi
 
+  # A table that is there but unreadable is not a table that lacks the row (t_54798d27).
+  if [ "$live_rc" -eq 2 ] && [ -e "$live" ]; then
+    echo "FAIL: the live notification table exists but this process cannot read it ($live), and the legacy table does not name $bundle. That is not evidence the app is unregistered - run this check from a Terminal (not from inside an app sandbox)." >&2
+    return 2
+  fi
   if [ "$live_rc" -eq 2 ] && [ "$legacy_rc" -eq 2 ]; then
     echo "FAIL: cannot read any notification table (live: $live; legacy: $legacy) - is this a Mac?" >&2
     return 2
@@ -103,10 +115,13 @@ self_test() {
   legacy_only="$tmp/legacy-only.plist"
   absent="$tmp/absent.plist"
   missing="$tmp/missing.plist"
+  unreadable="$tmp/unreadable.plist"
   write_fixture "$live_with" "$BUNDLE_ID"
   write_fixture "$legacy_with" "$BUNDLE_ID"
   write_fixture "$legacy_only" "$BUNDLE_ID"
   write_fixture "$absent"
+  write_fixture "$unreadable"
+  chmod 000 "$unreadable"
 
   run_case() { # expected, label, live, legacy
     local expected="$1" label="$2" live="$3" legacy="$4" got
@@ -123,11 +138,14 @@ self_test() {
   run_case 0 "both tables naming the bundle" "$live_with" "$legacy_with"
   run_case 1 "both readable tables without the bundle" "$absent" "$absent"
   run_case 2 "no readable table" "$missing" "$missing"
+  run_case 2 "an unreadable live table with an absent legacy one (not a registration verdict)" \
+    "$unreadable" "$absent"
 
   if [ "$failures" -ne 0 ]; then
     return 1
   fi
-  echo "OK: self-test passed (live or legacy row -> 0, absent from both -> 1, unreadable -> 2)"
+  echo "OK: self-test passed (live or legacy row -> 0, absent from both readable tables -> 1," \
+       "unreadable -> 2, existing-but-unreadable live table -> 2)"
   return 0
 }
 

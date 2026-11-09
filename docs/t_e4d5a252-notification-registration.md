@@ -7,11 +7,20 @@ Reported (owner): "Can you tell me why notification doesn't work?"
 **On this Mac the system does hold a notification row for `com.mattermost.ios`.** The card's evidence
 was read from `~/Library/Preferences/com.apple.ncprefs.plist`, which macOS 26 stopped maintaining in
 February 2026; every app installed since is missing from it, and all of them are present in the live
-table the delivery daemon actually uses. Measured inside a running build of this app:
+table the delivery daemon actually uses. The reader's own source, compiled and run outside an app
+bundle (which is the only way it can see that table), answered:
 
 ```
-notifications=status=authorized registration=registered alerts=banner requested=false
+bundle=com.mattermost.ios state=registered
 ```
+
+**Correction (t_54798d27, 2026-11-09): the app itself cannot read that live table.** A
+LaunchServices-launched app bundle gets `EPERM` on the whole `group.com.apple.usernoted` container,
+so inside the app the only readable table is the stale legacy one and the worker reports
+`registration=settingsRowAbsent tables=usernoted:unreadable,ncprefs:absent`. That is a limit of the
+probe, not a delivery verdict: the daemon's `db2/db` holds this bundle's `app` row (badge included)
+and t_54798d27's test banner was logged by `usernoted` as `Presenting … as banner`. See
+`docs/t_54798d27-notification-registration-diagnostic.md` for the probe experiment and that evidence.
 
 So registration was not the blocker here. What was missing is what that `requested=false` says: the
 install had **never asked the system**, while `notificationSettings()` answered `.authorized` anyway
@@ -63,19 +72,27 @@ A launch of the build made by this card logged:
 ```
 
 `launch-ask` is the new reconciliation firing; `status-read` never follows it because the system
-dialog owns the answer (see "What this does not claim").
+dialog owns the answer (see "What this does not claim"). **Correction (t_54798d27):** that run was the
+binary launched directly from a Terminal, which can read the live table. The same build launched as
+an app bundle by LaunchServices reports `registration=settingsRowAbsent
+tables=usernoted:unreadable,ncprefs:absent` — the app cannot read the live table at all. Both lines
+are recorded because the difference is the whole point of the follow-up card.
 
 ### The reader, executed against this host
 
-The app's reader source, compiled unchanged and run on the real tables:
+The app's reader source, compiled unchanged and run on the real tables **outside an app bundle**
+(the only shape that can see them; `state=` names below are the t_54798d27 tokens):
 
 ```
 tables:
   [0] exists=true  .../Group Containers/group.com.apple.usernoted/Library/Preferences/group.com.apple.usernoted.plist
   [1] exists=true  .../Library/Preferences/com.apple.ncprefs.plist
 bundle=com.mattermost.ios                            state=registered
-bundle=com.example.definitely.not.installed          state=notRegistered
+bundle=com.example.definitely.not.installed          state=settingsRowAbsent
 ```
+
+Inside the app bundle the live table's `contents(atPath:)` returns nil (`EPERM`), so the same reader
+answers `state=settingsRowAbsent tables=usernoted:unreadable,ncprefs:absent`.
 
 ## Why the card's premise did not survive verification
 
@@ -84,9 +101,9 @@ gate fails when **both readable tables** lack the bundle. It was not this instal
 corrections follow from the measurements:
 
 1. **The legacy file is a fallback, not the truth.** The reader reads the live table first and falls
-   back to `com.apple.ncprefs.plist`; `.notRegistered` requires every readable table to lack the
-   bundle, and `.unknown` (neither readable — e.g. a phone, which has no such table) is never rendered
-   as a failure.
+   back to `com.apple.ncprefs.plist`; `.settingsRowAbsent` means every readable table lacks the
+   bundle (it says nothing when a table could not be read), and `.unknown` (neither readable — e.g. a
+   phone, which has no such table) is never rendered as a failure.
 2. **"Allowed" was not the only misleading reading.** An authorized, registered install whose
    `alertStyle` is `none` draws nothing at all, and previously read as healthy. The worker now reads
    `UNNotificationSettings.alertStyle` beside the status, and both the Settings row and the
@@ -98,20 +115,24 @@ corrections follow from the measurements:
 | - | ----------- | ----- |
 | 1 | Authorization is **state-driven**: the persisted flag is history, never the gate | `NotificationWorker.shouldAsk(status:includingAuthorized:)` → `prepareAuthorization(registeringAuthorizedInstall:)`; `didAskThisProcess` is process-scoped |
 | 2 | Ask at first launch of a new install when a session exists, and reconcile the macOS 26 case where the OS says `.authorized` without ever having asked | `NotificationWorker.askOnLaunchIfNeeded(hasSession:)`, called from `MattermostApp`'s scene `.task` after `restoreAll` |
-| 3 | Settings names the state that is actually blocking a banner and offers a way out | `authorizationCopy/statusLabel(for:registration:delivery:)`; `NotificationAuthorizationRows` shows "Not registered with macOS - nothing can appear" / "Allowed, but notifications are set to none - no banner can appear", a hint, and `Open System Settings` |
-| 4 | The diagnostics line carries the OS facts | `registration=<registered\|notRegistered\|unknown> alerts=<none\|banner\|alert\|unknown>` in `NotificationWorker.diagnosticsLine`; `notificationsRegistration` + `notificationsAlertStyle` in step 6 |
+| 3 | Settings names the state that is actually blocking a banner and offers a way out | `authorizationCopy/statusLabel(for:registration:delivery:)`; `NotificationAuthorizationRows` shows "No banners" / "Allowed, but notifications are set to none - no banner can appear", a hint, and `Open System Settings` (an allowed install with no readable settings row is **not** a failure state; see t_54798d27) |
+| 4 | The diagnostics line carries the OS facts | `registration=<registered\|settingsRowAbsent\|unknown>` (+ `tables=<per-table outcome>` since t_54798d27) and `alerts=<none\|banner\|alert\|unknown>` in `NotificationWorker.diagnosticsLine`; `notificationsRegistration` + `notificationsRegistrationTables` + `notificationsAlertStyle` in step 6 |
 | 5 | The install runbook gates on registration | `scripts/verify-notification-registration.sh` (live table first, legacy fallback) |
 | 6 | The signing trade-off is decided and recorded | this document, §"Signing decision" |
 
 New seam: `Mattermost/UI/Native/Notification/NotificationRegistration.swift`
 
-- `NotificationRegistration` (`.registered` / `.notRegistered` / `.unknown`) with its diagnostics
-  token.
+- `NotificationRegistration` (`.registered` / `.settingsRowAbsent` / `.unknown`) with its diagnostics
+  token. `.settingsRowAbsent` is the t_54798d27 rename of the old `.notRegistered`: it states that no
+  *readable* table names the bundle, which is a fact, instead of asserting the OS has not registered
+  it, which the probe cannot know.
 - `SystemNotificationRegistrationReader` parses `apps[*].bundle-id` out of every configured table, in
   precedence order. Paths are built from the user-domain `Library` directory rather than
   `homeDirectoryForCurrentUser` (unavailable in the iOS SDK). The Mac build is not sandboxed
   (`codesign -d --entitlements` on the Catalyst product shows no `com.apple.security.app-sandbox`),
-  so that is the real `~/Library`.
+  so that is the real `~/Library`. **The live table is still unreadable from inside the app bundle**
+  — `EPERM` on the group container, measured by t_54798d27 — which is why the reader reports the
+  per-table outcomes instead of a registration verdict.
 - `FixedNotificationRegistrationReader` for tests.
 - `NotificationDeliverySettings(alertStyle:)` beside the scheduling seam, read from
   `UNNotificationCenterAdapter.deliverySettings()`.
@@ -143,10 +164,10 @@ The card's tests, in `MattermostTests/NotificationWorkerTests.swift` unless note
 | `testNotDeterminedAsksEvenWhenThePersistedFlagSaysItAlreadyAsked` (T1) | a persisted `permissionRequested=true` does not swallow the ask |
 | `testDeniedIsNeverRePromptedAndPointsAtSystemSettings` (T2) | denial is not re-prompted; status/copy are denied |
 | `testAuthorizedMentionStillSchedules` (T3) | the T8 mention → request path is unchanged, and delivery still does not re-ask |
-| `testDiagnosticsCarriesNotRegisteredWhenTheOSHasNoRow` (T4) | `registration=notRegistered` beside `status=authorized` |
+| `testDiagnosticsCarriesTheAbsentStateBesideAuthorizedStatus` (T4, renamed by t_54798d27) | `registration=settingsRowAbsent` beside `status=authorized` — two facts, no registration verdict |
 | `testDiagnosticsAndCopyNameTheSilentStyle` (T4) | `alerts=none` → "No banners", the copy, and the Settings detour |
 | `testBannerStyleKeepsThePlainAllowedReading` | a drawable style keeps the plain "Allowed" |
-| `testAllowedCopyNamesTheMissingRegistration` | the row says "Not registered with macOS - nothing can appear" |
+| `testAllowedCopyWithNoReadableRowNeverClaimsNothingCanAppear` (renamed by t_54798d27) | the row says "Allowed - macOS has no notification settings row this app can read; badges and banners still work", with no System Settings detour |
 | `testLaunchAsksWhenNotDeterminedAndASessionExists` / `…WithoutASession` / `…AlreadyAnswered` / `testLaunchRegistersOnceWhenTheOSSaysAuthorizedButNeverAsked` | the launch ask, its two silences, and the macOS 26 authorized-but-never-asked reconciliation (one call per process) |
 | `NotificationRegistrationTests` (new file) | the parser: live-only, legacy fallback, absent from both, unreadable table, similar id, empty id, broken file, default precedence, tokens |
 | `DiagnosticsTests.testPermissionsStepReflectsProviderSnapshot` | `notificationsRegistration` + `notificationsAlertStyle` + the one-line read-out in the report |

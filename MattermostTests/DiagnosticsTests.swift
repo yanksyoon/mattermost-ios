@@ -304,7 +304,8 @@ final class DiagnosticsTests: XCTestCase {
         // The worker's own facts travel beside the provider snapshot; the report carries the one
         // line that answers "why do I get no notifications?" (this card).
         context.notificationDiagnostics = NotificationDiagnosticsSnapshot(status: "denied",
-                                                                          registration: "notRegistered",
+                                                                          registration: "settingsRowAbsent",
+                                                                          registrationTables: "usernoted:unreadable,ncprefs:absent",
                                                                           alerts: "none",
                                                                           requested: true,
                                                                           lastSchedule: "denied")
@@ -316,12 +317,14 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertEqual(dict["notificationsSupported"] as? Bool, true)
         XCTAssertEqual(dict["notificationsRequested"] as? Bool, true)
         XCTAssertEqual(dict["notificationsLastSchedule"] as? String, "denied")
-        XCTAssertEqual(dict["notificationsRegistration"] as? String, "notRegistered",
-                       "the report carries the OS registration fact (t_e4d5a252)")
+        XCTAssertEqual(dict["notificationsRegistration"] as? String, "settingsRowAbsent",
+                       "the report carries the OS-table fact, not a registration verdict (t_54798d27)")
+        XCTAssertEqual(dict["notificationsRegistrationTables"] as? String, "usernoted:unreadable,ncprefs:absent",
+                       "and why the row was not found (t_54798d27)")
         XCTAssertEqual(dict["notificationsAlertStyle"] as? String, "none",
                        "and the style the system will draw (t_e4d5a252)")
         XCTAssertEqual(dict["notificationsDiagnostics"] as? String,
-                       "notifications=status=denied registration=notRegistered alerts=none requested=true lastSchedule=denied")
+                       "notifications=status=denied registration=settingsRowAbsent tables=usernoted:unreadable,ncprefs:absent alerts=none requested=true lastSchedule=denied")
         let fs = dict["fileSystem"] as! [String: Any]
         XCTAssertEqual(fs["diagnosticsWritable"] as? Bool, false)
     }

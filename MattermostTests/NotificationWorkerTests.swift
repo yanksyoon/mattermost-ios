@@ -540,14 +540,14 @@ final class NotificationWorkerTests: XCTestCase {
         XCTAssertEqual(worker.diagnosticsSnapshot.line, worker.diagnosticsLine)
     }
 
-    // MARK: - t_e4d5a252: state-driven authorisation and the OS registration fact
+    // MARK: - t_e4d5a252 / t_54798d27: state-driven authorisation and the OS-table fact
     //
-    // The reported failure was not a delivery bug: on a fresh install macOS has no notification
-    // registration row for this bundle, so every add() is dropped, and nothing ever asked because
-    // `prepareAuthorization` gated the ask on a *persisted* "already asked" flag. These tests pin the
-    // new rules: the OS status is the only gate (T1), a denial is never re-prompted (T2), an
-    // authorized install still schedules (T3), and the diagnostics/Settings read-out carries the
-    // registration fact (T4).
+    // The reported failure was that nothing ever asked: `prepareAuthorization` gated the ask on a
+    // *persisted* "already asked" flag. These tests pin the new rules: the OS status is the only
+    // gate (T1), a denial is never re-prompted (T2), an authorized install still schedules (T3), and
+    // the diagnostics/Settings read-out names the OS-table fact without turning it into a verdict
+    // (T4). t_54798d27 added the last half: an allowed install whose readable tables lack the bundle
+    // is a working install on macOS 26, and must read that way.
 
     /// T1: `.notDetermined` asks **even when** the persisted flag says this install already asked —
     /// the flag may not survive the code identity it belonged to.
@@ -600,19 +600,21 @@ final class NotificationWorkerTests: XCTestCase {
         XCTAssertEqual(worker.lastScheduleOutcome, "scheduled")
     }
 
-    /// T4: the diagnostics token carries `notRegistered` when the OS has no row for this bundle,
-    /// even though the system says `.authorized`.
-    func testDiagnosticsCarriesNotRegisteredWhenTheOSHasNoRow() async {
+    /// T1 (t_54798d27): status `authorized` + the probe's absent state are two facts, and the line
+    /// states both without claiming "unregistered" or "nothing can appear".
+    func testDiagnosticsCarriesTheAbsentStateBesideAuthorizedStatus() async {
         mock.authorizationStatusValue = .authorized
-        let worker = makeWorker(registration: .notRegistered)
+        let worker = makeWorker(registration: .settingsRowAbsent)
 
         await worker.reloadAuthorizationStatus()
 
-        XCTAssertEqual(worker.registrationState, .notRegistered)
+        XCTAssertEqual(worker.registrationState, .settingsRowAbsent)
         XCTAssertEqual(worker.diagnosticsLine,
-                       "notifications=status=authorized registration=notRegistered alerts=unknown requested=false lastSchedule=none")
-        XCTAssertEqual(worker.diagnosticsSnapshot.registration, "notRegistered")
+                       "notifications=status=authorized registration=settingsRowAbsent alerts=unknown requested=false lastSchedule=none")
+        XCTAssertEqual(worker.diagnosticsSnapshot.registration, "settingsRowAbsent")
         XCTAssertEqual(worker.diagnosticsSnapshot.line, worker.diagnosticsLine)
+        XCTAssertEqual(worker.statusLabel, "Allowed")
+        XCTAssertEqual(worker.authorizationCopy, NotificationWorker.missingSettingsRowCopy)
     }
 
     /// The other half of the same confusion (found while verifying T4): the OS **has** a row, the app
@@ -647,27 +649,49 @@ final class NotificationWorkerTests: XCTestCase {
         XCTAssertEqual(worker.diagnosticsSnapshot.alerts, "banner")
     }
 
-    /// The Settings row must not read "Allowed" for an authorized bundle the OS cannot deliver into.
-    func testAllowedCopyNamesTheMissingRegistration() async {
+    /// T1/T3/T4 (t_54798d27): an allowed install whose only readable table lacks its row is a
+    /// working install on macOS 26. The copy states the measured truth, never "not registered with
+    /// macOS - nothing can appear", and no System Settings detour is offered for a permission the OS
+    /// already grants.
+    func testAllowedCopyWithNoReadableRowNeverClaimsNothingCanAppear() async {
         mock.authorizationStatusValue = .authorized
-        let worker = makeWorker(registration: .notRegistered)
+        let worker = makeWorker(registration: .settingsRowAbsent)
 
         await worker.reloadAuthorizationStatus()
 
-        XCTAssertEqual(worker.authorizationCopy, "Not registered with macOS - nothing can appear")
-        XCTAssertEqual(worker.statusLabel, "Not registered")
+        XCTAssertEqual(worker.authorizationCopy, NotificationWorker.missingSettingsRowCopy)
+        XCTAssertEqual(worker.statusLabel, "Allowed")
+        XCTAssertFalse(worker.authorizationCopy.contains("Not registered"))
+        XCTAssertFalse(worker.authorizationCopy.contains("nothing can appear"))
+        XCTAssertFalse(worker.needsSystemSettings,
+                       "the OS allows notifications; there is nothing to enable")
         XCTAssertEqual(NotificationWorker.statusLabel(for: .authorized, registration: .registered), "Allowed")
         XCTAssertEqual(NotificationWorker.authorizationCopy(for: .authorized, registration: .registered),
                        "Allowed - notifications can appear")
-        XCTAssertEqual(NotificationWorker.authorizationCopy(for: .notDetermined, registration: .notRegistered),
+        XCTAssertEqual(NotificationWorker.authorizationCopy(for: .notDetermined, registration: .settingsRowAbsent),
                        "Not allowed yet - the app has not been allowed to notify you",
                        "a fresh install has no row yet; the copy still has to ask, not accuse")
     }
 
-    /// Item 2: launch asks on a fresh install **with a session**, and stays quiet without one.
+    /// T4: `alerts=none` is a measured suppression and still wins over the settings-row fact — that
+    /// one has an action and must keep it.
+    func testSilentStyleWinsOverTheAbsentSettingsRow() {
+        let copy = NotificationWorker.authorizationCopy(
+            for: .authorized,
+            registration: .settingsRowAbsent,
+            delivery: NotificationDeliverySettings(alertStyle: "none"))
+        XCTAssertEqual(copy, "Allowed, but notifications are set to none - no banner can appear")
+        XCTAssertEqual(NotificationWorker.statusLabel(for: .authorized,
+                                                      registration: .settingsRowAbsent,
+                                                      delivery: NotificationDeliverySettings(alertStyle: "none")),
+                       "No banners")
+    }
+
+    /// Item 2 / T2 (t_54798d27): a missing readable row does not change the ask. `.notDetermined`
+    /// still prompts, with or without a row in the readable tables.
     func testLaunchAsksWhenNotDeterminedAndASessionExists() async {
         mock.authorizationStatusValue = .notDetermined
-        let worker = makeWorker()
+        let worker = makeWorker(registration: .settingsRowAbsent)
 
         await worker.askOnLaunchIfNeeded(hasSession: true)
 
@@ -711,6 +735,41 @@ final class NotificationWorkerTests: XCTestCase {
 
         await worker.askOnLaunchIfNeeded(hasSession: true)
         XCTAssertEqual(mock.requestAuthorizationCount, 1, "one registration call per process")
+    }
+
+    /// T3 (t_54798d27): an allowed install whose readable tables lack its row does **not** ask — the
+    /// OS already allows notifications, and the row absence is not a permission problem.
+    func testLaunchDoesNotAskWhenAuthorizedWithNoReadableRow() async {
+        mock.authorizationStatusValue = .authorized
+        let preferences = AppPreferences(defaults: defaults)
+        preferences.set(true, forKey: AppPreferences.Keys.notificationPermissionRequested)
+        let worker = NotificationWorker(scheduling: mock, preferences: preferences,
+                                        registration: FixedNotificationRegistrationReader(.settingsRowAbsent))
+
+        await worker.askOnLaunchIfNeeded(hasSession: true)
+
+        XCTAssertEqual(mock.requestAuthorizationCount, 0,
+                       "authorized + no readable row is not a reason to prompt")
+        XCTAssertEqual(worker.registrationState, .settingsRowAbsent)
+        XCTAssertEqual(worker.diagnosticsLine,
+                       "notifications=status=authorized registration=settingsRowAbsent alerts=unknown requested=true lastSchedule=none")
+    }
+
+    /// The skip reason is the justification the card requires to be visible: "launch-ask-skipped" on
+    /// its own was indistinguishable from "nothing tried".
+    func testLaunchSkipReasonNamesTheFactThatSuppressedTheAsk() {
+        XCTAssertEqual(NotificationWorker.launchAskSkipReason(status: .authorized, hasSession: true,
+                                                              didAskThisProcess: false),
+                       "status-authorized")
+        XCTAssertEqual(NotificationWorker.launchAskSkipReason(status: .denied, hasSession: true,
+                                                              didAskThisProcess: false),
+                       "status-denied")
+        XCTAssertEqual(NotificationWorker.launchAskSkipReason(status: .notDetermined, hasSession: false,
+                                                              didAskThisProcess: false),
+                       "no-session")
+        XCTAssertEqual(NotificationWorker.launchAskSkipReason(status: .notDetermined, hasSession: true,
+                                                              didAskThisProcess: true),
+                       "asked-this-process")
     }
 
     // MARK: - Tap fallbacks when the post or channel is gone (t_14c96dfd)
