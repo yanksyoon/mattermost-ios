@@ -242,6 +242,16 @@ for the second poll with a 10 s hang detector and stops as soon as it lands (the
 `TestSignal` contract this repo already uses, T28TestSupport). It was **not** moved into the
 timing pass, because the fix belongs in the test, not in the split.
 
+### What the split costs, measured
+
+One source push is **46.5 min of wall clock** end to end (run `42629436355`): catalyst
+gate 5 m 05 s + timing 32 s + platform 21 s (7 m 23 s), simulator gate 23 m 31 s + timing
+3 m 30 s + platform 3 m 33 s (32 m 08 s), publish 16 s, package 8 m 45 s. The two extra
+invocations reuse the same `-derivedDataPath`, so the split adds **32 s on catalyst and
+3 m 30 s on the simulator** — it does not rebuild the app. The simulator leg is the cost
+driver because it is a 3-vCPU VM building and running 2,459 tests; caching is the lever for
+that, not another matrix split.
+
 **What is not certified on CI, said out loud:** a **hang** in the four platform-service
 classes is reported, not failed — so a Catalyst-only webview path (AppKit window,
 `NSWorkspace`, pasteboard, the real cookie store) can regress on a runner where WebKit never
@@ -506,7 +516,17 @@ Pushed one at a time, so each run was the tip of `main` when its release job ran
    31,925,466 B. The version moved `v0.71.0 → v0.72.0` (MINOR) because the push range
    contains the `feat(release):` commit.
 
-The next two pushes add their own lines below, in the commits that follow this one.
+Each entry is written by the push *after* it, because a release cannot describe its own run
+before that run exists; the card's note carries the last ones.
+
+2. `d224215` → run [42637674057](https://github.com/yanksyoon/mattermost-ios/actions/runs/42637674057)
+   → **[v0.72.1](https://github.com/yanksyoon/mattermost-ios/releases/tag/v0.72.1)**. A
+   documentation-only push, so the guard annotated `test legs skipped by policy (tip of main;
+   documentation only (1 file(s)), test legs skipped, release still cut)`, the test job shows
+   as **skipped** (not red), and the release body says `**Tests:** skipped for this push -
+   documentation only` rather than claiming a green suite. `v0.71.0`'s body claimed
+   "Verified ... unit suites green" for exactly this kind of push; that is the bug this line
+   replaces.
 
 ### The asset is installable by someone who is not us
 
