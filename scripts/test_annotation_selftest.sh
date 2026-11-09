@@ -179,6 +179,7 @@ Test Case '-[MattermostTests.T44CCallsMediaTeardownQueueTests testOneHeldCloseDo
 2026-11-09 11:30:44.465126+0000 Mattermost[13460:41359] [DisplayConfigurationFetch] WebContent[13750] Failed to load a display context, even though we are not a headless app.
 2026-11-09 11:30:44.471433+0000 Mattermost[13460:41359] WebContent[13749] Server root port lookup error - bootstrap: not privileged
 2026-11-09 11:30:44.471564+0000 Mattermost[13460:41359] WebContent[13749] On-demand launch of the Window Server is allowed for root user only.
+2026-11-09 11:30:56.102311+0000 Mattermost[13460:41359] Could not signal service com.apple.WebKit.WebContent: 113: Could not find specified service
 /Users/runner/work/mattermost-ios/mattermost-ios/MattermostTests/T44CCallsMediaTeardownQueueTests.swift:111: error: -[MattermostTests.T44CCallsMediaTeardownQueueTests testOneHeldCloseDoesNotHoldUpTheNextCallsClose] : XCTAssertTrue failed - timed out after 30s waiting for the first close to start
 Test Case '-[MattermostTests.T44CCallsMediaTeardownQueueTests testOneHeldCloseDoesNotHoldUpTheNextCallsClose]' failed (150.231 seconds).
 Failing tests:
@@ -234,8 +235,8 @@ say "== 6. red with no window server: the annotation names the environment, not 
 run_case red-no-display catalyst "$WORK/red-no-display.log"
 expect "exits 1" rc_is red-no-display 1
 expect "one annotation" annotation_count_is red-no-display 1
-expect "it says there is no window server and names the test" out_has red-no-display \
-  '::error::test (catalyst): no window server on this runner - T44CCallsMediaTeardownQueueTests.testOneHeldCloseDoesNotHoldUpTheNextCallsClose'
+expect "it says WebKit cannot start and names the test" out_has red-no-display \
+  '::error::test (catalyst): WebKit cannot start in this test host - T44CCallsMediaTeardownQueueTests.testOneHeldCloseDoesNotHoldUpTheNextCallsClose'
 expect "it says environment, not product" out_has red-no-display 'Environment, not product'
 expect_absent "it is not the generic sentence" annotation_is red-no-display \
   '::error::TEST SUCCEEDED not found in the catalyst log'

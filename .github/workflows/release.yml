@@ -161,6 +161,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Split the suite, not the standards. Two passes, because one class of failure makes
+      # the other unreadable (t_6904c92b, measured on the hosted runner):
+      #
+      #   * The platform-service tests below need something the hosted runner does not have:
+      #     WebKit's WebContent/GPU XPC service (every launch is refused with
+      #     "Could not signal service com.apple.WebKit.WebContent: 113"), and, on the
+      #     simulator, a working pasteboard. Each attempt costs child processes; a full-suite
+      #     run logs ~312 refused launches, and on a 3-vCPU runner that load starves the
+      #     *timing* tests that follow it - T44C's own hang detector then fires at 150 s
+      #     although the queue is fine.
+      #   * So they run in their own pass (reported by name, listed on the run), and the
+      #     main pass - the gate - runs everything else, where a hang is a real hang.
+      #
+      # Both passes run on every leg. The main pass must be fully green. The platform pass
+      # fails the leg on an assertion, and is reported as "did not complete here" (a
+      # warning that names the tests, echoed into the release body) when it hangs.
       - name: Toolchain
         run: |
           xcodebuild -version
@@ -184,6 +200,9 @@ jobs:
           # leg must annotate the *name* of the failing test (t_f427b00b), and the pre-fix
           # fixed-sentence body must still reproduce the generic annotation.
           bash scripts/test_annotation_selftest.sh
+          # The platform-service pass must tell a hang (the runner's WebKit/pasteboard never
+          # answered, not a product statement) from an assertion (a product statement).
+          bash scripts/classify_platform_tests.sh --self-test
 
       - name: Resolve packages
         run: xcodebuild -resolvePackageDependencies -project Mattermost.xcodeproj -scheme Mattermost
@@ -217,12 +236,19 @@ jobs:
           echo "signing: $SIGN"
 
           set +e
-          # shellcheck disable=SC2086  # SIGN is a deliberate word-split flag list
+          # The gate pass: everything except the platform-service classes, which need a
+          # service this runner refuses (see the comment on this job). Kept as one literal
+          # list so a reviewer can see exactly what is not in the gate.
+          # shellcheck disable=SC2086  # SIGN and PLATFORM_SKIP are deliberate flag lists
           xcodebuild test \
             -project Mattermost.xcodeproj \
             -scheme Mattermost \
             -destination "$DEST" \
             -skip-testing:MattermostUITests \
+            -skip-testing:MattermostTests/T31HarvestCookieInstallTests \
+            -skip-testing:MattermostTests/T35PasteTests \
+            -skip-testing:MattermostTests/T46WebFallbackTests \
+            -skip-testing:MattermostTests/T56SelectionTests \
             -derivedDataPath "$RUNNER_TEMP/dd" \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 300 \
@@ -244,19 +270,19 @@ jobs:
             # "FAIL" — t_d398053f §7), then the old generic sentence as the fallback.
             FAILING_TESTS=$(sed -n '/^Failing tests:/,/^$/p' "$LOG" | head -20 || true)
             TIMEOUT_LINES=$(grep -E "exceeded execution time allowance" "$LOG" | head -5 || true)
-            # A hosted macOS VM has no window server, so every WKWebView's WebContent
-            # process fails to launch:
-            #   [DisplayConfigurationFetch] WebContent[..] Failed to load a display context,
-            #     even though we are not a headless app.
-            #   [DisplayConfigurationFetch] WebContent[..] On-demand launch of the Window
-            #     Server is allowed for root user only.
-            # A test that waits for a signal a wedged WebKit never delivers then fails, and
-            # "no window server on this runner" is a different sentence from "a test
-            # failed" - the reader must be told which (t_6904c92b). Detected from the log
-            # itself, so it needs no flag and cannot drift away from the runner's reality.
+            # WebKit cannot start in the test host on the hosted runner. Measured, not
+            # assumed (probe run 42614060467: WindowServer is running, the GUI domain
+            # exists, and 3 vCPUs): every WebContent/GPU launch is refused —
+            #   Could not signal service com.apple.WebKit.WebContent: 113
+            #   [DisplayConfigurationFetch] WebContent[..] Failed to load a display context
+            # A test waiting for a signal such a WebKit never delivers then fails, and
+            # "WebKit cannot start here" is a different sentence from "a test failed" — the
+            # reader must be told which (t_6904c92b). Detected from the log itself, so it
+            # needs no flag and cannot drift away from the runner's reality.
             NO_DISPLAY=""
             if grep -q "On-demand launch of the Window Server is allowed for root user only" "$LOG" \
-               || grep -q "Failed to load a display context" "$LOG"; then
+               || grep -q "Failed to load a display context" "$LOG" \
+               || grep -q "Could not signal service com.apple.WebKit" "$LOG"; then
               NO_DISPLAY="yes"
             fi
             NAMED=$(printf '%s\n' "$FAILING_TESTS" \
@@ -284,13 +310,13 @@ jobs:
             fi
             if [ -n "$NAMED" ]; then
               if [ -n "$NO_DISPLAY" ]; then
-                echo "::error::test (${{ matrix.name }}): no window server on this runner - $NAMED failed or timed out while WebKit could not start its WebContent process (\"Failed to load a display context\" / \"On-demand launch of the Window Server is allowed for root user only\"). Environment, not product: run this leg on a host with a GUI session - see docs/releasing.md, \"The window-server caveat\"."
+                echo "::error::test (${{ matrix.name }}): WebKit cannot start in this test host - $NAMED failed or timed out while WebContent/GPU launches were refused (\"Could not signal service com.apple.WebKit.WebContent: 113\" / \"Failed to load a display context\"). Environment, not product: see docs/releasing.md, \"WebKit in the test host\"."
               else
                 echo "::error::test (${{ matrix.name }}): $NAMED${REASON:+ ($REASON)}"
               fi
             else
               if [ -n "$NO_DISPLAY" ]; then
-                echo "::error::test (${{ matrix.name }}): no window server on this runner and no test name in the log - WebKit's WebContent process never started (\"Failed to load a display context\"). Environment, not product."
+                echo "::error::test (${{ matrix.name }}): WebKit cannot start in this test host and no test name is in the log - every WebContent/GPU launch was refused (\"Could not signal service com.apple.WebKit.WebContent: 113\"). Environment, not product."
               else
                 echo "::error::TEST SUCCEEDED not found in the ${{ matrix.name }} log"
               fi
@@ -302,7 +328,7 @@ jobs:
               # shellcheck disable=SC2016  # the backticks are markdown, not a subshell
               echo "- first failing test: \`${NAMED:-<no test name in the log>}\`"
               if [ -n "$NO_DISPLAY" ]; then
-                echo "- **no window server on this runner**: WebKit reported \`Failed to load a display context\` and \`On-demand launch of the Window Server is allowed for root user only\`."
+                echo "- **WebKit cannot start in this test host**: WebKit reported \`Could not signal service com.apple.WebKit.WebContent: 113\` / \`Failed to load a display context\`. Environment, not product."
               fi
             } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
             # The detail stays in the step log, where GitHub truncates nothing.
@@ -323,12 +349,86 @@ jobs:
             echo "- $(grep -E "Executed [0-9]+ tests" "$LOG" | tail -1 || echo 'no suite count in the log')"
           } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 
+      # The second pass: the classes that need a platform service the hosted runner refuses.
+      # An assertion here is a red leg. A hang here is reported by name - it is the runner's
+      # WebKit/pasteboard that never answers - and is not certification of anything.
+      - name: Platform-service tests (reported, not certified here)
+        if: always()
+        env:
+          PLATFORM_ONLY: >-
+            -only-testing:MattermostTests/T31HarvestCookieInstallTests
+            -only-testing:MattermostTests/T35PasteTests
+            -only-testing:MattermostTests/T46WebFallbackTests
+            -only-testing:MattermostTests/T56SelectionTests
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.name }}" = "ios-simulator" ]; then
+            DEST="id=$(python3 scripts/ci_simulator.py)"
+            SIGN="CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=-"
+          else
+            DEST="platform=macOS,variant=Mac Catalyst"
+            SIGN="CODE_SIGNING_ALLOWED=NO"
+          fi
+          LOG="$RUNNER_TEMP/platform-${{ matrix.name }}.log"
+          set +e
+          # shellcheck disable=SC2086  # SIGN and PLATFORM_ONLY are deliberate flag lists
+          xcodebuild test \
+            -project Mattermost.xcodeproj \
+            -scheme Mattermost \
+            -destination "$DEST" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 300 \
+            $SIGN $PLATFORM_ONLY \
+            > "$LOG" 2>&1
+          RC=$?
+          set -e
+          echo "xcodebuild exit: $RC"
+          SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          tail -40 "$LOG"
+
+          # One place decides green / hung / asserted, and it has its own self-test - a hang
+          # here certifies nothing but must not turn into a red leg either (see that script).
+          set +e
+          VERDICT=$(bash scripts/classify_platform_tests.sh "$LOG")
+          VRC=$?
+          set -e
+          echo "verdict: $VERDICT (rc=$VRC)"
+          case "$VERDICT" in
+            green)
+              {
+                echo ""
+                echo "### platform-service tests (${{ matrix.name }}): green"
+                echo "- WebKit/pasteboard answered on this run: T31 harvest, T35 paste, T46 fallback, T56 selection all passed."
+              } >> "$SUMMARY"
+              exit 0 ;;
+            "hung "*)
+              HUNG="${VERDICT#hung }"
+              echo "::warning::test (${{ matrix.name }}): platform-service tests did not complete on this runner - $HUNG hit the execution-time allowance. The runner's WebKit/pasteboard never answered. Not certified here, not a product failure; detail in the step log."
+              {
+                echo ""
+                echo "### platform-service tests (${{ matrix.name }}): did not complete here"
+                echo "- \`$HUNG\` hit the execution-time allowance: WebKit/pasteboard is unavailable on this runner."
+                echo "- Not certified on this run. Covered by a local run on a Mac (§ Running locally) - see docs/releasing.md, \"WebKit in the test host\"."
+              } >> "$SUMMARY"
+              exit 0 ;;
+            "asserted "*)
+              ASSERTED="${VERDICT#asserted }"
+              echo "::error::test (${{ matrix.name }}): platform-service tests asserted - $ASSERTED failed on its assertions, not on a hang. That is a product failure; fix it, do not re-file it as runner noise."
+              exit 1 ;;
+            *)
+              echo "::error::test (${{ matrix.name }}): platform-service tests failed with no test name in the log"
+              exit 1 ;;
+          esac
+
       - name: Upload log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-log-${{ matrix.name }}
-          path: ${{ runner.temp }}/${{ matrix.name }}.log
+          path: |
+            ${{ runner.temp }}/${{ matrix.name }}.log
+            ${{ runner.temp }}/platform-${{ matrix.name }}.log
           if-no-files-found: warn
 
       # The result bundle is where xcodebuild puts the diagnostics it asks you to attach when a
