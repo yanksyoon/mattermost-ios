@@ -826,7 +826,7 @@ jobs:
             LINE="SKIP: this push was superseded by a newer commit on main before it reached the release stage. Nothing was published; the tip run releases."
             echo "::notice::$LINE"
           elif [ "$TEST" = "failure" ]; then
-            LINE="BLOCKED: the test gate is red on this push, so no tag and no release were cut. The test job's annotation names the failing test (and says so when the cause is a runner without a window server)."
+            LINE="BLOCKED: the test gate is red on this push, so no tag and no release were cut. The test job's annotation names the failing test and says whether it asserted or hung (and blames the environment only on the two facts together: a hung test and refused WebKit services)."
             echo "::error::$LINE"
           elif [ "$TEST" = "cancelled" ]; then
             LINE="BLOCKED: the test gate was cancelled, so nothing was released."

@@ -528,6 +528,32 @@ before that run exists; the card's note carries the last ones.
    "Verified ... unit suites green" for exactly this kind of push; that is the bug this line
    replaces.
 
+3. `17278e6` → run [42639190623](https://github.com/yanksyoon/mattermost-ios/actions/runs/42639190623)
+   → **[v0.72.2](https://github.com/yanksyoon/mattermost-ios/releases/tag/v0.72.2)**. Also
+   documentation only, and the same guard annotation and body line. Three consecutive pushes,
+   three releases, no human step between them.
+
+### One red push: no release, and the annotation names the test
+
+`06a14b6` added one deliberately failing test (`T00CDGateProbeTests`, removed by the commit
+after it) and pushed it to `main`: run
+[42639972490](https://github.com/yanksyoon/mattermost-ios/actions/runs/42639972490).
+
+* Both legs red: `test (catalyst)` and `test (ios-simulator)`, step `Unit tests`.
+* `tag and publish` and `package Mattermost.app` **skipped**; the releases list still showed
+  `v0.72.2` as the newest, so nothing shipped.
+* The check-run annotation on `test (catalyst)` read — verbatim:
+
+  ```
+  test (catalyst): T00CDGateProbeTests.testTheReleaseGateBlocksARedPush failed its
+  assertions, not a hang - failed - deliberate red push (t_6904c92b): this commit must
+  publish nothing
+  ```
+
+  It names the test, quotes the assertion, and does **not** say "Environment, not product" —
+  the log for that run carries WebKit refusal lines, which is exactly the case the old rule
+  mis-filed.
+
 ### The asset is installable by someone who is not us
 
 `v0.72.0`'s zip downloaded into a clean directory and unpacked with `ditto -x -k`:
