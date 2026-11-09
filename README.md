@@ -1,198 +1,148 @@
-# Mattermost for Mac & iOS (personal build)
+<h1><img src="docs/media/logo.png" alt="Mattermost native client app icon" width="44" align="absmiddle">&nbsp;&nbsp;Mattermost for Mac &amp; iOS</h1>
 
-> **New here? Start with [docs/quickstart.md](docs/quickstart.md)** — build, sign, and use this
-> client on your own Mac and iPhone (every command there was run on the build host).
+[![Release](https://img.shields.io/github/v/release/yanksyoon/mattermost-ios?style=for-the-badge&logo=github&label=release)](https://github.com/yanksyoon/mattermost-ios/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/yanksyoon/mattermost-ios/release.yml?branch=main&style=for-the-badge&logo=github&label=CI)](https://github.com/yanksyoon/mattermost-ios/actions/workflows/release.yml)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20%7C%20iOS%2017%2B-blue?style=for-the-badge&logo=apple)](https://github.com/yanksyoon/mattermost-ios)
+[![License](https://img.shields.io/badge/license-personal%20project-lightgrey?style=for-the-badge)](README.md#licence)
 
-An unofficial, native shell around the **Mattermost web app**: a SwiftUI app that hosts your
-Mattermost server in a `WKWebView`, so the chat UI, sign-in, and message rendering all come
-from *your* server. Nothing about the chat client is re-implemented or proxied.
+> **November 2026**: the whole workspace is native. Sidebar, channel timeline, composer, threads, search, activity and channel info are SwiftUI over the REST and WebSocket APIs; the webview is left only for the places where the server's own web bundle is the only renderer — SSO, Boards, Playbooks and the System Console.
 
-> Not affiliated with Mattermost, Inc. "Mattermost" is their trademark; this is a personal
-> client that talks to Mattermost servers.
+A native **macOS and iOS client for Mattermost** — Swift and SwiftUI, not a web app in a window.
 
-**Runs on:** macOS (Mac Catalyst) and iPhone/iPad. **Does not need:** the App Store, an Apple
-Developer Program membership, or any review.
+Your server already ships a good client: its own web app. This project keeps that as the source of
+truth for the protocol and the behaviour, and renders the workspace natively on Apple platforms: a
+30.6 MB download with no Chromium or Node bundled, Keychain-backed sessions, native notifications,
+native scrolling, text selection and keyboard handling. It is an **unofficial personal build**,
+not affiliated with Mattermost, Inc.; it signs in to your own server and reloads nothing through a
+third party.
 
-## Install on the Mac (prebuilt, 2 minutes)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/demo/native-demo-dark.gif">
+  <source media="(prefers-color-scheme: light)" srcset="docs/media/demo/native-demo.gif">
+  <img src="docs/media/demo/native-demo.gif" width="360" alt="The native iOS client: launch, the channel sidebar with an unread mention, opening #design-review, scrolling the timeline, opening a three-reply thread, typing and sending a reply, then returning to the channel">
+</picture>
 
-1. Download `Mattermost-0.1.0-macos.zip` from [Releases](../../releases).
-2. Unzip it and drag `Mattermost.app` into `/Applications`.
-3. First launch on macOS 15+ (including macOS 26): macOS will say **"Apple could not verify
-   “Mattermost.app” is free of malware"** and refuse to open it. That is expected — the build is
-   ad-hoc signed and not notarised, and notarisation needs a paid Apple Developer ID. Clear the
-   download quarantine once, per copy:
+23 seconds of the iPhone build against a local test server, cut from one continuous take — launch →
+unread sidebar → channel → thread → reply → back. [Watch the MP4](docs/media/demo/native-demo.mp4)
+(muted, device resolution) · [still frame](docs/media/demo/poster.png) · [how it was recorded](docs/media/demo/README.md)
 
-   ```bash
-   xattr -dr com.apple.quarantine /Applications/Mattermost.app
-   ```
+> **Start here:** [`docs/quickstart.md`](docs/quickstart.md) — build it, sign in, and read a
+> channel, with every command that was actually run on the build host. Per-platform details:
+> [`docs/installing.md`](docs/installing.md).
 
-   No-terminal route: try opening it once, then go to **System Settings → Privacy & Security**,
-   scroll to *Security*, and click **Open Anyway** next to the Mattermost entry. (On macOS 15+
-   the old *right-click → Open* shortcut no longer bypasses Gatekeeper.)
+## Context: the Electron client
 
-   Check the copy is intact before trusting it: `codesign --verify --deep --strict /Applications/Mattermost.app`
-   prints `valid on disk` and `satisfies its Designated Requirement`. `spctl -a` will still say
-   `rejected` — that is the missing notarisation ticket, not a broken signature.
+Mattermost's official desktop app is Electron: a Chromium renderer plus a Node main process. Its
+macOS arm64 download is 129 MB (6.3.2) before it has loaded a single message. That is a fair trade
+for one codebase across three operating systems. This project makes the other trade — one platform
+family, everything native — and spends the saved weight on the things a Mac or iPhone app is
+expected to get for free: Keychain credentials, system notifications, native text and gestures,
+and a bundle that launches without booting a second runtime.
 
-4. Launch it from Finder or the Dock. If `open -a Mattermost` does nothing, you almost certainly
-   also have the official Electron app installed: both bundles are named "Mattermost" to
-   LaunchServices. Use `open -n "/Applications/Mattermost (native).app"` or click the icon.
-5. Add your server URL and sign in.
+## Why native
 
-The official Electron Mattermost desktop app is also called `Mattermost.app`. If you have both,
-rename this one (e.g. `Mattermost (personal).app`) or keep it somewhere other than
-`/Applications` so Launchpad does not show two identical icons.
+Every row is shipped behaviour with a test or a benchmark behind it — nothing on this page is a
+plan. The right-hand column describes the official web/Electron client (6.3.2); where the behaviour
+is deliberately identical, it says so.
 
-### Known limitation of the prebuilt Mac build — addressed by the fallback store (T22)
+| Task | This app | Web / Electron client |
+|---|---|---|
+| Download and install | 30.6 MB universal `.zip`, no runtime to bundle | 129 MB macOS arm64 `.dmg` — Chromium + Node included |
+| Draw the workspace | SwiftUI and UIKit, driven by REST v4 + WebSocket v4; one WebKit view only for SSO, Boards, Playbooks and the System Console | the web app, rendered by Chromium |
+| Reply in a thread | native thread pane: reply, follow, load earlier, open in channel; Back returns to wherever you came from | the same Mattermost thread UI, in the web renderer |
+| A mention while the app is open | native local notification, click-through to the channel, badge on the app icon | the web app's notification path inside Electron |
+| Send a message | Return sends, Shift+Return inserts a newline | same — deliberately; the web app's shortcut is the spec |
+| A self-signed or enterprise server | native trust sheet naming subject, issuer and SHA-256 fingerprints; the decision is remembered per server | the client's own certificate handling |
+| Two servers at once | one isolated cookie store and one Keychain entry per server | one session partition per server |
 
-The build is signed ad hoc, so macOS does not grant it the `application-identifier` entitlement
-and **the OS Keychain is refused** (`errSecMissingEntitlement`, -34018). Since T22 the shell no
-longer depends on the Keychain for the ad-hoc build: `SecureVault` (per-server token vault) and
-`CertTrust` (self-signed certificate trust bag) route through a store that keeps the Keychain
-primary and, **only when the Keychain is refused (-34018)**, transparently persists to an
-AES-GCM encrypted file under `~/Library/Application Support/Mattermost/`. What that means now:
+## Install
 
-- your login still survives restarts (the session lives in the webview's cookie store);
-- the per-server **token vault** and the **self-signed certificate trust** bag now **persist** on
-  the prebuilt Mac build too (via the encrypted fallback file when the Keychain is refused), so a
-  self-signed server is trusted once and remembered across launches.
-
-Signing the app with your own Apple ID (even a free Personal Team) still makes the OS Keychain
-work and entirely avoids the fallback file — see *Build from source* below. Security note: the
-fallback file's key sits in a `0600` file next to the data (there is no hardware Keychain on an
-ad-hoc Catalyst binary), so it protects against casual exposure but not malware running as the
-same user — see `docs/parity.md` §T22.
-
-## Install on the iPhone
-
-The `.ipa` in Releases is **unsigned** — iOS will not install it by itself. Two options:
-
-- **Re-sign it with your own Apple ID** using AltStore or SideStore (free accounts: the app must
-  be re-signed every 7 days), or
-- **Build from source** (below) and run it straight from Xcode.
-
-Either way, iOS 17+ requires **Developer Mode** on the device (Settings → Privacy & Security →
-Developer Mode), and you must trust your developer certificate afterwards.
-
-## Build from source
-
-Mac (no Apple account needed):
+**macOS, prebuilt (about a minute).** Download `Mattermost-macOS-<tag>.zip` from
+[Releases](https://github.com/yanksyoon/mattermost-ios/releases), drag `Mattermost.app` to
+`/Applications`, then clear the download quarantine once — the build is ad-hoc signed and not
+notarised, so Gatekeeper refuses the first launch:
 
 ```bash
-xcodebuild -project Mattermost.xcodeproj -scheme Mattermost \
-  -destination 'platform=macOS,variant=Mac Catalyst' \
-  -derivedDataPath build/ddata-mac build
-open build/ddata-mac/Build/Products/Debug-maccatalyst/Mattermost.app
+xattr -dr com.apple.quarantine /Applications/Mattermost.app
+open -a /Applications/Mattermost.app
 ```
 
-Mac with full Keychain support: open `Mattermost.xcodeproj`, select the `Mattermost` target →
-*Signing & Capabilities* → choose your Personal Team → Run. (Free-team profiles expire after
-7 days, same as on iOS.)
+No terminal: try opening it once, then **System Settings → Privacy & Security → Open Anyway**.
 
-iPhone/iPad: open `Mattermost.xcodeproj`, select your Team in the same place, pick your device,
-Run.
-
-<!-- perf-compare:start -->
-### Performance vs the official desktop client
-
-Not measured yet. Comparing the two clients requires both to be signed in to the same workspace and sitting on the same channel; the blocked run and the reasons are recorded in [`docs/perf/2026-11-05-native-vs-electron.md`](docs/perf/2026-11-05-native-vs-electron.md). The harness (`scripts/perf_compare.py`) refuses to measure a login screen.
-<!-- perf-compare:end -->
-
-## Tests
+**macOS, from source (Xcode, no Apple account).** A Release product must be re-signed before it
+launches: Xcode signs Release with the hardened runtime, and the embedded WebRTC framework is
+ad-hoc with no Team ID, so dyld refuses the mapping and the process dies about two seconds after
+`open` returns. (Debug builds launch as-is; the re-sign is harmless there too.)
 
 ```bash
-# Guarded runner (recommended): keeps derived data outside ~/Documents, watches for wedges,
-# and is the only way to prove a *failing* test reports instead of hanging (docs/test-plan.md §6).
-scripts/qa-test.py                     # iOS simulator, whole scheme
-scripts/qa-test.py --platform mac      # Mac Catalyst, MattermostTests
-scripts/qa-test.py --self-test         # break-proof: a deliberate failure must be reported
-
-# Raw xcodebuild still works. Keep derived data OUTSIDE ~/Documents for any run where a test
-# may fail: XCTest symbolizes failures in-process and the test host's open() of a debug-map
-# object under ~/Documents blocks on a macOS TCC consent that never arrives (looks like a hang).
-xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
-  -derivedDataPath ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa
-
-# Mac (Catalyst):
-xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
-  -destination 'platform=macOS,variant=Mac Catalyst' \
-  -derivedDataPath ~/Library/Developer/Xcode/DerivedData/mattermost-ios-qa-mac \
-  -only-testing:MattermostTests
+xcodebuild -project Mattermost.xcodeproj -scheme Mattermost -configuration Release \
+  -destination 'platform=macOS,variant=Mac Catalyst' -derivedDataPath build/ddata-mac-release build
+codesign --force --deep --sign - build/ddata-mac-release/Build/Products/Release-maccatalyst/Mattermost.app
+open build/ddata-mac-release/Build/Products/Release-maccatalyst/Mattermost.app
 ```
 
-Status of this tree: **iOS 290/290 unit + 6/6 UI green**; **macOS 290/290 unit green** (the
-Keychain-backed suites run on Catalyst too, persisted via the T22 encrypted-file fallback).
+**iOS, from source.** The prebuilt releases are macOS only. Open `Mattermost.xcodeproj`, choose
+your Team under *Signing & Capabilities* (a free Apple ID works; its profile expires every 7 days),
+pick your device and Run. A physical device also needs **Developer Mode** (Settings → Privacy &
+Security → Developer Mode) and must trust your certificate afterwards. There is no App Store build
+and no paid Developer Program involved.
 
-## First run
+## Quick start
 
-1. **Add a server** — full `https://` URL, optional sub-path. The form validates it against
-   `/api/v4/system/ping` and reads the site name from `/api/v4/config/client?format=old` before
-   saving, so a typo fails immediately instead of showing a blank webview.
-2. **Sign in** inside the web view. Credentials go to your server; the app stores only the server
-   entry plus (where Keychain is available) the session token.
-3. **Add more servers** — each gets its own `WKWebsiteDataStore`, so sessions never bleed between
-   servers. Switch from the toolbar menu.
-4. **Self-signed / enterprise servers** — you get a native certificate prompt with the subject,
-   issuer and fingerprints. "Trust" is remembered per origin (Keychain), "Don't trust" is
-   remembered too, and you can revoke from Settings.
-5. **Downloads** — webview downloads land in `Documents/Downloads`, are journalled in
-   *Downloads* (with progress and a 50-entry history), and can be exported to Files/Finder.
+1. **Install** — the release zip, or Xcode Run (above).
+2. **Launch** the app; a welcome pager opens on first run.
+3. **Add your server and sign in** — the full `https://` URL is checked against `/api/v4/system/ping` before it is saved; SSO opens its IdP pop-up in the app and hands custom-scheme redirects back, and username/password plus MFA work too.
+4. **Pick a workspace** — a server can host several teams; the picker remembers which one each server was last on.
+5. **Open a channel** — unread and mention counts are in the sidebar; threads open beside the timeline.
 
-## What works
+## Performance
 
-Multi-server switching with isolated web data stores · URL validation before save · Keychain
-credential vault with an encrypted-file fallback on ad-hoc Mac builds (per server, survives
-relaunch) · downloads + history + export · theme sync
-(light/dark follows the server theme and the OS appearance) · self-signed certificate trust with
-a review sheet · `mattermost://` deep links (queued until the webview is ready) · local mention
-notifications and app-icon badge · settings (theme syncing, unread badge, language, log level,
-download-history cap) · onboarding pager · error/retry surfaces · diagnostics report you can
-share as text/JSON · a real app icon.
+Measured against the official desktop client — see [`docs/perf/`](docs/perf/).
 
-**SSO** works: IdP buttons that open a popup (`window.open` / `target="_blank"`) are loaded in
-the main webview, and redirects to non-web schemes (`mattermost://`, `msauth://`, Okta custom
-schemes) are handed to the app instead of being dropped — both used to end the flow on a blank
-page. Sign-in entry links are forced into a real document load, because the web app otherwise
-routes `/login/sso/*` client-side and shows an empty page.
+<!-- TODO(t_dc1ea1fa): the concise native-vs-Electron benchmark table lands here. No numbers are
+     claimed on this page until that run measures both clients signed in to the same workspace;
+     docs/perf/2026-11-05-native-vs-electron.md records a blocked run that measured nothing. -->
 
-**The workspace renders after sign-in.** The webview presents a plain desktop Safari user agent
-and does *not* claim to be Mattermost Desktop. Claiming it (a `Mattermost/… Electron/…` UA plus a
-partial `window.desktop` shim) sends the web app down its Electron code path, which needs more of
-that API than the shell implements: the header and team sidebar mounted, the channel view stayed
-on "Loading" forever, and no post list was ever requested. Presenting as a browser renders the
-whole workspace.
+## Parity
 
-## What is not there yet
+160 capabilities of the Mattermost desktop and mobile clients are mapped one-for-one against the
+pinned upstream `v2.45.0`: **135 implemented**, 2 partial, 16 not yet implemented, 7 out of scope.
+Each row names the test or recorded observation that backs it — [docs/PARITY.md](docs/PARITY.md).
 
-- **Push notifications when the app is in the background** — needs a Mattermost Push Proxy plus
-  an APNs key, i.e. a paid Apple Developer membership. Local notifications cover the
-  foreground case only. (T12/T13 are parked as publishing-only.)
-- **Calls** (WebRTC microphone/camera in the webview) and **screen sharing** — T15/T16.
-- **Background refresh / presence re-delivery** — T14.
-- **Local mention notifications and the unread badge** are wired to the `window.desktop` bridge,
-  which is off by default for the reason above (exposing it breaks the workspace render). The code
-  and its tests are kept; `-desktopBridge` turns it on for experiments, and it can come back once
-  the surface the web app expects is implemented in full.
+## Roadmap
 
-## Layout
+- **Mentions that arrive when the app is closed** — local notifications work while the app runs; delivery needs an Apple Developer Program membership and a hosted Mattermost Push Proxy.
+- **Channel bookmarks and scheduled posts** — waiting on a licensed server to build and test against; the open-source fixture answers 404 on both.
+- **A signed, notarised download** — so the first launch stops explaining Gatekeeper, plus an App Store release and a phased rollout.
+- **A published benchmark page** — native vs the official client, refreshed on every release; the first run is blocked and its numbers are not published.
 
-```
-Mattermost/            app target (SwiftUI + UIKit)
-  Core/                server registry, vault, downloads, notifications, theme, cert trust,
-                       deep links, diagnostics, background/refresh plumbing
-  UI/                  shell chrome: root, server form, settings, downloads, welcome, cert sheets
-MattermostTests/       256 unit tests
-MattermostUITests/     6 XCUITest flows (local stub server, self-signed TLS stub)
-PushProxy/             a local push-proxy simulacrum + config (no real APNs; see docs/)
-docs/                  parity map, test plan, per-ticket build notes, review-notes draft
+## Development
+
+```bash
+scripts/qa-test.py                 # iOS simulator, whole scheme (unit + UI)
+scripts/qa-test.py --platform mac  # Mac Catalyst, MattermostTests
 ```
 
-`docs/parity.md` maps every desktop module to its native replacement; `docs/test-plan.md` is the
-test contract; the `docs/t*-build-note.md` files record what each ticket actually built and how
-it was verified.
+Surfaces flip to native one at a time, each with the webview as its fallback — the switch, the
+approval ledger and the measurements are in [docs/dual-render.md](docs/dual-render.md). Screen
+inventory: [docs/component-map.md](docs/component-map.md). The parity record is generated from
+`docs/parity/module-scan.tsv` and `parity/claims.tsv` by `parity/generate.py`.
 
-## License / provenance
+How this client got here — the port from the Electron shell, in the original README's words:
+[docs/migration.md](docs/migration.md).
 
-Personal project. The Mattermost web app served by your instance remains Mattermost's code;
-this shell is original Swift and is not distributed by Mattermost.
+## Contributing
+
+It is a personal build, shared because it was useful. Bug reports with a reproduction are welcome;
+the most useful patch is a parity row plus the test that proves it, because that is the only kind
+of claim this project accepts.
+
+## Licence
+
+Personal project: there is no license file, so all rights are reserved. The Swift shell in this
+repository is original work; the Mattermost web app served by your instance remains Mattermost's
+code and is not redistributed here. Third-party components and their licences:
+[NOTICE](NOTICE) and [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md).
+
+Not affiliated with Mattermost, Inc. "Mattermost" is their trademark; this is a personal client
+that talks to Mattermost servers.
