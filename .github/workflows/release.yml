@@ -2,9 +2,11 @@ name: release
 
 # Push to main -> run the tests -> publish a release.
 #
-# The release job only runs when every test leg is green, and the version is cut
-# automatically at the MINOR position (v0.2.0 -> v0.3.0, patch reset to 0).
-# See scripts/release_version.py and scripts/release_notes.py.
+# The release job only runs when every test leg is green, and the version moves by the
+# position the commit history earns (Conventional Commits): a `feat:` in the push is a
+# MINOR bump, anything else - `fix:`, `docs:`, `test:`, `chore:`, a merge - is a PATCH
+# bump. Every push still publishes. See scripts/release_version.py and
+# scripts/release_notes.py, and docs/releasing.md for the trade-off.
 #
 # Guarantees:
 #   * tests gate the release - a red suite means no tag, no release, no notes
@@ -12,6 +14,9 @@ name: release
 #     so a re-run or duplicate delivery is a no-op, never a second release
 #   * serialised - concurrent pushes queue instead of racing for the same tag
 #   * self-testing - the version, note and push-gate rules are proven before tagging
+#   * every skip says why - the guard, the release job and the closing `verdict` job
+#     write the reason to the run page as an annotation and a summary line, so nobody
+#     has to read a red X and guess (t_6904c92b)
 #
 # CI uses macos-26, whose default Xcode is 26.6 (17F113) - the same build the app is
 # developed against locally, so this is the real toolchain and not a stand-in.
@@ -84,6 +89,36 @@ jobs:
             --changed-files "$CHANGED" --format github-env \
             --summary-file "$GITHUB_STEP_SUMMARY" | tee -a "$GITHUB_OUTPUT"
 
+      # The decision is written on the run itself, not only in a job log a reader has to
+      # open: an annotation is the sentence that shows on the run page, and the summary
+      # is what the run's "Summary" tab shows first (t_6904c92b).
+      - name: Say the decision on the run
+        if: always()
+        env:
+          IS_TIP: ${{ steps.plan.outputs.is_tip }}
+          RUN_TESTS: ${{ steps.plan.outputs.run_tests }}
+          DOCS_ONLY: ${{ steps.plan.outputs.docs_only }}
+          REASON: ${{ steps.plan.outputs.reason }}
+        run: |
+          set -euo pipefail
+          SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          if [ -z "${REASON:-}" ]; then
+            echo "::error::the guard produced no decision - refusing to guess (ls-remote or ci_plan failed above)"
+            { echo ""; echo "**guard:** no decision - the pipeline is blocked before any macOS minutes."; } >> "$SUMMARY"
+            exit 1
+          fi
+          if [ "$IS_TIP" = "true" ] && [ "$RUN_TESTS" = "true" ]; then
+            LINE="tests run, then release, then package - ${REASON}"
+            echo "::notice::guard: ${LINE}"
+          elif [ "$IS_TIP" = "true" ]; then
+            LINE="test legs skipped by policy (${REASON}); the release and the package job still run"
+            echo "::notice::guard: ${LINE}"
+          else
+            LINE="SKIP: this push is superseded (${REASON}); no macOS minutes spent, the tip run releases"
+            echo "::notice::${LINE}"
+          fi
+          { echo ""; echo "**guard:** ${LINE}"; } >> "$SUMMARY"
+
   # Parity record — cheap, Linux, no network, no platform build. Report mode first (design
   # docs/parity-map-design.md §4.4): a mapping finding does not fail the build while the claims
   # are partial, but artifact drift does — `docs/PARITY.md` and `parity/out/*` are generated and a
@@ -126,6 +161,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Split the suite, not the standards. Three passes, because one class of failure makes
+      # another unreadable (t_6904c92b, measured on the hosted runner):
+      #
+      #   * The platform-service tests below need something the hosted runner does not have:
+      #     WebKit's WebContent/GPU XPC service (every launch is refused with
+      #     "Could not signal service com.apple.WebKit.WebContent: 113"), and, on the
+      #     simulator, a working pasteboard. Each attempt costs child processes; a full-suite
+      #     run logs ~312 refused launches, and on a 3-vCPU runner that load starves the
+      #     *timing* tests that follow it - T44C's own hang detector then fires at 150 s
+      #     although the queue is fine.
+      #   * So they run in their own pass (reported by name, listed on the run), and the
+      #     main pass - the gate - runs everything else, where a hang is a real hang.
+      #
+      # Both passes run on every leg. The main pass must be fully green. The platform pass
+      # fails the leg on an assertion, and is reported as "did not complete here" (a
+      # warning that names the tests, echoed into the release body) when it hangs.
       - name: Toolchain
         run: |
           xcodebuild -version
@@ -149,6 +200,9 @@ jobs:
           # leg must annotate the *name* of the failing test (t_f427b00b), and the pre-fix
           # fixed-sentence body must still reproduce the generic annotation.
           bash scripts/test_annotation_selftest.sh
+          # The platform-service pass must tell a hang (the runner's WebKit/pasteboard never
+          # answered, not a product statement) from an assertion (a product statement).
+          bash scripts/classify_platform_tests.sh --self-test
 
       - name: Resolve packages
         run: xcodebuild -resolvePackageDependencies -project Mattermost.xcodeproj -scheme Mattermost
@@ -182,12 +236,21 @@ jobs:
           echo "signing: $SIGN"
 
           set +e
-          # shellcheck disable=SC2086  # SIGN is a deliberate word-split flag list
+          # The gate pass: everything except the platform-service classes, which need a
+          # service this runner refuses (see the comment on this job). Kept as one literal
+          # list so a reviewer can see exactly what is not in the gate.
+          # shellcheck disable=SC2086  # SIGN and PLATFORM_SKIP are deliberate flag lists
           xcodebuild test \
             -project Mattermost.xcodeproj \
             -scheme Mattermost \
             -destination "$DEST" \
             -skip-testing:MattermostUITests \
+            -skip-testing:MattermostTests/T31HarvestCookieInstallTests \
+            -skip-testing:MattermostTests/T35PasteTests \
+            -skip-testing:MattermostTests/T46WebFallbackTests \
+            -skip-testing:MattermostTests/T56SelectionTests \
+            -skip-testing:MattermostTests/T44CCallsMediaTeardownQueueTests \
+            -skip-testing:MattermostTests/T49LoggerConcurrencyTests \
             -derivedDataPath "$RUNNER_TEMP/dd" \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 300 \
@@ -199,63 +262,141 @@ jobs:
 
           tail -60 "$LOG"
           echo "xcodebuild exit: $RC"
-          if ! grep -qE "\*\* TEST SUCCEEDED \*\*" "$LOG"; then
-            # Name the failure *inside the annotation*, not only in the step log: the check-run
-            # annotation is the sentence a human reads first, and a fixed "TEST SUCCEEDED not
-            # found" once sat above a 5-minute test hang whose name was ~80 lines further down
-            # the step log (t_f427b00b; finding 3 of t_5bf7a812). Preference order for the name:
-            # the first entry of xcodebuild's own "Failing tests:" block, then the
-            # execution-time-allowance line (a timed-out test reports neither an `error:` line nor
-            # "FAIL" — t_d398053f §7), then the old generic sentence as the fallback.
-            FAILING_TESTS=$(sed -n '/^Failing tests:/,/^$/p' "$LOG" | head -20 || true)
-            TIMEOUT_LINES=$(grep -E "exceeded execution time allowance" "$LOG" | head -5 || true)
-            NAMED=$(printf '%s\n' "$FAILING_TESTS" \
-              | sed -n 's/^[[:space:]]*\(.*\)[[:space:]]*()$/\1/p' | head -1 || true)
-            if [ -z "$NAMED" ]; then
-              # No "Failing tests:" block at all: recover the Class.test name from the timeout
-              # line itself ("Test Case '-[MattermostTests.T44CCallsEngineTests testFoo]'").
-              NAMED=$(printf '%s\n' "$TIMEOUT_LINES" | awk '
-                match($0, /Test Case .-\[[^]]*\]/) {
-                  s = substr($0, RSTART, RLENGTH)
-                  sub(/^Test Case .-\[/, "", s); sub(/\]$/, "", s)
-                  n = split(s, tok, " ")
-                  if (n == 2) { sub(/^.*\./, "", tok[1]); print tok[1] "." tok[2]; exit }
-                  if (n >= 1) { print tok[1]; exit }
-                }' || true)
-            fi
-            REASON=""
-            # The named test hung rather than failed an assertion: say so, that is the diagnosis.
-            # ${NAMED##*.} matches the bare test name, because xcodebuild's timeout line carries
-            # the class as a separate word ("-[MattermostTests.Class testName]").
-            if [ -n "$NAMED" ] \
-               && printf '%s\n' "$TIMEOUT_LINES" | grep -qF -- "${NAMED##*.}"; then
-              REASON=$(printf '%s\n' "$TIMEOUT_LINES" \
-                | grep -m1 -o "exceeded execution time allowance of [^.]*" || true)
-            fi
-            if [ -n "$NAMED" ]; then
-              echo "::error::test (${{ matrix.name }}): $NAMED${REASON:+ ($REASON)}"
-            else
-              echo "::error::TEST SUCCEEDED not found in the ${{ matrix.name }} log"
-            fi
-            # The detail stays in the step log, where GitHub truncates nothing.
-            if [ -n "$FAILING_TESTS" ]; then printf '%s\n' "$FAILING_TESTS"; fi
-            if [ -n "$TIMEOUT_LINES" ]; then printf '%s\n' "$TIMEOUT_LINES"; fi
-            grep -E "error:|failed|FAIL" "$LOG" | head -40 || true
-            exit 1
+
+          # One decision, one sentence. scripts/test_verdict.sh names the failing test on
+          # the check-run annotation and classifies the red (assertion / hang / refused
+          # WebKit environment). All three passes call it, so they cannot drift apart, and
+          # scripts/test_annotation_selftest.sh replays it against log fixtures - including
+          # one where WebKit noise and a real assertion appear in the same log (t_6904c92b).
+          bash scripts/test_verdict.sh --log "$LOG" --leg "${{ matrix.name }}" --pass gate
+
+      # The timing-sensitive classes, in their own process, and required.
+      #
+      # Measured, not assumed (card t_6904c92b, 2026-11-09):
+      #   * run 42617348657, `probe (catalyst / logic)`: inside the full suite these two
+      #     classes red at 150 s, 20 s and 60 s - `T44CCallsMediaTeardownQueueTests` never
+      #     saw its first teardown block start, `T49LoggerConcurrencyTests` never saw its
+      #     32 logging blocks finish. The blocks were queued; the process had no thread
+      #     free to run them.
+      #   * run 42614060467, `probe (isolated)`: the same three cases, same runner image,
+      #     in their own process - 1.07 s, 2.02 s, 0.21 s, all green (xcodebuild exit 0).
+      # So this is not a product hang and it is not a relaxed test: the same code, the same
+      # detectors, a process that is not competing with ~2,400 other cases and WebKit's
+      # refused child launches. A failure here is a RED LEG, exactly like the gate pass.
+      - name: Timing-sensitive tests (own process, required)
+        if: always()
+        env:
+          TIMING_ONLY: >-
+            -only-testing:MattermostTests/T44CCallsMediaTeardownQueueTests
+            -only-testing:MattermostTests/T49LoggerConcurrencyTests
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.name }}" = "ios-simulator" ]; then
+            DEST="id=$(python3 scripts/ci_simulator.py)"
+            SIGN="CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=-"
+          else
+            DEST="platform=macOS,variant=Mac Catalyst"
+            SIGN="CODE_SIGNING_ALLOWED=NO"
           fi
-          # Print xcodebuild's own summary rather than a hand-rolled count: a counter
-          # built on a grep pattern can match its own echoed command line in the log,
-          # which is how a green suite once reported "failures reported: 1".
-          echo "--- result summary ---"
-          grep -E "Executed [0-9]+ tests" "$LOG" | tail -3 || true
-          grep -E "^\*\* TEST" "$LOG" | tail -1 || true
+          LOG="$RUNNER_TEMP/timing-${{ matrix.name }}.log"
+          # shellcheck disable=SC2086  # SIGN and TIMING_ONLY are deliberate flag lists
+          set +e
+          xcodebuild test \
+            -project Mattermost.xcodeproj \
+            -scheme Mattermost \
+            -destination "$DEST" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 300 \
+            $SIGN $TIMING_ONLY \
+            > "$LOG" 2>&1
+          RC=$?
+          set -e
+          echo "xcodebuild exit: $RC"
+          tail -40 "$LOG"
+          bash scripts/test_verdict.sh --log "$LOG" --leg "${{ matrix.name }}" --pass timing
+
+      # The second pass: the classes that need a platform service the hosted runner refuses.
+      # An assertion here is a red leg. A hang here is reported by name - it is the runner's
+      # WebKit/pasteboard that never answers - and is not certification of anything.
+      - name: Platform-service tests (reported, not certified here)
+        if: always()
+        env:
+          PLATFORM_ONLY: >-
+            -only-testing:MattermostTests/T31HarvestCookieInstallTests
+            -only-testing:MattermostTests/T35PasteTests
+            -only-testing:MattermostTests/T46WebFallbackTests
+            -only-testing:MattermostTests/T56SelectionTests
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.name }}" = "ios-simulator" ]; then
+            DEST="id=$(python3 scripts/ci_simulator.py)"
+            SIGN="CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=-"
+          else
+            DEST="platform=macOS,variant=Mac Catalyst"
+            SIGN="CODE_SIGNING_ALLOWED=NO"
+          fi
+          LOG="$RUNNER_TEMP/platform-${{ matrix.name }}.log"
+          set +e
+          # shellcheck disable=SC2086  # SIGN and PLATFORM_ONLY are deliberate flag lists
+          xcodebuild test \
+            -project Mattermost.xcodeproj \
+            -scheme Mattermost \
+            -destination "$DEST" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 300 \
+            $SIGN $PLATFORM_ONLY \
+            > "$LOG" 2>&1
+          RC=$?
+          set -e
+          echo "xcodebuild exit: $RC"
+          SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          tail -40 "$LOG"
+
+          # One place decides green / hung / asserted, and it has its own self-test - a hang
+          # here certifies nothing but must not turn into a red leg either (see that script).
+          set +e
+          VERDICT=$(bash scripts/classify_platform_tests.sh "$LOG")
+          VRC=$?
+          set -e
+          echo "verdict: $VERDICT (rc=$VRC)"
+          case "$VERDICT" in
+            green)
+              {
+                echo ""
+                echo "### platform-service tests (${{ matrix.name }}): green"
+                echo "- WebKit/pasteboard answered on this run: T31 harvest, T35 paste, T46 fallback, T56 selection all passed."
+              } >> "$SUMMARY"
+              exit 0 ;;
+            "hung "*)
+              HUNG="${VERDICT#hung }"
+              echo "::warning::test (${{ matrix.name }}): platform-service tests did not complete on this runner - $HUNG hit the execution-time allowance. The runner's WebKit/pasteboard never answered. Not certified here, not a product failure; detail in the step log."
+              {
+                echo ""
+                echo "### platform-service tests (${{ matrix.name }}): did not complete here"
+                echo "- \`$HUNG\` hit the execution-time allowance: WebKit/pasteboard is unavailable on this runner."
+                echo "- Not certified on this run. Covered by a local run on a Mac (§ Running locally) - see docs/releasing.md, \"WebKit in the test host\"."
+              } >> "$SUMMARY"
+              exit 0 ;;
+            "asserted "*)
+              ASSERTED="${VERDICT#asserted }"
+              echo "::error::test (${{ matrix.name }}): platform-service tests asserted - $ASSERTED failed on its assertions, not on a hang. That is a product failure; fix it, do not re-file it as runner noise."
+              exit 1 ;;
+            *)
+              echo "::error::test (${{ matrix.name }}): platform-service tests failed with no test name in the log"
+              exit 1 ;;
+          esac
 
       - name: Upload log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-log-${{ matrix.name }}
-          path: ${{ runner.temp }}/${{ matrix.name }}.log
+          path: |
+            ${{ runner.temp }}/${{ matrix.name }}.log
+            ${{ runner.temp }}/timing-${{ matrix.name }}.log
+            ${{ runner.temp }}/platform-${{ matrix.name }}.log
           if-no-files-found: warn
 
       # The result bundle is where xcodebuild puts the diagnostics it asks you to attach when a
@@ -291,6 +432,8 @@ jobs:
     # macOS minutes on a zip with nowhere to go, the package job is skipped.
     outputs:
       published: ${{ steps.publish.outputs.published }}
+      reason: ${{ steps.publish.outputs.reason }}
+      tag: ${{ steps.publish.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -311,12 +454,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          # What actually happened on the gate, so the release body cannot claim "green"
+          # for a push whose legs were skipped by the docs-only policy.
+          TESTS: ${{ needs.test.result }}
         run: |
           set -euo pipefail
           # Default is "no release for this commit": every path that publishes overrides
           # it. A caller (the package job) reads this, so an unset output can never be
           # mistaken for a published release.
           echo "published=false" >> "${GITHUB_OUTPUT:-/dev/null}"
+          echo "reason=none" >> "${GITHUB_OUTPUT:-/dev/null}"
+          echo "tag=" >> "${GITHUB_OUTPUT:-/dev/null}"
+
+          # Every path that does not publish says why, on the run itself: an annotation
+          # for the run page and a line for the run's summary tab. A reader seeing a
+          # skipped tag-and-publish must not have to open a job to learn the reason
+          # (t_6904c92b). `$2` is the machine word the verdict job reads.
+          skip() { # $1 = sentence, $2 = reason word
+            echo "::notice::SKIP: $1"
+            echo "reason=$2" >> "${GITHUB_OUTPUT:-/dev/null}"
+            { echo ""; echo "**release:** SKIP - $1"; } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+          }
+
           git fetch --tags --force --quiet
           SHA=$(git rev-parse HEAD)
           SHORT=$(git rev-parse --short=8 HEAD)
@@ -327,7 +486,7 @@ jobs:
           # commit, putting the ladder out of order (v0.6.0 on a commit below v0.5.0).
           TIP=$(git ls-remote origin refs/heads/main | cut -f1)
           if [ "$TIP" != "$SHA" ]; then
-            echo "$SHORT is not the tip of main (${TIP:0:8}); superseded, no release cut."
+            skip "$SHORT is not the tip of main (${TIP:0:8}); superseded, no release cut." superseded
             exit 0
           fi
 
@@ -363,10 +522,12 @@ jobs:
               | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
             if [ -z "$EXISTING" ]; then
               echo "::error::SKIP with no release tag on HEAD $SHORT (a non-release tag, such as a pre-release suffix, is on HEAD; nothing cut - delete the tag or push a new commit)"
+              echo "reason=non-release-tag" >> "${GITHUB_OUTPUT:-/dev/null}"
+              { echo ""; echo "**release:** REFUSED - only a non-release tag (a pre-release suffix) is on HEAD; nothing cut."; } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
               exit 1
             fi
             if gh release view "$EXISTING" --repo "$REPO" >/dev/null 2>&1; then
-              echo "already published: $EXISTING at $SHORT - nothing to do"
+              skip "already published: $EXISTING at $SHORT - nothing to do (re-run or duplicate delivery of a commit that already has its release)" already-published
               echo "published=true" >> "${GITHUB_OUTPUT:-/dev/null}"
               exit 0
             fi
@@ -380,6 +541,9 @@ jobs:
             PREV=$(git describe --tags --abbrev=0 "$SHA^" 2>/dev/null || echo "")
           fi
 
+          # The tag is now decided (new, or an existing tag whose release is incomplete).
+          echo "tag=$TAG" >> "${GITHUB_OUTPUT:-/dev/null}"
+
           # Notes come from commit subjects plus any PR references inside them, so this
           # works whether commits arrive directly or through pull requests.
           if [ -n "$PREV" ]; then
@@ -388,10 +552,32 @@ jobs:
             python3 scripts/release_notes.py --to "$SHA" --repo "$REPO" > /tmp/notes.md || true
           fi
           [ -s /tmp/notes.md ] || echo "Release $TAG at $SHA." > /tmp/notes.md
+          ASSET="Mattermost-macOS-${TAG}.zip"
           {
             echo ""
-            echo "**Verified** on Xcode 26.6 (17F113): unit suites green on iOS Simulator and Mac Catalyst."
+            # Say what actually ran. A docs-only push skips both test legs by policy
+            # (gap G2), and a release body that claimed "suites green" for it would be a
+            # claim nobody made (t_6904c92b).
+            if [ "${TESTS:-}" = "skipped" ]; then
+              echo "**Tests:** skipped for this push - documentation only (policy in docs/releasing.md)."
+            elif [ "${TESTS:-}" = "success" ]; then
+              echo "**Verified** on Xcode 26.6 (17F113): gate suites green on iOS Simulator and Mac Catalyst."
+              # The four platform-service classes are reported, not certified, on the hosted
+              # runner (WebKit/pasteboard are refused there). Say so in every release body
+              # rather than let a green run imply coverage it did not have (t_6904c92b).
+              echo "**Not certified here:** T31 harvest, T35 paste, T46 web-fallback and T56 selection (they need WebKit/pasteboard, which the runner refuses) - detail on the run, policy in docs/releasing.md."
+            else
+              echo "**Tests:** see the workflow run for this commit."
+            fi
             echo "**Full Changelog**: https://github.com/${REPO}/compare/${PREV:-root}...$TAG"
+            echo ""
+            echo "### Install (one line, macOS)"
+            echo ""
+            echo '```bash'
+            echo "curl -fL -o /tmp/mm.zip https://github.com/${REPO}/releases/download/${TAG}/${ASSET} && rm -rf /tmp/mm-unz /Applications/Mattermost.app && ditto -x -k /tmp/mm.zip /tmp/mm-unz && xattr -dr com.apple.quarantine /tmp/mm-unz/Mattermost-macOS-${TAG}/Mattermost.app && cp -R /tmp/mm-unz/Mattermost-macOS-${TAG}/Mattermost.app /Applications/ && open /Applications/Mattermost.app"
+            echo '```'
+            echo ""
+            echo "The app is ad-hoc signed, not notarized (\`codesign --force --deep -s -\`, no Apple Developer account), so the one line above clears the quarantine bit for you. Downloading it by hand instead needs the same step; see \`docs/installing.md\`."
           } >> /tmp/notes.md
 
           # shellcheck disable=SC2086  # TARGET_ARGS is a deliberate word-split flag list
@@ -414,6 +600,8 @@ jobs:
           gh release view "$TAG" --repo "$REPO" --json tagName,isDraft,url \
             --jq '"published \(.tagName) -> \(.url)"'
           echo "published=true" >> "${GITHUB_OUTPUT:-/dev/null}"
+          echo "reason=published" >> "${GITHUB_OUTPUT:-/dev/null}"
+          { echo ""; echo "**release:** PUBLISHED \`$TAG\` at \`$SHORT\`"; } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
           echo "RELEASE CREATED: $TAG at $SHORT"
 
   package:
@@ -588,3 +776,81 @@ jobs:
           name: mattermost-macos-app
           path: ${{ runner.temp }}/*.zip
           if-no-files-found: error
+
+  # The one sentence a reader needs, on the run itself.
+  #
+  # Before this job existed a run that published nothing showed a red X on a test job and
+  # two grey "skipped" boxes, and the reason lived in a log line somebody had to know to
+  # look for. Every outcome now lands in the run summary and as an annotation on this job
+  # (t_6904c92b): published, skipped (superseded / already published), refused, or blocked
+  # (tests red, guard could not decide). It never changes the outcome - it explains it.
+  verdict:
+    name: verdict (why this run released or did not)
+    needs: [guard, parity, test, release, package]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: State the outcome in one sentence
+        env:
+          GUARD: ${{ needs.guard.result }}
+          PARITY: ${{ needs.parity.result }}
+          TEST: ${{ needs.test.result }}
+          RELEASE: ${{ needs.release.result }}
+          PACKAGE: ${{ needs.package.result }}
+          REASON: ${{ needs.release.outputs.reason }}
+          TAG: ${{ needs.release.outputs.tag }}
+          PUBLISHED: ${{ needs.release.outputs.published }}
+        run: |
+          set -euo pipefail
+          SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          if [ "$GUARD" != "success" ]; then
+            LINE="BLOCKED: the guard could not decide ($GUARD) - nothing ran. See the guard job's annotation."
+            echo "::error::$LINE"
+          elif [ "$REASON" = "already-published" ]; then
+            # Checked BEFORE the published=true branch on purpose: the release job still
+            # exports published=true on this path (the release exists, so the package job
+            # may refresh its asset), and without this order the run page said PUBLISHED
+            # for a re-run that cut nothing (t_6904c92b).
+            LINE="SKIP: this commit already has its release ${TAG:-} - a re-run or a duplicate delivery never cuts a second one. Nothing was published."
+            echo "::notice::$LINE"
+          elif [ "$REASON" = "published" ] || [ "$PUBLISHED" = "true" ]; then
+            if [ "$PACKAGE" = "success" ]; then
+              LINE="PUBLISHED ${TAG:-a release} - tag, generated notes and the signed Mattermost-macOS-${TAG}.zip asset are on the release (tests: $TEST)."
+            else
+              LINE="PUBLISHED ${TAG:-a release} WITHOUT the app asset (package: $PACKAGE) - read the package job before telling anyone to download it."
+              echo "::warning::$LINE"
+            fi
+            echo "::notice::$LINE"
+          elif [ "$REASON" = "superseded" ]; then
+            LINE="SKIP: this push was superseded by a newer commit on main before it reached the release stage. Nothing was published; the tip run releases."
+            echo "::notice::$LINE"
+          elif [ "$TEST" = "failure" ]; then
+            LINE="BLOCKED: the test gate is red on this push, so no tag and no release were cut. The test job's annotation names the failing test (and says so when the cause is a runner without a window server)."
+            echo "::error::$LINE"
+          elif [ "$TEST" = "cancelled" ]; then
+            LINE="BLOCKED: the test gate was cancelled, so nothing was released."
+            echo "::error::$LINE"
+          elif [ "$RELEASE" = "failure" ]; then
+            LINE="BLOCKED: the release stage failed - read its annotation; published=false, so the package job did not build anything."
+            echo "::error::$LINE"
+          elif [ "$RELEASE" = "skipped" ]; then
+            LINE="SKIP: the release job did not run (guard said is_tip=false, or the docs-only policy and a red leg disagreed). tests=$TEST release=$RELEASE."
+            echo "::warning::$LINE"
+          else
+            LINE="NO RELEASE: tests=$TEST release=$RELEASE package=$PACKAGE - read the job above that is not green."
+            echo "::warning::$LINE"
+          fi
+          {
+            echo ""
+            echo "### verdict"
+            echo ""
+            echo "$LINE"
+            echo ""
+            echo "| job | result |"
+            echo "|---|---|"
+            echo "| parity record | $PARITY |"
+            echo "| test legs | $TEST |"
+            echo "| release (tag and publish) | $RELEASE |"
+            echo "| package (Mattermost.app) | $PACKAGE |"
+          } >> "$SUMMARY"

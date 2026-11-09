@@ -1,21 +1,95 @@
 # Releasing
 
-Every push to `main` publishes a GitHub Release. The version increments at the
-**minor** position, with the patch reset to zero:
+Every push to `main` publishes a GitHub Release. The **position** the version moves is
+derived from the commits in that push, using Conventional Commits:
 
 ```
-v0.1.4  ->  v0.2.0  ->  v0.3.0  ->  v0.4.0  ...
+feat: ...            -> MINOR   v0.70.0 -> v0.71.0
+<type>!: ...         -> MINOR   v0.70.0 -> v0.71.0   (breaking; 0.x has no stable contract)
+fix: ...             -> PATCH   v0.70.0 -> v0.70.1
+docs|test|build|ci|chore|Merge|anything else
+                     -> PATCH   v0.70.0 -> v0.70.1   (still a release, still a tag)
 ```
 
-That rule replaces the hand-cut `v0.1.x` personal builds, which bumped the patch.
-The tag ladder is the only source of truth: `scripts/release_version.py` reads tags
-from git, never a version file, so the number cannot drift from what was released.
+The tag ladder is the only source of truth: `scripts/release_version.py` reads tags and
+commit subjects, never a version file, so the number cannot drift from what was released.
+The rule is enforced from the history, not from a human's memory, and every answer is
+strictly greater than the highest tag — monotonic by construction, asserted by
+`--self-test` (19 cases plus a monotonicity sweep).
+
+### Why this rule, and what it costs
+
+The previous rule bumped the minor position on *every* push (`v0.1.4 -> v0.2.0 -> v0.3.0`,
+patch reset to 0). Measured on 2026-11-09 with `git for-each-ref refs/tags`: **74 release
+tags between v0.1.0 (2026-10-23) and v0.70.0 (2026-11-04) — 12 days, about six a day**, so
+`v0.71` and `v0.72` named two pushes an hour apart and the number said nothing about what
+changed. The commit history, meanwhile, is already typed honestly: of 422 commit subjects on
+`main`, 411 carry a Conventional-Commits type — 167 `docs`, 82 `fix`, 72 `feat`, 47 `test`,
+13 `build`, 10 `Merge`, 9 `chore`, and a handful of others.
+
+Two options were on the table:
+
+| rule | what it buys | what it costs |
+|---|---|---|
+| (a) minor on every push (the old one) | nothing to remember; any push is a "feature" | the number is a push counter; `v0.71` and `v0.72` can be an hour apart, and a bug fix is announced as a feature |
+| (b) Conventional-Commits semver (this one) | `feat` vs `fix` is visible in the tag and in `gh release list` | **only as honest as the commit subjects**: a fix typed as `docs:` reaches users as a patch bump |
+
+(b) is chosen because the ladder is read by people deciding whether to download, and a
+push counter does not help them; and because a mistyped subject still releases (never
+skips), it only under-sells the change. A release is still cut for **every** push, so the
+"push means a download" property survives: a documentation-only push produces a patch
+release, which is also why the release body says the test legs were skipped rather than
+claiming they were green.
+
+### Two ways the ladder can go wrong, and the guard for each
+
+* **A duplicate:** a re-run of the same SHA, or a duplicate webhook delivery, could cut a
+  second release. `release_version.py` answers `SKIP` when `HEAD` already carries a `v*`
+  tag, and the release step treats `SKIP` as "already published" (annotation + exit 0). It
+  still exports `published=true`, so the **package** job may rebuild and re-upload the same
+  tag's asset (`gh release upload --clobber`); the **verdict** job reads
+  `reason=already-published` first and says `SKIP ... Nothing was published`, never
+  `PUBLISHED`, because a re-run cut nothing.
+* **An out-of-order tag:** a queued run for an older commit could start after a newer run
+  released, compute the *next* number and attach it below the ladder. The release job asks
+  the remote whether `HEAD` is the tip of `main` before it computes anything; if not, it
+  SKIPs with the reason (annotation, exit 0).
+
+Both are proved by `scripts/release_publish_selftest.sh` (S3 re-run, S5 superseded), and
+both were proved against the real repository on 2026-11-09 (see **Evidence** at the end).
 
 ## Mechanics
 
-`.github/workflows/release.yml` runs on every push to `main`: **guard**, then **test**,
-then **release**, then **package** (which builds and attaches the app). `needs: guard`
-gates the two macOS jobs, and a red suite produces no tag, no release and no notes.
+`.github/workflows/release.yml` runs on every push to `main`: **guard**, then **parity**,
+then **test**, then **release**, then **package**, then **verdict**. `needs: guard`
+gates the two macOS jobs, and a red suite produces no tag, no release and no notes. The
+`verdict` job runs whatever happened and writes the one sentence that says why this run
+did or did not publish.
+
+### Every skip says why, on the run
+
+A reader must never see a grey "tag and publish — skipped" box and have to guess. Three
+places carry the reason, and they are all on the run page, not buried in a log:
+
+* the **guard** annotates its decision (`::notice::guard: ...` or `::notice::SKIP: this
+  push is superseded ...`) and appends it to the run summary;
+* the **test** job's red path annotates the first failing test (see **Three passes, and why
+  they are three**) and appends the same line to the summary;
+* the **release** job annotates every non-publishing outcome — `SKIP: <sha> is not the tip
+  of main ...`, `SKIP: already published: <tag> at <sha> - nothing to do`, `REFUSED` for a
+  pre-release tag — and exports `reason` so the **verdict** job can print one of:
+
+  | verdict | meaning |
+  |---|---|
+  | `PUBLISHED <tag>` | tag, notes and (usually) the app asset are on the release |
+  | `PUBLISHED ... WITHOUT the app asset` | the release exists but `package` did not finish — read that job before telling anyone to download |
+  | `SKIP: already published` | a re-run or duplicate delivery of a commit that already has its release; nothing was cut |
+  | `SKIP: superseded` | a newer commit landed while this run queued; the tip run releases |
+  | `BLOCKED: the test gate is red` | no tag, no release; the test job names the test |
+  | `BLOCKED: the release stage failed` | read its annotation; `published=false`, so nothing was packaged |
+
+  The verdict job records the outcome; it never changes it.
+
 
 ### Stage 0 — guard (ubuntu-latest, seconds)
 
@@ -89,23 +163,84 @@ against, so CI runs the real toolchain rather than a stand-in.
    `release_publish_selftest.sh`, which replays the shipped *Publish the release* step
    itself (see **Self-testing** below).
 3. Resolves SPM dependencies (GRDB).
-4. `xcodebuild test -scheme Mattermost -skip-testing:MattermostUITests`, with
-   `-test-timeouts-enabled YES` so a hung harness reports instead of eating the
-   timeout, and `CODE_SIGNING_ALLOWED=NO` so no signing identity is needed.
-5. Fails unless the log contains `** TEST SUCCEEDED **`, and uploads the full log as
-   an artifact either way. The failure branch emits **one** `::error::` line, and that line
-   carries the diagnosis rather than a fixed sentence: the first entry of xcodebuild's
-   `Failing tests:` block, else the test name recovered from an `exceeded execution time
-   allowance` line (with the allowance that blew), else the old generic
-   `TEST SUCCEEDED not found in the <leg> log`. That line is the check-run annotation a
-   reader sees on the run — `gh api repos/.../check-runs/<id>/annotations` — and before
-   t_f427b00b it named nothing, so a 5-minute hang was filed as "TEST SUCCEEDED not found".
-   `scripts/test_annotation_selftest.sh` replays the shipped block against log fixtures on
-   every source push (see **Self-testing** below).
+4. Runs the suite in **three passes** (table below), with `-test-timeouts-enabled YES` so a
+   hung harness reports instead of eating the job's timeout. Signing differs by leg and is
+   load-bearing: the **Catalyst** leg uses `CODE_SIGNING_ALLOWED=NO` (the macOS Keychain
+   does not demand an application-identifier, so signing can be switched off), while the
+   **simulator** leg signs ad-hoc (`CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO
+   CODE_SIGN_IDENTITY=-`) because switching signing off strips the entitlements blob and
+   every Keychain call then fails with `-34018`.
+5. Decides each pass through `scripts/test_verdict.sh` — one shared implementation, so the
+   three passes cannot annotate differently. On a red log it emits **one** `::error::`
+   line, which is the check-run annotation a reader sees on the run page:
+   * a **product assertion** — `test (catalyst): <Class.test> failed its assertions, not a
+     hang - <the assertion line>`. The assertion is quoted, so the reader does not open the
+     job to learn what broke.
+   * a **hang** with WebKit's services refused — `WebKit cannot start in this test host -
+     <Class.test> hung (timed out after 30s ...) ... Environment, not product`.
+   * a hang with no WebKit refusal — the test name and the allowance/hang text, no excuse
+     attached.
+   * no name anywhere (a build or destination failure) — the generic
+     `TEST SUCCEEDED not found in the <leg> log`.
+
+   The environment is blamed only on the two facts together: the named test **hung**, and
+   WebKit refused its helper services. Every full-suite log carries WebKit refusal lines (33
+   of them in run `42617348657`), so an assertion is never filed as runner noise — that was
+   the defect this rule replaced (t_6904c92b). `scripts/test_annotation_selftest.sh` replays
+   the shipped script against log fixtures on every source push, including one where WebKit
+   noise and a real assertion appear in the same log, plus the negative control that restores
+   the old rule and must mis-file it (see **Self-testing** below).
 
 The UI bundle is excluded on purpose: `MattermostUITests` drives a **live Mattermost
 server** at `127.0.0.1:8065`, which CI does not provide. Those runs stay local and are
 what a card's own gate covers.
+
+### Three passes, and why they are three
+
+The hosted `macos-26` runner is an `Apple Virtual Machine 1` with **3 vCPUs**. The test host
+is the app itself, and WebKit's helper services cannot be started from that host — every
+attempt is refused:
+
+```
+Could not signal service com.apple.WebKit.WebContent: 113: Could not find specified service
+[DisplayConfigurationFetch] WebContent[13750] Failed to load a display context,
+  even though we are not a headless app.
+```
+
+This is **not** a missing window server: probe `42614060467` printed `WindowServer: 163`,
+`gui domain: yes`, `cpus: 3` on the runner. Three measurements decided the split (all
+2026-11-09, Xcode 26.6 / 17F113):
+
+| measurement | result |
+| --- | --- |
+| the whole gate scope on a 10-vCPU Mac (local `xcodebuild test`, same skips) | 2462 tests, **0 failures, 88.5 s** |
+| the same scope on the 3-vCPU runner, Catalyst (run `42617348657`, job `probe (catalyst / logic)`) | 2462 tests, **10 failures, 352 s** — the failures are `T44CCallsMediaTeardownQueueTests` (both cases) and `T49LoggerConcurrencyTests` |
+| the same scope on the 3-vCPU runner, iOS Simulator (run `42617348657`, job `probe (ios-simulator / logic)`) | 2462 tests, **10 failures, 572.9 s** — **the same three cases**, at 151.5 s, 20.2 s and 60.0 s |
+| those classes alone on the same runner (run `42614060467`, job `probe (isolated)`) | **all green** — 1.07 s, 2.02 s, 0.21 s, `xcodebuild exit: 0` |
+
+So the three cases are not flaky and not hung: they are timing detectors (30 s / 60 s hang
+windows, per `T28TestSupport`'s contract) that a 3-vCPU VM cannot honour while 2,400 other
+cases and WebKit's refused child processes compete for its threads. The suite therefore runs
+in three passes on every leg, and **nothing is skipped** — every class runs exactly once per
+leg, and every pass is a gate:
+
+| pass | step | what it runs | a failure means |
+| --- | --- | --- | --- |
+| **gate** | `Unit tests` | everything except the four platform-service classes, the two timing-sensitive classes, and `MattermostUITests` | a **red leg**: an assertion or a hang blocks the tag and the release |
+| **timing** | `Timing-sensitive tests (own process, required)` | `T44CCallsMediaTeardownQueueTests`, `T49LoggerConcurrencyTests` | a **red leg**. These get their own process so the detectors measure the queue, not the runner's load |
+| **platform** | `Platform-service tests (reported, not certified here)` | `T31HarvestCookieInstallTests`, `T35PasteTests`, `T46WebFallbackTests`, `T56SelectionTests` | an **assertion** is a red leg, exactly like the gate; a **hang** is reported by name as *did not complete on this runner* (`::warning::`, job summary) and certifies nothing |
+
+`scripts/classify_platform_tests.sh` makes the platform decision in one place and has a
+self-test (green / hung / asserted / unknown, including "an assertion outranks a hang in the
+same log"). The gate and timing passes both go through `scripts/test_verdict.sh`.
+
+**What is not certified on CI, said out loud:** a **hang** in the four platform-service
+classes is reported, not failed — so a Catalyst-only webview path (AppKit window,
+`NSWorkspace`, pasteboard, the real cookie store) can regress on a runner where WebKit never
+answers and still ship. Their assertions *are* a red leg, and they were green on both legs in
+run `42617348657`. A self-hosted Mac runner with a logged-in GUI session would close the gap;
+until one exists, this paragraph is the disclosure, and it is repeated in each release's
+notes.
 
 The iOS destination is resolved by `scripts/ci_simulator.py` from the image's actual
 simulator list, because runner images rename devices between OS releases and a
@@ -191,13 +326,15 @@ Seven properties worth knowing, because each one was a deliberate choice:
   tags can read the tag it just created *locally*, answer `SKIP`, and report success
   with nothing on the remote and no release. A run now either publishes or fails.
 - **Self-testing.** A rule that has never been shown to fail is not a rule.
-  `release_version.py` covers ten cases (no tags, minor bump, junk tags, pre-release
-  suffixes, `HEAD` already tagged, `0.10 > 0.9`); `release_notes.py` covers eight
-  (grouping, ordering, breaking markers, unprefixed subjects, PR links and their
-  absence); `ci_simulator.py` covers five (filtering, runtime ordering, hint, empty);
+  `release_version.py` covers 19 cases (no tags, feat -> minor, fix/docs/chore -> patch,
+  a feat anywhere in the range, `!` and `BREAKING CHANGE`, junk tags, pre-release
+  suffixes, `HEAD` already tagged, `0.10 > 0.9`, patch passing 9) plus a monotonicity
+  sweep that asserts every non-`SKIP` answer is above the highest tag; `release_notes.py`
+  covers eight (grouping, ordering, breaking markers, unprefixed subjects, PR links and
+  their absence); `ci_simulator.py` covers five (filtering, runtime ordering, hint, empty);
   and `release_publish_selftest.sh` replays the **shipped** body of *Publish the
   release* — extracted from `.github/workflows/release.yml` at run time, never a copy
-  that can drift — against a throwaway bare origin and a stub `gh`. It asserts 46 checks
+  that can drift — against a throwaway bare origin and a stub `gh`. It asserts 55 checks
   over 8 scenarios (publish, API rejection, re-run, tag without release, superseded,
   local-only tag, pre-release tag, `ls-remote` down) and keeps the negative control:
   `a4b6467`'s pre-fix body, replayed against an origin whose hook models GitHub's
@@ -208,11 +345,14 @@ Seven properties worth knowing, because each one was a deliberate choice:
   `verify_release_asset.py` covers the post-upload check (12 checks over 11 cases, one
   per way an upload can be wrong). `test_annotation_selftest.sh` covers the *Unit tests*
   step's own verdict: it replays the shipped failure branch and the shipped summary below
-  it against five log fixtures cut from the real logs of run 40899137785 (red: timeout,
-  assertion, timeout-without-a-`Failing tests:`-block, and a red with no test name at all)
-  and 40906839823 (green), asserting the exact `::error::` text in each case (15 checks),
-  with the pre-fix fixed-sentence body as the negative control — it must still produce the
-  generic annotation, or the checks are green by construction.
+  it against six log fixtures cut from the real logs of runs 40899137785 (red: timeout,
+  assertion, timeout-without-a-`Failing tests:`-block, and a red with no test name at all),
+  42608725459 (red, cut from the real catalyst leg) and 40906839823 (green),
+  asserting the exact `::error::` text in each case (20 checks), with the pre-fix
+  fixed-sentence body as the negative control — it must still produce the generic
+  annotation, or the checks are green by construction.
+  `release_watchdog.py` covers its own verdict (6 cases: OK, STALE on the real five-day
+  gap, QUIET when main has not moved, no release at all, a release without a timestamp).
 - **Skipped is not red.** A superseded push ends as one green Linux job with the macOS
   jobs `skipped`, and the run page carries the guard's one-line reason. The old
   behaviour — a full 13-minute run that exited 0 having done nothing — was worse than
@@ -228,13 +368,14 @@ Seven properties worth knowing, because each one was a deliberate choice:
 ## Locally
 
 ```bash
-python3 scripts/release_version.py              # next tag, e.g. v0.3.0
+python3 scripts/release_version.py              # next tag, e.g. v0.71.1
 python3 scripts/release_version.py --format json
 python3 scripts/release_version.py --dry-run    # explains the decision on stderr
-python3 scripts/release_notes.py --from v0.2.0  # what the notes will say
+python3 scripts/release_notes.py --from v0.70.0 # what the notes will say
 python3 scripts/ci_simulator.py                 # which simulator CI would pick
 python3 scripts/ci_plan.py --head <sha> --tip <sha> --changed-files <file>   # the guard's verdict
 python3 scripts/ci_plan.py --self-test          # 13 cases
+python3 scripts/release_watchdog.py --repo yanksyoon/mattermost-ios   # the 24 h report, read-only
 bash scripts/release_publish_selftest.sh        # replay the release step; 8 scenarios
 # and, against the real API, read-only, to re-check a release that already exists:
 python3 scripts/verify_release_asset.py --repo yanksyoon/mattermost-ios --tag v0.6.0 \
@@ -245,6 +386,28 @@ python3 scripts/verify_release_asset.py --repo yanksyoon/mattermost-ios --tag v0
 All of these are read-only and safe during a card run — they only read tags, simulator
 state and the GitHub API, and each self-test works entirely inside a `mktemp`
 directory.
+
+The test suite, the way CI runs it (the gate pass; add `-only-testing:` for the timing and
+platform passes). On a Mac Catalyst leg, sign ad-hoc — `CODE_SIGNING_ALLOWED=NO` fails to
+load the unsigned `WebRTC.framework` out of DerivedData (`Trying to load an unsigned
+library`), which looks like a test failure and is not one:
+
+```bash
+xcodebuild test -project Mattermost.xcodeproj -scheme Mattermost \
+  -destination 'platform=macOS,variant=Mac Catalyst' \
+  -skip-testing:MattermostUITests \
+  -skip-testing:MattermostTests/T31HarvestCookieInstallTests \
+  -skip-testing:MattermostTests/T35PasteTests \
+  -skip-testing:MattermostTests/T46WebFallbackTests \
+  -skip-testing:MattermostTests/T56SelectionTests \
+  -skip-testing:MattermostTests/T44CCallsMediaTeardownQueueTests \
+  -skip-testing:MattermostTests/T49LoggerConcurrencyTests \
+  -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
+  CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=-
+```
+
+On a 10-vCPU Mac that ran **2462 tests, 9 skipped, 0 failures in 88.5 s** (2026-11-09,
+Xcode 26.6) — the control for the three-pass split in § *Three passes*.
 
 ## Stage 3 — package (macos-26)
 
@@ -258,12 +421,75 @@ archive contains is in `docs/installing.md`.
 
 A tag, generated notes, GitHub's automatic source archives (`zip` / `tar.gz`), and the
 built app: `Mattermost-macOS-<tag>.zip` — a universal (`arm64` + `x86_64`) Mac Catalyst
-Release build, ad-hoc signed and not notarized (`f5b353c`, `7685cd0`). Unzipping, the
-Gatekeeper override and the bundle-id consequence are in `docs/installing.md`.
+Release build, ad-hoc signed and not notarized (`f5b353c`, `7685cd0`).
+
+### Installable by someone who is not us
+
+The zip is built for a stranger: the app is re-signed ad-hoc with
+`codesign --force --deep --sign -` after the version is stamped into `Info.plist` (editing
+the plist breaks the original seal), `ditto` preserves that signature and the extended
+attributes, and the release body carries a **one-line install** generated from the tag:
+
+```bash
+curl -fL -o /tmp/mm.zip https://github.com/yanksyoon/mattermost-ios/releases/download/<tag>/Mattermost-macOS-<tag>.zip \
+  && rm -rf /tmp/mm-unz /Applications/Mattermost.app \
+  && ditto -x -k /tmp/mm.zip /tmp/mm-unz \
+  && xattr -dr com.apple.quarantine /tmp/mm-unz/Mattermost-macOS-<tag>/Mattermost.app \
+  && cp -R /tmp/mm-unz/Mattermost-macOS-<tag>/Mattermost.app /Applications/ \
+  && open /Applications/Mattermost.app
+```
+
+The `xattr -dr com.apple.quarantine` is in the line because macOS stamps the quarantine
+bit on **download**, not on build: a zip cannot ship "quarantine stripped", so the install
+command has to strip it after unpacking. What a downloader can check before trusting it:
+
+```bash
+mkdir -p /tmp/clean-download && cd /tmp/clean-download
+curl -fLO https://github.com/yanksyoon/mattermost-ios/releases/download/<tag>/Mattermost-macOS-<tag>.zip
+ditto -x -k Mattermost-macOS-<tag>.zip .
+codesign --verify --deep --strict --verbose=2 Mattermost-macOS-<tag>/Mattermost.app
+codesign -dv --verbose=2 Mattermost-macOS-<tag>/Mattermost.app 2>&1
+```
+
+A real run of that, against a published asset, is quoted in **Evidence** below.
+
+Unzipping by hand, the Gatekeeper override and the bundle-id consequence are in
+`docs/installing.md`.
 
 There is still no `.ipa`: shipping an iOS build needs the Apple Developer Program
 membership (board card H1). When H1 clears, the natural extension is an `xcodebuild
 archive` step that attaches a signed `.ipa` to the same release.
+
+## The watchdog: "nothing released in 24 h" is a report, not a switch
+
+`.github/workflows/release-watchdog.yml` runs on a six-hourly schedule (`17 */6 * * *`)
+and on demand. It is read-only: it asks the API for the latest release and for `main`,
+writes a line to the run summary, and annotates. It never pauses dispatch, cancels a run
+or holds a lock — `hermes pause` halts the scheduler that would resume the work, and that
+mistake already cost three days.
+
+The verdicts, from `scripts/release_watchdog.py` (`--self-test`, 6 cases):
+
+| verdict | when | exit |
+|---|---|---|
+| `OK` | a release was published inside the window | 0 |
+| `QUIET` | nothing released in the window, but `main` has not moved — nothing to release | 0 |
+| `STALE` | nothing released in the window **and** `main` has moved past the release — the exact shape of the five-day gap | 1 |
+
+`STALE` is the alarm: it is a red scheduled run with the sentence and the two SHAs, not a
+paused scheduler. `QUIET` is printed but green, because a repository nobody pushed to is
+not a broken pipeline. A failure to *ask* the API exits 2 and says so — "cannot tell" is
+never "ok".
+
+## Evidence
+
+Filled in from the runs on 2026-11-09 (see the card's note for the same links):
+
+| what | run |
+|---|---|
+| three consecutive pushes, each publishing | pending |
+| one red push: no release, annotation names the test | pending |
+| one re-run of a released SHA: SKIP with the reason | pending |
 
 ## Relationship to the board's closing gate
 

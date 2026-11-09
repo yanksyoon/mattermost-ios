@@ -1,0 +1,45 @@
+name: release watchdog
+
+# A scheduled REPORT, deliberately not a switch.
+#
+# Card t_6904c92b. The pipeline looked healthy while `main` received no push for five days
+# and 44 commits sat on a QA branch: no push means no run and no release, and nothing said
+# so. This workflow is the check that notices. It is read-only, it runs on a timer, and it
+# writes a summary line plus an annotation.
+#
+# What it must never do: pause dispatch, cancel runs, or hold a lock. `hermes pause` halts
+# the scheduler that would resume the work - that mistake already cost three days - so the
+# alarm here is a red scheduled run and a sentence, nothing more. It exits 1 only when
+# there is something to act on: `main` has moved and nothing was released in the window.
+# A quiet repository (nothing released, nothing pushed) is reported as QUIET and is green.
+
+on:
+  schedule:
+    # Every six hours, off the hour so it does not queue behind release runs.
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  report:
+    name: no release in 24 h?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prove the verdict logic
+        run: python3 scripts/release_watchdog.py --self-test
+
+      - name: Report the age of the last release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          python3 scripts/release_watchdog.py \
+            --repo "${{ github.repository }}" \
+            --max-age-hours 24 \
+            --summary "${GITHUB_STEP_SUMMARY:-/dev/null}"
