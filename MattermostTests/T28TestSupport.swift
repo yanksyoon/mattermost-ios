@@ -567,6 +567,76 @@ final class SignalCounter: @unchecked Sendable {
     }
 }
 
+// MARK: - A WebKit call that must answer, or say that it did not (card t_a5321d5e)
+
+/// What one awaited WebKit call did: it answered, or it never did.
+enum BoundedAnswer<Value> {
+    case answered(Value)
+    /// The call never came back. `after` is the detector's window, not a measurement of the work.
+    case silent(after: TimeInterval)
+}
+
+/// Correct exactly once between the answer and the detector.
+private final class AnswerRace: @unchecked Sendable {
+    private let lock = NSLock()
+    private var claimed = false
+
+    func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if claimed { return false }
+        claimed = true
+        return true
+    }
+}
+
+/// Carries the answered value back to the awaiting actor without pushing a non-`Sendable` WebKit
+/// type through a `CheckedContinuation`: written on the main actor, read on the main actor, and only
+/// after the race has been claimed.
+private final class AnswerBox<Value>: @unchecked Sendable {
+    var value: Value?
+}
+
+/// Await one WebKit call with a **hang detector** (card t_a5321d5e).
+///
+/// Why this exists: `WKWebsiteDataStore` / `WKHTTPCookieStore` are XPC-backed. On a host where
+/// WebKit's Networking service never comes up — the hosted simulator refuses its helper services,
+/// intermittently — a cookie `await` never returns, and the case then sits there until XCTest's
+/// 300 s allowance fires. That reads as *"the test may have hung"* with no classification, which is
+/// how run `43240373846` turned the required gate pass red while the same case takes **0.385 s** on
+/// a Mac (measured, 2026-11-12).
+///
+/// The contract is the one `TestSignal` keeps: **the timeout is a hang detector, not a latency
+/// budget.** A call that answers costs what it costs (the neighbouring store case answers in 7 ms
+/// on the runner); the detector only decides when to stop waiting for one that does not. Nothing is
+/// retried, and nothing is cancelled — a suspended XPC call cannot be cancelled, so it is left to
+/// the host's own teardown. Only the *wait* is bounded.
+///
+/// - Parameter call: how the call is named in a skip (`"httpCookieStore.setCookie(MMAUTHTOKEN)"`),
+///   so the log says which `await` did not answer instead of "the test hung".
+@MainActor
+func withWebKitAnswer<Value>(_ call: String,
+                             timeout: TimeInterval = 15,
+                             _ work: @escaping @MainActor () async -> Value) async -> BoundedAnswer<Value> {
+    let race = AnswerRace()
+    let box = AnswerBox<Value>()
+    let answered: Bool = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+        Task { @MainActor in
+            let value = await work()
+            box.value = value
+            if race.claim() { continuation.resume(returning: true) }
+        }
+        // Detached on purpose: a stuck WebKit hand-off is exactly the state that can leave the main
+        // actor busy, and the detector must still fire then.
+        Task.detached {
+            try? await Task.sleep(nanoseconds: UInt64(max(0, timeout) * 1_000_000_000))
+            if race.claim() { continuation.resume(returning: false) }
+        }
+    }
+    guard answered, let value = box.value else { return .silent(after: timeout) }
+    return .answered(value)
+}
+
 // MARK: - Small assertion helpers
 
 extension APIResponse {
@@ -630,5 +700,30 @@ extension XCTestCase {
     func mirrorPublished<Value: Sendable>(_ publisher: Published<Value>.Publisher,
                                           into signal: TestSignal<Value>) -> AnyCancellable {
         mirrorPublished(publisher, into: signal) { $0 }
+    }
+
+    /// `withWebKitAnswer` for a claim that must be verified: an answer is returned, and a call that
+    /// never comes back **skips** the case with that call named instead of hanging for the allowance.
+    ///
+    /// A skip, not a failed assertion, because the facts are "this host has no WebKit service" and
+    /// "nothing could be measured", not "the product is wrong" — the rule `CertTrustTests` already
+    /// keeps for a host without a Keychain entitlement. When WebKit *does* answer, every assertion
+    /// of the case runs exactly as before: no claim is weakened, and the skip names the exact
+    /// `await` so the next reader does not have to guess which call stalled (card t_a5321d5e).
+    @MainActor
+    func requireWebKitAnswer<Value>(_ call: String,
+                                    timeout: TimeInterval = 15,
+                                    _ work: @escaping @MainActor () async -> Value) async throws -> Value {
+        switch await withWebKitAnswer(call, timeout: timeout, { await work() }) {
+        case .answered(let value):
+            return value
+        case .silent(let after):
+            throw XCTSkip("""
+            WebKit did not answer this test host: `\(call)` never completed in \(Int(after))s, so this \
+            case could not be measured on this run (not a product failure, and not a claim about the \
+            product). The hosted simulator refuses WebKit's helper services intermittently — see \
+            docs/releasing.md, "WebKit in the test host".
+            """)
+        }
     }
 }

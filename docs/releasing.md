@@ -242,6 +242,24 @@ for the second poll with a 10 s hang detector and stops as soon as it lands (the
 `TestSignal` contract this repo already uses, T28TestSupport). It was **not** moved into the
 timing pass, because the fix belongs in the test, not in the split.
 
+The same rule, one class over (run `43240373846`, 14:54Z, 2026-11-12): the gate pass's only case
+that drives a real `WKWebsiteDataStore` — the SSO class's
+`testClearingTheAuthCookieRemovesOnlyThisServersSessionCookie` — hung for the whole 300 s
+allowance and red the required simulator leg with *"the test may have hung"* and no
+classification, while the same case takes **0.385 s** on a Mac and passed on the neighbouring
+run 202. Its first cookie write never came back: on a healthy host that one call is 306 ms of the
+case's 341 ms because it is what starts WebKit's Networking service, and the failing run never
+logged that start at all (see `docs/t_a5321d5e-build-note.md` §3). It **stays in the gate pass**,
+and every WebKit `await` in it now goes through `requireWebKitAnswer` (15 s hang detector,
+`T28TestSupport`): an answer is waited for at its own cost — the bounded case measures 0.371 s —
+and a call that never comes back **skips** the case naming it, with a message starting
+"WebKit did not answer this test host: `httpCookieStore.setCookie(MMAUTHTOKEN)` never completed in
+15s". A skip, not a failed assertion, is the established answer to a host missing a service
+(`CertTrustTests` and the Keychain entitlement, `T53MediaTransportTests` and its fixtures); the
+assertion set is unchanged, and nothing about the claim moved into another pass. If the silence
+ever becomes the norm rather than an exception, moving the case into the platform pass is the
+documented escalation.
+
 ### What the split costs, measured
 
 One source push is **46.5 min of wall clock** end to end (run `42629436355`): catalyst

@@ -437,9 +437,31 @@ final class T31SSOViewModelTests: XCTestCase {
 
     // MARK: Cookie clearing (the webview half of sign-out)
 
+    /// Sign-out clears **only** this server's `MMAUTHTOKEN`: the same store's `MMCSRF` survives, and
+    /// another server's store is never touched.
+    ///
+    /// ## Every WebKit call here is bounded, and the claim is not (t_a5321d5e)
+    ///
+    /// This case is the only one in the gate pass that drives a real `WKWebsiteDataStore`, and those
+    /// `await`s cross WebKit's XPC boundary. On the hosted simulator that boundary is refused
+    /// intermittently (`docs/releasing.md`, "WebKit in the test host"): run `43240373846` hung this
+    /// case for the full 300 s allowance — "the test may have hung", no classification, a red
+    /// required leg — while the same case takes **0.385 s** on a Mac and passed on the neighbouring
+    /// run 202. The log's last line before the allowance named no `await`; the neighbouring
+    /// `T249bc296WebKitCookieIsolationTests` case had logged WebKit's Networking-process launch 7 ms
+    /// in, and this one never logged it at all, so what stalled was the first crossing of the
+    /// boundary: the two `setCookie` writes.
+    ///
+    /// So each call is now awaited through `requireWebKitAnswer`, which gives it a 15 s hang
+    /// detector and, if it never comes back, skips the case naming that call. A silent host can no
+    /// longer spend five minutes and red the leg without saying why; a host that answers runs the
+    /// four assertions below exactly as before. Nothing about the claim is relaxed, removed or
+    /// moved into another pass.
     func testClearingTheAuthCookieRemovesOnlyThisServersSessionCookie() async throws {
         let serverID = UUID()
         let otherServerID = UUID()
+        // Resolving a per-identifier store is a synchronous registry lookup, not an XPC round trip,
+        // so it is not one of the calls below that can stall.
         let dataStore = WKWebsiteDataStore(forIdentifier: serverID)
         let auth = try XCTUnwrap(HTTPCookie(properties: [
             .name: "MMAUTHTOKEN", .value: "sso-token-abc", .domain: "mm.example.com", .path: "/"
@@ -447,22 +469,38 @@ final class T31SSOViewModelTests: XCTestCase {
         let unrelated = try XCTUnwrap(HTTPCookie(properties: [
             .name: "MMCSRF", .value: "csrf-1", .domain: "mm.example.com", .path: "/"
         ]))
-        await dataStore.httpCookieStore.setCookie(auth)
-        await dataStore.httpCookieStore.setCookie(unrelated)
+        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)") {
+            await dataStore.httpCookieStore.setCookie(auth)
+        }
+        try await requireWebKitAnswer("httpCookieStore.setCookie(MMCSRF)") {
+            await dataStore.httpCookieStore.setCookie(unrelated)
+        }
 
-        await WebKitSessionCookieClearing().clearAuthCookie(for: url, serverID: serverID)
+        try await requireWebKitAnswer("WebKitSessionCookieClearing.clearAuthCookie") {
+            await WebKitSessionCookieClearing().clearAuthCookie(for: self.url, serverID: serverID)
+        }
 
         let reader = WebKitSessionCookieReader(serverID: serverID)
-        let remaining = await reader.authToken(for: url)
+        let remaining = try await requireWebKitAnswer("WebKitSessionCookieReader.authToken") {
+            await reader.authToken(for: self.url)
+        }
         XCTAssertNil(remaining, "the MMAUTHTOKEN cookie is gone")
-        let cookies = await dataStore.httpCookieStore.allCookies()
+        let cookies = try await requireWebKitAnswer("httpCookieStore.allCookies") {
+            await dataStore.httpCookieStore.allCookies()
+        }
         XCTAssertTrue(cookies.contains { $0.name == "MMCSRF" },
                       "an unrelated cookie on the same server is left alone")
-        let other = await WebKitSessionCookieReader(serverID: otherServerID).authToken(for: url)
+        let other = try await requireWebKitAnswer("WebKitSessionCookieReader.authToken(other server)") {
+            await WebKitSessionCookieReader(serverID: otherServerID).authToken(for: self.url)
+        }
         XCTAssertNil(other, "another server's store was never touched (and never held it)")
 
-        await dataStore.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
-                                   modifiedSince: .distantPast)
+        // Best effort, and deliberately not required: every assertion above has already run, so a
+        // host that will not answer the wipe either must not turn this case red after the fact.
+        _ = await withWebKitAnswer("removeData(allWebsiteDataTypes)") {
+            await dataStore.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+                                       modifiedSince: .distantPast)
+        }
     }
 }
 
