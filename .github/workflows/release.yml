@@ -235,6 +235,22 @@ jobs:
           fi
           echo "signing: $SIGN"
 
+          # An explicit result bundle per pass, in its own directory (t_a4e133f6).
+          #
+          # All three passes used to share -derivedDataPath "$RUNNER_TEMP/dd" and let
+          # xcodebuild name the bundle under dd/Logs/Test. That directory is not a record:
+          # on run 43240373846 the gate pass hung and wrote
+          # Test-Mattermost-2026.11.12_14-47-40-+0000.xcresult (the bundle that carries the
+          # hang sample, named in the log), and by the time the upload step ran at 15:13 the
+          # directory held only the timing and platform bundles - the gate's was gone, so
+          # the one artifact that could name the wedged frame was never uploaded. Naming a
+          # path per pass takes the retention rule out of the equation: nothing later can
+          # reuse, overwrite or prune it. `rm -rf` first because xcodebuild refuses an
+          # existing result-bundle path (a re-run in the same workspace would otherwise
+          # fail the step before it compiles anything).
+          RESULT="$RUNNER_TEMP/gate-${{ matrix.name }}.xcresult"
+          rm -rf "$RESULT"
+
           set +e
           # The gate pass: everything except the platform-service classes, which need a
           # service this runner refuses (see the comment on this job). Kept as one literal
@@ -252,6 +268,7 @@ jobs:
             -skip-testing:MattermostTests/T44CCallsMediaTeardownQueueTests \
             -skip-testing:MattermostTests/T49LoggerConcurrencyTests \
             -derivedDataPath "$RUNNER_TEMP/dd" \
+            -resultBundlePath "$RESULT" \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 300 \
             -collect-test-diagnostics on-failure \
@@ -299,6 +316,9 @@ jobs:
             SIGN="CODE_SIGNING_ALLOWED=NO"
           fi
           LOG="$RUNNER_TEMP/timing-${{ matrix.name }}.log"
+          # Explicit bundle path - see the gate step's comment (t_a4e133f6).
+          RESULT="$RUNNER_TEMP/timing-${{ matrix.name }}.xcresult"
+          rm -rf "$RESULT"
           # shellcheck disable=SC2086  # SIGN and TIMING_ONLY are deliberate flag lists
           set +e
           xcodebuild test \
@@ -306,6 +326,7 @@ jobs:
             -scheme Mattermost \
             -destination "$DEST" \
             -derivedDataPath "$RUNNER_TEMP/dd" \
+            -resultBundlePath "$RESULT" \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 300 \
             $SIGN $TIMING_ONLY \
@@ -337,6 +358,9 @@ jobs:
             SIGN="CODE_SIGNING_ALLOWED=NO"
           fi
           LOG="$RUNNER_TEMP/platform-${{ matrix.name }}.log"
+          # Explicit bundle path - see the gate step's comment (t_a4e133f6).
+          RESULT="$RUNNER_TEMP/platform-${{ matrix.name }}.xcresult"
+          rm -rf "$RESULT"
           set +e
           # shellcheck disable=SC2086  # SIGN and PLATFORM_ONLY are deliberate flag lists
           xcodebuild test \
@@ -344,6 +368,7 @@ jobs:
             -scheme Mattermost \
             -destination "$DEST" \
             -derivedDataPath "$RUNNER_TEMP/dd" \
+            -resultBundlePath "$RESULT" \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 300 \
             $SIGN $PLATFORM_ONLY \
@@ -403,13 +428,21 @@ jobs:
       # test exceeds its execution allowance (t_d398053f §6): the stack/spindump of the wedged
       # process. Until this step existed the workflow threw it away, so nobody could name the
       # blocked frame. Uploaded on every run (a 300 s hang is only visible after the fact).
+      #
+      # One bundle per pass, at the explicit path each pass was given (t_a4e133f6). Before
+      # that, all three passes let xcodebuild name the bundle under dd/Logs/Test and this step
+      # globbed that directory - and on run 43240373846 the gate's bundle (the one holding the
+      # hang sample) was already gone by upload time, so the artifact held only the two green
+      # passes. A pass that never ran leaves no file, hence `if-no-files-found: warn`.
       - name: Upload test diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-xcresult-${{ matrix.name }}
           path: |
-            ${{ runner.temp }}/dd/Logs/Test/*.xcresult
+            ${{ runner.temp }}/gate-${{ matrix.name }}.xcresult
+            ${{ runner.temp }}/timing-${{ matrix.name }}.xcresult
+            ${{ runner.temp }}/platform-${{ matrix.name }}.xcresult
             ${{ runner.temp }}/dd/Logs/Test/*.spindump
             ${{ runner.temp }}/dd/Logs/Test/*.sysdiagnose*
             ${{ runner.temp }}/dd/Logs/Test/*.log
