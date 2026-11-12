@@ -134,6 +134,14 @@ final class ComposerViewModel: ObservableObject {
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var suggestions: [ComposerSuggestion] = []
     @Published private(set) var activeTrigger: ComposerTrigger?
+    /// A one-line note under the suggestion list saying why it is thin — "Couldn't reach the server
+    /// — showing this channel's members". `nil` when the list is the server's own answer.
+    ///
+    /// Exists because `try?` used to make a 4xx/5xx indistinguishable from "no matches": the reader
+    /// saw an empty list and could not tell a broken request from a name nobody has (kanban
+    /// t_03f2dbfd). Upstream falls back to its cached user list instead of showing nothing; this is
+    /// that fallback plus the sentence that says so.
+    @Published private(set) var suggestionNote: String?
     @Published private(set) var mode: Mode = .newPost
     @Published private(set) var isPreviewing = false
     /// A one-line note under the input ("Reply sent to the thread", "Message deleted") that clears
@@ -234,6 +242,16 @@ final class ComposerViewModel: ObservableObject {
     private var autocompleteTask: Task<Void, Never>?
     private var membershipTask: Task<ComposerMembership.MemberList, Never>?
     private var membership: ComposerMembership.MemberList?
+    /// The channel's members as profiles, read when the composer appears (not when `@` is typed):
+    /// this is what lets a bare `@` draw real names in its first frame.
+    private var localPeople: [MMUser] = []
+    private var peopleTask: Task<Void, Never>?
+    /// The server's bot accounts, by user id. Fetched once per composer, only to label a row.
+    private var botUserIDs: Set<String> = []
+    private var botTask: Task<Void, Never>?
+    /// The last `@` answer, kept so a new term can be answered from it in the same frame (filtered
+    /// by the new term) and so a failed request can fall back to it instead of to nothing.
+    private var lastMentionAnswer: ComposerUserCandidates?
     private var draftLeadTask: Task<Void, Never>?
     /// A draft write is running; changes that arrive meanwhile collapse into one follow-up.
     private var draftWriteInFlight = false
@@ -296,6 +314,9 @@ final class ComposerViewModel: ObservableObject {
         self.postingPolicy = posting
         self.now = now
         self.autocompleteDebounce = autocompleteDebounce
+        // `@` needs two things the keystroke cannot wait for; both are read once, here, so the list
+        // has them before the reader types. Nothing below blocks on them.
+        prefetchMentionSources()
     }
 
     /// The pane attaches its model after construction (the coordinator's model is created before the
@@ -550,10 +571,28 @@ final class ComposerViewModel: ObservableObject {
 
     /// Where suggestions come from. Users and channels come over the network; emoji come from the
     /// built-in table plus the server's own list, so `:` is instant.
+    ///
+    /// The `@` list is the one source with a **local half**: a bare `@` draws this channel's members
+    /// (read once when the composer appeared) in its first frame, before — and without needing — the
+    /// request that follows the 200 ms debounce. Everything else still waits for its source. The
+    /// debounce and the generation guard are untouched: one fetch per keystroke burst, and an answer
+    /// for a superseded term is dropped (kanban t_03f2dbfd keeps both, and the card's adversarial
+    /// check asserts the call count).
     private func startAutocomplete(for trigger: ComposerTrigger) {
         autocompleteGeneration += 1
         let generation = autocompleteGeneration
         autocompleteTask?.cancel()
+        // A new attempt owns the note: the previous failure's sentence is not about this term.
+        suggestionNote = nil
+        if trigger.kind == .mention {
+            // First paint, now. `@` alone used to `return` here with only the three special
+            // mentions, because the guard below the request skipped the network *and* there was no
+            // local list at all; a channel's members are already in hand, so the list is real.
+            suggestions = ComposerSuggestionRanking.rankedBySection(
+                mentionSuggestions(term: trigger.term, answer: lastMentionAnswer,
+                                   members: membership ?? .unknown),
+                term: trigger.term)
+        }
         autocompleteTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -564,7 +603,7 @@ final class ComposerViewModel: ObservableObject {
             guard !Task.isCancelled, generation == self.autocompleteGeneration else { return }
             let suggestions = await self.candidates(for: trigger)
             guard !Task.isCancelled, generation == self.autocompleteGeneration else { return }
-            self.suggestions = ComposerSuggestionRanking.ranked(suggestions, term: trigger.term)
+            self.suggestions = ComposerSuggestionRanking.rankedBySection(suggestions, term: trigger.term)
         }
     }
 
@@ -573,7 +612,10 @@ final class ComposerViewModel: ObservableObject {
         autocompleteTask?.cancel()
         autocompleteTask = nil
         suggestions = []
+        suggestionNote = nil
         activeTrigger = nil
+        // The next list is a new question; last term's answer is still useful as a local preview
+        // (`mentionSuggestions` filters it by the new term), so it is deliberately kept.
     }
 
     /// Drop the list without changing the text (Escape).
@@ -607,43 +649,108 @@ final class ComposerViewModel: ObservableObject {
         return ComposerCommandList.suggestions(commands, term: term)
     }
 
-    private func mentionCandidates(term: String) async -> [ComposerSuggestion] {
-        var suggestions: [ComposerSuggestion] = []
-        // `@channel` / `@here` / `@all` are addresses, not people: they are offered first when the
-        // typed term matches them, the way upstream's `at_mention` list does.
-        for special in ["channel", "here", "all"] where term.isEmpty || special.hasPrefix(term.lowercased()) {
-            suggestions.append(ComposerSuggestion(kind: .specialMention,
-                                                  value: special,
-                                                  label: "@\(special)",
-                                                  detail: "Notify everyone who can see this channel",
-                                                  insertion: mentionInsertion(special),
-                                                  glyph: "megaphone"))
+    // MARK: - The @ list
+
+    /// The `@` list, complete: the three special mentions, this channel's people, and whatever the
+    /// server answered — each row in the band the facts support.
+    ///
+    /// Pure over (term, last answer, member list, local people, bot ids) so the same function serves
+    /// the first frame (no answer yet), the answer itself, and the moment the local people arrive.
+    /// A row is never removed for being a non-member: the bands say where the person is, and a
+    /// mention of a non-member still works (kanban t_03f2dbfd).
+    private func mentionSuggestions(term: String,
+                                    answer: ComposerUserCandidates?,
+                                    members: ComposerMembership.MemberList) -> [ComposerSuggestion] {
+        let needle = term.lowercased()
+        func matches(_ user: MMUser) -> Bool {
+            guard !needle.isEmpty else { return true }
+            return user.username.lowercased().contains(needle)
+                || ComposerMentionRow.displayName(for: user).lowercased().contains(needle)
         }
-        guard !term.isEmpty else { return suggestions }
-        let users = (try? await service.users(term: term,
-                                              channelID: channelID,
-                                              teamID: teamID,
-                                              limit: 20)) ?? []
-        let candidates = users
-            .filter { !$0.id.isEmpty && $0.deleteAt == 0 && !$0.username.isEmpty }
-            .map { user -> ComposerSuggestion in
-                ComposerSuggestion(kind: .user,
-                                   value: user.username,
-                                   label: displayName(for: user),
-                                   detail: "@\(user.username)",
-                                   insertion: mentionInsertion(user.username),
-                                   glyph: nil,
-                                   // The membership check is by id: the member list is a set of
-                                   // user ids, while `value` is the username that gets typed.
-                                   userID: user.id)
+        func row(_ user: MMUser,
+                 section: ComposerSuggestion.Section,
+                 isAgent: Bool = false) -> ComposerSuggestion? {
+            ComposerMentionRow.suggestion(for: user,
+                                          section: section,
+                                          isBot: botUserIDs.contains(user.id),
+                                          isAgent: isAgent)
+        }
+
+        var rows: [ComposerSuggestion] = []
+
+        // 1. `@channel` / `@here` / `@all`: addresses, not people. Drawn last (see
+        //    `Section.displayOrder`): a bare `@` must answer "who is here" first.
+        for special in ["channel", "here", "all"]
+        where term.isEmpty || special.hasPrefix(needle) {
+            rows.append(ComposerSuggestion(kind: .specialMention,
+                                           value: special,
+                                           label: "@\(special)",
+                                           detail: "Notify everyone who can see this channel",
+                                           insertion: mentionInsertion(special),
+                                           glyph: "megaphone",
+                                           section: .special))
+        }
+
+        // 2. The channel's own members, as read when the composer appeared. This is the half that
+        //    makes a bare `@` list real without a request: it is a member list, so the band is a fact.
+        for user in localPeople where matches(user) {
+            if let row = row(user, section: .inChannel) { rows.append(row) }
+        }
+
+        // 3. The server's answer. `inChannel` is checked against the member list rather than
+        //    trusted: on a server that ignored the channel scope those rows are team-wide, and the
+        //    old code's response to that was to *delete* them.
+        if let answer {
+            let split = ComposerMembership.split(answer.inChannel, members: members,
+                                                 serverSplit: answer.isClassified)
+            for user in split.inChannel {
+                if let row = row(user, section: .inChannel) { rows.append(row) }
             }
-        guard !candidates.isEmpty else { return suggestions }
+            for user in split.notInChannel + (answer.outOfChannel ?? []) {
+                if let row = row(user, section: .notInChannel) { rows.append(row) }
+            }
+            // Nobody the client can place: offered with no band claimed.
+            for user in split.unplaced {
+                if let row = row(user, section: .none) { rows.append(row) }
+            }
+            for user in answer.agents ?? [] {
+                if let row = row(user, section: .agents, isAgent: true) { rows.append(row) }
+            }
+        }
+
+        // One row per name: the first band a person appears in wins (a member read from the local
+        // list keeps "In this channel" even if a stale term-matched answer would have said otherwise).
+        var seen: Set<String> = []
+        return rows.filter { seen.insert($0.id).inserted }
+    }
+
+    /// The request half of the `@` list: ask, then rebuild the whole list around the answer.
+    ///
+    /// A failure is **not** an empty list. The local members stay (they are already on screen), the
+    /// note says the request failed, and the two states are distinguishable — which is the whole
+    /// point of the card's fifth test.
+    private func mentionCandidates(term: String) async -> [ComposerSuggestion] {
         let members = await memberListIfNeeded()
-        return suggestions + ComposerMembership.filter(candidates, members: members)
+        do {
+            let answer = try await service.users(term: term,
+                                                 channelID: channelID,
+                                                 teamID: teamID,
+                                                 limit: 20)
+            guard !Task.isCancelled else { return suggestions }
+            lastMentionAnswer = answer
+            return mentionSuggestions(term: term, answer: answer, members: members)
+        } catch {
+            guard !Task.isCancelled else { return suggestions }
+            MMLog.debug("MMComposer", "@ list unavailable for \"\(term)\": \(error)")
+            suggestionNote = localPeople.isEmpty
+                ? "Couldn't reach the server"
+                : "Couldn't reach the server — showing this channel's members"
+            return mentionSuggestions(term: term, answer: lastMentionAnswer, members: members)
+        }
     }
 
     /// The member list is fetched at most once per composer, and a failure leaves it unknown (which
-    /// means "do not filter") rather than empty (which would hide every name).
+    /// means "claim no band") rather than empty (which would call every member "not in channel").
     private func memberListIfNeeded() async -> ComposerMembership.MemberList {
         if let membership { return membership }
         if let running = membershipTask { return await running.value }
@@ -655,6 +762,48 @@ final class ComposerViewModel: ObservableObject {
         membership = list
         membershipTask = nil
         return list
+    }
+
+    /// Read what a bare `@` needs, once, when the composer is created.
+    ///
+    /// Two requests that are *not* part of any keystroke: the channel's member profiles (the local
+    /// half of the list) and the server's bot accounts (a label). Neither blocks anything — the
+    /// composer is usable immediately, and the members simply appear in the list when they arrive,
+    /// which is usually before the reader has typed `@` at all.
+    private func prefetchMentionSources() {
+        peopleTask = Task { [weak self] in
+            guard let self else { return }
+            let people = (try? await self.service.channelPeople(channelID: self.channelID)) ?? []
+            guard !Task.isCancelled else { return }
+            self.localPeople = people
+            self.refreshMentionPreviewIfNeeded()
+        }
+        botTask = Task { [weak self] in
+            guard let self else { return }
+            let ids = (try? await self.service.botUserIDs()) ?? []
+            guard !Task.isCancelled else { return }
+            self.botUserIDs = ids
+            self.refreshMentionPreviewIfNeeded()
+        }
+    }
+
+    /// A bare `@` (or a partially typed one) already on screen gains the newly arrived local rows.
+    /// No request is made here: the list is re-derived from what is in hand.
+    private func refreshMentionPreviewIfNeeded() {
+        guard let trigger = activeTrigger, trigger.kind == .mention else { return }
+        suggestions = ComposerSuggestionRanking.rankedBySection(
+            mentionSuggestions(term: trigger.term, answer: lastMentionAnswer,
+                               members: membership ?? .unknown),
+            term: trigger.term)
+    }
+
+    /// Await the prefetch the initializer started.
+    ///
+    /// The honest question "is the local half in hand yet?" — a test asserts the first frame of `@`
+    /// from a *known* starting point instead of racing the two requests (kanban t_03f2dbfd).
+    func awaitMentionSources() async {
+        await peopleTask?.value
+        await botTask?.value
     }
 
     private func channelCandidates(term: String) async -> [ComposerSuggestion] {
@@ -722,12 +871,6 @@ final class ComposerViewModel: ObservableObject {
             }
         }
         return best
-    }
-
-    private func displayName(for user: MMUser) -> String {
-        if !user.nickname.isEmpty { return user.nickname }
-        let combined = [user.firstName, user.lastName].filter { !$0.isEmpty }.joined(separator: " ")
-        return combined.isEmpty ? user.username : combined
     }
 
     // MARK: - Attachments

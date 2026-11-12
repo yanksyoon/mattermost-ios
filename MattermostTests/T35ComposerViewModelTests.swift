@@ -37,7 +37,15 @@ final class T35ComposerViewModelTests: XCTestCase {
         var uploadDelay: Duration = .zero
         /// How long `users` waits for a given term.
         var userDelays: [String: Duration] = [:]
-        var userResults: [String: [MMUser]] = [:]
+        var userResults: [String: ComposerUserCandidates] = [:]
+        /// When set, every `users` call fails with this error (the card's 500 case).
+        var userError: Error?
+        /// The channel's members as profiles: what a bare `@` draws without a request.
+        var people: [MMUser] = []
+        /// How long `channelPeople` waits — a bare `@` must not block on it.
+        var peopleDelay: Duration = .zero
+        /// The server's bot accounts, by id.
+        var bots: Set<String> = []
         var channelResults: [MMChannel] = []
         var members: ComposerMembership.MemberList = .unknown
         var memberListError: Error?
@@ -51,11 +59,15 @@ final class T35ComposerViewModelTests: XCTestCase {
         private(set) var uploadedChannelIDs: [String] = []
         private(set) var uploadedFilenames: [String] = []
         private(set) var uploadAttempts = 0
+        private(set) var peopleFetches = 0
+        private(set) var botFetches = 0
         /// The terms the composer asked about, as signals: a test awaits "the first request left" or "the
         /// newer term's answer" instead of polling `userTerms` / `channelTerms` (kanban t_00fb623c).
         let userTermSignal = TestSignal<String>()
         /// `"term|teamID"`, so the value is a plain `String` (tuples are not generic arguments).
         let channelTermSignal = TestSignal<String>()
+        /// "the channel's members are in hand" — the local half of a bare `@`.
+        let peopleSignal = TestSignal<[MMUser]>()
 
         func createPost(_ body: ComposerPostBody) async throws -> MMPost {
             createBodies.append(body)
@@ -107,11 +119,24 @@ final class T35ComposerViewModelTests: XCTestCase {
             }
         }
 
-        func users(term: String, channelID: String, teamID: String?, limit: Int) async throws -> [MMUser] {
+        func users(term: String, channelID: String, teamID: String?, limit: Int) async throws -> ComposerUserCandidates {
             userTerms.append(term)
             userTermSignal.send(term)
             if let delay = userDelays[term] { try? await Task.sleep(for: delay) }
-            return userResults[term] ?? []
+            if let userError { throw userError }
+            return userResults[term] ?? ComposerUserCandidates()
+        }
+
+        func channelPeople(channelID: String) async throws -> [MMUser] {
+            peopleFetches += 1
+            if peopleDelay > .zero { try? await Task.sleep(for: peopleDelay) }
+            peopleSignal.send(people)
+            return people
+        }
+
+        func botUserIDs() async throws -> Set<String> {
+            botFetches += 1
+            return bots
         }
 
         func channels(term: String, teamID: String, limit: Int) async throws -> [MMChannel] {
@@ -839,28 +864,39 @@ final class T35ComposerViewModelTests: XCTestCase {
 
     // MARK: - 4. Autocomplete
 
-    func testMentionsAreFilteredToTheChannelsMembers() async {
-        service.userResults["ki"] = [MMUser(id: "u1", username: "kim"), MMUser(id: "u9", username: "kimbo")]
+    /// The old form of this test asserted that a non-member was **dropped**. That behaviour was the
+    /// bug (kanban t_03f2dbfd): the server answered team-wide, the client's filter deleted the extra
+    /// names, and a reader could not mention a colleague outside the channel. The bands are the
+    /// replacement: the member is "In this channel", the non-member is "Not in channel", both offered.
+    func testMentionsAreBandMembersAndNonMembersInsteadOfDroppingThem() async {
+        service.userResults["ki"] = ComposerUserCandidates(
+            inChannel: [MMUser(id: "u1", username: "kim"), MMUser(id: "u9", username: "kimbo")])
         service.members = ComposerMembership.MemberList(ids: ["u1"], isComplete: true)
 
         model.textChanged("@ki", caret: 3)
         await awaitSignal("the mention list", signal: suggestionsSignal()) { $0 }
-        XCTAssertEqual(model.suggestions.filter { $0.kind == .user }.map(\.value), ["kim"])
+
+        XCTAssertEqual(model.suggestions.filter { $0.kind == .user }.map(\.value).sorted(),
+                       ["kim", "kimbo"])
+        XCTAssertEqual(model.suggestions.first { $0.value == "kim" }?.section, .inChannel)
+        XCTAssertEqual(model.suggestions.first { $0.value == "kimbo" }?.section, .notInChannel)
         XCTAssertEqual(service.userTerms, ["ki"])
     }
 
     func testAFailedMemberListDoesNotHideAnyone() async {
-        service.userResults["ki"] = [MMUser(id: "u9", username: "kimbo")]
+        service.userResults["ki"] = ComposerUserCandidates(
+            inChannel: [MMUser(id: "u9", username: "kimbo")])
         service.memberListError = MMError.timeout
 
         model.textChanged("@ki", caret: 3)
         await awaitSignal("the mention list", signal: suggestionsSignal()) { $0 }
+        // No member list: the server's own split says "in channel", and no band is invented.
         XCTAssertEqual(model.suggestions.filter { $0.kind == .user }.map(\.value), ["kimbo"])
     }
 
     func testAStaleAutocompleteAnswerIsDropped() async {
-        service.userResults["ki"] = [MMUser(id: "u1", username: "kim")]
-        service.userResults["kim"] = [MMUser(id: "u2", username: "kimb")]
+        service.userResults["ki"] = ComposerUserCandidates(inChannel: [MMUser(id: "u1", username: "kim")])
+        service.userResults["kim"] = ComposerUserCandidates(inChannel: [MMUser(id: "u2", username: "kimb")])
         // The shorter term's request stays in flight (its sleep ignores cancellation, like a URL that
         // has already left the device), so its answer really does arrive — late. Without the
         // generation guard it would replace the list the person is actually looking at.

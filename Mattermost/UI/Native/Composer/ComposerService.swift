@@ -27,8 +27,17 @@ protocol ComposerServing: AnyObject {
                 channelID: String,
                 onProgress: @escaping @Sendable (Int64, Int64) -> Void) async throws -> MMFileInfo
 
-    /// `@` candidates for `term`, restricted to the channel's members by the server.
-    func users(term: String, channelID: String, teamID: String?, limit: Int) async throws -> [MMUser]
+    /// `@` candidates for `term`, in the three bands the server knows (in channel, not in channel,
+    /// agents). No longer a flat `[MMUser]`: the split is the answer, and flattening it in the
+    /// service is what made a bot invisible (kanban t_03f2dbfd).
+    func users(term: String, channelID: String, teamID: String?, limit: Int) async throws -> ComposerUserCandidates
+    /// The channel's members, as profiles — the local half of the `@` list.
+    ///
+    /// Read when the composer appears, not when `@` is typed: it is what lets a bare `@` draw real
+    /// names in the first frame instead of waiting on a request.
+    func channelPeople(channelID: String) async throws -> [MMUser]
+    /// The server's bot accounts, by user id. Used only to label a row "Bot".
+    func botUserIDs() async throws -> Set<String>
     /// `#` candidates for `term`.
     func channels(term: String, teamID: String, limit: Int) async throws -> [MMChannel]
     /// The channel's member ids, and whether the whole list was read.
@@ -48,7 +57,12 @@ protocol ComposerServing: AnyObject {
 
 extension ComposerServing {
     func users(term: String, channelID: String, teamID: String?,
-               limit: Int = 20) async throws -> [MMUser] { [] }
+               limit: Int = 20) async throws -> ComposerUserCandidates { ComposerUserCandidates() }
+    /// A service that cannot name the channel's members still offers the server's answer; a bare
+    /// `@` then simply has no local rows.
+    func channelPeople(channelID: String) async throws -> [MMUser] { [] }
+    /// A service that cannot read the bot list labels nothing — every row still appears.
+    func botUserIDs() async throws -> Set<String> { [] }
     func channels(term: String, teamID: String, limit: Int = 20) async throws -> [MMChannel] { [] }
     func channelMembers(channelID: String) async throws -> ComposerMembership.MemberList {
         .unknown
@@ -69,6 +83,9 @@ final class SessionComposerService: ComposerServing {
     /// the list is treated as unknowable rather than half-read (see `ComposerMembership`).
     static let membershipPages = 5
     static let membershipPageSize = 200
+    /// How far the local `@` preview pages the member list: one screenful is the point, and a
+    /// 1,000-member channel must not turn "type `@`" into a directory download.
+    static let peoplePages = 2
 
     init(resolve: @escaping () -> APIClient?) {
         self.resolve = resolve
@@ -97,9 +114,47 @@ final class SessionComposerService: ComposerServing {
         try await client().uploadFile(upload, channelID: channelID, onProgress: onProgress)
     }
 
-    func users(term: String, channelID: String, teamID: String?, limit: Int) async throws -> [MMUser] {
+    func users(term: String, channelID: String, teamID: String?, limit: Int) async throws -> ComposerUserCandidates {
         try await client().autocompleteUsers(term: term, inChannel: channelID,
                                              inTeam: teamID, limit: limit)
+    }
+
+    /// The channel's members as profiles: `GET /channels/{id}/members` for the ids, then the
+    /// batched `POST /users/ids` for the names (there is no member-profiles endpoint on 9.11.19 —
+    /// `GET /channels/{id}/users` is a 404 `api.context.404.app_error`, measured).
+    ///
+    /// Bounded on purpose: the preview list wants a screenful, not a directory. Two pages of 200
+    /// is the ceiling; past it the answer is still a useful local list rather than a slow one.
+    func channelPeople(channelID: String) async throws -> [MMUser] {
+        let client = try self.client()
+        var ids: [String] = []
+        var seen: Set<String> = []
+        for page in 0..<Self.peoplePages {
+            let batch = try await client.channelMembers(channelID: channelID,
+                                                        page: page,
+                                                        perPage: Self.membershipPageSize)
+            for member in batch where !member.userId.isEmpty && seen.insert(member.userId).inserted {
+                ids.append(member.userId)
+            }
+            if batch.count < Self.membershipPageSize { break }
+        }
+        guard !ids.isEmpty else { return [] }
+        let users = try await client.users(ids: ids)
+        return users
+            .filter { $0.deleteAt == 0 && !$0.username.isEmpty }
+            .sorted { $0.username.lowercased() < $1.username.lowercased() }
+    }
+
+    /// `GET /bots` — the ids only. Any failure (a `403` for a non-admin caller, a timeout) is not an
+    /// error worth surfacing: it costs the rows their "Bot" label, nothing else. The rows still
+    /// appear, and the mention still works.
+    func botUserIDs() async throws -> Set<String> {
+        do {
+            return Set(try await client().bots().filter(\.isLive).map(\.userId))
+        } catch {
+            MMLog.debug("MMComposer", "bot list unavailable, rows are unlabelled: \(error)")
+            return []
+        }
     }
 
     func channels(term: String, teamID: String, limit: Int) async throws -> [MMChannel] {

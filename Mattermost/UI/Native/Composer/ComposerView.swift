@@ -560,53 +560,45 @@ struct ComposerView: View {
     private var suggestionList: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(model.suggestions.prefix(8)) { suggestion in
-                    Button {
-                        if let caret = model.apply(suggestion) {
-                            selection = NSRange(location: caret, length: 0)
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if let glyph = suggestion.glyph {
-                                Text(glyph).font(.system(size: 15))
-                            } else {
-                                Image(systemName: iconName(for: suggestion.kind))
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(.secondary)
-                                    // Decorative: the row is a button with its own label. Unhidden,
-                                    // VoiceOver announces "number, Town Square, #town-square" — the
-                                    // symbol name leaking into the reading — and every suggestion
-                                    // adds another element to the accessibility snapshot the UI
-                                    // test's serialiser logs (T8d).
-                                    .accessibilityHidden(true)
-                            }
-                            Text(suggestion.label)
-                                .font(.scaled(15))
-                                .mmLineLimit(1)
-                            // The command's argument grammar, right after its trigger: upstream's
-                            // row reads "/invite @[username]... ~[channel]..." and nothing else
-                            // says what to type next.
-                            if let hint = suggestion.hint, !hint.isEmpty {
-                                Text(hint)
-                                    .font(.scaled(13))
-                                    .foregroundStyle(.secondary)
-                                    .mmLineLimit(1)
-                                    .accessibilityIdentifier("composerSuggestion.\(suggestion.id).hint")
-                            }
-                            Text(suggestion.detail)
-                                .font(.scaled(12))
-                                .foregroundStyle(.secondary)
-                                .mmLineLimit(1)
-                            Spacer(minLength: 0)
-                        }
+                // A bare `@` lists this channel's members, and the list scrolls: the caption belongs
+                // above it, where it is read before the rows, instead of under a band it would push
+                // off the first screen.
+                if model.activeTrigger?.term.isEmpty == true, !model.suggestions.isEmpty {
+                    Text("Type to narrow this list")
+                        .font(.scaled(12))
+                        .foregroundStyle(.tertiary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
-                        .contentShape(Rectangle())
+                        .accessibilityIdentifier("composerSuggestions.hint")
+                }
+                ForEach(ComposerSuggestionList.rows(model.suggestions)) { row in
+                    switch row {
+                    case .header(_, let title):
+                        // The band's heading. It is not a button: VoiceOver reads it as a header, and
+                        // the rows under it are the choices (kanban t_03f2dbfd).
+                        Text(title)
+                            .font(.scaled(11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .padding(.horizontal, 10)
+                            .padding(.top, 8)
+                            .padding(.bottom, 3)
+                            .accessibilityAddTraits(.isHeader)
+                            .accessibilityIdentifier("composerSection.\(row.id)")
+                    case .suggestion(let suggestion):
+                        suggestionRow(suggestion)
+                        Divider().padding(.leading, 10)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("composerSuggestion.\(suggestion.id)")
-                    .accessibilityLabel(accessibilityLabel(for: suggestion))
-                    Divider().padding(.leading, 10)
+                }
+                if let note = model.suggestionNote {
+                    // Why the list is thin, when it is: a failed request used to look exactly like a
+                    // term nobody matches.
+                    Text(note)
+                        .font(.scaled(12))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .accessibilityIdentifier("composerSuggestions.note")
                 }
             }
         }
@@ -617,6 +609,55 @@ struct ComposerView: View {
         // identifier on this container would relabel every row `composerSuggestions`.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("composerSuggestions")
+    }
+
+    /// One choice: the glyph or icon, the label, a command's argument grammar, and the detail line.
+    private func suggestionRow(_ suggestion: ComposerSuggestion) -> some View {
+        Button {
+            if let caret = model.apply(suggestion) {
+                selection = NSRange(location: caret, length: 0)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                if let glyph = suggestion.glyph {
+                    Text(glyph).font(.system(size: 15))
+                } else {
+                    Image(systemName: iconName(for: suggestion.kind))
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        // Decorative: the row is a button with its own label. Unhidden,
+                        // VoiceOver announces "number, Town Square, #town-square" — the
+                        // symbol name leaking into the reading — and every suggestion
+                        // adds another element to the accessibility snapshot the UI
+                        // test's serialiser logs (T8d).
+                        .accessibilityHidden(true)
+                }
+                Text(suggestion.label)
+                    .font(.scaled(15))
+                    .mmLineLimit(1)
+                // The command's argument grammar, right after its trigger: upstream's
+                // row reads "/invite @[username]... ~[channel]..." and nothing else
+                // says what to type next.
+                if let hint = suggestion.hint, !hint.isEmpty {
+                    Text(hint)
+                        .font(.scaled(13))
+                        .foregroundStyle(.secondary)
+                        .mmLineLimit(1)
+                        .accessibilityIdentifier("composerSuggestion.\(suggestion.id).hint")
+                }
+                Text(suggestion.detail)
+                    .font(.scaled(12))
+                    .foregroundStyle(.secondary)
+                    .mmLineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("composerSuggestion.\(suggestion.id)")
+        .accessibilityLabel(accessibilityLabel(for: suggestion))
     }
 
     // MARK: Banners

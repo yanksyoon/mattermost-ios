@@ -36,6 +36,44 @@ struct ComposerSuggestion: Equatable, Identifiable, Sendable {
         case slash
     }
 
+    /// Which band of the `@` list a row belongs to (kanban t_03f2dbfd).
+    ///
+    /// The `@` list is the only one with bands: a person who is in the channel, a person the server
+    /// can see but who is not in it, and an AI agent. Upstream draws those as separate sections
+    /// (`at_mention.tsx` renders `usersOutOfChannel` below the in-channel hits and filters `agents`
+    /// by the term), and the bands are what let the list offer somebody who is not a member at all
+    /// — which is the whole point of mentioning a bot.
+    ///
+    /// `.none` is "no band": every other source (`#`, `:`, `/`) draws exactly as it did before,
+    /// with no header above it — the regression the card asks for.
+    ///
+    /// `.special` is the three addresses (`@channel`, `@here`, `@all`). They are a band of their
+    /// own because they must be drawn **after** the people: a bare `@` is the reader asking "who is
+    /// here", and the first paint has to answer that. Drawn above the people (where they used to be,
+    /// as `.none` rows) they filled the visible part of the list on their own and the members were
+    /// below the fold — measured on the simulator, the list showed exactly three rows.
+    enum Section: String, Equatable, Sendable {
+        case none
+        case inChannel
+        case notInChannel
+        case agents
+        case special
+
+        /// The heading drawn above the band, or `nil` where upstream draws no heading.
+        var title: String? {
+            switch self {
+            case .none, .special: return nil
+            case .inChannel: return "In this channel"
+            case .notInChannel: return "Not in channel"
+            case .agents: return "Agents"
+            }
+        }
+
+        /// The order the bands are drawn in. Members first — the names a reader is most likely to
+        /// want — then the people they can still mention, the agents, and only then the addresses.
+        static let displayOrder: [Section] = [.inChannel, .notInChannel, .agents, .special, .none]
+    }
+
     var kind: Kind
     /// The bare value: a username, a channel name, an emoji name, a command trigger, or
     /// `channel`/`here`/`all`.
@@ -63,6 +101,9 @@ struct ComposerSuggestion: Equatable, Identifiable, Sendable {
     /// **user ids**, while `value` is the username that gets typed. Comparing the two would silently
     /// drop every suggestion (T35: caught by `testMentionsAreFilteredToTheChannelsMembers`).
     var userID: String? = nil
+    /// The band this row is drawn in. Defaults to `.none`: a source that does not group (everything
+    /// but `@`) keeps the flat list it always had.
+    var section: Section = .none
 
     var id: String { "\(kind.rawValue)-\(value)" }
 }
@@ -74,6 +115,86 @@ func mentionInsertion(_ username: String) -> String { "@\(username)" }
 func channelInsertion(_ name: String) -> String { "~\(name.replacingOccurrences(of: " ", with: "-"))" }
 /// How an emoji is inserted: `:name:`.
 func emojiInsertion(_ name: String) -> String { ":\(name):" }
+
+// MARK: - What the `@` request answered
+
+/// `GET /users/autocomplete`'s three groups, as the reader sees them (kanban t_03f2dbfd).
+///
+/// Before this type existed the call answered `[MMUser]` built from `users` alone, so
+/// `out_of_channel` and `agents` were decoded away: a bot — which is almost never a member — and
+/// every colleague outside the channel arrived in a key nobody read, and the list could only ever
+/// show members. Keeping the envelope's shape here (rather than flattening it in `API`) is what
+/// makes the grouping a fact the view model can render instead of a guess it has to make.
+struct ComposerUserCandidates: Equatable, Sendable {
+    /// `users` — with the documented `in_channel` scope: the people in this channel.
+    var inChannel: [MMUser]
+    /// `out_of_channel` — people the server can see who are **not** in this channel.
+    ///
+    /// Optional on purpose: a server that does not know the parameter answers without the key at
+    /// all (measured on 9.11.19 with the old `in_channel_id` spelling, where the list was silently
+    /// team-wide), and that is a different state from "the server split it and nobody else matched".
+    var outOfChannel: [MMUser]?
+    /// `agents` — AI agents. Absent on servers without them.
+    var agents: [MMUser]?
+
+    init(inChannel: [MMUser] = [], outOfChannel: [MMUser]? = nil, agents: [MMUser]? = nil) {
+        self.inChannel = inChannel
+        self.outOfChannel = outOfChannel
+        self.agents = agents
+    }
+
+    /// The server did the in-channel / out-of-channel split itself.
+    var isClassified: Bool { outOfChannel != nil }
+
+    var isEmpty: Bool { inChannel.isEmpty && (outOfChannel ?? []).isEmpty && (agents ?? []).isEmpty }
+
+    /// Every person in the answer, in the order the bands are drawn.
+    var everybody: [MMUser] { inChannel + (outOfChannel ?? []) + (agents ?? []) }
+}
+
+/// One `@` row built from a user record: the name, the two labels that must not be lost (bot,
+/// agent) and the band.
+///
+/// Pure so the wording is a test, not a screenshot: "a bot is labelled" is the card's third test,
+/// and it is this function's `detail` that carries the word.
+enum ComposerMentionRow {
+
+    /// The secondary line: `@name`, then `· Bot` / `· Agent` when either applies.
+    static func detail(username: String, isBot: Bool, isAgent: Bool) -> String {
+        var parts = ["@\(username)"]
+        if isAgent {
+            parts.append("Agent")
+        } else if isBot {
+            parts.append("Bot")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    /// A row for `user`, or `nil` when the record cannot be mentioned (deleted, no id, no username).
+    static func suggestion(for user: MMUser,
+                           section: ComposerSuggestion.Section,
+                           isBot: Bool = false,
+                           isAgent: Bool = false) -> ComposerSuggestion? {
+        guard !user.id.isEmpty, !user.username.isEmpty, user.deleteAt == 0 else { return nil }
+        return ComposerSuggestion(kind: .user,
+                                  value: user.username,
+                                  label: displayName(for: user),
+                                  detail: detail(username: user.username,
+                                                 isBot: isBot || user.isBotAccount,
+                                                 isAgent: isAgent),
+                                  insertion: mentionInsertion(user.username),
+                                  glyph: nil,
+                                  userID: user.id,
+                                  section: section)
+    }
+
+    /// The name a row draws: nickname, else first + last, else the username.
+    static func displayName(for user: MMUser) -> String {
+        if !user.nickname.isEmpty { return user.nickname }
+        let combined = [user.firstName, user.lastName].filter { !$0.isEmpty }.joined(separator: " ")
+        return combined.isEmpty ? user.username : combined
+    }
+}
 
 // MARK: - Triggers
 
@@ -506,14 +627,27 @@ struct MMFileUploadResponse: Codable, Equatable, Sendable {
 
 // MARK: - Membership
 
-/// The client-side half of "a mention only offers people who can actually read the channel".
+/// Which band a `@` row belongs to: "In this channel", "Not in channel", or "cannot tell".
 ///
-/// The server-side half is the documented query parameter: `GET /users/autocomplete?in_channel_id=`
-/// only returns members. That is trusted only when the client can also *check* it: the member list is
-/// paged in and, when the whole list was read, any candidate that is not in it is dropped. When the
-/// list is truncated (a very large channel, or a failed page) the filter stands down rather than
-/// hiding a real member — an autocomplete that omits a colleague is worse than one that offers a
-/// stale name, because the mention still works either way.
+/// **This replaces a filter, and the filter's removal is the fix** (kanban t_03f2dbfd). What it
+/// used to do: `ComposerMembership.filter` dropped every `.user` row whose id was not in the channel
+/// member set whenever that set was complete. It was added deliberately in T35 as the client half of
+/// "a mention only offers people who can read the channel", on the assumption that the server's
+/// `in_channel_id` parameter had already narrowed the answer and the client was only double-checking.
+///
+/// That assumption was wrong twice over, and both halves are measurable on the fixture:
+///
+///  * `in_channel_id` is **not** a parameter the server reads at all (the documented one is
+///    `in_channel`, and it requires `in_team` beside it — see `APIClient.autocompleteUsers`), so the
+///    answer was team-wide and the client-side filter was the *only* thing restricting the list;
+///  * a bot account, and any colleague outside the channel, is exactly what a reader wants a `@`
+///    list to offer — a mention of a non-member still works, and mentioning a bot is the only way to
+///    talk to one. Dropping them turned "the server knows this person" into silence.
+///
+/// So the rule is now **classification, never deletion**: a row is labelled with the band the facts
+/// support, and a person the client cannot place is still offered (with no band claimed —
+/// `.unknown`). Membership is read off the channel's member list, which is only trusted when the
+/// whole list was read.
 enum ComposerMembership {
     struct MemberList: Equatable, Sendable {
         var ids: Set<String>
@@ -521,25 +655,67 @@ enum ComposerMembership {
         var isComplete: Bool
 
         static let unknown = MemberList(ids: [], isComplete: false)
+
+        /// Is this id a member? Only answers when the list is complete — an incomplete list would
+        /// call a member "not in channel", which is the one wrong answer worth avoiding.
+        func contains(_ userID: String) -> Bool? {
+            guard isComplete, !userID.isEmpty else { return nil }
+            return ids.contains(userID.lowercased())
+        }
     }
 
-    static func filter(_ candidates: [ComposerSuggestion],
-                       members: MemberList) -> [ComposerSuggestion] {
-        guard members.isComplete else { return candidates }
-        return candidates.filter { suggestion in
-            switch suggestion.kind {
-            case .specialMention:
-                return true     // `@channel` is not a person
-            case .user:
-                // A suggestion without a server id cannot be checked, so it is kept: an
-                // autocomplete that omits a real colleague is worse than one that offers a stale
-                // name, because the mention still works either way.
-                guard let userID = suggestion.userID, !userID.isEmpty else { return true }
-                return members.ids.contains(userID.lowercased())
-            case .channel, .emoji, .slash:
-                return true
+    /// Where the client can place a person, or that it cannot.
+    enum Band: Equatable, Sendable {
+        case inChannel
+        case notInChannel
+        /// The member list is unknown or truncated: no band is claimed.
+        case unknown
+    }
+
+    static func band(forUserID userID: String?, members: MemberList) -> Band {
+        guard let userID, let isMember = members.contains(userID) else { return .unknown }
+        return isMember ? .inChannel : .notInChannel
+    }
+
+    /// The three bands the server's `users` array splits into.
+    struct Split: Equatable, Sendable {
+        var inChannel: [MMUser] = []
+        var notInChannel: [MMUser] = []
+        /// The client cannot place these: the member list is unknown or truncated and the server
+        /// did not classify. They are still offered, with no band header over them — claiming the
+        /// wrong one would be a lie in the list.
+        var unplaced: [MMUser] = []
+    }
+
+    /// Split the server's `users` array into the bands.
+    ///
+    /// `serverSplit` says whether the server itself told us these are the in-channel people
+    /// (`out_of_channel` was in the answer). When it did, the client checks rather than re-splits:
+    /// anybody the member list contradicts is moved to "Not in channel", which is how a mention of a
+    /// non-member stays reachable on a server that answered team-wide anyway.
+    static func split(_ users: [MMUser],
+                      members: MemberList,
+                      serverSplit: Bool) -> Split {
+        var result = Split()
+        guard !users.isEmpty else { return result }
+        for user in users {
+            // A record with no id cannot be checked against anything: no band may be claimed for it.
+            guard !user.id.isEmpty else {
+                result.unplaced.append(user)
+                continue
+            }
+            switch band(forUserID: user.id, members: members) {
+            case .inChannel:
+                result.inChannel.append(user)
+            case .notInChannel:
+                result.notInChannel.append(user)
+            case .unknown:
+                // No facts. Keep the server's own claim when it made one; otherwise place nobody
+                // rather than inventing a band.
+                if serverSplit { result.inChannel.append(user) } else { result.unplaced.append(user) }
             }
         }
+        return result
     }
 }
 
@@ -606,6 +782,89 @@ enum ComposerSuggestionRanking {
             }
         }
         return Array((prefix + contains).prefix(limit))
+    }
+
+    /// Rank each band on its own, then concatenate in the band order the list draws.
+    ///
+    /// Ranking the whole list at once (what this used to do) interleaves the bands: a substring hit
+    /// among the channel's members would land above an out-of-channel name that the reader had
+    /// actually typed the prefix of, and the headers would appear in the middle of a re-sorted
+    /// list. Per-band ranking keeps "In this channel" a band you can learn the position of, and
+    /// keeps the first row stable while a term is typed.
+    static func rankedBySection(_ suggestions: [ComposerSuggestion],
+                                term: String,
+                                limit: Int = 40) -> [ComposerSuggestion] {
+        guard limit > 0 else { return [] }
+        // A list with no bands at all (`#`, `:`, `/`) ranks exactly as it always did.
+        guard suggestions.contains(where: { $0.section != .none }) else {
+            return ranked(suggestions, term: term, limit: limit)
+        }
+        var result: [ComposerSuggestion] = []
+        for section in ComposerSuggestion.Section.displayOrder {
+            let band = suggestions.filter { $0.section == section }
+            guard !band.isEmpty else { continue }
+            result += ranked(band, term: term, limit: limit)
+        }
+        return result
+    }
+}
+
+// MARK: - What the list draws
+
+/// The list's rows: band headers and suggestions, in draw order.
+///
+/// Pure, so "the header appears above the band and nowhere else" is a test. The view iterates this
+/// instead of the suggestions directly; a list with no bands produces exactly the rows it produced
+/// before this type existed (no headers), which is the `#`/`:`/`/` regression the card asks for.
+enum ComposerSuggestionList {
+
+    enum Row: Equatable, Identifiable {
+        case header(section: ComposerSuggestion.Section, title: String)
+        case suggestion(ComposerSuggestion)
+
+        var id: String {
+            switch self {
+            case .header(let section, _): return "header-\(section.rawValue)"
+            case .suggestion(let suggestion): return "row-\(suggestion.id)"
+            }
+        }
+
+        var suggestion: ComposerSuggestion? {
+            if case .suggestion(let suggestion) = self { return suggestion }
+            return nil
+        }
+    }
+
+    /// How many rows may be drawn at all. The list scrolls, but a reader typing `@` should not be
+    /// handed an endless sheet: the bands are what make a short list readable.
+    static let maximumRows = 12
+
+    /// The per-band ceilings. Members get the room — they are the names a reader is most likely
+    /// after — and the other two bands are present without pushing them off the first screen.
+    static func cap(for section: ComposerSuggestion.Section) -> Int {
+        switch section {
+        case .none: return 3          // a flat non-mention source
+        case .inChannel: return 5
+        case .notInChannel: return 3
+        case .agents: return 2
+        case .special: return 3       // `@channel` / `@here` / `@all`
+        }
+    }
+
+    static func rows(_ suggestions: [ComposerSuggestion], limit: Int = maximumRows) -> [Row] {
+        guard limit > 0, !suggestions.isEmpty else { return [] }
+        var rows: [Row] = []
+        for section in ComposerSuggestion.Section.displayOrder {
+            let band = suggestions.filter { $0.section == section }
+            guard !band.isEmpty else { continue }
+            let room = min(cap(for: section), limit - rows.count)
+            guard room > 0 else { break }
+            if let title = section.title {
+                rows.append(.header(section: section, title: title))
+            }
+            rows += band.prefix(room).map(Row.suggestion)
+        }
+        return rows
     }
 }
 

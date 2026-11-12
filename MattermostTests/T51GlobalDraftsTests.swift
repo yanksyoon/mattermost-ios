@@ -396,7 +396,7 @@ private final class RefusingComposerService: ComposerServing {
                 onProgress: @escaping @Sendable (Int64, Int64) -> Void) async throws -> MMFileInfo {
         throw MMError.offline
     }
-    func users(term: String, channelID: String, teamID: String?, limit: Int) async throws -> [MMUser] { [] }
+    func users(term: String, channelID: String, teamID: String?, limit: Int) async throws -> ComposerUserCandidates { ComposerUserCandidates() }
     func channels(term: String, teamID: String, limit: Int) async throws -> [MMChannel] { [] }
     func channelMembers(channelID: String) async throws -> ComposerMembership.MemberList { .unknown }
     func me() async throws -> MMUser { MMUser(id: "u1", username: "me") }

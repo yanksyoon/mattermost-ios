@@ -176,15 +176,17 @@ final class T35UploadTests: XCTestCase {
              "delete_at": 0, "update_at": 1]
         ]]))
         let client = try makeClient(transport)
-        let users = try await client.autocompleteUsers(term: "ki", inChannel: "chan-1",
-                                                       inTeam: "team-1", limit: 20)
-        XCTAssertEqual(users.map(\.username), ["kim"])
+        let candidates = try await client.autocompleteUsers(term: "ki", inChannel: "chan-1",
+                                                            inTeam: "team-1", limit: 20)
+        XCTAssertEqual(candidates.inChannel.map(\.username), ["kim"])
         let request = try XCTUnwrap(transport.lastRequest)
         XCTAssertEqual(request.url.path, "/api/v4/users/autocomplete")
         XCTAssertEqual(queryValue(request, "name"), "ki")
-        // The documented membership restriction: the server returns people who can read the channel.
-        XCTAssertEqual(queryValue(request, "in_channel_id"), "chan-1")
-        XCTAssertEqual(queryValue(request, "in_team_id"), "team-1")
+        // The two scopes the server actually reads (kanban t_03f2dbfd): `in_team` takes the team id
+        // and `in_channel` the channel — the `_id` spellings are ignored by 9.11.19 and made the
+        // answer team-wide.
+        XCTAssertEqual(queryValue(request, "in_channel"), "chan-1")
+        XCTAssertEqual(queryValue(request, "in_team"), "team-1")
         XCTAssertEqual(queryValue(request, "limit"), "20")
     }
 

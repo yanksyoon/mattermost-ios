@@ -215,32 +215,47 @@ final class T35ComposerModelsTests: XCTestCase {
 
     // MARK: - Membership
 
-    func testACompleteMemberListDropsNonMembers() {
+    /// The rule this replaces used to *delete* a non-member. It now says where the person is: a
+    /// member is "In this channel", everyone else is "Not in channel" and still offered, because a
+    /// mention of a non-member works and a bot is almost never a member (kanban t_03f2dbfd).
+    func testACompleteMemberListClassifiesRatherThanDrops() {
         let members = ComposerMembership.MemberList(ids: ["u1", "u2"], isComplete: true)
-        let candidates = [
-            ComposerSuggestion(kind: .user, value: "kim", label: "One", detail: "",
-                               insertion: "@kim", glyph: nil, userID: "u1"),
-            ComposerSuggestion(kind: .user, value: "outsider", label: "Out", detail: "",
-                               insertion: "@outsider", glyph: nil, userID: "u9"),
-            // A row with no server id cannot be checked, so it is kept rather than guessed about.
-            ComposerSuggestion(kind: .user, value: "unknown", label: "Unknown", detail: "",
-                               insertion: "@unknown", glyph: nil),
-            ComposerSuggestion(kind: .specialMention, value: "channel", label: "@channel", detail: "",
-                               insertion: "@channel", glyph: nil)
+        let users = [
+            MMUser(id: "u1", username: "kim"),
+            MMUser(id: "u9", username: "outsider"),
+            // No id: cannot be checked, so no band may be claimed for it.
+            MMUser(id: "", username: "unknown")
         ]
-        let filtered = ComposerMembership.filter(candidates, members: members)
-        XCTAssertEqual(filtered.map(\.value), ["kim", "unknown", "channel"])
+        let split = ComposerMembership.split(users, members: members, serverSplit: true)
+        XCTAssertEqual(split.inChannel.map(\.username), ["kim"])
+        XCTAssertEqual(split.notInChannel.map(\.username), ["outsider"])
+        XCTAssertEqual(split.unplaced.map(\.username), ["unknown"])
     }
 
-    func testATruncatedMemberListStandsDown() {
-        // A large channel, or a failed page: an autocomplete that hides a real colleague is worse
-        // than one that offers a stale name, because the mention works either way.
-        let members = ComposerMembership.MemberList(ids: ["u1"], isComplete: false)
-        let candidates = [
-            ComposerSuggestion(kind: .user, value: "u9", label: "Nine", detail: "", insertion: "@u9", glyph: nil)
-        ]
-        XCTAssertEqual(ComposerMembership.filter(candidates, members: members).count, 1)
-        XCTAssertEqual(ComposerMembership.filter(candidates, members: .unknown).count, 1)
+    func testATruncatedMemberListClaimsNoBand() {
+        // A large channel, or a failed page: calling a real colleague "not in channel" is the one
+        // wrong answer worth avoiding, so no band is claimed at all.
+        let truncated = ComposerMembership.MemberList(ids: ["u1"], isComplete: false)
+        XCTAssertEqual(ComposerMembership.band(forUserID: "u9", members: truncated), .unknown)
+        XCTAssertEqual(ComposerMembership.band(forUserID: "u9", members: .unknown), .unknown)
+        XCTAssertEqual(ComposerMembership.band(forUserID: nil, members: truncated), .unknown)
+
+        let split = ComposerMembership.split([MMUser(id: "u9", username: "nine")],
+                                            members: truncated, serverSplit: false)
+        XCTAssertEqual(split.unplaced.count, 1)
+        XCTAssertTrue(split.inChannel.isEmpty)
+        XCTAssertTrue(split.notInChannel.isEmpty)
+    }
+
+    /// The server said these are the in-channel people, but the member list contradicts it (a server
+    /// that ignored the channel scope answers team-wide). The client's facts win — otherwise a
+    /// non-member would be mislabelled as a member instead of being offered in the right band.
+    func testTheMemberListOverridesAnUnscopedServerAnswer() {
+        let members = ComposerMembership.MemberList(ids: ["u1"], isComplete: true)
+        let split = ComposerMembership.split([MMUser(id: "u9", username: "outsider")],
+                                            members: members, serverSplit: true)
+        XCTAssertTrue(split.inChannel.isEmpty)
+        XCTAssertEqual(split.notInChannel.map(\.username), ["outsider"])
     }
 
     // MARK: - Ranking

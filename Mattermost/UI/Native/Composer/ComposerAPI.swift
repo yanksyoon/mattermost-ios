@@ -2,7 +2,7 @@
 // Files: app/client/rest/posts.ts (`createPost` `POST /posts`, `patchPost` `PUT /posts/{id}`,
 //        `deletePost` `DELETE /posts/{id}`), app/client/rest/files.ts (`uploadFile` `POST /files`),
 //        app/client/rest/users.ts (`autocompleteUsers` `GET /users/autocomplete` with
-//        `in_channel_id`/`in_team_id`), app/client/rest/channels.ts (`searchChannels`
+//        `in_team`/`in_channel` — the pin's own parameter names, see the method's doc), app/client/rest/channels.ts (`searchChannels`
 //        `GET /teams/{team_id}/channels/search`, `getChannelMembers` `GET /channels/{id}/members`),
 //        app/client/rest/emojis.ts (`GET /emoji`, which T34's `ChannelAPI` already owns).
 // Licence: Apache-2.0 — endpoints reimplemented against https://api.mattermost.com with attribution
@@ -67,35 +67,71 @@ extension APIClient {
 
     // MARK: - Autocomplete
 
-    /// `GET /users/autocomplete?name=&in_channel_id=&in_team_id=&limit=` — the `@` list.
+    /// `GET /users/autocomplete?name=&in_team=&in_channel=&limit=` — the `@` list.
     ///
-    /// The answer is an **object** — `{"users": [...]}` — not a bare array (measured on 9.11.19: a
-    /// bare-array decode made every `@` term produce an empty list, which the live suite caught as
-    /// "typing @ asks the server and nothing comes back"). `in_channel_id` is the documented
-    /// membership restriction: the server returns people who are in that channel. It is sent whenever
-    /// the composer knows the channel, and the client still checks the answer against the channel's
-    /// member list when it can read the whole list (see `ComposerMembership`).
+    /// **The parameter names are load-bearing, and the ones this file used to send were the wrong
+    /// ones** (kanban t_03f2dbfd, measured on 9.11.19):
+    ///
+    ///  * `in_team` takes the **team id**. With a team *name* the server answers `[]`; with a bogus
+    ///    id it answers `[]`, so it really is applied. `in_team_id` is **ignored** (a bogus id still
+    ///    answers the team's users), which is why the composer's team scope never applied.
+    ///  * `in_channel` is the channel scope, and it **requires `in_team`**: alone it is a `500`
+    ///    `api.user.autocomplete_users.missing_team_id.app_error` ("Team id parameter is required to
+    ///    autocomplete by channel"). `in_channel_id` is ignored: the answer is team-wide.
+    ///
+    /// With both correct parameters the envelope carries the split the reader needs:
+    /// `{"users": <in channel>, "out_of_channel": <team, not in channel>}`. Newer servers also add
+    /// `agents` (AI agents); 9.11.19 does not, which is why every key but `users` is optional.
     func autocompleteUsers(term: String,
                            inChannel channelID: String?,
                            inTeam teamID: String?,
-                           limit: Int = 20) async throws -> [MMUser] {
+                           limit: Int = 20) async throws -> ComposerUserCandidates {
         var query = [URLQueryItem(name: "name", value: term),
                      URLQueryItem(name: "limit", value: String(max(1, limit)))]
-        if let channelID, !channelID.isEmpty {
-            query.append(URLQueryItem(name: "in_channel_id", value: channelID))
+        let team = teamID.flatMap { $0.isEmpty ? nil : $0 }
+        let channel = channelID.flatMap { $0.isEmpty ? nil : $0 }
+        if let team {
+            query.append(URLQueryItem(name: "in_team", value: team))
         }
-        if let teamID, !teamID.isEmpty {
-            query.append(URLQueryItem(name: "in_team_id", value: teamID))
+        // Only with a team: the server refuses a channel scope that has no team beside it.
+        if let channel, team != nil {
+            query.append(URLQueryItem(name: "in_channel", value: channel))
         }
         let response = try await get(MMAutocompleteUsersResponse.self, path: "/users/autocomplete",
                                      query: query, useETag: false)
-        return response.users ?? []
+        return ComposerUserCandidates(inChannel: response.users ?? [],
+                                      outOfChannel: response.outOfChannel,
+                                      agents: response.agents)
     }
 
-    /// The `GET /users/autocomplete` envelope. `users` is optional so a server that answers `{}` for
-    /// a term with no matches decodes to an empty list instead of throwing.
+    /// The `GET /users/autocomplete` envelope.
+    ///
+    /// `users` is optional so a server that answers `{}` for a term with no matches decodes to an
+    /// empty list instead of throwing. `outOfChannel` being **present but empty** is meaningful and
+    /// is kept as an optional: it is the server saying it did the split and nobody else matched, as
+    /// opposed to a server that never splits at all (see `ComposerUserCandidates.isClassified`).
     struct MMAutocompleteUsersResponse: Decodable {
         var users: [MMUser]?
+        var outOfChannel: [MMUser]?
+        var agents: [MMUser]?
+
+        enum CodingKeys: String, CodingKey {
+            case users, agents
+            case outOfChannel = "out_of_channel"
+        }
+    }
+
+    /// `GET /bots?per_page=200` — the server's bot accounts.
+    ///
+    /// Used to *label* a mention row ("Bot"), because the user records on 9.11.19 carry no marker:
+    /// `feedbackbot`, `playbooks`, `calls` and `system-bot` are all `roles: "system_user"` (measured),
+    /// and this list is the server's own answer for which accounts those are. A caller that may not
+    /// read it (a non-admin gets `403` — measured) simply labels nothing.
+    func bots(perPage: Int = 200) async throws -> [MMBot] {
+        try await get([MMBot].self,
+                      path: "/bots",
+                      query: [URLQueryItem(name: "per_page", value: String(min(max(1, perPage), 200)))],
+                      useETag: false)
     }
 
     /// `POST /teams/{team_id}/channels/search {"term":…, "limit":…}` — the `#` list.

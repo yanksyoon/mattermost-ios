@@ -9,13 +9,15 @@ import XCTest
 ///   1. a send appears optimistically and reconciles with the socket echo without a duplicate;
 ///   2. a failed send is retryable and the text is never lost (backgrounding, relaunch);
 ///   3. drafts persist per channel across a channel switch, a **team** switch and a relaunch;
-///   4. autocomplete queries the documented endpoints and respects channel membership;
+///   4. autocomplete queries the documented endpoints and offers members, non-members and bots in
+///      the bands the reader expects (kanban t_03f2dbfd);
 ///   5. an upload goes out as multipart with real progress, and the post carries the file.
 /// A stub could only prove this file's own fixture renders; these prove the client talks to the
 /// server the way the server documents.
 ///
 /// Fixture: `scripts/t35_composer_seed.py` (channel `t35-composer` in team `perf`, channel
-/// `t35-second-chat` in team `t35-second`).
+/// `t35-second-chat` in team `t35-second`), plus `scripts/t03_mention_seed.py` for the `@` list's
+/// non-member and bot (both in team `perf`, neither in `#t35-composer`).
 ///
 /// Run (local throwaway server, credentials in `scripts/perf_seed.py`):
 ///
@@ -119,51 +121,114 @@ final class T35ComposerUITests: XCTestCase {
 
     // MARK: - 2. Autocomplete: users, then channels
 
-    /// The membership filter is the thing worth asserting, so the term has to be one the **server**
-    /// answers with non-members. Measured on this 9.11.19: `/users/autocomplete?name=p` returns
-    /// `opsbot`, `perfprobe`, `playbooks`, `probeone832551`, `probezero959035`, and `perfprobe` is the
-    /// only one of them in `#t35-composer`. Typing `@per` would not do: every name that term matches
-    /// (`perfprobe`) is a member, so the old form of this test passed with the filter deleted —
-    /// T35-AV F4. The raw answer is asserted too, below, so the two negative assertions can fail.
-    func testAMentionCompletesFromTheChannelsMembersAndInsertsTheUsername() throws {
+    /// Typing `@` offers the people a reader expects, in bands: **members first**, then the people
+    /// who exist on the server but are not in this channel. Before kanban t_03f2dbfd the second band
+    /// did not exist — the client deleted those names — so this test asserts both the server's split
+    /// and what the list draws.
+    ///
+    /// Fixture: `scripts/t03_mention_seed.py` puts a bot (`feedbackbot`) and a human (`t43buddy`) in
+    /// team `perf` and deliberately **not** in `#t35-composer`.
+    func testAMentionOffersMembersAndNonMembersInSeparateBands() throws {
         let channel = try channel(named: channelName, in: teamID)
 
-        // The oracle first: without this, a client that queried nothing at all would also "pass" the
-        // negatives. These two names are in the server's own answer for "p" and are not members.
-        let raw = try getJSON("/api/v4/users/autocomplete?name=p&in_channel_id=\(channel.id)"
-                              + "&in_team_id=\(teamID)")
-        let rawNames = ((raw as? [String: Any])?["users"] as? [[String: Any]] ?? [])
+        // The oracle first, with the *documented* parameters: without it, a client that queried
+        // nothing at all would also "pass".
+        let raw = try getJSON("/api/v4/users/autocomplete?name=t43&in_team=\(teamID!)"
+                              + "&in_channel=\(channel.id)")
+        let answer = raw as? [String: Any]
+        let inChannel = (answer?["users"] as? [[String: Any]] ?? [])
             .compactMap { $0["username"] as? String }
-        XCTAssertTrue(rawNames.contains(loginID!),
-                      "the server must offer the channel member \(loginID!) for \"p\"; it answered \(rawNames)")
-        XCTAssertTrue(rawNames.contains("opsbot") && rawNames.contains("probeone832551"),
-                      "the server must offer non-members for \"p\", or the negative half of this test is "
-                      + "vacuous; it answered \(rawNames)")
+        let outOfChannel = (answer?["out_of_channel"] as? [[String: Any]] ?? [])
+            .compactMap { $0["username"] as? String }
+        XCTAssertFalse(inChannel.contains("t43buddy"),
+                       "t43buddy must not be a member of #\(channelName), or this test is vacuous")
+        XCTAssertTrue(outOfChannel.contains("t43buddy"),
+                      "the server must name t43buddy as out-of-channel; it answered \(answer ?? [:])")
 
         let app = launchAndOpen(channelName: channelName, teamID: teamID)
         let input = composerInput(app)
         input.tap()
-        input.typeText("@p")
+        input.typeText("@t43")
 
         let list = element(app, "composerSuggestions")
         XCTAssertTrue(list.waitForExistence(timeout: 20),
-                      "typing @ must ask the server for members:\n\(app.debugDescription)")
-        attach(app, "t35-03-mention-suggestions")
-        let suggestion = element(app, "composerSuggestion.user-\(loginID!)")
-        XCTAssertTrue(suggestion.waitForExistence(timeout: 10),
-                      "the signed-in user is a member of this channel and must be offered:\n\(app.debugDescription)")
+                      "typing @ must ask the server for people:\n\(app.debugDescription)")
+        attach(app, "t03-01-nonmember-suggestions")
 
-        // The negative half, on the same list: both names are in the server's answer for "p" (asserted
-        // above) and neither is in this channel, so drawing either one means the filter is gone.
-        XCTAssertFalse(element(app, "composerSuggestion.user-opsbot").exists,
-                       "a team member who is not in this channel must not be offered")
-        XCTAssertFalse(element(app, "composerSuggestion.user-probeone832551").exists,
-                       "a team member who is not in this channel must not be offered")
-        suggestion.tap()
+        // The row exists, under the band the server put it in.
+        let row = element(app, "composerSuggestion.user-t43buddy")
+        XCTAssertTrue(row.waitForExistence(timeout: 20),
+                      "a person outside this channel must still be offered:\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "composerSection.header-notInChannel").exists,
+                      "the row must sit under the \"Not in channel\" heading:\n\(app.debugDescription)")
+        row.tap()
 
-        XCTAssertTrue(waitUntil(timeout: 10) { ((input.value as? String) ?? "").contains("@\(loginID!)") },
-                      "choosing the mention must insert @username, was \((input.value as? String) ?? "")")
-        attach(app, "t35-04-mention-inserted")
+        XCTAssertTrue(waitUntil(timeout: 10) {
+            ((input.value as? String) ?? "").contains("@t43buddy")
+        }, "choosing a non-member must insert @username, was \((input.value as? String) ?? "")")
+        attach(app, "t03-02-nonmember-inserted")
+    }
+
+    /// A bare `@` draws a list from what the composer already holds — this channel's members — with
+    /// the hint that typing narrows it. It used to draw only `@channel`/`@here`/`@all`.
+    func testABareAtOffersTheChannelsMembersAndSaysHowToNarrowIt() throws {
+        let app = launchAndOpen(channelName: channelName, teamID: teamID)
+        let input = composerInput(app)
+        input.tap()
+        input.typeText("@")
+
+        let list = element(app, "composerSuggestions")
+        XCTAssertTrue(list.waitForExistence(timeout: 20),
+                      "a bare @ must draw a list:\n\(app.debugDescription)")
+        // The signed-in account is a member of this channel, read from the member list the composer
+        // prefetches; the row is drawn without waiting for an autocomplete request.
+        XCTAssertTrue(element(app, "composerSuggestion.user-\(loginID!)").waitForExistence(timeout: 20),
+                      "the channel's members must be offered for a bare @:\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "composerSection.header-inChannel").exists,
+                      "the member band must be headed:\n\(app.debugDescription)")
+        XCTAssertTrue(element(app, "composerSuggestions.hint").exists,
+                      "a bare @ must say that typing narrows it:\n\(app.debugDescription)")
+        // `@channel`/`@here`/`@all` are still offered, but drawn after the people — asserted as an
+        // order in `T03SuggestionListTests.testASpecialMentionIsDrawnAfterThePeopleWithoutAHeading`,
+        // because below the fold they are not reliably in the accessibility tree.
+        attach(app, "t03-03-bare-at")
+    }
+
+    /// The bot half of the card: a bot account is almost never a channel member, so it lands in
+    /// `out_of_channel` — and it must be offered *and labelled*, because mentioning a bot is the
+    /// only way to talk to one. `GET /bots` is what makes the label possible on this server.
+    func testABotIsOfferedAndLabelledAsABot() throws {
+        let channel = try channel(named: channelName, in: teamID)
+
+        // Oracle 1: the server names the bot, out of channel.
+        let raw = try getJSON("/api/v4/users/autocomplete?name=feed&in_team=\(teamID!)"
+                              + "&in_channel=\(channel.id)")
+        let outOfChannel = ((raw as? [String: Any])?["out_of_channel"] as? [[String: Any]] ?? [])
+            .compactMap { $0["username"] as? String }
+        XCTAssertTrue(outOfChannel.contains("feedbackbot"),
+                      "the fixture must put a bot outside #\(channelName): run scripts/t03_mention_seed.py "
+                      + "(server answered \(raw))")
+
+        // Oracle 2: the bot list really does call it a bot.
+        let bots = try getJSON("/api/v4/bots?per_page=200") as? [[String: Any]] ?? []
+        XCTAssertTrue(bots.contains { ($0["username"] as? String) == "feedbackbot" },
+                      "feedbackbot must be in GET /bots, or the label cannot be earned")
+
+        let app = launchAndOpen(channelName: channelName, teamID: teamID)
+        let input = composerInput(app)
+        input.tap()
+        input.typeText("@feed")
+
+        XCTAssertTrue(element(app, "composerSuggestions").waitForExistence(timeout: 20),
+                      "typing the bot's prefix must ask the server:\n\(app.debugDescription)")
+        let row = element(app, "composerSuggestion.user-feedbackbot")
+        XCTAssertTrue(row.waitForExistence(timeout: 20),
+                      "the bot must be offered:\n\(app.debugDescription)")
+        XCTAssertTrue(row.label.contains("Bot"),
+                      "the row must say it is a bot, label was \(row.label)")
+        XCTAssertTrue(element(app, "composerSection.header-notInChannel").exists,
+                      "the bot sits outside the channel and must be headed so:\n\(app.debugDescription)")
+        attach(app, "t03-04-bot-labelled")
     }
 
     func testAChannelMentionUsesTheTildeForm() throws {
@@ -554,13 +619,30 @@ final class T35ComposerUITests: XCTestCase {
     }
 
     /// Open a channel the way a person does: its row in the sidebar.
+    ///
+    /// The row is the primary route; the quick switcher is the fallback. The sidebar materializes
+    /// only the rows near the viewport, and this fixture's team has long outgrown one screenful
+    /// (measured 5358 pt of rows, mostly `T8G probe *` channels other cards created), so a channel
+    /// that exists and is a member's can still have no row in the accessibility tree.
     private func openChannel(_ app: XCUIApplication, channelID: String) {
         let row = element(app, "channelSidebar.channel.\(channelID)")
-        XCTAssertTrue(row.waitForExistence(timeout: 40),
-                      "the sidebar must list channel \(channelID):\n\(app.debugDescription)")
-        row.tap()
+        if row.waitForExistence(timeout: 15) {
+            row.tap()
+        } else if !channelName(id: channelID).isEmpty {
+            openViaQuickSwitcher(app, term: channelName(id: channelID), channelID: channelID)
+            return
+        } else {
+            XCTFail("the sidebar must list channel \(channelID):\n\(app.debugDescription)")
+            return
+        }
         XCTAssertTrue(element(app, "channelPostList").waitForExistence(timeout: 40),
                       "the channel pane must mount:\n\(app.debugDescription)")
+    }
+
+    /// A channel's name, read from the server: the fallback route into a channel needs a search term.
+    private func channelName(id: String) -> String {
+        let raw = try? getJSON("/api/v4/channels/\(id)")
+        return (raw as? [String: Any])?["name"] as? String ?? ""
     }
 
     /// Return to the channel sidebar. On a phone the channel view is **pushed** over the tabs, so the

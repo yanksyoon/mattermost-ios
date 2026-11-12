@@ -56,13 +56,36 @@ final class T35ComposerAPITests: XCTestCase {
         let transport = FakeAPITransport(repeating: .json(["users": [userJSON(id: "u1", username: "kim")]]))
         let client = try makeClient(transport)
 
-        let users = try await client.autocompleteUsers(term: "ki", inChannel: "chan-1",
-                                                       inTeam: "team-1", limit: 20)
+        let candidates = try await client.autocompleteUsers(term: "ki", inChannel: "chan-1",
+                                                            inTeam: "team-1", limit: 20)
 
         // A bare-array decode returns nothing here (the envelope is an object) and the live app then
         // shows no names at all, which is the bug this pins.
-        XCTAssertEqual(users.map(\.username), ["kim"])
-        XCTAssertEqual(users.first?.id, "u1")
+        XCTAssertEqual(candidates.inChannel.map(\.username), ["kim"])
+        XCTAssertEqual(candidates.inChannel.first?.id, "u1")
+        // The server did not split: the key is absent, which is *not* the same as "nobody else".
+        XCTAssertFalse(candidates.isClassified)
+    }
+
+    /// The mutant the card names: a response that carries `out_of_channel` and `agents` must decode
+    /// all three groups. Before this test the type declared `users` only, so both were dropped in
+    /// silence — a bot account (which is almost never a member) never reached the list.
+    func testTheAutocompleteEnvelopeDecodesOutOfChannelAndAgents() async throws {
+        let transport = FakeAPITransport(repeating: .json([
+            "users": [userJSON(id: "u1", username: "kim")],
+            "out_of_channel": [userJSON(id: "u2", username: "feedbackbot")],
+            "agents": [userJSON(id: "u3", username: "aiagent")]
+        ]))
+        let client = try makeClient(transport)
+
+        let candidates = try await client.autocompleteUsers(term: "bo", inChannel: "chan-1",
+                                                            inTeam: "team-1", limit: 20)
+
+        XCTAssertEqual(candidates.inChannel.map(\.username), ["kim"])
+        XCTAssertEqual(candidates.outOfChannel?.map(\.username), ["feedbackbot"])
+        XCTAssertEqual(candidates.agents?.map(\.username), ["aiagent"])
+        XCTAssertTrue(candidates.isClassified, "the key was present: the server split the answer")
+        XCTAssertEqual(candidates.everybody.count, 3)
     }
 
     func testAnEmptyAutocompleteAnswerIsAnEmptyListAndNotAThrow() async throws {
@@ -71,11 +94,15 @@ final class T35ComposerAPITests: XCTestCase {
         let transport = FakeAPITransport(repeating: .json([:]))
         let client = try makeClient(transport)
 
-        let users = try await client.autocompleteUsers(term: "nobody", inChannel: nil,
-                                                       inTeam: nil, limit: 20)
-        XCTAssertTrue(users.isEmpty)
+        let candidates = try await client.autocompleteUsers(term: "nobody", inChannel: nil,
+                                                            inTeam: nil, limit: 20)
+        XCTAssertTrue(candidates.isEmpty)
+        XCTAssertTrue(candidates.inChannel.isEmpty)
     }
 
+    /// The parameter **names** are the contract (kanban t_03f2dbfd, measured on 9.11.19):
+    /// `in_team` (a team id) and `in_channel`. The old `in_team_id`/`in_channel_id` spellings are
+    /// ignored by that server, which is why the list was team-wide and the client had to filter.
     func testTheAutocompleteRequestCarriesTheMembershipScopes() async throws {
         let transport = FakeAPITransport(repeating: .json(["users": [userJSON(id: "u1", username: "kim")]]))
         let client = try makeClient(transport)
@@ -89,22 +116,56 @@ final class T35ComposerAPITests: XCTestCase {
         let items = query(request)
         XCTAssertEqual(items["name"], "ki")
         XCTAssertEqual(items["limit"], "20")
-        // `in_channel_id` is what makes the server restrict the answer to the channel's members;
-        // `in_team_id` narrows it to the team.
-        XCTAssertEqual(items["in_channel_id"], "chan-1")
-        XCTAssertEqual(items["in_team_id"], "team-1")
+        XCTAssertEqual(items["in_team"], "team-1")
+        XCTAssertEqual(items["in_channel"], "chan-1")
+        XCTAssertNil(items["in_team_id"], "the server ignores this spelling")
+        XCTAssertNil(items["in_channel_id"], "the server ignores this spelling")
+    }
+
+    /// A channel scope with no team is a `500` on the pinned server
+    /// (`api.user.autocomplete_users.missing_team_id.app_error`), so it must not be sent alone.
+    func testTheChannelScopeIsNeverSentWithoutATeam() async throws {
+        let transport = FakeAPITransport(repeating: .json(["users": []]))
+        let client = try makeClient(transport)
+
+        _ = try await client.autocompleteUsers(term: "ki", inChannel: "chan-1", inTeam: nil, limit: 20)
+
+        let request = try XCTUnwrap(transport.lastRequest)
+        let names = query(request).keys
+        XCTAssertFalse(names.contains("in_channel"), "a channel scope alone is a 500 on 9.11.19")
+        XCTAssertFalse(names.contains("in_team"))
     }
 
     func testTheAutocompleteRequestOmitsScopesItDoesNotKnow() async throws {
         let transport = FakeAPITransport(repeating: .json(["users": []]))
         let client = try makeClient(transport)
 
-        _ = try await client.autocompleteUsers(term: "ki", inChannel: "", inTeam: nil, limit: 20)
+        _ = try await client.autocompleteUsers(term: "ki", inChannel: "", inTeam: "", limit: 20)
 
         let request = try XCTUnwrap(transport.lastRequest)
         let names = query(request).keys
-        XCTAssertFalse(names.contains("in_channel_id"), "an empty id must not be sent as a scope")
-        XCTAssertFalse(names.contains("in_team_id"))
+        XCTAssertFalse(names.contains("in_channel"), "an empty id must not be sent as a scope")
+        XCTAssertFalse(names.contains("in_team"))
+    }
+
+    // MARK: - The bot list
+
+    func testTheBotListIsABareArrayOfBotRecords() async throws {
+        let transport = FakeAPITransport(repeating: .json([
+            ["user_id": "u9", "username": "feedbackbot", "display_name": "Feedbackbot",
+             "description": "", "owner_id": "nps", "create_at": 0, "update_at": 0, "delete_at": 0],
+            ["user_id": "u8", "username": "gone-bot", "display_name": "Gone",
+             "description": "", "owner_id": "x", "create_at": 0, "update_at": 0, "delete_at": 42]
+        ]))
+        let client = try makeClient(transport)
+
+        let bots = try await client.bots()
+
+        XCTAssertEqual(bots.map(\.userId), ["u9", "u8"])
+        XCTAssertEqual(bots.filter(\.isLive).map(\.username), ["feedbackbot"])
+        let request = try XCTUnwrap(transport.lastRequest)
+        XCTAssertEqual(request.url.path, "/api/v4/bots")
+        XCTAssertEqual(query(request)["per_page"], "200")
     }
 
     // MARK: - The # list

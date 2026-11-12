@@ -191,6 +191,14 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
     /// the id `GET /terms_of_service` publishes. Decoded tolerantly: older servers omit both keys.
     var termsOfServiceID: String
     var termsOfServiceCreateAt: Int64
+    /// Space-separated role names, exactly as the server sends them (`"system_admin system_user"`).
+    var roles: String
+    /// `is_bot` — the server's own marker on the user record (measured on 9.11.19: `true` for
+    /// `feedbackbot`, `playbooks`, `calls` and `system-bot`). It is the cheapest and most reliable
+    /// answer to "is this a bot", and it arrives with the autocomplete row itself, so a reader
+    /// without admin rights still sees the label. `roles` and `GET /bots` are the fallbacks for
+    /// servers that do not send it.
+    var isBot: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, username, email, nickname
@@ -200,6 +208,8 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
         case updateAt = "update_at"
         case termsOfServiceID = "terms_of_service_id"
         case termsOfServiceCreateAt = "terms_of_service_create_at"
+        case roles
+        case isBot = "is_bot"
     }
 
     init(id: String,
@@ -211,7 +221,9 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
          deleteAt: Int64 = 0,
          updateAt: Int64 = 0,
          termsOfServiceID: String = "",
-         termsOfServiceCreateAt: Int64 = 0) {
+         termsOfServiceCreateAt: Int64 = 0,
+         roles: String = "",
+         isBot: Bool = false) {
         self.id = id
         self.username = username
         self.email = email
@@ -222,6 +234,8 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
         self.updateAt = updateAt
         self.termsOfServiceID = termsOfServiceID
         self.termsOfServiceCreateAt = termsOfServiceCreateAt
+        self.roles = roles
+        self.isBot = isBot
     }
 
     init(from decoder: Decoder) throws {
@@ -236,7 +250,18 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
         updateAt = try values.decodeIfPresent(Int64.self, forKey: .updateAt) ?? 0
         termsOfServiceID = try values.decodeIfPresent(String.self, forKey: .termsOfServiceID) ?? ""
         termsOfServiceCreateAt = try values.decodeIfPresent(Int64.self, forKey: .termsOfServiceCreateAt) ?? 0
+        roles = try values.decodeIfPresent(String.self, forKey: .roles) ?? ""
+        isBot = try values.decodeIfPresent(Bool.self, forKey: .isBot) ?? false
     }
+
+    /// The user record itself says this account is a bot.
+    ///
+    /// Three ways it can: `is_bot` (9.11.19 sends it), a `system_bot` role (newer/other servers), or
+    /// — through `isBot(in:)` on the composer's side — appearance in `GET /bots`.
+    var isBotAccount: Bool {
+        isBot || roles.split(separator: " ").contains { $0 == "system_bot" }
+    }
+
 
     /// Whether this profile carries anything a row can read a name from.
     ///
@@ -251,6 +276,56 @@ struct MMUser: Codable, Equatable, Identifiable, Sendable {
 
     /// The id-only form described on ``hasProfileDetails``.
     var isIdOnlyStub: Bool { !hasProfileDetails }
+}
+
+/// One bot account (`GET /api/v4/bots`).
+///
+/// The composer reads only `user_id`, and only to *label* a mention row on servers whose user
+/// records carry no bot marker. The rest of the record is kept so a later screen (an integrations
+/// list) does not have to re-declare it.
+///
+/// Decoded tolerantly, per field: `system-bot` on 9.11.19 has no `delete_at`, and a strict decode of
+/// the whole array therefore failed — which silently cost every row its "Bot" label.
+struct MMBot: Codable, Equatable, Identifiable, Sendable {
+    var userId: String
+    var username: String
+    var displayName: String
+    var description: String
+    var ownerId: String
+    var deleteAt: Int64
+
+    var id: String { userId }
+
+    /// A deleted bot is not offered: the server keeps the record, the account is gone.
+    var isLive: Bool { deleteAt == 0 && !userId.isEmpty }
+
+    enum CodingKeys: String, CodingKey {
+        case username, description
+        case userId = "user_id"
+        case displayName = "display_name"
+        case ownerId = "owner_id"
+        case deleteAt = "delete_at"
+    }
+
+    init(userId: String, username: String = "", displayName: String = "",
+         description: String = "", ownerId: String = "", deleteAt: Int64 = 0) {
+        self.userId = userId
+        self.username = username
+        self.displayName = displayName
+        self.description = description
+        self.ownerId = ownerId
+        self.deleteAt = deleteAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        userId = try values.decodeIfPresent(String.self, forKey: .userId) ?? ""
+        username = try values.decodeIfPresent(String.self, forKey: .username) ?? ""
+        displayName = try values.decodeIfPresent(String.self, forKey: .displayName) ?? ""
+        description = try values.decodeIfPresent(String.self, forKey: .description) ?? ""
+        ownerId = try values.decodeIfPresent(String.self, forKey: .ownerId) ?? ""
+        deleteAt = try values.decodeIfPresent(Int64.self, forKey: .deleteAt) ?? 0
+    }
 }
 
 /// The signed-in account's membership row in one channel (`GET /api/v4/channels/{id}/members/me`).
