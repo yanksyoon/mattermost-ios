@@ -61,6 +61,16 @@ struct NativeChannelSidebarContent: View {
     @State private var draftsPresented = false
     @State private var pendingDraft: GlobalDraftRow?
 
+    /// t19828e14: the category whose `…` actions are open.
+    ///
+    /// The presentation lives here, at the sidebar root, not inside the header that starts it: a
+    /// sheet, menu or alert requested from inside a `List` section header never appeared (measured — the
+    /// `…` button was found, reported hittable, and both a tap and a press were delivered, and nothing
+    /// came up, four runs in a row), while the same presentations at this level are what the create flow
+    /// already proves works. It is **one** sheet (`CategoryActionsSheet`), which holds the rename field,
+    /// the reorder buttons and the delete confirmation — see the note on its modifier below.
+    @State private var categoryActions: ChannelSidebarGroup?
+
     /// T46: the permanent-web escape hatch (`docs/dual-render.md` §13). One item-based presentation
     /// holds both the plugin-id prompt and the surface sheet: the prompt hands its id to
     /// `pendingFallback`, and `onDismiss` opens the surface, so the two never fight over one
@@ -235,9 +245,27 @@ struct NativeChannelSidebarContent: View {
                 }
             }
         }
+        // t19828e14: a category's own actions, driven from the `…` on its header.
+        //
+        // **One** presentation, deliberately: a sheet that *is* the rename field, the reorder buttons
+        // and the delete confirmation. It used to be a `.confirmationDialog` that then asked for an
+        // `.alert` (rename) and a second `.confirmationDialog` (delete), and SwiftUI dropped the
+        // follow-up while the first was still dismissing — the dialog's button fired, a blind 1 s
+        // `asyncAfter` ran, and no alert ever appeared (twice measured; the live UI test was red at
+        // "the rename prompt must open"). One presentation has no dismissal to race.
+        .sheet(item: $categoryActions) { group in
+            CategoryActionsSheet(model: model, group: group)
+        }
         // The create menu lives in the section header's `+` (`ChannelCreateMenuButton`), which observes
         // the model itself — a `@State`-held model read here would never re-render, and the `+` would be
         // born hidden while the permission answer was still in flight (the defect T40-R measured).
+    }
+
+    /// Commit a new category's name (t19828e14). The prompt itself lives in `ChannelCreateMenuButton`,
+    /// next to the dialog it follows; this only runs the model's write, which draws the category
+    /// immediately and then adopts the id the server assigned to it.
+    private func createCategory(named name: String) {
+        Task { await model.createCategory(named: name) }
     }
 
     /// Land on a channel that was just created (or a DM that was just opened).
@@ -463,7 +491,8 @@ struct NativeChannelSidebarContent: View {
                             ChannelCreateMenuButton(model: createModel,
                                                     createChannel: $createChannelPresented,
                                                     browseChannels: $browseChannelsPresented,
-                                                    directMessage: $newDirectMessagePresented)
+                                                    directMessage: $newDirectMessagePresented,
+                                                    createCategory: createCategory(named:))
                         }
                     }
                 } else {
@@ -475,7 +504,8 @@ struct NativeChannelSidebarContent: View {
                             ChannelCreateMenuButton(model: createModel,
                                                     createChannel: $createChannelPresented,
                                                     browseChannels: $browseChannelsPresented,
-                                                    directMessage: $newDirectMessagePresented)
+                                                    directMessage: $newDirectMessagePresented,
+                                                    createCategory: createCategory(named:))
                         }
                     }
                 }
@@ -518,7 +548,8 @@ struct NativeChannelSidebarContent: View {
                         let rows = group.visibleEntries
                         ForEach(rows) { entry in
                             ChannelSidebarRow(entry: entry,
-                                              canMove: !group.entries.isEmpty && model.canWriteLayout) {
+                                              canMove: !group.entries.isEmpty && model.canWriteLayout,
+                                              moveTargets: model.moveTargets(channelID: entry.id)) {
                                 open(entry)
                             } onMove: { offset in
                                 Task { await model.move(channelID: entry.id,
@@ -528,10 +559,26 @@ struct NativeChannelSidebarContent: View {
                                 Task { await model.setMuted(!entry.isMuted, channelID: entry.id) }
                             } onFavorite: {
                                 Task { await model.setFavorite(!entry.isFavorite, channelID: entry.id) }
+                            } onMoveTo: { targetID in
+                                // The accessible route to a cross-category move (t19828e14): a context
+                                // menu item, never a drag only.
+                                Task { await model.move(channelID: entry.id, toCategoryID: targetID) }
                             }
                             // The `List` drew a separator above every row but the first; so does
                             // the card (`channelSidebarRowSurface`).
                             .channelSidebarRowSurface(separator: entry.id != rows.first?.id)
+                        }
+                        // A custom category with nothing in it stays on screen (t19828e14): it is the
+                        // object the reader just made, and a category that vanished when empty could
+                        // not be filled, renamed or deleted. The row says so instead of leaving a
+                        // bare header whose emptiness looks like a failed load.
+                        if rows.isEmpty && group.kind == .custom {
+                            Text("No channels yet")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .channelSidebarRowContent()
+                                .channelSidebarRowSurface(separator: false)
+                                .accessibilityIdentifier("channelSidebar.emptyCategory.\(group.id)")
                         }
                         // The Load more row is part of the body, so it sits where the next row would
                         // be and moves with the list. It is a sibling of the header button, never
@@ -547,12 +594,17 @@ struct NativeChannelSidebarContent: View {
                     }
                 } header: {
                     CategoryHeader(group: group,
-                                   isCollapsed: model.isCollapsed(categoryID: group.id)) {
-                        Task {
-                            await model.setCollapsed(!model.isCollapsed(categoryID: group.id),
-                                                     categoryID: group.id)
-                        }
-                    }
+                                   isCollapsed: model.isCollapsed(categoryID: group.id),
+                                   canEdit: model.canEditCategory(group.id),
+                                   canMoveUp: model.canMoveCategory(group.id, by: -1),
+                                   canMoveDown: model.canMoveCategory(group.id, by: 1),
+                                   onToggle: {
+                                       Task {
+                                           await model.setCollapsed(!model.isCollapsed(categoryID: group.id),
+                                                                    categoryID: group.id)
+                                       }
+                                   },
+                                   onActions: { categoryActions = group })
                     .channelSidebarSectionHeaderSurface()
                 }
             }
@@ -771,51 +823,90 @@ struct ChannelSidebarUnreadDot: View {
 ///
 /// Collapsing is a control (upstream's header toggles the body); the whole header is the button so a
 /// tap anywhere on it works, and it carries the category's stable identifier.
+///
+/// The header's **own actions** (t19828e14) are where the category is edited: the `…` opens one
+/// sheet with the rename field, the reorder buttons and the delete — `CategoryActionsSheet`.
+/// Rename and delete are offered only for a reader-made category; Favorites, Channels and Direct
+/// Messages are the server's defaults and both are absent for them, not present-and-refused.
 struct CategoryHeader: View {
     let group: ChannelSidebarGroup
     let isCollapsed: Bool
+    let canEdit: Bool
+    let canMoveUp: Bool
+    let canMoveDown: Bool
     let onToggle: () -> Void
+    /// Ask the sidebar to open this category's actions. The **one** sheet (`CategoryActionsSheet`:
+    /// the rename field, the reorder buttons and the delete confirmation) is presented there — see
+    /// `ChannelSidebarView.categoryActions` for why a presentation started inside this header never
+    /// appeared.
+    let onActions: () -> Void
+
+    /// Whether this header has anything to offer besides collapsing: a custom category can be renamed,
+    /// deleted and moved; a default one can only be moved.
+    private var hasActions: Bool { canEdit || canMoveUp || canMoveDown }
 
     var body: some View {
-        Button(action: onToggle) {
-            HStack(spacing: 6) {
-                Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text(group.displayName)
-                    .mmLineLimit(1)
-                    // The group's emphasis: bold while any row in it is unread, from
-                    // `ChannelSidebarGroup.hasUnread` — the same rows the body draws, not a recount.
-                    .fontWeight(group.hasUnread ? .bold : .regular)
-                if group.category.muted {
-                    Image(systemName: "bell.slash")
-                        .font(.caption2)
-                        .accessibilityLabel("Category muted")
+        HStack(spacing: 6) {
+            Button(action: onToggle) {
+                HStack(spacing: 6) {
+                    Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(group.displayName)
+                        .mmLineLimit(1)
+                        // The group's emphasis: bold while any row in it is unread, from
+                        // `ChannelSidebarGroup.hasUnread` — the same rows the body draws, not a recount.
+                        .fontWeight(group.hasUnread ? .bold : .regular)
+                    if group.category.muted {
+                        Image(systemName: "bell.slash")
+                            .font(.caption2)
+                            .accessibilityLabel("Category muted")
+                    }
+                    Spacer(minLength: 0)
+                    if group.headerBadge.isDot {
+                        // Trailing, where a row's badge sits, so "this group has something unread" reads
+                        // as the row's own dot lifted to the section.
+                        ChannelSidebarUnreadDot()
+                    }
                 }
-                Spacer(minLength: 0)
-                if group.headerBadge.isDot {
-                    // Trailing, where a row's badge sits, so "this group has something unread" reads
-                    // as the row's own dot lifted to the section.
-                    ChannelSidebarUnreadDot()
-                }
+                // A `.plain` button hit-tests its label's content shape, not the row its frame fills;
+                // without this the space after the Spacer would not take a tap even though the whole
+                // header is reported as the control.
+                .contentShape(Rectangle())
             }
-            // A `.plain` button hit-tests its label's content shape, not the row its frame fills;
-            // without this the space after the Spacer would not take a tap even though the whole
-            // header is reported as the control.
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            // One header, one element (T8e): the disclosure chevron, the name, the mute marker and the
+            // unread dot were four elements — `Image('chevron.down')`, `StaticText`, `Image('bell.slash')`,
+            // the dot. The name stays the label; the mute and unread facts move into the value so
+            // VoiceOver still says them (a `Button`'s label children are not merged by `.combine`,
+            // measured — see `docs/t8e-a11y-tree-decision.md`).
+            .accessibilityRepresentation {
+                Button(group.displayName, action: onToggle)
+                    .accessibilityIdentifier(group.identifier)
+                    .accessibilityValue(group.accessibilityValue)
+            }
+            .accessibilityIdentifier(group.identifier)
+
+            if hasActions {
+                // A visible affordance, not only a long-press (t19828e14): a synthesized long-press never
+                // opened a `contextMenu` on this header, and a SwiftUI `Menu` beside it never opened
+                // either — the button was found and tapped, and nothing appeared (both measured, across
+                // several runs). A sheet behind a plain `Button` is what this app already proves works
+                // (the create menu), so that is what the reader gets.
+                Button {
+                    onActions()
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 30, height: 26)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("channelSidebar.category.menu.\(group.category.id)")
+                .accessibilityLabel("Category actions")
+            }
         }
-        .buttonStyle(.plain)
-        // One header, one element (T8e): the disclosure chevron, the name, the mute marker and the
-        // unread dot were four elements — `Image('chevron.down')`, `StaticText`, `Image('bell.slash')`,
-        // the dot. The name stays the label; the mute and unread facts move into the value so
-        // VoiceOver still says them (a `Button`'s label children are not merged by `.combine`,
-        // measured — see `docs/t8e-a11y-tree-decision.md`).
-        .accessibilityRepresentation {
-            Button(group.displayName, action: onToggle)
-                .accessibilityIdentifier(group.identifier)
-                .accessibilityValue(group.accessibilityValue)
-        }
-        .accessibilityIdentifier(group.identifier)
     }
 }
 
@@ -960,13 +1051,22 @@ struct SidebarPresenceDot: View {
 /// The row's actions live in a context menu (secondary click on Catalyst, long press on touch), which
 /// is also how a reorder is expressed without drag-and-drop: "Move up"/"Move down" writes the
 /// category's manual order, the same write a drag makes.
+///
+/// **"Move to"** (t19828e14) is the accessible route to a cross-category move: a submenu with one row
+/// per other category. Drag-and-drop is not offered at all, so there is no gesture-only path to the
+/// feature.
 struct ChannelSidebarRow: View {
     let entry: ChannelSidebarEntry
     let canMove: Bool
+    /// Every category this row can be moved to, in the server's drawn order (empty when there is
+    /// nowhere to go — a team with one category). Defaulted, so a fixture that only exercises the row's
+    /// drawing says "no move menu" by saying nothing.
+    var moveTargets: [SidebarMoveTarget] = []
     let action: () -> Void
     let onMove: (Int) -> Void
     let onMute: () -> Void
     let onFavorite: () -> Void
+    var onMoveTo: (String) -> Void = { _ in }
 
     var body: some View {
         Button(action: action) {
@@ -1041,6 +1141,25 @@ struct ChannelSidebarRow: View {
             Button(action: onFavorite) {
                 Label(entry.isFavorite ? "Remove from Favorites" : "Add to Favorites",
                       systemImage: entry.isFavorite ? "star.slash" : "star")
+            }
+            if !moveTargets.isEmpty {
+                // A submenu inside the context menu: "Move to → <category>". One row per target,
+                // including empty targets and the two defaults (the layout decides, not the drawn
+                // groups — see `SidebarMoveTarget`).
+                Menu {
+                    ForEach(moveTargets) { target in
+                        Button {
+                            onMoveTo(target.id)
+                        } label: {
+                            Label(target.displayName,
+                                  systemImage: target.kind.isDefault ? "rectangle.stack" : "folder")
+                        }
+                        .accessibilityIdentifier(target.identifier)
+                    }
+                } label: {
+                    Label("Move to", systemImage: "arrow.right.square")
+                }
+                .accessibilityIdentifier("channelSidebar.moveToMenu")
             }
             Button(action: onMute) {
                 Label(entry.isMuted ? "Unmute channel" : "Mute channel",
@@ -1230,10 +1349,33 @@ private struct ChannelCreateMenuButton: View {
     @Binding var createChannel: Bool
     @Binding var browseChannels: Bool
     @Binding var directMessage: Bool
+    /// T19828e14: commit a new category's name. The **prompt** is presented here, from this view's own
+    /// dialog `onDismiss` — a presentation requested while a `UIAlertController` is still going away is
+    /// dropped by UIKit (measured: the alert never appeared and the tap had registered; T47 hit the
+    /// same class of defect with its sheets, which is why its rows hop a run loop). Because the entry
+    /// exists for every reader, the `+` is drawn once the model has answered even when it offers no
+    /// channel action — a category is the reader's own list, not a team permission.
+    let createCategory: (String) -> Void
 
     @State private var menuPresented = false
+    @State private var namePresented = false
+    @State private var newName = ""
 
     var body: some View {
+        // Both menus lead here, so the prompt is attached to the same view in both branches.
+        content
+            .sheet(isPresented: $namePresented) {
+                CategoryNameSheet(name: $newName,
+                                  onCancel: { newName = "" },
+                                  onCommit: { name in
+                                      newName = ""
+                                      createCategory(name)
+                                  })
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if let failure = model.failureMessage {
             Button {
                 menuPresented = true
@@ -1252,11 +1394,12 @@ private struct ChannelCreateMenuButton: View {
                     Task { await model.load() }
                 }
                 .accessibilityIdentifier("nativeSidebarCreateRetry")
+                createCategoryRow
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text(failure)
             }
-        } else if !model.menuActions.isEmpty {
+        } else if !model.menuActions.isEmpty || model.phase == .ready {
             Button {
                 menuPresented = true
             } label: {
@@ -1265,7 +1408,7 @@ private struct ChannelCreateMenuButton: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Create")
             .accessibilityIdentifier("nativeSidebarCreateMenu")
-            // An action sheet rather than a `Menu`: the three rows are ordinary buttons that keep their
+            // An action sheet rather than a `Menu`: the rows are ordinary buttons that keep their
             // accessibility identifiers (a `Menu` synthesises its children into the popover, and the
             // identifiers are the first thing to go — measured on the same class of control in T40).
             .confirmationDialog("Create", isPresented: $menuPresented, titleVisibility: .visible) {
@@ -1286,9 +1429,25 @@ private struct ChannelCreateMenuButton: View {
                     }
                     .accessibilityIdentifier(action.identifier)
                 }
+                createCategoryRow
                 Button("Cancel", role: .cancel) {}
             }
         }
+    }
+
+    /// The "Create a category" row (t19828e14), shared by both menus.
+    ///
+    /// It asks for the name sheet one run-loop turn later, exactly like the channel rows above ask for
+    /// their sheets: the dialog is still dismissing in this turn, and a presentation requested then is
+    /// dropped by UIKit (T47 measured this with `docs/t47-relay-witness-2026-10-27.log`).
+    private var createCategoryRow: some View {
+        Button("Create a category") {
+            DispatchQueue.main.async {
+                newName = ""
+                namePresented = true
+            }
+        }
+        .accessibilityIdentifier("nativeSidebarCreateCategory")
     }
 
     /// The `+` itself — one shape for both states, so the two cannot drift apart on screen.
@@ -1296,6 +1455,190 @@ private struct ChannelCreateMenuButton: View {
         Image(systemName: "plus")
             .font(.footnote.weight(.semibold))
             .contentShape(Rectangle())
+    }
+}
+
+/// The "New category" name sheet (t19828e14).
+///
+/// A sheet, not an `.alert`, for a measured reason: this prompt is presented immediately after the
+/// `+` menu's confirmation dialog dismisses, and an alert requested in that window was dropped by
+/// UIKit — the field never appeared, and when a later attempt did appear the alert replaced the
+/// accessibility identifiers the UI test needs (`channelSidebar.categoryNameField` was not queryable).
+/// A sheet presented one run-loop turn after the dialog's dismissal is the pattern T47 already proves
+/// for its create-channel and direct-message forms.
+private struct CategoryNameSheet: View {
+    @Binding var name: String
+    let onCancel: () -> Void
+    let onCommit: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var focused: Bool
+
+    private var trimmed: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Category name", text: $name)
+                    .focused($focused)
+                    .textInputAutocapitalization(.words)
+                    .accessibilityIdentifier("channelSidebar.categoryNameField")
+                Section {
+                    Text("It starts empty. Move channels into it from a channel's menu.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("New category")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onCancel()
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("channelSidebar.categoryCreateCancel")
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        onCommit(trimmed)
+                        dismiss()
+                    }
+                    .disabled(trimmed.isEmpty)
+                    .accessibilityIdentifier("channelSidebar.categoryCreateConfirm")
+                }
+            }
+            .onAppear { focused = true }
+        }
+    }
+}
+
+/// A category's own actions (t19828e14): rename it, move it in the order, delete it — in **one**
+/// sheet.
+///
+/// One presentation, not three. The first version chained `.confirmationDialog` → `.alert` (rename)
+/// and `.confirmationDialog` → a second `.confirmationDialog` (delete). The dialog's button fired, a
+/// blind one-second `asyncAfter` waited for it to go away, and the follow-up presentation was still
+/// dropped: the live UI test sat at "the rename prompt must open" for two runs. A sheet whose body
+/// holds the field, the reorder buttons and the delete confirmation has no dismissal to race, and it
+/// is the shape the create flow already proves (`CategoryNameSheet`).
+///
+/// It reads the **model**, not the group it was opened with: the name it shows, and what it offers,
+/// are the category's current state — a rename the server answered with is what a reopened sheet says.
+private struct CategoryActionsSheet: View {
+    @ObservedObject var model: ChannelListViewModel
+    /// The category this sheet acts on, by id.
+    let categoryID: String
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    /// The delete is a second step **inside** this sheet, not a second presentation: the message that
+    /// promises the channels are safe and the destructive button appear in place.
+    @State private var confirmingDelete = false
+    @FocusState private var focused: Bool
+
+    init(model: ChannelListViewModel, group: ChannelSidebarGroup) {
+        _model = ObservedObject(wrappedValue: model)
+        categoryID = group.id
+        _name = State(initialValue: group.displayName)
+    }
+
+    /// Only a reader-made category can be renamed or deleted; Favorites, Channels and Direct Messages
+    /// are the server's (`ChannelListViewModel.canEditCategory`).
+    private var canEdit: Bool { model.canEditCategory(categoryID) }
+    private var currentName: String { model.categoryName(categoryID) ?? name }
+    private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var canSave: Bool { canEdit && !trimmed.isEmpty && trimmed != currentName }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    if canEdit {
+                        TextField("Category name", text: $name)
+                            .focused($focused)
+                            .textInputAutocapitalization(.words)
+                            .accessibilityIdentifier("channelSidebar.categoryRenameField")
+                    } else {
+                        // A default category is shown so the sheet still says what it acts on, but the
+                        // name is not editable: it is what the server calls it.
+                        Text(currentName)
+                            .accessibilityIdentifier("channelSidebar.categoryReadOnlyName")
+                    }
+                } header: {
+                    Text("Name")
+                }
+
+                Section {
+                    Button("Move category up") { move(by: -1) }
+                        .disabled(!model.canMoveCategory(categoryID, by: -1))
+                        .accessibilityIdentifier("channelSidebar.categoryMoveUp")
+                    Button("Move category down") { move(by: 1) }
+                        .disabled(!model.canMoveCategory(categoryID, by: 1))
+                        .accessibilityIdentifier("channelSidebar.categoryMoveDown")
+                } header: {
+                    Text("Order")
+                }
+
+                if canEdit {
+                    Section {
+                        if confirmingDelete {
+                            // The promise the feature keeps, in the reader's words (proved against the
+                            // server in `scripts/t19828e14_category_probe.py` and
+                            // `MattermostTests/T19828e14SidebarCategoryTests`).
+                            Text("Its channels are not deleted. They move back to Channels, or to Direct Messages.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            Button("Delete Category", role: .destructive) { delete() }
+                                .accessibilityIdentifier("channelSidebar.categoryDeleteConfirm")
+                            Button("Keep category", role: .cancel) { confirmingDelete = false }
+                        } else {
+                            Button("Delete category", role: .destructive) { confirmingDelete = true }
+                                .accessibilityIdentifier("channelSidebar.categoryDelete")
+                        }
+                    }
+                }
+            }
+            .accessibilityIdentifier("channelSidebar.categoryActionsSheet")
+            .navigationTitle(currentName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                        .accessibilityIdentifier("channelSidebar.categoryActionsClose")
+                }
+                if canEdit {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") { rename() }
+                            .disabled(!canSave)
+                            .accessibilityIdentifier("channelSidebar.categoryRenameSave")
+                    }
+                }
+            }
+        }
+    }
+
+    /// Every action closes the sheet **before** the write: the model draws the change optimistically,
+    /// so the reader sees it land in the list underneath rather than on a modal that is about to go.
+    private func rename() {
+        let newName = trimmed
+        guard canSave else { return }
+        dismiss()
+        Task { await model.renameCategory(id: categoryID, to: newName) }
+    }
+
+    private func move(by offset: Int) {
+        guard model.canMoveCategory(categoryID, by: offset) else { return }
+        dismiss()
+        Task { await model.moveCategory(id: categoryID, by: offset) }
+    }
+
+    private func delete() {
+        guard canEdit else { return }
+        dismiss()
+        Task { await model.deleteCategory(id: categoryID) }
     }
 }
 

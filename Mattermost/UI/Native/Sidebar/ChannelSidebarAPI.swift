@@ -74,6 +74,49 @@ extension APIClient {
                       body: categories)
     }
 
+    /// `POST /users/{user_id}/teams/{team_id}/channels/categories` — create one category.
+    ///
+    /// Not part of upstream mobile's client mix (`app/client/rest/categories.ts` at the pin has only
+    /// the two GETs and the whole-array PUT), but it is the only way to create one on the server:
+    /// a whole-array `PUT` that contains a category the server does not know answers 500
+    /// `app.channel.sidebar_categories.app_error` ("Failed to insert record to database"), measured.
+    ///
+    /// **The pinned 9.11.19 server generates the id itself**: a request carrying a valid
+    /// 26-character id came back with a different one (measured — `scripts/t19828e14_category_probe.py`
+    /// Case A). The answer, not the local record, is therefore the category; the caller adopts it.
+    func createSidebarCategory(userID: String,
+                               teamID: String,
+                               category: MMSidebarCategory) async throws -> MMSidebarCategory {
+        try await post(MMSidebarCategory.self,
+                       path: "/users/\(userID)/teams/\(teamID)/channels/categories",
+                       body: category)
+    }
+
+    /// `DELETE /users/{user_id}/teams/{team_id}/channels/categories/{category_id}` — delete one
+    /// category. Its channels are **not** deleted: the server returns each to the default category for
+    /// its kind (measured: `channels` for `O`/`P`, `direct_messages` for `D`/`G`).
+    ///
+    /// The three default categories refuse the call with 400
+    /// `app.channel.sidebar_categories.app_error`; the client refuses earlier (only a `custom`
+    /// category draws the menu entry), so this is the server's belt to that braces.
+    func deleteSidebarCategory(userID: String, teamID: String, categoryID: String) async throws {
+        _ = try await delete(path: "/users/\(userID)/teams/\(teamID)/channels/categories/\(categoryID)")
+    }
+
+    /// `PUT /users/{user_id}/teams/{team_id}/channels/categories/order` — the drawn order, as the
+    /// bare array of category ids that `GET …/categories/order` answers.
+    ///
+    /// The whole-array `PUT` does not reorder: it keeps each category's `sort_order` unless the body
+    /// changes it (measured — sending the same categories in a different array order left the order
+    /// untouched). This route is what a reorder writes, and the answer is the stored order.
+    func updateSidebarCategoryOrder(userID: String,
+                                    teamID: String,
+                                    order: [String]) async throws -> [String] {
+        try await put([String].self,
+                      path: "/users/\(userID)/teams/\(teamID)/channels/categories/order",
+                      body: order)
+    }
+
     /// `PUT /channels/{channel_id}/members/{user_id}/notify_props` — mute/unmute one channel for the
     /// signed-in user.
     ///

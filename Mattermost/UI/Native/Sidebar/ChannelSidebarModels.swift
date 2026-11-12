@@ -312,6 +312,37 @@ struct ChannelSidebarGroup: Identifiable, Equatable, Sendable {
     }
 }
 
+/// One category a channel row can be moved to, in the server's drawn order.
+///
+/// A value type with its own display name because the menu is drawn from the **layout**, not from
+/// `groups`: a category the sidebar is not drawing (an empty `Channels` category, or a custom one
+/// with nothing in it yet) is still a legitimate destination, and building the menu from the drawn
+/// groups would silently remove exactly those targets.
+struct SidebarMoveTarget: Identifiable, Equatable, Sendable {
+    let id: String
+    let displayName: String
+    let kind: SidebarCategoryKind
+
+    /// The stable handle the menu row carries (default categories by type, custom ones by id — the
+    /// same scheme `MMSidebarCategory.sidebarIdentifier` uses).
+    var identifier: String {
+        kind.isDefault
+            ? "channelSidebar.moveTo.\(kind.rawValue)"
+            : "channelSidebar.moveTo.custom.\(id)"
+    }
+}
+
+/// The category array a cross-category move writes, and what it did — the pure half of
+/// `ChannelListViewModel.move(channelID:toCategoryID:)`.
+struct SidebarCategoryMove: Equatable, Sendable {
+    /// The array to `PUT` (the whole list, as the server's write is defined).
+    var categories: [MMSidebarCategory]
+    /// The category the channel was drawn in and has left (`nil` when no category claimed it).
+    var removedFrom: String?
+    /// The category that now lists it.
+    var addedTo: String
+}
+
 /// The aggregate the sidebar shows at its foot, and the numbers the app badge should use.
 ///
 /// Desktop/web explicitly exclude muted channels from the unread status
@@ -660,7 +691,12 @@ enum ChannelSidebarDerivation {
             if !extra.isEmpty {
                 rows += sorted(extra, category: category)
             }
-            guard !rows.isEmpty else { continue }
+            // A **custom** category is drawn even when it holds nothing: it is an object the reader
+            // made (t19828e14 — "create a category, empty categories persist"), and a category that
+            // vanished the moment it was created could not be renamed, filled or deleted. The
+            // preferences/`channels`/`direct_messages` categories keep the old rule: an empty one
+            // has nothing to say and no default to draw.
+            guard !rows.isEmpty || category.kind == .custom else { continue }
             drawn.formUnion(rows.map(\.id))
             groups.append(ChannelSidebarGroup(category: category,
                                               entries: rows,
@@ -703,6 +739,205 @@ enum ChannelSidebarDerivation {
             seen.insert(category.id)
         }
         return order
+    }
+
+    // MARK: - Managing the categories themselves (t19828e14)
+
+    /// The categories in draw order — `ordered` with the array form callers keep asking for.
+    static func drawnOrder(_ categories: [MMSidebarCategory], order: [String]) -> [MMSidebarCategory] {
+        ordered(categories, order: order)
+    }
+
+    /// The categories a channel can be moved to, in draw order.
+    ///
+    /// Read from the **layout**, not from the drawn groups: an empty target is still a target. Two
+    /// categories are left out on purpose —
+    ///  * the one the row is drawn in (moving a channel where it already is is not a move), and
+    ///  * Favourites when it already lists the channel: Favourites is *additive* (a channel can be
+    ///    favourite **and** in a custom category), so offering it would be a no-op the reader cannot
+    ///    tell from a broken menu.
+    static func moveTargets(channelID: String,
+                            categories: [MMSidebarCategory],
+                            order: [String]) -> [SidebarMoveTarget] {
+        let drawn = ordered(categories, order: order)
+        let source = drawn.first { $0.channelIds.contains(channelID) }
+        return drawn.compactMap { category in
+            guard category.id != source?.id else { return nil }
+            if category.kind == .favorites, category.channelIds.contains(channelID) { return nil }
+            return SidebarMoveTarget(id: category.id,
+                                     displayName: category.displayName.isEmpty
+                                         ? category.kind.defaultDisplayName
+                                         : category.displayName,
+                                     kind: category.kind)
+        }
+    }
+
+    /// Plan a cross-category move: the whole array to `PUT`, computed from the categories as they are
+    /// *now* (the caller serialises the writes, so "now" is the previous write's answer).
+    ///
+    /// The rules, all of them upstream's shape:
+    ///  1. **out of Favourites** — the channel is removed from the favourites category and added to
+    ///     the target (if the target did not already list it). Favourites never owned the channel; its
+    ///     home category still does, which is why a favourite is drawn twice upstream and once here.
+    ///  2. **into Favourites** — inserted at the front of `favorites.channel_ids` and **kept** in the
+    ///     category it is drawn in. That is exactly `setFavorite(true)`; the two entry points share one
+    ///     rule instead of two that drift.
+    ///  3. **between other categories** — removed from the category that claims it (nothing to remove
+    ///     when no category claims it; such a channel is drawn in the default for its kind) and
+    ///     appended to the target's `channel_ids`.
+    ///
+    /// - Returns: `nil` when the target is not in the layout, is the row's own category, or the move
+    ///   would change nothing (the target already lists the channel and no removal is needed).
+    static func move(channelID: String,
+                     to targetID: String,
+                     categories: [MMSidebarCategory],
+                     order: [String],
+                     channels: [MMChannel]) -> SidebarCategoryMove? {
+        let drawn = ordered(categories, order: order)
+        guard drawn.contains(where: { $0.id == targetID }) else { return nil }
+        let source = drawn.first { $0.channelIds.contains(channelID) }
+        guard source?.id != targetID else { return nil }
+        var next = categories
+
+        func index(of id: String) -> Int? { next.firstIndex { $0.id == id } }
+
+        if let source, source.kind == .favorites {
+            guard let from = index(of: source.id), let to = index(of: targetID) else { return nil }
+            next[from].channelIds.removeAll { $0 == channelID }
+            if !next[to].channelIds.contains(channelID) {
+                next[to].channelIds.append(channelID)
+            }
+            return SidebarCategoryMove(categories: next, removedFrom: source.id, addedTo: targetID)
+        }
+
+        guard let target = index(of: targetID) else { return nil }
+        let targetIsFavorites = next[target].kind == .favorites
+        let alreadyListed = next[target].channelIds.contains(channelID)
+
+        // Into Favourites: **additive**, the source keeps the channel. Favourites is a second place a
+        // channel is drawn, not a place it lives — `setFavorite(true)` is the same rule, and removing
+        // it from its home category here would make "favourite" silently move a channel (the defect
+        // this test caught: `chan` lost the channel it had just favourited).
+        if targetIsFavorites {
+            guard !alreadyListed else { return nil }
+            next[target].channelIds.insert(channelID, at: 0)
+            return SidebarCategoryMove(categories: next, removedFrom: nil, addedTo: targetID)
+        }
+
+        var removed: String?
+        if let source, let from = index(of: source.id) {
+            next[from].channelIds.removeAll { $0 == channelID }
+            removed = source.id
+        }
+        if !alreadyListed {
+            next[target].channelIds.append(channelID)
+        } else if removed == nil {
+            return nil
+        }
+        return SidebarCategoryMove(categories: next, removedFrom: removed, addedTo: targetID)
+    }
+
+    /// The id of the default category a channel kind falls back to.
+    ///
+    /// `channels` for a public/private channel, `direct_messages` for a DM/GM — the two categories the
+    /// server itself moves a deleted category's channels into (measured on 9.11.19:
+    /// `scripts/t19828e14_category_probe.py` deletes a custom category holding one of each and reads
+    /// them back out of those two).
+    static func fallbackCategoryKind(for kind: SidebarChannelKind) -> SidebarCategoryKind {
+        kind.isDirect ? .directMessages : .channels
+    }
+
+    /// The category array after deleting `category`: the category is gone and **its channels are not**
+    /// — each returns to the default category for its kind, which is what the server does too.
+    ///
+    /// The default category is created (with the server's own id scheme) when the layout has none, so
+    /// a delete can never make a channel disappear from the sidebar.
+    static func removingCategory(_ category: MMSidebarCategory,
+                                 from categories: [MMSidebarCategory],
+                                 channels: [MMChannel],
+                                 userID: String,
+                                 teamID: String) -> [MMSidebarCategory] {
+        var next = categories.filter { $0.id != category.id }
+        let kinds = Dictionary(channels.map { ($0.id, self.kind(of: $0)) },
+                               uniquingKeysWith: { first, _ in first })
+        for channelID in category.channelIds {
+            let channelKind = kinds[channelID] ?? nil
+            let target = fallbackCategoryKind(for: channelKind ?? .publicChannel)
+            if let index = next.firstIndex(where: { $0.kind == target }) {
+                if !next[index].channelIds.contains(channelID) {
+                    next[index].channelIds.append(channelID)
+                }
+            } else {
+                var synthesized = defaultCategory(target, userID: userID, teamID: teamID)
+                synthesized.channelIds = [channelID]
+                next.append(synthesized)
+            }
+        }
+        return next
+    }
+
+    /// The 26-character lowercase id the client proposes for a new category.
+    ///
+    /// The shape is the server's own (`model.NewId`): exactly 26 characters from `[a-z0-9]`. The
+    /// **pinned 9.11.19 server ignores it** on `POST …/channels/categories` and answers with an id it
+    /// generated itself (measured with a valid 26-character id — `scripts/t19828e14_category_probe.py`),
+    /// so this id only has to be unique and well-formed: it keys the optimistic row until the answer
+    /// replaces it.
+    static let categoryIDLength = 26
+    static let categoryIDAlphabet = Array("abcdefghijklmnopqrstuvwxyz0123456789")
+
+    static func newCategoryID(existing: Set<String> = [],
+                              randomCharacter: () -> Character = {
+                                  categoryIDAlphabet.randomElement() ?? "a"
+                              }) -> String {
+        var id = ""
+        repeat {
+            id = String((0 ..< categoryIDLength).map { _ in randomCharacter() })
+        } while existing.contains(id)
+        return id
+    }
+
+    /// A new **custom** category, as the client sends it.
+    ///
+    /// `sorting: "manual"` and `sort_order: 10` are what the pinned server answered for our own create
+    /// with those fields (measured); the server renumbers everything else and puts the new category
+    /// directly after Favorites, which is where `insertingNewCategory` draws it optimistically.
+    static func customCategory(displayName: String,
+                               userID: String,
+                               teamID: String,
+                               existing: Set<String> = []) -> MMSidebarCategory {
+        MMSidebarCategory(id: newCategoryID(existing: existing),
+                          userId: userID,
+                          teamId: teamID,
+                          sortOrder: 10,
+                          sorting: "manual",
+                          type: SidebarCategoryKind.custom.rawValue,
+                          displayName: displayName)
+    }
+
+    /// Insert a just-created category into the layout, drawn right after Favorites.
+    ///
+    /// The position is the server's: its create handler answers a category with `sort_order: 10` and
+    /// shifts the others down (measured). It is only the **optimistic** position — the create's
+    /// re-read replaces it with the server's own sort orders.
+    static func insertingNewCategory(_ category: MMSidebarCategory,
+                                     into categories: [MMSidebarCategory],
+                                     order: [String]) -> (categories: [MMSidebarCategory], order: [String]) {
+        var next = categories
+        next.append(category)
+        var nextOrder = order
+        if let favorites = next.first(where: { $0.kind == .favorites }),
+           let index = nextOrder.firstIndex(of: favorites.id) {
+            nextOrder.insert(category.id, at: index + 1)
+        } else if !nextOrder.contains(category.id) {
+            nextOrder.insert(category.id, at: 0)
+        }
+        return (next, nextOrder)
+    }
+
+    /// The whole array's draw order, including categories the server's `order` array omitted.
+    static func fullOrder(_ categories: [MMSidebarCategory], order: [String]) -> [String] {
+        ordered(categories, order: order).map(\.id)
     }
 
     // MARK: Paging (t_8d539b3f)

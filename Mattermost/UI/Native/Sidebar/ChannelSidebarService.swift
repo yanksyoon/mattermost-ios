@@ -27,6 +27,26 @@ protocol ChannelSidebarServing: AnyObject {
     /// `{order, categories}` shape (T33-AV F1). The caller rebases its groups on it.
     func save(categories: [MMSidebarCategory], teamID: String) async throws -> [MMSidebarCategory]
 
+    /// Re-read the layout — the categories **and** the order array (t19828e14).
+    ///
+    /// The write's answer is a bare array with no `order` in it, and a create/delete renumbers every
+    /// other category's `sort_order` server-side. So the three layout **structure** edits (create,
+    /// delete, and a refused write) re-read this instead of guessing; a channel move/collapse/rename
+    /// keeps the answer it already gets.
+    func categories(teamID: String) async throws -> MMSidebarCategories
+
+    /// Create one category (`POST …/channels/categories`). The **answer** is the created category:
+    /// the server generates its id even when the body carries one (t19828e14, measured).
+    func createCategory(_ category: MMSidebarCategory, teamID: String) async throws -> MMSidebarCategory
+
+    /// Delete one category (`DELETE …/channels/categories/{id}`). Its channels are not deleted; the
+    /// server returns them to the default category for their kind.
+    func deleteCategory(categoryID: String, teamID: String) async throws
+
+    /// Write the drawn order (`PUT …/channels/categories/order`, a bare array of ids) and return the
+    /// order the server stored.
+    func saveOrder(_ order: [String], teamID: String) async throws -> [String]
+
     /// Mute (`mark_unread = "mention"`) or unmute (`"all"`) one channel.
     func setMuted(_ muted: Bool, channelID: String) async throws
 
@@ -40,6 +60,20 @@ protocol ChannelSidebarServing: AnyObject {
 
 extension ChannelSidebarServing {
     func statuses(ids: [String]) async throws -> [MMStatus] { [] }
+
+    /// The three category-editing calls default to "this service does not model them": a fixture that
+    /// only feeds rows accepts the local record instead of failing. The production implementation is
+    /// `SessionChannelSidebarService`, which overrides all of them; the defaults exist so the fakes of
+    /// cards that never write a category keep compiling.
+    func categories(teamID: String) async throws -> MMSidebarCategories { MMSidebarCategories() }
+
+    func createCategory(_ category: MMSidebarCategory, teamID: String) async throws -> MMSidebarCategory {
+        category
+    }
+
+    func deleteCategory(categoryID: String, teamID: String) async throws {}
+
+    func saveOrder(_ order: [String], teamID: String) async throws -> [String] { order }
 }
 
 /// The production implementation: the server's own `AuthSession.client`, resolved **per call**.
@@ -272,6 +306,36 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
                                                         categories: categories)
     }
 
+    func categories(teamID: String) async throws -> MMSidebarCategories {
+        let (client, userID) = try resolved()
+        guard let userID else { throw MMError.notSignedIn }
+        return try await client.sidebarCategories(userID: userID, teamID: teamID)
+    }
+
+    func createCategory(_ category: MMSidebarCategory, teamID: String) async throws -> MMSidebarCategory {
+        let (client, userID) = try resolved()
+        guard let userID else { throw MMError.notSignedIn }
+        return try await client.createSidebarCategory(userID: userID,
+                                                      teamID: teamID,
+                                                      category: category)
+    }
+
+    func deleteCategory(categoryID: String, teamID: String) async throws {
+        let (client, userID) = try resolved()
+        guard let userID else { throw MMError.notSignedIn }
+        try await client.deleteSidebarCategory(userID: userID,
+                                               teamID: teamID,
+                                               categoryID: categoryID)
+    }
+
+    func saveOrder(_ order: [String], teamID: String) async throws -> [String] {
+        let (client, userID) = try resolved()
+        guard let userID else { throw MMError.notSignedIn }
+        return try await client.updateSidebarCategoryOrder(userID: userID,
+                                                           teamID: teamID,
+                                                           order: order)
+    }
+
     func setMuted(_ muted: Bool, channelID: String) async throws {
         let (client, userID) = try resolved()
         guard let userID else { throw MMError.notSignedIn }
@@ -364,6 +428,48 @@ final class ChannelListViewModel: ObservableObject {
     /// somebody's layout from a guess, so writes are refused in that state.
     var canWriteLayout: Bool { !groupingIsApproximate && teamID != nil }
 
+    /// Whether the category can be renamed or deleted: only a reader-made one. Favorites,
+    /// Channels and Direct Messages are the server's three defaults — renaming Channels would lie
+    /// about what it is, and deleting it is refused by the server anyway (400
+    /// `app.channel.sidebar_categories.app_error`, measured).
+    func canEditCategory(_ id: String) -> Bool {
+        guard canWriteLayout else { return false }
+        return data.categories.first { $0.id == id }?.kind == .custom
+    }
+
+    /// The category's current name — what the rename dialog starts with.
+    func categoryName(_ id: String) -> String? {
+        data.categories.first { $0.id == id }.map {
+            $0.displayName.isEmpty ? $0.kind.defaultDisplayName : $0.displayName
+        }
+    }
+
+    /// Every category in the server's drawn order, with its display name — the "Move to" menu's data
+    /// (and the reorder control's).
+    var drawnCategories: [SidebarMoveTarget] {
+        ChannelSidebarDerivation.ordered(data.categories, order: data.categoryOrder).map {
+            SidebarMoveTarget(id: $0.id,
+                              displayName: $0.displayName.isEmpty ? $0.kind.defaultDisplayName
+                                                                  : $0.displayName,
+                              kind: $0.kind)
+        }
+    }
+
+    /// Where one row can be moved to (see `ChannelSidebarDerivation.moveTargets`).
+    func moveTargets(channelID: String) -> [SidebarMoveTarget] {
+        ChannelSidebarDerivation.moveTargets(channelID: channelID,
+                                             categories: data.categories,
+                                             order: data.categoryOrder)
+    }
+
+    /// Whether a category can move one place earlier/later in the drawn order.
+    func canMoveCategory(_ id: String, by offset: Int) -> Bool {
+        guard canWriteLayout else { return false }
+        let order = ChannelSidebarDerivation.fullOrder(data.categories, order: data.categoryOrder)
+        guard let index = order.firstIndex(of: id) else { return false }
+        return order.indices.contains(index + offset)
+    }
+
     private let service: ChannelSidebarServing
     private var data = ChannelSidebarData()
     /// The clock every presence age is judged against (injectable so a test can move it).
@@ -383,6 +489,20 @@ final class ChannelListViewModel: ObservableObject {
     /// the other team's page). Session-only on purpose: nothing is persisted, so a launch — and a
     /// cleared filter, which cannot use a page at all — starts from the first page again.
     private var revealedRows: [String: [String: Int]] = [:]
+
+    /// **The one writer for the category payload** (t19828e14 requirement 6).
+    ///
+    /// Every category write — a channel move, a favourite, a collapse, a rename, a delete, a create,
+    /// a category reorder — takes this lock, and the lock is a FIFO: a second edit waits for the
+    /// first one's answer instead of building its `PUT` from the array the first one was about to
+    /// change. Without it, two quick moves each send the *pre-move* array and the server keeps
+    /// whichever arrived last, so one of the two moves silently disappears.
+    ///
+    /// The lock is held across the request and the reconcile, so a queued write always starts from
+    /// the previous write's **answer**, which is the closest thing to "the server's list" a client
+    /// can have.
+    private var writeInFlight = false
+    private var writeWaiters: [CheckedContinuation<Void, Never>] = []
 
     init(server: ServerConfig, service: ChannelSidebarServing, now: @escaping () -> Date = Date.init) {
         self.server = server
@@ -769,6 +889,31 @@ final class ChannelListViewModel: ObservableObject {
 
     // MARK: Writes
 
+    // Every method below that writes the category **payload** runs inside `withWriteLock`. The lock
+    // is what makes "one writer" true (t19828e14 requirement 6): the array each write sends is read
+    // when its turn comes, never when the tap happened. Two quick moves therefore compose, and a
+    // failed write restores the arrangement its own turn started from — not the arrangement from
+    // before somebody else's queued move.
+
+    /// Run `body` with the payload's write lock held; a second caller waits in FIFO order.
+    private func withWriteLock<T>(_ body: () async -> T) async -> T {
+        if writeInFlight {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                writeWaiters.append(continuation)
+            }
+        } else {
+            writeInFlight = true
+        }
+        defer {
+            if writeWaiters.isEmpty {
+                writeInFlight = false
+            } else {
+                writeWaiters.removeFirst().resume()
+            }
+        }
+        return await body()
+    }
+
     /// Move a channel one place inside its category (the touch equivalent of a drag).
     ///
     /// The move is applied locally first (a sidebar that waits for a round trip before the row
@@ -778,38 +923,79 @@ final class ChannelListViewModel: ObservableObject {
     @discardableResult
     func move(channelID: String, inCategory categoryID: String, by offset: Int) async -> Bool {
         guard canWriteLayout, let teamID else { return false }
-        guard let groupIndex = groups.firstIndex(where: { $0.category.id == categoryID }) else { return false }
-        let rows = groups[groupIndex].entries
-        guard let index = rows.firstIndex(where: { $0.id == channelID }) else { return false }
-        let target = index + offset
-        guard rows.indices.contains(target) else { return false }
+        return await withWriteLock { [weak self] in
+            guard let self else { return false }
+            guard let groupIndex = groups.firstIndex(where: { $0.category.id == categoryID }) else { return false }
+            let rows = groups[groupIndex].entries
+            guard let index = rows.firstIndex(where: { $0.id == channelID }) else { return false }
+            let target = index + offset
+            guard rows.indices.contains(target) else { return false }
 
-        var reordered = rows
-        let moved = reordered.remove(at: index)
-        reordered.insert(moved, at: target)
+            var reordered = rows
+            let moved = reordered.remove(at: index)
+            reordered.insert(moved, at: target)
 
-        var previous = data.categories
-        guard let categoryIndex = data.categories.firstIndex(where: { $0.id == categoryID }) else { return false }
-        data.categories[categoryIndex].sorting = "manual"
-        // Keep any ids the category lists that are not on screen (a channel of another kind, a
-        // stale row), appended after the visible ones, so a write cannot silently unassign them.
-        let visible = Set(rows.map(\.id))
-        let hidden = data.categories[categoryIndex].channelIds.filter { !visible.contains($0) }
-        data.categories[categoryIndex].channelIds = reordered.map(\.id) + hidden
-        rebuild()
-
-        do {
-            let saved = try await service.save(categories: data.categories, teamID: teamID)
-            // The write landed; rebase on the array the server stored. An empty answer changes
-            // nothing (the optimistic order is already on screen and the server accepted it).
-            applyLayout(saved)
-            actionError = nil
-            return true
-        } catch {
-            data.categories = previous
-            actionError = Self.message(for: error, action: "move that channel")
+            let previous = data.categories
+            let previousOrder = data.categoryOrder
+            guard let categoryIndex = data.categories.firstIndex(where: { $0.id == categoryID }) else { return false }
+            data.categories[categoryIndex].sorting = "manual"
+            // Keep any ids the category lists that are not on screen (a channel of another kind, a
+            // stale row), appended after the visible ones, so a write cannot silently unassign them.
+            let visible = Set(rows.map(\.id))
+            let hidden = data.categories[categoryIndex].channelIds.filter { !visible.contains($0) }
+            data.categories[categoryIndex].channelIds = reordered.map(\.id) + hidden
             rebuild()
-            return false
+
+            do {
+                let saved = try await service.save(categories: data.categories, teamID: teamID)
+                // The write landed; rebase on the array the server stored. An empty answer changes
+                // nothing (the optimistic order is already on screen and the server accepted it).
+                applyLayout(saved)
+                actionError = nil
+                return true
+            } catch {
+                await recover(previous: previous, order: previousOrder, error: error,
+                              action: "move that channel")
+                return false
+            }
+        }
+    }
+
+    /// Move a channel **out of one category and into another** (t19828e14 requirement 1).
+    ///
+    /// The rule is `ChannelSidebarDerivation.move` — remove the id from the category that claims it,
+    /// add it to the target's own list, and `PUT` the whole array. Favourites is the additive
+    /// exception (a channel is favourite *and* homed somewhere), documented there.
+    ///
+    /// Optimistic: the row moves before the request goes out. A failure puts the previous arrangement
+    /// back, re-reads the server's layout (a refused write is exactly when a concurrent edit may
+    /// have happened) and says what failed — never a silent revert.
+    @discardableResult
+    func move(channelID: String, toCategoryID targetID: String) async -> Bool {
+        guard canWriteLayout, let teamID else { return false }
+        return await withWriteLock { [weak self] in
+            guard let self else { return false }
+            let previous = data.categories
+            let previousOrder = data.categoryOrder
+            guard let plan = ChannelSidebarDerivation.move(channelID: channelID,
+                                                           to: targetID,
+                                                           categories: data.categories,
+                                                           order: data.categoryOrder,
+                                                           channels: data.channels) else {
+                return false
+            }
+            data.categories = plan.categories
+            rebuild()
+            do {
+                let saved = try await service.save(categories: plan.categories, teamID: teamID)
+                applyLayout(saved.isEmpty ? plan.categories : saved)
+                actionError = nil
+                return true
+            } catch {
+                await recover(previous: previous, order: previousOrder, error: error,
+                              action: "move that channel")
+                return false
+            }
         }
     }
 
@@ -818,38 +1004,45 @@ final class ChannelListViewModel: ObservableObject {
     @discardableResult
     func setFavorite(_ favorite: Bool, channelID: String) async -> Bool {
         guard canWriteLayout, let teamID else { return false }
-        let previous = data.categories
-        var categories = data.categories
-        if let index = categories.firstIndex(where: { $0.kind == .favorites }) {
-            if favorite, !categories[index].channelIds.contains(channelID) {
-                categories[index].channelIds.insert(channelID, at: 0)
-            } else if !favorite {
-                categories[index].channelIds.removeAll { $0 == channelID }
+        return await withWriteLock { [weak self] in
+            guard let self else { return false }
+            let previous = data.categories
+            let previousOrder = data.categoryOrder
+            var categories = data.categories
+            if let index = categories.firstIndex(where: { $0.kind == .favorites }) {
+                if favorite, !categories[index].channelIds.contains(channelID) {
+                    categories[index].channelIds.insert(channelID, at: 0)
+                } else if !favorite {
+                    categories[index].channelIds.removeAll { $0 == channelID }
+                }
+            } else if favorite {
+                categories.insert(ChannelSidebarDerivation.defaultCategory(.favorites,
+                                                                           userID: "",
+                                                                           teamID: teamID),
+                                  at: 0)
+                categories[0].channelIds = [channelID]
             }
-        } else if favorite {
-            categories.insert(ChannelSidebarDerivation.defaultCategory(.favorites,
-                                                                       userID: "",
-                                                                       teamID: teamID),
-                              at: 0)
-            categories[0].channelIds = [channelID]
-        }
-        data.categories = categories
-        rebuild()
-        do {
-            let saved = try await service.save(categories: categories, teamID: teamID)
-            applyLayout(saved)
-            actionError = nil
-            return true
-        } catch {
-            data.categories = previous
-            actionError = Self.message(for: error, action: "change that favorite")
+            data.categories = categories
             rebuild()
-            return false
+            do {
+                let saved = try await service.save(categories: categories, teamID: teamID)
+                applyLayout(saved)
+                actionError = nil
+                return true
+            } catch {
+                await recover(previous: previous, order: previousOrder, error: error,
+                              action: "change that favorite")
+                return false
+            }
         }
     }
 
     /// Mute or unmute one channel (`mark_unread`). The row updates only after the server accepted it:
     /// a mute that did not reach the server would silently start showing badges again.
+    ///
+    /// Not payload-serialised on purpose: it writes `notify_props` on the membership row, a different
+    /// resource from the category list, and holding the layout lock across it would delay a category
+    /// edit behind an unrelated request.
     @discardableResult
     func setMuted(_ muted: Bool, channelID: String) async -> Bool {
         let previous = data.members
@@ -881,24 +1074,209 @@ final class ChannelListViewModel: ObservableObject {
     func setCollapsed(_ collapsed: Bool, categoryID: String) async {
         guard let index = data.categories.firstIndex(where: { $0.id == categoryID }) else { return }
         guard data.categories[index].collapsed != collapsed else { return }
-        let previous = data.categories
-        data.categories[index].collapsed = collapsed
-        rebuild()
-        guard canWriteLayout, let teamID else { return }
-        do {
-            let saved = try await service.save(categories: data.categories, teamID: teamID)
-            applyLayout(saved)
-            actionError = nil
-        } catch {
-            data.categories = previous
-            actionError = Self.message(for: error, action: collapsed ? "collapse that category"
-                                                                     : "expand that category")
+        guard canWriteLayout, let teamID else {
+            // A synthesised layout draws, but must not be written back over the reader's: the fold
+            // stays local for this launch, as it did before the write was serialised.
+            data.categories[index].collapsed = collapsed
             rebuild()
+            return
+        }
+        await withWriteLock { [weak self] in
+            guard let self else { return }
+            // Re-check under the lock: a queued write may have changed it while this one waited.
+            guard let index = data.categories.firstIndex(where: { $0.id == categoryID }),
+                  data.categories[index].collapsed != collapsed else { return }
+            let previous = data.categories
+            let previousOrder = data.categoryOrder
+            data.categories[index].collapsed = collapsed
+            rebuild()
+            do {
+                let saved = try await service.save(categories: data.categories, teamID: teamID)
+                applyLayout(saved)
+                actionError = nil
+            } catch {
+                await recover(previous: previous, order: previousOrder, error: error,
+                              action: collapsed ? "collapse that category" : "expand that category")
+            }
         }
     }
 
     func isCollapsed(categoryID: String) -> Bool {
         data.categories.first(where: { $0.id == categoryID })?.collapsed ?? false
+    }
+
+    // MARK: Writing the categories themselves (t19828e14)
+
+    /// Create a custom category (requirement 2).
+    ///
+    /// Optimistically drawn right after Favorites (where the server puts a new category, measured),
+    /// then `POST`ed. **The server answers with the category it stored — with an id it generated,
+    /// ignoring ours** — so the local record is replaced by the answer and the layout is re-read: the
+    /// create also renumbers every other category's `sort_order`, and guessing that is how a launch
+    /// would draw a different order from the one just seen.
+    ///
+    /// An empty category is a legitimate category: `ChannelSidebarDerivation.groups` draws a custom
+    /// one with no rows, so it can be renamed, filled or deleted instead of vanishing.
+    @discardableResult
+    func createCategory(named rawName: String) async -> Bool {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canWriteLayout, let teamID, !name.isEmpty else { return false }
+        return await withWriteLock { [weak self] in
+            guard let self else { return false }
+            let previous = data.categories
+            let previousOrder = data.categoryOrder
+            let existing = Set(data.categories.map(\.id))
+            let local = ChannelSidebarDerivation.customCategory(displayName: name,
+                                                                userID: data.categories.first?.userId ?? "",
+                                                                teamID: teamID,
+                                                                existing: existing)
+            let optimistic = ChannelSidebarDerivation.insertingNewCategory(local,
+                                                                           into: data.categories,
+                                                                           order: data.categoryOrder)
+            data.categories = optimistic.categories
+            data.categoryOrder = optimistic.order
+            rebuild()
+            do {
+                let created = try await service.createCategory(local, teamID: teamID)
+                // The local id was a placeholder; the server's id is the category.
+                data.categories.removeAll { $0.id == local.id }
+                data.categoryOrder.removeAll { $0 == local.id }
+                if let fresh = try? await service.categories(teamID: teamID), !fresh.categories.isEmpty {
+                    applyLayout(fresh.categories, order: fresh.order)
+                } else {
+                    let adopted = ChannelSidebarDerivation.insertingNewCategory(created,
+                                                                                into: data.categories,
+                                                                                order: data.categoryOrder)
+                    data.categories = adopted.categories
+                    data.categoryOrder = adopted.order
+                    rebuild()
+                }
+                actionError = nil
+                return true
+            } catch {
+                await recover(previous: previous, order: previousOrder, error: error,
+                              action: "create that category")
+                return false
+            }
+        }
+    }
+
+    /// Rename a custom category (requirement 3). Defaults refuse: Favorites, Channels and Direct
+    /// Messages are what the server calls them.
+    @discardableResult
+    func renameCategory(id: String, to rawName: String) async -> Bool {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard canWriteLayout, canEditCategory(id), let teamID, !name.isEmpty else { return false }
+        return await withWriteLock { [weak self] in
+            guard let self else { return false }
+            guard let index = data.categories.firstIndex(where: { $0.id == id }) else { return false }
+            let previous = data.categories
+            let previousOrder = data.categoryOrder
+            data.categories[index].displayName = name
+            rebuild()
+            do {
+                let saved = try await service.save(categories: data.categories, teamID: teamID)
+                applyLayout(saved.isEmpty ? data.categories : saved)
+                actionError = nil
+                return true
+            } catch {
+                await recover(previous: previous, order: previousOrder, error: error,
+                              action: "rename that category")
+                return false
+            }
+        }
+    }
+
+    /// Delete a custom category (requirement 3). **Its channels are not deleted** — each returns to
+    /// the default category for its kind (`channels` for a public/private channel, `direct_messages`
+    /// for a DM/GM), which is what the server itself does; the local move is the optimistic half and
+    /// the re-read is the exact one.
+    @discardableResult
+    func deleteCategory(id: String) async -> Bool {
+        guard canWriteLayout, canEditCategory(id), let teamID else { return false }
+        return await withWriteLock { [weak self] in
+            guard let self else { return false }
+            guard let category = data.categories.first(where: { $0.id == id }) else { return false }
+            let previous = data.categories
+            let previousOrder = data.categoryOrder
+            data.categories = ChannelSidebarDerivation.removingCategory(category,
+                                                                        from: data.categories,
+                                                                        channels: data.channels,
+                                                                        userID: category.userId,
+                                                                        teamID: teamID)
+            data.categoryOrder.removeAll { $0 == id }
+            rebuild()
+            do {
+                try await service.deleteCategory(categoryID: id, teamID: teamID)
+                if let fresh = try? await service.categories(teamID: teamID), !fresh.categories.isEmpty {
+                    applyLayout(fresh.categories, order: fresh.order)
+                }
+                actionError = nil
+                return true
+            } catch {
+                await recover(previous: previous, order: previousOrder, error: error,
+                              action: "delete that category")
+                return false
+            }
+        }
+    }
+
+    /// Move a category one place up or down in the drawn order (requirement 4).
+    ///
+    /// The order is the same payload's `order` array, written through
+    /// `PUT …/channels/categories/order` — the whole-array `PUT` keeps each category's `sort_order`
+    /// and therefore cannot reorder (measured). Optimistic like every other write: a failure restores
+    /// the previous order, re-reads the server's and says so.
+    @discardableResult
+    func moveCategory(id: String, by offset: Int) async -> Bool {
+        guard canWriteLayout, let teamID else { return false }
+        return await withWriteLock { [weak self] in
+            guard let self else { return false }
+            let previous = data.categories
+            let previousOrder = data.categoryOrder
+            var order = ChannelSidebarDerivation.fullOrder(data.categories, order: data.categoryOrder)
+            guard let index = order.firstIndex(of: id), order.indices.contains(index + offset) else {
+                return false
+            }
+            order.swapAt(index, index + offset)
+            data.categoryOrder = order
+            rebuild()
+            do {
+                let saved = try await service.saveOrder(order, teamID: teamID)
+                data.categoryOrder = saved.isEmpty ? order : saved
+                actionError = nil
+                rebuild()
+                return true
+            } catch {
+                await recover(previous: previous, order: previousOrder, error: error,
+                              action: "reorder that category")
+                return false
+            }
+        }
+    }
+
+    /// Put a refused write's world back together, from the server where it will answer.
+    ///
+    /// Two things happen, in this order:
+    ///  1. the arrangement the write started from is restored *now* (the row does not stay where a
+    ///     write failed);
+    ///  2. the layout is re-read, because a failure means this client no longer knows the server's
+    ///     list — another device may have edited it while this write was being refused. When the
+    ///     re-read answers it wins; when it does not, the restored arrangement stands.
+    ///
+    /// The error sentence is set last, so the reader is told what failed rather than watching a
+    /// silent revert (t19828e14 requirement 5).
+    private func recover(previous: [MMSidebarCategory],
+                         order: [String],
+                         error: Error,
+                         action: String) async {
+        data.categories = previous
+        data.categoryOrder = order
+        if let teamID, let fresh = try? await service.categories(teamID: teamID), !fresh.categories.isEmpty {
+            applyLayout(fresh.categories, order: fresh.order)
+        }
+        actionError = Self.message(for: error, action: action)
+        rebuild()
     }
 
     // MARK: Internals
@@ -946,14 +1324,22 @@ final class ChannelListViewModel: ObservableObject {
     ///
     /// The drawn order is kept from `categoryOrder` (a channel move does not reorder categories); only
     /// a category the answer introduced is appended, in the server's position — see
-    /// `ChannelSidebarDerivation.order(afterSaved:previous:)`. Returns `false` when there is nothing to
-    /// apply (an empty array), so an empty event payload can never blank the grouping.
+    /// `ChannelSidebarDerivation.order(afterSaved:previous:)`. An explicit `order` (the keyed GET's own
+    /// array, or the order endpoint's answer) replaces it: the server's `order` is what a reorder and a
+    /// create/delete change, and this client has no business re-deriving it. Returns `false` when there
+    /// is nothing to apply (an empty array), so an empty event payload can never blank the grouping.
     @discardableResult
-    private func applyLayout(_ categories: [MMSidebarCategory]) -> Bool {
+    private func applyLayout(_ categories: [MMSidebarCategory], order: [String]? = nil) -> Bool {
         guard !categories.isEmpty else { return false }
         data.categories = categories
-        data.categoryOrder = ChannelSidebarDerivation.order(afterSaved: categories,
-                                                            previous: data.categoryOrder)
+        if let order, !order.isEmpty {
+            // Keep any category the order array omitted (an older server's partial order, a category
+            // created between the two reads) appended by `sort_order` rather than dropping it.
+            data.categoryOrder = ChannelSidebarDerivation.fullOrder(categories, order: order)
+        } else {
+            data.categoryOrder = ChannelSidebarDerivation.order(afterSaved: categories,
+                                                                previous: data.categoryOrder)
+        }
         groupingIsApproximate = false
         rebuild()
         return true
