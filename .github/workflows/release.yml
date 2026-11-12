@@ -25,6 +25,18 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      # Proves the gate pass's hang sample reaches the run's artifact (t_a4e133f6).
+      # Sets TEST_RUNNER_MATTERMOST_GATE_HANG_FIXTURE=1, which makes TGateHangFixtureTests block
+      # past the execution-time allowance on purpose: both test legs go red, and
+      # `test-xcresult-<leg>` must hold `gate-<leg>.xcresult` with a hang diagnostic in it.
+      # Never set on a push - a run that uses it is red by design and publishes nothing. See
+      # docs/releasing.md "Where a hung gate's stack lives: one result bundle per pass" and
+      # docs/t_a4e133f6-build-note.md.
+      self_test_gate_hang:
+        description: "Deliberate gate hang: prove the gate result bundle reaches the artifact (reds both legs)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -208,6 +220,18 @@ jobs:
         run: xcodebuild -resolvePackageDependencies -project Mattermost.xcodeproj -scheme Mattermost
 
       - name: Unit tests
+        env:
+          # The gate's own hang sample, on demand (t_a4e133f6). "0" on every push, so
+          # TGateHangFixtureTests skips and the gate stays a gate; a dispatch with
+          # `self_test_gate_hang: true` makes that case block past the allowance on purpose,
+          # so the leg goes red and `gate-<leg>.xcresult` has to carry the hang sample.
+          #
+          # `TEST_RUNNER_`-prefixed because that is the form xcodebuild forwards to a
+          # simulator test runner (the prefix is stripped on the way); a Catalyst process
+          # inherits it as it stands, and TGateHangFixtureTests reads both spellings.
+          # `github.event.inputs`, not `inputs`: on a push both are unset, and this form is a
+          # plain string comparison that reads false there.
+          TEST_RUNNER_MATTERMOST_GATE_HANG_FIXTURE: ${{ github.event.inputs.self_test_gate_hang == 'true' && '1' || '0' }}
         run: |
           set -euo pipefail
           if [ "${{ matrix.name }}" = "ios-simulator" ]; then

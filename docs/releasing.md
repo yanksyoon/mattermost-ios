@@ -260,6 +260,45 @@ assertion set is unchanged, and nothing about the claim moved into another pass.
 ever becomes the norm rather than an exception, moving the case into the platform pass is the
 documented escalation.
 
+### Where a hung gate's stack lives: one result bundle per pass
+
+With `-collect-test-diagnostics on-failure`, XCTest writes the stack of a test that has
+exceeded its allowance — a spindump whose frames name the method the case was inside. That
+stack only reaches the run if the bundle it lives in is uploaded, and until t_a4e133f6 it
+sometimes was not: all three passes shared `-derivedDataPath "$RUNNER_TEMP/dd"` and let
+xcodebuild name their bundles under `dd/Logs/Test`, and that directory is a bounded store,
+not a record — writing a third bundle into one derived data removes the oldest (measured;
+`docs/t_a4e133f6-build-note.md` §3). On run `43240373846` the gate pass hung and wrote
+`Test-Mattermost-2026.11.12_14-47-40-+0000.xcresult`, the log named it, and by the time the
+upload step ran `test-xcresult-ios-simulator` (`13956831755`) held only the *timing* and
+*platform* bundles. A hang in the gate pass was undiagnosable from the run.
+
+Each pass now names its own bundle outside that store:
+
+| pass | `-resultBundlePath` |
+| --- | --- |
+| gate | `$RUNNER_TEMP/gate-<leg>.xcresult` |
+| timing | `$RUNNER_TEMP/timing-<leg>.xcresult` |
+| platform | `$RUNNER_TEMP/platform-<leg>.xcresult` |
+
+and `Upload test diagnostics` uploads all three under `test-xcresult-<leg>` (a pass that never
+ran leaves no file, so the step keeps `if-no-files-found: warn`). Nothing else about the passes,
+`scripts/test_verdict.sh` or `scripts/classify_platform_tests.sh` changed.
+
+The claim is re-provable on demand, without waiting for a real hang: `TGateHangFixtureTests`
+blocks past the allowance when `TEST_RUNNER_MATTERMOST_GATE_HANG_FIXTURE=1`, and the
+`self_test_gate_hang` dispatch input is the only thing that sets it. Dispatch it on `main`:
+
+```
+gh workflow run release.yml --ref main -f self_test_gate_hang=true
+```
+
+Both legs go red on purpose, and `test-xcresult-<leg>` must contain `gate-<leg>.xcresult` whose
+activities name the allowance and whose spindump attachment names
+`testDeliberateHangNamesThisFrame`. On every push the variable is `0`, so that case skips and
+the gate stays a gate — this is the one case in the suite that skips by design, and it is why
+"nothing is skipped" above means "no class is routed away from its pass".
+
 ### What the split costs, measured
 
 One source push is **46.5 min of wall clock** end to end (run `42629436355`): catalyst
