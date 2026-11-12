@@ -260,6 +260,19 @@ assertion set is unchanged, and nothing about the claim moved into another pass.
 ever becomes the norm rather than an exception, moving the case into the platform pass is the
 documented escalation.
 
+The same bound, applied pass-wide (card `t_e687bad5`): the other four gate-pass classes that drive a
+real cookie store — `T249bc296WebKitCookieIsolationTests` (four cases), `AuthSessionTests` (two),
+`T31WebSessionHarvestTests` (one) and `ViewStoreTests` (one) — now await every WebKit call through the
+same helpers and name each one (`httpCookieStore.setCookie(MMAUTHTOKEN)`, `httpCookieStore.allCookies`,
+`httpCookieStore.getAllCookies`, `WebSessionCookieInstaller.install(…)`,
+`WebKitSessionCookieReader.authToken`, `WebKitCookieSessionProvider.sessionData`,
+`WebKitSessionCookieClearing.clearAuthCookie`). The two calls that can throw *after* WebKit answers
+(`AuthSession.adoptWebSession`, `AuthCoordinator.restore`) go through `requireWebKitAnswerOrThrow`,
+which rethrows the call's own error and skips only when nothing came back — so bounding a wait never
+converts a product assertion into an environment excuse. Cleanup wipes stay best effort. No assertion
+changed and no class moved; the per-call names and the controls are in
+`docs/t_e687bad5-build-note.md`.
+
 ### Where a hung gate's stack lives: one result bundle per pass
 
 With `-collect-test-diagnostics on-failure`, XCTest writes the stack of a test that has
