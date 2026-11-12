@@ -8,30 +8,40 @@ import UserNotifications
 /// verified without touching the real `UNUserNotificationCenter`.
 final class BadgeMathTests: XCTestCase {
 
-    // Desktop `showBadgeOSX` decision order: mentionCount > 0 -> the count; else unread-dot
-    // (gated on the setting); else expired-mark; else empty. iOS integers: dot/! -> 1.
+    // Desktop `showBadgeOSX` decision order: mentionCount > 0 -> the count; else unread (gated on the
+    // setting); else expired-mark; else empty. iOS integers: `!` -> 1, and the unread step is the
+    // **message count** when the client knows it (card t_93eca948) — `1` only when it does not.
 
     func testMentionsTakePrecedenceAndUseTheCount() {
-        XCTAssertEqual(SessionStore.badgeNumber(mentions: 3, hasUnread: true, anyExpired: true, showUnreadBadge: true), 3)
-        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, hasUnread: false, anyExpired: false, showUnreadBadge: true), 0)
+        XCTAssertEqual(SessionStore.badgeNumber(mentions: 3, unreadMessages: 40, isUnread: true, anyExpired: true, showUnreadBadge: true), 3)
+        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, unreadMessages: 0, isUnread: false, anyExpired: false, showUnreadBadge: true), 0)
     }
 
-    func testUnreadOnlyShowsOneWhenSettingOn() {
-        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, hasUnread: true, anyExpired: false, showUnreadBadge: true), 1)
+    func testUnreadOnlyShowsTheMessageCountWhenSettingOn() {
+        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, unreadMessages: 40, isUnread: true, anyExpired: false, showUnreadBadge: true), 40,
+                       "t_93eca948: the icon counts, it does not draw a dot-as-1")
+    }
+
+    /// The one honest fallback: a read-out that only said "unread" has no number, and desktop's dot
+    /// (integer 1 here) is the closest true thing.
+    func testUnreadWithNoKnownCountFallsBackToTheDotsOne() {
+        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, unreadMessages: nil, isUnread: true, anyExpired: false, showUnreadBadge: true), 1)
+        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, unreadMessages: 0, isUnread: true, anyExpired: false, showUnreadBadge: true), 1,
+                       "unread but zero unread messages is a contradiction: never draw 0 for it")
     }
 
     func testUnreadHiddenWhenSettingOff() {
-        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, hasUnread: true, anyExpired: false, showUnreadBadge: false), 0)
+        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, unreadMessages: 40, isUnread: true, anyExpired: false, showUnreadBadge: false), 0)
     }
 
-    func testExpiredShowsOneWhenNoMentionsAndNoUnreadDot() {
-        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, hasUnread: false, anyExpired: true, showUnreadBadge: true), 1)
-        // Desktop order: unread-dot beats expired only when the setting is on.
-        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, hasUnread: true, anyExpired: true, showUnreadBadge: false), 1)
+    func testExpiredShowsOneWhenNoMentionsAndNoUnread() {
+        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, unreadMessages: nil, isUnread: false, anyExpired: true, showUnreadBadge: true), 1)
+        // Desktop order: unread beats expired only when the setting is on.
+        XCTAssertEqual(SessionStore.badgeNumber(mentions: 0, unreadMessages: 7, isUnread: true, anyExpired: true, showUnreadBadge: false), 1)
     }
 
     func testNegativeMentionsAreTreatAsZero() {
-        XCTAssertEqual(SessionStore.badgeNumber(mentions: -1, hasUnread: false, anyExpired: false, showUnreadBadge: true), 0)
+        XCTAssertEqual(SessionStore.badgeNumber(mentions: -1, unreadMessages: 0, isUnread: false, anyExpired: false, showUnreadBadge: true), 0)
     }
 }
 

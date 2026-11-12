@@ -28,8 +28,27 @@ extension APIClient {
 
     /// `GET /users/me/channel_members` — the user's membership row for every channel, which is where
     /// the unread counters (`msg_count`, `mention_count`) and the notify props (mute) live.
-    func myChannelMembers() async throws -> [MMChannelMember] {
-        try await get([MMChannelMember].self, path: "/users/me/channel_members", useETag: false)
+    ///
+    /// **Walked page by page** (card `t_93eca948`): this endpoint paginates, and without
+    /// `page`/`per_page` the 9.11.19 fixture answers **60** rows for an account with 429 memberships
+    /// (measured: neither `off-topic` nor `perf-feed` was among them). The counters live on these
+    /// rows, so a truncated first page is a silently **wrong** unread number for every channel past
+    /// it — the sidebar drew nothing while the server said 40 and 2. `per_page` is honoured up to the
+    /// server's own cap (200 here), and the walk stops on the first short page; `pageLimit` bounds a
+    /// server that would page forever.
+    func myChannelMembers(pageSize: Int = 200,
+                          pageLimit: Int = 50) async throws -> [MMChannelMember] {
+        var members: [MMChannelMember] = []
+        for page in 0..<pageLimit {
+            let rows = try await get([MMChannelMember].self,
+                                     path: "/users/me/channel_members",
+                                     query: [URLQueryItem(name: "page", value: String(page)),
+                                             URLQueryItem(name: "per_page", value: String(pageSize))],
+                                     useETag: false)
+            members.append(contentsOf: rows)
+            if rows.count < pageSize { break }
+        }
+        return members
     }
 
     /// `GET /channels/{channel_id}/members` — needed to name a group message (a GM channel's `name`

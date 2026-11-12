@@ -119,6 +119,10 @@ struct ChannelSidebarEntry: Identifiable, Equatable, Sendable {
     /// Unread **messages** for this user (`channel.total_msg_count − member.msg_count`).
     let unreadCount: Int
     let mentionCount: Int
+    /// Of `mentionCount`, the ones @-ed with urgency (`member.urgent_mention_count`). The row draws
+    /// the mention badge louder while this is non-zero; it never changes the *number*, which stays
+    /// the server's mention count.
+    var urgentMentionCount: Int = 0
     /// `member.notify_props.mark_unread == "mention"` — upstream's whole definition of "muted".
     let isMuted: Bool
     /// "Keep as unread" (`member.manually_unread`).
@@ -157,9 +161,20 @@ struct ChannelSidebarEntry: Identifiable, Equatable, Sendable {
                                              manuallyUnread: manuallyUnread)
     }
 
-    /// The right-hand badge: mention count beats a bare unread dot; a muted channel draws no dot.
+    /// The right-hand badge: a mention count, or the unread **message** count, or nothing.
+    ///
+    /// **Deliberate divergence from upstream** (card `t_93eca948`): an unread channel draws the
+    /// number of unread messages, not a dot. Mobile wraps a `Badge` around `mentionsCount` only
+    /// (`app/components/channel_item/channel_item.tsx:210-218`, pin `162f2560`) and carries
+    /// unread-ness in the bold label (`:137-138`); the v12.0.1 webapp draws `ChannelMentionBadge` for
+    /// mentions and a count-less dot for `isUnread && unreadMentions === 0`
+    /// (`sidebar_channel_link.tsx:26,134-152`). The owner wants to tell 40 new posts from 2 at a
+    /// glance, so this row counts them. The rule behind the number is upstream's own arithmetic
+    /// (`unread = max(0, channel.total_msg_count − member.msg_count)`), and the decision record is
+    /// `docs/t_93eca948-build-note.md` — **do not "fix" this back to a dot on a parity sweep.**
     var badge: ChannelSidebarBadge {
         ChannelSidebarDerivation.badge(mentionCount: mentionCount,
+                                       urgentMentionCount: urgentMentionCount,
                                        unreadCount: unreadCount,
                                        isMuted: isMuted,
                                        manuallyUnread: manuallyUnread)
@@ -176,17 +191,30 @@ struct ChannelSidebarEntry: Identifiable, Equatable, Sendable {
     }
 
     /// What VoiceOver reads after the channel name. The badge pill itself is decorative (its digits
-    /// alone would read as a bare number).
+    /// alone would read as a bare number), so the number the pill draws is spoken here too.
+    ///
+    /// The word "Unread" is kept (capital U) while a message is waiting: it is what the live UI
+    /// suite asserts both ways — a muted, read channel must *not* contain it — so the number is
+    /// added beside the word rather than replacing it.
     var accessibilityValue: String {
         var parts: [String] = []
         if isSelected { parts.append("Selected") }
         if isMuted { parts.append("Muted") }
         if mentionCount > 0 {
-            parts.append(mentionCount == 1 ? "1 mention" : "\(mentionCount > 99 ? "more than 99" : String(mentionCount)) mentions")
+            var mentions = mentionCount == 1 ? "1 mention"
+                : "\(mentionCount > 99 ? "more than 99" : String(mentionCount)) mentions"
+            if urgentMentionCount > 0 { mentions += ", urgent" }
+            parts.append(mentions)
         } else if manuallyUnread && unreadCount == 0 {
             parts.append("Kept unread")
         } else if showsUnreadEmphasis {
+            // The row's own number, in the words the footer uses. A muted row never reaches here
+            // (`showsUnreadEmphasis` folds the mute in), so the count cannot be spoken for a channel
+            // whose badge is deliberately silent.
             parts.append("Unread")
+            if unreadCount > 0 {
+                parts.append(unreadCount == 1 ? "1 unread message" : "\(unreadCount) unread messages")
+            }
         }
         if isFavorite { parts.append("Favorite") }
         // The presence word rides the row's value, never the label: the label is the person's name,
@@ -201,20 +229,52 @@ struct ChannelSidebarEntry: Identifiable, Equatable, Sendable {
     }
 }
 
-/// The badge a channel row draws (mobile `channel_item`): a count, an unread dot, or nothing.
+/// The badge a channel row draws: a mention count, an unread **message** count, or nothing.
+///
+/// The two counts are separate cases rather than one number with a flag because they are two
+/// different statements and are drawn differently: a mention is a demand on the reader (the theme's
+/// badge colour, and louder while any of them is urgent), an unread count is a workload (a quieter
+/// pill in the unread accent). Card `t_93eca948` asks for exactly that distinction — one badge per
+/// row, never two.
 enum ChannelSidebarBadge: Equatable, Sendable {
     case none
-    case dot
-    case count(Int)
+    /// `member.mention_count`, with `urgent` = `member.urgent_mention_count > 0`.
+    case mentions(Int, urgent: Bool)
+    /// `max(0, channel.total_msg_count − member.msg_count)` — card `t_93eca948`'s divergence from
+    /// upstream, which draws a count-less dot here.
+    case unread(Int)
 
-    var text: String? {
+    /// The number the pill draws, or `nil` when there is no pill. The *real* number, never the
+    /// capped one — VoiceOver and the diagnostics read this.
+    var count: Int? {
         switch self {
-        case .none, .dot: return nil
-        case .count(let value): return value > 99 ? "99+" : String(value)
+        case .none: return nil
+        case .mentions(let value, _): return value
+        case .unread(let value): return value
         }
     }
 
-    var isDot: Bool { self == .dot }
+    /// What the pill says. Two ceilings, on purpose:
+    ///
+    /// * a **mention** count caps at `99+` — upstream mobile's `Badge` and this row's own long-standing
+    ///   formatting (a mention badge is not a progress report, and 99 mentions already means "stop
+    ///   everything");
+    /// * an **unread** count caps at `999+` — chosen here: a channel can legitimately hold hundreds of
+    ///   unread posts, and the owner's whole point is to tell 2 from 40, so the ceiling sits where
+    ///   digits stop being worth the row's width. Exact up to 999, `999+` from 1000 on.
+    var text: String? {
+        switch self {
+        case .none: return nil
+        case .mentions(let value, _): return value > 99 ? "99+" : String(value)
+        case .unread(let value): return value > 999 ? "999+" : String(value)
+        }
+    }
+
+    /// Whether this is the mention case (the louder pill).
+    var isMention: Bool {
+        if case .mentions = self { return true }
+        return false
+    }
 }
 
 /// One drawn section: a category and the rows in it, in draw order.
@@ -287,15 +347,27 @@ struct ChannelSidebarGroup: Identifiable, Equatable, Sendable {
     /// disagreeing with the rows the group is built from.
     var unreadChannels: Int { entries.filter(\.showsUnreadEmphasis).count }
 
-    /// Whether the category header draws its marker: the label is bold and the row's unread dot is
+    /// Whether the category header draws its marker: the label is bold and the roll-up number is
     /// drawn while anything in the group is unread — including when the group is collapsed, where the
     /// header is the only visible thing.
     var hasUnread: Bool { unreadChannels > 0 }
 
-    /// The header's badge is the **row's dot** and never a count: a mention stays "this group has
-    /// something unread" (the owner asked for bold + dot); the number rides in the accessibility
-    /// value. The dot is the same `ChannelSidebarBadge.dot` the rows draw, so there is one indicator.
-    var headerBadge: ChannelSidebarBadge { hasUnread ? .dot : .none }
+    /// The roll-up: the **sum of the numbers the group's rows draw** (a mention count for a row that
+    /// has mentions, the unread message count otherwise). Derived from `entries` on every read, so it
+    /// cannot disagree with the rows beneath it — there is no second counter to drift.
+    ///
+    /// A row draws nothing while a muted channel's traffic is unread, and "nothing" adds nothing here
+    /// too: the header cannot claim a number the body does not show.
+    var badgeCount: Int { entries.reduce(0) { $0 + ($1.badge.count ?? 0) } }
+
+    /// The header's badge is the **roll-up number**, not a dot (card `t_93eca948`, requirement 7).
+    ///
+    /// This supersedes the `t_3b2f313a` decision that a header stays a dot and "never a count badge":
+    /// now that the rows count, a dot on the section would be the one place still saying "something"
+    /// while every row under it says "how much". It is drawn in the **unread** style even when part of
+    /// the sum is mentions, because a roll-up is one glanceable total; the mention total is spoken
+    /// separately in `accessibilityValue` ("Unread, 3 mentions") and the rows keep their own styling.
+    var headerBadge: ChannelSidebarBadge { badgeCount > 0 ? .unread(badgeCount) : .none }
 
     /// What VoiceOver says after the category name (T8e keeps the header one element). The mute fact
     /// comes first, then the unread fact in the rows' words, then the mention number. A mention
@@ -503,20 +575,31 @@ enum ChannelSidebarDerivation {
         return unreadCount > 0 || manuallyUnread
     }
 
-    /// The badge rule. Mentions beat a dot; a muted channel has no message-unread state at all
-    /// (`showsUnread` above already folded the mute in), so it draws nothing unless mentioned.
+    /// The badge rule — **one** badge per row, in this order:
+    ///
+    /// 1. **mentions win.** A channel with both unread posts and mentions draws the mention count,
+    ///    in the mention style, exactly as upstream mobile does (`Badge value={mentionsCount}`).
+    ///    Two badges would be two statements competing for one 240 pt row, and the mention is the
+    ///    louder fact: it means somebody named the reader. Recorded in
+    ///    `docs/t_93eca948-build-note.md` §2.
+    /// 2. **a muted channel draws nothing** for ordinary traffic (`showsUnread` folds the mute in),
+    ///    which is what muting means — the bold label *and* the badge are the suppressed prominence,
+    ///    and the card's requirement 3 keeps that (the row still speaks "Muted" and still surfaces an
+    ///    explicit mention, step 1).
+    /// 3. **otherwise the unread message count** — `t_93eca948`'s deliberate divergence from
+    ///    upstream, which shows a count-less dot here.
+    /// 4. **zero unread ⇒ nothing at all.** No dot, no zero: a pill reading "0" is a worse lie than
+    ///    an empty row, and "keep as unread" with nothing behind it stays bold-only (the reader asked
+    ///    for emphasis, not for a number they cannot honour).
     static func badge(mentionCount: Int,
+                      urgentMentionCount: Int = 0,
                       unreadCount: Int,
                       isMuted: Bool,
                       manuallyUnread: Bool) -> ChannelSidebarBadge {
-        if mentionCount > 0 { return .count(mentionCount) }
-        if showsUnread(mentionCount: mentionCount,
-                       unreadCount: unreadCount,
-                       isMuted: isMuted,
-                       manuallyUnread: manuallyUnread) {
-            return .dot
-        }
-        return .none
+        if mentionCount > 0 { return .mentions(mentionCount, urgent: urgentMentionCount > 0) }
+        guard !isMuted else { return .none }
+        guard unreadCount > 0 else { return .none }
+        return .unread(unreadCount)
     }
 
     // MARK: Favourites
@@ -582,6 +665,7 @@ enum ChannelSidebarDerivation {
                 kind: kind,
                 unreadCount: unreadMessages(channel: channel, member: member),
                 mentionCount: Int(member?.mentionCount ?? 0),
+                urgentMentionCount: Int(member?.urgentMentionCount ?? 0),
                 isMuted: isMuted(member),
                 manuallyUnread: member?.manuallyUnread ?? false,
                 isFavorite: favorites.contains(channel.id),

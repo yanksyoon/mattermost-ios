@@ -162,7 +162,7 @@ final class T8dDirectMessagePagingTests: XCTestCase {
         // The header's marker and the promotion agree by construction: both read the row rule.
         XCTAssertEqual(group.unreadChannels, 1)
         XCTAssertTrue(group.hasUnread)
-        XCTAssertEqual(group.headerBadge, .dot)
+        XCTAssertEqual(group.headerBadge, .unread(4), "the promoted row's four unread posts, rolled up")
         XCTAssertTrue(group.accessibilityValue.contains("Unread"))
     }
 

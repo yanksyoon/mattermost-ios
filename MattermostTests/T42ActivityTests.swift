@@ -431,8 +431,8 @@ final class T42ActivityTests: XCTestCase {
         service.readsByTeam[teamID] = [member(channelID, viewedAt: 1_000)]
         let model = makeModel(service)
 
-        var badge: [(Int, Bool)] = []
-        model.onBadgeInput = { badge.append(($0, $1)) }
+        var badge: [(Int, Int, Bool)] = []
+        model.onBadgeInput = { badge.append(($0, $1, $2)) }
 
         await model.load()
 
@@ -459,7 +459,10 @@ final class T42ActivityTests: XCTestCase {
         // The badge came from the server's counters, through the store's own math.
         XCTAssertEqual(badge.count, 1)
         XCTAssertEqual(badge.first?.0, 2)
-        XCTAssertEqual(badge.first?.1, true)
+        // …and the unread **message** total rides along, so the app icon can show a number instead of
+        // desktop's dot (t_93eca948). The fixture's counters say `msgCount: 5`.
+        XCTAssertEqual(badge.first?.1, 5)
+        XCTAssertEqual(badge.first?.2, true)
     }
 
     func testASecondLoadDoesNotRefetchTheReaderOrTheChannel() async {

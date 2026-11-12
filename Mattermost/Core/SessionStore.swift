@@ -15,8 +15,11 @@ import UserNotifications
 ///   badge.ts (macOS) -> app.dock.setBadge(mentionCount>0 ? String(mentionCount) : '•' : '!')
 ///   ServerManager SERVER_REMOVED -> drop that server's state and re-emit.
 ///
-/// iOS renders badges as an integer, not a string, so the two non-numeric desktop glyphs map to
-/// 1 (the closest "something needs attention" integer). Divergence documented in docs/t8-build-note.md.
+/// iOS renders badges as an integer, not a string, so the two non-numeric desktop glyphs are the last
+/// resort: `!` maps to 1, and the unread dot maps to **the number of unread messages** when this client
+/// knows it (card `t_93eca948` — the sidebar rows count now, and the icon must not be the one place
+/// still saying "something"), falling back to 1 only when the read-out said nothing more than "unread".
+/// Divergence documented in docs/t8-build-note.md and docs/t_93eca948-build-note.md.
 @MainActor
 final class SessionStore: ObservableObject {
 
@@ -24,6 +27,11 @@ final class SessionStore: ObservableObject {
     /// `unreadsPerServer`) folded into one struct, keyed by the same server uuid.
     struct ServerState: Equatable {
         var mentionCount: Int = 0
+        /// Unread **messages** for this server, when the client actually knows the number
+        /// (`GET /users/me/teams/unread`'s `msg_count`). `nil` is "something is unread, but this
+        /// read-out did not say how many" — the webview's `unreads-and-mentions` event carries no
+        /// message count, and the badge falls back to desktop's dot (`1`) rather than inventing one.
+        var unreadMessages: Int? = nil
         var isUnread: Bool = false
         var isExpired: Bool = false
     }
@@ -38,8 +46,14 @@ final class SessionStore: ObservableObject {
     @Published private(set) var hasUnread: Bool = false
     @Published private(set) var anyExpired: Bool = false
 
+    /// Unread **messages** across servers, as far as the client knows them (a server whose read-out
+    /// carried no number contributes 1 — see `recomputeTotals`). Card `t_93eca948`: the icon shows
+    /// this number instead of desktop's dot whenever it is available.
+    @Published private(set) var totalUnreadMessages: Int = 0
+
     /// The app-icon badge number derived from the totals. Desktop macOS badge order:
-    /// mentions > unread-dot > expired; iOS integer mapping: mentions, then 1 (dot), then 1 (!).
+    /// mentions > unread > expired; the unread step is a **count** here, and integer `1` only when the
+    /// number is unknown or the expired mark (`!`) is all there is.
     @Published private(set) var badgeNumber: Int = 0
 
     /// "Show unread badge" app setting (desktop `defaultPreferences.showUnreadBadge`, default
@@ -68,10 +82,22 @@ final class SessionStore: ObservableObject {
     // MARK: - Updates (bridge events -> desktop AppState methods)
 
     /// `unreads-and-mentions` from a server's webview (desktop `updateUnreadsAndMentionsPerServer`).
-    func updateMentions(serverID: UUID, mentionCount: Int, isUnread: Bool) {
+    ///
+    /// `unreadMessages` is optional because that bridge event carries only `isUnread` + the mention
+    /// count: passing `nil` leaves whatever number the last native counter read supplied, and a
+    /// server that has never had one keeps `nil` (the app icon falls back to desktop's dot, `1`).
+    func updateMentions(serverID: UUID,
+                        mentionCount: Int,
+                        unreadMessages: Int? = nil,
+                        isUnread: Bool) {
         var state = states[serverID] ?? ServerState()
         state.mentionCount = max(0, mentionCount)
         state.isUnread = isUnread
+        if !isUnread {
+            state.unreadMessages = 0
+        } else if let unreadMessages {
+            state.unreadMessages = max(0, unreadMessages)
+        }
         states[serverID] = state
         recomputeTotals()
     }
@@ -127,15 +153,21 @@ final class SessionStore: ObservableObject {
 
     // MARK: - Totals + badge
 
-    /// Pure badge math, mirroring desktop `showBadgeOSX` decision order. iOS has no dock
-    /// string badge, so the unread-dot and the expired-mark both map to 1.
-    nonisolated static func badgeNumber(mentions: Int, hasUnread: Bool, anyExpired: Bool,
+    /// Pure badge math, mirroring desktop `showBadgeOSX` decision order. iOS has no dock string
+    /// badge, so the expired mark maps to 1 — and the unread mark maps to **the number of unread
+    /// messages** when the client knows it (card `t_93eca948`, requirement 7: the dot must not be the
+    /// last count-less indicator once the sidebar rows count), falling back to 1 when the only thing
+    /// this server said was "unread".
+    nonisolated static func badgeNumber(mentions: Int,
+                                       unreadMessages: Int?,
+                                       isUnread: Bool,
+                                       anyExpired: Bool,
                                        showUnreadBadge: Bool) -> Int {
         if mentions > 0 {
             return mentions
         }
-        if hasUnread && showUnreadBadge {
-            return 1
+        if isUnread && showUnreadBadge {
+            return max(1, unreadMessages ?? 0)
         }
         if anyExpired {
             return 1
@@ -143,7 +175,8 @@ final class SessionStore: ObservableObject {
         return 0
     }
 
-    /// The two numbers a server's per-team unread counters imply (`GET /users/me/teams/unread`).
+    /// The three numbers a server's per-team unread counters imply
+    /// (`GET /users/me/teams/unread`).
     ///
     /// **This is the one place those counters become badge inputs.** Two callers feed it and neither
     /// keeps its own arithmetic: `MentionPoller` (the T14 background poll) and the T42 activity feed
@@ -152,28 +185,41 @@ final class SessionStore: ObservableObject {
     /// or invent a badge of its own. One function, two callers, one badge.
     ///
     /// `isUnread` is the desktop `unreads-and-mentions` "has any unread message" input: a mention implies
-    /// it, and so does any unread message, which is what lets the badge show the dot (1) for a server with
-    /// unread messages but no mentions.
+    /// it, and so does any unread message. `messages` is the sum the app icon shows while there is no
+    /// mention waiting (card `t_93eca948` — before it, the icon showed a dot-as-1 even when it knew the
+    /// number).
     nonisolated static func serverBadgeInput(mentionCounts: [Int],
-                                             messageCounts: [Int]) -> (mentions: Int, isUnread: Bool) {
+                                             messageCounts: [Int]) -> (mentions: Int,
+                                                                       messages: Int,
+                                                                       isUnread: Bool) {
         let mentions = mentionCounts.reduce(0) { $0 + max(0, $1) }
         let messages = messageCounts.reduce(0) { $0 + max(0, $1) }
-        return (mentions, mentions > 0 || messages > 0)
+        return (mentions, messages, mentions > 0 || messages > 0)
     }
 
     /// Apply a `GET /users/me/teams/unread` answer for one server (the poller's and the feed's shared
     /// landing point — see `serverBadgeInput`).
     func applyServerCounters(serverID: UUID, mentionCounts: [Int], messageCounts: [Int]) {
         let input = Self.serverBadgeInput(mentionCounts: mentionCounts, messageCounts: messageCounts)
-        updateMentions(serverID: serverID, mentionCount: input.mentions, isUnread: input.isUnread)
+        updateMentions(serverID: serverID,
+                       mentionCount: input.mentions,
+                       unreadMessages: input.messages,
+                       isUnread: input.isUnread)
     }
 
     private func recomputeTotals() {
         totalMentions = states.values.reduce(0) { $0 + $1.mentionCount }
         hasUnread = states.values.contains { $0.isUnread }
         anyExpired = states.values.contains { $0.isExpired }
+        // A server whose only unread fact is "something" (no number) contributes the dot's 1, so
+        // "unread somewhere, count unknown" can never read as zero on the icon.
+        totalUnreadMessages = states.values.reduce(0) { sum, state in
+            guard state.isUnread else { return sum }
+            return sum + max(1, state.unreadMessages ?? 0)
+        }
         badgeNumber = Self.badgeNumber(mentions: totalMentions,
-                                       hasUnread: hasUnread,
+                                       unreadMessages: totalUnreadMessages,
+                                       isUnread: hasUnread,
                                        anyExpired: anyExpired,
                                        showUnreadBadge: showUnreadBadge)
         badgeSetter.setBadge(badgeNumber)

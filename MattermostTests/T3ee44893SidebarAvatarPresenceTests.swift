@@ -291,7 +291,7 @@ final class T3ee44893SidebarAvatarPresenceTests: XCTestCase {
         let entry = entries(data).first
 
         XCTAssertTrue(entry?.showsUnreadEmphasis == true)
-        XCTAssertEqual(entry?.badge, .count(3))
+        XCTAssertEqual(entry?.badge, .mentions(3, urgent: false))
         XCTAssertEqual(entry?.accessibilityValue, "3 mentions, Online",
                        "the presence word joins the row's value; the label is still the name")
     }

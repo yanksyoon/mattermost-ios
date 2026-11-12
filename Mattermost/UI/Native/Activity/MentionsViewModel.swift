@@ -91,10 +91,12 @@ final class MentionsViewModel: ObservableObject {
     private let service: ActivityServing
     private let myUserID: String?
     private let now: () -> Int64
-    /// The badge hand-off: `(mentionCount, isUnread)`, the two numbers `SessionStore.updateMentions` takes.
+    /// The badge hand-off: `(mentionCount, unreadMessages, isUnread)`, the three numbers
+    /// `SessionStore.updateMentions` takes — including the unread **message** total, which card
+    /// `t_93eca948` needs the app icon to show while no mention is waiting.
     /// Injected rather than reached for, so a test can assert exactly what the feed told the store
     /// (and so this model has no path to a badge number of its own).
-    var onBadgeInput: ((Int, Bool) -> Void)?
+    var onBadgeInput: ((Int, Int, Bool) -> Void)?
 
     // MARK: Private state
 
@@ -414,13 +416,13 @@ final class MentionsViewModel: ObservableObject {
     /// Fetch the server counters and hand them to the store.
     ///
     /// `SessionStore.serverBadgeInput` is the **one** function that turns these counters into
-    /// `(mentions, isUnread)`; the background `MentionPoller` calls the same one. This model only
-    /// transports them, so there is no second badge arithmetic anywhere in the app.
+    /// `(mentions, messages, isUnread)`; the background `MentionPoller` calls the same one. This model
+    /// only transports them, so there is no second badge arithmetic anywhere in the app.
     func refreshBadge() async {
         guard let counters = try? await service.badgeCounters(), !counters.isEmpty else { return }
         let input = SessionStore.serverBadgeInput(mentionCounts: counters.map(\.mentionCount),
                                                   messageCounts: counters.map(\.msgCount))
-        onBadgeInput?(input.mentions, input.isUnread)
+        onBadgeInput?(input.mentions, input.messages, input.isUnread)
     }
 
     // MARK: - Socket

@@ -200,13 +200,15 @@ final class ReadStateTests: XCTestCase {
                                          serverID: serverID)
         }
 
-        // Before: the row is bold/dotted and the group says it has unread rows.
+        // Before: the row is bold and badged with its mention count (t_93eca948: the row counts), and
+        // the group rolls those numbers up.
         let before = list.entry(id: channelID)
         XCTAssertEqual(before?.showsUnreadEmphasis, true)
-        XCTAssertEqual(before?.badge, .count(2))
+        XCTAssertEqual(before?.badge, .mentions(2, urgent: false))
         let groupBefore = list.groups.first { $0.id == "chan" }
         XCTAssertEqual(groupBefore?.unreadChannels, 2)
-        XCTAssertEqual(groupBefore?.headerBadge, .dot)
+        XCTAssertEqual(groupBefore?.headerBadge, .unread(5),
+                       "2 mentions (c1) + 3 unread posts (c2): the header is the sum of what the rows draw")
 
         model.setReadingState(paneVisible: true, sceneActive: true, readerAtNewest: true)
         await model.load()
@@ -219,15 +221,18 @@ final class ReadStateTests: XCTestCase {
         XCTAssertEqual(list.entry(id: channelID)?.unreadCount, 0)
         XCTAssertEqual(list.groups.first { $0.id == "chan" }?.unreadChannels, 1,
                        "the other unread channel keeps the group marker")
+        XCTAssertEqual(list.groups.first { $0.id == "chan" }?.headerBadge, .unread(3),
+                       "the roll-up dropped with the row: only c2's 3 unread posts are left")
         XCTAssertEqual(store.totalMentions, 0, "the mention number left the badge in the same tick")
-        // The server also said this server still has another unread message, so the badge becomes the
-        // unread dot rather than zero. The dot's own clearing is the counter read's job — the same
-        // request the mention poller makes — never a guess made from one channel.
+        // The server also said this server still has unread messages, so the badge becomes its
+        // message total rather than zero (t_93eca948: a number, not the dot's 1). The rest of the
+        // clearing is the counter read's job — the same request the mention poller makes — never a
+        // guess made from one channel.
         XCTAssertTrue(store.hasUnread)
-        XCTAssertEqual(store.badgeNumber, 1)
+        XCTAssertEqual(store.badgeNumber, 9)
     }
 
-    /// The authoritative counter read (the poller's own request) then clears the dot too.
+    /// The authoritative counter read (the poller's own request) then zeroes the badge too.
     func testT2TheCounterReadZeroesTheBadgeAfterTheLastUnreadChannelIsRead() async {
         let (list, _) = await loadedSidebar(sidebarData(c1Mentions: 2))
         let (store, badge) = sessionStore()
@@ -243,7 +248,7 @@ final class ReadStateTests: XCTestCase {
             serverID: serverID)
         XCTAssertEqual(outcome?.clearedMentions, 2)
         XCTAssertEqual(store.totalMentions, 0)
-        XCTAssertEqual(store.badgeNumber, 1, "the mention number left; the dot is the server's answer")
+        XCTAssertEqual(store.badgeNumber, 9, "the mention number left; the server's 9 unread messages remain")
 
         // `GET /users/me/teams/unread` says every team is now read.
         ChannelReadApplication.applyCounters([MMTeamUnread(teamId: "team1", mentionCount: 0, msgCount: 0)],
@@ -427,7 +432,7 @@ final class ReadStateTests: XCTestCase {
         // read is what removes that mention — after which the mute rule applies again.
         let (mentionedList, _) = await loadedSidebar(sidebarData(c1Mentions: 1, c1Muted: true))
         XCTAssertEqual(mentionedList.entry(id: channelID)?.showsUnreadEmphasis, true)
-        XCTAssertEqual(mentionedList.entry(id: channelID)?.badge, .count(1))
+        XCTAssertEqual(mentionedList.entry(id: channelID)?.badge, .mentions(1, urgent: false))
         mentionedList.applyRead(channelID: channelID, cursors: [channelID: 3_000])
         XCTAssertEqual(mentionedList.entry(id: channelID)?.showsUnreadEmphasis, false)
         XCTAssertEqual(mentionedList.entry(id: channelID)?.badge, ChannelSidebarBadge.none)

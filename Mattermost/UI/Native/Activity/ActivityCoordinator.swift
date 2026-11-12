@@ -57,14 +57,16 @@ final class ActivityCoordinator: ObservableObject {
 
     /// The one place the feed's counters reach the badge.
     ///
-    /// `SessionStore.updateMentions(serverID:mentionCount:isUnread:)` is the same call the background
-    /// `MentionPoller` makes, and `SessionStore.badgeNumber` is the only badge arithmetic in the app — so
-    /// "the feed and the badge disagree" is never two counters, only the server's own numbers arriving
-    /// twice.
-    private func badgeHandoff(for server: ServerConfig) -> (Int, Bool) -> Void {
-        { [weak self] mentions, isUnread in
+    /// `SessionStore.updateMentions(serverID:mentionCount:unreadMessages:isUnread:)` is the same call the
+    /// background `MentionPoller` makes, and `SessionStore.badgeNumber` is the only badge arithmetic in
+    /// the app — so "the feed and the badge disagree" is never two counters, only the server's own
+    /// numbers arriving twice. The message total rides along so the app icon can show a number instead
+    /// of desktop's dot (card `t_93eca948`).
+    private func badgeHandoff(for server: ServerConfig) -> (Int, Int, Bool) -> Void {
+        { [weak self] mentions, messages, isUnread in
             self?.sessionStore?.updateMentions(serverID: server.id,
                                                mentionCount: mentions,
+                                               unreadMessages: messages,
                                                isUnread: isUnread)
         }
     }

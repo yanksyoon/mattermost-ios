@@ -208,19 +208,47 @@ final class T33ChannelSidebarTests: XCTestCase {
         XCTAssertEqual(ChannelSidebarDerivation.unreadMessages(channel: chan, member: nil), 0)
     }
 
-    func testUnreadMessagesShowBoldAndADot() {
+    /// t_93eca948 — requirement 1: an unread channel with no mentions draws the **number of unread
+    /// messages**, not a dot. This is the card's failing-first case (unread 3, mentions 0).
+    func testUnreadMessagesShowBoldAndTheUnreadCount() {
         let entry = ChannelSidebarEntry.fixture(mentions: 0, unread: 3, muted: false)
         XCTAssertTrue(entry.showsUnreadEmphasis)
-        XCTAssertEqual(entry.badge, .dot)
+        XCTAssertEqual(entry.badge, .unread(3))
+        XCTAssertEqual(entry.badgeText, "3")
         XCTAssertTrue(entry.accessibilityValue.contains("Unread"))
+        XCTAssertTrue(entry.accessibilityValue.contains("3 unread messages"),
+                      "the pill's number is spoken, got '\(entry.accessibilityValue)'")
+    }
+
+    /// Requirement 1's other half: zero unread draws **nothing** — no dot, no pill reading "0".
+    func testAReadChannelDrawsNoBadgeAtAll() {
+        let entry = ChannelSidebarEntry.fixture(mentions: 0, unread: 0)
+        XCTAssertFalse(entry.showsUnreadEmphasis)
+        XCTAssertEqual(entry.badge, ChannelSidebarBadge.none)
+        XCTAssertNil(entry.badgeText)
+        XCTAssertEqual(entry.accessibilityValue, "")
     }
 
     func testMentionsWinOverUnreadAndFormatTheBadge() {
         let entry = ChannelSidebarEntry.fixture(mentions: 2, unread: 9)
         XCTAssertTrue(entry.showsUnreadEmphasis)
-        XCTAssertEqual(entry.badge, .count(2))
+        XCTAssertEqual(entry.badge, .mentions(2, urgent: false))
         XCTAssertEqual(entry.badgeText, "2")
         XCTAssertTrue(entry.accessibilityValue.contains("2 mentions"))
+        XCTAssertFalse(entry.accessibilityValue.contains("9 unread messages"),
+                       "one badge per row: the mention number is the one spoken, not also the posts")
+    }
+
+    /// Requirement 2: an urgent mention keeps the mention count and is drawn louder (the ring). The
+    /// number never changes — urgency is not extra mentions.
+    func testAnUrgentMentionKeepsTheMentionCountAndRaisesTheStyle() {
+        var entry = ChannelSidebarEntry.fixture(mentions: 3, unread: 40)
+        entry.urgentMentionCount = 1
+        XCTAssertEqual(entry.badge, .mentions(3, urgent: true))
+        XCTAssertEqual(entry.badgeText, "3", "urgent is a style, not a second count")
+        XCTAssertTrue(entry.accessibilityValue.contains("3 mentions, urgent"),
+                      "got '\(entry.accessibilityValue)'")
+        XCTAssertFalse(entry.accessibilityValue.contains("40 unread messages"))
     }
 
     func testTheBadgeCapsAtNinetyNinePlusButKeepsTheRealNumber() {
@@ -229,13 +257,17 @@ final class T33ChannelSidebarTests: XCTestCase {
         XCTAssertTrue(entry.accessibilityValue.contains("more than 99 mentions"))
     }
 
-    /// Criterion 3: a muted channel has **no** unread state for ordinary traffic.
+    /// Requirement 3, first half: a muted channel draws **no badge** for ordinary traffic (the bold
+    /// label is suppressed too — muting is exactly that silence).
     func testAMutedChannelShowsNoBoldAndNoBadgeForUnreadMessages() {
         let entry = ChannelSidebarEntry.fixture(mentions: 0, unread: 7, muted: true)
         XCTAssertFalse(entry.showsUnreadEmphasis)
         XCTAssertEqual(entry.badge, ChannelSidebarBadge.none)
+        XCTAssertNil(entry.badgeText, "no dot, no '7', no '0'")
         XCTAssertTrue(entry.accessibilityValue.contains("Muted"))
         XCTAssertFalse(entry.accessibilityValue.contains("Unread"))
+        XCTAssertFalse(entry.accessibilityValue.contains("unread message"),
+                       "the suppressed count must not be spoken either: '\(entry.accessibilityValue)'")
     }
 
     /// The one refinement of criterion 3's wording: `mark_unread = "mention"` is the definition of
@@ -245,7 +277,8 @@ final class T33ChannelSidebarTests: XCTestCase {
     func testAMutedChannelStillSurfacesAnExplicitMention() {
         let entry = ChannelSidebarEntry.fixture(mentions: 1, unread: 7, muted: true)
         XCTAssertTrue(entry.showsUnreadEmphasis)
-        XCTAssertEqual(entry.badge, .count(1))
+        XCTAssertEqual(entry.badge, .mentions(1, urgent: false),
+                       "a muted channel's row still badges the mention — the exception mute keeps")
     }
 
     func testKeepAsUnreadEmphasisesANonMutedChannel() {
@@ -285,7 +318,7 @@ final class T33ChannelSidebarTests: XCTestCase {
         XCTAssertEqual(totals.accessibilityLabel, "2 mentions, 3 unread messages")
         // The *row* is unchanged by the totals rule: a mention through the mute still badges.
         let mutedRow = result.flatMap(\.entries).first { $0.id == "b" }
-        XCTAssertEqual(mutedRow?.badge, .count(5))
+        XCTAssertEqual(mutedRow?.badge, .mentions(5, urgent: false))
         XCTAssertEqual(mutedRow?.showsUnreadEmphasis, true)
     }
 
@@ -405,12 +438,15 @@ final class T33ChannelSidebarTests: XCTestCase {
     func testAGroupWithAnUnreadChannelIsMarkedAndAReadGroupIsNot() {
         let unread = group([row("a", unread: 2), row("b")])
         XCTAssertTrue(unread.hasUnread, "the header is bold while a row in the group is unread")
-        XCTAssertEqual(unread.headerBadge, .dot, "and it draws the row's unread dot")
+        XCTAssertEqual(unread.headerBadge, .unread(2),
+                       "and it rolls the row's number up — the dot became a count (t_93eca948)")
+        XCTAssertEqual(unread.headerBadge.text, "2")
         XCTAssertEqual(unread.accessibilityValue, "Unread")
 
         let read = group([row("a"), row("b")])
         XCTAssertFalse(read.hasUnread)
         XCTAssertEqual(read.headerBadge, ChannelSidebarBadge.none)
+        XCTAssertNil(read.headerBadge.text, "a read group draws nothing at all")
         XCTAssertEqual(read.accessibilityValue, "")
     }
 
@@ -420,16 +456,29 @@ final class T33ChannelSidebarTests: XCTestCase {
         let collapsed = group([row("a", unread: 1), row("b")], collapsed: true)
         XCTAssertTrue(collapsed.category.collapsed)
         XCTAssertTrue(collapsed.hasUnread)
-        XCTAssertEqual(collapsed.headerBadge, .dot)
+        XCTAssertEqual(collapsed.headerBadge, .unread(1))
     }
 
-    func testTwoUnreadChannelsDrawOneDottedHeaderAndNoNumber() {
+    /// Requirement 7: the group roll-up **agrees with the rows**. Two unread channels roll into one
+    /// number — the sum of the numbers the rows draw — and it is a count, never a dot.
+    func testTwoUnreadChannelsRollUpIntoOneHeaderCount() {
         let twoUnread = group([row("a", mentions: 3, unread: 4), row("b", unread: 7)])
         XCTAssertEqual(twoUnread.unreadChannels, 2)
         XCTAssertEqual(twoUnread.mentions, 3)
-        XCTAssertEqual(twoUnread.headerBadge, .dot, "the header is bold + dot, never a count badge")
-        XCTAssertNil(twoUnread.headerBadge.text)
-        XCTAssertEqual(twoUnread.accessibilityValue, "Unread, 3 mentions")
+        XCTAssertEqual(twoUnread.entries.map { $0.badge }, [.mentions(3, urgent: false), .unread(7)])
+        XCTAssertEqual(twoUnread.headerBadge, .unread(10),
+                       "3 mentions + 7 unread posts: the header is the rows' own numbers summed")
+        XCTAssertEqual(twoUnread.headerBadge.text, "10")
+        XCTAssertEqual(twoUnread.accessibilityValue, "Unread, 3 mentions",
+                       "the mention total is still spoken separately")
+    }
+
+    /// A group whose numbers are large enough to cap: the header caps like the rows do (`999+`), so a
+    /// header can never be wider than a pill.
+    func testTheHeaderCountCapsLikeTheRows() {
+        let big = group([row("a", unread: 600), row("b", unread: 600)])
+        XCTAssertEqual(big.headerBadge, .unread(1200))
+        XCTAssertEqual(big.headerBadge.text, "999+")
     }
 
     /// The rule the header inherits from the rows: an **explicit mention** marks a muted row (that is
@@ -439,12 +488,12 @@ final class T33ChannelSidebarTests: XCTestCase {
         let mutedMention = group([row("a", mentions: 2, unread: 5, muted: true), row("b")])
         XCTAssertEqual(mutedMention.unreadChannels, 1)
         XCTAssertTrue(mutedMention.hasUnread)
-        XCTAssertEqual(mutedMention.headerBadge, .dot)
+        XCTAssertEqual(mutedMention.headerBadge, .unread(2), "the one number its one badged row draws")
         XCTAssertEqual(mutedMention.accessibilityValue, "Unread, 2 mentions")
 
         let mutedMessagesOnly = group([row("a", unread: 5, muted: true), row("b")])
         XCTAssertEqual(mutedMessagesOnly.entries[0].badge, ChannelSidebarBadge.none,
-                       "the row draws no dot, so the group cannot claim one")
+                       "the row draws no badge, so the group cannot claim one")
         XCTAssertFalse(mutedMessagesOnly.hasUnread)
         XCTAssertEqual(mutedMessagesOnly.headerBadge, ChannelSidebarBadge.none)
         XCTAssertEqual(mutedMessagesOnly.accessibilityValue, "")
@@ -465,7 +514,8 @@ final class T33ChannelSidebarTests: XCTestCase {
                        channels.entries.filter(\.showsUnreadEmphasis).count,
                        "the roll-up *is* the rows' predicate, not a separate count")
         XCTAssertTrue(channels.hasUnread)
-        XCTAssertEqual(channels.headerBadge, .dot)
+        XCTAssertEqual(channels.headerBadge, .unread(3),
+                       "c1 has 3 unread posts and no mentions: the header is that row's number")
         XCTAssertEqual(channels.accessibilityValue, "Unread")
 
         var withoutUnread = channels
@@ -857,12 +907,12 @@ final class T33ChannelSidebarTests: XCTestCase {
         let model = ChannelListViewModel(server: server(), service: fake)
         model.setSelection(teamID: "team1", channelID: nil, channelName: nil)
         await model.load()
-        XCTAssertEqual(model.entry(id: "c1")?.badge, .dot)
+        XCTAssertEqual(model.entry(id: "c1")?.badge, .unread(3))
 
         let post = MMPost.fixture(channelID: "c1")
         XCTAssertEqual(model.handle(.posted(post), myUserID: "me"), .refreshNeeded)
         await model.refreshCounters()
-        XCTAssertEqual(model.entry(id: "c1")?.badge, .count(4))
+        XCTAssertEqual(model.entry(id: "c1")?.badge, .mentions(4, urgent: false))
         XCTAssertEqual(model.totals.mentions, 4)
     }
 
@@ -928,7 +978,8 @@ final class T33ChannelSidebarTests: XCTestCase {
         try await Task.sleep(nanoseconds: 300_000_000)
         XCTAssertEqual(fake.refreshCount, 1)
         XCTAssertEqual(coordinator.counterRefreshCount, 1)
-        XCTAssertEqual(model.entry(id: "c1")?.badge, .count(1))
+        XCTAssertEqual(model.entry(id: "c1")?.badge, .mentions(1, urgent: false),
+                       "the refreshed counters say one mention")
     }
 
     /// T30's `NativeChannelDirectory` seam, now implemented: a deep link's channel **name** and a
@@ -1166,7 +1217,7 @@ final class T33ChannelSidebarTests: XCTestCase {
                                    myUserID: "me")
         XCTAssertEqual(outcome, .applied)
         XCTAssertEqual(model.entry(id: "c1")?.unreadCount, 0, "msg_count is the server's cursor")
-        XCTAssertEqual(model.entry(id: "c1")?.badge, .count(2))
+        XCTAssertEqual(model.entry(id: "c1")?.badge, .mentions(2, urgent: false))
         XCTAssertEqual(fake.refreshCount, 0, "the event's numbers are the server's; no request")
     }
 

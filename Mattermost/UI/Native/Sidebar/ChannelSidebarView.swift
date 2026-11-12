@@ -803,23 +803,72 @@ struct NativeChannelSidebarContent: View {
 
 // MARK: - Category header
 
-/// The sidebar's unread dot. One shape for both places it is drawn (t_3b2f313a): the channel row's
-/// badge and the category header's marker must never drift into two indicators.
+/// The sidebar's badge pill. **One** shape for the two places a count is drawn (rows and category
+/// headers), so the two can never drift into two indicators.
 ///
-/// Decoration only — the value it sits beside already says "Unread" (the row's and the header's
+/// The two styles are the card's (`t_93eca948`) requirement 2:
+///
+/// * `.mention` — the theme badge colour (`.red`; the native shell has no server-theme palette, the
+///   same limitation `SidebarPresencePalette` states, so the mention colour is the system's badge
+///   red in one place). **Urgent** mentions (`member.urgent_mention_count > 0`) draw the same pill
+///   with a ring, which is the loudest treatment that does not invent a second colour;
+/// * `.unread` — the accent colour the count-less dot used to be filled with, lifted to a pill. It is
+///   deliberately quieter than a mention: a workload, not a demand.
+///
+/// Decoration only — the value it sits beside already speaks the number (the row's and the header's
 /// accessibility values), so it is hidden from the tree.
-struct ChannelSidebarUnreadDot: View {
+struct ChannelSidebarBadgePill: View {
+    enum Style: Equatable {
+        case mention(urgent: Bool)
+        case unread
+    }
+
+    let text: String
+    let style: Style
+
+    private var fill: Color {
+        switch style {
+        case .mention: return .red
+        case .unread: return .accentColor
+        }
+    }
+
+    private var isUrgent: Bool {
+        if case .mention(let urgent) = style { return urgent }
+        return false
+    }
+
     var body: some View {
-        Circle()
-            .fill(Color.accentColor)
-            .frame(width: 7, height: 7)
+        Text(text)
+            // Monospaced digits: a row whose number changes 2 → 40 must not jitter its neighbours.
+            .font(.caption2.weight(.bold).monospacedDigit())
+            .foregroundStyle(.white)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(fill, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(isUrgent ? 0.6 : 0),
+                                            lineWidth: 1.5))
             .accessibilityHidden(true)
+    }
+
+    /// The pill for a badge, or nothing. Used by both the row and the header so the case→pill mapping
+    /// exists once.
+    static func view(for badge: ChannelSidebarBadge) -> ChannelSidebarBadgePill? {
+        guard let text = badge.text else { return nil }
+        switch badge {
+        case .mentions(_, let urgent): return ChannelSidebarBadgePill(text: text, style: .mention(urgent: urgent))
+        case .unread: return ChannelSidebarBadgePill(text: text, style: .unread)
+        case .none: return nil
+        }
     }
 }
 
 /// A section's header: disclosure chevron, the category's name, its mute marker, and — while anything
-/// in the group is unread — the unread emphasis the owner asked for (bold name + blue dot), including
-/// on a collapsed group, where the header is the only thing on screen.
+/// in the group is unread — the unread emphasis the owner asked for (bold name + the roll-up **count**),
+/// including on a collapsed group, where the header is the only thing on screen.
+///
+/// The count here is this card's (`t_93eca948`) change from `t_3b2f313a`'s count-less dot: rows count
+/// now, so the section total must too (`ChannelSidebarGroup.headerBadge`).
 ///
 /// Collapsing is a control (upstream's header toggles the body); the whole header is the button so a
 /// tap anywhere on it works, and it carries the category's stable identifier.
@@ -863,10 +912,11 @@ struct CategoryHeader: View {
                             .accessibilityLabel("Category muted")
                     }
                     Spacer(minLength: 0)
-                    if group.headerBadge.isDot {
-                        // Trailing, where a row's badge sits, so "this group has something unread" reads
-                        // as the row's own dot lifted to the section.
-                        ChannelSidebarUnreadDot()
+                    if let pill = ChannelSidebarBadgePill.view(for: group.headerBadge) {
+                        // Trailing, where a row's badge sits, so the group total reads as the rows'
+                        // own numbers lifted to the section (t_93eca948 — it was the count-less dot
+                        // until the rows started counting).
+                        pill
                     }
                 }
                 // A `.plain` button hit-tests its label's content shape, not the row its frame fills;
@@ -1046,7 +1096,9 @@ struct SidebarPresenceDot: View {
 
 // MARK: - A channel row
 
-/// One channel: glyph, name (bold while unread), mute marker, mention badge.
+/// One channel: glyph, name (bold while unread), mute marker, and the trailing badge — the mention
+/// count, or the unread **message** count (`t_93eca948`'s deliberate divergence from upstream, whose
+/// row draws a count-less dot).
 ///
 /// The row's actions live in a context menu (secondary click on Catalyst, long press on touch), which
 /// is also how a reorder is expressed without drag-and-drop: "Move up"/"Move down" writes the
@@ -1170,20 +1222,10 @@ struct ChannelSidebarRow: View {
 
     @ViewBuilder
     private var badge: some View {
-        switch entry.badge {
-        case .none:
-            EmptyView()
-        case .dot:
-            // The same dot the category header draws (t_3b2f313a): one indicator, two places.
-            ChannelSidebarUnreadDot()
-        case .count:
-            Text(entry.badgeText ?? "")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .background(Color.red, in: Capsule())
-                .accessibilityHidden(true)
+        // One pill, drawn from the badge the derivation decided (a mention count, the unread message
+        // count, or nothing — `t_93eca948`). No dot: the dot was the pre-card unread marker.
+        if let pill = ChannelSidebarBadgePill.view(for: entry.badge) {
+            pill
         }
     }
 }
