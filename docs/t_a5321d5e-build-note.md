@@ -7,7 +7,7 @@ What the card asks for, and where each half is answered here:
 | 1 | run this one case alone on a simulator and record the wall time; say plainly whether the runner half can be reproduced here | §2 |
 | 2 | read the failing run's log and quote the last line before the allowance fired, and say which `await` it was in | §3 |
 | 3 | pick one of the two outcomes *after* the measurement, keep the claim intact | §4, §5 |
-| 4 | the simulator gate leg's *Unit tests* step green on a real push, failure explained here | §7 |
+| 4 | the simulator gate leg's *Unit tests* step green on a real push, failure explained here | §7, §10 |
 | 5 | if the pass membership changes, update `docs/releasing.md`; the classifier self-tests still pass | §6 (no move was made), §8 |
 
 Hosts: this Mac (Apple silicon, macOS 26.3.1, iPhone 16 Pro / `81A7F251-8B31-4945-8783-5A264C14B8D5`)
@@ -109,10 +109,23 @@ call costs:
 
 So the case has exactly one call that crosses WebKit's service boundary at cold start — the **first
 `httpCookieStore.setCookie`**, 306 ms of the case's 341 ms — and that is the call whose progress line
-the failing run never printed. **The stall was in the first cookie-store round trip; the log cannot
-name the frame inside WebKit** (`setCookie` → `HTTPCookieStore::setCookies` → Networking-process
-launch), and this note does not pretend otherwise. Every call in §3's table is now bounded, so the
-next occurrence names itself (see §5).
+the failing run never printed. From the job log alone the frame inside WebKit
+(`setCookie` → `HTTPCookieStore::setCookies` → Networking-process launch) could not be named, only the
+call.
+
+**The next run named it, which is the point of the fix.** Run `43254656377` (the push that carries
+this change) met the same stall on the same runner and reported:
+
+```
+Test Case '-[…testClearingTheAuthCookieRemovesOnlyThisServersSessionCookie]' started.
+MattermostTests/T28TestSupport.swift:721: … : Test skipped - WebKit did not answer this test host:
+  `httpCookieStore.setCookie(MMAUTHTOKEN)` never completed in 15s, so this case could not be measured
+  on this run (not a product failure, and not a claim about the product). …
+Test Case '-[…testClearingTheAuthCookieRemovesOnlyThisServersSessionCookie]' skipped (15.011 seconds).
+```
+
+That is the first `setCookie`, exactly the inference above, measured on the runner instead of
+reasoned about — and it cost **15.0 s** instead of 300 s, on a step that stayed green.
 
 ## 4. The choice, after the measurement
 
@@ -223,18 +236,56 @@ fixture/entitlement skips, none of them this case).
 
 ## 9. Follow-ups, not done here
 
-* **The gate pass's `.xcresult` is not in the run's artifacts.** The upload step globs
-  `${{ runner.temp }}/dd/Logs/Test/*.xcresult`, and only the timing- and platform-pass bundles
-  survived to upload — so a gate hang today cannot be diagnosed from its hang sample. Filed as a card
-  rather than folded in here: it changes `.github/workflows/release.yml` on every push and deserves
-  its own run.
+* **The gate pass's `.xcresult` is not in the run's artifacts** (card `t_a4e133f6`). The upload step
+  globs `${{ runner.temp }}/dd/Logs/Test/*.xcresult`, and only the timing- and platform-pass bundles
+  survived to upload — so a gate hang today cannot be diagnosed from its hang sample. Filed rather
+  than folded in here: it changes `.github/workflows/release.yml` on every push and deserves its own
+  run.
+* **Four more gate-pass classes await a real WebKit store with no bound** (card `t_e687bad5`):
+  `T249bc296WebKitCookieIsolationTests` (4 cases), `AuthSessionTests` (2), `T31WebSessionHarvestTests`
+  (1), `ViewStoreTests`. Same exposure, same fix (`requireWebKitAnswer`), deliberately not in this
+  diff: four more files would bury the change this card is about.
 * The product call the case exercises (`WebKitSessionCookieClearing.clearAuthCookie`) is an unbounded
   `await` in the app too. It is not on the sign-out's critical path (sign-out proceeds either way) and
   the caller is async, so it is not a UI hang; unchanged here.
 
 ## 10. The real push
 
-This note lands with the fix; the run the push triggers is the evidence for the last requirement
-(the simulator leg's *Unit tests* step green on a real push). Its run id and step results are added
-in the follow-up docs commit that records them — this note does not claim a green leg before the leg
-has run.
+Run **`43254656377`** on commit **`c23d942`** (the fix commit, pushed straight to `origin/main`), log
+artifact `test-log-ios-simulator` / `13964588055`:
+
+| leg | job | steps |
+|---|---|---|
+| `test (ios-simulator)` | `131322688197` | *Toolchain* ✓, *Prove the gate scripts* ✓, *Resolve packages* ✓, **Unit tests ✓**, *Timing-sensitive tests (own process, required)* ✓, *Platform-service tests (reported, not certified here)* ✓, *Upload log* ✓, *Upload test diagnostics* ✓ |
+| `test (catalyst)` | `131322690716` | green |
+| `parity record (report mode)` | `131322689355` | green |
+| `tag and publish` | `131342500548` | success |
+
+Gate pass, from `ios-simulator.log`:
+
+```
+12487   Executed 2569 tests, with 14 tests skipped and 0 failures (0 unexpected) in 481.834 (632.670) seconds
+12511   ** TEST SUCCEEDED **
+```
+
+**The runner reproduced the stall in this very run**, and the case instead of reddening the leg:
+
+```
+8082  Test Case '-[…testClearingTheAuthCookieRemovesOnlyThisServersSessionCookie]' started.
+8083  …/MattermostTests/T28TestSupport.swift:721: … Test skipped - WebKit did not answer this test
+        host: `httpCookieStore.setCookie(MMAUTHTOKEN)` never completed in 15s …
+8084  Test Case '-[…testClearingTheAuthCookieRemovesOnlyThisServersSessionCookie]' skipped (15.011 seconds).
+```
+
+Of the 14 skips in the gate log, 13 are the suite's pre-existing fixture/entitlement skips
+(`MentionPollerTests`, `SelfSignedTrustTests`, `T44CCallsEngineTests`, `T53MediaTransportTests`,
+`T88LiveSlashTests`) and 1 is this case. So, said plainly: **on this run the case's claim was not
+certified** — the host's WebKit service never answered that first write, the case says so by name, and
+the platform-service pass (which reached WebKit later in its own process) was green. The claim is
+asserted in full whenever WebKit answers, which it did on the same leg of run 202 and on this Mac
+(§2, §7).
+
+One infrastructure note, because it looks like a failure and is not: the first attempt at this job
+(`131309593525`) was **cancelled** after 15 min with the annotation *"The job was not acquired by
+Runner of type hosted even after multiple attempts"* (macOS arm64 capacity). Nothing ran and nothing
+failed; the re-run of the same commit is the run reported above.
