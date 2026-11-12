@@ -103,9 +103,11 @@ final class ViewStoreTests: XCTestCase {
     /// cookie jars, so each can hold a different signed-in user at the same time.
     ///
     /// These are the only real-store calls in this class, so all three are bounded and named with
-    /// the 15 s hang detector (t_e687bad5): the write, then one `getAllCookies` per jar. A host whose
+    /// the hang detector (t_e687bad5): the write, then one `getAllCookies` per jar. A host whose
     /// WebKit Networking service never comes up skips the case naming the call instead of burning the
-    /// 300 s allowance unlabelled; a host that answers runs the two assertions below unchanged.
+    /// 300 s allowance unlabelled; a host that answers runs the two assertions below unchanged. The
+    /// write is the class's cold call — it starts both stores' Networking service — so it gets the
+    /// cold-store window (60 s; `WebKitAnswerWindow`, card `t_efd0a2ad`), not the 15 s ambient one.
     func testAuthCookiesDoNotLeakBetweenServers() async throws {
         let store = ViewStore()
         let work = store.ensureStore(for: makeServer(name: "Community (work)"))
@@ -121,7 +123,8 @@ final class ViewStoreTests: XCTestCase {
         ]))
         let workStore = work.webView.configuration.websiteDataStore.httpCookieStore
         let personalStore = personal.webView.configuration.websiteDataStore.httpCookieStore
-        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)") {
+        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)",
+                                      timeout: WebKitAnswerWindow.coldStore) {
             await workStore.setCookie(cookie)
         }
 

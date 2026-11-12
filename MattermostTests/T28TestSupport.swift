@@ -597,6 +597,41 @@ private final class AnswerBox<Value>: @unchecked Sendable {
     var value: Value?
 }
 
+/// The two windows this repo waits with (card `t_efd0a2ad`), named so a call site says **which**
+/// cost it is paying for instead of leaving a reader to guess at a bare number.
+///
+/// `ambient` is the detector for a call WebKit's Networking service is already up for — the common
+/// case, measured at 0.001–1.7 s on the hosted runner.
+///
+/// `coldStore` is the detector for the **one** call that starts that service for a fresh
+/// per-server `WKWebsiteDataStore`. Measured on the hosted 3-vCPU runner (`macos-26`), per call, not
+/// inferred from a case total:
+///
+/// | run | call | elapsed |
+/// | --- | --- | --- |
+/// | `43304994377` | `T31WebSessionHarvestTests` seed `setCookie(MMAUTHTOKEN)` | 13.991 s |
+/// | `43304994377` | `ViewStoreTests` `setCookie(MMAUTHTOKEN)` | 4.092 s |
+/// | `43304994377` | `T31SSOViewModelTests` `setCookie(MMAUTHTOKEN)` | skipped at the 15 s window |
+/// | `43315247724` | `T249bc296…` `install(MMUSERID,MMCSRF,MMAUTHTOKEN)` (next case) | **38.330 s** |
+/// | `43315247724` | `T249bc296…` `install(MMAUTHTOKEN,MMCSRF)` (previous case) | silent past 120 s |
+/// | `43315247724` | `AuthSessionTests` `setCookie(MMAUTHTOKEN)` ×2 | 1.501 s, 1.398 s |
+/// | `43315247724` | `T31SSOViewModelTests` / harvest / `ViewStoreTests` writes | 0.107 / 0.008 / 0.818 s |
+///
+/// So the runner has three modes, not one: fast (milliseconds), **slow but alive** (4–38 s) and
+/// **never** (past 120 s). A 15 s window cuts through the middle of the alive mode — on run
+/// `43315247724` one case answered its cold write at 38.330 s immediately after its neighbour had
+/// given up, so a 15 s window would have thrown away 23 s of healthy work and skipped a case that
+/// passes. 60 s keeps **1.57× headroom over the slowest answered call measured**, is 4.3× the
+/// 13.991 s one, and is still 5× better than the 300 s XCTest allowance; a call that never comes
+/// back still skips at 60 s and names itself. If the alive mode ever exceeds 60 s, that is a new
+/// measurement, and `docs/releasing.md` records the numbers rather than an intuition.
+enum WebKitAnswerWindow {
+    /// A call WebKit already has a Networking service for (measured 0.001–1.7 s on the runner).
+    static let ambient: TimeInterval = 15
+    /// The call that starts WebKit's Networking service for a fresh per-server store.
+    static let coldStore: TimeInterval = 60
+}
+
 /// Await one WebKit call with a **hang detector** (card t_a5321d5e).
 ///
 /// Why this exists: `WKWebsiteDataStore` / `WKHTTPCookieStore` are XPC-backed. On a host where
@@ -614,14 +649,11 @@ private final class AnswerBox<Value>: @unchecked Sendable {
 ///
 /// - Parameter call: how the call is named in a skip (`"httpCookieStore.setCookie(MMAUTHTOKEN)"`),
 ///   so the log says which `await` did not answer instead of "the test hung".
-///
-/// t_efd0a2ad probe (temporary — removed by the decision commit): every call logs its own elapsed
-/// time, because the case line alone cannot say whether a 14 s case spent that time in its
-/// `setCookie` or in the read after it. The default window is temporarily 120 s so a call that
-/// answers late is *measured* instead of being reported as silent at 15 s.
+/// - Parameter timeout: `WebKitAnswerWindow.ambient` by default; a call that starts WebKit's service
+///   for a fresh store passes `WebKitAnswerWindow.coldStore` (see that type for the measurements).
 @MainActor
 func withWebKitAnswer<Value>(_ call: String,
-                             timeout: TimeInterval = 120,
+                             timeout: TimeInterval = WebKitAnswerWindow.ambient,
                              _ work: @escaping @MainActor () async -> Value) async -> BoundedAnswer<Value> {
     let started = Date()
     let race = AnswerRace()
@@ -639,12 +671,14 @@ func withWebKitAnswer<Value>(_ call: String,
             if race.claim() { continuation.resume(returning: false) }
         }
     }
-    NSLog("%@", String(format: "WEBKITPROBE %@ %@ %.3f s (window %.0f s, uptime %.3f s)",
-                       answered ? "answered" : "silent",
-                       call,
-                       Date().timeIntervalSince(started),
-                       timeout,
-                       ProcessInfo.processInfo.systemUptime))
+    let elapsed = Date().timeIntervalSince(started)
+    // One line when the wait was long or ended in silence: that is the evidence for the two windows
+    // above, and for a case that passed slowly. A fast call stays quiet, so a normal gate log gains
+    // nothing (card t_efd0a2ad).
+    if !answered || elapsed >= 1 {
+        NSLog("%@", String(format: "WEBKITBOUND %@ %@ after %.3f s (window %.0f s)",
+                           answered ? "answered" : "silent", call, elapsed, timeout))
+    }
     guard answered, let value = box.value else { return .silent(after: timeout) }
     return .answered(value)
 }
@@ -655,12 +689,19 @@ func withWebKitAnswer<Value>(_ call: String,
 /// so the sentence a reader sees in the log cannot drift between them. The `await` is named in
 /// backticks on purpose: it is the only part of the message that changes per call site, and it is
 /// what makes a silent run diagnosable without opening a bundle.
+///
+/// The window is quoted as the one that actually fired, which since card `t_efd0a2ad` can be either
+/// `WebKitAnswerWindow.ambient` (15 s) or `.coldStore` (60 s) — so "never completed in 60s" on a
+/// cold write reads as *the call that starts this store's WebKit service never came back*, not as
+/// "the detector is now a minute long".
 private func webKitSilenceSkip(_ call: String, after: TimeInterval) -> XCTSkip {
     XCTSkip("""
     WebKit did not answer this test host: `\(call)` never completed in \(Int(after))s, so this \
     case could not be measured on this run (not a product failure, and not a claim about the \
-    product). The hosted simulator refuses WebKit's helper services intermittently — see \
-    docs/releasing.md, "Three passes, and why they are three".
+    product). That number is this call's hang detector, not a latency budget \
+    (`WebKitAnswerWindow`): a call that answers is waited for at its own cost. The hosted \
+    simulator refuses WebKit's helper services intermittently — see docs/releasing.md, "Three \
+    passes, and why they are three".
     """)
 }
 
@@ -739,7 +780,7 @@ extension XCTestCase {
     /// `await` so the next reader does not have to guess which call stalled (card t_a5321d5e).
     @MainActor
     func requireWebKitAnswer<Value>(_ call: String,
-                                    timeout: TimeInterval = 120,  // t_efd0a2ad probe: temporary
+                                    timeout: TimeInterval = WebKitAnswerWindow.ambient,
                                     _ work: @escaping @MainActor () async -> Value) async throws -> Value {
         switch await withWebKitAnswer(call, timeout: timeout, { await work() }) {
         case .answered(let value):
@@ -759,7 +800,7 @@ extension XCTestCase {
     /// the error" or "keep the error and hang for 300 s", and the second is the defect.
     @MainActor
     func requireWebKitAnswerOrThrow<Value>(_ call: String,
-                                           timeout: TimeInterval = 120,  // t_efd0a2ad probe: temporary
+                                           timeout: TimeInterval = WebKitAnswerWindow.ambient,
                                            _ work: @escaping @MainActor () async throws -> Value) async throws -> Value {
         let attempt = await withWebKitAnswer(call, timeout: timeout) { () -> Result<Value, Error> in
             do {

@@ -25,11 +25,16 @@ import XCTest
 // t_e687bad5 — every `await` in this file that crosses WebKit's XPC boundary is bounded and named.
 // The calls that can stall are the installer's writes and reads, `allCookies`, the production
 // diagnostics reader / sign-out clearer / session reader, and the cleanup `removeData`. Each is
-// awaited through `requireWebKitAnswer` (15 s hang detector, `T28TestSupport`): an answer is
+// awaited through `requireWebKitAnswer` (a hang detector, `T28TestSupport`): an answer is
 // returned at its own cost, and a host whose WebKit Networking service never comes up **skips** the
 // case naming the call instead of burning the 300 s allowance and reddening the gate unlabelled
 // (run `43240373846` — `docs/t_a5321d5e-build-note.md`). The wipe is best-effort
 // (`withWebKitAnswer`, result ignored) so a silent host cannot red a case after its assertions ran.
+//
+// The seed write in `seed(_:in:)` is the one call in each case that starts that store's WebKit
+// service, so it carries the 60 s cold-store window; everything after it stays on the 15 s ambient
+// detector. Measured on the hosted runner (card `t_efd0a2ad`): that call answers at 38.330 s in one
+// case and never answers in the next, so a single 15 s window cannot tell the two apart.
 //
 // Two things deliberately stay outside the wrapper:
 //
@@ -72,10 +77,16 @@ final class T249bc296WebKitCookieIsolationTests: XCTestCase {
     /// start the store's Networking service, so they are the most likely of all of these to be the
     /// one that never comes back. Silence is a skip naming the installer, not a hang: the assertions
     /// below cannot mean anything against a store that was never seeded.
+    ///
+    /// The window is the **cold-store** one (60 s), not the 15 s ambient detector: this is the call
+    /// that starts WebKit's Networking service for a fresh per-server store, and on the hosted runner
+    /// it is measured at 38.330 s when it answers at all (run `43315247724`; see
+    /// `WebKitAnswerWindow`, card `t_efd0a2ad`).
     @MainActor
     private func seed(_ cookies: [HTTPCookie], in store: WKWebsiteDataStore) async throws {
         let notStored = try await requireWebKitAnswer(
-            "WebSessionCookieInstaller.install(\(cookies.map(\.name).joined(separator: ",")))"
+            "WebSessionCookieInstaller.install(\(cookies.map(\.name).joined(separator: ",")))",
+            timeout: WebKitAnswerWindow.coldStore
         ) {
             await WebSessionCookieInstaller(dataStore: store).install(cookies)
         }

@@ -452,11 +452,14 @@ final class T31SSOViewModelTests: XCTestCase {
     /// in, and this one never logged it at all, so what stalled was the first crossing of the
     /// boundary: the two `setCookie` writes.
     ///
-    /// So each call is now awaited through `requireWebKitAnswer`, which gives it a 15 s hang
-    /// detector and, if it never comes back, skips the case naming that call. A silent host can no
-    /// longer spend five minutes and red the leg without saying why; a host that answers runs the
-    /// four assertions below exactly as before. Nothing about the claim is relaxed, removed or
-    /// moved into another pass.
+    /// So each call is now awaited through `requireWebKitAnswer`, which bounds it and, if it never
+    /// comes back, skips the case naming that call. The **first** write is the one that starts this
+    /// store's WebKit service, so it gets the cold-store window (60 s) and the second the 15 s
+    /// ambient one — on the hosted runner a cold write is measured at up to 38.330 s when it answers,
+    /// so a 15 s window on this call skipped cases that pass (card `t_efd0a2ad`,
+    /// `WebKitAnswerWindow`). A silent host can no longer spend five minutes and red the leg without
+    /// saying why; a host that answers runs the four assertions below exactly as before. Nothing
+    /// about the claim is relaxed, removed or moved into another pass.
     func testClearingTheAuthCookieRemovesOnlyThisServersSessionCookie() async throws {
         let serverID = UUID()
         let otherServerID = UUID()
@@ -469,7 +472,8 @@ final class T31SSOViewModelTests: XCTestCase {
         let unrelated = try XCTUnwrap(HTTPCookie(properties: [
             .name: "MMCSRF", .value: "csrf-1", .domain: "mm.example.com", .path: "/"
         ]))
-        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)") {
+        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)",
+                                      timeout: WebKitAnswerWindow.coldStore) {
             await dataStore.httpCookieStore.setCookie(auth)
         }
         try await requireWebKitAnswer("httpCookieStore.setCookie(MMCSRF)") {

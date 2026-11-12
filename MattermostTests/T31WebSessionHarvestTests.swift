@@ -293,6 +293,12 @@ final class T31WebSessionHarvestTests: XCTestCase {
     /// through `requireWebKitAnswerOrThrow` — its own error still propagates unchanged, and only a
     /// call that never comes back becomes a skip naming the call. The wipe is best effort: nothing
     /// below asserts on it, and a silent host must not red the case after its claims have run.
+    ///
+    /// The seed write is the cold call — it starts this store's WebKit service — so it is the one
+    /// with the cold-store window (60 s). Measured on the hosted runner: 13.991 s on run
+    /// `43304994377` and 38.330 s for the same shape of call on run `43315247724`
+    /// (`WebKitAnswerWindow`, card `t_efd0a2ad`); the restore after it stays on the 15 s ambient
+    /// detector, because by then WebKit is up.
     func testTheProductionReaderFindsTheSessionInTheServersOwnWebsiteDataStore() async throws {
         let serverID = UUID()
         let dataStore = WKWebsiteDataStore(forIdentifier: serverID)
@@ -303,7 +309,8 @@ final class T31WebSessionHarvestTests: XCTestCase {
             .path: "/",
             .expires: Date().addingTimeInterval(3600),
         ]))
-        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)") {
+        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)",
+                                      timeout: WebKitAnswerWindow.coldStore) {
             await dataStore.httpCookieStore.setCookie(auth)
         }
         defer {

@@ -84,6 +84,77 @@ final class TA5321d5eBoundedWaitTests: XCTestCase {
         XCTAssertEqual(value, "landed")
     }
 
+    // MARK: - t_efd0a2ad — two windows, and the runner measurement behind the cold one
+
+    /// The ambient window stays where t_a5321d5e put it. A call WebKit's Networking service is
+    /// already up for is measured in milliseconds on every host (0.001–1.7 s on the runner), so
+    /// widening this one would buy nothing and would turn the detector into a latency budget.
+    func testTheAmbientWindowStaysAFifteenSecondDetector() {
+        XCTAssertEqual(WebKitAnswerWindow.ambient, 15,
+                       "the ambient window is unchanged; only the call that starts WebKit's service is widened")
+    }
+
+    /// The cold window's whole justification is a measurement, so the control pins both ends of it:
+    ///
+    /// * **wider than the slowest call that answered.** 38.330 s — `T249bc296WebKitCookieIsolationTests`
+    ///   `install(MMUSERID,MMCSRF,MMAUTHTOKEN)` on run `43315247724`, the case that passed at 40.231 s
+    ///   while its *neighbour* had just gone silent; the sibling measurement is the harvest case's
+    ///   13.991 s on run `43304994377`. A window at or below 38.330 s skips cases whose cold write
+    ///   answers, which is coverage traded for a bounded wait.
+    /// * **still 5× better than the allowance it replaces.** 300 s is what a silent call used to cost
+    ///   the leg (as a red one); the window must not drift toward it.
+    func testTheColdStoreWindowCoversTheSlowestAnsweredColdWriteAndStaysFiveTimesUnderTheAllowance() {
+        XCTAssertGreaterThan(WebKitAnswerWindow.coldStore, 38.330,
+                             "60 s must clear the slowest cold write measured on the runner (38.330 s, run 43315247724)")
+        XCTAssertLessThanOrEqual(WebKitAnswerWindow.coldStore, 300 / 5,
+                                 "the window replaces a 300 s allowance and must stay 5× better than it")
+        XCTAssertEqual(WebKitAnswerWindow.coldStore, 60, "the chosen number, so a silent edit is visible")
+    }
+
+    /// The cold window is a detector too: a call that answers is returned at its own cost. The 1 s
+    /// answer below must not be held to the 60 s window — that is the difference between a detector
+    /// and a budget, and it is the property the widening must not break.
+    func testAColdCallThatAnswersIsReturnedAtItsOwnCostNotAtTheColdWindow() async {
+        let started = Date()
+        let outcome = await withWebKitAnswer("setCookie(answered in 1s)",
+                                             timeout: WebKitAnswerWindow.coldStore) {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            return "kept"
+        }
+        let elapsed = Date().timeIntervalSince(started)
+
+        guard case .answered(let value) = outcome else {
+            return XCTFail("a call that answered in 1 s was reported as \(outcome)")
+        }
+        XCTAssertEqual(value, "kept")
+        XCTAssertLessThan(elapsed, 5,
+                          "a 1 s answer inside a 60 s window must come back in ~1 s, not at the window")
+    }
+
+    /// A silent cold call still **skips**, and the sentence quotes *that call's* number — so
+    /// "never completed in 60s" on a cold write reads as "this store's WebKit service never came
+    /// up", and "never completed in 15s" on a read reads as the ambient detector. Two seconds here
+    /// instead of sixty: the wording, not the duration, is what is under test.
+    func testASilentColdCallSkipsNamingTheCallAndItsOwnWindow() async {
+        do {
+            _ = try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)", timeout: 2) {
+                await self.neverAnswering()
+                return ()
+            }
+            XCTFail("a silent call must not let the case pass as if it had asserted")
+        } catch let skip as XCTSkip {
+            let message = skip.message ?? ""
+            XCTAssertTrue(message.contains("`httpCookieStore.setCookie(MMAUTHTOKEN)`"),
+                          "the skip must name the await: \(message)")
+            XCTAssertTrue(message.contains("never completed in 2s"),
+                          "the skip must quote the window that actually fired: \(message)")
+            XCTAssertTrue(message.contains("hang detector, not a latency budget"),
+                          "the skip must not read as a latency budget: \(message)")
+        } catch {
+            XCTFail("expected an XCTSkip for a silent host, got \(error)")
+        }
+    }
+
     // MARK: - t_e687bad5 — the throwing sibling, driven by the names the new files use
 
     /// The skip path, through the exact call name two of the newly bounded gate-pass files use

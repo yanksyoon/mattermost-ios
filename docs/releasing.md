@@ -250,11 +250,13 @@ classification, while the same case takes **0.385 s** on a Mac and passed on the
 run 202. Its first cookie write never came back: on a healthy host that one call is 306 ms of the
 case's 341 ms because it is what starts WebKit's Networking service, and the failing run never
 logged that start at all (see `docs/t_a5321d5e-build-note.md` §3). It **stays in the gate pass**,
-and every WebKit `await` in it now goes through `requireWebKitAnswer` (15 s hang detector,
+and every WebKit `await` in it now goes through `requireWebKitAnswer` (a hang detector,
 `T28TestSupport`): an answer is waited for at its own cost — the bounded case measures 0.371 s —
 and a call that never comes back **skips** the case naming it, with a message starting
 "WebKit did not answer this test host: `httpCookieStore.setCookie(MMAUTHTOKEN)` never completed in
-15s". A skip, not a failed assertion, is the established answer to a host missing a service
+60s". The number quoted there is the window that call was given: 60 s for the write that starts a
+fresh store's WebKit service, 15 s for every call after it (see **Two windows, after a measurement**
+below). A skip, not a failed assertion, is the established answer to a host missing a service
 (`CertTrustTests` and the Keychain entitlement, `T53MediaTransportTests` and its fixtures); the
 assertion set is unchanged, and nothing about the claim moved into another pass. If the silence
 ever becomes the norm rather than an exception, moving the case into the platform pass is the
@@ -271,7 +273,52 @@ same helpers and name each one (`httpCookieStore.setCookie(MMAUTHTOKEN)`, `httpC
 which rethrows the call's own error and skips only when nothing came back — so bounding a wait never
 converts a product assertion into an environment excuse. Cleanup wipes stay best effort. No assertion
 changed and no class moved; the per-call names and the controls are in
-`docs/t_e687bad5-build-note.md`.
+`docs/t_e687bad5-build-note.md`. The window those calls were given was revisited next — the call that
+starts a fresh store's WebKit service now gets its own, wider detector (below).
+
+### Two windows, after a measurement (card `t_efd0a2ad`)
+
+The 15 s window was chosen to bound a wait, not as a claim about WebKit's cost, and one run showed the
+two are not the same thing. Run `43304994377` (green) has the harvest case's cold write answering at
+**13.991 s** — 1.0 s under the window — and the SSO case skipping at 15.012 s. Whether those were
+"slow but alive" or "dead" could not be told apart from a case total, so the next push logged every
+bounded call (`WEBKITBOUND …`, one line per call that took ≥ 1 s or never answered) and raised the
+window to 120 s, far from the real cost. Run `43315247724`, leg `test (ios-simulator)`, per call:
+
+| call | elapsed |
+| --- | --- |
+| `T249bc296…` seed `install(MMAUTHTOKEN,MMCSRF)` (one case) | silent past 120 s → skipped, naming the call |
+| `T249bc296…` seed `install(MMUSERID,MMCSRF,MMAUTHTOKEN)` (the **next** case) | **38.330 s** — case passed at 40.231 s |
+| `T31WebSessionHarvestTests` seed write | 0.008 s (13.991 s on the run above) |
+| `AuthSessionTests` seed writes ×2 | 1.501 s, 1.398 s |
+| `T31SSOViewModelTests`, `ViewStoreTests` writes | 0.107 s, 0.818 s |
+| every call after a store's first write | 0.001–1.672 s |
+
+The same leg's probe (four fresh stores, first write / second write / read / wipe through the same
+helper) went silent for 120 s on its first three calls, then answered `removeData` in 0.715 s and every
+following store in 0.015–0.088 s. So the silence is a store whose WebKit service never starts, and the
+slow-but-alive mode is separate and real. On the same 3-vCPU runner under **Catalyst** the same calls
+never exceeded **0.240 s** — this is the simulator's WebKit service boot, not CPU starvation.
+
+Three modes, then, not one: fast (milliseconds), slow but alive (**4–38 s**) and never (**>120 s**). A
+15 s window cuts through the middle of the second mode: 38.330 s is 23 s beyond what the window would
+have waited, so that case would have been **skipped although it passes** — coverage traded for a bounded
+wait, on a plain green run. The choice (recorded in `MattermostTests/T28TestSupport.swift` as
+`WebKitAnswerWindow`) is **two windows**:
+
+| window | where | value |
+| --- | --- | --- |
+| `.ambient` | every call after that store's WebKit service is up | **15 s** (unchanged) |
+| `.coldStore` | the one call that starts it for a fresh per-server store — the first write in each real-store case | **60 s** |
+
+60 s is **1.57×** the slowest *answered* cold write measured (38.330 s), 4.3× the 13.991 s one, and still
+5× better than the 300 s allowance a skip replaces; a call that never comes back skips either way, now
+naming itself after 60 s instead of 15. Controls pin both ends (`TA5321d5eBoundedWaitTests`: ambient
+stays 15 s; cold stays 60 s, above 38.330 s and at or under 300/5) and re-prove the detector property on
+the wide window (a 1 s answer inside 60 s still returns in ~1 s). One `WEBKITBOUND` line is written for
+any call that took ≥ 1 s or never answered, so the margin is visible on every gate log instead of only in
+this table. Nothing moved between passes and no assertion changed; the full distribution and the
+before/after logs are in `docs/t_efd0a2ad-build-note.md`.
 
 ### Where a hung gate's stack lives: one result bundle per pass
 

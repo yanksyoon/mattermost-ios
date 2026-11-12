@@ -315,7 +315,10 @@ final class AuthSessionTests: XCTestCase {
         ]))
         let storeA = WKWebsiteDataStore(forIdentifier: serverA)
         let url = serverURL
-        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)") {
+        // The cold-store window: this write starts WebKit's Networking service for a fresh store,
+        // and on the runner it is measured at up to 38.330 s when it answers (`WebKitAnswerWindow`).
+        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)",
+                                      timeout: WebKitAnswerWindow.coldStore) {
             await storeA.httpCookieStore.setCookie(cookie)
         }
 
@@ -361,7 +364,8 @@ final class AuthSessionTests: XCTestCase {
             .name: "MMAUTHTOKEN", .value: "sso-token-end-to-end",
             .domain: "mm.example.com", .path: "/"
         ]))
-        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)") {
+        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)",
+                                      timeout: WebKitAnswerWindow.coldStore) {
             await store.httpCookieStore.setCookie(cookie)
         }
 
