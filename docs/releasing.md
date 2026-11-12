@@ -268,7 +268,7 @@ stack only reaches the run if the bundle it lives in is uploaded, and until t_a4
 sometimes was not: all three passes shared `-derivedDataPath "$RUNNER_TEMP/dd"` and let
 xcodebuild name their bundles under `dd/Logs/Test`, and that directory is a bounded store,
 not a record — writing a third bundle into one derived data removes the oldest (measured;
-`docs/t_a4e133f6-build-note.md` §3). On run `43240373846` the gate pass hung and wrote
+`docs/t_a4e133f6-build-note.md` §2). On run `43240373846` the gate pass hung and wrote
 `Test-Mattermost-2026.11.12_14-47-40-+0000.xcresult`, the log named it, and by the time the
 upload step ran `test-xcresult-ios-simulator` (`13956831755`) held only the *timing* and
 *platform* bundles. A hang in the gate pass was undiagnosable from the run.
