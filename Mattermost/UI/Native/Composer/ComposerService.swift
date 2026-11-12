@@ -53,6 +53,16 @@ protocol ComposerServing: AnyObject {
                         channelID: String,
                         teamID: String?,
                         rootID: String?) async throws -> ComposerCommandResponse
+
+    /// Whether this line has to bypass `/commands/execute` for the Apps framework.
+    ///
+    /// Upstream asks two questions before it executes anything (`app/actions/remote/command.ts:
+    /// 48-54`): is the framework switched on, and is this line one of an app's bindings. The answer
+    /// decides the endpoint, so it belongs on the service — but it is allowed to fail *quietly*:
+    /// every failure means "no app commands", which sends the line down the ordinary path (the way
+    /// upstream behaves on a server with no apps bindings). A command must never be refused because
+    /// the apps question could not be answered.
+    func appsPosture(channelID: String, teamID: String?, userID: String) async -> ComposerAppsPosture
 }
 
 extension ComposerServing {
@@ -71,6 +81,12 @@ extension ComposerServing {
     /// *execute* call has no default: a composer that believes it ran a command it never sent is
     /// worse than one that does not compile.
     func commands(teamID: String) async throws -> [MMCommand] { [] }
+    /// A service that cannot answer the apps question sends every command down the ordinary path —
+    /// which is what upstream does on a server with no apps bindings, so this default is the honest
+    /// one and not a stub.
+    func appsPosture(channelID: String, teamID: String?, userID: String) async -> ComposerAppsPosture {
+        .unavailable
+    }
 }
 
 /// The production implementation: the session's own `APIClient`, resolved **per call** so a composer
@@ -199,4 +215,40 @@ final class SessionComposerService: ComposerServing {
                                        rootId: rootID.flatMap { $0.isEmpty ? nil : $0 })
         return try await client().executeCommand(body)
     }
+
+    /// The apps question, asked exactly the way upstream asks it — and swallowed exactly the way
+    /// upstream swallows it.
+    ///
+    /// 1. `FeatureFlagAppsEnabled` from `/config/client`. `false` (or unreadable) ends it: this
+    ///    server cannot have app commands, and the line goes to `/commands/execute`.
+    /// 2. The `command` bindings from the apps runtime. This is the step that 404s on a server
+    ///    without the apps plugin (measured), and a 404 there is not a failure — it is "no app
+    ///    commands". Upstream's `AppsManager.handleError` does the same thing for the same reason:
+    ///    it turns `enabled` off and lets commands run the ordinary way.
+    ///
+    /// One read per command-send, cached for the life of this service object: bindings are a
+    /// per-channel document a plugin reload changes, and the cache dies with the composer that owns
+    /// it (a channel switch rebuilds the composer), so a stale answer cannot outlive the screen.
+    func appsPosture(channelID: String, teamID: String?, userID: String) async -> ComposerAppsPosture {
+        if let cached = cachedAppsPosture { return cached }
+        guard let client = resolve() else { return .unavailable }
+        guard let enabled = try? await client.clientConfigFlag("FeatureFlagAppsEnabled"),
+              enabled else {
+            cachedAppsPosture = .unavailable
+            return .unavailable
+        }
+        let labels = (try? await client.appsCommandLabels(userID: userID,
+                                                          channelID: channelID,
+                                                          teamID: teamID)) ?? []
+        let posture = ComposerAppsPosture(isEnabled: true, commandLabels: labels)
+        cachedAppsPosture = posture
+        return posture
+    }
+
+    /// The apps answer, kept for the life of **this** service — which is one composer (the
+    /// coordinators build a fresh service per composer), so a channel switch re-asks and a plugin
+    /// installed mid-session is seen on the next composer rather than never. A failed read is
+    /// cached too, deliberately: an apps plugin that is down must not put two extra requests in
+    /// front of every command the reader sends.
+    private var cachedAppsPosture: ComposerAppsPosture?
 }

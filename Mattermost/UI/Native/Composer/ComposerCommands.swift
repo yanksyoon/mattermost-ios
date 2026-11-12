@@ -215,17 +215,42 @@ enum ComposerSlashCommand {
 /// `channel_id` is required (the server checks the caller's permission against it); `team_id` and
 /// `root_id` are optional and only sent when known, because an empty string is *not* the same as
 /// "absent" to the server's argument parser.
+///
+/// **`parent_id` is sent beside `root_id`, with the same value** — upstream's `executeCommand`
+/// (`app/actions/remote/command.ts:41-46`) builds `{channel_id, team_id, root_id: rootId,
+/// parent_id: rootId}` from one argument. The two are not redundant on the server: `CommandArgs`
+/// carries both, and a plugin reads `args.ParentId` to know which thread the command was typed in
+/// (kanban t_08826621 measured that a *custom* HTTP integration never sees either id — the server
+/// forwards `channel_id`, `team_id`, `channel_name`, `team_domain`, `response_url`, `text`, `token`,
+/// `trigger_id`, `user_id`, `user_name` and nothing else — while plugin commands get the whole
+/// `CommandArgs`). Sending it is parity, and it costs one key.
 struct ComposerCommandBody: Encodable, Equatable, Sendable {
     var command: String
     var channelId: String
     var teamId: String?
     var rootId: String?
+    var parentId: String?
 
     enum CodingKeys: String, CodingKey {
         case command
         case channelId = "channel_id"
         case teamId = "team_id"
         case rootId = "root_id"
+        case parentId = "parent_id"
+    }
+
+    /// `parentId` defaults to `rootId`, which is what upstream sends. Callers that predate the
+    /// field keep compiling and immediately gain the key; nothing else can make the two disagree.
+    init(command: String,
+         channelId: String,
+         teamId: String? = nil,
+         rootId: String? = nil,
+         parentId: String? = nil) {
+        self.command = command
+        self.channelId = channelId
+        self.teamId = teamId
+        self.rootId = rootId
+        self.parentId = parentId ?? rootId
     }
 }
 
@@ -266,6 +291,98 @@ struct ComposerCommandResponse: Decodable, Equatable, Sendable {
     /// The answer belongs to the reader alone: it is drawn as an ephemeral row, never as a message
     /// in the conversation.
     var isEphemeral: Bool { responseType == "ephemeral" }
+}
+
+// MARK: - Which endpoint a command belongs to
+
+/// What the server says about the Apps framework — the two facts upstream's split reads.
+///
+/// Upstream's `executeCommand` asks `AppsManager.isAppsEnabled(serverUrl)` and then
+/// `AppCommandParser.isAppCommand(message)` **before** it considers `POST /commands/execute`
+/// (`app/actions/remote/command.ts:48-54`). Both inputs are server answers, so the native client has
+/// to ask for the same two:
+///
+///  * `isEnabled` — `GET /config/client?format=old` → `FeatureFlagAppsEnabled`. Measured on the
+///    9.11.19 fixture: `true`, even though the Apps plugin itself is **not installed** (its routes
+///    404). The flag alone therefore does not mean an app command exists.
+///  * `commandLabels` — the `command`-location bindings from the Apps runtime
+///    (`GET /plugins/com.mattermost.apps/api/v1/bindings`). An app command is recognised by its
+///    binding's **label**, never by the trigger list: app commands are not registered as slash
+///    commands at all, which is why `/commands/execute` is the wrong endpoint for them.
+struct ComposerAppsPosture: Equatable, Sendable {
+    var isEnabled: Bool
+    /// The labels as the runtime returned them (`/gif`, or `gif` — both are normalised here).
+    var commandLabels: [String]
+
+    /// Apps off, or bindings unreadable: every command is a `/commands/execute` command.
+    static let unavailable = ComposerAppsPosture(isEnabled: false, commandLabels: [])
+
+    init(isEnabled: Bool, commandLabels: [String]) {
+        self.isEnabled = isEnabled
+        self.commandLabels = commandLabels.compactMap { label in
+            let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            return trimmed.hasPrefix("/") ? trimmed : "/" + trimmed
+        }
+    }
+}
+
+/// Where one typed line has to go.
+enum ComposerCommandDestination: Equatable, Sendable {
+    /// `POST /commands/execute` — built-ins, custom integrations, plugin commands.
+    case execute
+    /// The Apps framework's call cycle, identified by the binding that claimed the line.
+    case app(binding: String)
+}
+
+/// Upstream's `AppCommandParser.isAppCommand`, reduced to the one rule it is.
+///
+/// The rule is not "the trigger matches a binding" — it is
+///
+///     command.startsWith(binding.label + ' ')
+///
+/// (`app_command_parser.ts:1526-1543`), i.e. **an app command is only recognised once it has an
+/// argument**. `/gif` on its own is therefore *not* an app command even on a server with the GIF app
+/// bound; it goes to `/commands/execute` like any other line, and only `/gif cats` takes the apps
+/// path. That is upstream's behaviour, verbatim, and it is worth knowing before anyone "fixes" it.
+enum ComposerCommandRouting {
+
+    static func destination(for message: String,
+                            posture: ComposerAppsPosture) -> ComposerCommandDestination {
+        guard posture.isEnabled else { return .execute }
+        let line = message.lowercased()
+        // Longest label first: two apps can share a prefix, and the more specific binding owns the
+        // line. (Upstream returns the first match in binding order; ordering by length is the
+        // deterministic version of the same intent.)
+        let labels = posture.commandLabels.sorted { $0.count > $1.count }
+        for label in labels where line.hasPrefix(label.lowercased() + " ") {
+            return .app(binding: label)
+        }
+        return .execute
+    }
+
+    /// The sentence a reader sees when a line belongs to an app and this client cannot run it.
+    ///
+    /// **Invented copy, deliberately.** There is no upstream sentence for "the runtime is not
+    /// ported": upstream's `apps.error.*` strings all describe a call that failed, not a missing
+    /// runtime. What this replaces is worse — the line used to be posted to `/commands/execute`,
+    /// where an app command is not registered, so the reader got the server's "Command with a
+    /// trigger of 'x' not found" for a command the server *does* have (kanban t_08826621 §3).
+    /// `docs/t_61525849-s34-apps-forms-decision.md` §5 D2 records the Apps runtime as out of scope
+    /// for v1; this sentence is the honest stand-in until that changes.
+    static let appRuntimeUnavailable =
+        "That command is provided by an app, and this client cannot run app commands yet."
+
+    /// Whether an answer's `goto_location` should be followed.
+    ///
+    /// Upstream follows it for everything **except `/leave`** (`handle_send_message.ts:244`): the
+    /// link points back into the conversation the command just removed the reader from, so following
+    /// it can only fail (or bounce them straight back in). Measured on 9.11.19 with a stub
+    /// integration: the response carries `goto_location` and the socket delivers only the answer
+    /// text, so nothing navigates unless the client does it.
+    static func followsGotoLocation(_ command: String) -> Bool {
+        !command.lowercased().hasPrefix("/leave")
+    }
 }
 
 // MARK: - The per-team cache

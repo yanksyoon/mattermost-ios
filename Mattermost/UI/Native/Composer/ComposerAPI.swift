@@ -198,4 +198,77 @@ extension APIClient {
                        body: body,
                        notFoundKeepsServerMessage: true)
     }
+
+    /// One boolean out of `GET /config/client?format=old` — the public config the webapp itself
+    /// reads, and the only place `FeatureFlagAppsEnabled` is published.
+    ///
+    /// The answer is a **flat map of name → value** (`ApplicationSettings`, `ServiceSettings`…
+    /// flattened into one object) and a flag can arrive as a JSON boolean or as the string `"true"`,
+    /// depending on the field. Measured on 9.11.19: `FeatureFlagAppsEnabled` is `true` (boolean) on a
+    /// server whose Apps plugin is **not installed** — so this flag says "the framework is switched
+    /// on", never "an app command exists".
+    func clientConfigFlag(_ name: String) async throws -> Bool {
+        let raw = try await get([String: JSONValue].self,
+                                path: "/config/client",
+                                query: [URLQueryItem(name: "format", value: "old")],
+                                requiresAuth: false)
+        switch raw[name] {
+        case .bool(let flag): return flag
+        case .string(let text): return text.lowercased() == "true"
+        default: return false
+        }
+    }
+
+    /// `GET /plugins/com.mattermost.apps/api/v1/bindings` → the labels of the **command**-location
+    /// bindings: the only thing that can tell an app command from a slash command.
+    ///
+    /// Two facts about this route, both measured on 9.11.19 (kanban t_08826621):
+    ///
+    ///  * it lives under the apps plugin's own `/plugins/…` prefix, still inside `/api/v4`, so it
+    ///    goes through this same client (auth, trust, typed errors);
+    ///  * with the apps plugin absent it answers **404 `api.context.404.app_error`** — the route is
+    ///    not registered at all. That is not an error worth surfacing: no bindings means no app
+    ///    commands, which is exactly what `[]` says. `appsPosture` in `ComposerService` turns every
+    ///    failure into "no app commands", which is also what upstream does when its bindings fetch
+    ///    fails (`AppsManager.handleError` sets `enabled = false`).
+    ///
+    /// The response is a list of apps, each carrying its own `bindings` array (upstream's
+    /// `normalizeBindings` flattens exactly that). It is walked as raw JSON instead of decoded into
+    /// fixed types because the Apps protocol is explicitly out of scope here (S34 D2) and a shape
+    /// this client does not draw must not be able to throw on the send path.
+    func appsCommandLabels(userID: String,
+                           channelID: String,
+                           teamID: String?) async throws -> [String] {
+        var query = [URLQueryItem(name: "channel_id", value: channelID)]
+        if !userID.isEmpty { query.append(URLQueryItem(name: "user_id", value: userID)) }
+        if let teamID, !teamID.isEmpty { query.append(URLQueryItem(name: "team_id", value: teamID)) }
+        let answer = try await get([JSONValue].self,
+                                   path: "/plugins/com.mattermost.apps/api/v1/bindings",
+                                   query: query,
+                                   useETag: false)
+        var labels: [String] = []
+        func walk(_ value: JSONValue) {
+            switch value {
+            case .array(let items):
+                items.forEach(walk)
+            case .object(let object):
+                // An app group: `{app_id, bindings: [...]}`. Its own object is not a binding.
+                if let nested = object["bindings"] {
+                    walk(nested)
+                    return
+                }
+                if let location = object["location"], case .string(let place) = location,
+                   place.lowercased() != "command" {
+                    return
+                }
+                if let label = object["label"], case .string(let text) = label, !text.isEmpty {
+                    labels.append(text)
+                }
+            default:
+                break
+            }
+        }
+        walk(.array(answer))
+        return labels
+    }
 }

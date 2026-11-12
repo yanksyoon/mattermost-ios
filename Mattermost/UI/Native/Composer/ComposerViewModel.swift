@@ -160,6 +160,24 @@ final class ComposerViewModel: ObservableObject {
     /// response type, and a later screen (a plugin dialog, `goto_location`) has the payload without
     /// asking the server twice.
     @Published private(set) var lastCommandResponse: ComposerCommandResponse?
+    /// The server answered a command with a `trigger_id`: a plugin may now push an `open_dialog`
+    /// frame keyed by it, and the dialog may only be shown when the two ids match
+    /// (`app/managers/integrations_manager.ts:41-62`).
+    ///
+    /// The id leaves the composer through this closure and nowhere else — the composer must not
+    /// invent a dialog and must not hold app-level presentation state. **In this tree nothing
+    /// consumes it yet**: the presenter (`DialogCoordinator.noteTrigger`) is S34a, which is not on
+    /// this line (kanban t_08826621 records the gap and the card that ports it). Upstream stores the
+    /// id in `IntegrationsManager` for exactly this reason, so the corridor is the right shape even
+    /// while its far end is being built.
+    var onTriggerID: ((String) -> Void)?
+    /// A command's answer carried `goto_location`: the shell navigates to it.
+    ///
+    /// Bound by the pane coordinators to the app's `DeepLinkRouter`, so a server link opens the
+    /// channel it names (native shell or webview, whichever owns the pane) and a link that is not
+    /// this server's opens in the system browser. Upstream's `handleGotoLocation`
+    /// (`app/actions/remote/command.ts:135-163`) does the same two things.
+    var onGotoLocation: ((String) -> Void)?
     /// T4g: whether this channel admits a write at all, and if not, the sentence that says why.
     ///
     /// Starts `.open` and is re-derived from the server's own facts when the view appears and on
@@ -1007,8 +1025,12 @@ final class ComposerViewModel: ObservableObject {
             // A message that begins with `/` is a command (upstream `sendMessage`:
             // `value.indexOf('/') === 0 && !schedulingInfo` → `sendCommand`), so it is executed and
             // never posted. An edit is not a command: the box holds an existing post's text.
-            if let command = ComposerSlashCommand.command(in: body) {
-                await performCommand(command)
+            if ComposerSlashCommand.command(in: body) != nil {
+                // The line goes on as **typed**, not as the wire form: the apps question is asked about
+                // what the reader typed (upstream asks `isAppCommand(message)` on the raw input), and
+                // the wire form carries a trailing space that would make a bare `/gif` look like
+                // `/gif …` and be misread as an app command.
+                await performCommand(body)
             } else {
                 await performCreate(body: body)
             }
@@ -1017,7 +1039,7 @@ final class ComposerViewModel: ObservableObject {
 
     /// Run a slash command.
     ///
-    /// Three differences from `performCreate`, and each is a rule the card names:
+    /// Four differences from `performCreate`, and each is a rule the card names:
     ///  * **no optimistic row.** A pending row is a promise that a post exists; a command may answer
     ///    in the channel, answer to the reader alone, or not answer at all (`/leave`). Drawing one
     ///    and then withdrawing it is the "pending post row" the card forbids;
@@ -1027,16 +1049,48 @@ final class ComposerViewModel: ObservableObject {
     ///    `clearDraft`);
     ///  * **success clears the composer and the draft row**, because the line has been consumed by
     ///    the server — leaving it behind would make a second Send re-run `/leave` (upstream clears
-    ///    the draft on success only).
-    private func performCommand(_ command: String) async {
-        pendingCommand = .slash(command)
+    ///    the draft on success only);
+    ///  * **the answer's own instructions are obeyed**: a `trigger_id` leaves for the dialog
+    ///    presenter, and a `goto_location` navigates. Both are measured server answers (9.11.19) that
+    ///    the composer used to decode and drop.
+    ///
+    /// The line is classified **before** it is sent: an app command is not a slash command at all,
+    /// and posting it to `/commands/execute` is the one thing upstream never does for it
+    /// (`command.ts:48-54`).
+    ///
+    /// `typed` is the line as the reader wrote it (a retry re-passes the one it stored), so the apps
+    /// question sees what upstream's `isAppCommand(message)` sees; the wire form is built below.
+    private func performCommand(_ typed: String) async {
+        let line = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        let command = ComposerSlashCommand.normalized(line)
+        // Retryable, like a failed send: the reader may fix the line and send again, and a retry
+        // re-runs the same command (which re-asks the apps question).
+        pendingCommand = .slash(line)
         phase = .sending
+        if case .app(let binding) = await commandDestination(for: line) {
+            phase = .failed(ComposerCommandRouting.appRuntimeUnavailable)
+            MMLog.debug("MMComposer", "command belongs to app binding \(binding); the Apps runtime is not ported")
+            await saveDraftNow()
+            return
+        }
         do {
             let response = try await service.executeCommand(command,
                                                            channelID: channelID,
                                                            teamID: teamID,
                                                            rootID: mode.rootID.isEmpty ? nil : mode.rootID)
             lastCommandResponse = response
+            // A command may open a dialog: the id goes to the presenter now, and the dialog itself
+            // arrives on the socket. Only the matching pair is ever shown, which is why the id has
+            // to survive this call.
+            if !response.triggerID.isEmpty {
+                onTriggerID?(response.triggerID)
+            }
+            // `/leave` answers with a location too, and following it would drag the reader back into
+            // the channel the command just removed them from.
+            if !response.gotoLocation.isEmpty,
+               ComposerCommandRouting.followsGotoLocation(command) {
+                onGotoLocation?(response.gotoLocation)
+            }
             // The answer itself is a `posted`/`ephemeral_message` frame the pane draws; a command
             // that answered in the channel already has its row. Nothing is inserted from here.
             finishSuccessfully(note: nil)
@@ -1045,6 +1099,18 @@ final class ComposerViewModel: ObservableObject {
             // The words are the only copy of a command that may be worth fixing and retrying.
             await saveDraftNow()
         }
+    }
+
+    /// Where this line has to go: `POST /commands/execute`, or the Apps framework.
+    ///
+    /// The composer asks, but does not decide: the answer is two server facts
+    /// (`FeatureFlagAppsEnabled` and the `command` bindings), and a service that cannot read them
+    /// says "no app commands", which is what upstream behaves like on a server with no bindings.
+    private func commandDestination(for command: String) async -> ComposerCommandDestination {
+        let posture = await service.appsPosture(channelID: channelID,
+                                                teamID: teamID,
+                                                userID: myUserID ?? "")
+        return ComposerCommandRouting.destination(for: command, posture: posture)
     }
 
     private func performCreate(body: String, pendingID reuse: String? = nil) async {

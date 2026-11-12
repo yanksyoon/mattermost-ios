@@ -140,6 +140,11 @@ final class ThreadCoordinator: ObservableObject {
                                          emojiCatalogue: emojiCatalogue,
                                          typing: typingTransport(for: server),
                                          posting: postingPolicy(for: server))
+        // The same `goto_location` corridor as the channel composer's: borrowed from the panes'
+        // owner, because the router it feeds is app-level (`ChannelPaneCoordinator.openCommandLocation`).
+        composer.onGotoLocation = { [weak self] location in
+            self?.channelPanes?.openCommandLocation?(server, location)
+        }
         composer.beginReply(to: root, authorLabel: model.rootAuthorLabel)
         composers[server.id, default: [:]][key] = composer
         trackComposer(serverID: server.id, key: key)

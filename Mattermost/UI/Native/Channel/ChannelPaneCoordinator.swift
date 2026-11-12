@@ -83,6 +83,15 @@ final class ChannelPaneCoordinator: ObservableObject {
     /// then announces nothing.
     var typingSender: ((ServerConfig, String, String?) async -> Void)?
 
+    /// Where a command's `goto_location` goes: the app's `DeepLinkRouter`, which is the one place
+    /// that knows whether a link names a configured server (and how to open it natively or in the
+    /// webview). Bound in `MattermostApp.bindShellStores` like `typingSender`; unset in a host with
+    /// no shell (unit tests), where a command then simply does not navigate.
+    ///
+    /// It lives here rather than on each composer because the *router* is an app-level object: a
+    /// composer is per (channel, thread) and must not hold one.
+    var openCommandLocation: ((ServerConfig, String) -> Void)?
+
     /// t_e9550303: a pane posted its read cursor and the server answered.
     ///
     /// Bound in `MattermostApp.bindShellStores` to the sidebar's own clear and to the badge. It lives
@@ -356,6 +365,7 @@ final class ChannelPaneCoordinator: ObservableObject {
         let list = model(for: server, channelID: channelID, channelName: channelName)
         if let existing = composers[server.id]?[channelID] {
             existing.attach(sink: list)
+            wireCommandLocation(existing, server: server)
             return existing
         }
         let composer = ComposerViewModel(channelID: channelID,
@@ -367,8 +377,20 @@ final class ChannelPaneCoordinator: ObservableObject {
                                          emojiCatalogue: emojiCatalogue,
                                          typing: typingTransport(for: server),
                                          posting: postingPolicy(for: server))
+        wireCommandLocation(composer, server: server)
         composers[server.id, default: [:]][channelID] = composer
         return composer
+    }
+
+    /// A command answered with `goto_location`: hand it to the shell's router.
+    ///
+    /// Re-bound on every `composer(for:)` call (including the warm path) because `bindShellStores()`
+    /// runs more than once — an `onOpenURL` re-binds the stores — and a composer created before that
+    /// pass must not stay permanently unable to navigate.
+    private func wireCommandLocation(_ composer: ComposerViewModel, server: ServerConfig) {
+        composer.onGotoLocation = { [weak self] location in
+            self?.openCommandLocation?(server, location)
+        }
     }
 
     /// Drop one channel's composer (its draft is already on disk).

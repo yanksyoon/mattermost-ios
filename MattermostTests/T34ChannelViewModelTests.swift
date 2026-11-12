@@ -350,6 +350,40 @@ final class T34ChannelViewModelTests: XCTestCase {
         XCTAssertFalse(row?.blocks.isEmpty ?? true, "the answer's markdown was parsed")
     }
 
+    /// Every `extra_responses` entry is its own socket event, so all of them become rows.
+    ///
+    /// Measured on 9.11.19 with a stub integration (`scripts/t88_slash_stub.py`, command `/t88multi`):
+    /// a response carrying `extra_responses: [{ephemeral}, {in_channel}]` beside its own ephemeral
+    /// text arrives as **three** socket frames — two `ephemeral_message` and one `posted`. The client
+    /// never reads `extra_responses` and does not need to: it draws the frames. This test is what
+    /// holds that claim: two ephemeral rows and one ordinary post, in the order the server sent them.
+    func testTwoExtraResponsesAndTheirTextAllBecomeRows() async {
+        let service = FakeService(pageSize: 3, firstPages: [list([post("a", at: 1_000)])])
+        let model = model(service)
+        await model.load()
+
+        var first = post("e1", at: 2_000)
+        first.type = "system_ephemeral"
+        first.message = "t88 multi: first (ephemeral)"
+        var second = post("e2", at: 2_100)
+        second.type = "system_ephemeral"
+        second.message = "t88 multi: second (ephemeral)"
+        var third = post("p3", at: 2_200)
+        third.message = "t88 multi: third (in channel)"
+
+        XCTAssertEqual(model.handle(.ephemeralMessage(first)), .appended)
+        XCTAssertEqual(model.handle(.ephemeralMessage(second)), .appended)
+        XCTAssertEqual(model.handle(.posted(third)), .appended)
+
+        XCTAssertEqual(ids(model), ["a", "e1", "e2", "p3"])
+        let ephemeralRows = model.items.compactMap { item -> PostRowModel? in
+            guard case .post(let row) = item, row.isEphemeral else { return nil }
+            return row
+        }
+        XCTAssertEqual(ephemeralRows.map(\.id), ["e1", "e2"], "both answers are drawn, not just the first")
+        XCTAssertEqual(ephemeralRows.compactMap { $0.blocks.isEmpty ? nil : $0.id }, ["e1", "e2"])
+    }
+
     /// The two ways an ephemeral frame is not this timeline's: another channel, and a command run in
     /// a thread (a reply-shaped post belongs to the thread pane).
     func testAnEphemeralAnswerOutsideThisTimelineIsIgnored() async {

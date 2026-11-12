@@ -659,6 +659,25 @@ struct MattermostApp: App {
         channelPaneCoordinator.typingSender = { [weak teams = teamSidebarCoordinator] server, channelID, parentID in
             await teams?.sendTyping(for: server, channelID: channelID, parentID: parentID)
         }
+        // t_08826621: a slash command's answer can carry `goto_location` (measured on 9.11.19 with a
+        // stub integration: the response has it, the socket delivers only the answer text, so nothing
+        // moves unless the client moves). Upstream matches the location against **the server the
+        // command ran on** (`matchDeepLink(location, serverUrl, config.SiteURL)`) and hands a match to
+        // its deep-link handler; anything else — another host, no match — is opened outside the app.
+        // This is that split, with the app's one `DeepLinkRouter` as the matcher (the native shell and
+        // the webview are both reachable through it, so whichever owns the pane gets the route).
+        channelPaneCoordinator.openCommandLocation = { [weak router = deepLinkRouter] server, location in
+            let target = URL(string: location)
+            let sameHost = target?.host?.lowercased() == server.url.host?.lowercased()
+            if sameHost, let router, router.handle(location) != .ignored {
+                return
+            }
+            // Not this server's link: upstream's `tryOpenURL` — leave the app rather than guess a
+            // route. Only http(s) is opened; a `mattermost://` link to an unknown host is dropped.
+            guard let target, let scheme = target.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https" else { return }
+            UIApplication.shared.open(target)
+        }
         // t_e9550303: a pane's read cursor lands in exactly two places — the sidebar row (bold and dot)
         // and `SessionStore` (the badge). `ChannelReadApplication` is the one function that applies
         // both, so the three derived values move from the same server answer; the follow-up counter

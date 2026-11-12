@@ -1008,3 +1008,33 @@ files pin the upstream they derive from in their own headers.
 | mobile `app/components/post_draft/post_input/post_input.tsx:6, :292-298, :383-399` | Apache-2.0 | pasted files join the **same** `addFiles` pipeline as the picker; a paste error is surfaced, never swallowed |
 | mobile `app/components/post_draft/post_input/post_input.tsx:170` | Apache-2.0 | `disableCopyAndPaste = managedConfig.copyAndPasteProtection === 'true'` |
 | mobile `app/components/post_draft/post_input/post_input.tsx:50-68` | Apache-2.0 | the error dialog's copy (`mobile.files_paste.error_title` / `_description` / `_dismiss`), reused verbatim as the composer note's sentence |
+
+## 27. t_08826621 what a slash command's answer carries — upstream read set (Apache-2.0, mobile @ `162f2560…`)
+
+The command *surface* (the `/` list, the trigger parser, `POST /commands/execute`, the ephemeral row) is
+T4e's; this card fixed the **answer** path in `Mattermost/UI/Native/Composer/ComposerViewModel.swift`
+(`performCommand`), `ComposerCommands.swift` (`ComposerCommandBody.parent_id`,
+`ComposerAppsPosture`, `ComposerCommandRouting`), `ComposerService.swift` / `ComposerAPI.swift` (the
+apps question and the two new reads) and the two coordinators plus `MattermostApp.bindShellStores`
+(where `goto_location` leaves for). Nothing is copied or transpiled; each file pins what it derives
+from in its own header.
+
+| Upstream path (mobile @ `162f2560…`) | Used for |
+|---|---|
+| `app/actions/remote/command.ts:41-46` | the execute body: `{channel_id, team_id, root_id: rootId, parent_id: rootId}` — one argument, sent twice |
+| `app/actions/remote/command.ts:48-54` | the split **before** anything is sent: `AppsManager.isAppsEnabled` and `AppCommandParser.isAppCommand` decide whether the line is a slash command at all |
+| `app/actions/remote/command.ts:56-72` | the wire form: em dash → `--`, trigger lower-cased, one space, arguments trimmed (`/code` excepted) |
+| `app/actions/remote/command.ts:78-…` | a non-empty `trigger_id` is kept, not dropped — it is the key the dialog frame arrives with |
+| `app/hooks/handle_send_message.ts:244` | `goto_location` is followed **except** for a line starting with `/leave` |
+| `app/components/autocomplete/slash_suggestion/app_command_parser/app_command_parser.ts` (`isAppCommand`) | the trailing-space rule: a bare trigger is *not* an app command |
+| `app/managers/apps_manager.ts` (`isAppsEnabled`, `getBindings`, `handleError`) | a bindings fetch that fails means "no app commands", never a refused command |
+| `app/managers/integrations_manager.ts` | why the trigger id is kept: the dialog that arrives later is matched to it |
+
+Measured server contract (9.11.19, `scripts/t88_slash_plugin_probe.py` + `scripts/t88_slash_stub.py`;
+the stub is a throwaway HTTP integration on the dev host, not a third-party work): every plugin and
+custom command's answer carries a `trigger_id`, a built-in's is `""`; `goto_location` arrives in the
+answer only — the socket delivers the text and nothing else; `extra_responses` arrive as their own
+`ephemeral_message`/`posted` frames; `open_dialog` carries exactly the `trigger_id` the answer carried;
+a *custom* integration never sees `root_id`/`parent_id` (the server forwards its own fixed field set)
+while a plugin command gets the whole `CommandArgs`; and `FeatureFlagAppsEnabled` is `true` on a server
+whose Apps plugin is not installed at all (its bindings endpoint 404s).
