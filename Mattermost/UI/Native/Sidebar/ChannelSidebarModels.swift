@@ -130,6 +130,17 @@ struct ChannelSidebarEntry: Identifiable, Equatable, Sendable {
     /// Extra names the quick switcher matches on (a DM's username/nickname/full name, a GM's
     /// members). The display name and the channel name are matched as well, always.
     let searchTerms: [String]
+    /// Who the row is about — the other participant of a DM, every other participant of a GM, the
+    /// reader for a self-DM. Empty for a named channel, and empty for a DM/GM whose profiles this
+    /// load could not name (the row then keeps its glyph rather than inventing a face).
+    ///
+    /// `var` with a default so the member-wise initialiser keeps every existing call site compiling:
+    /// a row that says nothing about people is a row about a channel.
+    var directParticipants: [SidebarParticipant] = []
+    /// The presence of the DM's other participant, aged by `SidebarPresenceRules` at build time.
+    /// `.unknown` until the first read answers — which is *not* offline, and is drawn and spoken
+    /// accordingly. Meaningful only for a DM; a GM's composite carries no single status.
+    var presence: UserPresence = .unknown
 
     /// Whether the row is **bold** (the sidebar's unread emphasis).
     ///
@@ -158,6 +169,12 @@ struct ChannelSidebarEntry: Identifiable, Equatable, Sendable {
 
     var iconSymbolName: String { kind.symbolName }
 
+    /// Whether the row draws a person's face instead of a glyph — a DM or GM whose people this load
+    /// could name. A DM whose profile fetch failed keeps the glyph: initials need a name.
+    var showsDirectAvatar: Bool {
+        kind.isDirect && !directParticipants.isEmpty
+    }
+
     /// What VoiceOver reads after the channel name. The badge pill itself is decorative (its digits
     /// alone would read as a bare number).
     var accessibilityValue: String {
@@ -172,6 +189,14 @@ struct ChannelSidebarEntry: Identifiable, Equatable, Sendable {
             parts.append("Unread")
         }
         if isFavorite { parts.append("Favorite") }
+        // The presence word rides the row's value, never the label: the label is the person's name,
+        // and "Ada Lovelace, Online" is one stop the way "Ada Lovelace" was. An unread status adds
+        // nothing — saying "Offline" before the server has answered would be a claim, not a fact.
+        if showsDirectAvatar,
+           kind == .directMessage,
+           let word = SidebarPresenceRules.word(for: presence) {
+            parts.append(word)
+        }
         return parts.joined(separator: ", ")
     }
 }
@@ -346,6 +371,12 @@ struct ChannelSidebarData: Equatable, Sendable {
     var directLabels: [String: String] = [:]
     /// channel id → extra names to match in the quick switcher (usernames, nicknames, full names).
     var searchTerms: [String: [String]] = [:]
+    /// channel id → the people a DM/GM row is about (the label step's own membership read).
+    var directParticipants: [String: [SidebarParticipant]] = [:]
+    /// account id → the presence last read for them, **with when**. Aged by
+    /// `SidebarPresenceRules.effective` when a row is built, so an unconfirmed "online" cannot
+    /// outlive `staleAfter`.
+    var presence: [String: SidebarPresenceSnapshot] = [:]
     /// `GET /users/{uid}/preferences` — read only for the **legacy** favourite preference, used when
     /// a server has no categories endpoint (or the call failed).
     var preferences: [MMPreference] = []
@@ -486,7 +517,8 @@ enum ChannelSidebarDerivation {
     /// with selection, mute, favourites and counters resolved.
     static func entries(from data: ChannelSidebarData,
                         selectedChannelID: String?,
-                        selectedChannelName: String?) -> [ChannelSidebarEntry] {
+                        selectedChannelName: String?,
+                        now: Date = Date()) -> [ChannelSidebarEntry] {
         let favorites = favoriteIDs(from: data)
         let membersByChannel = Dictionary(data.members.map { ($0.channelId, $0) },
                                           uniquingKeysWith: { first, _ in first })
@@ -504,7 +536,15 @@ enum ChannelSidebarDerivation {
 
             let member = membersByChannel[channel.id]
             let label = displayName(channel: channel, kind: kind, data: data)
-            return ChannelSidebarEntry(
+            // The people the row is about, and — for a 1:1 conversation — the presence of the one
+            // other person. A GM's composite has no single status, so it carries `.unknown` and the
+            // row draws no dot.
+            let participants = kind.isDirect ? (data.directParticipants[channel.id] ?? []) : []
+            let presence = kind == .directMessage
+                ? SidebarPresenceRules.effective(participants.first.flatMap { data.presence[$0.userID] },
+                                                 now: now)
+                : .unknown
+            var entry = ChannelSidebarEntry(
                 id: channel.id,
                 name: channel.name,
                 displayName: label,
@@ -519,6 +559,9 @@ enum ChannelSidebarDerivation {
                 createdAt: channel.createAt,
                 searchTerms: searchTerms(channel: channel, kind: kind, label: label, data: data)
             )
+            entry.directParticipants = participants
+            entry.presence = presence
+            return entry
         }
     }
 
@@ -575,10 +618,12 @@ enum ChannelSidebarDerivation {
     static func groups(from data: ChannelSidebarData,
                        selectedChannelID: String?,
                        selectedChannelName: String?,
-                       revealed: [String: Int] = [:]) -> [ChannelSidebarGroup] {
+                       revealed: [String: Int] = [:],
+                       now: Date = Date()) -> [ChannelSidebarGroup] {
         let entries = entries(from: data,
                               selectedChannelID: selectedChannelID,
-                              selectedChannelName: selectedChannelName)
+                              selectedChannelName: selectedChannelName,
+                              now: now)
         let byID = Dictionary(entries.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var categories = ordered(data.categories, order: data.categoryOrder)
 

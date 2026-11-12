@@ -8,6 +8,7 @@
 // upstream source copied. The SwiftUI decomposition is this repo's own (docs/component-map.md §1).
 
 import SwiftUI
+import UIKit
 
 /// The native channel list: the sidebar's content once `sidebar=native` (S08/T33).
 ///
@@ -122,6 +123,9 @@ struct NativeChannelSidebarContent: View {
             .padding(.bottom, 12)
         }
         .background(sizeClass == .compact ? Color(.systemGroupedBackground) : Color.clear)
+        // The faces come from the same per-server store the timeline, the thread pane and the member
+        // list read, so a person's picture is one request and one disk file for the whole app.
+        .environment(\.avatarImages, panes.avatarStore(for: server))
         // The sidebar's own scroll surface. A suite that has to reveal a row below the fold swipes
         // **this** (`ShellSettle.channelSidebarScroll`); it used to reach into the `List`'s
         // `UICollectionView`, which no longer exists.
@@ -155,6 +159,22 @@ struct NativeChannelSidebarContent: View {
             let directMessages = channelInfo.directMessageModel(for: server, teamID: teamID)
             directMessageModel = directMessages
             if create.phase != .ready { await create.load() }
+        }
+        // Presence, while this list is on screen: one batched read per
+        // `SidebarPresenceRules.pollInterval`, and nothing at all between windows (the store's cache
+        // answers). The socket's `status_change` patches a row in place when it arrives, but this
+        // server addresses that frame to the account that changed — a peer's presence never arrives
+        // over it (docs/parity-legacy.md, T41) — so a poll is what keeps a colleague's dot true, and
+        // `staleAfter` is what keeps a green dot from outliving its evidence. The loop is a `.task`,
+        // so leaving the list (a tab switch, a rotation) cancels it.
+        .task(id: model.teamID) {
+            guard model.teamID != nil else { return }
+            await model.refreshPresence()
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(SidebarPresenceRules.pollInterval * 1_000_000_000))
+                if Task.isCancelled { return }
+                await model.refreshPresence()
+            }
         }
         .sheet(isPresented: $quickSwitcherPresented) {
             QuickSwitcherView(model: model) { entry in
@@ -799,6 +819,140 @@ struct CategoryHeader: View {
     }
 }
 
+// MARK: - A direct message's face
+
+/// The avatar a DM/GM row draws: one person's face with their presence, or the people of a group
+/// message as a composite.
+///
+/// Decoration, and hidden from the accessibility tree on purpose: the row is **one element** (T8e),
+/// so the face's facts travel in the row's value (`ChannelSidebarEntry.accessibilityValue` says
+/// "Online") rather than as a second stop VoiceOver would have to skip past.
+struct SidebarChannelAvatar: View {
+    let entry: ChannelSidebarEntry
+    var size: CGFloat = 22
+
+    var body: some View {
+        if entry.kind == .groupMessage || entry.directParticipants.count > 1 {
+            SidebarCompositeAvatar(participants: entry.directParticipants, size: size)
+        } else {
+            SidebarFaceAvatar(participant: entry.directParticipants.first,
+                              presence: entry.presence,
+                              showsPresence: entry.kind == .directMessage,
+                              size: size)
+        }
+    }
+}
+
+/// One person: the server's picture over their initials, with the presence dot on the corner.
+///
+/// The initials are drawn **underneath** `AvatarPicture`, which is the whole fallback contract of
+/// `AvatarImageStore`: while the bytes are in flight, when the account has no picture (a 404,
+/// remembered for the session), and when the fetch failed (remembered for 30 s) the circle and the
+/// initials are what a reader sees — never a blank box.
+struct SidebarFaceAvatar: View {
+    let participant: SidebarParticipant?
+    let presence: UserPresence
+    /// A composite's second face carries no dot: the dot belongs to the conversation, not to a
+    /// corner of it.
+    var showsPresence: Bool = true
+    var size: CGFloat = 22
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.secondary.opacity(0.22))
+            if let participant, !participant.initials.isEmpty {
+                Text(participant.initials)
+                    .font(.system(size: size * 0.4, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .minimumScaleFactor(0.6)
+            }
+            if let participant {
+                AvatarPicture(userID: participant.userID, size: size)
+            }
+        }
+        .frame(width: size, height: size)
+        .overlay(alignment: .bottomTrailing) {
+            if showsPresence {
+                SidebarPresenceDot(presence: presence, size: max(7, size * 0.36))
+                    .offset(x: 1, y: 1)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// A group message: the first participant's face at full size, the second's smaller in the corner
+/// when there are exactly two; from three on, a `+N` chip counting the people **not** drawn (`+2` for
+/// a three-person conversation: the lead's face plus "two more"). Upstream overlaps the participants'
+/// pictures; this is the same idea within a 22 pt column, and it stays readable at every text size
+/// (the faces do not scale with type — the row's label does).
+struct SidebarCompositeAvatar: View {
+    let participants: [SidebarParticipant]
+    var size: CGFloat = 22
+
+    private var lead: SidebarParticipant? { participants.first }
+    private var second: SidebarParticipant? { participants.count == 2 ? participants[1] : nil }
+    /// How many people are *not* drawn next to the lead — the number the chip states.
+    private var extra: Int { participants.count > 2 ? participants.count - 1 : 0 }
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            SidebarFaceAvatar(participant: lead,
+                              presence: .unknown,
+                              showsPresence: false,
+                              size: size)
+            if extra > 0 {
+                Text("+\(extra > 9 ? 9 : extra)")
+                    .font(.system(size: size * 0.34, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .frame(width: size * 0.62, height: size * 0.62)
+                    .background(Circle().fill(Color.accentColor))
+                    .overlay(Circle().stroke(Color(.systemBackground), lineWidth: 1))
+                    .offset(x: 1, y: 1)
+            } else if let second {
+                Circle()
+                    .fill(Color(.systemBackground))
+                    .frame(width: size * 0.68, height: size * 0.68)
+                    .overlay(SidebarFaceAvatar(participant: second,
+                                               presence: .unknown,
+                                               showsPresence: false,
+                                               size: size * 0.62))
+                    .offset(x: 1, y: 1)
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The presence dot itself: a disc for online/away/dnd, a quiet ring for offline (and for a status
+/// that has not been read yet) — offline is visually quiet, not absent.
+struct SidebarPresenceDot: View {
+    let presence: UserPresence
+    var size: CGFloat = 8
+
+    var body: some View {
+        Group {
+            if SidebarPresencePalette.isHollow(presence) {
+                Circle()
+                    .strokeBorder(SidebarPresencePalette.dot(presence),
+                                  lineWidth: max(1, size * 0.18))
+            } else {
+                Circle()
+                    .fill(SidebarPresencePalette.dot(presence))
+            }
+        }
+        .frame(width: size, height: size)
+        // A plate behind the dot so it separates from a face without a hard-coded stroke colour.
+        .padding(size * 0.16)
+        .background(Circle().fill(Color(.systemBackground)))
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - A channel row
 
 /// One channel: glyph, name (bold while unread), mute marker, mention badge.
@@ -817,11 +971,20 @@ struct ChannelSidebarRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: entry.iconSymbolName)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .scaledColumn(width: 16)
-                    .accessibilityHidden(true)
+                // A DM/GM row is about a person (or a few), so it draws their face — the server's
+                // picture over their initials, with a presence dot for a 1:1 conversation. Every
+                // other row keeps the `#`/lock glyph. A DM whose people this load could not name
+                // falls back to the glyph rather than an invented face.
+                if entry.showsDirectAvatar {
+                    SidebarChannelAvatar(entry: entry)
+                        .scaledColumn(width: 22)
+                } else {
+                    Image(systemName: entry.iconSymbolName)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .scaledColumn(width: 16)
+                        .accessibilityHidden(true)
+                }
                 Text(entry.displayName)
                     .mmLineLimit(1)
                     .truncationMode(.tail)

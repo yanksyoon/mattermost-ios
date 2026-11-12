@@ -25,6 +25,13 @@ struct DirectLabelMap: Equatable, Sendable {
     var labels: [String: String] = [:]
     /// channel id → every name a quick switcher may match the row by.
     var terms: [String: [String]] = [:]
+    /// channel id → **the people the row is about**, in the same order the label names them: the
+    /// other participant of a DM, every other participant of a GM, and the reader for a self-DM.
+    ///
+    /// This is the same membership read that produces the label (upstream `getUserIdFromChannelName`
+    /// plus the GM member list), carried one step further: the avatar's cache key and the presence
+    /// key are the account id, so the row needs the ids, not just the sentence.
+    var participants: [String: [SidebarParticipant]] = [:]
 
     static let empty = DirectLabelMap()
 }
@@ -120,6 +127,9 @@ final class DirectLabelResolver {
         if let userID, people[userID] == nil, let me = profiles?.known(id: userID) {
             people[userID] = me
         }
+        // A self-DM's only participant is the reader. Nothing is fetched **for** it (the label step's
+        // cost rule, pinned by `T33DmLabelResolutionTests`): if the reader's own profile is already
+        // in hand the row draws their face, and otherwise it keeps the person glyph.
         await resolve(Array(memberIDsByChannel.values.flatMap { $0 }))
         // Publish even when there was nothing to fetch: a self-DM needs no profile at all, and a
         // workspace whose every partner is already in hand has no request to hang the label on.
@@ -193,15 +203,21 @@ final class DirectLabelResolver {
         for (channelID, ids) in memberIDsByChannel {
             let resolved = ids.compactMap { people[$0] }
             guard !resolved.isEmpty else { continue }
-            next.labels[channelID] = resolved
-                .map(Self.label(for:))
-                .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-                .joined(separator: ", ")
-            next.terms[channelID] = resolved.flatMap(Self.searchTerms(for:))
+            // One order for both the sentence and the faces: the label sorts by name, so the first
+            // face of a GM composite is the first name in the label a reader just heard.
+            let ordered = resolved.sorted {
+                Self.label(for: $0).localizedStandardCompare(Self.label(for: $1)) == .orderedAscending
+            }
+            next.labels[channelID] = ordered.map(Self.label(for:)).joined(separator: ", ")
+            next.participants[channelID] = ordered.map(SidebarParticipant.init(user:))
+            next.terms[channelID] = ordered.flatMap(Self.searchTerms(for:))
         }
         for channelID in selfChannels {
             next.labels[channelID] = Self.selfLabel
-            if let userID, let me = people[userID] { next.terms[channelID] = Self.searchTerms(for: me) }
+            if let userID, let me = people[userID] {
+                next.terms[channelID] = Self.searchTerms(for: me)
+                next.participants[channelID] = [SidebarParticipant(user: me)]
+            }
         }
         guard next != published else { return }
         published = next

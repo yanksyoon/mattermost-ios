@@ -6,7 +6,7 @@ Pins: M=v2.45.0@162f2560d0e1 ; W=v12.0.1@987e57120dca
 
 ## Summary
 
-160 capabilities: **135 yes**, **2 partial**, **16 to be implemented**, **7 out of scope** — of which **11** need an owner decision.
+161 capabilities: **136 yes**, **2 partial**, **16 to be implemented**, **7 out of scope** — of which **11** need an owner decision.
 
 A row lands in Implemented only with evidence that resolves (a test case, or a recorded observation). A claim without evidence is Partial, whatever the code looks like. Every gap carries a card id or the owner decision that blocks it.
 
@@ -122,6 +122,7 @@ A row lands in Implemented only with evidence that resolves (a test case, or a r
 | sidebar | archived-channels-are-hidden | app/screens/home/channel_list/categories_list/header/index.tsx@162f2560 | MattermostTests/T33-ChannelSidebarTests.swift::testAnArchivedChannelIsHiddenExceptTheOneOnScreen |
 | sidebar | categories-in-the-servers-order | app/screens/home/channel_list/channel_list.tsx@162f2560 | MattermostTests/T33-ChannelSidebarTests.swift::testTheOrderArrayDecidesTheDrawnOrderAndUnknownCategoriesAreAppended; ::testWithoutCategoriesTheTwoDefaultsAreSynthesised |
 | sidebar | collapse-a-group-on-the-server | app/utils/categories.ts@162f2560 | MattermostTests/T33-ChannelSidebarTests.swift::testACollapseReachesTheServerAndSurvivesItsAnswer; MattermostUITests/T33-ChannelSidebarUITests.swift::testCollapsingACategoryReachesTheServerAndSurvivesRelaunch |
+| sidebar | direct-message-rows-draw-the-person-and-their-presence | app/components/channel_icon/index.tsx@162f2560 | MattermostTests/T3ee44893SidebarAvatarPresenceTests.swift::testADirectMessageRowCarriesTheOtherPersonsIdAsItsAvatar; ::testAGroupMessageRowCarriesACompositeOfItsParticipants; ::testTheDotReflectsEachOfTheFourStatesFromABatchedFeed; ::testAStatusChangeFrameMovesTheDotWithoutARequest; ::testAFailedPictureFallsBackToTheInitialsAndIsNotRequestedAgain; ::testTwoHundredRowsCostTwoRequestsAndARedrawCostsNone |
 | sidebar | direct-message-rows-name-the-people | app/components/channel_item/channel_body.tsx@162f2560 | MattermostTests/T33DmLabelResolutionTests.swift::testADirectMessageRowShowsTheOtherPersonsNameAndNeverDirectMessage; ::testAGroupMessageNamesEveryMemberButMe; ::testASelfDirectMessageReadsYouNotDirectMessage |
 | sidebar | favourites-from-the-favorites-category | app/components/channel_list_row (favourites)@162f2560 | MattermostTests/T33-ChannelSidebarTests.swift::testFavouritesComeFromTheFavoritesCategory; ::testFavouritesFallBackToTheLegacyPreferenceOnlyWithoutACategory |
 | sidebar | live-updates-without-a-reload | app/screens/home/channel_list/categories_list@162f2560 | MattermostTests/T33-ChannelSidebarTests.swift::testPostUnreadAppliesTheServersOwnCounters; ::testAnotherClientsMuteArrivesInMyMembershipRow; ::testAReadFromAnotherClientClearsEveryRowItNames |

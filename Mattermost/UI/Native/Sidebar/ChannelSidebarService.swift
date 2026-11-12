@@ -29,6 +29,17 @@ protocol ChannelSidebarServing: AnyObject {
 
     /// Mute (`mark_unread = "mention"`) or unmute (`"all"`) one channel.
     func setMuted(_ muted: Bool, channelID: String) async throws
+
+    /// `POST /users/status/ids` — batched presence for the people the DM rows are about.
+    ///
+    /// Defaulted rather than required: a fixture service that does not model presence answers
+    /// "nothing known", which the rows draw as quiet dots and speak as no status — never as
+    /// "Offline", which would be a claim.
+    func statuses(ids: [String]) async throws -> [MMStatus]
+}
+
+extension ChannelSidebarServing {
+    func statuses(ids: [String]) async throws -> [MMStatus] { [] }
 }
 
 /// The production implementation: the server's own `AuthSession.client`, resolved **per call**.
@@ -229,6 +240,10 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
         SidebarLoadTrace.step = "labels ok (\(labels.labels.count)/\(directCount))"
         data.directLabels = labels.labels
         data.searchTerms = labels.terms
+        // The same membership read names the row's people: the avatar's cache key and the presence
+        // key are the account id, so the ids travel with the labels they produced. (The step string
+        // above stays the last one written: it is what the diagnostics and two T33 tests read.)
+        data.directParticipants = labels.participants
         return data
     }
 
@@ -264,6 +279,14 @@ final class SessionChannelSidebarService: ChannelSidebarServing {
             channelID: channelID,
             userID: userID,
             markUnread: ChannelSidebarDerivation.markUnread(forMuted: muted))
+    }
+
+    /// `POST /users/status/ids` through the session's client, so a 401 lands in the app's one
+    /// re-auth path like every other read on this screen. The caller (the model's presence store)
+    /// owns the batching and the cache; this is exactly one request for exactly the ids it is given.
+    func statuses(ids: [String]) async throws -> [MMStatus] {
+        let (client, _) = try resolved()
+        return try await client.statuses(ids: ids)
     }
 
     // MARK: - DM / GM labels
@@ -343,6 +366,12 @@ final class ChannelListViewModel: ObservableObject {
 
     private let service: ChannelSidebarServing
     private var data = ChannelSidebarData()
+    /// The clock every presence age is judged against (injectable so a test can move it).
+    private let now: () -> Date
+    /// The presence memory: batched reads, one per `SidebarPresenceRules.refreshInterval`, plus the
+    /// socket's patches. Owned here so one server has one presence cache (the row, the poll and the
+    /// socket frame cannot disagree about a person).
+    private let presence: SidebarPresenceStore
     private var selectedChannelID: String?
     private var selectedChannelName: String?
     /// The team whose data is in `data` (so `ifNeeded` cannot answer for the wrong team).
@@ -355,9 +384,12 @@ final class ChannelListViewModel: ObservableObject {
     /// cleared filter, which cannot use a page at all — starts from the first page again.
     private var revealedRows: [String: [String: Int]] = [:]
 
-    init(server: ServerConfig, service: ChannelSidebarServing) {
+    init(server: ServerConfig, service: ChannelSidebarServing, now: @escaping () -> Date = Date.init) {
         self.server = server
         self.service = service
+        self.now = now
+        self.presence = SidebarPresenceStore(load: { ids in try await service.statuses(ids: ids) },
+                                             now: now)
     }
 
     // MARK: Reads
@@ -447,6 +479,43 @@ final class ChannelListViewModel: ObservableObject {
         await performLoad(teamID: teamID)
     }
 
+    // MARK: Presence (DM rows)
+
+    /// Read the presence of the people the DM rows are about, and rebuild the rows with it.
+    ///
+    /// One batched `POST /users/status/ids` per `SidebarPresenceRules.refreshInterval`, chunked at
+    /// `statusBatchSize` — and **nothing at all** while every answer is inside the window, which is
+    /// what makes a redraw, a scroll tick and a second appearance free. The only caller on a timer is
+    /// the sidebar content's own poll (`.task` in `NativeChannelSidebarContent`).
+    ///
+    /// Why a poll at all when the server has a `status_change` event: measured on 9.11.19, the frame
+    /// is addressed to the account whose status changed, so a *peer's* presence never arrives over
+    /// the socket (`docs/parity-legacy.md`, T41 row — the same finding the open profile acts on with
+    /// its own poll). The socket still patches when a frame does arrive; the poll is what makes the
+    /// dot true otherwise, and `staleAfter` is what stops a green dot outliving its evidence.
+    ///
+    /// - Parameter force: ask even for ids whose answer is fresh (a reconnect, a manual retry).
+    /// - Returns: how many requests were made, for the cost measurement.
+    @discardableResult
+    func refreshPresence(force: Bool = false) async -> Int {
+        let ids = data.directParticipants.values.flatMap { $0.map(\.userID) }
+        guard !ids.isEmpty else { return 0 }
+        let made = await presence.refresh(ids, force: force)
+        data.presence = presence.snapshots
+        // Always repaint: the age of an answer changes the dot even when no request was made (a
+        // "online" past `staleAfter` must go quiet on the next pass, not on the next request).
+        rebuild()
+        if made > 0 {
+            Logger.info("SidebarPresence", presence.diagnosticLine)
+        }
+        return made
+    }
+
+    /// The presence counters, for the evidence probes and the build note.
+    var presenceDiagnostics: String { presence.diagnosticLine }
+
+    // MARK: Counters refresh
+
     /// Counter-only refresh (socket activity). A failure never clears the numbers it already has:
     /// "no mentions" while the server says otherwise is the exact wrong direction for a badge.
     func refreshCounters() async {
@@ -527,6 +596,18 @@ final class ChannelListViewModel: ObservableObject {
             // A removal or a leave. Mine drops the row; somebody else's does not touch my list.
             guard change.userID == myUserID else { return .ignored }
             return .reloadNeeded
+        case .statusChange(let change):
+            // Presence for a DM row, applied in place: the frame names the account and its status,
+            // and the row only has to move if this list is drawing that person. No request, no
+            // reload — the dot moves because the payload says so. (A frame about somebody with no
+            // DM row here is ignored: fifteen other panes watch the same socket.)
+            let tracked = Set(data.directParticipants.values.flatMap { $0.map(\.userID) })
+            guard presence.apply(userID: change.userID, status: change.status, tracked: tracked) else {
+                return .ignored
+            }
+            data.presence = presence.snapshots
+            rebuild()
+            return .applied
         case .postUnread(let unread):
             guard unread.teamID.isEmpty || unread.teamID == teamID else { return .ignored }
             guard applyUnread(unread, myUserID: myUserID) else { return .ignored }
@@ -843,6 +924,11 @@ final class ChannelListViewModel: ObservableObject {
             phase = .loaded
             diagnosticStage = "loaded \(groups.count) groups"
             rebuild()
+            // The rows are on screen; now ask who their people are. A failure is silent here (the
+            // store keeps what it has and the rows keep their quiet dots) but it is never fatal:
+            // presence is not what makes a channel list usable.
+            await refreshPresence()
+            diagnosticStage = "loaded \(groups.count) groups, \(presenceDiagnostics)"
         } catch {
             guard mine == generation else { return }
             if let mmError = error as? MMError, case .unauthorized = mmError {
@@ -877,7 +963,8 @@ final class ChannelListViewModel: ObservableObject {
         groups = ChannelSidebarDerivation.groups(from: data,
                                                  selectedChannelID: selectedChannelID,
                                                  selectedChannelName: selectedChannelName,
-                                                 revealed: revealedRows[teamID ?? ""] ?? [:])
+                                                 revealed: revealedRows[teamID ?? ""] ?? [:],
+                                                 now: now())
         totals = ChannelSidebarDerivation.totals(groups)
     }
 
