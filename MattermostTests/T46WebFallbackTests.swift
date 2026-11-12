@@ -334,8 +334,41 @@ final class T46WebFallbackTests: XCTestCase {
         init(_ value: WebFallbackModel?) { self.value = value }
     }
 
+    private final class WeakStore {
+        weak var value: WebViewStore?
+        init(_ value: WebViewStore?) { self.value = value }
+    }
+
+    /// How long the run loop may be given to let WebKit finish one webview's teardown.
+    ///
+    /// A `WKWebView` does not deallocate synchronously. It is released by the product at once, but
+    /// WebKit holds the view while its WebContent process winds down, and that happens on the run
+    /// loop — on the hosted runner, where WebKit's helper services are refused and the failed
+    /// launch costs seconds, the *last* view was still inside that hand-off when the old 10 ms
+    /// window closed (`t_1f789bcd`, run `43235339899`: "1 of 20 … cycles [19]").
+    ///
+    /// This is a **hang detector, not a latency budget** — the same contract as
+    /// `TestSignal.wait(until:)`: the drain returns the moment the last webview is gone, so nothing
+    /// is added to a passing run (measured on this Mac: 20 of 20 gone before the first 50 ms
+    /// slice). A webview that is genuinely retained never disappears inside it, which is what
+    /// `testTheTeardownProbeStillSeesAWebViewThatIsActuallyRetained` pins.
+    static let teardownDrainBudget: TimeInterval = 15
+
+    /// Spin the main run loop until `condition` holds or `budget` elapses. Returns how long it took,
+    /// so the log can say what the measurement actually needed instead of implying an instant.
+    private static func drainUntil(_ condition: () -> Bool, budget: TimeInterval) -> TimeInterval {
+        let started = Date()
+        while !condition() {
+            let elapsed = Date().timeIntervalSince(started)
+            if elapsed >= budget { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(min(0.05, budget - elapsed)))
+        }
+        return Date().timeIntervalSince(started)
+    }
+
     func testTwentyFallbacksLeaveNoWebViewAlive() throws {
         var handles: [WeakWebView] = []
+        var storeHandles: [WeakStore] = []
         var modelHandles: [WeakModel] = []
         for cycle in 0..<20 {
             // Each presentation gets its own autorelease pool, exactly as a run-loop turn in the
@@ -349,6 +382,7 @@ final class T46WebFallbackTests: XCTestCase {
                 let view = try XCTUnwrap(model.store?.webView,
                                          "cycle \(cycle) created no webview")
                 handles.append(WeakWebView(view))
+                storeHandles.append(WeakStore(model.store))
                 modelHandles.append(WeakModel(model))
                 // The same call the sheet's `onDisappear` makes.
                 model.tearDown()
@@ -356,15 +390,60 @@ final class T46WebFallbackTests: XCTestCase {
             // WebKit defers part of its teardown to the run loop; a short spin lets it happen.
             RunLoop.current.run(until: Date().addingTimeInterval(0.01))
         }
-        let aliveViews = handles.enumerated().filter { $0.element.value != nil }.map(\.offset)
-        XCTAssertTrue(aliveViews.isEmpty,
-                      "\(aliveViews.count) of 20 fallback webviews are still alive after teardown "
-                      + "(cycles \(aliveViews); a leaked webview defeats the memory goal)")
 
+        // The **product** half, and the half that is synchronous: the sheet's own objects are gone
+        // as soon as the pool drains, because `tearDown()` leaves nothing holding them. No waiting
+        // is allowed here — a model or store that survives its dismissal is a real leak, and it is
+        // reported at once rather than given a window to hide in.
         let aliveModels = modelHandles.enumerated().filter { $0.element.value != nil }.map(\.offset)
         XCTAssertTrue(aliveModels.isEmpty,
                       "\(aliveModels.count) of 20 fallback models are still alive (cycles "
                       + "\(aliveModels)); the sheet's state must not outlive its dismissal")
+        let aliveStores = storeHandles.enumerated().filter { $0.element.value != nil }.map(\.offset)
+        XCTAssertTrue(aliveStores.isEmpty,
+                      "\(aliveStores.count) of 20 fallback stores are still alive (cycles "
+                      + "\(aliveStores)); the product must drop its webview owner on dismissal")
+
+        // The **WebKit** half, which is asynchronous by design: the view is held by WebKit while
+        // its WebContent process finishes, so it is measured with an explicit window that ends as
+        // soon as the last one is gone. Before t_1f789bcd this window was the loop's accidental
+        // leftovers — ~200 ms for every earlier cycle, 10 ms for the twentieth, the only one still
+        // in the hand-off on a slow host. The claim is unchanged: twenty of twenty, not one less.
+        let waited = Self.drainUntil({ handles.allSatisfy { $0.value == nil } },
+                                     budget: Self.teardownDrainBudget)
+        let aliveViews = handles.enumerated().filter { $0.element.value != nil }.map(\.offset)
+        print("T46 teardown: \(20 - aliveViews.count) of 20 fallback webviews deallocated; "
+              + "the last teardown needed \(Int(waited * 1000)) ms of run-loop drain")
+        XCTAssertTrue(aliveViews.isEmpty,
+                      "\(aliveViews.count) of 20 fallback webviews are still alive after "
+                      + "\(Int(waited * 1000)) ms of run-loop drain following teardown "
+                      + "(cycles \(aliveViews); a leaked webview defeats the memory goal)")
+    }
+
+    /// The drain above must not become a way to out-wait a leak: a webview that something still
+    /// holds is still alive when the window closes, so the twenty-cycle assertion above reds for a
+    /// real leak — which is the whole point of the test.
+    func testTheTeardownProbeStillSeesAWebViewThatIsActuallyRetained() throws {
+        var handles: [WeakWebView] = []
+        var retained: WKWebView?
+        for cycle in 0..<3 {
+            try autoreleasepool {
+                let model = WebFallbackModel(server: Self.server(id: UUID()),
+                                             surface: .init(kind: .boards),
+                                             tokenProvider: { _ in nil })
+                let view = try XCTUnwrap(model.store?.webView)
+                handles.append(WeakWebView(view))
+                if cycle == 1 { retained = view }   // the leak: one dismissal that keeps its view
+                model.tearDown()
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        let waited = Self.drainUntil({ handles.allSatisfy { $0.value == nil } }, budget: 2)
+        let alive = handles.enumerated().filter { $0.element.value != nil }.map(\.offset)
+        XCTAssertEqual(alive, [1],
+                       "only the deliberately retained webview may survive the drain "
+                       + "(waited \(Int(waited * 1000)) ms)")
+        XCTAssertNotNil(retained)
     }
 
     func testTeardownDropsTheDelegatesAndTheKeepAlive() throws {

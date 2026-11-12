@@ -163,7 +163,27 @@ the store is dropped so the `WKWebView` deallocates, which is the same destroy-n
 data store, not to the webview) — `testClosingTheFallbackDoesNotLogTheServerOut` pins that.
 
 Object level: `testTwentyFallbacksLeaveNoWebViewAlive` — twenty created-and-torn-down models leave
-twenty deallocated `WKWebView`s (weak handles).
+twenty deallocated `WKWebView`s (weak handles), in two separately-measured halves (`t_1f789bcd`):
+
+- **the product's references**, synchronously: the twenty `WebFallbackModel`s and their
+  `WebViewStore`s are gone the moment each cycle's autorelease pool drains. No waiting is allowed
+  here — a model or store that survives its dismissal is a real leak and is reported at once.
+- **WebKit's own hand-off**, asynchronously: a `WKWebView` is not deallocated by its last release.
+  WebKit holds it while its WebContent process winds down, and that completes on the run loop. The
+  test therefore drains the run loop until the last view is gone, with a **15 s hang detector** —
+  the same contract as `TestSignal.wait(until:)`: it returns as soon as the condition holds, so a
+  passing run pays nothing (measured on this Mac: the drain needs **0 ms**), and a genuinely
+  retained view never disappears inside it (`testTheTeardownProbeStillSeesAWebViewThatIsActuallyRetained`
+  keeps one and requires the probe to keep reporting it).
+
+Before `t_1f789bcd` the WebKit half had no explicit window: it inherited whatever was left of the
+loop — ~200 ms of subsequent cycles for each earlier view, and only the loop's last 10 ms spin for
+the twentieth. On the hosted runner (where WebKit's helper services are refused and a failed
+WebContent launch costs seconds) the twentieth was still in that hand-off when the assertion ran:
+`1 of 20 fallback webviews are still alive after teardown (cycles [19])`, run `43235339899`. The
+claim is unchanged — twenty of twenty, never one less — and the log now carries the measurement
+(`T46 teardown: 20 of 20 fallback webviews deallocated; the last teardown needed N ms of run-loop
+drain`) instead of implying it was instantaneous.
 
 Process level: `scripts/t46_leak_probe.py --run-test` runs the live twenty-cycle test and samples the
 app's WebKit children (`ps`), attributing only pids that appeared after launch. Verdict rule: the
