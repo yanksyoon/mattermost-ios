@@ -614,10 +614,16 @@ private final class AnswerBox<Value>: @unchecked Sendable {
 ///
 /// - Parameter call: how the call is named in a skip (`"httpCookieStore.setCookie(MMAUTHTOKEN)"`),
 ///   so the log says which `await` did not answer instead of "the test hung".
+///
+/// t_efd0a2ad probe (temporary — removed by the decision commit): every call logs its own elapsed
+/// time, because the case line alone cannot say whether a 14 s case spent that time in its
+/// `setCookie` or in the read after it. The default window is temporarily 120 s so a call that
+/// answers late is *measured* instead of being reported as silent at 15 s.
 @MainActor
 func withWebKitAnswer<Value>(_ call: String,
-                             timeout: TimeInterval = 15,
+                             timeout: TimeInterval = 120,
                              _ work: @escaping @MainActor () async -> Value) async -> BoundedAnswer<Value> {
+    let started = Date()
     let race = AnswerRace()
     let box = AnswerBox<Value>()
     let answered: Bool = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
@@ -633,6 +639,12 @@ func withWebKitAnswer<Value>(_ call: String,
             if race.claim() { continuation.resume(returning: false) }
         }
     }
+    NSLog("%@", String(format: "WEBKITPROBE %@ %@ %.3f s (window %.0f s, uptime %.3f s)",
+                       answered ? "answered" : "silent",
+                       call,
+                       Date().timeIntervalSince(started),
+                       timeout,
+                       ProcessInfo.processInfo.systemUptime))
     guard answered, let value = box.value else { return .silent(after: timeout) }
     return .answered(value)
 }
@@ -727,7 +739,7 @@ extension XCTestCase {
     /// `await` so the next reader does not have to guess which call stalled (card t_a5321d5e).
     @MainActor
     func requireWebKitAnswer<Value>(_ call: String,
-                                    timeout: TimeInterval = 15,
+                                    timeout: TimeInterval = 120,  // t_efd0a2ad probe: temporary
                                     _ work: @escaping @MainActor () async -> Value) async throws -> Value {
         switch await withWebKitAnswer(call, timeout: timeout, { await work() }) {
         case .answered(let value):
@@ -747,7 +759,7 @@ extension XCTestCase {
     /// the error" or "keep the error and hang for 300 s", and the second is the defect.
     @MainActor
     func requireWebKitAnswerOrThrow<Value>(_ call: String,
-                                           timeout: TimeInterval = 15,
+                                           timeout: TimeInterval = 120,  // t_efd0a2ad probe: temporary
                                            _ work: @escaping @MainActor () async throws -> Value) async throws -> Value {
         let attempt = await withWebKitAnswer(call, timeout: timeout) { () -> Result<Value, Error> in
             do {
