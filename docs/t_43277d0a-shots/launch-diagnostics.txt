@@ -1,0 +1,8 @@
+url=nil (no committed webview: the pane is native)
+debugAffordances=false
+arguments=/Applications/Mattermost(ios).app/Contents/MacOS/Mattermost -shellSnapshot /tmp/mm_final_snap
+location=NativeLocation(serverID: Optional(3E4B80BD-2184-448B-80A1-992C0E268DA7), serverName: Optional("Canonical"), teamID: Optional("sqmc4sz45prypmkfctwynm5yjr"), teamName: Optional("canonical"), channelID: Optional("dmbhbrimg781fp1qc6xcjmexco"), channelName: Optional("github-actions-self-hosted-runner"), postID: nil, pane: Mattermost.NativePane.channel)
+surfaces=auth:native,sidebar:native,channelView:native,composer:native,search:native,activity:native,channelInfo:native,calls:native
+sidebar=team=sqmc4sz45prypmkfctwynm5yjr phase=loaded stage=loaded 11 groups, presence requests=2 ids=175 cached=0 failures=0 known=175 service=labels ok (196/199) groups=11 channels=348 err=- launch=entries=348 saved=dmbhbrimg781fp1qc6xcjmexco townhall=yryoj7ka6pr4ukbtojimq8ck8c fallback=s95dzcqhjtyauqmd7f1noju4pa -> saved -> opened(Mattermost.NativeLocation(serverID: Optional(3E4B80BD-2184-448B-80A1-992C0E268DA7), serverName: Optional("Canonical"), teamID: Optional("sqmc4sz45prypmkfctwynm5yjr"), teamName: Optional("canonical"), channelID: Optional("dmbhbrimg781fp1qc6xcjmexco"), channelName: Optional("github-actions-self-hosted-runner"), postID: nil, pane: Mattermost.NativePane.channel))
+auth=Canonical:signedIn(username: "charlie4284", userID: "iii6rdk8g7d95mfts34jy8bsje"):token=true
+channels=dmbhbrimg781fp1qc6xcjmexco phase=loaded channel=dmbhbrimg781fp1qc6xcjmexco profiles requested=8 cached=7 sent=1 resolved=8 chunks=1 failed=0 err=- last={batch profiles requested=8 cached=7 sent=1 resolved=8 chunks=1 failed=0 err=-}
