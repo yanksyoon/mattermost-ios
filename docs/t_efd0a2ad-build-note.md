@@ -36,7 +36,7 @@ say: it includes the seed write *and* the restore read, and nothing in the log s
 
 ## 2. The method: one line per call, with a detector far from the cost
 
-Commit `3c9ad17` (temporary, deleted by the decision commit) did two things and nothing else:
+Commit `3c9ad17` (temporary; deleted by `b0a1a18`) did two things and nothing else:
 
 * `withWebKitAnswer` logs **one line per bound call** —
   `WEBKITBOUND <answered|silent> <call> after <elapsed> s (window <w> s)` — so the number is the call's
@@ -186,8 +186,50 @@ Local run (Catalyst, `build/logs/t-efd0a2ad-final-classes.log`): the six affecte
 
 ## 8. The gate leg on a real push
 
-Filled in by the docs commit that follows the first green run of the code above; the pushed commit and the
-run's `test (ios-simulator)` job are named there.
+Run **`43325147617`** on `b0a1a18` (the commit above; tag `v0.76.8` published from it):
+
+| leg | job | result |
+|---|---|---|
+| `test (ios-simulator)` | `131555703484` | **2577 tests, 16 skipped, 0 failed, 416.074 s, `** TEST SUCCEEDED **`** |
+| `test (catalyst)` | `131555703555` | 2577 tests, 15 skipped, 0 failed, 141.499 s, `** TEST SUCCEEDED **` |
+
+Two WebKit calls were silent on that simulator run, and both skips name the call and quote the window that
+fired — which is the contract this card had to keep:
+
+```
+WEBKITBOUND silent httpCookieStore.setCookie(MMAUTHTOKEN) after 60.142 s (window 60 s)
+T28TestSupport.swift:698: -[…T31SSOViewModelTests testClearingTheAuthCookieRemovesOnlyThisServersSessionCookie] :
+  Test skipped - WebKit did not answer this test host: `httpCookieStore.setCookie(MMAUTHTOKEN)` never
+  completed in 60s, so this case could not be measured on this run …
+Test Case '…testClearingTheAuthCookieRemovesOnlyThisServersSessionCookie]' skipped (60.381 seconds).
+
+WEBKITBOUND silent httpCookieStore.setCookie(MMAUTHTOKEN) after 60.010 s (window 60 s)
+T28TestSupport.swift:698: -[…T31WebSessionHarvestTests testTheProductionReaderFindsTheSessionInTheServersOwnWebsiteDataStore] :
+  Test skipped - WebKit did not answer this test host: `httpCookieStore.setCookie(MMAUTHTOKEN)` never
+  completed in 60s …
+Test Case '…testTheProductionReaderFindsTheSessionInTheServersOwnWebsiteDataStore]' skipped (60.049 seconds).
+```
+
+The same run also shows the alive mode paying the window's cost honestly, with WebKit naming its own
+mechanism:
+
+```
+2026-11-12 23:08:08.790584 Mattermost[7051:26147] Networking process (0x1240a0190) took 1.137112 seconds to launch
+2026-11-12 23:08:08.823588 Mattermost[7051:26147] WEBKITBOUND answered httpCookieStore.setCookie(MMAUTHTOKEN) after 1.170 s (window 60 s)
+Test Case '…AuthSessionTests testProductionReaderReadsTheServersOwnStoreAndNoOther]' passed (1.257 seconds).
+```
+
+So on a 60 s window the cold write either answers as soon as its Networking process is up (1.170 s here,
+38.330 s on the measurement run) or the case skips at 60 s **naming the call** — never a 300 s red leg, and
+never a skip at a window that a healthy call has already exceeded. `T249bc296WebKitCookieIsolationTests`
+(all four cases 0.044–0.663 s) and `AuthSessionTests` passed on the same host and the same run, so the
+skips are per-store WebKit silence, exactly as §3/§4 describe; nothing about them is a product failure and
+the `16 skipped` count is one higher than the 15 in run `43304994377` because two WebKit cases were
+silenced instead of one.
+
+Catalyst, the same commit: every WebKit call answered, and only the four controls wrote a `WEBKITBOUND`
+line (a 1 s answer inside the 60 s window, three deliberate silences at 1–2 s) — so the logging is quiet on
+a healthy host, which is what it was for.
 
 ## 9. What did not change
 
