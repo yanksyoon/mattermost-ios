@@ -637,6 +637,21 @@ func withWebKitAnswer<Value>(_ call: String,
     return .answered(value)
 }
 
+/// The one place the "this host's WebKit did not answer" skip is worded.
+///
+/// Both requirements (`requireWebKitAnswer` and its throwing sibling, card t_e687bad5) throw this,
+/// so the sentence a reader sees in the log cannot drift between them. The `await` is named in
+/// backticks on purpose: it is the only part of the message that changes per call site, and it is
+/// what makes a silent run diagnosable without opening a bundle.
+private func webKitSilenceSkip(_ call: String, after: TimeInterval) -> XCTSkip {
+    XCTSkip("""
+    WebKit did not answer this test host: `\(call)` never completed in \(Int(after))s, so this \
+    case could not be measured on this run (not a product failure, and not a claim about the \
+    product). The hosted simulator refuses WebKit's helper services intermittently — see \
+    docs/releasing.md, "Three passes, and why they are three".
+    """)
+}
+
 // MARK: - Small assertion helpers
 
 extension APIResponse {
@@ -718,12 +733,36 @@ extension XCTestCase {
         case .answered(let value):
             return value
         case .silent(let after):
-            throw XCTSkip("""
-            WebKit did not answer this test host: `\(call)` never completed in \(Int(after))s, so this \
-            case could not be measured on this run (not a product failure, and not a claim about the \
-            product). The hosted simulator refuses WebKit's helper services intermittently — see \
-            docs/releasing.md, "WebKit in the test host".
-            """)
+            throw webKitSilenceSkip(call, after: after)
+        }
+    }
+
+    /// `requireWebKitAnswer` for a call that can throw **after** WebKit answered — the real-store
+    /// cases of `AuthSessionTests.adoptWebSession` and `T31WebSessionHarvestTests`
+    /// (`AuthCoordinator.restore`) await the cookie store and *then* a request (card t_e687bad5).
+    ///
+    /// The call's own error propagates unchanged, so an assertion cannot start reading differently;
+    /// a call that never comes back still **skips** the case naming itself, exactly like
+    /// `requireWebKitAnswer`. Without this the choice at such a call site is "bound the wait and lose
+    /// the error" or "keep the error and hang for 300 s", and the second is the defect.
+    @MainActor
+    func requireWebKitAnswerOrThrow<Value>(_ call: String,
+                                           timeout: TimeInterval = 15,
+                                           _ work: @escaping @MainActor () async throws -> Value) async throws -> Value {
+        let attempt = await withWebKitAnswer(call, timeout: timeout) { () -> Result<Value, Error> in
+            do {
+                return .success(try await work())
+            } catch {
+                return .failure(error)
+            }
+        }
+        switch attempt {
+        case .answered(.success(let value)):
+            return value
+        case .answered(.failure(let error)):
+            throw error
+        case .silent(let after):
+            throw webKitSilenceSkip(call, after: after)
         }
     }
 }

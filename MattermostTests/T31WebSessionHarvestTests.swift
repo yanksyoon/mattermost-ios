@@ -286,6 +286,13 @@ final class T31WebSessionHarvestTests: XCTestCase {
     /// construction), the harvest must read `WKWebsiteDataStore(forIdentifier: server.id)` — the
     /// store `ViewStore.ensureStore(for:)` gives that server's webview. A reader pointed at
     /// `.default()` would answer `nil` for every real sign-in and this test would fail.
+    ///
+    /// This is the class's one case that touches a real store, so both of its WebKit calls are
+    /// bounded and named (t_e687bad5): the seed write, and the restore whose production reader reads
+    /// that store. `restore` can throw *after* the store answers (`MMError.unauthorized`), so it goes
+    /// through `requireWebKitAnswerOrThrow` — its own error still propagates unchanged, and only a
+    /// call that never comes back becomes a skip naming the call. The wipe is best effort: nothing
+    /// below asserts on it, and a silent host must not red the case after its claims have run.
     func testTheProductionReaderFindsTheSessionInTheServersOwnWebsiteDataStore() async throws {
         let serverID = UUID()
         let dataStore = WKWebsiteDataStore(forIdentifier: serverID)
@@ -296,11 +303,15 @@ final class T31WebSessionHarvestTests: XCTestCase {
             .path: "/",
             .expires: Date().addingTimeInterval(3600),
         ]))
-        await dataStore.httpCookieStore.setCookie(auth)
+        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)") {
+            await dataStore.httpCookieStore.setCookie(auth)
+        }
         defer {
             Task {
-                await dataStore.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
-                                           modifiedSince: .distantPast)
+                _ = await withWebKitAnswer("removeData(allWebsiteDataTypes)") {
+                    await dataStore.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+                                               modifiedSince: .distantPast)
+                }
             }
         }
 
@@ -321,7 +332,11 @@ final class T31WebSessionHarvestTests: XCTestCase {
         }
         let seeded = ServerConfig(id: serverID, name: "Seeded", url: serverURL)
 
-        let restored = try await coordinator.restore(seeded)
+        let restored = try await requireWebKitAnswerOrThrow(
+            "AuthCoordinator.restore(WebKitSessionCookieReader)"
+        ) {
+            try await coordinator.restore(seeded)
+        }
 
         XCTAssertEqual(restored?.username, "grace")
         XCTAssertEqual(vault.getSecret(key: .authToken, serverURL: serverURL), "webview-only-token")

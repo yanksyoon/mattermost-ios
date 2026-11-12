@@ -300,6 +300,12 @@ final class AuthSessionTests: XCTestCase {
     /// `WKWebsiteDataStore(forIdentifier: server.id)`, so a reader pointed at `.default()` answered
     /// `nil` for every real sign-in. The production-shaped reader (`init(serverID:)`) must read the
     /// server's own store — and must not see another server's cookie.
+    ///
+    /// Every call that crosses WebKit's XPC boundary is bounded and named (t_e687bad5): the write,
+    /// the three reads, and the trailing wipe as best effort. On a host whose WebKit Networking
+    /// service never comes up the case now **skips** naming the call instead of spending the 300 s
+    /// allowance unlabelled; when WebKit answers, all three claims below are asserted unchanged
+    /// (`docs/t_a5321d5e-build-note.md`).
     func testProductionReaderReadsTheServersOwnStoreAndNoOther() async throws {
         let serverA = UUID()
         let serverB = UUID()
@@ -308,26 +314,45 @@ final class AuthSessionTests: XCTestCase {
             .domain: "mm.example.com", .path: "/"
         ]))
         let storeA = WKWebsiteDataStore(forIdentifier: serverA)
-        await storeA.httpCookieStore.setCookie(cookie)
+        let url = serverURL
+        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)") {
+            await storeA.httpCookieStore.setCookie(cookie)
+        }
 
-        let tokenA = await WebKitSessionCookieReader(serverID: serverA).authToken(for: serverURL)
+        let tokenA = try await requireWebKitAnswer("WebKitSessionCookieReader.authToken(serverA)") {
+            await WebKitSessionCookieReader(serverID: serverA).authToken(for: url)
+        }
         XCTAssertEqual(tokenA, "sso-token-abc",
                        "the production reader must read the store the webview writes the session to")
 
-        let tokenB = await WebKitSessionCookieReader(serverID: serverB).authToken(for: serverURL)
+        let tokenB = try await requireWebKitAnswer("WebKitSessionCookieReader.authToken(serverB)") {
+            await WebKitSessionCookieReader(serverID: serverB).authToken(for: url)
+        }
         XCTAssertNil(tokenB, "another server's reader must never see this server's credential")
 
-        let tokenDefault = await WebKitSessionCookieReader(dataStore: .default())
-            .authToken(for: serverURL)
+        let tokenDefault = try await requireWebKitAnswer(
+            "WebKitSessionCookieReader.authToken(.default store)"
+        ) {
+            await WebKitSessionCookieReader(dataStore: .default()).authToken(for: url)
+        }
         XCTAssertNil(tokenDefault,
                      "the shared default store is not where a per-server session lives (the F1 bug)")
 
-        await storeA.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
-                                modifiedSince: .distantPast)
+        // Best effort, and deliberately not required: every assertion above has already run, so a
+        // host that will not answer the wipe either must not red this case after the fact.
+        _ = await withWebKitAnswer("removeData(allWebsiteDataTypes)") {
+            await storeA.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+                                    modifiedSince: .distantPast)
+        }
     }
 
     /// The whole hand-off, with the real reader and the real per-server store: the token the
     /// webview holds is what the native session adopts.
+    ///
+    /// `adoptWebSession` reads that store *inside* the call, so its await is bounded too
+    /// (t_e687bad5) — but this one can also throw after WebKit answers (`MMError.unauthorized` from
+    /// the request), so it goes through `requireWebKitAnswerOrThrow`: the adoption's own error
+    /// propagates unchanged, and only the never-answering case becomes a skip that names the call.
     func testAdoptingAWebSessionEndToEndThroughThePerServerCookieStore() async throws {
         let transport = FakeAPITransport(stubs: [.ok(.json(userJSON(id: "u7", username: "grace")))])
         let auth = try makeSession(transport)
@@ -336,17 +361,24 @@ final class AuthSessionTests: XCTestCase {
             .name: "MMAUTHTOKEN", .value: "sso-token-end-to-end",
             .domain: "mm.example.com", .path: "/"
         ]))
-        await store.httpCookieStore.setCookie(cookie)
+        try await requireWebKitAnswer("httpCookieStore.setCookie(MMAUTHTOKEN)") {
+            await store.httpCookieStore.setCookie(cookie)
+        }
 
-        let session = try await auth.adoptWebSession(
-            using: WebKitSessionCookieReader(serverID: serverID))
+        let session = try await requireWebKitAnswerOrThrow(
+            "AuthSession.adoptWebSession(WebKitSessionCookieReader)"
+        ) {
+            try await auth.adoptWebSession(using: WebKitSessionCookieReader(serverID: self.serverID))
+        }
 
         XCTAssertEqual(session.token, "sso-token-end-to-end")
         XCTAssertEqual(session.userID, "u7")
         XCTAssertEqual(vault.getSecret(key: .authToken, serverURL: serverURL), "sso-token-end-to-end")
 
-        await store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
-                               modifiedSince: .distantPast)
+        _ = await withWebKitAnswer("removeData(allWebsiteDataTypes)") {
+            await store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+                                   modifiedSince: .distantPast)
+        }
     }
 
     // MARK: - Cookie matching

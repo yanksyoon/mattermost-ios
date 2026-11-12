@@ -21,6 +21,29 @@ import XCTest
 // seed, release the store, re-resolve it, `allCookies() == []`). The app always holds one per server
 // (`ViewStore.ensureStore` keeps a `WebViewStore`, whose `WKWebViewConfiguration` owns the store), so
 // each case holds its store for the length of the test, exactly as the app does.
+//
+// t_e687bad5 — every `await` in this file that crosses WebKit's XPC boundary is bounded and named.
+// The calls that can stall are the installer's writes and reads, `allCookies`, the production
+// diagnostics reader / sign-out clearer / session reader, and the cleanup `removeData`. Each is
+// awaited through `requireWebKitAnswer` (15 s hang detector, `T28TestSupport`): an answer is
+// returned at its own cost, and a host whose WebKit Networking service never comes up **skips** the
+// case naming the call instead of burning the 300 s allowance and reddening the gate unlabelled
+// (run `43240373846` — `docs/t_a5321d5e-build-note.md`). The wipe is best-effort
+// (`withWebKitAnswer`, result ignored) so a silent host cannot red a case after its assertions ran.
+//
+// Two things deliberately stay outside the wrapper:
+//
+//   * `WKWebsiteDataStore(forIdentifier:)` is a synchronous registry lookup, not an XPC round trip
+//     (13.9 ms measured on t_a5321d5e), so there is no wait to bound; and
+//   * the construction of `WebKitSessionCookieReader` happens in the case body, at this class's own
+//     nonisolated isolation, because "the store must not be resolved in a nonisolated initializer"
+//     is itself one of the claims here (see the last case). Hoisting it out of the closure keeps
+//     that construction where the class means it to be measured.
+//
+// The wrapper is `@MainActor`, but the methods it awaits (`sessionData`, `clearAuthCookie`,
+// `authToken`, `install`) are nonisolated async functions: they do not inherit the wrapper's actor
+// (SE-0338), they run on the cooperative pool — the executor these cases are about — and the wrapper
+// only bounds how long the case waits for them. So the bound does not move the subject.
 final class T249bc296WebKitCookieIsolationTests: XCTestCase {
 
     private let serverURL = URL(string: "https://mm.example.com")!
@@ -44,22 +67,38 @@ final class T249bc296WebKitCookieIsolationTests: XCTestCase {
     /// Networking process is still coming up is dropped without an error (measured, t_4528b67e — see
     /// the note on `WebSessionCookieInstaller`). Seeding with a raw `setCookie` would leave these
     /// cases asserting against an empty store.
+    ///
+    /// Bounded (t_e687bad5): the installer's `setCookie`/`allCookies` rounds are the first calls that
+    /// start the store's Networking service, so they are the most likely of all of these to be the
+    /// one that never comes back. Silence is a skip naming the installer, not a hang: the assertions
+    /// below cannot mean anything against a store that was never seeded.
     @MainActor
-    private func seed(_ cookies: [HTTPCookie], in store: WKWebsiteDataStore) async {
-        let notStored = await WebSessionCookieInstaller(dataStore: store).install(cookies)
+    private func seed(_ cookies: [HTTPCookie], in store: WKWebsiteDataStore) async throws {
+        let notStored = try await requireWebKitAnswer(
+            "WebSessionCookieInstaller.install(\(cookies.map(\.name).joined(separator: ",")))"
+        ) {
+            await WebSessionCookieInstaller(dataStore: store).install(cookies)
+        }
         XCTAssertTrue(notStored.isEmpty, "seed cookies never landed in the store: \(notStored)")
     }
 
     @MainActor
-    private func names(in store: WKWebsiteDataStore) async -> [String] {
-        let cookies = await store.httpCookieStore.allCookies()
+    private func names(in store: WKWebsiteDataStore) async throws -> [String] {
+        let cookies = try await requireWebKitAnswer("httpCookieStore.allCookies") {
+            await store.httpCookieStore.allCookies()
+        }
         return cookies.map(\.name)
     }
 
+    /// Best effort on purpose: every assertion of the case has already run when this is called, so a
+    /// host that will not answer the wipe either must not turn the case red after the fact (the rule
+    /// t_a5321d5e's T31 case keeps for its trailing `removeData`).
     @MainActor
     private func wipe(_ store: WKWebsiteDataStore) async {
-        await store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
-                               modifiedSince: .distantPast)
+        _ = await withWebKitAnswer("removeData(allWebsiteDataTypes)") {
+            await store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+                                   modifiedSince: .distantPast)
+        }
     }
 
     // MARK: - Diagnostics step-4 / step-11 reader
@@ -74,9 +113,11 @@ final class T249bc296WebKitCookieIsolationTests: XCTestCase {
         let seeded = try [cookie("MMUSERID", "u1"),
                           cookie("MMCSRF", "csrf-1"),
                           cookie("MMAUTHTOKEN", "tok-1")]
-        await seed(seeded, in: store)
+        try await seed(seeded, in: store)
 
-        let snapshot = await WebKitCookieSessionProvider().sessionData(for: server)
+        let snapshot = try await requireWebKitAnswer("WebKitCookieSessionProvider.sessionData") {
+            await WebKitCookieSessionProvider().sessionData(for: server)
+        }
 
         XCTAssertTrue(snapshot.hasUserID, "the reader sees MMUSERID in the server's own store")
         XCTAssertTrue(snapshot.hasCSRF, "the reader sees MMCSRF in the server's own store")
@@ -92,9 +133,11 @@ final class T249bc296WebKitCookieIsolationTests: XCTestCase {
         let store = await makeStore(server.id)
         defer { withExtendedLifetime(store) {} }
         let seeded = try [cookie("MMCSRF", "csrf-1")]
-        await seed(seeded, in: store)
+        try await seed(seeded, in: store)
 
-        let snapshot = await WebKitCookieSessionProvider().sessionData(for: server)
+        let snapshot = try await requireWebKitAnswer("WebKitCookieSessionProvider.sessionData") {
+            await WebKitCookieSessionProvider().sessionData(for: server)
+        }
 
         XCTAssertFalse(snapshot.hasUserID)
         XCTAssertTrue(snapshot.hasCSRF)
@@ -109,19 +152,28 @@ final class T249bc296WebKitCookieIsolationTests: XCTestCase {
     /// needs the same networking process as `setCookie`, so it carries the same off-main trap; the
     /// store work now happens on the main actor, and this case proves the clear still lands when the
     /// caller is not on the main actor.
+    ///
+    /// Both store calls are bounded (t_e687bad5), and the reader is built here, in the test body,
+    /// rather than inside the wrapped closure — see the note at the top of the file.
     func testSignOutCookieClearingRemovesOnlyTheAuthCookieFromANonisolatedCaller() async throws {
         let serverID = UUID()
+        let url = serverURL
         let store = await makeStore(serverID)
         defer { withExtendedLifetime(store) {} }
         let seeded = try [cookie("MMAUTHTOKEN", "sso-token-offmain"),
                           cookie("MMCSRF", "csrf-1")]
-        await seed(seeded, in: store)
+        try await seed(seeded, in: store)
 
-        await WebKitSessionCookieClearing().clearAuthCookie(for: serverURL, serverID: serverID)
+        try await requireWebKitAnswer("WebKitSessionCookieClearing.clearAuthCookie") {
+            await WebKitSessionCookieClearing().clearAuthCookie(for: url, serverID: serverID)
+        }
 
-        let remaining = await WebKitSessionCookieReader(serverID: serverID).authToken(for: serverURL)
+        let reader = WebKitSessionCookieReader(serverID: serverID)
+        let remaining = try await requireWebKitAnswer("WebKitSessionCookieReader.authToken") {
+            await reader.authToken(for: url)
+        }
         XCTAssertNil(remaining, "the MMAUTHTOKEN cookie is gone after the sign-out clear")
-        let remainingNames = await names(in: store)
+        let remainingNames = try await names(in: store)
         XCTAssertTrue(remainingNames.contains("MMCSRF"),
                       "an unrelated cookie on the same server is untouched")
 
@@ -134,14 +186,22 @@ final class T249bc296WebKitCookieIsolationTests: XCTestCase {
     /// is a nonisolated call site: t_249bc296 reproduced the `EXC_BREAKPOINT` there ("Test crashed
     /// with signal trap") from exactly this kind of test. Construction is now a plain value again and
     /// the store is resolved on the main actor inside `authToken(for:)`.
+    ///
+    /// That is why the construction stays on this method's own (nonisolated) executor and only the
+    /// `authToken` await is wrapped (t_e687bad5): a bound that also moved the initializer onto the
+    /// main actor would stop measuring the very call site this case exists for.
     func testTheSessionCookieReaderIsConstructibleAndUsableFromANonisolatedCaller() async throws {
         let serverID = UUID()
+        let url = serverURL
         let store = await makeStore(serverID)
         defer { withExtendedLifetime(store) {} }
         let seeded = try [cookie("MMAUTHTOKEN", "reader-token-offmain")]
-        await seed(seeded, in: store)
+        try await seed(seeded, in: store)
 
-        let token = await WebKitSessionCookieReader(serverID: serverID).authToken(for: serverURL)
+        let reader = WebKitSessionCookieReader(serverID: serverID)
+        let token = try await requireWebKitAnswer("WebKitSessionCookieReader.authToken") {
+            await reader.authToken(for: url)
+        }
 
         XCTAssertEqual(token, "reader-token-offmain",
                        "the reader answers from the server's own store when built off-main")
