@@ -570,6 +570,7 @@ struct PresenceDot: View {
         case .online: return .green
         case .away: return .yellow
         case .dnd: return .red
+        case .outOfOffice: return .purple
         case .offline: return Color.secondary.opacity(0.55)
         case .unknown: return Color.secondary.opacity(0.3)
         }

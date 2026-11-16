@@ -1179,20 +1179,20 @@ struct ChannelPaneContent: View {
             .accessibilityLabel("Channel info")
             .accessibilityIdentifier("nativeChannelInfoButton")
         }
-        // T41 (S24): my own profile. Upstream's tab bar has an "Account" entry for exactly this;
-        // the native pane has no tab of its own, so the header's avatar is the affordance (the same
-        // place the web client puts it). Gated like the row tap (`offersAuthorProfile`): while this
-        // pane is native the webview is not painting its own account avatar either, so the surface's
-        // own resolution cannot decide whether this control exists.
+        // t_9dd73395: my own account, as one control — the profile picture with the presence dot,
+        // opening the account menu (status, custom status, profile, sign out). It replaced T41's
+        // `nativeProfileButton` glyph (t_41 shipped the profile's entry as an icon because the pane
+        // had no account control at all; upstream has exactly one identity surface in this corner,
+        // and this is it). The profile is now reached through the menu's Profile row, and the three
+        // live suites that used to tap the glyph open the menu first.
+        //
+        // It is drawn whenever the pane has a header, gated the same way the old glyph was
+        // (`offersAuthorProfile`): while this pane is native the webview is not painting its own
+        // account avatar either, so the surface's own resolution cannot decide whether it exists.
         if offersAuthorProfile, let myID = profiles.myUserID(for: server), !myID.isEmpty {
-            Button {
-                profilePopover.present(userID: myID)
-            } label: {
-                Label("My profile", systemImage: "person.crop.circle")
-                    .labelStyle(.iconOnly)
+            AccountMenuControl(server: server) { userID in
+                profilePopover.present(userID: userID)
             }
-            .accessibilityLabel("My profile")
-            .accessibilityIdentifier("nativeProfileButton")
         }
         // T39 (S21): the channel's pinned messages, behind the same `search` surface as the
         // search/saved screens (pinned is part of that card's lookup group).

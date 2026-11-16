@@ -251,6 +251,14 @@ enum UserPresence: String, CaseIterable, Identifiable, Sendable {
     case online
     case away
     case dnd
+    /// `ooo` — the wire value, and the only one that is **not settable** by a client
+    /// (`model.StatusOutOfOffice = "ooo"`, mattermost-server). Measured on the pinned 9.11.19
+    /// (`scripts/t_9dd73395_ooo_probe.py`): `PUT /users/{id}/status {"status":"ooo"}` answers
+    /// **400** `api.context.invalid_body_param.app_error`, and `PUT … "out_of_office"` the same.
+    /// The server sets this status itself when *automatic direct message replies* are enabled, so
+    /// this app can only read it, draw it, and **leave** it (upstream's `UserAccountOutOfOfficeMenuItem`
+    /// does exactly that: its click sets `online`).
+    case outOfOffice = "ooo"
     case offline
     case unknown
 
@@ -264,14 +272,20 @@ enum UserPresence: String, CaseIterable, Identifiable, Sendable {
         self = value
     }
 
-    /// The four values the setter offers (an unknown presence is never a *choice*).
+    /// The four values the setter offers (an unknown presence is never a *choice*, and
+    /// `outOfOffice` is not a choice either — see the case comment).
     static var selectable: [UserPresence] { [.online, .away, .dnd, .offline] }
+
+    /// Whether this app may `PUT` this value. `false` for `outOfOffice` (server-side only) and
+    /// `unknown` (not a value at all).
+    var isSettable: Bool { UserPresence.selectable.contains(self) }
 
     var title: String {
         switch self {
         case .online: return "Online"
         case .away: return "Away"
         case .dnd: return "Do not disturb"
+        case .outOfOffice: return "Out of office"
         case .offline: return "Offline"
         case .unknown: return "Status unknown"
         }
@@ -283,6 +297,7 @@ enum UserPresence: String, CaseIterable, Identifiable, Sendable {
         case .online: return "You are online and will receive notifications."
         case .away: return "You are away and will receive notifications."
         case .dnd: return "You will not receive notifications."
+        case .outOfOffice: return "Automatic replies are enabled, so people who message you get a reply."
         case .offline: return "You are offline and will not receive notifications."
         case .unknown: return "This account's presence could not be read."
         }
@@ -294,6 +309,7 @@ enum UserPresence: String, CaseIterable, Identifiable, Sendable {
         case .online: return "circle.fill"
         case .away: return "circle.lefthalf.filled"
         case .dnd: return "minus.circle.fill"
+        case .outOfOffice: return "moon.fill"
         case .offline: return "circle"
         case .unknown: return "questionmark.circle"
         }
@@ -303,9 +319,11 @@ enum UserPresence: String, CaseIterable, Identifiable, Sendable {
     ///
     /// Read off the measured `manual` flags: `away`/`dnd` come back `manual: true`, `online` and
     /// `offline` `manual: false`. It is only a fallback for a status the batched read has not
-    /// answered yet — the authoritative flag is the one the server sends.
+    /// answered yet — the authoritative flag is the one the server sends. `outOfOffice` is not a
+    /// *choice* of this client at all (the auto-responder owns it), so it never sets this.
     var setsManualFlag: Bool { self == .away || self == .dnd }
 }
+
 
 /// One presence row: what `POST /users/status/ids` answers and what the socket patches.
 struct UserStatusSnapshot: Equatable, Sendable {
@@ -339,6 +357,20 @@ struct UserStatusSnapshot: Equatable, Sendable {
 
     /// Whether this row can serve as a choice for the setter's current value.
     var isManualChoice: Bool { manual || presence.setsManualFlag }
+
+    /// Whether a do-not-disturb is **in force at `now`** — i.e. this account asked not to be
+    /// disturbed and the window has not run out.
+    ///
+    /// The end time is the server's (`dnd_end_time`); a `dnd` with no end time does not clear, and a
+    /// `dnd` whose end time has passed is no longer a DND even before the server's expiry job
+    /// (`model.DNDExpiryInterval`, one minute) catches up. Anything that is not `dnd` never
+    /// suppresses, including `outOfOffice` — OOO disables *email/push replies*, not the reader's
+    /// own mention banners, and the server sends both as different values.
+    func suppressesNotifications(at now: Date) -> Bool {
+        guard presence == .dnd else { return false }
+        guard let end = dndEndTime else { return true }
+        return end > now
+    }
 }
 
 // MARK: - Status duration (the setter's vocabulary)
@@ -424,10 +456,19 @@ enum StatusDuration: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// The same, for a DND end time, in the epoch **milliseconds** the status body wants.
-    func dndEndTimeMillis(from now: Date, calendar: Calendar = .current) -> Int64? {
+    /// The same, for a DND end time, in the epoch **seconds** the status body wants.
+    ///
+    /// **Measured, and it reverses T41's assumption.** `model.Status` documents `dnd_end_time` as
+    /// seconds ("Unlike other timestamps in Mattermost, this value is in seconds instead of
+    /// milliseconds"), the web app sends `endTime.utc().unix()` (`user_account_dnd_menuitem.tsx`),
+    /// and the pinned 9.11.19 server echoes whatever it is given — so a millisecond value is stored
+    /// verbatim and the DND-expiry job (`DNDExpiryInterval`) never fires: `GET /users/{id}/status`
+    /// answered `dnd_end_time: 1794823798000` for a request that meant "one hour" and a 3600-valued
+    /// request answered `1794823798` (`scripts/t_9dd73395_dnd_pref_probe.py` §1). The millisecond
+    /// form pinned a red-free T41 suite to a value the server would interpret as the year 58,000.
+    func dndEndTimeSeconds(from now: Date, calendar: Calendar = .current) -> Int64? {
         guard let expiry = expiry(from: now, calendar: calendar) else { return nil }
-        return Int64((expiry.timeIntervalSince1970 * 1000).rounded())
+        return Int64(expiry.timeIntervalSince1970.rounded())
     }
 }
 
@@ -463,7 +504,8 @@ struct CustomStatusBody: Encodable, Equatable, Sendable {
 struct PresenceUpdateBody: Encodable, Equatable, Sendable {
     var userID: String
     var status: String
-    /// Epoch milliseconds; omitted when there is no DND end time.
+    /// Epoch **seconds** (`dnd_end_time` is the one Mattermost timestamp that is not in
+    /// milliseconds — see `StatusDuration.dndEndTimeSeconds`); omitted when there is no end time.
     var dndEndTime: Int64?
 
     enum CodingKeys: String, CodingKey {

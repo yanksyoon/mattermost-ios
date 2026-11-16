@@ -127,6 +127,33 @@ final class ProfileCoordinator: ObservableObject {
         recent[serverID]?.removeAll { $0 == userID }
     }
 
+    // MARK: - My presence, for the notification path (t_9dd73395 requirement 8)
+
+    /// Whether my own status suppresses notification banners on this server **right now**.
+    ///
+    /// This is the one place the notification path and the account menu read the same fact. The
+    /// memory is written by every status read (`ProfileViewModel.load`), every write
+    /// (`setPresence`, this coordinator's auto-away pass) and every `status_change` frame for my own
+    /// id — so the flag cannot be stale in the direction that matters, and an *unexpired* DND is
+    /// what suppresses (a window that has run out stops suppressing even before the server's own
+    /// expiry job runs).
+    ///
+    /// `false` for `unknown`: a status that could not be read is not a reason to swallow a mention.
+    func suppressesNotifications(serverID: UUID, at now: Date = Date()) -> Bool {
+        myStatus[serverID]?.suppressesNotifications(at: now) ?? false
+    }
+
+    /// My presence as far as the app knows it (diagnostics and tests).
+    func myPresence(serverID: UUID) -> UserPresence {
+        myStatus[serverID]?.presence ?? .unknown
+    }
+
+    /// My status row as far as the app knows it — the notification path's input
+    /// (`NativeNotificationFeed.myStatus`), which re-checks the DND end time itself.
+    func myStatusSnapshot(serverID: UUID) -> UserStatusSnapshot? {
+        myStatus[serverID]
+    }
+
     // MARK: Socket
 
     /// One event from the server's socket. Delivered by `TeamSidebarCoordinator.onTeamEvent`, i.e. the
@@ -268,7 +295,7 @@ final class ProfileCoordinator: ObservableObject {
             await model.setPresence(presence, dndDuration: dndDuration)
             return
         }
-        let endMillis = presence == .dnd ? dndDuration?.dndEndTimeMillis(from: Date()) : nil
+        let endMillis = presence == .dnd ? dndDuration?.dndEndTimeSeconds(from: Date()) : nil
         await write(presence: presence, dndEndTime: endMillis, for: server)
     }
 

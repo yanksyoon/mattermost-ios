@@ -288,10 +288,14 @@ final class T41ProfileTests: XCTestCase {
         XCTAssertGreaterThan(week.timeIntervalSince(fixedNow), 0)
     }
 
-    func testADoNotDisturbEndTimeIsSentInMilliseconds() {
-        let millis = StatusDuration.thirtyMinutes.dndEndTimeMillis(from: fixedNow)
-        XCTAssertEqual(millis, Int64((fixedNow.timeIntervalSince1970 + 1800) * 1000))
-        XCTAssertNil(StatusDuration.doNotClear.dndEndTimeMillis(from: fixedNow))
+    /// `dnd_end_time` is the one Mattermost timestamp in **seconds**, not milliseconds (measured:
+    /// `scripts/t_9dd73395_dnd_pref_probe.py` — the server echoed `1794823798` for the seconds form
+    /// and `1794823798000` for the millisecond form, which the expiry job would read as the year
+    /// 58,000). T41 asserted the millisecond form, so this test is the reversal.
+    func testADoNotDisturbEndTimeIsSentInSeconds() {
+        let seconds = StatusDuration.thirtyMinutes.dndEndTimeSeconds(from: fixedNow)
+        XCTAssertEqual(seconds, Int64(fixedNow.timeIntervalSince1970 + 1800))
+        XCTAssertNil(StatusDuration.doNotClear.dndEndTimeSeconds(from: fixedNow))
     }
 
     // MARK: - The draft and the body it sends
@@ -412,9 +416,9 @@ final class T41ProfileTests: XCTestCase {
         XCTAssertEqual(json["status"] as? String, "away")
         XCTAssertNil(json["dnd_end_time"])
 
-        let dnd = PresenceUpdateBody(userID: myID, presence: .dnd, dndEndTime: 1_793_053_200_000)
+        let dnd = PresenceUpdateBody(userID: myID, presence: .dnd, dndEndTime: 1_793_053_200)
         json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(dnd)) as? [String: Any])
-        XCTAssertEqual(json["dnd_end_time"] as? Int64, 1_793_053_200_000)
+        XCTAssertEqual(json["dnd_end_time"] as? Int64, 1_793_053_200)
         XCTAssertEqual(json["status"] as? String, "dnd")
     }
 
@@ -768,17 +772,17 @@ final class T41ProfileTests: XCTestCase {
                        "a cancelled loop issues no further reads")
     }
 
-    /// The do-not-disturb end time is on the wire (`dnd_end_time`, epoch ms) and has to survive the
-    /// decode, or the screen can only say "Do not disturb" for a status that ends at 4:15.
+    /// The do-not-disturb end time is on the wire (`dnd_end_time`, epoch **seconds**) and has to
+    /// survive the decode, or the screen can only say "Do not disturb" for a status that ends at 4:15.
     func testThePresenceSnapshotKeepsTheDoNotDisturbEndTime() throws {
-        let end = Int64(fixedNow.addingTimeInterval(3600).timeIntervalSince1970 * 1000)
+        let end = Int64(fixedNow.addingTimeInterval(3600).timeIntervalSince1970)
         let row = try JSONDecoder().decode(MMStatus.self, from: Data("""
         {"user_id":"\(myID)","status":"dnd","manual":true,
          "last_activity_at":1790000000000,"dnd_end_time":\(end)}
         """.utf8))
         let snapshot = ProfileViewModel.snapshot(from: row)
         XCTAssertEqual(snapshot.presence, .dnd)
-        XCTAssertEqual(snapshot.dndEndTime, Date(timeIntervalSince1970: Double(end) / 1000))
+        XCTAssertEqual(snapshot.dndEndTime, Date(timeIntervalSince1970: Double(end)))
         let sentence = ProfileDateFormat.dndSentence(snapshot, now: fixedNow,
                                                      timeZone: TimeZone(identifier: "UTC")!,
                                                      locale: Locale(identifier: "en_US_POSIX"))
@@ -811,7 +815,7 @@ final class T41ProfileTests: XCTestCase {
         XCTAssertEqual(service.presenceWrites.first?.presence, .dnd)
         XCTAssertEqual(service.presenceWrites.first?.userID, myID)
         XCTAssertEqual(service.presenceWrites.first?.dndEndTime,
-                       StatusDuration.thirtyMinutes.dndEndTimeMillis(from: fixedNow))
+                       StatusDuration.thirtyMinutes.dndEndTimeSeconds(from: fixedNow))
         XCTAssertEqual(model.presence, .dnd)
         XCTAssertTrue(model.status?.manual == true, "the server's answer is used, not the guess")
         XCTAssertEqual(reported.count, 1)

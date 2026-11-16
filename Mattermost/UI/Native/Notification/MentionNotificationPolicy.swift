@@ -93,6 +93,13 @@ enum MentionDropReason: String, Equatable, Sendable {
     case notAMention
     case alreadyDelivered
     case noChannelContext
+    /// t_9dd73395 requirement 8: my own status is **Do not disturb** (and its window has not run
+    /// out). Upstream's DND row says "You will not receive notifications", and the server drops
+    /// pushes for an account in DND; this native path builds banners itself (there is no push proxy
+    /// on this host), so the same rule has to be applied here or the app would show a banner the web
+    /// client would not. The OS is untouched: a system notification already scheduled still appears,
+    /// and Focus can suppress it — that is the "still allowed to override" half.
+    case doNotDisturb
 
     /// T43-R (F1): whether this drop means **"the input that owns this post handled it"** — so the T14
     /// poll must not deliver it later — or "this input could not decide", in which case the post stays
@@ -104,7 +111,7 @@ enum MentionDropReason: String, Equatable, Sendable {
     var recordsAsHandled: Bool {
         switch self {
         case .notificationsDisabled, .channelNotificationsOff, .mentionsIgnored,
-             .mutedChannelMentionsIgnored:
+             .mutedChannelMentionsIgnored, .doNotDisturb:
             return true
         case .deleted, .ownPost, .systemPost, .notAMention, .alreadyDelivered, .noChannelContext:
             return false
@@ -126,6 +133,7 @@ enum MentionDropReason: String, Equatable, Sendable {
         case .notAMention: return "the message does not mention you"
         case .alreadyDelivered: return "already notified for this post"
         case .noChannelContext: return "the channel could not be resolved"
+        case .doNotDisturb: return "your status is Do not disturb"
         }
     }
 }
@@ -145,10 +153,17 @@ enum MentionNotificationPolicy {
     /// the per-channel notify props). A channel that could not be resolved is not a reason to guess:
     /// `channel == nil` means the input path has no context, and the feed asks for it rather than
     /// notifying blind (that is why `.noChannelContext` is a drop reason and not a default).
+    ///
+    /// `myStatus` (t_9dd73395 requirement 8) is the reader's **own** presence row. A DND that is still
+    /// in force drops the banner, which is upstream's "You will not receive notifications" and the
+    /// server's own push rule; `nil`/`unknown` never suppresses (a status that could not be read is
+    /// not a reason to swallow a mention).
     nonisolated static func decision(post: MMPost,
                                      reader: MentionReader,
                                      channel: MMChannel?,
-                                     membership: MMChannelMember?) -> MentionDecision {
+                                     membership: MMChannelMember?,
+                                     myStatus: UserStatusSnapshot? = nil,
+                                     now: Date = Date()) -> MentionDecision {
         // 1. A deleted post is not a notification (an edit-then-delete round trip must not resurrect
         //    one), and the reader's own post is never their own notification.
         if post.deleteAt != 0 { return .drop(.deleted) }
@@ -157,8 +172,10 @@ enum MentionNotificationPolicy {
         }
         if post.type.hasPrefix("system_") { return .drop(.systemPost) }
 
-        // 2. Account level: `desktop: "none"` means "do not notify me", whatever the channel says.
+        // 2. Account level: `desktop: "none"` means "do not notify me", whatever the channel says,
+        //    and a do-not-disturb in force means the same thing until its window ends.
         if reader.desktopNotify.lowercased() == "none" { return .drop(.notificationsDisabled) }
+        if myStatus?.suppressesNotifications(at: now) == true { return .drop(.doNotDisturb) }
 
         // 3. Channel level. `desktop` is the per-channel override of the *account* setting.
         //

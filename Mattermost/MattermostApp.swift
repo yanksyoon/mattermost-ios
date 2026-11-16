@@ -769,6 +769,13 @@ struct MattermostApp: App {
         let appIsActive: () -> Bool = { UIApplication.shared.applicationState == .active }
         notificationFeed.visibleChannel = visibleChannel
         notificationFeed.isAppActive = appIsActive
+        // t_9dd73395 requirement 8: a Do-not-disturb status suppresses banners, on the **same**
+        // memory the account menu writes and reads (one DND fact, two readers — the menu's dot and
+        // this gate). The OS is untouched: a scheduled system notification still appears, and Focus
+        // can suppress it, which is the allowed override.
+        notificationFeed.myStatus = { [weak profileCoordinator] serverID in
+            profileCoordinator?.myStatusSnapshot(serverID: serverID)
+        }
         notificationWorker.isAppActive = appIsActive
         notificationFeed.bannerCenter = mentionBanner
         // A banner schedules nothing, but the first-mention permission prompt still has to happen (T8):

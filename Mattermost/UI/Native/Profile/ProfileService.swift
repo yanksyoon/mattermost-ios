@@ -49,6 +49,13 @@ protocol ProfileServing: AnyObject {
     func customProfileAttributeValues(userID: String) async throws -> MMCustomProfileAttributeValues
     /// `PUT /users/{id}/custom_profile_attributes`.
     func setCustomProfileAttributeValues(userID: String, values: [String: String]) async throws
+
+    // MARK: - t_9dd73395: the account menu's preference
+
+    /// `GET /users/{id}/preferences` — read for the `auto_reset_manual_status` row.
+    func preferences(userID: String) async throws -> [MMPreference]
+    /// `PUT /users/{id}/preferences` — save rows.
+    func savePreferences(userID: String, rows: [MMPreference]) async throws
 }
 
 extension ProfileServing {
@@ -87,6 +94,15 @@ extension ProfileServing {
     }
     func setCustomProfileAttributeValues(userID: String, values: [String: String]) async throws {
         throw MMError.client(status: 501, message: "This service cannot save profile attributes.")
+    }
+
+    // t_9dd73395 defaults: a service that cannot read preferences answers none — and the account menu
+    // then treats the auto-reset preference as **unset**, which is the asking (safe) direction, not
+    // as "already answered". A service that cannot write one throws, so a silent no-op cannot be
+    // mistaken for "do not ask me again" being saved.
+    func preferences(userID: String) async throws -> [MMPreference] { [] }
+    func savePreferences(userID: String, rows: [MMPreference]) async throws {
+        throw MMError.client(status: 501, message: "This service cannot save preferences.")
     }
 }
 
@@ -171,5 +187,15 @@ final class SessionProfileService: ProfileServing {
 
     func setCustomProfileAttributeValues(userID: String, values: [String: String]) async throws {
         try await client().setCustomProfileAttributeValues(userID: userID, values: values)
+    }
+
+    // MARK: - t_9dd73395
+
+    func preferences(userID: String) async throws -> [MMPreference] {
+        try await client().userPreferences(userID: userID)
+    }
+
+    func savePreferences(userID: String, rows: [MMPreference]) async throws {
+        _ = try await client().savePreferences(userID: userID, rows)
     }
 }

@@ -498,9 +498,18 @@ struct MMStatus: Codable, Equatable, Sendable {
     var status: String
     var manual: Bool
     var lastActivityAt: Int64
-    /// `dnd_end_time`, epoch **milliseconds** (0 when there is none — measured: a plain `away`/`online`
-    /// row carries 0, and `PUT /users/me/status` echoes whatever was sent). T41 reads it so the profile
-    /// can say *until when* a do-not-disturb lasts instead of implying it is permanent.
+    /// `dnd_end_time`, epoch **seconds** (0 when there is none — measured: a plain `away`/`online`
+    /// row carries 0, and `PUT /users/me/status` echoes whatever was sent). It is the one Mattermost
+    /// timestamp that is not in milliseconds (`model.Status`'s own comment); T41 read it as
+    /// milliseconds and drew a do-not-disturb ending in the year 58845 (t_9dd73395,
+    /// `scripts/t_9dd73395_dnd_pref_probe.py` Case 2).
+    ///
+    /// Only meaningful while `status == "dnd"`: on 9.11.19 `updateUserStatus` handles `online` /
+    /// `offline` / `away` with `SetStatusOnline` / `SetStatusOffline` / `SetStatusAwayIfNeeded`, none
+    /// of which touch this field, while `dnd` goes through `SetStatusDoNotDisturbTimed(dnd_end_time)`.
+    /// So leaving Do not disturb leaves the old end time behind (probe Case 3: an `away` write did not
+    /// clear it, and neither did an explicit `0`) — every reader must gate on the status before using
+    /// this value, or an ended DND would keep suppressing.
     var dndEndTime: Int64
 
     enum CodingKeys: String, CodingKey {

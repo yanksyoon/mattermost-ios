@@ -139,6 +139,9 @@ struct ChannelMembersView: View {
         case "online": return .green
         case "away": return .yellow
         case "dnd": return .red
+        // t_9dd73395: `ooo` — the server's own value when automatic replies are on (`UserPresence`
+        // .outOfOffice). Drawn in the same violet the account control uses for it.
+        case "ooo": return .purple
         case "offline": return Color.secondary.opacity(0.35)
         default: return Color.secondary.opacity(0.15)
         }

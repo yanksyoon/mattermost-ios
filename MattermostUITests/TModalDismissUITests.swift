@@ -122,8 +122,11 @@ final class TModalDismissUITests: XCTestCase {
                goneWhen: { !self.element(app, "pinnedSheet").exists },
                on: app)
 
-        // 4. The profile popover — an item-bound sheet on that same view.
-        tap(element(app, "nativeProfileButton"), expecting: "profileSheet", on: app)
+        // 4. The profile popover — an item-bound sheet on that same view, now reached through the
+        //    account menu (t_9dd73395): the header avatar opens the menu, the Profile row opens
+        //    the sheet. Both taps are part of the one surface being dismissed.
+        tap(element(app, "accountMenuButton"), expecting: "accountMenu.profile", on: app)
+        tap(element(app, "accountMenu.profile"), expecting: "profileSheet", on: app)
         record("profile.done",
                close: element(app, "profile.done"),
                goneWhen: { !self.element(app, "profileSheet").exists },

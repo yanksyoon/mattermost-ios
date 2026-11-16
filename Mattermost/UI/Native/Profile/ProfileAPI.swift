@@ -69,6 +69,34 @@ extension APIClient {
         try await delete(path: "/users/\(userID)/status/custom")
     }
 
+    // MARK: - Preferences (the account menu's auto-reset rule, t_9dd73395)
+
+    /// `GET /users/{user_id}/preferences` — the whole preference list.
+    ///
+    /// The account menu needs exactly one row out of it (`auto_reset_manual_status`), but the read is
+    /// the documented route and the list is small; a per-name route does not exist on 9.11.19
+    /// (`GET /users/{id}/preferences/{category}/{name}` answers 404 — measured,
+    /// `scripts/t_9dd73395_dnd_pref_probe.py` §2).
+    func userPreferences(userID: String) async throws -> [MMPreference] {
+        try await preferences(userID: userID)
+    }
+
+    /// `PUT /users/{user_id}/preferences` — save rows (the shape `SearchAPI.savePost` uses).
+    ///
+    /// Measured on 9.11.19: answers `{"status":"OK"}` for one row, and the row reads back verbatim
+    /// from the GET above.
+    @discardableResult
+    func savePreferences(userID: String, _ rows: [MMPreference]) async throws -> APIResponse {
+        try await putForResponse(path: "/users/\(userID)/preferences", body: rows)
+    }
+
+    /// `POST /users/{user_id}/preferences/delete` — remove rows.
+    @discardableResult
+    func deletePreferences(userID: String, _ rows: [MMPreference]) async throws -> APIResponse {
+        try await postForResponse(path: "/users/\(userID)/preferences/delete",
+                                  body: try JSONEncoder().encode(rows))
+    }
+
     // MARK: - The DM shortcut
 
     /// `POST /channels/direct` with the two user ids — the conversation, created or found.

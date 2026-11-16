@@ -91,6 +91,14 @@ final class NativeNotificationFeed: ObservableObject {
     /// Whether the app is foreground. Same closure the worker uses (`NotificationWorker.isAppActive`).
     var isAppActive: () -> Bool = { UIApplication.shared.applicationState == .active }
 
+    /// t_9dd73395: my own status for a server — the **same** memory the account menu draws from
+    /// (`ProfileCoordinator.myStatusSnapshot`). A DND in force drops the banner before any
+    /// presentation decision, so a do-not-disturb is honoured on the input the app actually ships
+    /// (`docs/t43-build-note.md`: this host has no push proxy, so the native feed *is* the
+    /// notification path). A snapshot rather than a `Bool`, so the end time is re-evaluated per
+    /// event instead of frozen at bind time.
+    var myStatus: (@MainActor (UUID) -> UserStatusSnapshot?)?
+
     /// T54: ask for notification permission the way the first *system* mention would, without scheduling
     /// anything. A banner needs no permission, but if every mention a reader ever receives is foreground
     /// the OS prompt would never be asked — and the first backgrounded mention would then be dropped
@@ -225,7 +233,9 @@ final class NativeNotificationFeed: ObservableObject {
         }
 
         let decision = MentionNotificationPolicy.decision(post: post, reader: reader,
-                                                         channel: channel, membership: membership)
+                                                         channel: channel, membership: membership,
+                                                         myStatus: myStatus?(server.id),
+                                                         now: now())
         switch decision {
         case .drop(let reason):
             // A non-mention is the overwhelmingly common case (every message in a busy channel arrives

@@ -8,7 +8,9 @@
 //     `custom_status` answers `400 invalid_body_param` — the most natural guess, and wrong.
 //  2. `expires_at` is a Go `time.Time`: a non-empty duration with no future expiry is a 400, an empty
 //     string is a decode failure, and the "no expiry" case is the **omitted key** (Go's zero time).
-//  3. `PUT /users/me/status` takes `dnd_end_time` in epoch **milliseconds**.
+//  3. `PUT /users/me/status` takes `dnd_end_time` in epoch **seconds** — the one Mattermost
+//     timestamp that is not milliseconds (t_9dd73395 measured: the server echoes the value verbatim,
+//     `scripts/t_9dd73395_dnd_pref_probe.py`).
 //  4. `POST /channels/direct` takes a bare JSON **array** of ids and answers 201 the first time.
 //  5. `POST /users/ids` is the batch profile read; it carries `props`, which is where the custom status
 //     of somebody else lives.

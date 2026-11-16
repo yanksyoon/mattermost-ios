@@ -148,6 +148,79 @@ final class ProfileViewModel: ObservableObject {
         return status.presence
     }
 
+    // MARK: - t_9dd73395: the account menu's facts
+
+    /// The `auto_reset_manual_status` preference as the server holds it.
+    ///
+    /// `nil` until a read answers (or when the read failed — the rule treats that as "unset", i.e.
+    /// ask); `""` when the row does not exist; `"true"`/`"false"` once the reader has answered. This
+    /// is upstream's `autoResetPref` (`user_account_menu/index.ts`), whose empty string is the one
+    /// value that makes leaving Out of office ask first.
+    @Published private(set) var autoResetPreference: String?
+
+    /// Whether a custom status is **set**, by upstream's rule (`user_account_menu.tsx:46`): it exists,
+    /// has content in either field, and has not expired.
+    var isCustomStatusSet: Bool {
+        AccountMenuRules.isCustomStatusSet(profile?.customStatus, now: now())
+    }
+
+    /// Whether leaving the current status asks first (upstream `:47`). Only Out of office ever does.
+    var shouldConfirmBeforeStatusChange: Bool {
+        AccountMenuRules.shouldConfirmBeforeStatusChange(preferenceValue: autoResetPreference,
+                                                         status: presence)
+    }
+
+    /// The rows the account menu draws, in upstream's order (`AccountMenuBuilder`).
+    var accountMenuItems: [AccountMenuItem] {
+        AccountMenuBuilder.items(presence: presence, customStatusSet: isCustomStatusSet)
+    }
+
+    /// Read what the account control draws: the profile (name, avatar, custom status), the status
+    /// (the dot) and the auto-reset preference (the confirmation rule).
+    ///
+    /// A **warm** model does not re-read the profile (`load()`'s own rule), so opening the menu after
+    /// visiting the profile costs one presence read and one preference read.
+    func loadAccountMenu() async {
+        await load()
+        await loadAutoResetPreference()
+    }
+
+    /// `GET /users/{id}/preferences` → the auto-reset row.
+    ///
+    /// A failed read leaves `nil`, which the rule reads as **unset** — so the confirmation is shown.
+    /// It deliberately does not clear a value already read, and it does not raise a banner: the menu
+    /// still works, and a banner over a status menu for a preference that has never been answered
+    /// would be noise.
+    func loadAutoResetPreference() async {
+        guard isMe else { return }
+        do {
+            let rows = try await service.preferences(userID: userID)
+            autoResetPreference = AccountMenuRules.autoResetValue(in: rows, userID: userID) ?? ""
+        } catch {
+            // Left as it was: `nil` on a first read (the rule then asks), or the value already read.
+            MMLog.debug("MMAccount", "auto-reset preference could not be read: \(error)")
+        }
+    }
+
+    /// Save "do not ask me again" (`dontAskAgain: true`) or "ask me again" (`false`).
+    ///
+    /// Writes upstream's row (`category: auto_reset_manual_status`, `name:` the user id, `value:`
+    /// `true`/`false`) and adopts it locally only once the server accepted it — a confirmation the
+    /// reader thinks they silenced must not reappear, and one they did not silence must not vanish.
+    func setAutoResetPreference(dontAskAgain: Bool) async {
+        guard isMe else { return }
+        do {
+            try await service.savePreferences(
+                userID: userID,
+                rows: [AccountMenuRules.autoResetPreference(userID: userID,
+                                                            dontAskAgain: dontAskAgain)]
+            )
+            autoResetPreference = AccountMenuRules.autoResetPreferenceValue(dontAskAgain: dontAskAgain)
+        } catch {
+            banner = Self.writeFailureCopy(error, what: "status preference")
+        }
+    }
+
     // MARK: Load
 
     /// Read the profile and its presence from the server.
@@ -188,6 +261,12 @@ final class ProfileViewModel: ObservableObject {
             } else if status == nil {
                 status = UserStatusSnapshot(userID: userID, presence: .unknown)
             }
+            // The account menu (t_9dd73395) is the app's always-on reader of my own status, so a
+            // *read* — not only a write — has to reach the coordinator's presence memory: the
+            // notification path asks that memory whether a DND is in force
+            // (`NativeNotificationFeed.myPresence`), and a launch that never opened a profile would
+            // otherwise gate on `unknown` until the first background/foreground pass.
+            if isMe, let status { onMyStatusChanged?(serverID, status) }
             phase = .loaded
             await loadAvatar(for: loaded)
         } catch {
@@ -282,21 +361,41 @@ final class ProfileViewModel: ObservableObject {
 
     // MARK: Presence (my own only)
 
-    /// Set my presence, with an optional "do not disturb" end time.
+    /// Set my presence, with an optional "do not disturb" end time expressed as a duration.
     ///
-    /// `nil` `dndDuration` means "no end time". Anything but `.dnd` with a duration is a caller bug,
-    /// so this refuses it rather than sending a body the server would silently keep forever.
+    /// `nil` `dndDuration` means "no end time". A duration on anything but `.dnd` is a caller bug, so
+    /// it is ignored rather than sent — the server would store a `dnd_end_time` on a status that
+    /// never expires.
     func setPresence(_ presence: UserPresence, dndDuration: StatusDuration? = nil) async {
+        var seconds: Int64?
+        if presence == .dnd, let dndDuration, dndDuration != .doNotClear {
+            seconds = dndDuration.dndEndTimeSeconds(from: now(), calendar: calendar)
+        }
+        await setPresence(presence, dndEndTimeSeconds: seconds)
+    }
+
+    /// Set my presence, with an exact DND end time in epoch seconds (the account menu's "Choose date
+    /// and time", and the one write path every other caller funnels through).
+    ///
+    /// The unit is **seconds**, which is what `dnd_end_time` is (`model.Status`: the one Mattermost
+    /// timestamp that is not milliseconds; measured — `scripts/t_9dd73395_dnd_pref_probe.py`).
+    func setPresence(_ presence: UserPresence, dndEndTimeSeconds seconds: Int64?) async {
         guard isMe else {
             banner = "You can only change your own status."
             return
         }
         guard !isWriting else { return }
-        guard presence != .unknown else { return }
-        var endMillis: Int64?
-        if presence == .dnd, let dndDuration, dndDuration != .doNotClear {
-            endMillis = dndDuration.dndEndTimeMillis(from: now(), calendar: calendar)
+        guard presence.isSettable else {
+            // `ooo` is the server's own value (set by the automatic-replies feature) and `unknown`
+            // is not a value at all: a `PUT` with either is a 400 on 9.11.19 (measured; see
+            // `UserPresence.outOfOffice`). Refusing here keeps the previous status on screen instead
+            // of blanking it for a write that could not work.
+            if presence == .outOfOffice {
+                banner = "Out of office is set by automatic replies, not from this menu."
+            }
+            return
         }
+        let endSeconds = presence == .dnd ? seconds : nil
         let previous = status
         isWriting = true
         banner = nil
@@ -306,10 +405,10 @@ final class ProfileViewModel: ObservableObject {
                                     presence: presence,
                                     manual: presence.setsManualFlag,
                                     lastActivityAt: previous?.lastActivityAt,
-                                    dndEndTime: endMillis.map { Date(timeIntervalSince1970: Double($0) / 1000) })
+                                    dndEndTime: endSeconds.map { Date(timeIntervalSince1970: Double($0)) })
         do {
             let answer = try await service.setPresence(presence,
-                                                       dndEndTime: endMillis,
+                                                       dndEndTime: endSeconds,
                                                        userID: userID)
             isWriting = false
             // The server's own row is the truth (it normalises `manual` — measured: `online` comes
@@ -503,7 +602,9 @@ final class ProfileViewModel: ObservableObject {
     ///
     /// The batched read and the presence write answer the same shape, so both go through here — and
     /// `dnd_end_time` is kept: without it a do-not-disturb can only be drawn as permanent, and the
-    /// server *does* send the end time (measured; `MMStatus.dndEndTime`).
+    /// server *does* send the end time (measured; `MMStatus.dndEndTime`). Its unit is **seconds**
+    /// (the one Mattermost timestamp that is not milliseconds) — see
+    /// `StatusDuration.dndEndTimeSeconds`.
     static func snapshot(from status: MMStatus) -> UserStatusSnapshot {
         UserStatusSnapshot(
             userID: status.userId,
@@ -513,7 +614,7 @@ final class ProfileViewModel: ObservableObject {
                 ? Date(timeIntervalSince1970: Double(status.lastActivityAt) / 1000)
                 : nil,
             dndEndTime: status.dndEndTime > 0
-                ? Date(timeIntervalSince1970: Double(status.dndEndTime) / 1000)
+                ? Date(timeIntervalSince1970: Double(status.dndEndTime))
                 : nil
         )
     }

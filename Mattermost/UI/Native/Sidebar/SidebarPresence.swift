@@ -126,6 +126,11 @@ enum SidebarPresenceRules {
         switch snapshot.presence {
         case .online, .away, .dnd:
             return now.timeIntervalSince(snapshot.observedAt) <= staleAfter ? snapshot.presence : .offline
+        case .outOfOffice:
+            // A stored state, not an activity claim: the server holds it until the automatic-replies
+            // setting changes, so there is nothing to age out. (A peer in OOO whose row was read an
+            // hour ago is still out of office.)
+            return .outOfOffice
         case .offline:
             return .offline
         case .unknown:
@@ -178,6 +183,7 @@ enum SidebarPresencePalette {
         case .online: return .green
         case .away: return .orange
         case .dnd: return .red
+        case .outOfOffice: return .purple
         case .offline, .unknown: return Color.secondary.opacity(0.55)
         }
     }

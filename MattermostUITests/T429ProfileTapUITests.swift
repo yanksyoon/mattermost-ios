@@ -178,15 +178,21 @@ final class T429ProfileTapUITests: XCTestCase {
     }
 
     /// The header's own avatar was hidden by the same `.profile` gate; while the pane is native it
-    /// must be offered too (the web client's account menu is not on screen either).
+    /// must be offered too (the web client's account menu is not on screen either). Since
+    /// t_9dd73395 the avatar opens the account menu, whose Profile row is the entry.
     func testThePanesOwnProfileEntryIsOfferedWhileProfileResolvesWeb() throws {
         let app = launchApp()
         openChannel(app)
 
-        let button = element(app, "nativeProfileButton")
+        let button = element(app, "accountMenuButton")
         XCTAssertTrue(button.waitForExistence(timeout: 20),
                       "the pane header must offer the signed-in profile:\n\(app.debugDescription)")
         button.tap()
+
+        let profileRow = element(app, "accountMenu.profile")
+        XCTAssertTrue(profileRow.waitForExistence(timeout: 20),
+                      "the account menu must offer Profile:\n\(app.debugDescription)")
+        profileRow.tap()
 
         let username = element(app, "profile.username")
         XCTAssertTrue(username.waitForExistence(timeout: 20),

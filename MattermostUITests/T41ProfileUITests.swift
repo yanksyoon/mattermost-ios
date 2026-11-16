@@ -457,12 +457,18 @@ final class T41ProfileUITests: XCTestCase {
                       "the channel pane must mount:\n\(app.debugDescription)")
     }
 
-    /// The header's own avatar is the entry point to the signed-in account's profile (T41).
+    /// The header's own avatar is the entry point to the signed-in account (t_9dd73395): it opens
+    /// the account menu, and the menu's Profile row is what presents my profile. T41 shipped the
+    /// avatar as a direct profile button; there is one identity control now, as in the web client.
     private func openMyProfile(_ app: XCUIApplication) {
-        let button = element(app, "nativeProfileButton")
-        XCTAssertTrue(button.waitForExistence(timeout: 20),
-                      "the channel header must offer the profile:\n\(app.debugDescription)")
-        button.tap()
+        let control = element(app, "accountMenuButton")
+        XCTAssertTrue(control.waitForExistence(timeout: 20),
+                      "the channel header must offer the account menu:\n\(app.debugDescription)")
+        control.tap()
+        let row = element(app, "accountMenu.profile")
+        XCTAssertTrue(row.waitForExistence(timeout: 20),
+                      "the account menu must offer Profile:\n\(app.debugDescription)")
+        row.tap()
         XCTAssertTrue(element(app, "profileSheet").waitForExistence(timeout: 20),
                       "the profile sheet must mount:\n\(app.debugDescription)")
     }
