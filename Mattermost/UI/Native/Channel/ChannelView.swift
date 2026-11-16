@@ -779,6 +779,9 @@ struct ChannelPaneContent: View {
     /// defaults to "at the newest message" because that is where the pane opens.
     @State private var paneIsVisible = false
     @State private var readerAtNewest = true
+    /// t_bc22d0b3: the rects the header laid its controls out at, collected only under
+    /// `-uiTestExposeHeaderGeometry` (see `ChannelHeaderGeometrySeam`). Empty in every other launch.
+    @State private var headerFrames: [String: CGRect] = [:]
 
     /// Whether the write surface renders natively (T35's `.composer` surface).
     ///
@@ -1090,26 +1093,58 @@ struct ChannelPaneContent: View {
         // reflow. The title claims a row of its own, the controls move to the row below it, and
         // no control changes identity — every identifier and label below is the one the suites
         // already address.
+        //
+        // t_bc22d0b3: the regular row is **centre**-aligned, and its trailing side is one explicit
+        // cluster (`trailingCluster`) rather than the controls being flattened into this row. An
+        // avatar has no text baseline, so `firstTextBaseline` used to decide an avatar's and four
+        // glyphs' shared row by a rule none of the five participated in; and the old row's
+        // `spacing: 8` was the gap between *everything*, title included. The cluster now owns the
+        // one spacing and the one control height (`ChannelHeaderMetrics`), so the row is measurable:
+        // equal gaps, one `midY`, and the last control `horizontalPadding` from the trailing edge.
         Group {
             if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 6) {
                     titleView
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    HStack(spacing: 8) {
-                        trailingControls
+                    HStack(spacing: ChannelHeaderMetrics.controlSpacing) {
+                        trailingCluster
                         Spacer(minLength: 0)
                     }
                 }
             } else {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .center, spacing: ChannelHeaderMetrics.controlSpacing) {
                     titleView
                     Spacer(minLength: 8)
-                    trailingControls
+                    trailingCluster
                 }
             }
         }
-        .padding(.horizontal)
+        .padding(.horizontal, ChannelHeaderMetrics.horizontalPadding)
         .padding(.vertical, 10)
+        // The seam's coordinate space, anchored at the header: every rect it reports is measured in
+        // this space, so the trailing gap and the badge rectangles never mix coordinate systems.
+        .coordinateSpace(name: ChannelHeaderMetrics.coordinateSpace)
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: ChannelHeaderFramesKey.self,
+                    value: ChannelUITestHook.exposesHeaderGeometry
+                        ? ["header": proxy.frame(in: .named(ChannelHeaderMetrics.coordinateSpace))]
+                        : [:]
+                )
+            }
+        )
+        .onPreferenceChange(ChannelHeaderFramesKey.self) { frames in
+            guard ChannelUITestHook.exposesHeaderGeometry else { return }
+            headerFrames = frames
+        }
+        .overlay(alignment: .topLeading) {
+            if ChannelUITestHook.exposesHeaderGeometry {
+                ChannelHeaderGeometrySeam(frames: headerFrames,
+                                          padding: ChannelHeaderMetrics.horizontalPadding)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     /// The header's title: the channel's display name, and — as upstream's `NavigationHeader`
@@ -1152,8 +1187,25 @@ struct ChannelPaneContent: View {
         }
     }
 
-    /// The header's trailing controls: the channel-info, profile, pinned, Calls and Threads
-    /// affordances, each gated on its own surface exactly as before.
+    /// The trailing controls as **one** row: every control in the same frame, one spacing, centre
+    /// alignment, and the account control last.
+    ///
+    /// This is one explicit `HStack` rather than the controls being flattened into the header row
+    /// (t_bc22d0b3). Flattening is what made the row unmeasurable: each control then sat in the
+    /// *header's* `HStack`, whose alignment and spacing were chosen for the title, so "one toolbar"
+    /// was an accident of five views having similar intrinsic heights.
+    private var trailingCluster: some View {
+        HStack(alignment: .center, spacing: ChannelHeaderMetrics.controlSpacing) {
+            trailingControls
+        }
+        .frame(height: ChannelHeaderMetrics.controlSide)
+    }
+
+    /// The header's trailing controls, in upstream's order: the channel-info, pinned, Calls and
+    /// Threads affordances, then **my account** — the last item in the cluster, with nothing to its
+    /// right but the header's own padding.
+    ///
+    /// Each is gated on its own surface exactly as before.
     @ViewBuilder
     private var trailingControls: some View {
         if ChannelUITestHook.exposesLoadEarlier, let model {
@@ -1178,21 +1230,7 @@ struct ChannelPaneContent: View {
             }
             .accessibilityLabel("Channel info")
             .accessibilityIdentifier("nativeChannelInfoButton")
-        }
-        // t_9dd73395: my own account, as one control — the profile picture with the presence dot,
-        // opening the account menu (status, custom status, profile, sign out). It replaced T41's
-        // `nativeProfileButton` glyph (t_41 shipped the profile's entry as an icon because the pane
-        // had no account control at all; upstream has exactly one identity surface in this corner,
-        // and this is it). The profile is now reached through the menu's Profile row, and the three
-        // live suites that used to tap the glyph open the menu first.
-        //
-        // It is drawn whenever the pane has a header, gated the same way the old glyph was
-        // (`offersAuthorProfile`): while this pane is native the webview is not painting its own
-        // account avatar either, so the surface's own resolution cannot decide whether it exists.
-        if offersAuthorProfile, let myID = profiles.myUserID(for: server), !myID.isEmpty {
-            AccountMenuControl(server: server) { userID in
-                profilePopover.present(userID: userID)
-            }
+            .trailingControl("nativeChannelInfoButton")
         }
         // T39 (S21): the channel's pinned messages, behind the same `search` surface as the
         // search/saved screens (pinned is part of that card's lookup group).
@@ -1205,11 +1243,15 @@ struct ChannelPaneContent: View {
             }
             .accessibilityLabel("Pinned messages")
             .accessibilityIdentifier("nativeChannelPinnedButton")
+            .trailingControl("nativeChannelPinnedButton")
         }
         // T44d (S33): the Calls entry point. Gated on the `calls` surface exactly like every
         // other header affordance: while `calls` renders web the webview owns Calls (and its own
         // button), so a second native one beside it would be two answers to the same tap.
         if resolver.resolvedMode(for: .calls) == .native {
+            // Its frame and glyph weight are the cluster's, applied on the button inside (not on this
+            // host view): with no Calls plugin the entry draws nothing at all, and a frame applied
+            // here would leave an empty 32 pt slot in the row with a gap on each side.
             CallsJoinEntry(server: server,
                            channelID: channelID,
                            channelName: channelName ?? model?.title)
@@ -1222,6 +1264,29 @@ struct ChannelPaneContent: View {
         }
         .accessibilityLabel("Threads")
         .accessibilityIdentifier("nativeChannelThreadsButton")
+        .trailingControl("nativeChannelThreadsButton")
+        // t_9dd73395 / t_bc22d0b3: my own account — the profile picture with the presence dot and,
+        // when set, the custom-status emoji — opening the account menu (status, custom status,
+        // profile, sign out). It replaced T41's `nativeProfileButton` glyph (T41 shipped the
+        // profile's entry as an icon because the pane had no account control at all; upstream has
+        // exactly one identity surface in this corner, and this is it); the profile is now reached
+        // through the menu's Profile row, and the three live suites that used to tap the glyph open
+        // the menu first.
+        //
+        // **It is the last item in the right-hand cluster.** Upstream's
+        // `global_header/right_controls/right_controls.tsx` renders it after `SettingsButton`, flush
+        // to the edge of the cluster, and never in the middle of the icon run; t_bc22d0b3 moved it
+        // here from between the channel-info and pinned glyphs.
+        //
+        // It is drawn whenever the pane has a header, gated the same way the old glyph was
+        // (`offersAuthorProfile`): while this pane is native the webview is not painting its own
+        // account avatar either, so the surface's own resolution cannot decide whether it exists.
+        if offersAuthorProfile, let myID = profiles.myUserID(for: server), !myID.isEmpty {
+            AccountMenuControl(server: server) { userID in
+                profilePopover.present(userID: userID)
+            }
+            .headerGeometry("accountMenuButton")
+        }
     }
 
     private var title: String {
@@ -1283,6 +1348,18 @@ enum ChannelUITestHook {
     /// fold. The seam is the difference: "a row exists somewhere" versus "a row is inside the viewport".
     static var exposesScrollGeometry: Bool {
         ProcessInfo.processInfo.arguments.contains("-uiTestExposeScrollGeometry")
+    }
+
+    /// `-uiTestExposeHeaderGeometry` publishes the header's own geometry (card t_bc22d0b3): the
+    /// trailing controls' frames, the header's frame and padding, and the account control's avatar,
+    /// presence dot and custom-status badge rectangles.
+    ///
+    /// Why a seam is needed for this one when the four glyph controls are accessibility elements in
+    /// their own right: the badges are decoration and the `HStack`'s bounds are not an element, so
+    /// "one `midY`, equal gaps, and the two badges do not overlap" would otherwise be unmeasurable —
+    /// the exact class of claim this repo's seams exist for (`ScrollRestoreSeam`, above).
+    static var exposesHeaderGeometry: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestExposeHeaderGeometry")
     }
 }
 

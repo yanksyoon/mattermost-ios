@@ -50,6 +50,10 @@ struct CallsJoinEntry: View {
                 .accessibilityLabel(isActive ? "Join call" : "Start call")
                 .accessibilityValue(isStarting ? "joining" : (isActive ? "active call" : "idle"))
                 .accessibilityIdentifier("calls.joinButton")
+                // t_bc22d0b3: the header cluster's one frame, one glyph weight, one measurement —
+                // applied here (not on the host view) so "no Calls plugin" draws nothing rather
+                // than an empty 32 pt slot in the icon run.
+                .trailingControl("calls.joinButton")
             }
         }
         .task(id: channelID) {

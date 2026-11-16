@@ -19,14 +19,19 @@
 //
 // ## Where it lives, and why that is "the shell's top-right"
 //
-// The control is drawn in the channel pane's header row (`ChannelView.trailingControls`), beside the
-// channel-info / pinned / Calls / Threads glyphs — i.e. the same corner upstream puts it in, in both
-// the compact and the regular layout, because that header is the top-right of the workspace in both
-// (`docs/t95-shell-tab-bar-decision.md`). It **replaces** T41's `nativeProfileButton` glyph: one
-// identity surface, as upstream has one, and the profile is now reached through this menu's Profile
-// row (`accountMenu.profile`) exactly as the web client reaches it through
-// `UserAccountProfileMenuItem`. (The three live suites that used to tap `nativeProfileButton` now
-// open the menu first — see T41ProfileUITests / T429ProfileTapUITests / TModalDismissUITests.)
+// The control is the **last** item in the channel pane header's trailing cluster
+// (`ChannelView.trailingControls`), after the channel-info / pinned / Calls / Threads glyphs, with
+// nothing to its right but the header's own padding. That is the fact of where it sits, and it is
+// the placement upstream uses: `global_header/right_controls/right_controls.tsx` renders
+// `PlanUpgradeButton`, `AtMentionsButton`, `SavedPostsButton`, `Pluggable`, the tour,
+// `SettingsButton`, then `UserAccountMenu` — the far-right item of the cluster, never in the middle
+// of the icon run. (t_bc22d0b3 moved it here; it used to be drawn between the channel-info and
+// pinned glyphs, which read as "slightly off" and is what that card measures.) It **replaces** T41's
+// `nativeProfileButton` glyph: one identity surface, as upstream has one, and the profile is now
+// reached through this menu's Profile row (`accountMenu.profile`) exactly as the web client reaches
+// it through `UserAccountProfileMenuItem`. (The three live suites that used to tap
+// `nativeProfileButton` now open the menu first — see T41ProfileUITests / T429ProfileTapUITests /
+// TModalDismissUITests.)
 //
 // ## Sign out: this menu is the primary entry, Settings keeps its list
 //
@@ -184,32 +189,53 @@ struct AccountMenuControlBody: View {
 
     // MARK: - The trigger
 
+    /// The trigger, drawn from `AccountMenuControlLayout`'s rectangles rather than from modifier
+    /// order (t_bc22d0b3): the same 32 pt frame every header control occupies, a 20 pt avatar
+    /// centred in it, the presence dot on the bottom-trailing corner and the custom-status emoji on
+    /// the top-trailing one. The two marks are separate rects, so with a custom status set they are
+    /// 9.5 pt apart instead of competing for one corner.
     private var label: some View {
-        ZStack(alignment: .bottomTrailing) {
+        let layout = AccountMenuControlLayout.self
+        // Each mark is placed with **padding**, not `offset`: `offset` is a drawing transform, so the
+        // rect that gets laid out (and that the seam measures) would stay at the container's origin
+        // while the pixels move — a measurement that agrees with the formula and not with the screen.
+        // With padding, the drawn rect and the measured rect are the same rectangle.
+        return ZStack(alignment: .topLeading) {
             ProfileAvatarView(initials: initials,
                               hue: ProfileAvatarView.hue(for: model.userID),
                               image: model.avatar,
-                              size: 28)
-            PresenceDot(presence: model.presence, size: 10)
-                .background(Circle().fill(Color(.systemBackground)))
-                .offset(x: 2, y: 2)
-        }
-        .overlay(alignment: .topTrailing) {
+                              size: layout.avatarSide)
+                .frame(width: layout.avatarSide, height: layout.avatarSide)
+                .headerGeometry("accountMenu.avatar", in: layout.coordinateSpace)
+                .padding(.leading, layout.avatarRect.minX)
+                .padding(.top, layout.avatarRect.minY)
+            PresenceDot(presence: model.presence, size: layout.presenceDotSide)
+                .headerGeometry("accountMenu.presenceDot", in: layout.coordinateSpace)
+                .padding(.leading, layout.presenceDotRect.minX)
+                .padding(.top, layout.presenceDotRect.minY)
             if let emoji = activeCustomStatus?.emoji, !emoji.isEmpty {
                 customStatusBadge(emoji)
-                    .offset(x: 4, y: -4)
+                    .headerGeometry("accountMenu.customStatusEmoji", in: layout.coordinateSpace)
+                    .padding(.leading, layout.customStatusBadgeRect.minX)
+                    .padding(.top, layout.customStatusBadgeRect.minY)
             }
         }
-        .frame(width: 34, height: 34)
-        .contentShape(Circle())
+        .frame(width: layout.controlSide, height: layout.controlSide, alignment: .topLeading)
+        // The control's own space: a `Menu`'s label is laid out outside the header's subtree, so the
+        // header's `.named` space cannot be looked up from in here (see `headerGeometry(_:in:)`).
+        .coordinateSpace(name: layout.coordinateSpace)
+        .contentShape(Rectangle())
     }
 
     /// The custom-status badge: upstream adds a class to the button and draws the emoji at the
-    /// picture's corner (`user_account_menu.scss` `.withCustomStatus`).
+    /// picture's corner (`user_account_menu.scss` `.withCustomStatus`). Its size is the layout's
+    /// (`AccountMenuControlLayout.customStatusBadgeSide`), not a number chosen here, so the corner it
+    /// is drawn in and the rectangle the unit test checks are the same rectangle.
     private func customStatusBadge(_ emoji: String) -> some View {
-        Text(SystemEmojiCatalogue.shared.character(for: emoji) ?? "💬")
-            .font(.system(size: 11))
-            .frame(width: 16, height: 16)
+        let side = AccountMenuControlLayout.customStatusBadgeSide
+        return Text(SystemEmojiCatalogue.shared.character(for: emoji) ?? "💬")
+            .font(.system(size: side - 2))
+            .frame(width: side, height: side)
             .background(Circle().fill(Color(.systemBackground)))
             .accessibilityHidden(true)
     }
