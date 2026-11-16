@@ -1,0 +1,71 @@
+t_afbe83f9 — the installed 0.77.1 (401) build's own header measurement
+=====================================================================
+
+All three blocks below were read from the INSTALLED bundle at /Applications/Mattermost(ios).app
+(Release, Mac Catalyst, ad-hoc signed), launched as:
+
+    open -na "/Applications/Mattermost(ios).app" --args -uiTestExposeHeaderGeometry
+    # then the sidebar row for Announcements was pressed through the accessibility API:
+    #   AXPress on id=channelSidebar.channel.1mbgdx5xfb8aie94y66ir9dpro  (a real control, not a seam)
+
+Both seams are shipped in the Release product (no `#if DEBUG`), inert without the argument.
+
+1. The app's own geometry, from `-uiTestExposeHeaderGeometry`
+-------------------------------------------------------------
+window=1024.0x768.0 pt        <- AppKit window frame (CGWindowList: 1024x768 at 244,79)
+seam=padding=16.0 space=channelHeader controlSpace=accountMenuControl side=32.0
+     header=320.0,201.0,1010.0,56.5
+     nativeChannelInfoButton=810.0,12.2,32.0,32.0
+     nativeChannelPinnedButton=848.0,12.2,32.0,32.0
+     calls.joinButton=886.0,12.2,32.0,32.0
+     nativeChannelThreadsButton=924.0,12.2,32.0,32.0
+     accountMenuButton=962.0,12.2,32.0,32.0
+     accountMenu.avatar=6.0,6.0,20.0,20.0
+     accountMenu.presenceDot=22.5,22.5,7.0,7.0
+     accountMenu.customStatusEmoji=none
+
+Order: info 810 -> pinned 848 -> Calls 886 -> Threads 924 -> account 962. Equal 38 pt steps,
+6 pt frame gaps, every frame 32x32, every midY 28.2 (12.2 + 16). The account control's frame
+ends at 962 + 32 = 994 in a 1010-wide header: exactly `padding` = 16.0 from the trailing edge,
+i.e. the last item in the row.
+
+2. The same controls through the OS accessibility tree (screen points)
+----------------------------------------------------------------------
+AXButton      id=nativeChannelPinnedButton    pos=(1143.36,243.39) size=(24.64,24.64)
+AXButton      id=calls.joinButton             pos=(1172.62,243.39) size=(24.64,24.64)
+AXButton      id=nativeChannelThreadsButton   pos=(1201.88,243.39) size=(24.64,24.64)
+AXPopUpButton id=accountMenuButton            pos=(1231.14,243.39) size=(24.64,24.64)  value=Away
+
+Left-to-right in the OS tree too, and the account control is the last of them.
+
+Why these numbers are 1/1.3 of the seam's and that is not an error: this host runs Catalyst at
+a 1.3x scale — the UIKit window is 1330x998 pt while the AppKit frame is 1024x768 pt
+(1330/1024 = 1.299, 998/768 = 1.299). Check with the window origin 244:
+  (848+320)/1.3 + 244 = 1142.5  vs measured 1143.36   (frame vs glyph inset, 0.9 pt)
+  (924+320)/1.3 + 244 = 1200.9  vs measured 1201.88   (0.98 pt)
+  (962+320)/1.3 + 244 = 1230.2  vs measured 1231.14   (0.94 pt)
+  control frame 32/1.3 = 24.62  vs measured 24.64
+so the two spaces agree to under a point, and the drawHierarchy capture below is 2x of the
+UIKit space (2660x1996 px = 1330x998 pt), which is why its pixel runs land on the seam's x's + 320.
+
+3. Pixels, from the app's own drawHierarchy capture
+---------------------------------------------------
+`swift scripts/tbc22d0b3_measure.swift docs/t_afbe83f9-shots/installed-0.77.1-window.png 420 500 1600 2659 2`
+(image 2660x1996, band y=420..500, x=1600..2659, scale 2.0):
+
+  runs: 5
+    run 0: x 2275…2308  (17.0 pt wide, 17.0 pt tall)   <- info glyph
+    run 1: x 2355…2380  (13.0 pt wide, 19.5 pt tall)   <- pin glyph
+    run 2: x 2429…2459  (15.5 pt wide, 15.5 pt tall)   <- calls glyph
+    run 3: x 2502…2538  (18.5 pt wide, 17.5 pt tall)   <- threads glyph
+    run 4: x 2576…2622  (23.5 pt wide, 23.5 pt tall)   <- avatar 20 pt + presence dot 3.5 pt
+  gap 0->1: 23.0 pt   gap 1->2: 24.0 pt   gap 2->3: 21.0 pt   gap 3->4: 18.5 pt
+  last run ends at x=1311.0 pt; distance to image right edge 18.5 pt
+
+Five ink runs, the fifth being the avatar plus its dot, and nothing to its right: on screen the
+account control is the last thing in the header. (The 18.5 pt to the image edge is the frame's
+16 pt padding plus the dot's own inset inside the 32 pt frame; the seam's 16.0 is the frame's.)
+
+Reproduce: launch the installed bundle with -uiTestExposeHeaderGeometry (and, for the PNG,
+-readStateSnapshot <dir>, whose second capture is the channel pane), press a sidebar row, read
+id=channelHeader.geometry from the accessibility tree.

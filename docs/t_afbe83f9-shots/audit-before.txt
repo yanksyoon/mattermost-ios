@@ -1,0 +1,41 @@
+# disk audit: Mattermost artifacts
+# host: MacBookPro   started: 2026-11-16 21:19:38 HKT
+# repo: /Users/yangsooyoon/Documents/yanks/code/mattermost-ios
+# rule: keep exactly /Applications/Mattermost(ios).app, /Applications/Mattermost.app
+
+path | size | kind | verdict
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mattermost-ios-qa | 3.7G | deriveddata | delete
+/Users/yangsooyoon/Library/Developer/Xcode/DerivedData/mmios-t9dd-build | 1.3G | deriveddata | delete
+simulator T_e687bad5 iPhone 16 Pro (9C594D37-0EED-48E5-8075-80BE2A2CB938): com.mattermost.ios | - | sim-app | delete
+simulator iPhone 16 Pro (81A7F251-8B31-4945-8783-5A264C14B8D5): com.mattermost.ios | - | sim-app | delete
+simulator iPhone 16 Pro (81A7F251-8B31-4945-8783-5A264C14B8D5): com.mattermost.iosUITests.xctrunner | - | sim-app | delete
+simulator iPhone 17 (F0D6CDC1-7CF2-4D4E-8488-F3672A288D8D): com.mattermost.ios | - | sim-app | delete
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/build | 2.4G | deriveddata | keep
+/Applications/Mattermost.app | 241.2M | app | keep
+/Users/yangsooyoon/worktrees/t_efd0a2ad | 225.8M | worktree | keep
+/Users/yangsooyoon/worktrees/t_e687bad5 | 217.7M | worktree | keep
+/Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_bc22d0b3/repo | 216.3M | worktree | keep
+/Users/yangsooyoon/worktrees/t_a4e133f6 | 212.0M | worktree | keep
+/Users/yangsooyoon/worktrees/t_5dce3e67 | 199.9M | worktree | keep
+/Users/yangsooyoon/worktrees/t_e14483c8 | 198.0M | worktree | keep
+/Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_3d753264/repo | 193.8M | worktree | keep
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_0484a564 | 176.6M | worktree | keep
+/Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_c941e3d3/repo | 158.1M | worktree | keep
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_295b0a32 | 154.9M | worktree | keep
+/Users/yangsooyoon/Documents/yanks/code/mattermost-ios/.worktrees/t_560103f6 | 154.9M | worktree | keep
+/Applications/Mattermost(ios).app | 105.8M | app | keep
+/Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_3042a50f/av | 40.5M | worktree | keep
+/Users/yangsooyoon/.hermes/kanban/boards/mattermost-ios/workspaces/t_3e6ddccf/probe | 15.4M | worktree | keep
+
+## summary
+delete rows: 6   reclaimable: 5.0G
+unknown rows: 0
+app bundles found: 2 (expected 2, both in /Applications)
+  kept: /Applications/Mattermost.app  version=6.3.1 (383788041691)  (official Mattermost client)
+  kept: /Applications/Mattermost(ios).app  version=0.76.0 (400)  (native build installed by t_e8c5ee86)
+free space: /dev/disk3s1s1   926Gi    13Gi   255Gi     5%    487k  2.7G    0%   /
+
+## UNREADABLE SUBPATHS
+UNKNOWN /Users/yangsooyoon/.kube/cache/discovery/127.0.0.1_58594/kiali.io: [Errno 13] Permission denied: '/Users/yangsooyoon/.kube/cache/discovery/127.0.0.1_58594/kiali.io'
+
+RESULT: DIRTY -- 6 artifact(s) still present
