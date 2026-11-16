@@ -132,6 +132,10 @@ Screenshots (2× crops of the header row, `docs/`):
 * `docs/tbc22d0b3-header-custom-status.png` — custom status set: emoji top-trailing, dot
   bottom-trailing, clearly separate.
 
+Reproducing §3.3: `scripts/tbc22d0b3_measure.swift` reads a capture and prints the ink runs and gaps
+(`swift scripts/tbc22d0b3_measure.swift <png> <y0> <y1> <x0> <x1> <scale>`); its header comment holds
+the launch arguments that produce the capture.
+
 ## 4. Tests
 
 `MattermostTests/Tbc22d0b3HeaderGeometryTests.swift` — 7 unit tests, green on this host:
