@@ -52,6 +52,19 @@ KEEP_BINARIES = {
 
 DERIVED_OWNED = re.compile(r"(mattermost|mmios|proof)", re.IGNORECASE)
 DERIVED_OWNED_PREFIX = re.compile(r"^t[_-]", re.IGNORECASE)
+# The names a DerivedData dir's Build/Products keeps for a Catalyst or simulator build.
+# A dir holding one of these `Mattermost.app` bundles is our build output whatever it
+# is called (t_afbe83f9 found 11 of them: mm-header-dd, mm-demo-dd, t5d-mac,
+# mm-qa-t249-*, mm-ios-t_e14483c8, mm-t_a4e133f6*, …), so ownership is decided by what
+# the directory builds, not only by its name.
+DERIVED_PRODUCTS = (
+    "Debug",
+    "Release",
+    "Debug-maccatalyst",
+    "Release-maccatalyst",
+    "Debug-iphonesimulator",
+    "Release-iphonesimulator",
+)
 
 TMP_DIR_SUFFIXES = ("-dd",)
 TMP_DIR_CONTAINS = ("proof",)
@@ -217,6 +230,58 @@ def scan_applications(report: Report):
                    "not one of the two kept bundles")
 
 
+def derived_ownership(path: str) -> str | None:
+    """Why a DerivedData directory is ours, or None when it is another project's.
+
+    ``"name"`` — the directory is named like Mattermost output (the original rule).
+    ``"products"`` — it builds a `Mattermost.app` in one of the standard product
+    directories, which is what actually makes it our build output.  Reported
+    separately so a reader can tell which rule caught it.
+    """
+    name = os.path.basename(path.rstrip(os.sep))
+    if DERIVED_OWNED.search(name) or DERIVED_OWNED_PREFIX.match(name):
+        return "name"
+    for variant in DERIVED_PRODUCTS:
+        if os.path.isdir(os.path.join(path, "Build/Products", variant, "Mattermost.app")):
+            return "products"
+    return None
+
+
+def derived_self_test() -> int:
+    """Prove the classifier on synthetic trees: a name alone, a product alone, neither."""
+    import tempfile
+
+    fails = 0
+    with tempfile.TemporaryDirectory() as tmp:
+
+        def mk(rel: str) -> str:
+            p = os.path.join(tmp, rel)
+            os.makedirs(p, exist_ok=True)
+            return p
+
+        mk("mm-header-dd/Build/Products/Release-maccatalyst/Mattermost.app")
+        mk("t5d-mac/Build/Products/Debug-maccatalyst/Mattermost.app")
+        mk("mattermost-ios-qa/Build/Products")
+        mk("Pixpot-gwfutqauhrgztqevlaqsazdmohxh/Build/Products/Debug/Pixpot.app")
+        mk("ModuleCache.noindex")
+        mk("SomeProject/Build/Products/Release/MattermostHelper.app")
+        cases = [
+            ("mm-header-dd", "products", "named unlike anything we own, builds Mattermost.app"),
+            ("t5d-mac", "products", "t5d is not t_/t-, but it builds Mattermost.app"),
+            ("mattermost-ios-qa", "name", "old rule: the name is enough"),
+            ("Pixpot-gwfqtqauhrgztqevlaqsazdmohxh", None, "another project -> not ours"),
+            ("ModuleCache.noindex", None, "Xcode's own cache -> not ours"),
+            ("SomeProject", None, "a near-miss product name is not Mattermost.app"),
+        ]
+        for name, want, why in cases:
+            got = derived_ownership(os.path.join(tmp, name))
+            ok = got == want
+            fails += 0 if ok else 1
+            print(f"  [{'PASS' if ok else 'FAIL'}] {why:<52} -> {got} (want {want})")
+    print("SELF-TEST: PASS" if fails == 0 else f"SELF-TEST: FAIL {fails}")
+    return 0 if fails == 0 else 1
+
+
 def scan_derived_data(report: Report):
     if not os.path.isdir(DERIVED):
         report.denied.append((DERIVED, "missing"))
@@ -231,10 +296,13 @@ def scan_derived_data(report: Report):
         full = os.path.join(DERIVED, name)
         if not os.path.isdir(full):
             continue
-        if DERIVED_OWNED.search(name) or DERIVED_OWNED_PREFIX.match(name):
-            report.add(full, disk_size(full, report), "deriveddata", "delete",
-                       "Mattermost-owned DerivedData")
-            COVERED.append(full)
+        why = derived_ownership(full)
+        if why is None:
+            continue
+        note = ("Mattermost-owned DerivedData (by name)" if why == "name"
+                else "Mattermost-owned DerivedData (builds Mattermost.app)")
+        report.add(full, disk_size(full, report), "deriveddata", "delete", note)
+        COVERED.append(full)
 
 
 def scan_tmp(report: Report):
@@ -539,7 +607,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--repo", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     ap.add_argument("--quiet", action="store_true", help="only the table")
+    ap.add_argument("--self-test", action="store_true",
+                    help="prove the DerivedData classifier and exit (no scan)")
     args = ap.parse_args()
+
+    if args.self_test:
+        return derived_self_test()
+
     repo = os.path.abspath(args.repo)
 
     report = Report(repo)
